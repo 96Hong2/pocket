@@ -1,0 +1,268 @@
+# 데이터 모델
+
+`backend/app/models/` 를 읽고 쓴 문서다. 코드가 정본이고 이 문서는 안내다.
+모델을 고쳤으면 여기도 같이 고친다. 확인 시점: 2026-09-03.
+
+## 공통 규칙
+
+모든 엔티티는 `app/db/base.py` 의 `Entity` 를 상속한다.
+
+- `id`: UUID (파이썬에서 `uuid4()` 로 만든다)
+- `created_at`, `updated_at`: `timestamptz`. DB 가 `now()` 로 채우고 `updated_at` 은 갱신 때 자동으로 올라간다
+- `SoftDeleteMixin` 을 섞은 것은 `deleted_at` 을 갖는다. **지워도 행이 남는다. 집계는 `deleted_at IS NULL` 인 행만 센다.**
+
+금액 타입은 두 가지다.
+
+- `Money = Numeric(14, 0)`: 거래·예산·목표. 원 단위 정수라 소수점이 없다
+- `LargeMoney = Numeric(16, 0)`: 자산 항목. 자산은 자릿수가 더 크다
+
+부동소수점을 쓰지 않는 이유는 돈이라서다. 0.1 을 세 번 더해서 0.30000000000000004 가 나오는 자리에 예산을 두지 않는다.
+
+enum 은 전부 파이썬 `StrEnum` 이고 DB 에는 문자열(`VARCHAR(32)`)로 들어간다.
+PostgreSQL 네이티브 enum 타입을 만들지 않는다. 값 하나 추가하려고 `ALTER TYPE` 마이그레이션을 쓰지 않기 위해서다.
+
+## ER 다이어그램
+
+```mermaid
+erDiagram
+  users ||--o{ transactions : "기록한다"
+  users ||--o{ budgets : "세운다"
+  users ||--o{ categories : "직접 만든 것만"
+  users ||--o{ merchant_rules : "수정을 기억한다"
+  users ||--o{ import_batches : "캡처를 올린다"
+  users ||--o{ asset_snapshots : "자산을 적는다"
+  users ||--o{ goals : "목표를 세운다"
+  users ||--|| user_preferences : ""
+  users ||--|| notification_settings : ""
+
+  categories ||--o{ transactions : "분류한다"
+  categories ||--o{ category_budgets : ""
+  categories ||--o{ merchant_rules : ""
+
+  budgets ||--o{ category_budgets : "쪼갠다"
+
+  import_batches ||--o{ import_candidates : "후보를 담는다"
+  import_candidates |o--o| transactions : "확정되면 가리킨다"
+  transactions |o--o| transactions : "refund_of"
+
+  asset_snapshots ||--o{ asset_items : ""
+  goals ||--o{ goal_contributions : ""
+```
+
+## users
+
+로그인 화면이 없다. 익명 식별키 해시 하나로만 사람을 구분한다.
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `anon_key_hash` | `varchar(128)` unique | `User.getAnonymousKey()` 가 준 해시. 사용자를 찾는 유일한 키 |
+| `timezone` | `varchar(64)` = `Asia/Seoul` | 월 경계와 하루 가용액 계산 기준 |
+| `last_seen_at` | `timestamptz?` | 며칠 쉬었는지 판단해 복구 화면을 고르는 데 쓴다 |
+
+**이름·이메일·전화번호 컬럼이 없다.** 없어서 못 쓰는 것이 아니라 안 갖기로 한 것이다.
+
+## categories
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `user_id` | `uuid?` | **NULL 이면 모든 사용자에게 보이는 기본 카테고리** |
+| `name` | `varchar(40)` | |
+| `kind` | `expense` \| `income` \| `transfer` | |
+| `icon_key` | `varchar(64)` | `public/icons/sm/` 의 파일 이름(확장자 제외) |
+| `sort_order` | `int` = 0 | |
+
+`(user_id, name)` 이 유일하고 `postgresql_nulls_not_distinct=True` 를 걸었다.
+이게 없으면 NULL 끼리는 서로 다른 값으로 취급돼 기본 카테고리 이름이 중복으로 생긴다.
+
+## transactions
+
+입력 네 경로가 전부 이 표 하나로 모인다.
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `user_id` | `uuid` | |
+| `amount` | `numeric(14,0)` | **항상 양수.** 의미는 `type` 이 만든다 |
+| `type` | `expense` \| `income` \| `transfer` \| `refund` | |
+| `occurred_at` | `timestamptz` | 결제 시각. 기록한 시각이 아니다 |
+| `merchant` | `varchar(120)?` | 화면에 보여주는 상호명 |
+| `merchant_normalized` | `varchar(120)?` | 중복 판정과 자동 분류가 맞춰 보는 정규화 값 |
+| `category_id` | `uuid?` | 카테고리를 지워도 거래는 남는다(`SET NULL`) |
+| `source` | `keypad` \| `nl` \| `screenshot` \| `receipt` \| `asset_screenshot` \| `no_spend` | 어떤 경로로 들어왔는지 |
+| `confidence` | `float` = 1.0 | 0~1. 사용자가 직접 넣은 값은 1.0 |
+| `excluded_from_budget` | `bool` = false | **거래목록·리포트에는 남고 예산 계산에서만 빠진다** |
+| `fingerprint` | `varchar(64)?` | 중복 후보를 찾는 sha256 해시 |
+| `refund_of_transaction_id` | `uuid?` | 어떤 지출의 환불인지 |
+| `import_batch_id` | `uuid?` | 캡처로 들어왔으면 그 배치 |
+
+제약:
+
+- `amount > 0 OR source = 'no_spend'` — 무지출일 표시만 0 을 허용한다
+- `confidence >= 0 AND confidence <= 1`
+
+인덱스: `(user_id, occurred_at)`, `(user_id, type, occurred_at)`, `(user_id, fingerprint)`.
+월별 조회, 종류별 집계, 중복 판정이 실제로 때리는 세 패턴이다.
+
+### fingerprint
+
+```
+sha256( occurred_on(YYYY-MM-DD) | amount(정수) | normalize(merchant) | type )
+```
+
+범위는 `user_id` 안이다. **정확히 일치할 때만** 중복 후보로 보고, 후보는 **기본 미선택**으로 보여준다.
+`merchant` 가 비어 있으면 fingerprint 는 만들되 중복 판정에서 뺀다. 상호가 없는 두 건이 같은 금액이라는 이유로 묶이면 오탐이 너무 많다.
+
+## budgets / category_budgets
+
+| budgets | 타입 | 설명 |
+|---|---|---|
+| `user_id` | `uuid` | |
+| `period_start`, `period_end` | `date` | |
+| `amount` | `numeric(14,0)` | `>= 0` |
+| `is_auto_carried` | `bool` = false | 직전 기간에서 자동 복사된 예산. 비차단 안내 배너의 근거 |
+
+`(user_id, period_start)` 가 유일하다. **소프트 삭제한 행도 이 자리를 지킨다.**
+사용자가 자동 복사분을 지웠는데 다음 조회에서 또 복사되면 안 되기 때문이다. 지운 행 자체가 tombstone 역할을 한다.
+
+`category_budgets` 는 `(budget_id, category_id)` 가 유일하고 `amount >= 0` 이다. 예산을 지우면 같이 지워진다.
+
+### 자동 이어쓰기
+
+첫 조회 시점에 lazy 하게 판단한다.
+
+```
+현재 기간에 Budget 있음                    → 아무것도 안 함
+pref.budget_auto_carryover = false         → 복사 안 함
+직전 기간(바로 앞 1개)에 Budget 없음        → 자동 생성 안 함
+그 외                                      → Budget + CategoryBudget 복사, is_auto_carried = true
+```
+
+## user_preferences / notification_settings
+
+첫 기록 전에 아무것도 묻지 않으므로 전부 기본값이 있다. 사용자당 한 행이다.
+
+| user_preferences | 기본값 | 설명 |
+|---|---|---|
+| `budget_auto_carryover` | true | 새 기간 예산 자동 복사 여부 |
+| `home_hero` | `remaining_budget` | `remaining_budget` \| `income_expense` \| `income_and_budget` |
+| `last_record_method` | NULL | 기록 시트를 마지막에 쓴 방식으로 열어 준다 |
+| `report_include_income` | false | 리포트 기본은 소비만 |
+| `happy_spend_category_id` | NULL | 사용자가 지키기로 한 소비. 감축 1순위로 추천하지 않는다 |
+
+| notification_settings | 기본값 | 설명 |
+|---|---|---|
+| `is_enabled` | **false** | 옵트인. 진입 즉시 동의 시트를 띄우지 않는다 |
+| `remind_at` | NULL | |
+| `frequency` | `weekly_twice` | `weekly_twice` \| `daily` |
+| `timezone` | `Asia/Seoul` | |
+
+## merchant_rules
+
+사용자가 고친 분류를 기억한다. 전역 사전보다 이 규칙이 우선한다.
+
+| 필드 | 설명 |
+|---|---|
+| `user_id` + `merchant_normalized` | 유일. 한 상호에 규칙 하나 |
+| `category_id` | 이 상호는 이 카테고리 |
+| `applied_count` | 실제로 몇 번 맞았는지. 자주 쓰는 카테고리를 앞에 놓을 때 쓴다 |
+
+## import_batches / import_candidates
+
+캡처·영수증·줄글을 한 번 올려서 여러 건을 검토하는 단위다.
+
+| import_batches | 설명 |
+|---|---|
+| `source` | `transactions.source` 와 같은 enum |
+| `status` | `pending` → `analyzing` → `ready` → `committed`, 실패는 `failed` |
+| `detected_count` / `committed_count` | "N건 인식, M건 저장" 문구의 근거 |
+| `error_code` | 재시도 화면에서 무엇이 실패했는지 구분하는 코드. **원문은 담지 않는다** |
+| `completed_at` | |
+
+| import_candidates | 설명 |
+|---|---|
+| `occurred_at`, `amount`, `type`, `merchant`, `merchant_normalized`, `category_id`, `confidence`, `fingerprint` | 거래와 같은 모양 |
+| `is_duplicate` | 기존 거래와 정확히 일치. 화면에서 기본 미선택 |
+| `is_selected` | 사용자가 저장하기로 고른 것 |
+| `sort_order` | 화면 순서 |
+| `transaction_id` | 저장을 마치면 만들어진 거래를 가리킨다 |
+
+제약은 `amount > 0`, `confidence` 0~1. 배치를 지우면 후보도 지워진다.
+
+**원본 이미지, OCR 텍스트, LLM 응답 원문은 이 표에 없다.** 구조화된 후보만 남긴다.
+
+## asset_snapshots / asset_items (P1)
+
+정확한 계좌관리가 아니라 시점별 대략 스냅샷이다. 모델만 있고 화면은 P1 에서 만든다.
+
+| asset_snapshots | 설명 |
+|---|---|
+| `effective_on` | 사용자가 확인한 기준일. 순자산 추이를 이 날짜로 정렬한다 |
+| `source` | `manual` \| `screenshot` |
+
+| asset_items | 설명 |
+|---|---|
+| `group` | `cash` \| `investment` \| `deposit` \| `debt` (컬럼명은 `asset_group`. `group` 이 SQL 예약어다) |
+| `label` | 금융사·항목 표시명. **계좌·카드번호는 저장하지 않는다** |
+| `amount` | `numeric(16,0)`, `>= 0`. **부채도 양수로 저장한다.** 빼는 것은 `group` 이 결정한다 |
+| `confidence` | 캡처 인식값의 신뢰도. 직접 입력이면 1.0 |
+
+## goals / goal_contributions (P1)
+
+| goals | 설명 |
+|---|---|
+| `title`, `target_amount` (`> 0`), `target_date?`, `initial_amount` (`>= 0`) | |
+| `status` | `active` \| `achieved` \| `archived` |
+
+`status = 'active' AND deleted_at IS NULL` 인 행에 부분 유니크 인덱스가 걸려 있다.
+**진행 중인 목표는 사용자당 하나뿐이다.** 다중 목표는 P2 라서 DB 가 먼저 막는다.
+
+`goal_contributions` 는 `amount > 0`, `source` 는 `manual` \| `asset_snapshot` 이다.
+
+## 세 금액 개념이 왜 따로인가
+
+`balance` 하나로 뭉치면 안 되는 값 셋이다. 계산식도, 답하는 질문도, 나오는 화면도 다르다.
+
+| 개념 | UI 문구 | 계산 | 답하는 질문 |
+|---|---|---|---|
+| 남은 예산 | `남은 예산` | `budget.amount − budgetedSpend` | 이번 달 더 써도 되나 |
+| 이번 달 차액 | `이번 달 차액` | `monthIncome − monthExpense` | 이번 달 벌이보다 많이 썼나 |
+| 순자산 | `순자산` | `Σ AssetItem(group ≠ debt) − Σ AssetItem(group = debt)` | 지금 내 재산이 얼마인가 |
+
+예산을 안 세운 사람에게 남은 예산은 없지만 차액은 있다.
+지출이 수입보다 적어도 예산은 초과할 수 있다.
+자산이 늘어도 이번 달 지출은 초과일 수 있다.
+셋을 한 숫자로 합치면 어느 질문에도 제대로 답하지 못한다. `순흐름` 같은 합성 용어도 UI 에 쓰지 않는다.
+
+## 집계 규칙
+
+```
+budgetedSpend   = Σ expense(excluded=false) − Σ refund(excluded=false)   [기간 내, 삭제 제외]
+remainingBudget = budget.amount − budgetedSpend
+monthExpense    = Σ expense − Σ refund      (excluded 무관)
+monthIncome     = Σ income
+monthlyDelta    = monthIncome − monthExpense
+netWorth        = Σ AssetItem(group≠debt) − Σ AssetItem(group=debt)
+```
+
+| 종류 | 이번달 지출 | 이번달 수입 | 차액 | 남은 예산 | 카테고리 지출 |
+|---|---|---|---|---|---|
+| expense | +amount | – | −amount | −amount | +amount |
+| income | – | +amount | +amount | 영향 없음 | 영향 없음 |
+| transfer | 제외 | 제외 | 제외 | 제외 | 제외 |
+| refund | −amount | 제외 | +amount | +amount | −amount |
+
+근거는 `ADR/0005-transfer-refund-aggregation.md`. 계산은 `backend/app/domain` 한 곳에서만 한다.
+
+## 저장 금지 항목
+
+DB 는 물론이고 **analytics 와 error log 에도 남기지 않는다.**
+
+| 남기지 않는 것 | 왜 |
+|---|---|
+| OCR 로 읽은 원문 텍스트 | 결제 알림에는 카드번호 뒷자리, 잔액, 다른 사람 이름이 섞여 들어온다 |
+| LLM 요청·응답 원문 | 위와 같다. 프롬프트에 원문이 들어가고 로그에 남으면 결국 같은 유출이다 |
+| 원본 캡처·영수증 이미지 | 구조화된 후보만 남기면 충분하다 |
+| 계좌번호, 카드번호(뒷자리 포함) | 있으면 언젠가 새어 나간다. 처음부터 안 갖는다 |
+| 이름·이메일·전화번호 | 익명 식별키로 충분하다 |
+
+에러를 추적해야 하면 `import_batches.error_code` 처럼 **원문이 아닌 코드**를 남긴다.
+로그에 사용자 입력을 통째로 찍는 코드를 넣지 않는다. `app/core/logging.py` 의 구조화 로거를 쓰고 필드를 골라 넣는다.

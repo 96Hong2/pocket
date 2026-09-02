@@ -1,0 +1,573 @@
+/*
+  공용 프리미티브의 시각 스펙. 시안 실측값을 그대로 옮겼고, 값은 전부 index.css 의 토큰에서 읽는다.
+  components 레이어에 두어 화면에서 Tailwind 유틸리티로 덮어쓸 수 있게 한다.
+*/
+
+@keyframes pk-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes pk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@layer components {
+  /* ── Button ─────────────────────────────────────────── */
+  .pk-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 0;
+    border-radius: var(--radius-button);
+    font-weight: var(--font-weight-bold);
+    line-height: 1;
+    white-space: nowrap;
+    transition:
+      background-color 0.12s ease,
+      opacity 0.12s ease;
+  }
+
+  .pk-btn:disabled {
+    opacity: 0.45;
+  }
+
+  .pk-btn--block {
+    width: 100%;
+  }
+
+  .pk-btn--primary {
+    height: 52px;
+    padding: 0 20px;
+    background: var(--color-sage-700);
+    color: var(--color-surface);
+    font-size: var(--text-16);
+  }
+
+  .pk-btn--primary:not(:disabled):active {
+    background: var(--color-sage-800);
+  }
+
+  .pk-btn--primary-small {
+    height: 48px;
+    padding: 0 16px;
+    background: var(--color-sage-700);
+    color: var(--color-surface);
+    font-size: var(--text-15);
+  }
+
+  .pk-btn--primary-small:not(:disabled):active {
+    background: var(--color-sage-800);
+  }
+
+  .pk-btn--ghost {
+    height: 44px;
+    padding: 0 12px;
+    background: transparent;
+    color: var(--color-muted);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .pk-btn--ghost:not(:disabled):active {
+    background: var(--color-surface-sunken);
+  }
+
+  .pk-btn--outline {
+    height: 48px;
+    padding: 0 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-ink);
+    font-size: var(--text-15);
+  }
+
+  .pk-btn--outline:not(:disabled):active {
+    background: var(--color-surface-sunken);
+  }
+
+  /* ── Card ───────────────────────────────────────────── */
+  .pk-card {
+    background: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .pk-card--md {
+    padding: 16px;
+  }
+  .pk-card--lg {
+    padding: 18px;
+  }
+  .pk-card--header {
+    padding: 14px 16px;
+  }
+  .pk-card--list {
+    padding: 4px 16px;
+  }
+
+  .pk-sage-card {
+    background: var(--color-sage-50);
+    border-radius: var(--radius-card);
+    padding: 18px;
+  }
+
+  /* ── Chip ───────────────────────────────────────────── */
+  .pk-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .pk-chip--excluded {
+    padding: 2px 7px;
+    font-size: var(--text-10);
+    background: var(--color-border);
+    color: var(--color-muted);
+  }
+
+  .pk-chip--kind {
+    padding: 2px 7px;
+    font-size: var(--text-10);
+    background: var(--color-divider);
+    border-color: var(--color-border);
+    color: var(--color-muted);
+  }
+
+  .pk-chip--caution {
+    padding: 3px 8px;
+    font-size: var(--text-11);
+    background: var(--color-amber-300);
+    color: var(--color-amber-700);
+  }
+
+  .pk-chip--sage {
+    padding: 6px 11px;
+    font-size: var(--text-12);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+  }
+
+  .pk-chip--coach {
+    padding: 3px 9px;
+    font-size: var(--text-11);
+    background: var(--color-sage-100);
+    color: var(--color-sage-700);
+  }
+
+  /* ── Gauge ──────────────────────────────────────────── */
+  .pk-gauge {
+    width: 100%;
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+  }
+
+  .pk-gauge--10 {
+    height: 10px;
+    background: var(--color-sage-100);
+  }
+  .pk-gauge--8 {
+    height: 8px;
+    background: var(--color-divider);
+  }
+  .pk-gauge--6 {
+    height: 6px;
+    background: var(--color-divider);
+  }
+
+  .pk-gauge__fill {
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-300);
+    transition: width 0.28s ease;
+  }
+
+  .pk-gauge__fill--over {
+    background: var(--color-amber-300);
+  }
+
+  /* ── BottomSheet ────────────────────────────────────── */
+  .pk-sheet-root {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .pk-sheet-dim {
+    position: absolute;
+    inset: 0;
+    background: var(--color-dim);
+    animation: var(--animate-dim-in);
+  }
+
+  .pk-sheet {
+    position: relative;
+    max-height: 88dvh;
+    overflow-y: auto;
+    padding: 8px 20px 34px;
+    background: var(--color-surface);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    animation: var(--animate-sheet-up);
+  }
+
+  .pk-sheet__handle {
+    width: 36px;
+    height: 4px;
+    margin: 0 auto 12px;
+    border-radius: var(--radius-pill);
+    background: var(--color-border);
+  }
+
+  .pk-sheet__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+  }
+
+  .pk-sheet__title {
+    flex: 1;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .pk-sheet__close {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin-right: -12px;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-muted);
+  }
+
+  .pk-sheet__body {
+    padding-top: 4px;
+  }
+
+  /* ── SegmentedControl ───────────────────────────────── */
+  .pk-segmented {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+  }
+
+  .pk-segmented__item {
+    position: relative;
+    flex: 1;
+    height: 34px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-muted);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    transition:
+      background-color 0.12s ease,
+      color 0.12s ease;
+  }
+
+  /* 보이는 높이는 34px 이지만 손가락이 닿는 영역은 44px 로 넓힌다. */
+  .pk-segmented__item::after {
+    content: '';
+    position: absolute;
+    inset: -5px 0;
+  }
+
+  .pk-segmented__item[aria-checked='true'] {
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    color: var(--color-ink);
+  }
+
+  /* ── Toggle ─────────────────────────────────────────── */
+  .pk-toggle {
+    position: relative;
+    flex-shrink: 0;
+    width: 50px;
+    height: 30px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-disabled);
+    transition: background-color 0.15s ease;
+  }
+
+  .pk-toggle::after {
+    content: '';
+    position: absolute;
+    inset: -7px 0;
+  }
+
+  .pk-toggle[aria-checked='true'] {
+    background: var(--color-sage-700);
+  }
+
+  .pk-toggle:disabled {
+    opacity: 0.45;
+  }
+
+  .pk-toggle__knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    transition: transform 0.15s ease;
+  }
+
+  .pk-toggle[aria-checked='true'] .pk-toggle__knob {
+    transform: translateX(20px);
+  }
+
+  /* ── MonthStepper ───────────────────────────────────── */
+  .pk-month {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .pk-month__nav {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-muted);
+  }
+
+  .pk-month__nav:disabled {
+    color: var(--color-disabled);
+  }
+
+  .pk-month__label {
+    min-width: 104px;
+    text-align: center;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .pk-month--compact .pk-month__nav {
+    width: 32px;
+    height: 32px;
+  }
+
+  .pk-month--compact .pk-month__nav::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+  }
+
+  .pk-month--compact .pk-month__label {
+    min-width: 88px;
+    font-size: var(--text-14);
+  }
+
+  /* ── CategoryAvatar ─────────────────────────────────── */
+  .pk-avatar {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-50);
+  }
+
+  .pk-avatar__img {
+    width: 62%;
+    height: 62%;
+    object-fit: contain;
+  }
+
+  /* ── Amount ─────────────────────────────────────────── */
+  .pk-amount {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+    white-space: nowrap;
+  }
+
+  .pk-amount--ink {
+    color: var(--color-ink);
+  }
+  .pk-amount--income {
+    color: var(--color-income);
+  }
+  .pk-amount--muted {
+    color: var(--color-muted);
+  }
+
+  /* ── TransactionRow ─────────────────────────────────── */
+  .pk-tx {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 13px 0;
+    border: 0;
+    border-bottom: 1px solid var(--color-divider);
+    background: transparent;
+    text-align: left;
+  }
+
+  .pk-tx--compact {
+    padding: 11px 0;
+  }
+
+  .pk-tx--no-divider {
+    border-bottom: 0;
+  }
+
+  .pk-tx--excluded {
+    opacity: 0.6;
+  }
+
+  .pk-tx--pressable:active {
+    opacity: 0.7;
+  }
+
+  .pk-tx__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pk-tx__title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .pk-tx__subtitle {
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+  }
+
+  .pk-tx__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+  }
+
+  .pk-tx__amount {
+    flex-shrink: 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+  }
+
+  /* ── 상태 화면 (빈/오류/로딩/권한/미지원) ──────────── */
+  .pk-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 36px 20px;
+    text-align: center;
+  }
+
+  .pk-state--inline {
+    padding: 20px 16px;
+  }
+
+  .pk-state__illustration {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 6px;
+    object-fit: contain;
+  }
+
+  .pk-state__title {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .pk-state__description {
+    max-width: 280px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+  }
+
+  .pk-state__action {
+    margin-top: 10px;
+  }
+
+  .pk-skeleton {
+    border-radius: var(--radius-xs);
+    background: var(--color-divider);
+    animation: pk-pulse 1.2s ease-in-out infinite;
+  }
+
+  .pk-spinner {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-sage-300);
+    border-radius: var(--radius-pill);
+    animation: pk-spin 0.7s linear infinite;
+  }
+
+  .pk-loading-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 4px 0;
+  }
+
+  .pk-loading-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pk-sheet,
+  .pk-sheet-dim,
+  .pk-skeleton,
+  .pk-spinner {
+    animation: none;
+  }
+
+  .pk-gauge__fill,
+  .pk-toggle,
+  .pk-toggle__knob {
+    transition: none;
+  }
+}
