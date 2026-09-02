@@ -1,0 +1,101 @@
+[project]
+name = "pocket-backend"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.19.1",
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "psycopg[binary]>=3.3.5",
+    "pydantic-settings>=2.15.0",
+    "python-json-logger>=4.2.0",
+    "sqlalchemy>=2.0.52",
+    "uvicorn[standard]>=0.52.4",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.5",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle
+    "F",      # pyflakes
+    "W",      # pycodestyle warning
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # bugbear
+    "C4",     # comprehensions
+    "SIM",    # simplify
+    "ASYNC",  # async 함정
+    "T20",    # print 금지
+    "RUF",
+]
+ignore = [
+    "B008",    # FastAPI 의 Depends() 기본값 패턴
+    "N818",    # 예외 이름에 Error 접미사 강제
+    "RUF001",  # 한글 주석·문자열의 전각 문자
+    "RUF002",
+    "RUF003",
+    "RUF012",  # SQLAlchemy 선언형 클래스 속성이 걸린다
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 테스트 이름은 한글로 쓴다. N802 는 한글을 소문자가 아니라고 본다.
+"tests/**" = ["N802"]
+"migrations/**" = ["I001", "E501"]
+# 개발자가 직접 돌리는 스크립트라 결과를 출력해야 한다.
+"scripts/**" = ["T201", "E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+combine-as-imports = true
+
+[tool.ruff.lint.pep8-naming]
+# SQLAlchemy 선언형 믹스인은 cls 를 받는다
+classmethod-decorators = [
+    "declared_attr",
+    "declared_attr.directive",
+    "sqlalchemy.orm.declared_attr",
+    "sqlalchemy.orm.declared_attr.directive",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.13"
+files = ["app"]
+# strict 는 과하다. 새 코드가 타입 없이 새어나가는 것만 막는다.
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_optional = true
+strict_equality = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["migrations.*", "tests.*"]
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers --strict-config"
+filterwarnings = ["error::DeprecationWarning:app.*"]

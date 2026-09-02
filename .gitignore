@@ -1,0 +1,52 @@
+# ── 공통 ─────────────────────────────────────────
+.DS_Store
+*.log
+logs/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# ── 비밀값 ───────────────────────────────────────
+# 환경변수, mTLS 인증서/개인키, 운영 광고 ID 는 저장소에 올리지 않는다
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+certs/
+secrets/
+
+# ── frontend ────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+*.local
+# ait build 산출물
+*.ait
+.vite/
+coverage/
+
+# ── backend ─────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+htmlcov/
+.coverage
+.coverage.*
+
+# ── 로컬 작업 파일 ───────────────────────────────
+.claude/settings.local.json
+
+# ── 제품 기획 원문 ────────────────────────────────
+# 레포가 public 이라 가격·지표가 담긴 PRD 원문과 시안은 올리지 않는다.
+# 정본은 ~/MAIN 작업!!!/부가업무/ 에 있고, 레포에는 그 결정의 결과만 둔다.
+docs/PRD.*.md
+docs/design/

@@ -1,0 +1,165 @@
+/* Pretendard 는 CDN 에서 받는다. 못 받아도 아래 fallback 스택으로 읽힌다. */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
+@import 'tailwindcss';
+@import './shared/ui/ui.css';
+
+/*
+  디자인 토큰. 이 블록이 CSS 쪽 정본이고, 같은 값이 shared/tokens/index.ts 에 있다.
+  둘이 어긋나면 shared/tokens/tokens.test.ts 가 깨진다.
+*/
+@theme {
+  /* Tailwind 기본 amber 램프를 지운다. 우리 앰버 3개만 남긴다. */
+  --color-amber-*: initial;
+
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+
+  /* 배경 · 표면 */
+  --color-bg: #F7F5F0;
+  --color-surface: #FFFFFF;
+  --color-surface-sunken: #F4F1EA;
+
+  /* 세이지 */
+  --color-sage-50: #EFF2EA;
+  --color-sage-100: #DCE5D3;
+  --color-sage-300: #B7C9A8;
+  --color-sage-700: #3F5A40;
+  --color-sage-800: #334A34;
+
+  /* 앰버 */
+  --color-amber-50: #F8F0DF;
+  --color-amber-300: #E8CE9C;
+  --color-amber-700: #7E5B21;
+
+  /* 잉크 · 텍스트 */
+  --color-ink: #26292B;
+  --color-muted: #8B9096;
+  --color-placeholder: #C9C4B8;
+  --color-disabled: #DCD8CE;
+  --color-ad-label: #B0AB9F;
+
+  /* 테두리 */
+  --color-border: #EBE7DE;
+  --color-divider: #F4F1EA;
+  --color-dashed: #DCD8CE;
+
+  /* 기능색. 내역 부호 · 달력 · 차트 전용이고 일반 UI 에 쓰지 않는다. */
+  --color-income: #3D6FB8;
+  --color-expense: #C25B4E;
+
+  /* 바텀시트 · 모달 딤 */
+  --color-dim: rgba(38, 41, 43, 0.35);
+
+  /* 도넛 램프 */
+  --color-donut-1: #3F5A40;
+  --color-donut-2: #6E8A5E;
+  --color-donut-3: #96B183;
+  --color-donut-4: #B7C9A8;
+  --color-donut-5: #C89B4C;
+  --color-donut-6: #E8CE9C;
+  --color-donut-7: #B8AE93;
+  --color-donut-8: #D3DEC6;
+  --color-donut-9: #DDD6C4;
+
+  /* 반경 */
+  --radius-pill: 999px;
+  --radius-sheet: 24px;
+  --radius-card: 20px;
+  --radius-button: 14px;
+  --radius-lg: 13px;
+  --radius-md: 12px;
+  --radius-sm: 10px;
+  --radius-xs: 8px;
+
+  /* 그림자 */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-tabbar: 0 6px 20px rgba(38, 41, 43, 0.12);
+
+  /* 글자 크기 */
+  --text-10: 10px;
+  --text-11: 11px;
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-15: 15px;
+  --text-16: 16px;
+
+  /* 굵기. 400 은 쓰지 않는다. */
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  /* 바텀시트 애니메이션 */
+  --animate-sheet-up: sheet-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-dim-in: dim-in 0.18s ease-out;
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(48px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes dim-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.45;
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #root {
+    min-height: 100dvh;
+  }
+
+  /* 금액은 어디서나 자릿수가 흔들리지 않아야 한다. */
+  :where([data-numeric]) {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  :where(button) {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :where(button:disabled) {
+    cursor: default;
+  }
+
+  :where(img) {
+    display: block;
+  }
+
+  :where(:focus-visible) {
+    outline: 2px solid var(--color-sage-700);
+    outline-offset: 2px;
+  }
+}
