@@ -1,0 +1,352 @@
+/*
+  내역·달력 화면 전용 스펙. 색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
+  거래 한 줄과 카드·칩은 shared/ui 가 그리고, 여기에는 이 화면에만 있는 배치만 둔다.
+*/
+
+@layer components {
+  .tx {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-bottom: 32px;
+  }
+
+  /* ── 합계 띠 ─────────────────────────────────────── */
+
+  .tx-totals {
+    display: flex;
+    margin: 0;
+    padding: 12px 4px;
+    background: var(--color-surface);
+    border-radius: var(--radius-inset);
+    box-shadow: var(--shadow-card);
+  }
+
+  .tx-totals__item {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .tx-totals__item + .tx-totals__item {
+    border-left: 1px solid var(--color-divider);
+  }
+
+  .tx-totals dt {
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .tx-totals__value {
+    margin: 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tx-totals__value--income {
+    color: var(--color-income);
+  }
+
+  /* ── 검색 ────────────────────────────────────────── */
+
+  .tx-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+  }
+
+  .tx-search__icon {
+    flex: none;
+    color: var(--color-muted);
+  }
+
+  .tx-search__input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--text-14);
+    color: var(--color-ink);
+  }
+
+  .tx-search__input::placeholder {
+    color: var(--color-placeholder);
+  }
+
+  /* 사파리가 붙이는 기본 취소 버튼을 지운다. 우리 버튼과 겹쳐 보인다. */
+  .tx-search__input::-webkit-search-cancel-button {
+    appearance: none;
+  }
+
+  .tx-search__clear {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+    color: var(--color-muted);
+    font-size: var(--text-11);
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  /* ── 달력 격자 ───────────────────────────────────── */
+
+  .tx-cal {
+    background: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    padding: 12px 8px 10px;
+  }
+
+  .tx-cal__week,
+  .tx-cal__grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+  }
+
+  .tx-cal__week {
+    margin-bottom: 4px;
+  }
+
+  .tx-cal__weekday {
+    text-align: center;
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .tx-cal__grid {
+    gap: 2px;
+  }
+
+  .tx-cal__blank {
+    min-height: 46px;
+  }
+
+  .tx-cal__cell {
+    min-height: 46px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 5px 1px 4px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .tx-cal__cell--today {
+    border-color: var(--color-sage-300);
+  }
+
+  .tx-cal__cell--selected {
+    background: var(--color-sage-50);
+    border-color: var(--color-sage-700);
+  }
+
+  .tx-cal__day {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tx-cal__amounts {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-size: var(--text-10);
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+  }
+
+  .tx-cal__spend {
+    color: var(--color-expense);
+  }
+
+  .tx-cal__income {
+    color: var(--color-income);
+  }
+
+  /* ── 목록 ────────────────────────────────────────── */
+
+  .tx-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tx-list__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0;
+    padding: 0 4px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .tx-list__total {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tx-more {
+    margin-top: 2px;
+  }
+
+  /* ── 수정 시트 ───────────────────────────────────── */
+
+  .tx-edit__title {
+    margin: 0 0 4px;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-extrabold);
+    color: var(--color-ink);
+  }
+
+  .tx-edit__fields {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .tx-edit__field {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .tx-edit__field--amount {
+    flex: none;
+    width: 116px;
+  }
+
+  .tx-edit__label {
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .tx-edit__input {
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    outline: none;
+    font-family: inherit;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .tx-edit__input--amount {
+    text-align: right;
+    font-weight: var(--font-weight-extrabold);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tx-edit__cats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+    margin-top: 16px;
+  }
+
+  .tx-edit__cat {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 6px;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+
+  .tx-edit__cat--on {
+    background: var(--color-sage-50);
+    box-shadow: inset 0 0 0 1.5px var(--color-sage-700);
+  }
+
+  .tx-edit__exclude {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 14px 16px;
+    background: var(--color-bg);
+    border-radius: var(--radius-inset);
+  }
+
+  .tx-edit__exclude-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .tx-edit__exclude-title {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .tx-edit__exclude-note {
+    font-size: var(--text-12);
+    color: var(--color-muted);
+    line-height: 1.5;
+  }
+
+  .tx-edit__notice {
+    margin: 12px 0 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+
+  .tx-edit__actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .tx-edit__actions > * {
+    flex: 1;
+  }
+
+  .tx-edit__done {
+    flex: 2;
+  }
+}

@@ -103,22 +103,9 @@ test('21 아직 입구가 없는 화면과 없는 주소', async ({ appShell, ho
   // 마지막에 홈으로 돌아오면 히어로가 이 예산으로 숫자를 그린다.
   await prep.setBudget(BUDGET);
 
-  await appShell.open(ROUTES.calendar);
-  await demo.open('아직 문이 안 달린 화면들', '주소로만 열리는 화면 셋과, 없는 주소로 갔을 때');
-
-  await demo.step('월간 달력. 홈에서 들어갈 화면인데 아직 입구가 안 붙었다');
-  await appShell.expectScreen('월간 달력', '날짜별로 얼마 썼는지 한눈에 봐요');
-  await appShell.expectDocumentTitle('월간 달력');
-  await demo.beat(2);
-
-  await demo.step('월 이동, 달력 격자, 선택한 날 내역. 세 자리가 잡혀 있다');
-  await expect(appShell.placeholderLabel('월 이동')).toBeVisible();
-  await expect(appShell.placeholderLabel('달력 격자')).toBeVisible();
-  await expect(appShell.placeholderNote('TransactionRow 목록이 들어간다.')).toBeVisible();
-  await appShell.expectTabsHidden();
-  await demo.beat(2);
-
   await appShell.open(ROUTES.goal);
+  await demo.open('아직 문이 안 달린 화면들', '주소로만 열리는 화면 둘과, 없는 주소로 갔을 때');
+
   await demo.step('목표. P1 이라 모델만 있고 화면은 자리만 잡아 뒀다');
   await appShell.expectScreen('목표', 'P1 화면이에요. 지금은 자리만 잡아 뒀어요');
   await expect(appShell.placeholderNote('모은 금액과 게이지가 들어간다.')).toBeVisible();

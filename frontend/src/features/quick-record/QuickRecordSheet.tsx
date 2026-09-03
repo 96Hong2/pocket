@@ -49,18 +49,34 @@ interface SavedState {
  * 시트를 두 개 겹치면 포커스가 어디로 돌아갈지 흔들리고, 화면에 dialog 가 둘이 된다.
  */
 export function QuickRecordSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  // 저장 응답을 기다리는 동안에는 닫히지 않는다.
+  // 닫히면 컴포넌트가 사라져 응답이 갈 곳이 없어지고, 피드백과 되돌리기가 영구히 사라진다.
+  // 저장 자체는 서버에 남으므로 사용자는 되돌릴 방법 없이 기록만 남게 된다.
+  const [saving, setSaving] = useState(false);
+
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 미니앱이 닫힌다.
-  useOverlayBackClose(open, onClose);
+  useOverlayBackClose(open && !saving, onClose);
 
   return (
-    <BottomSheet open={open} onClose={onClose} ariaLabel="10초 기록">
-      <RecordBody onDone={onClose} />
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      dismissible={!saving}
+      ariaLabel="10초 기록"
+    >
+      <RecordBody onDone={onClose} onSavingChange={setSaving} />
     </BottomSheet>
   );
 }
 
 /** 시트가 열릴 때 새로 마운트된다. 그래서 지난번 금액이 남아 있지 않다. */
-function RecordBody({ onDone }: { onDone: () => void }) {
+function RecordBody({
+  onDone,
+  onSavingChange,
+}: {
+  onDone: () => void;
+  onSavingChange: (saving: boolean) => void;
+}) {
   const bridge = useBridge();
   const categories = useCategories();
   const create = useCreateTransaction();
@@ -87,6 +103,8 @@ function RecordBody({ onDone }: { onDone: () => void }) {
   function save(category: CategoryOut, amount: number): void {
     if (!Number.isFinite(amount) || amount <= 0) return;
 
+    // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
+    onSavingChange(true);
     create.mutate(
       {
         occurred_at: new Date().toISOString(),
@@ -99,6 +117,7 @@ function RecordBody({ onDone }: { onDone: () => void }) {
         excluded_from_budget: false,
       },
       {
+        onSettled: () => onSavingChange(false),
         onSuccess: (created) => {
           setSaved({
             transaction: created.transaction,

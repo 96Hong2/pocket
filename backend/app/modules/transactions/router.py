@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Query, Response, status
@@ -10,14 +11,16 @@ from fastapi import APIRouter, Query, Response, status
 from app.api.amounts import ratio_out
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES
+from app.api.months import MonthQuery
 from app.domain.feedback import FeedbackResult
 from app.domain.money import Money
-from app.domain.period import BudgetPeriod
 from app.modules import ledger
 from app.modules.budgets import service as budgets
 from app.modules.budgets.schemas import BudgetStateOut, to_budget_state
 from app.modules.transactions import service
 from app.modules.transactions.schemas import (
+    CalendarDayOut,
+    CalendarMonthOut,
     FeedbackOut,
     PeriodSummaryOut,
     TransactionCreate,
@@ -29,9 +32,6 @@ from app.modules.transactions.schemas import (
 )
 
 router = APIRouter(prefix="/transactions", tags=["transactions"], responses=ERROR_RESPONSES)
-
-# 예산 기간을 만들 수 없는 연도는 라우터에서 막는다. 도메인이 ValueError 로 죽지 않게 한다.
-MIN_YEAR, MAX_YEAR = 2000, 2100
 
 
 def _amount(value: Money | None) -> Decimal | None:
@@ -92,37 +92,62 @@ def update(
 def index(
     session: DbSession,
     user: CurrentUser,
-    year: int | None = Query(default=None, ge=MIN_YEAR, le=MAX_YEAR),
-    month: int | None = Query(default=None, ge=1, le=12),
+    period: MonthQuery,
+    day: date | None = Query(
+        default=None, description="이 날 하루만. 날짜는 사용자 시간대로 판단한다"
+    ),
+    q: str | None = Query(
+        default=None,
+        max_length=service.SEARCH_MAX_LENGTH,
+        description="상호나 카테고리 이름 부분일치. 대소문자를 가리지 않는다",
+    ),
     limit: int = Query(default=50, ge=1, le=200),
+    cursor: str | None = Query(default=None, description="앞 응답의 next_cursor 를 그대로 넘긴다"),
 ) -> TransactionListOut:
-    period = BudgetPeriod.of_month(year, month) if year and month else None
-    rows = service.list_transactions(session, user, period=period, limit=limit)
-    return TransactionListOut(items=[TransactionOut.model_validate(r) for r in rows])
+    page = service.list_transactions(
+        session, user, period=period, day=day, query=q, limit=limit, cursor=cursor
+    )
+    return TransactionListOut(
+        items=[TransactionOut.model_validate(r) for r in page.items],
+        next_cursor=page.next_cursor,
+    )
+
+
+@router.get("/calendar", response_model=CalendarMonthOut)
+def calendar(
+    session: DbSession,
+    user: CurrentUser,
+    period: MonthQuery,
+) -> CalendarMonthOut:
+    """달력 격자용 날짜별 합계. 기본 기간은 사용자 시간대의 이번 달이다."""
+    month = period or ledger.period_for(user, ledger.today_for(user))
+    return CalendarMonthOut(
+        period_start=month.start,
+        period_end=month.end,
+        days=[
+            CalendarDayOut(day=d.day, expense=d.expense.amount, income=d.income.amount)
+            for d in ledger.load_day_totals(session, user, month)
+        ],
+    )
 
 
 @router.get("/summary", response_model=PeriodSummaryOut)
 def summary(
     session: DbSession,
     user: CurrentUser,
-    year: int | None = Query(default=None, ge=MIN_YEAR, le=MAX_YEAR),
-    month: int | None = Query(default=None, ge=1, le=12),
+    period: MonthQuery,
 ) -> PeriodSummaryOut:
     # 기본 기간은 사용자 시간대의 오늘이 속한 달이다. 서버가 UTC 로 돌아도 마찬가지다.
-    period = (
-        BudgetPeriod.of_month(year, month)
-        if year and month
-        else ledger.period_for(user, ledger.today_for(user))
-    )
-    totals = ledger.load_period_totals(session, user, period)
-    budget_status = budgets.budget_status(session, user, period, totals, ledger.today_for(user))
+    month = period or ledger.period_for(user, ledger.today_for(user))
+    totals = ledger.load_period_totals(session, user, month)
+    budget_status = budgets.budget_status(session, user, month, totals, ledger.today_for(user))
     return PeriodSummaryOut(
-        period_start=period.start,
-        period_end=period.end,
+        period_start=month.start,
+        period_end=month.end,
         month_expense=totals.month_expense.amount,
         month_income=totals.month_income.amount,
         monthly_delta=totals.monthly_delta.amount,
-        budget=to_budget_state(period, budget_status),
+        budget=to_budget_state(month, budget_status),
     )
 
 

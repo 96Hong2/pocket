@@ -32,7 +32,9 @@ class Settings(BaseSettings):
     environment: Environment = "local"
     log_level: LogLevel = "INFO"
 
-    database_url: str = "postgresql+psycopg://pocket:pocket@localhost:5432/pocket"
+    # 포트 5434 는 compose 가 띄우는 pocket-db 다. 5432·5433 은 이 맥의 다른 프로젝트 것이라,
+    # 기본값을 5432 로 두면 환경변수를 빼먹은 실행이 남의 DB 에 붙는다.
+    database_url: str = "postgresql+psycopg://pocket:pocket@localhost:5434/pocket"
 
     # 쉼표 구분 문자열과 JSON 배열을 모두 받는다.
     cors_origins: Annotated[list[str], NoDecode] = Field(

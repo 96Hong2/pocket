@@ -14,9 +14,17 @@ export { parseDecimal, parseDecimalOr } from './decimal';
 export { ApiError, apiErrorMessage, CLIENT_ERROR_CODES, parseErrorEnvelope } from './errors';
 export type { ApiErrorCode, ApiErrorInit, ClientErrorCode, ParsedErrorBody } from './errors';
 export { moneyQueryKeys, queryKeys } from './queryKeys';
-export { useBudget, useCategories, useSummary, useTransactions } from './queries';
+export {
+  useBudget,
+  useCalendar,
+  useCategories,
+  useSummary,
+  useTransactionPages,
+  useTransactions,
+} from './queries';
 export {
   useCreateTransaction,
+  useDeleteTransaction,
   useSaveBudget,
   useUndoTransaction,
   useUpdateTransaction,

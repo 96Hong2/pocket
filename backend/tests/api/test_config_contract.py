@@ -41,3 +41,21 @@ def test_secrets_문서가_없는_변수_이름을_안내하지_않는다() -> N
     fields = {name.upper() for name in Settings.model_fields}
     unknown = {name for name in mentioned if name not in fields}
     assert unknown == set(), f"문서에만 있는 설정 이름: {sorted(unknown)}"
+
+
+def test_문서가_없는_프론트_변수_이름을_안내하지_않는다() -> None:
+    """VITE_* 이름이 실제 프론트 `.env.example` 키와 같아야 한다.
+
+    실제로 문서가 `VITE_ADS_BANNER_AD_GROUP_ID` 라고 적어 뒀는데 코드는
+    `VITE_AD_GROUP_ID` 를 읽었다. 그대로 두면 운영에서 배너가 조용히 접힌다.
+    """
+    doc = SECRETS_DOC.read_text(encoding="utf-8")
+    front_env = BACKEND_ROOT.parent / "frontend" / ".env.example"
+    keys = {
+        line.split("=", 1)[0].strip()
+        for line in front_env.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#") and "=" in line
+    }
+    mentioned = set(re.findall(r"\bVITE_[A-Z0-9_]+\b", doc))
+    unknown = {name for name in mentioned if name not in keys}
+    assert unknown == set(), f"프론트 .env.example 에 없는 이름: {sorted(unknown)}"

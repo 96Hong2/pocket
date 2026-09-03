@@ -28,6 +28,9 @@ export type TransactionUpdate = Schemas['TransactionUpdate'];
 export type TransactionUpdated = Schemas['TransactionUpdated'];
 export type TransactionListOut = Schemas['TransactionListOut'];
 export type PeriodSummaryOut = Schemas['PeriodSummaryOut'];
+/** 달력 한 칸. 기록이 있는 날만 온다. `expense` 는 환불을 뺀 값이라 음수일 수 있다. */
+export type CalendarDayOut = Schemas['CalendarDayOut'];
+export type CalendarMonthOut = Schemas['CalendarMonthOut'];
 
 // ── 예산·피드백 ────────────────────────────────
 /** 남은 예산·하루 가용액·게이지 비율이 든 한 덩어리. 저장·수정·요약·조회가 모두 같은 모양으로 준다. */

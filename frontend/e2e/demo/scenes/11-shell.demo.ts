@@ -102,21 +102,21 @@ test('18 시스템 뒤로가기는 한 단씩 부모 화면으로 올라간다',
   await demo.clearStep();
   await demo.beat(2);
 
-  await demo.step('앱 안에 들어가는 링크가 없는 달력을 주소로 바로 연다');
-  await appShell.open(ROUTES.calendar);
-  await appShell.expectScreen('월간 달력', '날짜별로 얼마 썼는지 한눈에 봐요');
+  await demo.step('아직 앱 안에 입구가 없는 목표 화면을 주소로 바로 연다');
+  await appShell.open(ROUTES.goal);
+  await appShell.expectScreen('목표', 'P1 화면이에요. 지금은 자리만 잡아 뒀어요');
   await appShell.expectTabsHidden();
   await demo.beat(2);
 
   await demo.step('딥링크로 들어와서 되돌아갈 히스토리가 없는 자리다');
   await demo.beat(2);
 
-  await demo.step('그래도 뒤로가기는 부모인 홈으로 보낸다');
+  await demo.step('그래도 뒤로가기는 부모인 관리로 보낸다');
   await appShell.pressBack();
-  await expect.poll(() => appShell.pathname).toBe(ROUTES.home);
-  await home.waitReady();
+  await expect.poll(() => appShell.pathname).toBe(ROUTES.manage);
+  await appShell.expectScreen('관리', '예산과 분류를 손봐요');
   await appShell.expectTabsVisible();
-  await appShell.expectCurrentTab('홈');
+  await appShell.expectCurrentTab('관리');
   await demo.clearStep();
   await demo.beat(3);
 });

@@ -7,13 +7,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Category, CategoryKind, User
+from app.models import Category, CategoryKind, Transaction, User
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
 
@@ -168,15 +169,54 @@ def test_피드백이_실패해도_저장은_성공이다(
 
     r = client.post("/api/v1/transactions", json=_payload(), headers=AUTH)
     assert r.status_code == 201, r.text
-    assert r.json()["feedback"]["kind"] == "month_fact"
+    body = r.json()
+    # kind 만 보면 정상 경로와 구분되지 않는다. month_fact 는 판정이 성공했을 때도 나오는 값이다.
+    # 폴백은 숫자를 하나도 못 채우고 예산 상태를 만들지 못한다. 그것으로 못 박는다.
+    assert body["feedback"]["kind"] == "month_fact"
+    assert body["feedback"]["month_expense"] is None
+    assert body["budget"] is None
     assert len(client.get("/api/v1/transactions", headers=AUTH).json()["items"]) == 1
 
 
-def test_되돌리기_마감_시각을_함께_준다(client: TestClient) -> None:
-    """화면이 절대 시각으로 세야 기기 시계 차이로 억울하게 만료되지 않는다."""
+def test_되돌리기_마감_시각이_저장_시각_더하기_창이다(client: TestClient, db: Session) -> None:
+    """접미사만 보면 값이 엉뚱해도 통과한다. 창을 실제로 더한 값인지 본다."""
     body = client.post("/api/v1/transactions", json=_payload(), headers=AUTH).json()
     assert body["undo_window_seconds"] == 8
-    assert body["undo_until"].endswith(("Z", "+00:00"))
+
+    from app.modules.transactions.service import UNDO_WINDOW
+
+    tx = db.get(Transaction, uuid.UUID(body["transaction"]["id"]))
+    assert tx is not None
+    created_at = (
+        tx.created_at.replace(tzinfo=UTC) if tx.created_at.tzinfo is None else tx.created_at
+    )
+    assert datetime.fromisoformat(body["undo_until"]) - created_at == UNDO_WINDOW
+
+
+def test_창이_지난_뒤_되돌리면_409_다(client: TestClient, db: Session) -> None:
+    """서버가 만료를 실제로 막는지 본다. 여기가 없으면 되돌리기가 언제까지나 된다."""
+    from app.modules.transactions.service import UNDO_GRACE, UNDO_WINDOW
+
+    body = client.post("/api/v1/transactions", json=_payload(), headers=AUTH).json()
+    tx_id = body["transaction"]["id"]
+
+    tx = db.get(Transaction, uuid.UUID(tx_id))
+    assert tx is not None
+    # 창 안쪽(유예 직전)은 통과해야 한다. 그래야 만료 판정이 너무 이르지 않은 것도 함께 증명된다.
+    tx.created_at = datetime.now(UTC) - (UNDO_WINDOW + UNDO_GRACE) + timedelta(seconds=2)
+    db.commit()
+    assert client.post(f"/api/v1/transactions/{tx_id}/undo", headers=AUTH).status_code == 204
+
+    later = client.post("/api/v1/transactions", json=_payload(amount="3000"), headers=AUTH).json()
+    later_id = later["transaction"]["id"]
+    row = db.get(Transaction, uuid.UUID(later_id))
+    assert row is not None
+    row.created_at = datetime.now(UTC) - (UNDO_WINDOW + UNDO_GRACE) - timedelta(seconds=2)
+    db.commit()
+
+    expired = client.post(f"/api/v1/transactions/{later_id}/undo", headers=AUTH)
+    assert expired.status_code == 409, expired.text
+    assert expired.json()["error"]["code"] == "UNDO_EXPIRED"
 
 
 def test_예산을_넘기면_초과_판정과_초과액이_함께_온다(client: TestClient) -> None:
@@ -210,6 +250,12 @@ def test_첫_진입이_동시에_두_번_와도_500_이_아니다(client: TestCl
     second = client.get("/api/v1/transactions/summary", headers=AUTH)
     assert first.status_code == 200
     assert second.status_code == 200
+
+
+# 계정 생성 경쟁 복구(deps.py 의 IntegrityError 블록)는 여기서 증명하지 못한다.
+# 이 하네스는 인메모리 SQLite + StaticPool 이라 세션 둘이 같은 커넥션을 쓴다.
+# 남이 먼저 커밋한 상태를 만들 수 없어서 unique 위반이 나지 않는다.
+# 실제 경쟁을 태우려면 PostgreSQL 위에서 도는 테스트가 따로 있어야 한다. 아직 없다.
 
 
 def test_새_사용자_행이_한_개만_생긴다(client: TestClient, db: Session) -> None:

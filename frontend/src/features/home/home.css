@@ -197,4 +197,21 @@
   .home__tail {
     height: 16px;
   }
+
+  /* ── 전체 내역 입구 ─────────────────────────────── */
+
+  .home-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    margin-top: 10px;
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+    text-decoration: none;
+  }
 }

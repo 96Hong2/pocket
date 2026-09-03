@@ -25,6 +25,14 @@ export const TEST_IDS = {
   recordAmount: 'record-amount',
   /** 금액 아래에서 다음에 무엇을 하면 되는지 알려 주는 한 줄 */
   recordHint: 'record-hint',
+  /** 달력 화면 합계 띠의 이번 달 지출 */
+  monthTotalExpense: 'month-total-expense',
+  /** 합계 띠의 이번 달 수입 */
+  monthTotalIncome: 'month-total-income',
+  /** 합계 띠의 차액. 수입 - 지출이고 남은 예산과 다른 개념이다. */
+  monthTotalDelta: 'month-total-delta',
+  /** 달력에서 고른 날의 지출 합계 */
+  dayTotal: 'day-total',
   /** 저장 직후 피드백 한 줄 */
   feedbackHeadline: 'feedback-headline',
   /** 피드백 둘째 줄. 남은 예산 같은 숫자가 여기 붙는다. */

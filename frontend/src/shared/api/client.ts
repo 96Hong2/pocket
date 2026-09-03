@@ -13,6 +13,7 @@ import {
 import type {
   BudgetOut,
   BudgetUpsert,
+  CalendarMonthOut,
   CategoryListOut,
   PeriodSummaryOut,
   TransactionCreate,
@@ -34,6 +35,12 @@ export interface MonthParams {
 export interface TransactionListParams extends Partial<MonthParams> {
   /** 1~200. 안 넘기면 서버 기본값 50. */
   limit?: number;
+  /** `2026-09-10`. 이 날 하루만. 달 필터와 함께 걸린다. */
+  day?: string;
+  /** 상호나 카테고리 이름 부분일치. 대소문자를 가리지 않는다. */
+  q?: string;
+  /** 앞 응답의 `next_cursor`. 페이지 번호가 아니라 "여기 다음" 이다. */
+  cursor?: string;
 }
 
 /** 요청 하나에 붙이는 것. 지금은 취소 신호뿐이다. */
@@ -44,6 +51,7 @@ export interface CallOptions {
 const PATHS = {
   transactions: '/api/v1/transactions',
   summary: '/api/v1/transactions/summary',
+  calendar: '/api/v1/transactions/calendar',
   categories: '/api/v1/categories',
   budgets: '/api/v1/budgets',
 } as const;
@@ -72,6 +80,8 @@ export interface ApiClient extends Transport {
   /** 방금 저장한 것 되돌리기. 본문 없는 204 로 온다. */
   undoTransaction(id: string, options?: CallOptions): Promise<void>;
   getSummary(params?: MonthParams, options?: CallOptions): Promise<PeriodSummaryOut>;
+  /** 달력 격자용 날짜별 합계. 기록이 있는 날만 온다. */
+  getCalendar(params?: MonthParams, options?: CallOptions): Promise<CalendarMonthOut>;
   listCategories(options?: CallOptions): Promise<CategoryListOut>;
   getBudget(params?: MonthParams, options?: CallOptions): Promise<BudgetOut>;
   /** 예산 저장. 같은 기간에 몇 번을 보내도 결과가 같다. */
@@ -97,7 +107,14 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<TransactionListOut>({
         method: 'GET',
         path: PATHS.transactions,
-        query: { year: params?.year, month: params?.month, limit: params?.limit },
+        query: {
+          year: params?.year,
+          month: params?.month,
+          day: params?.day,
+          limit: params?.limit,
+          q: params?.q,
+          cursor: params?.cursor,
+        },
         signal: call?.signal,
       });
     },
@@ -131,6 +148,15 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<PeriodSummaryOut>({
         method: 'GET',
         path: PATHS.summary,
+        query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
+    getCalendar(params, call) {
+      return transport.request<CalendarMonthOut>({
+        method: 'GET',
+        path: PATHS.calendar,
         query: monthQuery(params),
         signal: call?.signal,
       });

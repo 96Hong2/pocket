@@ -17,6 +17,7 @@ e2e/
     AppShell         마운트·하단 3탭·시스템 뒤로가기
     HomeScreen       홈. 안쪽을 hero·today·budget·ads·recovery 로 나눠 들고 있다
     RecordSheet      기록 시트. 안쪽이 input(저장 전)·feedback(저장 후) 둘이다
+    CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
   specs/       테스트. 무엇을 확인하는지만 읽히게 쓴다
   demo/        화면 동작 영상을 찍는 자리. 판정이 아니라 산출물을 만든다
@@ -48,7 +49,10 @@ e2e/
 - **`waitForTimeout` 을 쓰지 않는다.** 기다릴 것이 있으면 `expect(...).toHaveText` 나 `expect.poll` 로 상태를 기다린다.
 - **`.tsx` 와 `.css` 를 e2e 에서 import 하지 않는다.** e2e 는 브라우저 밖 Node 에서 돈다.
   `src/` 에서 가져와도 되는 것은 부수효과 없는 상수·순수 함수 모듈뿐이다.
-  지금 쓰는 것은 `shared/testIds.ts`, `app/router/routes.ts`, `shared/lib/format.ts` 셋이다.
+  지금 쓰는 것은 넷이다: `shared/testIds.ts`, `app/router/routes.ts`, `shared/lib/format.ts`,
+  `features/transactions/ledgerView.ts`(한 페이지 줄 수·달력 칸 계산).
+  **배럴(`features/*/index.ts`)로 가져오지 않는다.** 배럴은 `.tsx` 를 함께 내보내서,
+  상수 하나만 쓰려 해도 화면 컴포넌트가 Node 로 끌려온다. 순수 모듈을 경로로 직접 가져온다.
   목록에 없는 것을 가져오려면 `tsconfig.test.json` 을 먼저 본다. e2e·tests 프로그램이 그 모듈까지 타입 검사한다.
 - **화면 객체에서도 CSS 클래스로 잡지 않는다.** `locator('.foo')` 는 오타를 막아 주는 검사가 없다.
   접근성 이름이나 `testIds` 를 쓴다. 잡을 이름이 없으면 4번대로 키를 더한다.

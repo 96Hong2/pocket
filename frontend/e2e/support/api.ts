@@ -14,7 +14,13 @@ export interface TransactionSeed {
   amount: number;
   /** 며칠 전. 없으면 오늘이다. */
   daysAgo?: number;
-  /** 같은 날 안에서의 순서. 목록이 시각 내림차순이라 값이 클수록 아래에 놓인다. */
+  /**
+   * 같은 날 안에서의 순서. 목록이 시각 내림차순이라 값이 클수록 아래에 놓인다.
+   *
+   * 그 날 정오를 기준으로 뒤로 센다. "지금부터 뒤로" 가 아니다.
+   * 자정 직후에 돌리면 `minutesAgo: 2` 가 전날이 되어, 날짜로 고르는 화면이
+   * 시간대 버그도 아닌 이유로 깨진다. 실제로 그렇게 깨진 적이 있다.
+   */
   minutesAgo?: number;
   /** 없으면 지출. 종류에 따라 목록에 칩이 붙고 집계 규칙도 갈린다. */
   type?: TransactionType;
@@ -53,8 +59,7 @@ export class PrepApi {
 
   /** 거래 하나를 심는다. 종류·가맹점·예산 제외까지 정한다. */
   async addTransaction(seed: TransactionSeed): Promise<void> {
-    const offsetMs = (seed.daysAgo ?? 0) * 24 * 60 * 60 * 1000 + (seed.minutesAgo ?? 0) * 60 * 1000;
-    const occurredAt = new Date(Date.now() - offsetMs);
+    const occurredAt = seedTime(seed.daysAgo ?? 0, seed.minutesAgo ?? 0);
 
     const response = await this.context.post('/api/v1/transactions', {
       data: {
@@ -69,6 +74,29 @@ export class PrepApi {
       },
     });
     expectOk(response.status(), await response.text(), '거래를 심지 못했다');
+  }
+
+  /**
+   * 같은 모양의 거래를 여러 건 심는다. 페이지 경계를 화면으로 증명할 때 쓴다.
+   *
+   * 한 건씩 기다리면 31건에 몇 초가 든다. 서로 의존이 없어 한꺼번에 보낸다.
+   * 상호에 번호를 붙여 몇 번째 줄이 어느 페이지에 있는지 눈으로 확인할 수 있게 한다.
+   */
+  async addSeries(
+    count: number,
+    seed: Omit<TransactionSeed, 'merchant'> & { prefix: string },
+  ): Promise<void> {
+    const { prefix, ...rest } = seed;
+    await Promise.all(
+      Array.from({ length: count }, (_, index) =>
+        this.addTransaction({
+          ...rest,
+          merchant: `${prefix}${String(index + 1).padStart(2, '0')}`,
+          // 같은 시각으로 몰리면 순서가 흔들려 어느 줄이 어느 페이지인지 말할 수 없다.
+          minutesAgo: (rest.minutesAgo ?? 0) + index,
+        }),
+      ),
+    );
   }
 
   /** 며칠 전 지출을 심는다. `daysAgo` 가 0 이면 오늘이다. */
@@ -95,6 +123,20 @@ export class PrepApi {
     if (found == null) throw new Error(`카테고리 '${name}' 을 찾지 못했다`);
     return found.id;
   }
+}
+
+/**
+ * 심을 시각. 그 날 정오에서 분 단위로 뒤로 센다.
+ *
+ * 기준을 "지금" 으로 두면 자정 직후에 돌린 실행에서 같은 날에 심으려던 것들이
+ * 전날로 흩어진다. 날짜로 고르는 화면은 그것만으로 깨진다.
+ * 정오를 기준으로 두면 하루 안에서 700분까지 흔들려도 날이 바뀌지 않는다.
+ */
+function seedTime(daysAgo: number, minutesAgo: number): Date {
+  const day = new Date();
+  day.setDate(day.getDate() - daysAgo);
+  day.setHours(12, 0, 0, 0);
+  return new Date(day.getTime() - minutesAgo * 60_000);
 }
 
 function expectOk(status: number, body: string, what: string): void {

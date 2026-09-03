@@ -1,20 +1,17 @@
-import { parseDecimalOr, type CategoryOut, type TransactionOut } from '../../shared/api';
+import type { CategoryOut, TransactionOut } from '../../shared/api';
+import { LedgerRow } from '../../shared/ledger';
 import { toLedgerDate } from '../../shared/lib/format';
-import { Card, Chip, EmptyState, ErrorState, toIconName, TransactionRow } from '../../shared/ui';
+import { Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui';
 
 interface TodayListProps {
   transactions: TransactionOut[];
   categories: CategoryOut[];
+  /** 아직 오는 중인가. 오는 중을 "비어 있어요" 로 덮지 않으려고 받는다. */
+  loading?: boolean;
   /** 조회가 실패했나. 실패를 "비어 있어요" 로 덮지 않으려고 받는다. */
   loadFailed?: boolean;
   onRetry?: () => void;
 }
-
-const KIND_LABEL: Record<string, string> = {
-  income: '수입',
-  transfer: '이체',
-  refund: '환불',
-};
 
 /**
  * 오늘 것만 고른다.
@@ -30,6 +27,7 @@ function isToday(occurredAt: string, today: string): boolean {
 export function TodayList({
   transactions,
   categories,
+  loading = false,
   loadFailed = false,
   onRetry,
 }: TodayListProps) {
@@ -41,35 +39,20 @@ export function TodayList({
       <h2 className="home-today__title">오늘</h2>
       {rows.length > 0 ? (
         <Card padding="list">
-          {rows.map((tx, index) => {
-            const category = tx.category_id
-              ? categories.find((item) => item.id === tx.category_id)
-              : undefined;
-            const kind = KIND_LABEL[tx.type];
-
-            return (
-              <TransactionRow
-                key={tx.id}
-                icon={toIconName(category?.icon_key)}
-                title={tx.merchant ?? category?.name ?? '기록'}
-                subtitle={tx.merchant ? category?.name : undefined}
-                amount={parseDecimalOr(tx.amount, 0)}
-                tone={tx.type}
-                excluded={tx.excluded_from_budget}
-                avatarSize={54}
-                density="compact"
-                hideDivider={index === rows.length - 1}
-                chips={
-                  tx.excluded_from_budget || kind ? (
-                    <>
-                      {tx.excluded_from_budget ? <Chip variant="excluded">예산 제외</Chip> : null}
-                      {kind ? <Chip variant="kind">{kind}</Chip> : null}
-                    </>
-                  ) : undefined
-                }
-              />
-            );
-          })}
+          {rows.map((tx, index) => (
+            <LedgerRow
+              key={tx.id}
+              transaction={tx}
+              categories={categories}
+              avatarSize={54}
+              density="compact"
+              hideDivider={index === rows.length - 1}
+            />
+          ))}
+        </Card>
+      ) : loading ? (
+        <Card padding="md">
+          <LoadingState variant="rows" rows={2} label="오늘 기록을 불러오는 중이에요" />
         </Card>
       ) : loadFailed ? (
         <Card padding="md">
