@@ -17,7 +17,7 @@ const MISSING_PATH = '/nope';
 /** 홈으로 돌아온 뒤 히어로가 숫자를 그리게 하려고 미리 심어 두는 예산. */
 const BUDGET = 500_000;
 
-test('20 관리 탭이 데리고 있는 화면들', async ({ appShell, home, demo }) => {
+test('20 관리 탭이 데리고 있는 화면들', async ({ appShell, home, manage, demo }) => {
   await home.open();
   await home.waitReady();
   await demo.open('관리 탭 아래', '카테고리 관리·앱 설정·알림 설정이 어디까지 왔는지 본다');
@@ -28,9 +28,9 @@ test('20 관리 탭이 데리고 있는 화면들', async ({ appShell, home, dem
   await appShell.expectCurrentTab('관리');
   await demo.beat(2);
 
-  await demo.step('점선 카드가 이번 달 예산이 들어올 자리를 잡아 뒀다');
-  await expect(appShell.placeholderLabel('이번 달 예산')).toBeVisible();
-  await expect(appShell.placeholderNote('예산 금액과 카테고리 예산을 고친다.')).toBeVisible();
+  await demo.step('점선 카드가 있던 자리에 예산 섹션이 들어와 있다');
+  await manage.waitReady();
+  await expect(manage.total.startButton).toBeVisible();
   await demo.beat(2);
 
   await demo.step('그 아래 네 줄이 하위 화면으로 들어가는 입구다');

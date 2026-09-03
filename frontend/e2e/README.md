@@ -18,6 +18,7 @@ e2e/
     HomeScreen       홈. 안쪽을 hero·today·budget·ads·recovery 로 나눠 들고 있다
     RecordSheet      기록 시트. 안쪽이 input(저장 전)·feedback(저장 후) 둘이다
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
+    ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·categories·banner·settings 로 나눠 들고 있다
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
   specs/       테스트. 무엇을 확인하는지만 읽히게 쓴다
   demo/        화면 동작 영상을 찍는 자리. 판정이 아니라 산출물을 만든다
