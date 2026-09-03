@@ -1,0 +1,281 @@
+/*
+  기록 시트 전용 스펙. 시트 껍데기와 세그먼트·칩 같은 공용 프리미티브는 shared/ui/ui.css 가 그린다.
+  색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
+*/
+
+@layer components {
+  .record {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .record__tabs {
+    margin-top: 4px;
+  }
+
+  .record__repeat {
+    display: flex;
+    margin-top: 14px;
+  }
+
+  .repeat-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* 보이는 높이는 36px 이지만 손이 닿는 영역은 44px 이다. */
+  .repeat-chip::after {
+    content: '';
+    position: absolute;
+    inset: -4px 0;
+  }
+
+  .repeat-chip:not(:disabled):active {
+    background: var(--color-sage-100);
+  }
+
+  .repeat-chip:disabled {
+    opacity: 0.45;
+  }
+
+  .record__notice {
+    margin: 10px 0 0;
+    padding: 9px 13px;
+    border-radius: var(--radius-md);
+    background: var(--color-amber-50);
+    color: var(--color-amber-700);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  /* ── 금액과 키패드 ──────────────────────────────── */
+
+  .keypad__head {
+    padding: 14px 0 10px;
+    text-align: center;
+  }
+
+  .keypad__amount {
+    font-size: 32px;
+    font-weight: var(--font-weight-extrabold);
+    letter-spacing: -0.5px;
+    color: var(--color-ink);
+  }
+
+  .keypad__amount--empty {
+    color: var(--color-placeholder);
+  }
+
+  .keypad__hint {
+    margin: 4px 0 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .keypad__keys {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    margin-top: 8px;
+  }
+
+  .keypad__key {
+    display: grid;
+    place-items: center;
+    height: 56px;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .keypad__key:active {
+    background: var(--color-sage-50);
+  }
+
+  /* ── 카테고리 칩 ────────────────────────────────── */
+
+  .cat-chips {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .cat-chips__item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 44px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    transition:
+      background-color 0.12s ease,
+      opacity 0.15s ease;
+  }
+
+  .cat-chips__item:not(:disabled):active {
+    background: var(--color-sage-100);
+  }
+
+  .cat-chips__item[aria-pressed='true'] {
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+  }
+
+  .cat-chips__item:disabled {
+    opacity: 0.4;
+  }
+
+  .cat-chips__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── 저장 직후 피드백 ───────────────────────────── */
+
+  .feedback {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .feedback__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+  }
+
+  .feedback__label {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .feedback__undo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 44px;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .feedback__undo:disabled {
+    opacity: 0.45;
+  }
+
+  .feedback__undo-count {
+    display: grid;
+    place-items: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-50);
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .feedback__card {
+    margin-top: 10px;
+    padding: 18px;
+    border-radius: var(--radius-card);
+    background: var(--color-sage-50);
+  }
+
+  .feedback__card--caution {
+    background: var(--color-amber-50);
+  }
+
+  .feedback__badge {
+    display: inline-block;
+    margin-bottom: 10px;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--color-amber-300);
+    color: var(--color-amber-700);
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .feedback__card:not(.feedback__card--caution) .feedback__badge {
+    background: var(--color-sage-100);
+    color: var(--color-sage-700);
+  }
+
+  .feedback__headline {
+    margin: 0;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.55;
+    color: var(--color-ink);
+  }
+
+  .feedback__detail {
+    margin: 6px 0 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+    color: var(--color-ink);
+  }
+
+  .feedback__notice {
+    margin: 10px 0 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+
+  .feedback__change {
+    margin-top: 14px;
+  }
+
+  .feedback__change-title {
+    margin: 0 0 8px;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .feedback__actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .feedback__actions > * {
+    flex: 1;
+  }
+}

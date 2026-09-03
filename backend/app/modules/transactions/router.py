@@ -7,10 +7,15 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Query, Response, status
 
+from app.api.amounts import ratio_out
 from app.api.deps import CurrentUser, DbSession
+from app.api.errors import ERROR_RESPONSES
 from app.domain.feedback import FeedbackResult
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod
+from app.modules import ledger
+from app.modules.budgets import service as budgets
+from app.modules.budgets.schemas import BudgetStateOut, to_budget_state
 from app.modules.transactions import service
 from app.modules.transactions.schemas import (
     FeedbackOut,
@@ -19,9 +24,11 @@ from app.modules.transactions.schemas import (
     TransactionCreated,
     TransactionListOut,
     TransactionOut,
+    TransactionUpdate,
+    TransactionUpdated,
 )
 
-router = APIRouter(prefix="/transactions", tags=["transactions"])
+router = APIRouter(prefix="/transactions", tags=["transactions"], responses=ERROR_RESPONSES)
 
 # 예산 기간을 만들 수 없는 연도는 라우터에서 막는다. 도메인이 ValueError 로 죽지 않게 한다.
 MIN_YEAR, MAX_YEAR = 2000, 2100
@@ -42,7 +49,7 @@ def _feedback_out(result: FeedbackResult) -> FeedbackOut:
         over_category_id=uuid.UUID(result.over_category_id) if result.over_category_id else None,
         saved_amount=_amount(result.saved_amount),
         month_expense=_amount(result.month_expense),
-        pace_ratio=result.pace_ratio,
+        pace_ratio=ratio_out(result.pace_ratio),
         projected_month_end=_amount(result.projected_month_end),
         category_spend=_amount(result.category_spend),
         category_budget_amount=_amount(result.category_budget_amount),
@@ -50,14 +57,34 @@ def _feedback_out(result: FeedbackResult) -> FeedbackOut:
     )
 
 
+def _budget_out(outcome: service.SaveOutcome) -> BudgetStateOut | None:
+    state = outcome.budget_status
+    return to_budget_state(outcome.period, state) if state is not None else None
+
+
 @router.post("", response_model=TransactionCreated, status_code=status.HTTP_201_CREATED)
 def create(body: TransactionCreate, session: DbSession, user: CurrentUser) -> TransactionCreated:
-    tx, feedback = service.create_transaction(session, user, body.model_dump())
+    tx, outcome = service.create_transaction(session, user, body.model_dump())
     return TransactionCreated(
         transaction=TransactionOut.model_validate(tx),
-        feedback=_feedback_out(feedback),
+        feedback=_feedback_out(outcome.feedback),
+        budget=_budget_out(outcome),
         undo_window_seconds=int(service.UNDO_WINDOW.total_seconds()),
         undo_until=service.undo_deadline(tx),
+    )
+
+
+@router.patch("/{tx_id}", response_model=TransactionUpdated)
+def update(
+    tx_id: uuid.UUID, body: TransactionUpdate, session: DbSession, user: CurrentUser
+) -> TransactionUpdated:
+    tx, outcome = service.update_transaction(
+        session, user, tx_id, body.model_dump(exclude_unset=True)
+    )
+    return TransactionUpdated(
+        transaction=TransactionOut.model_validate(tx),
+        feedback=_feedback_out(outcome.feedback),
+        budget=_budget_out(outcome),
     )
 
 
@@ -85,15 +112,17 @@ def summary(
     period = (
         BudgetPeriod.of_month(year, month)
         if year and month
-        else service.period_for(user, service.today_for(user))
+        else ledger.period_for(user, ledger.today_for(user))
     )
-    totals = service.load_period_totals(session, user, period)
+    totals = ledger.load_period_totals(session, user, period)
+    budget_status = budgets.budget_status(session, user, period, totals, ledger.today_for(user))
     return PeriodSummaryOut(
         period_start=period.start,
         period_end=period.end,
         month_expense=totals.month_expense.amount,
         month_income=totals.month_income.amount,
         monthly_delta=totals.monthly_delta.amount,
+        budget=to_budget_state(period, budget_status),
     )
 
 

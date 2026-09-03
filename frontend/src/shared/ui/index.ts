@@ -26,6 +26,7 @@ export {
   iconUrl,
   LG_ICONS,
   SM_ICONS,
+  toIconName,
   type IconName,
   type IconSize,
 } from './icons';

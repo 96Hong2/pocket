@@ -1,64 +1,113 @@
+import { useState } from 'react';
+
 import { useIdentity } from '../app/providers';
+import { AdSlot } from '../features/ads';
+import {
+  BudgetSuggestCard,
+  HomeHero,
+  RecoveryCard,
+  TodayList,
+  resolveHomeView,
+  toHomeViewInput,
+} from '../features/home';
+import { QuickRecordSheet } from '../features/quick-record';
+import { useBudget, useCategories, useTransactions } from '../shared/api';
+import { Button, ErrorState, LoadingState, UnsupportedFeature, iconUrl } from '../shared/ui';
 
-import { Placeholder } from './Placeholder';
-
-/**
- * 홈 3모드가 들어갈 자리.
- * - firstUse: 아직 기록이 하나도 없음. 기록 유도 하나만 보여준다.
- * - default: 남은 예산 히어로 + 최근 내역.
- * - recovery: 며칠 비었음. 벌주지 않고 이어서 쓰게 돕는다.
- *
- * TODO: 다음 slice 에서 거래·예산 조회를 붙여 실제 모드를 고른다. 지금은 정적 자리표시자다.
- */
-type HomeMode = 'firstUse' | 'default' | 'recovery';
-
+/** 익명 식별키를 못 받은 상태. 앱은 떠 있지만 저장과 조회가 전부 막힌다. */
 function IdentityNotice() {
   const { state, retry } = useIdentity();
 
-  if (state.status === 'loading' || state.status === 'ready') return null;
+  if (state.status === 'unsupported') {
+    return <UnsupportedFeature feature="기록 저장" description={state.message} />;
+  }
+  if (state.status === 'failed') {
+    return (
+      <ErrorState
+        title="사용자 확인을 마치지 못했어요"
+        description={state.message}
+        onRetry={retry}
+      />
+    );
+  }
+  return null;
+}
+
+function RecordButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      className="home-cta"
+      fullWidth
+      onClick={onClick}
+      leadingIcon={
+        <img className="home-cta__icon" src={iconUrl('01_coins')} alt="" aria-hidden="true" />
+      }
+    >
+      10초 기록
+    </Button>
+  );
+}
+
+function HomeContent({ onRecord }: { onRecord: () => void }) {
+  const { state } = useIdentity();
+  const budget = useBudget();
+  const categories = useCategories();
+  const transactions = useTransactions();
+
+  // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다.
+  // 아직 오는 중일 때만 기다리게 하고, 실패·미지원은 위 안내가 이유를 말한다.
+  if (state.status !== 'ready') {
+    return state.status === 'loading' ? (
+      <LoadingState label="지금 상태를 불러오는 중이에요" />
+    ) : null;
+  }
+
+  if (budget.isPending) return <LoadingState label="지금 상태를 불러오는 중이에요" />;
+  if (budget.isError || budget.data == null) {
+    return <ErrorState onRetry={() => void budget.refetch()} />;
+  }
+
+  const view = resolveHomeView(toHomeViewInput(budget.data));
 
   return (
-    <div className="placeholder" role="status">
-      <span className="placeholder__label">사용자 확인</span>
-      <p style={{ margin: '0 0 10px' }}>{state.message}</p>
-      {state.status === 'failed' && (
-        <button type="button" className="screen-state__action" onClick={retry}>
-          다시 시도
-        </button>
-      )}
-    </div>
+    <>
+      <HomeHero view={view} budget={budget.data} />
+
+      {view.mode === 'recovery' ? (
+        <RecoveryCard daysAway={budget.data.days_since_last_transaction} onCatchUp={onRecord} />
+      ) : null}
+
+      <RecordButton onClick={onRecord} />
+
+      {view.showBudgetSuggestion ? <BudgetSuggestCard /> : null}
+
+      <TodayList
+        transactions={transactions.data?.items ?? []}
+        categories={categories.data?.items ?? []}
+        loadFailed={transactions.isError || categories.isError}
+        onRetry={() => {
+          if (transactions.isError) void transactions.refetch();
+          if (categories.isError) void categories.refetch();
+        }}
+      />
+    </>
   );
 }
 
 export default function HomePage() {
-  // TODO: 거래·예산 데이터가 붙으면 여기서 모드를 계산한다.
-  const mode: HomeMode = 'default';
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   return (
-    <div className="page">
-      <h1 className="page__title">10초 가계부</h1>
-      <p className="page__lead">쓰면 바로 지금 상태가 보여요</p>
-
+    <div className="page home">
       <IdentityNotice />
-
-      {mode === 'default' && (
-        <>
-          <Placeholder label="남은 예산 히어로">
-            예산·남은 일수·하루 가용액이 들어간다.
-          </Placeholder>
-          <Placeholder label="즉시 피드백">
-            방금 기록에 대한 한 줄. 초과 &gt; 주의 &gt; 큰 지출 &gt; 성취 &gt; 적정 중 하나만.
-          </Placeholder>
-          <Placeholder label="최근 내역">TransactionRow 목록이 들어간다.</Placeholder>
-        </>
-      )}
-
+      <HomeContent onRecord={() => setSheetOpen(true)} />
       {/*
-        광고 배너는 홈 한 곳에만, 기록 CTA 위가 아닌 스크롤 영역에 붙인다.
-        TODO: ads feature 가 준비되면 여기에 슬롯을 건다. 광고가 없으면 슬롯 자체를 접는다.
+        배너는 모드 분기 밖 최상위 자식이다. 안쪽에 두면 홈이 모드를 바꿀 때마다
+        슬롯이 다시 마운트되고, 그것이 사실상 우리가 광고를 새로고침하는 것이 된다.
       */}
-
-      <Placeholder label="기록 CTA">키패드 바텀시트를 여는 버튼이 들어간다.</Placeholder>
+      <AdSlot />
+      <div className="home__tail" />
+      <QuickRecordSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
     </div>
   );
 }

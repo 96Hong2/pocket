@@ -20,6 +20,8 @@ def get_engine() -> Engine:
         pool_size=5,
         max_overflow=5,
         future=True,
+        # 오류 문자열에 바인딩 값을 붙이지 않는다. 붙으면 트레이스백째 로그로 새어 나간다.
+        hide_parameters=True,
     )
 
 

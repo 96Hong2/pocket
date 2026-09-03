@@ -38,7 +38,8 @@ def test_create_then_listed(client: TestClient) -> None:
     body = r.json()
     assert body["transaction"]["amount"] == "12000"
     # 저장 응답에 판정 결과가 함께 온다. 왕복 두 번을 피하기 위한 계약이다.
-    assert "kind" in body["feedback"]
+    # 예산이 없고 큰 지출 기준에도 못 미치니 사실 문장이다.
+    assert body["feedback"]["kind"] == "month_fact"
     assert body["undo_window_seconds"] > 0
 
     listed = client.get("/api/v1/transactions", headers=AUTH).json()

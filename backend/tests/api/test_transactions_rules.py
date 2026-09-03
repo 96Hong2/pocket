@@ -179,16 +179,18 @@ def test_되돌리기_마감_시각을_함께_준다(client: TestClient) -> None
     assert body["undo_until"].endswith(("Z", "+00:00"))
 
 
-def test_피드백_종류가_계약과_같은_값이다(client: TestClient) -> None:
-    body = client.post("/api/v1/transactions", json=_payload(), headers=AUTH).json()
-    assert body["feedback"]["kind"] in {
-        "over_budget",
-        "pace_warning",
-        "large_expense",
-        "achievement",
-        "on_track",
-        "month_fact",
-    }
+def test_예산을_넘기면_초과_판정과_초과액이_함께_온다(client: TestClient) -> None:
+    """예산 상태가 판정까지 실제로 전달되는지 보는 자리다.
+
+    서비스가 예산 상태를 넘기지 않으면 여기서 초과가 아니라 큰 지출로 떨어진다.
+    """
+    client.put("/api/v1/budgets?year=2026&month=9", json={"amount": "600000"}, headers=AUTH)
+    body = client.post("/api/v1/transactions", json=_payload(amount="700000"), headers=AUTH).json()
+
+    feedback = body["feedback"]
+    assert feedback["kind"] == "over_budget"
+    assert feedback["over_amount"] == "100000"
+    assert feedback["remaining_budget"] == "-100000"
 
 
 # ── 조회 파라미터 ───────────────────────────────────────
@@ -214,3 +216,55 @@ def test_새_사용자_행이_한_개만_생긴다(client: TestClient, db: Sessi
     client.get("/api/v1/transactions", headers=AUTH)
     client.get("/api/v1/transactions/summary", headers=AUTH)
     assert len(db.scalars(select(User)).all()) == 1
+
+
+# ── 수정 ────────────────────────────────────────────────
+# 피드백 화면에서 카테고리를 한 번 눌러 고치는 동선이다.
+
+
+def test_카테고리를_고치면_판정과_예산이_다시_온다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    food = next(c for c in default_categories if c.name == "식비")
+    created = client.post("/api/v1/transactions", json=_payload(), headers=AUTH).json()
+
+    r = client.patch(
+        f"/api/v1/transactions/{created['transaction']['id']}",
+        json={"category_id": str(food.id)},
+        headers=AUTH,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["transaction"]["category_id"] == str(food.id)
+    # 예산이 없고 12,000원은 큰 지출 기준에 못 미치니 사실 문장 하나만 남는다.
+    assert body["feedback"]["kind"] == "month_fact"
+    assert body["feedback"]["month_expense"] == "12000"
+    assert body["budget"]["amount"] is None
+
+
+def test_수정도_저장과_같은_검증을_쓴다(client: TestClient) -> None:
+    created = client.post("/api/v1/transactions", json=_payload(), headers=AUTH).json()
+    tx_id = created["transaction"]["id"]
+
+    bad_category = client.patch(
+        f"/api/v1/transactions/{tx_id}",
+        json={"category_id": str(uuid.uuid4())},
+        headers=AUTH,
+    )
+    assert bad_category.status_code == 422
+    assert bad_category.json()["error"]["code"] == "INVALID_CATEGORY"
+
+    naive_time = client.patch(
+        f"/api/v1/transactions/{tx_id}",
+        json={"occurred_at": "2026-09-01T00:30:00"},
+        headers=AUTH,
+    )
+    assert naive_time.status_code == 422
+
+
+def test_남의_거래는_고칠_수_없다(client: TestClient) -> None:
+    r = client.patch(
+        f"/api/v1/transactions/{uuid.uuid4()}", json={"merchant": "바꿔치기"}, headers=AUTH
+    )
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "NOT_FOUND"

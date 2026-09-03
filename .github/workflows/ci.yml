@@ -19,6 +19,10 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      # 생성 타입은 커밋해 둔다(이 잡은 백엔드 없이 돈다). 정본인 docs/openapi.json 과
+      # 어긋난 채 머지되지 않게 다시 뽑아 대조한다. 백엔드 잡의 openapi 게이트와 짝이다.
+      - run: npm run api:types
+      - run: git diff --exit-code src/shared/api/schema.gen.ts
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
@@ -39,7 +43,117 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy app
-      - run: uv run pytest -q
+      # app.main 이 import 시점에 create_app() 을 부른다. 인증서가 없는 CI 에서는
+      # 이 값이 없으면 테스트 수집 단계에서 AnonKeyVerifierMisconfigured 로 죽는다.
+      - run: ALLOW_UNVERIFIED_ANON_KEY=true uv run pytest -q
       # openapi.json 이 정본이라고 문서가 말한다. 코드와 어긋난 채 머지되지 않게 막는다.
       - run: ALLOW_UNVERIFIED_ANON_KEY=true uv run python scripts/export_openapi.py
       - run: git diff --exit-code ../docs/openapi.json
+
+  # pytest 는 SQLite 로 돈다. PostgreSQL 전용 DDL(NULLS NOT DISTINCT 같은)이 깨져도
+  # 초록이 뜬다. 실제 PostgreSQL 에 올려 보는 것은 여기서만 확인된다.
+  migrations:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: pocket
+          POSTGRES_USER: pocket
+          POSTGRES_PASSWORD: pocket
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pocket -d pocket"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg://pocket:pocket@localhost:5432/pocket
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run alembic upgrade head
+      # downgrade 까지 돌려야 PostgreSQL 전용 kwargs 가 붙은 인덱스·제약이 검증된다.
+      - run: uv run alembic downgrade base
+      - run: uv run alembic upgrade head
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: pocket_e2e
+          POSTGRES_USER: pocket
+          POSTGRES_PASSWORD: pocket
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pocket -d pocket_e2e"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      # playwright.config.ts 가 백엔드 웹서버에 넘긴다.
+      POCKET_E2E_DATABASE_URL: postgresql+psycopg://pocket:pocket@localhost:5432/pocket_e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: 백엔드 의존성
+        run: uv sync --frozen
+        working-directory: backend
+      - name: 프론트 의존성
+        run: npm ci
+        working-directory: frontend
+
+      # 브라우저 내려받기가 매번 1~2분이라 캐시한다. 키는 잠금 파일이다.
+      - name: 브라우저 캐시
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+      - name: 브라우저 설치
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: 브라우저 시스템 의존성만
+        if: steps.browser-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+        working-directory: frontend
+
+      - name: 스키마 올리기
+        run: uv run alembic upgrade head
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.POCKET_E2E_DATABASE_URL }}
+
+      - name: e2e
+        run: npx playwright test
+        working-directory: frontend
+
+      # 실패했을 때 무엇이 어떻게 보였는지 없으면 원인을 못 찾는다.
+      - name: 리포트 올리기
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7

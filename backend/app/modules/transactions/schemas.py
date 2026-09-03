@@ -5,6 +5,7 @@
 
 종류·입력경로·피드백 종류는 domain 의 enum 을 그대로 쓴다. 값 목록을 여기 다시 적지 않는다.
 그래야 openapi.json 에 enum 이 실려 프론트 타입이 문자열로 뭉개지지 않는다.
+금액 규칙은 app/api/amounts.py 하나를 예산 스키마와 함께 쓴다.
 """
 
 from __future__ import annotations
@@ -15,8 +16,10 @@ from decimal import Decimal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.api.amounts import MAX_AMOUNT, integral_won
 from app.domain.aggregation import TransactionSource, TransactionType
 from app.domain.feedback import FeedbackKind
+from app.modules.budgets.schemas import BudgetStateOut
 
 __all__ = [
     "FeedbackOut",
@@ -26,19 +29,8 @@ __all__ = [
     "TransactionListOut",
     "TransactionOut",
     "TransactionUpdate",
+    "TransactionUpdated",
 ]
-
-# numeric(14,0) 상한. 넘으면 DB 가 아니라 여기서 막는다.
-MAX_AMOUNT = Decimal("99999999999999")
-
-
-def _integral_won(value: Decimal | None) -> Decimal | None:
-    """원 단위 정수만 받는다. 소수를 조용히 반올림해 저장하지 않는다."""
-    if value is None:
-        return None
-    if value != value.to_integral_value():
-        raise ValueError("금액은 원 단위 정수여야 해요.")
-    return value.quantize(Decimal(1))
 
 
 class TransactionCreate(BaseModel):
@@ -55,7 +47,7 @@ class TransactionCreate(BaseModel):
     excluded_from_budget: bool = False
     refund_of_transaction_id: uuid.UUID | None = None
 
-    _check_amount = field_validator("amount")(_integral_won)
+    _check_amount = field_validator("amount")(integral_won)
 
     @model_validator(mode="after")
     def _zero_only_for_no_spend(self) -> TransactionCreate:
@@ -69,7 +61,7 @@ class TransactionCreate(BaseModel):
 
 
 class TransactionUpdate(BaseModel):
-    """아직 라우트가 없다. 붙일 때 create 와 같은 검증을 공유한다(docs/API_CONTRACT.md)."""
+    """보낸 필드만 고친다. 검증과 시각 정규화는 저장 경로와 같은 것을 쓴다."""
 
     occurred_at: AwareDatetime | None = None
     amount: Decimal | None = Field(default=None, gt=0, le=MAX_AMOUNT)
@@ -78,7 +70,7 @@ class TransactionUpdate(BaseModel):
     category_id: uuid.UUID | None = None
     excluded_from_budget: bool | None = None
 
-    _check_amount = field_validator("amount")(_integral_won)
+    _check_amount = field_validator("amount")(integral_won)
 
 
 class TransactionOut(BaseModel):
@@ -125,10 +117,21 @@ class FeedbackOut(BaseModel):
 class TransactionCreated(BaseModel):
     transaction: TransactionOut
     feedback: FeedbackOut
+    # 갱신된 예산 상태. 화면이 다시 부르지 않고 홈을 그린다.
+    # 판정이 실패했을 때만 null 이고, 그때 feedback.kind 는 month_fact 로 떨어진다.
+    budget: BudgetStateOut | None = None
     # 되돌리기 가능 시간(초). 화면의 스낵바가 이 값을 쓴다.
     undo_window_seconds: int
-    # 되돌리기 마감 시각(UTC). 화면은 이 절대 시각으로 센다. 기기 시계 차이를 없애기 위해서다.
+    # 되돌리기 마감 시각(UTC). 백그라운드에 다녀왔을 때 남은 시간을 보정하는 데 쓴다.
     undo_until: datetime
+
+
+class TransactionUpdated(BaseModel):
+    """수정 응답. 카테고리를 바꾸면 판정과 예산 상태가 달라져 함께 준다."""
+
+    transaction: TransactionOut
+    feedback: FeedbackOut
+    budget: BudgetStateOut | None = None
 
 
 class PeriodSummaryOut(BaseModel):
@@ -136,4 +139,8 @@ class PeriodSummaryOut(BaseModel):
     period_end: date
     month_expense: Decimal
     month_income: Decimal
+    # 수입 - 지출. 남은 예산과 다른 개념이다.
     monthly_delta: Decimal
+    # 예산 상태. 예산을 정하지 않았으면 budget.amount 가 null 이다.
+    # 앱을 다시 열거나 되돌린 뒤 홈을 다시 그릴 때 이 블록으로 채운다.
+    budget: BudgetStateOut

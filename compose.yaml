@@ -1,0 +1,32 @@
+# 로컬 개발과 e2e 검증에 쓰는 PostgreSQL 하나.
+# 배포용이 아니다. Cloud Run 에 올릴 백엔드 컨테이너는 아직 없다(README 「아직 만들지 않은 것」).
+#
+# 이 맥에는 다른 프로젝트의 postgres 가 이미 떠 있다.
+#   5432 lead_mgmt_db · 5433 deckspace-db
+# 둘 다 우리 것이 아니라 건드리지 않는다. 그래서 pocket 은 5434 를 쓴다.
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: pocket-db
+    environment:
+      POSTGRES_DB: pocket
+      POSTGRES_USER: pocket
+      POSTGRES_PASSWORD: pocket
+    ports:
+      # 루프백에만 연다. 계정이 pocket/pocket 고정이라 전 인터페이스에 열면
+      # 같은 네트워크의 아무나 붙을 수 있다. 백엔드도 e2e 도 localhost 로만 붙는다.
+      - '127.0.0.1:5434:5432'
+    volumes:
+      # postgres 18 은 PGDATA 가 /var/lib/postgresql/18/docker 다.
+      # 예전처럼 /var/lib/postgresql/data 에 마운트하면 기동조차 못 한다.
+      - pocket-db-data:/var/lib/postgresql
+      # 볼륨이 비어 있는 첫 기동에만 돈다. 스크립트를 고쳤으면 `make db-reset` 이 필요하다.
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pocket -d pocket']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pocket-db-data:

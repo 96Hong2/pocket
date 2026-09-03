@@ -115,6 +115,17 @@ export const DEFAULT_CATEGORY_ICONS: Record<string, IconName> = {
 
 export const FALLBACK_CATEGORY_ICON: IconName = '26_sparkles';
 
+const SM_SET = new Set<string>(SM_ICONS);
+
+/**
+ * 서버가 준 `icon_key` 를 아이콘 이름으로 받는다.
+ * 우리가 들고 있지 않은 키면 파일이 없어 깨진 이미지가 되므로 폴백으로 돌린다.
+ */
+export function toIconName(iconKey: string | null | undefined): IconName {
+  if (iconKey != null && SM_SET.has(iconKey)) return iconKey as IconName;
+  return FALLBACK_CATEGORY_ICON;
+}
+
 export function categoryIcon(categoryName: string | undefined): IconName {
   if (!categoryName) return FALLBACK_CATEGORY_ICON;
   return DEFAULT_CATEGORY_ICONS[categoryName] ?? FALLBACK_CATEGORY_ICON;

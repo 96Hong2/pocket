@@ -14,6 +14,9 @@ const disableDevtools =
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [...(disableDevtools ? [] : [aitDevtools.vite()]), react(), tailwindcss()],
+  // 포트가 밀리면 백엔드 CORS 허용 목록(localhost:5173)에서 벗어나 API 가 전부 막힌다.
+  // 조용히 다른 포트로 가는 대신 즉시 실패하게 둔다.
+  server: { port: 5173, strictPort: true },
   test: {
     environment: 'jsdom',
     globals: true,

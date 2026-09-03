@@ -294,6 +294,10 @@
     inset: -5px 0;
   }
 
+  .pk-segmented__item:disabled {
+    color: var(--color-disabled);
+  }
+
   .pk-segmented__item[aria-checked='true'] {
     background: var(--color-surface);
     box-shadow: var(--shadow-card);

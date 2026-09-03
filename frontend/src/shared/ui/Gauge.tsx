@@ -1,3 +1,5 @@
+import type { HTMLAttributes } from 'react';
+
 import { cx } from '../lib/cx';
 
 /** 10 히어로·예산 / 8 카테고리·통계 / 6 목표 미니 */
@@ -9,7 +11,8 @@ const SIZE_CLASS: Record<GaugeSize, string> = {
   6: 'pk-gauge--6',
 };
 
-export interface GaugeProps {
+export interface GaugeProps
+  extends Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'role'> {
   /** 0~1. 1 을 넘으면 막대는 꽉 차고 색이 앰버로 바뀐다. */
   ratio: number;
   size?: GaugeSize;
@@ -17,10 +20,16 @@ export interface GaugeProps {
   over?: boolean;
   /** 화면에 라벨이 따로 없을 때 스크린리더가 읽을 설명. */
   label?: string;
-  className?: string;
 }
 
-export function Gauge({ ratio, size = 10, over, label, className }: GaugeProps) {
+export function Gauge({
+  ratio,
+  size = 10,
+  over,
+  label,
+  className,
+  ...rest
+}: GaugeProps) {
   const safeRatio = Number.isFinite(ratio) ? Math.max(0, ratio) : 0;
   const isOver = over ?? safeRatio > 1;
   const percent = Math.min(100, Math.round(safeRatio * 100));
@@ -33,6 +42,7 @@ export function Gauge({ ratio, size = 10, over, label, className }: GaugeProps) 
       aria-valuemax={100}
       aria-valuenow={percent}
       aria-label={label}
+      {...rest}
     >
       <div
         className={cx('pk-gauge__fill', isOver && 'pk-gauge__fill--over')}

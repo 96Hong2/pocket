@@ -12,6 +12,8 @@ from app.api.deps import get_verifier
 from app.api.errors import install_exception_handlers
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.modules.budgets import router as budgets_router
+from app.modules.categories import router as categories_router
 from app.modules.transactions import router as transactions_router
 
 __all__ = ["app", "create_app"]
@@ -39,12 +41,15 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        # 예산 저장이 PUT 이다. 빠지면 브라우저가 preflight 에서 400 을 받아 저장 자체가 막힌다.
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-Anon-Key"],
     )
 
     install_exception_handlers(app)
     app.include_router(transactions_router, prefix="/api/v1")
+    app.include_router(categories_router, prefix="/api/v1")
+    app.include_router(budgets_router, prefix="/api/v1")
 
     @app.get("/health", tags=["meta"])
     def health() -> dict[str, str]:

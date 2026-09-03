@@ -45,6 +45,24 @@ export function toIsoDate(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
+/**
+ * 가계부가 날짜를 세는 기준 시간대.
+ *
+ * 서버가 '오늘'과 월 경계를 이 시간대로 판정하고(`users.timezone`, 기본값), 기기 시간대는
+ * 보지 않는다. 응답에 시간대가 실려 오기 시작하면 상수 대신 그 값을 읽는다.
+ */
+export const LEDGER_TIME_ZONE = 'Asia/Seoul';
+
+// sv-SE 로케일이 `YYYY-MM-DD` 를 준다. 서버가 쓰는 날짜 표기와 같은 모양이다.
+const ledgerDateFormat = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: LEDGER_TIME_ZONE,
+});
+
+/** Date → `2026-09-03` (기기가 어디에 있든 가계부 기준 시간대) */
+export function toLedgerDate(date: Date): string {
+  return ledgerDateFormat.format(date);
+}
+
 /** `2026-09-03` → 로컬 자정 Date */
 export function parseIsoDate(iso: string): Date {
   const [year, month, day] = iso.split('-').map(Number);
@@ -90,19 +108,12 @@ export function formatWeekday(date: string | Date): string {
 }
 
 /** 오늘·어제만 말로 바꾸고 그보다 지난 날짜는 `9월 1일` 로 적는다. */
-export function formatRelativeDay(
-  date: string | Date,
-  today: Date = new Date(),
-): string {
+export function formatRelativeDay(date: string | Date, today: Date = new Date()): string {
   const target = typeof date === 'string' ? parseIsoDate(date) : date;
   const targetIso = toIsoDate(target);
   if (targetIso === toIsoDate(today)) return '오늘';
 
-  const yesterday = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate() - 1,
-  );
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
   if (targetIso === toIsoDate(yesterday)) return '어제';
 
   return formatDayLabel(target);
