@@ -4,6 +4,11 @@
 @import 'tailwindcss';
 @import './shared/ui/ui.css';
 
+/* 화면별 스펙. feature 하나에 css 하나이고 여기서만 불러온다. */
+@import './features/home/home.css';
+@import './features/quick-record/quick-record.css';
+@import './features/ads/ads.css';
+
 /*
   디자인 토큰. 이 블록이 CSS 쪽 정본이고, 같은 값이 shared/tokens/index.ts 에 있다.
   둘이 어긋나면 shared/tokens/tokens.test.ts 가 깨진다.

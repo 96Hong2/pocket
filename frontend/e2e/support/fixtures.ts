@@ -1,8 +1,11 @@
 import { test as base, expect } from '@playwright/test';
 
 import { AppShell } from '../screens/AppShell';
+import { HomeScreen } from '../screens/HomeScreen';
+import { RecordSheet } from '../screens/RecordSheet';
 
 import { anonKeyFor, installAnonKeyTrap, probeAnonKey } from './anonKey';
+import { PrepApi } from './api';
 import { DEV_STACK_URLS } from './env';
 
 /**
@@ -16,6 +19,10 @@ interface PocketFixtures {
   /** 콘솔 오류를 하나 눈감아 줄 때 여기에 정규식을 넣는다. 이유를 주석으로 남긴다. */
   consoleErrorAllowList: RegExp[];
   appShell: AppShell;
+  home: HomeScreen;
+  recordSheet: RecordSheet;
+  /** 화면으로 만들 수 없는 사전 조건을 심는다. 브라우저와 같은 익명키를 쓴다. */
+  prep: PrepApi;
 }
 
 export const test = base.extend<PocketFixtures>({
@@ -29,6 +36,20 @@ export const test = base.extend<PocketFixtures>({
 
   appShell: async ({ page }, use) => {
     await use(new AppShell(page));
+  },
+
+  home: async ({ page }, use) => {
+    await use(new HomeScreen(page));
+  },
+
+  recordSheet: async ({ page }, use) => {
+    await use(new RecordSheet(page));
+  },
+
+  prep: async ({ anonKey }, use) => {
+    const api = await PrepApi.create(anonKey);
+    await use(api);
+    await api.dispose();
   },
 
   // 기본 page 를 감싼다. 격리 트랩 주입과 감시가 모든 테스트에 자동으로 걸린다.

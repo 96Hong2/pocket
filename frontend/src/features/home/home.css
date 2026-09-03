@@ -1,0 +1,196 @@
+/*
+  홈 화면 전용 스펙. 색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
+  공용 프리미티브는 shared/ui/ui.css 가 그리고, 여기에는 홈에만 있는 배치만 둔다.
+*/
+
+@layer components {
+  .home {
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── 히어로 ─────────────────────────────────────── */
+
+  .home-hero__label {
+    display: block;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .home-hero__row {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin-top: 6px;
+  }
+
+  .home-hero__value {
+    letter-spacing: -0.5px;
+  }
+
+  .home-hero__total {
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .home-hero__lead {
+    margin: 8px 0 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.55;
+    color: var(--color-muted);
+  }
+
+  .home-hero__budget {
+    margin-top: 14px;
+  }
+
+  .home-hero__meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .home-hero__percent {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-sage-700);
+  }
+
+  .home-hero__percent--over {
+    color: var(--color-amber-700);
+  }
+
+  .home-hero__daily {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  /* ── 기록 버튼 ──────────────────────────────────── */
+
+  .home-cta {
+    margin-top: 20px;
+  }
+
+  .home-cta__icon {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+  }
+
+  /* ── 세이지 카드(복귀·예산 제안) ─────────────────── */
+
+  .home-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .home-card__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .home-card__text {
+    flex: 1;
+    margin: 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-ink);
+  }
+
+  .home-card__text strong {
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .home-card__error {
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+
+  /* ── 예산 입력 ──────────────────────────────────── */
+
+  .budget-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .budget-field__label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  .budget-field__box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 48px;
+    padding: 0 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-button);
+  }
+
+  .budget-field__box:focus-within {
+    border-color: var(--color-sage-300);
+  }
+
+  .budget-field__input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    outline: none;
+  }
+
+  .budget-field__input::placeholder {
+    color: var(--color-placeholder);
+  }
+
+  .budget-field__unit {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  /* ── 오늘 목록 ──────────────────────────────────── */
+
+  .home-today {
+    margin-top: 24px;
+  }
+
+  .home-today__title {
+    margin: 0 0 10px;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  /* 화면 맨 아래가 탭바에 눌리지 않게 한 뼘 남긴다. */
+  .home__tail {
+    height: 16px;
+  }
+}

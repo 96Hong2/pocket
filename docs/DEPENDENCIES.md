@@ -16,7 +16,6 @@
 | react-dom | 19.2.8 | 19.2.8 | react 와 짝 |
 | react-router | 8.3.1 | 8.3.1 | 화면 18개에 뒤로가기·딥링크가 필요하다. v8 은 `react-router-dom` 없이 단일 패키지다 |
 | @tanstack/react-query | 5.102.8 | 5.102.8 | 서버 상태 캐시·무효화. 저장 직후 홈이 즉시 갱신돼야 해서 필요하다 |
-| zod | 4.5.4 | 4.5.4 | API 응답 검증용. ⚠ **아직 어디서도 쓰지 않는다.** `shared/api` 를 만들 때 쓰거나 빼기로 정한다. LLM structured output 검증은 백엔드 pydantic 이 한다 |
 | @apps-in-toss/web-framework | 3.2.0 | 3.2.0 | 미니앱 SDK. 최신 안정 3.x |
 
 ### 빌드·개발 도구
@@ -31,6 +30,16 @@
 | @apps-in-toss/devtools | 3.2.0 | 3.2.0 | dev 서버에 목 SDK 를 주입한다. 브라우저에서 `sandbox` 로 잡히는 이유 |
 | oxlint | 1.81.0 | 1.81.0 | 린터. Vite 8 템플릿 기본값이고 ESLint 보다 빠르다 |
 | prettier | 3.9.6 | 3.9.6 | 포매터 |
+
+### 설치하지 않고 npx 로 부르는 것
+
+| 도구 | 버전 | 어디서 | 왜 설치하지 않나 |
+|---|---|---|---|
+| openapi-typescript | 7.13.0 | `npm run api:types` (`frontend/scripts/gen-api-types.mjs`) | 이 레포 typescript 는 7.x 인데 이 도구는 peer 로 `^5.x` 를 요구한다. 억지로 설치하면 `ts.factory` 가 없어 실행 중에 죽는다. npx 로 부르면 자기 typescript 를 데려와 정상 동작한다(실측 확인) |
+
+생성물 `frontend/src/shared/api/schema.gen.ts` 는 **커밋한다.** CI 의 frontend 잡이 백엔드 없이
+도는데 그때도 타입이 있어야 빌드되기 때문이다. 대신 CI 가 다시 뽑아 `git diff --exit-code` 로
+대조해서, 스펙과 어긋난 채로는 머지되지 않게 막는다.
 
 ### 테스트
 
@@ -84,7 +93,7 @@
 ## beta / rc / canary 확인
 
 **직접 의존성에는 프리릴리즈가 하나도 없다.** 프론트 23개, 백엔드 14개 전부 안정 버전이다.
-`package-lock.json` 전체 368개 패키지를 훑으면 프리릴리즈가 둘 나온다.
+`package-lock.json` 전체 371개 패키지를 훑으면 프리릴리즈가 둘 나온다.
 
 - `clipanion@4.0.0-rc.4` : `@apps-in-toss/cli` 가 고정해서 끌고 온다
 - `gensync@1.0.0-beta.2` : `@babel/core` 가 오래 전부터 쓰는 버전이다
@@ -105,6 +114,7 @@ node -e "const l=require('./package-lock.json');for(const [k,v] of Object.entrie
 | `@toss/tds-mobile` (2.5.1) | peer 가 `react: ^16.8.3 \|\| ^17 \|\| ^18` 이라 React 19 를 막는다. 게다가 상단 네비게이션은 플랫폼이 그려서 컴포넌트가 없고 하단 탭바는 TDS 에 아예 없다. 나머지는 세이지/앰버 커스텀이라 남는 게 적다. `docs/ADR/0002-no-tds-in-mvp.md` |
 | Zustand 등 전역 상태 | 서버 상태는 TanStack Query, 화면 상태는 `useState` 로 충분하다. 서버 데이터를 전역 스토어에 복사하면 두 벌이 되고 어긋난다 |
 | 서비스워커 / offline-first | 캐시 무효화와 버전 스큐 비용이 얻는 것보다 크다. 오프라인 대비는 키패드 입력 로컬 큐까지 |
+| zod (4.5.4) | API 응답 검증용으로 넣어 뒀지만 `shared/api` 를 만들면서 뺐다. 타입은 `docs/openapi.json` 에서 뽑고, 그 스펙과 코드가 어긋나지 않는 것은 CI 게이트 두 개가 지킨다(백엔드가 스펙을 다시 뽑아 대조, 프론트가 타입을 다시 뽑아 대조). 런타임에 같은 스키마를 한 번 더 적으면 정본이 셋이 된다. LLM structured output 검증은 백엔드 pydantic 이 한다 |
 | axios | `fetch` 로 충분하다. 인터셉터가 필요하면 `shared/api` 에서 감싼다 |
 | black / flake8 / isort | ruff 하나가 다 한다 |
 

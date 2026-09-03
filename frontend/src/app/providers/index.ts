@@ -1,3 +1,4 @@
+export { ApiProvider } from './ApiProvider';
 export { AppProviders } from './AppProviders';
 export { BridgeProvider } from './BridgeProvider';
 export { IdentityProvider } from './IdentityProvider';

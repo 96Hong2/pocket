@@ -41,7 +41,8 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        # 예산 저장이 PUT 이다. 빠지면 브라우저가 preflight 에서 400 을 받아 저장 자체가 막힌다.
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-Anon-Key"],
     )
 

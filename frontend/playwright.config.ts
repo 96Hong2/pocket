@@ -57,6 +57,8 @@ export default defineConfig({
       // vite.config.ts 의 strictPort 는 살아 있다. CLI 인자가 설정 포트를 덮는다.
       command: `npm run dev -- --port ${E2E_WEB_PORT}`,
       url: E2E_WEB_URL,
+      // 이 줄이 없으면 프론트가 개발 백엔드(8000)를 찌르고 fixtures 의 개발 스택 가드가 잡는다.
+      env: { VITE_API_BASE_URL: E2E_API_URL },
       stdout: 'pipe',
       stderr: 'pipe',
       reuseExistingServer: false,

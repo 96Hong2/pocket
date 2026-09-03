@@ -11,10 +11,14 @@
 export const TEST_IDS = {
   /** 홈의 남은 예산 금액 */
   remainingBudget: 'remaining-budget',
+  /** 홈의 이번 달 쓴 돈 금액. 예산을 정하기 전 히어로가 이걸 그린다. */
+  monthSpent: 'month-spent',
   /** 홈의 하루 가용액 금액 */
   dailyAllowance: 'daily-allowance',
   /** 홈의 예산 진행 게이지 */
   budgetGauge: 'budget-gauge',
+  /** 홈의 광고 자리. 채울 광고가 없으면 높이가 0 이어야 한다. */
+  adSlot: 'ad-slot',
 } as const;
 
 export type TestIdKey = keyof typeof TEST_IDS;

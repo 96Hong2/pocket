@@ -7,3 +7,6 @@ package-lock.json
 pocket.ait
 public/icons
 src/assets
+
+# 생성물. prettier 가 손대면 재생성 결과와 달라져 CI 드리프트 게이트가 깨진다
+src/shared/api/schema.gen.ts

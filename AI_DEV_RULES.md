@@ -63,7 +63,8 @@ Apps in Toss API/SDK 이름을 기억으로 추측하지 않는다. 확인 순�
 - 월 이동 UI는 하나의 `MonthStepper`를 사용.
 - Bottom Sheet/Error/Empty/Loading 상태를 화면마다 새로 만들지 말고 공용 component variant로 구현.
 - 색상 hex를 feature마다 하드코딩하지 말고 token 사용.
-- Tailwind는 `index.css`의 `@theme` 토큰 선언에만 쓴다. 화면과 공용 컴포넌트는 `shared/ui/ui.css`·`app/shell.css`의 BEM 클래스로 그리고, tsx에 유틸리티 클래스를 쓰지 않는다. 예외는 `shared/ui/__demo__` 레이아웃뿐이다.
+- Tailwind는 `index.css`의 `@theme` 토큰 선언에만 쓴다. 화면과 공용 컴포넌트는 BEM 클래스로 그리고, tsx에 유틸리티 클래스를 쓰지 않는다. 예외는 `shared/ui/__demo__` 레이아웃뿐이다.
+- CSS 파일 자리는 셋이다. 공용 컴포넌트는 `shared/ui/ui.css`, 앱 셸과 페이지 골격은 `app/shell.css`, feature 화면은 그 feature 폴더의 `<feature>.css` 하나이고 `index.css`가 불러온다. feature 스펙을 셸 파일에 쌓지 않는다. 전부 `@layer components` 안에 두고 색·반경·글자는 토큰 변수로 읽는다.
 - 접근성: 터치 영역, contrast, 큰 글자, tabular numeric 확인.
 
 ## 7. Apps in Toss Rules
