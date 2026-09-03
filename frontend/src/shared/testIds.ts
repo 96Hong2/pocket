@@ -17,8 +17,14 @@ export const TEST_IDS = {
   dailyAllowance: 'daily-allowance',
   /** 홈의 예산 진행 게이지 */
   budgetGauge: 'budget-gauge',
+  /** 홈의 남은 일수. 하루 가용액이 이 값으로 나눈 결과인지 되짚는다. */
+  remainingDays: 'remaining-days',
   /** 홈의 광고 자리. 채울 광고가 없으면 높이가 0 이어야 한다. */
   adSlot: 'ad-slot',
+  /** 기록 시트에서 지금 눌러 둔 금액 */
+  recordAmount: 'record-amount',
+  /** 저장 직후 피드백 한 줄 */
+  feedbackHeadline: 'feedback-headline',
 } as const;
 
 export type TestIdKey = keyof typeof TEST_IDS;

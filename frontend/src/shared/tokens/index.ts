@@ -22,7 +22,7 @@ export const colors = {
   amber700: '#7E5B21',
 
   ink: '#26292B',
-  muted: '#8B9096',
+  muted: '#64686C',
   placeholder: '#C9C4B8',
   disabled: '#DCD8CE',
   adLabel: '#B0AB9F',

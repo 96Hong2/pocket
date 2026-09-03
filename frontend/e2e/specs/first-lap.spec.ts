@@ -1,3 +1,6 @@
+import type { Page } from '@playwright/test';
+
+import { ROUTES } from '../../src/app/router/routes';
 import { formatCurrency } from '../../src/shared/lib/format';
 import { keyStrokesFor } from '../screens/RecordSheet';
 import { expect, test } from '../support/fixtures';
@@ -16,7 +19,41 @@ const BUDGET = 500_000;
 /** 홈 CTA · 금액 · 카테고리. 금액은 몇 번을 누르든 한 단계로 센다. */
 const EXPECTED_STEPS = 3;
 
+/** 탭 계수기가 페이지에 남기는 자리. 이 이름으로 심고 이 이름으로 읽는다. */
+const TAP_COUNT_KEY = '__pocketTapCount';
+
+/**
+ * 화면이 실제로 받은 탭을 센다.
+ *
+ * 이 함수 본문은 브라우저에서 돈다. 바깥 스코프를 참조하면 안 된다.
+ * 테스트가 스스로 세면 앱이 아니라 테스트 코드를 검사하게 된다.
+ */
+function installTapCounter(key: string): void {
+  const store = window as unknown as Record<string, number>;
+  store[key] = 0;
+  window.addEventListener(
+    'click',
+    () => {
+      store[key] += 1;
+    },
+    true,
+  );
+}
+
+async function tapCount(page: Page, key: string): Promise<number> {
+  const count = await page.evaluate(
+    (name) => (window as unknown as Record<string, number | undefined>)[name],
+    key,
+  );
+  if (count == null) {
+    throw new Error('탭 계수기가 페이지에 없다. 초기 스크립트가 걸리지 않았거나 화면이 다시 떴다');
+  }
+  return count;
+}
+
 test('처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ page, home, recordSheet }) => {
+  await page.addInitScript(installTapCounter, TAP_COUNT_KEY);
+
   await test.step('질문 없이 홈이 보인다', async () => {
     await home.open();
     await home.waitReady();
@@ -27,28 +64,28 @@ test('처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ page, 
     await expect(home.gauge).toHaveCount(0);
   });
 
-  let steps = 0;
-  let keyPresses = 0;
-
   await test.step('12,000원 식비를 저장한다', async () => {
     await home.recordButton.click();
-    steps += 1;
     await recordSheet.waitOpen();
 
-    keyPresses = await recordSheet.enterAmount(AMOUNT);
-    steps += 1;
+    await recordSheet.enterAmount(AMOUNT);
     await expect(recordSheet.amountText).toHaveText(formatCurrency(AMOUNT));
 
     // 카테고리를 누르는 것이 곧 저장이다. 저장 버튼을 따로 누르지 않는다.
     await recordSheet.pickCategory(CATEGORY);
-    steps += 1;
     await recordSheet.waitSaved();
   });
 
-  await test.step('저장까지 세 단계를 넘지 않는다', () => {
-    expect(steps).toBe(EXPECTED_STEPS);
-    // 실제로 누른 키 수도 함께 남긴다. 흐름에 조작이 늘면 이 값이 먼저 움직인다.
-    expect(keyPresses).toBe(keyStrokesFor(AMOUNT).length);
+  await test.step('저장까지 세 단계를 넘지 않는다', async () => {
+    // 금액 키패드 연타는 한 단계로 친다. 남는 것은 홈 CTA 와 카테고리 두 번뿐이어야 한다.
+    // 화면에 확인 버튼 같은 조작이 하나라도 붙으면 실제로 누른 탭이 늘어 여기서 깨진다.
+    const amountKeys = keyStrokesFor(AMOUNT).length;
+    const taps = await tapCount(page, TAP_COUNT_KEY);
+
+    expect(
+      taps - amountKeys,
+      `저장까지 탭 ${taps}번(금액 키 ${amountKeys}번 포함)이 필요했다`,
+    ).toBe(EXPECTED_STEPS - 1);
   });
 
   await test.step('피드백에 이번 달 지출이 실제 숫자로 뜬다', async () => {
@@ -58,12 +95,16 @@ test('처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ page, 
   });
 
   await test.step('되돌리면 홈 숫자가 원래대로 돌아온다', async () => {
+    // 되돌리기 전에 홈 숫자가 실제로 움직였는지부터 본다. 여기가 비면 왕복을 증명하지 못한다.
+    // 시트는 포털이라 홈이 뒤에 그대로 붙어 있어 시트가 열린 채로도 잡힌다.
+    await expect(home.monthSpent).toHaveText(formatCurrency(AMOUNT));
+
     await recordSheet.undo();
     await recordSheet.waitClosed();
 
     // 새로고침 없이 돌아와야 한다. 다시 부르면 이 단언은 배선이 빠져도 통과한다.
     await expect(home.monthSpent).toHaveText(formatCurrency(0));
-    expect(page.url()).toContain('/');
+    expect(new URL(page.url()).pathname).toBe(ROUTES.home);
   });
 });
 
@@ -91,12 +132,15 @@ test('예산을 정하면 게이지가 생기고 기록할수록 찬다', async 
   await test.step('예산을 정하면 남은 예산과 하루 가용액이 보인다', async () => {
     await home.setBudget(BUDGET);
 
-    await expect(home.remainingBudget).toHaveText(formatCurrency(BUDGET - AMOUNT));
+    const remaining = BUDGET - AMOUNT;
+    await expect(home.remainingBudget).toHaveText(formatCurrency(remaining));
 
     // 하루 가용액은 서버가 남은 일수로 나눠 준다. 화면이 다시 계산하지 않는다.
-    const daily = await home.dailyAllowance.textContent();
-    expect(daily, '하루 가용액이 비어 있다').toBeTruthy();
-    expect(daily).not.toContain('NaN');
+    // 그래서 화면이 함께 그리는 남은 일수로 되짚는다. 다른 값을 실어 보내면 여기서 깨진다.
+    const days = await home.remainingDays();
+    expect(days, '남은 일수가 화면에 없다').not.toBeNull();
+    const perDay = Math.floor(remaining / Math.max(1, days ?? 0));
+    await expect(home.dailyAllowance).toHaveText(formatCurrency(perDay));
 
     const percent = await home.gaugePercent();
     expect(percent, '게이지가 없다').not.toBeNull();
@@ -147,8 +191,14 @@ test('저장 응답이 300ms 안에 온다', async ({ page, home, recordSheet })
   await recordSheet.pickCategory(CATEGORY);
 
   const response = await saved;
+  // waitForResponse 는 헤더를 받은 시점에 풀린다. 본문을 다 읽기 전의 responseEnd 는 -1 이라
+  // 이 줄이 없으면 elapsed 가 항상 음수가 되어 아래 단언이 무슨 값이 와도 통과한다.
+  await response.finished();
+
   const timing = response.request().timing();
   const elapsed = timing.responseEnd - timing.requestStart;
 
+  // 음수면 시간을 못 잰 것이다. 못 잰 채로 초록이 되지 않게 여기서 먼저 막는다.
+  expect(elapsed, '저장 응답 시간을 재지 못했다').toBeGreaterThan(0);
   expect(elapsed, `저장 응답이 ${Math.round(elapsed)}ms 걸렸다`).toBeLessThan(300);
 });

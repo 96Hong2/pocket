@@ -13,8 +13,6 @@ export type { ApiContextValue } from './context';
 export { parseDecimal, parseDecimalOr } from './decimal';
 export { ApiError, apiErrorMessage, CLIENT_ERROR_CODES, parseErrorEnvelope } from './errors';
 export type { ApiErrorCode, ApiErrorInit, ClientErrorCode, ParsedErrorBody } from './errors';
-export { isFeedbackFallback } from './feedback';
-export type { FeedbackResult } from './feedback';
 export { moneyQueryKeys, queryKeys } from './queryKeys';
 export { useBudget, useCategories, useSummary, useTransactions } from './queries';
 export {

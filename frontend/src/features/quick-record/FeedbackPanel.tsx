@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   ApiError,
@@ -10,6 +10,7 @@ import {
   type TransactionOut,
   type TransactionUpdated,
 } from '../../shared/api';
+import { TEST_IDS } from '../../shared/testIds';
 import { Button, toIconName, TransactionRow } from '../../shared/ui';
 
 import { CategoryChips } from './CategoryChips';
@@ -37,6 +38,7 @@ export function FeedbackPanel({
   onUpdated,
   onConfirm,
 }: FeedbackPanelProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
   const [changing, setChanging] = useState(false);
   const undo = useUndoTransaction();
   const update = useUpdateTransaction();
@@ -51,8 +53,13 @@ export function FeedbackPanel({
   const expired = undoError?.code === 'UNDO_EXPIRED';
   const updateError = update.error instanceof ApiError ? update.error : null;
 
+  // 저장하면 방금 누른 칩이 사라지면서 포커스가 시트 밖으로 떨어진다. 여기서 다시 잡는다.
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
+
   return (
-    <div className="feedback">
+    <div className="feedback" ref={panelRef} tabIndex={-1}>
       <div className="feedback__head">
         <span className="feedback__label">저장했어요</span>
         {expired ? null : (
@@ -94,9 +101,10 @@ export function FeedbackPanel({
         className={
           message.tone === 'caution' ? 'feedback__card feedback__card--caution' : 'feedback__card'
         }
+        role="status"
       >
         {message.badge ? <span className="feedback__badge">{message.badge}</span> : null}
-        <p className="feedback__headline" data-numeric="">
+        <p data-testid={TEST_IDS.feedbackHeadline} className="feedback__headline" data-numeric="">
           {message.headline}
         </p>
         {message.detail ? (

@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
+import { TEST_IDS } from '../../src/shared/testIds';
+
 /**
  * 기록 바텀시트.
  *
@@ -29,11 +31,7 @@ export class RecordSheet {
 
   /** 지금 눌러 둔 금액. `12,000원` 처럼 포맷된 문자열이다. */
   get amountText(): Locator {
-    return this.root.locator('.keypad__amount');
-  }
-
-  get repeatChip(): Locator {
-    return this.root.locator('.repeat-chip');
+    return this.root.getByTestId(TEST_IDS.recordAmount);
   }
 
   categoryChip(name: string): Locator {
@@ -44,14 +42,12 @@ export class RecordSheet {
    * 금액을 키패드로 찍는다.
    *
    * `fill` 로 우회하지 않는다. 실제로 누르지 않으면 앞자리 0 규칙 같은 것이 검증되지 않는다.
-   * 돌려주는 값은 실제로 누른 키 수다. 흐름에 조작이 늘면 spec 이 알아챈다.
+   * 몇 번을 눌렀는지는 `keyStrokesFor` 가 알려 준다.
    */
-  async enterAmount(amount: number): Promise<number> {
-    const keys = keyStrokesFor(amount);
-    for (const key of keys) {
+  async enterAmount(amount: number): Promise<void> {
+    for (const key of keyStrokesFor(amount)) {
       await this.root.getByRole('button', { name: key, exact: true }).click();
     }
-    return keys.length;
   }
 
   /** 카테고리를 누르는 것이 곧 저장이다. 저장 버튼이 따로 없다. */
@@ -66,19 +62,11 @@ export class RecordSheet {
   }
 
   get feedbackHeadline(): Locator {
-    return this.root.locator('.feedback__headline');
-  }
-
-  get feedbackDetail(): Locator {
-    return this.root.locator('.feedback__detail');
+    return this.root.getByTestId(TEST_IDS.feedbackHeadline);
   }
 
   get undoButton(): Locator {
     return this.root.getByRole('button', { name: '되돌리기' });
-  }
-
-  get changeCategoryButton(): Locator {
-    return this.root.getByRole('button', { name: '카테고리 바꾸기' });
   }
 
   get confirmButton(): Locator {
@@ -91,13 +79,6 @@ export class RecordSheet {
 
   async undo(): Promise<void> {
     await this.undoButton.click();
-  }
-
-  /** 피드백 화면에서 카테고리를 다시 고른다. 시트를 다시 열지 않는다. */
-  async changeCategoryTo(name: string): Promise<void> {
-    await this.changeCategoryButton.click();
-    await this.root.locator('.feedback__change').getByRole('button', { name, exact: true }).click();
-    await expect(this.root.locator('.feedback__change')).toBeHidden();
   }
 }
 

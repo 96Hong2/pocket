@@ -33,7 +33,7 @@ PostgreSQL 네이티브 enum 타입을 만들지 않는다. 값 하나 추가하
 
 `occurred_at` 같은 `timestamptz` 는 **UTC 로 저장**한다.
 **월 경계와 '오늘'은 `users.timezone`(기본 `Asia/Seoul`) 기준**으로 다시 계산한다.
-헬퍼는 `modules/transactions/service.py` 의 `today_for`·`period_for`·`_period_bounds` 다.
+헬퍼는 `modules/ledger.py` 의 `today_for`·`period_for`·`period_bounds` 다.
 UTC 로 날짜를 뽑으면 한국에서 자정부터 아침 9시까지의 거래가 전달로 집계된다.
 
 ## ER 다이어그램

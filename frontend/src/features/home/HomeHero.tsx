@@ -85,7 +85,7 @@ export function HomeHero({ view, budget }: HomeHeroProps) {
               {formatPercent(progress)} 썼어요
             </span>
             <span className="home-hero__daily" data-numeric="">
-              남은 {state.remaining_days}일 · 하루{' '}
+              남은 <span data-testid={TEST_IDS.remainingDays}>{state.remaining_days}</span>일 · 하루{' '}
               <Amount
                 data-testid={TEST_IDS.dailyAllowance}
                 value={daily ?? 0}

@@ -109,7 +109,8 @@ def test_저장_응답의_예산_블록이_직후_조회와_같다(client: TestC
     fetched = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()["budget"]
     assert created["budget"] == fetched
     assert created["budget"]["remaining_budget"] == "588000"
-    assert created["budget"]["spend_progress"] is not None
+    # 12,000 / 600,000. 화면 게이지가 이 값을 그대로 쓴다.
+    assert created["budget"]["spend_progress"] == "0.0200"
 
 
 def test_요약에도_같은_예산_블록이_실린다(client: TestClient) -> None:

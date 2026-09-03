@@ -5,7 +5,7 @@
  * 예산 상태는 홈·기록·예산 설정 세 곳이 같이 보고, 거래를 저장하면 셋이 한꺼번에 낡는다.
  * 키와 훅을 feature 마다 만들면 어느 한 곳이 반드시 빠진다. 한 자리에 둔다.
  *
- * **M1 화면이 실제로 쓰는 것만 있다.** 목록·수정·삭제는 그 화면을 만들 때 여기에 더한다.
+ * **지금 화면이 실제로 쓰는 조회만 있다.** 나머지는 그 화면을 만들 때 여기에 더한다.
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -62,7 +62,7 @@ export function useTransactions(params?: TransactionListParams) {
   });
 }
 
-/** 그 달의 지출·수입·차액과 예산 상태. 저장 응답이 비었을 때 홈을 다시 채우는 자리다. */
+/** 그 달의 지출·수입·차액과 예산 상태. 내역 화면이 쓸 자리이고 지금은 홈이 부르지 않는다. */
 export function useSummary(params?: MonthParams) {
   const client = useApiClient();
   const isReady = useApiReady();

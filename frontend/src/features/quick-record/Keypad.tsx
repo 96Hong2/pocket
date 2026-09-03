@@ -1,4 +1,5 @@
 import { formatCurrency } from '../../shared/lib/format';
+import { TEST_IDS } from '../../shared/testIds';
 
 import { appendDigit, toAmount } from './digits';
 
@@ -9,6 +10,7 @@ export function AmountDisplay({ digits, hint }: { digits: string; hint: string }
   return (
     <div className="keypad__head">
       <div
+        data-testid={TEST_IDS.recordAmount}
         className={digits === '' ? 'keypad__amount keypad__amount--empty' : 'keypad__amount'}
         data-numeric=""
         aria-live="polite"

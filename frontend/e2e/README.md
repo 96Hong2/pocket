@@ -7,11 +7,12 @@
 
 ```
 e2e/
-  support/     테스트 바깥 장치. 격리·가드·주소. spec 이 직접 부르지 않는다
-    env.ts       포트와 주소 한 곳
-    anonKey.ts   테스트별 익명키 생성과 devtools 목에 주입하는 트랩
-    api.ts       화면으로 못 만드는 사전 조건을 심는다(며칠 전 기록 같은 것)
-    fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다
+  support/     테스트 바깥 장치. 격리·가드·주소
+    env.ts       포트와 주소 한 곳. spec 이 직접 쓴다
+    anonKey.ts   테스트별 익명키 생성과 devtools 목에 주입하는 트랩.
+                 보통은 fixtures 가 걸고, 이 장치 자체를 증명하는 spec 만 직접 부른다
+    api.ts       사전 조건을 심는다. spec 은 `prep` 픽스처로 받는다
+    fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다. spec 은 여기서 시작한다
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
     AppShell     마운트와 하단 3탭
     HomeScreen   히어로 숫자·게이지·기록 버튼·예산 제안·광고 자리
@@ -23,8 +24,9 @@ e2e/
 
 ## 준비는 API, 행동은 화면, 단언도 화면
 
-며칠 비운 상태처럼 시간이 필요한 사전 조건은 화면으로 만들 수 없다. 그것만 `support/api.ts` 로 심는다.
-확인하려는 동작 자체를 API 로 대신하지 않는다. 그러면 화면을 검증하지 않는 테스트가 된다.
+그 테스트가 확인하려는 동작은 반드시 화면으로 한다. 그것을 API 로 대신하면 화면을 검증하지 않는 테스트가 된다.
+그 동작의 배경이 되는 상태는 화면으로 만들 수 있어도 `support/api.ts` 로 심어도 된다.
+며칠 비운 상태처럼 화면으로는 아예 만들 수 없는 것도 여기로 심는다.
 
 ## 새 spec 을 만드는 순서
 
@@ -41,7 +43,11 @@ e2e/
 - **`@playwright/test` 를 spec 이 직접 import 하지 않는다.** `support/fixtures` 를 거친다. 안 그러면 가드가 안 걸린다.
 - **`waitForTimeout` 을 쓰지 않는다.** 기다릴 것이 있으면 `expect(...).toHaveText` 나 `expect.poll` 로 상태를 기다린다.
 - **`.tsx` 와 `.css` 를 e2e 에서 import 하지 않는다.** e2e 는 브라우저 밖 Node 에서 돈다.
-  `src/` 에서 가져와도 되는 것은 부수효과 없는 상수 모듈뿐이다(`shared/testIds.ts`, `app/router/routes.ts`).
+  `src/` 에서 가져와도 되는 것은 부수효과 없는 상수·순수 함수 모듈뿐이다.
+  지금 쓰는 것은 `shared/testIds.ts`, `app/router/routes.ts`, `shared/lib/format.ts` 셋이다.
+  목록에 없는 것을 가져오려면 `tsconfig.test.json` 을 먼저 본다. e2e·tests 프로그램이 그 모듈까지 타입 검사한다.
+- **화면 객체에서도 CSS 클래스로 잡지 않는다.** `locator('.foo')` 는 오타를 막아 주는 검사가 없다.
+  접근성 이름이나 `testIds` 를 쓴다. 잡을 이름이 없으면 4번대로 키를 더한다.
 - **URL 과 포트를 spec 에 적지 않는다.** `support/env.ts` 를 쓴다.
 
 ## 계층을 올리는 기준 (숫자로)

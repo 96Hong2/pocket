@@ -36,6 +36,7 @@
 | 도구 | 버전 | 어디서 | 왜 설치하지 않나 |
 |---|---|---|---|
 | openapi-typescript | 7.13.0 | `npm run api:types` (`frontend/scripts/gen-api-types.mjs`) | 이 레포 typescript 는 7.x 인데 이 도구는 peer 로 `^5.x` 를 요구한다. 억지로 설치하면 `ts.factory` 가 없어 실행 중에 죽는다. npx 로 부르면 자기 typescript 를 데려와 정상 동작한다(실측 확인) |
+| Playwright 브라우저 바이너리 | chromium | `npx playwright install` (CI 의 브라우저 설치 단계) | 패키지가 아니라 내려받는 바이너리다. `~/.cache/ms-playwright` 에 깔리고 CI 는 그 폴더를 `package-lock.json` 해시로 캐시한다 |
 
 생성물 `frontend/src/shared/api/schema.gen.ts` 는 **커밋한다.** CI 의 frontend 잡이 백엔드 없이
 도는데 그때도 타입이 있어야 빌드되기 때문이다. 대신 CI 가 다시 뽑아 `git diff --exit-code` 로
@@ -51,6 +52,7 @@
 | @testing-library/react | 16.3.3 | 16.3.3 | 컴포넌트 테스트 |
 | @testing-library/jest-dom | 7.0.1 | 7.0.1 | DOM 단언 |
 | @testing-library/user-event | 14.6.7 | 14.6.7 | 실제 입력에 가까운 이벤트 |
+| @playwright/test | 1.62.1 | 1.62.1 | 실제 스택을 태우는 브라우저 e2e. 규약은 `frontend/e2e/README.md` |
 
 ### 타입 정의
 

@@ -179,16 +179,18 @@ def test_되돌리기_마감_시각을_함께_준다(client: TestClient) -> None
     assert body["undo_until"].endswith(("Z", "+00:00"))
 
 
-def test_피드백_종류가_계약과_같은_값이다(client: TestClient) -> None:
-    body = client.post("/api/v1/transactions", json=_payload(), headers=AUTH).json()
-    assert body["feedback"]["kind"] in {
-        "over_budget",
-        "pace_warning",
-        "large_expense",
-        "achievement",
-        "on_track",
-        "month_fact",
-    }
+def test_예산을_넘기면_초과_판정과_초과액이_함께_온다(client: TestClient) -> None:
+    """예산 상태가 판정까지 실제로 전달되는지 보는 자리다.
+
+    서비스가 예산 상태를 넘기지 않으면 여기서 초과가 아니라 큰 지출로 떨어진다.
+    """
+    client.put("/api/v1/budgets?year=2026&month=9", json={"amount": "600000"}, headers=AUTH)
+    body = client.post("/api/v1/transactions", json=_payload(amount="700000"), headers=AUTH).json()
+
+    feedback = body["feedback"]
+    assert feedback["kind"] == "over_budget"
+    assert feedback["over_amount"] == "100000"
+    assert feedback["remaining_budget"] == "-100000"
 
 
 # ── 조회 파라미터 ───────────────────────────────────────
@@ -234,8 +236,10 @@ def test_카테고리를_고치면_판정과_예산이_다시_온다(
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["transaction"]["category_id"] == str(food.id)
-    assert body["feedback"]["kind"] in {"on_track", "month_fact", "large_expense"}
-    assert body["budget"] is not None
+    # 예산이 없고 12,000원은 큰 지출 기준에 못 미치니 사실 문장 하나만 남는다.
+    assert body["feedback"]["kind"] == "month_fact"
+    assert body["feedback"]["month_expense"] == "12000"
+    assert body["budget"]["amount"] is None
 
 
 def test_수정도_저장과_같은_검증을_쓴다(client: TestClient) -> None:

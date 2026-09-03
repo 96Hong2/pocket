@@ -103,14 +103,14 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
     "remaining_budget": "488000",
     "daily_allowance": "17428",
     "remaining_days": 28,
-    "pace_ratio": "0.24"
+    "pace_ratio": "0.2400"
   },
   "budget": {
     "period_start": "2026-09-01", "period_end": "2026-09-30",
     "amount": "500000", "budgeted_spend": "12000",
     "remaining_budget": "488000", "daily_allowance": "17428",
     "total_days": 30, "elapsed_days": 3, "remaining_days": 28,
-    "spend_progress": "0.024", "pace_ratio": "0.24",
+    "spend_progress": "0.0240", "pace_ratio": "0.2400",
     "projected_month_end": "120000",
     "is_projection_reliable": true, "is_over_budget": false
   },
@@ -137,8 +137,8 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 
 거래 저장·수정 응답에서 `budget` 이 `null` 인 경우가 하나 있다. 저장은 성공했는데 그 뒤의
 판정이 실패해 서버가 흡수했을 때다. 그때 `feedback.kind` 도 `month_fact` 로 떨어지고 숫자가
-비어 있다. 화면은 이 조합을 만나면 저장은 됐다고 보고 `GET /transactions/summary` 로 홈을
-다시 채운다.
+비어 있다. 화면은 이 조합을 만나면 저장은 됐다고 본다. 빈 `budget` 을 캐시에 덮어쓰지 않고
+예산·요약·목록 캐시를 한꺼번에 무효화해, 홈이 보고 있는 값을 서버에서 다시 받는다.
 
 ### 되돌리기 카운트다운
 
@@ -193,7 +193,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 
 ```json
 {
-  "budget": { "amount": "500000", "spend_progress": "0.024", ... },
+  "budget": { "amount": "500000", "spend_progress": "0.0240", ... },
   "month_expense": "12000",
   "month_income": "0",
   "monthly_delta": "-12000",

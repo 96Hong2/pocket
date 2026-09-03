@@ -21,7 +21,7 @@ interface PocketFixtures {
   appShell: AppShell;
   home: HomeScreen;
   recordSheet: RecordSheet;
-  /** 화면으로 만들 수 없는 사전 조건을 심는다. 브라우저와 같은 익명키를 쓴다. */
+  /** 확인하려는 동작의 배경 상태를 심는다. 브라우저와 같은 익명키를 쓴다. */
   prep: PrepApi;
 }
 

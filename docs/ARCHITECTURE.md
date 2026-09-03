@@ -121,7 +121,7 @@ src/
               assets · goals · recovery · settings         ← 아직 없다
 ```
 
-**`features/` 에는 M1 화면 셋이 있다.** 홈(`home`), 기록 시트(`quick-record`), 배너 슬롯(`ads`) 이다.
+**`features/` 에는 지금 화면 셋이 있다.** 홈(`home`), 기록 시트(`quick-record`), 배너 슬롯(`ads`) 이다.
 나머지 화면은 아직 `pages/` 의 자리표시자다. feature 하나는 컴포넌트와 판정 함수, 그리고
 화면 스펙 CSS 파일 하나(`<feature>.css`, `index.css` 가 불러온다)를 함께 가진다.
 
@@ -138,9 +138,8 @@ shared/api/
   client.ts       엔드포인트 하나에 메서드 하나
   context.ts      useApiClient() · useApiReady()
   queryKeys.ts    queryKey 규약과 무효화 대상
-  queries.ts      조회 훅 (useCategories · useBudget · useSummary)
-  mutations.ts    변경 훅 (저장 · 되돌리기 · 예산 저장)
-  feedback.ts     판정 실패를 흡수한 응답인지 가리는 함수
+  queries.ts      조회 훅 (useCategories · useBudget · useTransactions · useSummary)
+  mutations.ts    변경 훅 (저장 · 수정 · 되돌리기 · 예산 저장)
 ```
 
 생성 타입은 **커밋한다.** CI 의 frontend 잡은 백엔드 없이 도는데 그때도 타입이 있어야 빌드된다.
@@ -150,7 +149,9 @@ shared/api/
 **조회·변경 훅이 `features/` 가 아니라 `shared` 에 있는 이유**는 무효화 대상이 feature 경계를
 넘기 때문이다. 예산 상태는 홈·기록·예산 설정이 같이 보고, 거래를 하나 저장하면 셋이 한꺼번에
 낡는다. 키를 feature 마다 만들면 어느 한 곳이 반드시 빠진다.
-훅은 M1 화면이 실제로 쓰는 것만 있다. 목록·수정·삭제는 그 화면을 만들 때 더한다.
+지금 있는 훅은 카테고리·예산·목록 조회와 저장·수정·되돌리기·예산 저장이다. 삭제 훅만
+아직 없고, 내역 화면을 만들 때 더한다. `useSummary` 는 만들어 두었지만 아직 어느 화면도
+쓰지 않는다. 홈은 `useBudget` 과 `useTransactions` 로 그린다.
 
 익명 식별키는 클라이언트가 **게터로** 읽는다. 값으로 받으면 식별키가 도착할 때마다 인스턴스가
 새로 만들어진다. 만드는 자리는 `app/providers/ApiProvider.tsx` 이고, 식별키가 아직 없거나
@@ -167,15 +168,17 @@ Zustand 같은 전역 상태 라이브러리는 실제로 막히기 전에는 �
 
 ```
 app/
-  core/          설정 · 로깅
-  db/            세션 · 선언 베이스
-  models/        SQLAlchemy ORM
-  domain/        순수 계산 (예산 · 페이스 · 피드백 · 중복 fingerprint · 기본 카테고리)
-  api/           의존성 · 예외 변환 · 라우터 조립
-  modules/       transactions · budgets · reports · assets · goals · imports · settings
-  integrations/  apps_in_toss · llm
-migrations/      alembic
-tests/           domain · api · integrations · 마이그레이션 스모크
+  core/              설정 · 로깅
+  db/                세션 · 선언 베이스
+  models/            SQLAlchemy ORM
+  domain/            순수 계산 (예산 · 페이스 · 피드백 · 중복 fingerprint · 기본 카테고리)
+  api/               의존성 · 예외 변환 · 라우터 조립
+  modules/           transactions · budgets · categories · reports
+                     assets · goals · imports · settings
+    ledger.py        사용자 시간대 기준 기간·합계. 거래와 예산이 함께 읽는다
+  integrations/      apps_in_toss · llm
+migrations/          alembic
+tests/               domain · api · integrations · 마이그레이션 스모크
 ```
 
 **enum 정본은 `domain` 이다.** `TransactionType` · `TransactionSource` 는 `domain/aggregation.py`,
@@ -205,4 +208,4 @@ tests/           domain · api · integrations · 마이그레이션 스모크
 - '오늘'은 `datetime.now(ZoneInfo(user.timezone)).date()` 다.
 
 UTC 로 날짜를 뽑으면 한국에서 자정부터 아침 9시까지 저장한 거래가 전달로 집계되고,
-말일 밤에는 남은 일수가 하루 어긋난다. 헬퍼는 `modules/transactions/service.py` 에 모여 있다.
+말일 밤에는 남은 일수가 하루 어긋난다. 헬퍼는 `modules/ledger.py` 에 모여 있다.

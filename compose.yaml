@@ -13,7 +13,9 @@ services:
       POSTGRES_USER: pocket
       POSTGRES_PASSWORD: pocket
     ports:
-      - '5434:5432'
+      # 루프백에만 연다. 계정이 pocket/pocket 고정이라 전 인터페이스에 열면
+      # 같은 네트워크의 아무나 붙을 수 있다. 백엔드도 e2e 도 localhost 로만 붙는다.
+      - '127.0.0.1:5434:5432'
     volumes:
       # postgres 18 은 PGDATA 가 /var/lib/postgresql/18/docker 다.
       # 예전처럼 /var/lib/postgresql/data 에 마운트하면 기동조차 못 한다.

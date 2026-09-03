@@ -65,5 +65,6 @@ ALLOW_UNVERIFIED_ANON_KEY=true uv run python scripts/export_openapi.py  # 스키
 ## 시간대
 
 **월 경계와 '오늘'은 사용자 시간대(`users.timezone`, 기본 `Asia/Seoul`) 기준이다.**
-DB 에는 UTC 로 저장하고, 조회할 때 `service.today_for` · `service.period_for` 로 되돌린다.
+DB 에는 UTC 로 저장하고, 조회할 때 `ledger.today_for` · `ledger.period_for` 로 되돌린다.
+헬퍼는 `backend/app/modules/ledger.py` 에 있다. 거래와 예산이 같은 합계를 본다.
 UTC 로 날짜를 뽑으면 한국에서 자정부터 아침 9시까지 저장한 거래가 전달로 집계된다.

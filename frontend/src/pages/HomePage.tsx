@@ -49,9 +49,18 @@ function RecordButton({ onClick }: { onClick: () => void }) {
 }
 
 function HomeContent({ onRecord }: { onRecord: () => void }) {
+  const { state } = useIdentity();
   const budget = useBudget();
   const categories = useCategories();
   const transactions = useTransactions();
+
+  // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다.
+  // 아직 오는 중일 때만 기다리게 하고, 실패·미지원은 위 안내가 이유를 말한다.
+  if (state.status !== 'ready') {
+    return state.status === 'loading' ? (
+      <LoadingState label="지금 상태를 불러오는 중이에요" />
+    ) : null;
+  }
 
   if (budget.isPending) return <LoadingState label="지금 상태를 불러오는 중이에요" />;
   if (budget.isError || budget.data == null) {
@@ -75,6 +84,11 @@ function HomeContent({ onRecord }: { onRecord: () => void }) {
       <TodayList
         transactions={transactions.data?.items ?? []}
         categories={categories.data?.items ?? []}
+        loadFailed={transactions.isError || categories.isError}
+        onRetry={() => {
+          if (transactions.isError) void transactions.refetch();
+          if (categories.isError) void categories.refetch();
+        }}
       />
     </>
   );

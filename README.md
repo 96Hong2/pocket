@@ -112,10 +112,4 @@ make e2e       # 브라우저. DB 스키마를 올리고 자기 포트로 서버
 
 ## 아직 만들지 않은 것
 
-화면을 붙이기 전에 필요한 것. 첫 vertical slice 에서 만든다.
-
-- `frontend/src/shared/api` HTTP 클라이언트 (`X-Anon-Key` 부착, 오류 `code` 분기)
-- `frontend/src/features/*` (지금은 빈 폴더다. 화면은 `pages/` 의 자리표시자다)
-- 광고 배너 슬롯 컴포넌트 (브릿지 계약과 목 시나리오까지만 있다)
-- 기본 카테고리 시드 (목록 정본은 `backend/app/domain/categories.py`)
 - 백엔드 컨테이너와 Cloud Run 배포 설정 (`compose.yaml` 은 로컬 DB 전용이라 배포와 무관하다)

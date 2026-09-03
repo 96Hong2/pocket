@@ -29,7 +29,7 @@ export function RecoveryCard({ daysAway, onCatchUp }: RecoveryCardProps) {
         </p>
       </div>
       <Button variant="primarySmall" fullWidth onClick={onCatchUp}>
-        밀린 내역 한 번에 정리
+        기억나는 것 하나 적기
       </Button>
     </SageCard>
   );

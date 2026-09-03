@@ -1,6 +1,6 @@
 ---
 name: app-guard
-description: pocket 저장소를 고치기 전과 후에 지나가는 자가 점검. SDK 직접 호출, 음수 금액 저장, 세 금액 개념 혼용, AI 숫자 계산, P2 선구현, 광고 정책 위반, 중복 컴포넌트, 낡은 버전을 실제 grep 명령으로 잡아낸다. 이 저장소에서 코드를 만들거나 고치기 전에 항상 쓴다.
+description: pocket 저장소를 고치기 전과 후에 지나가는 자가 점검. SDK 직접 호출, 음수 금액 저장, 세 금액 개념 혼용, AI 숫자 계산, P2 선구현, 광고 정책 위반, 중복 컴포넌트, 낡은 버전, 올리면 안 되는데 추적 중인 파일을 실제 명령으로 잡아낸다. 이 저장소에서 코드를 만들거나 고치기 전에 항상 쓴다.
 ---
 
 # app-guard
@@ -100,7 +100,7 @@ find frontend/src/features/assets frontend/src/features/goals frontend/src/featu
 ```
 
 셋 다 안 나와야 한다. 나왔으면 멈추고 왜 필요한지 먼저 확인한다.
-`frontend/src/features/*` 에 P1 폴더(assets·goals·recovery)가 생겼다면 그 자체가 신호다. M1 은 기록·예산까지다.
+`frontend/src/features/*` 에 P1 폴더(assets·goals·recovery)가 생겼다면 그 자체가 신호다. 지금 만드는 범위는 기록·예산까지다.
 
 ## 6. 광고 정책을 어기지 않았나
 
@@ -212,6 +212,24 @@ rg -n "TossAds\.attach\b" frontend/src
 
 `Device.*`, `Environment.*`, `User.*`, `File.*` 네임스페이스 형태만 쓴다.
 
+## 11. 올리면 안 되는 파일이 추적되고 있지 않나
+
+`.gitignore` 는 **이미 추적 중인 파일에는 효력이 없다.** 규칙만 읽으면 막힌 것처럼 보인다.
+그래서 규칙이 아니라 실제 추적 목록을 본다. 이 저장소는 public 이다.
+
+```bash
+# 아이콘 자산 말고 추적 중인 png (검증 캡처가 올라간 자리)
+git ls-files -- '*.png' | rg -v '^frontend/public/icons/'
+# 무시하라고 적어 둔 규칙에 걸리는데도 추적 중인 것 (부정 규칙 !… 은 뺀다)
+git ls-files | git check-ignore --stdin --no-index -v | rg -v ':![^\t]*\t'
+```
+
+**아무것도 안 나와야 한다.** 나오면 `git rm --cached <파일>` 로 추적만 끊는다. 로컬 파일은 남는다.
+이미 원격에 올라간 것은 추적을 끊어도 공개 이력에서 사라지지 않으니, 무엇이 새어 나갔는지 먼저 본다.
+
+지금 이 검사는 `frontend/plan_check.png` 하나를 잡는다. 내부 로드맵 캡처라 저장소에 있으면
+안 되지만, 지울지 이력까지 지울지는 주인이 정할 일이라 그대로 두고 있다. 네가 깬 것이 아니다.
+
 ---
 
 ## 마지막: 실제로 돌린다
@@ -222,7 +240,7 @@ rg -n "TossAds\.attach\b" frontend/src
 
 ```bash
 cd frontend && npm run lint && npm run typecheck && npm test && npm run build:web
-cd ../backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run pytest
+cd ../backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app && ALLOW_UNVERIFIED_ANON_KEY=true uv run pytest -q
 ```
 
 화면이나 e2e 를 건드렸으면 브라우저까지 돌린다. DB 와 스키마는 `make` 가 챙긴다.

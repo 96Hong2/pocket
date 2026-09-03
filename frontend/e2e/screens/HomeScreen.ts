@@ -44,7 +44,7 @@ export class HomeScreen {
 
   /** 복귀 카드의 행동 버튼. 며칠 비었을 때만 뜬다. */
   get catchUpButton(): Locator {
-    return this.page.getByRole('button', { name: '밀린 내역 한 번에 정리' });
+    return this.page.getByRole('button', { name: '기억나는 것 하나 적기' });
   }
 
   get budgetInput(): Locator {
@@ -55,13 +55,30 @@ export class HomeScreen {
     return this.page.getByRole('button', { name: '예산 정하기' });
   }
 
-  /** 광고 슬롯. 붙지 않으면 DOM 에 자리 자체가 없어야 한다. */
+  /** 광고 슬롯. 채울 광고가 없으면 접혀서 자리를 차지하지 않는다. */
   get adSlot(): Locator {
     return this.page.getByTestId(TEST_IDS.adSlot);
   }
 
+  /** 슬롯 안에 SDK 가 그린 것. 라벨·테두리는 우리가 넣지 않으니 여기 있으면 배너가 붙은 것이다. */
+  get adBanner(): Locator {
+    return this.adSlot.locator('*').first();
+  }
+
   todayRow(title: string): Locator {
     return this.page.getByRole('region', { name: '오늘' }).getByText(title, { exact: true });
+  }
+
+  /**
+   * 히어로가 하루 가용액과 함께 그리는 남은 일수. 없으면 null.
+   *
+   * 하루 가용액이 이 일수로 나눈 값인지 spec 이 되짚는 데 쓴다.
+   */
+  async remainingDays(): Promise<number | null> {
+    const locator = this.page.getByTestId(TEST_IDS.remainingDays);
+    if ((await locator.count()) === 0) return null;
+    const days = Number((await locator.textContent())?.trim());
+    return Number.isInteger(days) ? days : null;
   }
 
   /** 게이지가 스크린리더에 알리는 사용률(%). 게이지가 없으면 null. */
