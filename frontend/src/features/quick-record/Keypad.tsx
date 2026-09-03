@@ -17,7 +17,9 @@ export function AmountDisplay({ digits, hint }: { digits: string; hint: string }
       >
         {formatCurrency(toAmount(digits))}
       </div>
-      <p className="keypad__hint">{hint}</p>
+      <p data-testid={TEST_IDS.recordHint} className="keypad__hint">
+        {hint}
+      </p>
     </div>
   );
 }

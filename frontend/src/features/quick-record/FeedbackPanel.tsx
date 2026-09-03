@@ -108,7 +108,11 @@ export function FeedbackPanel({
           {message.headline}
         </p>
         {message.detail ? (
-          <p className="feedback__detail" data-numeric="">
+          <p
+            data-testid={TEST_IDS.feedbackDetail}
+            className="feedback__detail"
+            data-numeric=""
+          >
             {message.detail}
           </p>
         ) : null}

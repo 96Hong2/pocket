@@ -59,21 +59,21 @@ test('처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ page, 
     await home.waitReady();
 
     // 예산을 정하기 전에는 남은 예산 대신 이번 달 지출만 보여준다. 첫 진입에 예산을 묻지 않는다.
-    await expect(home.monthSpent).toHaveText(formatCurrency(0));
-    await expect(home.remainingBudget).toHaveCount(0);
-    await expect(home.gauge).toHaveCount(0);
+    await expect(home.hero.monthSpent).toHaveText(formatCurrency(0));
+    await expect(home.hero.remainingBudget).toHaveCount(0);
+    await expect(home.hero.gauge).toHaveCount(0);
   });
 
   await test.step('12,000원 식비를 저장한다', async () => {
     await home.recordButton.click();
     await recordSheet.waitOpen();
 
-    await recordSheet.enterAmount(AMOUNT);
-    await expect(recordSheet.amountText).toHaveText(formatCurrency(AMOUNT));
+    await recordSheet.input.enterAmount(AMOUNT);
+    await expect(recordSheet.input.amountText).toHaveText(formatCurrency(AMOUNT));
 
     // 카테고리를 누르는 것이 곧 저장이다. 저장 버튼을 따로 누르지 않는다.
-    await recordSheet.pickCategory(CATEGORY);
-    await recordSheet.waitSaved();
+    await recordSheet.input.pickCategory(CATEGORY);
+    await recordSheet.feedback.waitSaved();
   });
 
   await test.step('저장까지 세 단계를 넘지 않는다', async () => {
@@ -91,19 +91,19 @@ test('처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ page, 
   await test.step('피드백에 이번 달 지출이 실제 숫자로 뜬다', async () => {
     // 판정이 실패해도 서버는 빈 결과로 201 을 준다. 그때 숫자 자리가 비므로
     // 카드가 떴는지가 아니라 금액 문자열이 찍혔는지를 본다.
-    await expect(recordSheet.feedbackHeadline).toContainText(formatCurrency(AMOUNT));
+    await expect(recordSheet.feedback.headline).toContainText(formatCurrency(AMOUNT));
   });
 
   await test.step('되돌리면 홈 숫자가 원래대로 돌아온다', async () => {
     // 되돌리기 전에 홈 숫자가 실제로 움직였는지부터 본다. 여기가 비면 왕복을 증명하지 못한다.
     // 시트는 포털이라 홈이 뒤에 그대로 붙어 있어 시트가 열린 채로도 잡힌다.
-    await expect(home.monthSpent).toHaveText(formatCurrency(AMOUNT));
+    await expect(home.hero.monthSpent).toHaveText(formatCurrency(AMOUNT));
 
-    await recordSheet.undo();
+    await recordSheet.feedback.undo();
     await recordSheet.waitClosed();
 
     // 새로고침 없이 돌아와야 한다. 다시 부르면 이 단언은 배선이 빠져도 통과한다.
-    await expect(home.monthSpent).toHaveText(formatCurrency(0));
+    await expect(home.hero.monthSpent).toHaveText(formatCurrency(0));
     expect(new URL(page.url()).pathname).toBe(ROUTES.home);
   });
 });
@@ -114,35 +114,35 @@ test('예산을 정하면 게이지가 생기고 기록할수록 찬다', async 
     await home.waitReady();
 
     // 기록이 하나도 없을 때는 예산을 묻지 않는다.
-    await expect(home.saveBudgetButton).toHaveCount(0);
+    await expect(home.budget.saveButton).toHaveCount(0);
 
     await home.recordButton.click();
     await recordSheet.waitOpen();
-    await recordSheet.enterAmount(AMOUNT);
-    await recordSheet.pickCategory(CATEGORY);
-    await recordSheet.waitSaved();
-    await recordSheet.confirmButton.click();
+    await recordSheet.input.enterAmount(AMOUNT);
+    await recordSheet.input.pickCategory(CATEGORY);
+    await recordSheet.feedback.waitSaved();
+    await recordSheet.feedback.confirmButton.click();
     await recordSheet.waitClosed();
 
-    await expect(home.saveBudgetButton).toBeVisible();
+    await expect(home.budget.saveButton).toBeVisible();
   });
 
   let firstPercent = 0;
 
   await test.step('예산을 정하면 남은 예산과 하루 가용액이 보인다', async () => {
-    await home.setBudget(BUDGET);
+    await home.budget.set(BUDGET);
 
     const remaining = BUDGET - AMOUNT;
-    await expect(home.remainingBudget).toHaveText(formatCurrency(remaining));
+    await expect(home.hero.remainingBudget).toHaveText(formatCurrency(remaining));
 
     // 하루 가용액은 서버가 남은 일수로 나눠 준다. 화면이 다시 계산하지 않는다.
     // 그래서 화면이 함께 그리는 남은 일수로 되짚는다. 다른 값을 실어 보내면 여기서 깨진다.
-    const days = await home.remainingDays();
+    const days = await home.hero.remainingDays();
     expect(days, '남은 일수가 화면에 없다').not.toBeNull();
     const perDay = Math.floor(remaining / Math.max(1, days ?? 0));
-    await expect(home.dailyAllowance).toHaveText(formatCurrency(perDay));
+    await expect(home.hero.dailyAllowance).toHaveText(formatCurrency(perDay));
 
-    const percent = await home.gaugePercent();
+    const percent = await home.hero.gaugePercent();
     expect(percent, '게이지가 없다').not.toBeNull();
     firstPercent = percent ?? 0;
   });
@@ -150,16 +150,16 @@ test('예산을 정하면 게이지가 생기고 기록할수록 찬다', async 
   await test.step('한 번 더 기록하면 게이지가 움직인다', async () => {
     await home.recordButton.click();
     await recordSheet.waitOpen();
-    await recordSheet.enterAmount(100_000);
-    await recordSheet.pickCategory(CATEGORY);
-    await recordSheet.waitSaved();
-    await recordSheet.confirmButton.click();
+    await recordSheet.input.enterAmount(100_000);
+    await recordSheet.input.pickCategory(CATEGORY);
+    await recordSheet.feedback.waitSaved();
+    await recordSheet.feedback.confirmButton.click();
     await recordSheet.waitClosed();
 
-    await expect(home.remainingBudget).toHaveText(formatCurrency(BUDGET - AMOUNT - 100_000));
+    await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - AMOUNT - 100_000));
 
     await expect
-      .poll(() => home.gaugePercent(), { message: '게이지가 그대로다' })
+      .poll(() => home.hero.gaugePercent(), { message: '게이지가 그대로다' })
       .toBeGreaterThan(firstPercent);
   });
 });
@@ -172,10 +172,10 @@ test('저장 응답이 300ms 안에 온다', async ({ page, home, recordSheet })
   await recordSheet.waitOpen();
 
   // 첫 저장은 계정을 만드는 왕복이 섞인다. 그것을 워밍업으로 쓰고 두 번째를 잰다.
-  await recordSheet.enterAmount(1000);
-  await recordSheet.pickCategory(CATEGORY);
-  await recordSheet.waitSaved();
-  await recordSheet.confirmButton.click();
+  await recordSheet.input.enterAmount(1000);
+  await recordSheet.input.pickCategory(CATEGORY);
+  await recordSheet.feedback.waitSaved();
+  await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
 
   const saved = page.waitForResponse(
@@ -187,8 +187,8 @@ test('저장 응답이 300ms 안에 온다', async ({ page, home, recordSheet })
 
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.enterAmount(2000);
-  await recordSheet.pickCategory(CATEGORY);
+  await recordSheet.input.enterAmount(2000);
+  await recordSheet.input.pickCategory(CATEGORY);
 
   const response = await saved;
   // waitForResponse 는 헤더를 받은 시점에 풀린다. 본문을 다 읽기 전의 responseEnd 는 -1 이라
