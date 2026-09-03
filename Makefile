@@ -11,11 +11,11 @@ test:
 	cd backend && uv run pytest -q
 
 lint:
-	cd frontend && npx oxlint src
+	cd frontend && npm run lint
 	cd backend && uv run ruff check . && uv run ruff format --check .
 
 check: lint test
-	cd frontend && npm run typecheck && npx vite build
+	cd frontend && npm run typecheck && npm run build:web
 	cd backend && uv run mypy app
 
 e2e:

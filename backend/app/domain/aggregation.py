@@ -20,14 +20,33 @@ from enum import StrEnum
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod
 
-__all__ = ["PeriodTotals", "TransactionInput", "TransactionType", "aggregate_period"]
+__all__ = [
+    "PeriodTotals",
+    "TransactionInput",
+    "TransactionSource",
+    "TransactionType",
+    "aggregate_period",
+]
 
 
 class TransactionType(StrEnum):
+    """거래 종류의 유일한 정의. models·schemas·llm 이 전부 이걸 가져다 쓴다."""
+
     EXPENSE = "expense"
     INCOME = "income"
     TRANSFER = "transfer"
     REFUND = "refund"
+
+
+class TransactionSource(StrEnum):
+    """어떤 입력 경로로 들어왔는지. 값을 늘릴 때 고칠 자리는 여기 하나다."""
+
+    KEYPAD = "keypad"
+    NL = "nl"
+    SCREENSHOT = "screenshot"
+    RECEIPT = "receipt"
+    ASSET_SCREENSHOT = "asset_screenshot"
+    NO_SPEND = "no_spend"
 
 
 @dataclass(frozen=True)

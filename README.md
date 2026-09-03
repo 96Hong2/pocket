@@ -39,7 +39,7 @@ ALLOW_UNVERIFIED_ANON_KEY=true uv run uvicorn app.main:app --reload
 
 `ALLOW_UNVERIFIED_ANON_KEY=true` 없이는 기동이 실패한다.
 익명 식별키를 검증할 mTLS 인증서가 아직 없어서, 검증을 건너뛰겠다고 명시해야 뜨도록 막아 뒀다.
-운영 환경에서는 이 값을 켤 수 없다.
+이 값은 `ENVIRONMENT=local` 에서만 켤 수 있다. dev 서버도 여러 사람이 붙는 공용 서버라 막아 뒀다.
 
 ## 검사
 
@@ -48,6 +48,10 @@ make check     # 린트 · 타입 · 테스트 · 빌드 전부
 make test      # 테스트만
 make e2e       # 브라우저 스모크
 ```
+
+명령의 정본은 `frontend/package.json` 의 scripts 다. Makefile·CI·`app-guard` 가 그걸 부른다.
+브라우저 스모크는 앱인토스 개발 도구가 넣어 주는 목 SDK 위에서 돈다.
+실기기와 같은 브릿지 코드가 돌지만, 배너 크기와 네이티브 권한은 여기서 확인되지 않는다.
 
 ## 문서
 
@@ -65,8 +69,20 @@ make e2e       # 브라우저 스모크
 
 ## 아직 연결하지 못한 것
 
+발급이나 등록을 받아야 풀리는 것.
+
 - mTLS 클라이언트 인증서 (익명 식별키 서버 검증)
 - 운영 광고 그룹 ID (지금은 공식 테스트 ID)
 - LLM API 키 (지금은 규칙 기반 스텁)
 
 셋 다 어댑터와 설정 자리는 있다. [docs/SECRETS.md](docs/SECRETS.md) 참고.
+
+## 아직 만들지 않은 것
+
+화면을 붙이기 전에 필요한 것. 첫 vertical slice 에서 만든다.
+
+- `frontend/src/shared/api` HTTP 클라이언트 (`X-Anon-Key` 부착, 오류 `code` 분기)
+- `frontend/src/features/*` (지금은 빈 폴더다. 화면은 `pages/` 의 자리표시자다)
+- 광고 배너 슬롯 컴포넌트 (브릿지 계약과 목 시나리오까지만 있다)
+- 기본 카테고리 시드 (목록 정본은 `backend/app/domain/categories.py`)
+- 백엔드 컨테이너와 Cloud Run 배포 설정

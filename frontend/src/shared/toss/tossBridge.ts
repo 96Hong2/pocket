@@ -1,12 +1,12 @@
 import {
   Device,
   Environment,
+  PermissionError,
   SafeArea,
   Screen,
   Storage,
   TossAds,
   User,
-  getOperationalEnvironment,
   graniteEvent,
   partner,
   tdsEvent,
@@ -34,19 +34,28 @@ import {
 const DEFAULT_MAX_WIDTH = 1600;
 const DEFAULT_MAX_COUNT = 5;
 
-/** SDK 가 던지는 것을 브릿지 에러로 옮긴다. 화면은 SDK 에러 이름을 몰라야 한다. */
+/**
+ * SDK 가 던지는 것을 브릿지 에러로 옮긴다. 화면은 SDK 에러 이름을 몰라야 한다.
+ *
+ * ⚠ 메시지 문자열로 판정하지 않는다. SDK 의 실제 메시지는 한국어 안내문이라
+ * 'unsupported' 나 'permission' 같은 영어 단어가 들어 있지 않다.
+ * - 미지원: `error.name === 'UNSUPPORTED_APP_VERSION'`(OS 부족이면 `UNSUPPORTED_OS_VERSION`)
+ * - 권한 거부: `error instanceof PermissionError` (하위 클래스 전부 포함)
+ */
 function toBridgeError(error: unknown, fallback: string): BridgeError {
-  const name = error instanceof Error ? error.name : '';
-  const message = error instanceof Error ? error.message : String(error);
-
-  if (name.includes('PermissionError') || /permission/i.test(message)) {
-    return new BridgeError('PERMISSION_DENIED', message, error);
+  if (error instanceof PermissionError) {
+    return new BridgeError('PERMISSION_DENIED', error.message, error);
   }
-  if (/UNSUPPORTED_APP_VERSION|unsupported/i.test(message)) {
-    return new BridgeError('UNSUPPORTED', message, error);
+  if (error instanceof Error && UNSUPPORTED_ERROR_NAMES.has(error.name)) {
+    return new BridgeError('UNSUPPORTED', error.message, error);
   }
   return new BridgeError('UNKNOWN', fallback, error);
 }
+
+const UNSUPPORTED_ERROR_NAMES = new Set([
+  'UNSUPPORTED_APP_VERSION',
+  'UNSUPPORTED_OS_VERSION',
+]);
 
 class TossStorage implements KeyValueStore {
   get(key: string) {
@@ -65,6 +74,8 @@ class TossAdsBridge implements AdsBridge {
 
   initialize(): Promise<void> {
     // initialize 는 SDK 상 멱등이지만, 우리 쪽에서도 한 번만 대기하도록 promise 를 캐시한다.
+    // 실패한 promise 는 캐시하지 않는다. 일시적인 스크립트 로드 실패 한 번으로
+    // 세션 내내 배너 자리가 접힌 채로 남으면 안 된다.
     this.initialized ??= new Promise<void>((resolve, reject) => {
       if (!TossAds.initialize.isSupported()) {
         reject(new BridgeError('UNSUPPORTED', '이 토스 앱 버전에서는 배너 광고를 쓸 수 없어요.'));
@@ -77,6 +88,9 @@ class TossAdsBridge implements AdsBridge {
             reject(new BridgeError('UNKNOWN', '배너 광고를 준비하지 못했어요.', error)),
         },
       });
+    }).catch((error: unknown) => {
+      this.initialized = null;
+      throw error;
     });
     return this.initialized;
   }
@@ -111,7 +125,7 @@ export class TossMiniAppBridge implements MiniAppBridge {
   readonly ads = new TossAdsBridge();
 
   constructor() {
-    this.environment = getOperationalEnvironment();
+    this.environment = Environment.environment;
     this.platform = Device.os;
     this.appVersion = Environment.tossAppVersion;
   }

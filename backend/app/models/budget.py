@@ -17,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Entity, Money, SoftDeleteMixin
+from app.db.base import Entity, MoneyColumn, SoftDeleteMixin
 
 
 class Budget(Entity, SoftDeleteMixin):
@@ -35,7 +35,7 @@ class Budget(Entity, SoftDeleteMixin):
     )
     period_start: Mapped[date] = mapped_column(Date, nullable=False)
     period_end: Mapped[date] = mapped_column(Date, nullable=False)
-    amount: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(MoneyColumn, nullable=False)
     # 직전 기간에서 자동 복사된 예산이면 true. 비차단 안내 배너를 띄우는 근거.
     is_auto_carried: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
@@ -63,6 +63,6 @@ class CategoryBudget(Entity, SoftDeleteMixin):
     category_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("categories.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    amount: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(MoneyColumn, nullable=False)
 
     budget: Mapped[Budget] = relationship(back_populates="category_budgets")

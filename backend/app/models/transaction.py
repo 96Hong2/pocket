@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from enum import StrEnum
 
 from sqlalchemy import (
     Boolean,
@@ -19,23 +18,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Entity, Money, SoftDeleteMixin, str_enum_type
+from app.db.base import Entity, MoneyColumn, SoftDeleteMixin, str_enum_type
 
+# 종류·입력경로의 정의는 domain 한 곳에 있다. 여기서 다시 만들지 않는다.
+from app.domain.aggregation import TransactionSource, TransactionType
 
-class TransactionType(StrEnum):
-    EXPENSE = "expense"
-    INCOME = "income"
-    TRANSFER = "transfer"
-    REFUND = "refund"
-
-
-class TransactionSource(StrEnum):
-    KEYPAD = "keypad"
-    NL = "nl"
-    SCREENSHOT = "screenshot"
-    RECEIPT = "receipt"
-    ASSET_SCREENSHOT = "asset_screenshot"
-    NO_SPEND = "no_spend"
+__all__ = ["Transaction", "TransactionSource", "TransactionType"]
 
 
 class Transaction(Entity, SoftDeleteMixin):
@@ -58,7 +46,7 @@ class Transaction(Entity, SoftDeleteMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    amount: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(MoneyColumn, nullable=False)
     type: Mapped[TransactionType] = mapped_column(
         str_enum_type(TransactionType, name="transaction_type"), nullable=False
     )

@@ -47,8 +47,6 @@ class Settings(BaseSettings):
     # 익명 식별키 검증을 건너뛰는 로컬 개발용 스위치.
     allow_unverified_anon_key: bool = False
 
-    ads_banner_ad_group_id: str | None = None
-
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_cors_origins(cls, value: object) -> object:
@@ -62,9 +60,11 @@ class Settings(BaseSettings):
         return value
 
     @model_validator(mode="after")
-    def _reject_unverified_anon_key_in_prod(self) -> Settings:
-        if self.allow_unverified_anon_key and self.environment == "prod":
-            raise ValueError("ALLOW_UNVERIFIED_ANON_KEY는 ENVIRONMENT=prod 에서 켤 수 없습니다.")
+    def _reject_unverified_anon_key_outside_local(self) -> Settings:
+        # dev 서버도 QR 테스트로 여러 사람이 붙는 공용 서버다.
+        # 검증을 끄면 아무 문자열로도 남의 데이터에 접근할 수 있어 local 에서만 허용한다.
+        if self.allow_unverified_anon_key and self.environment != "local":
+            raise ValueError("ALLOW_UNVERIFIED_ANON_KEY는 ENVIRONMENT=local 에서만 켤 수 있습니다.")
         return self
 
     @property

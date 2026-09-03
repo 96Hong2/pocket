@@ -8,7 +8,7 @@ description: pocket 저장소를 고치기 전과 후에 지나가는 자가 점
 pocket 저장소에서 코드를 바꾸기 전에 지나가는 관문이다.
 읽고 넘기는 체크리스트가 아니라 **명령을 실제로 돌려서** 확인한다. 결과를 안 보고 통과했다고 말하지 않는다.
 
-모든 명령은 저장소 루트(`/Users/hong/IdeaProjects/personal/pocket`)에서 실행한다.
+모든 명령은 저장소 루트(`git rev-parse --show-toplevel`)에서 실행한다.
 `rg` 가 없으면 `grep -rn` 으로 바꿔 읽는다.
 
 ---
@@ -56,7 +56,7 @@ rg -n "CheckConstraint" backend/app
 
 ```bash
 # 세 값을 뭉뚱그리는 이름이 새로 생겼는지 (설명 주석은 걸려도 된다. 필드·변수 이름을 본다)
-rg -n "\bbalance\b|잔액|순흐름|net ?flow" backend/app/models backend/app/modules frontend/src/pages frontend/src/features
+rg -n "\bbalance\b|잔액|순흐름|net ?flow" backend/app/models backend/app/modules frontend/src/pages
 ```
 
 UI 문구도 이 셋만 쓴다. `순흐름`, `잔액`, `net flow` 같은 말을 화면에 쓰지 않는다.
@@ -67,7 +67,8 @@ LLM 은 분류·요약·설명만 한다. 합계·잔액·증감·페이스는 S
 
 ```bash
 # LLM 모듈 밖에서 provider 를 부르는 곳
-rg -n "openai|anthropic|completion|chat\.completions" backend/app --glob '!backend/app/integrations/llm/**'
+# (logging.py 의 마스킹 키 목록에 'completion' 이 있어 제외한다. 항상 걸리면 결과를 안 보게 된다)
+rg -n "openai|anthropic|chat\.completions" backend/app --glob '!backend/app/integrations/llm/**' --glob '!backend/app/core/logging.py'
 # 프롬프트에 계산을 시키는 말이 들어갔는지
 rg -n -i "계산해|합계를 구|더해서|sum up|calculate the" backend/app/integrations/llm
 ```
@@ -82,22 +83,25 @@ rg -n "response_format|model_validate|\.parse\(" backend/app/integrations/llm
 ## 5. P2 를 선구현하지 않았나
 
 **P2(만들지 않는다)**: 다중 목표, 반복지출/구독 감지, 다음 달 예산 제안, 질의형 분석, 연간 리포트, 자산 배분 비교, 가족/커플 공유, 공유카드.
-**P1(모델까지만, 화면은 만들지 않는다)**: 자산관리, 목표, 행복소비, 월간 결산, 주간 가용액, 무지출일, 알림, CSV export, 풀 AI 코치.
+**P1(모델·라우트 자리표시자까지. 데이터 조회와 입력 UI 는 만들지 않는다)**: 자산관리, 목표, 행복소비, 월간 결산, 주간 가용액, 무지출일, 알림, CSV export, 풀 AI 코치.
 
 ```bash
 # P2 흔적
 rg -n -i "recurring|subscription|구독 감지|연간 리포트|공유카드|share.?card|가족|couple" backend/app frontend/src
-# P1 은 화면이 있으면 안 된다
+# P1 화면이 데이터를 부르기 시작했는지 (자리표시자를 넘어섰다는 신호)
+rg -n "useQuery|useMutation|fetch\(" frontend/src/pages/AssetsPage.tsx frontend/src/pages/GoalPage.tsx frontend/src/pages/NotificationSettingsPage.tsx
+# features 폴더가 생겼다면 P1 것이 섞였는지
 find frontend/src/features/assets frontend/src/features/goals frontend/src/features/recovery -name '*.tsx' 2>/dev/null
 ```
 
-P1 feature 폴더에 `.tsx` 가 생겼으면 멈추고 왜 필요한지 먼저 확인한다.
+셋 다 안 나와야 한다. 나왔으면 멈추고 왜 필요한지 먼저 확인한다.
+`frontend/src/features/*` 는 아직 빈 폴더라 마지막 명령은 아무것도 못 잡는다. 그게 정상이다.
 
 ## 6. 광고 정책을 어기지 않았나
 
 ```bash
-# X(숨기기) 버튼과 자체 라벨
-rg -n -i "숨기기|hideAd|dismissAd|closeAd|'AD'|\"AD\"|토스 광고" frontend/src/features/ads frontend/src/shared
+# X(숨기기) 버튼과 자체 라벨 (목 배너에 라벨을 다시 넣는 것도 잡는다)
+rg -n -i "숨기기|hideAd|dismissAd|closeAd|'AD'|\"AD\"|토스 광고|목 배너|dashed" frontend/src/features/ads frontend/src/shared
 # 우리가 새로고침하는 코드
 rg -n "setInterval|setTimeout" frontend/src/features/ads
 # 운영 광고 ID 하드코딩
@@ -156,8 +160,12 @@ uv pip list --outdated || true
 ```bash
 # 실제로 export 되는 이름인지
 rg -n "^(declare|export)" frontend/node_modules/@apps-in-toss/web-framework/dist/index.d.ts | head -60
-# deprecated 를 쓰고 있지 않은지
-rg -n "fetchAlbumPhotos|getTossAppVersion|saveBase64Data|getUserKeyForGame|TossAds\.attach\b" frontend/src
+# deprecated 를 SDK 에서 import 하고 있지 않은지.
+# (우리 브릿지도 getSafeAreaInsets 같은 이름을 쓰므로, 호출부가 아니라 import 문을 본다)
+rg -n -U "from '@apps-in-toss/web-framework'" -B 20 frontend/src \
+  | rg "fetchAlbumPhotos|getTossAppVersion|saveBase64Data|getUserKeyForGame|getOperationalEnvironment|getNetworkStatus|getPlatformOS|getLocale|getSafeAreaInsets|getAnonymousKey"
+# TossAds.attach 는 attachBanner 와 헷갈리기 쉬워 따로 본다
+rg -n "TossAds\.attach\b" frontend/src
 ```
 
 `Device.*`, `Environment.*`, `User.*`, `File.*` 네임스페이스 형태만 쓴다.
@@ -168,9 +176,13 @@ rg -n "fetchAlbumPhotos|getTossAppVersion|saveBase64Data|getUserKeyForGame|TossA
 
 말로 끝내지 않는다. 아래를 다 통과해야 완료다.
 
+`package.json` 의 scripts 가 정본이다. CLAUDE.md·Makefile·CI 도 같은 명령을 쓴다.
+
 ```bash
-cd frontend && npm run lint && npx tsc -b --noEmit && npx vitest run && npm run build
+cd frontend && npm run lint && npm run typecheck && npm test && npm run build:web
 cd ../backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run pytest
 ```
+
+`npm run build` 는 `ait build` 까지 하는 배포용이라 CI 에서는 `build:web` 만 돈다.
 
 실패했으면 실패했다고 말한다. 못 돌린 게 있으면 무엇을 왜 못 돌렸는지 적는다.

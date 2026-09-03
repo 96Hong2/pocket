@@ -8,6 +8,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.deps import get_verifier
 from app.api.errors import install_exception_handlers
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -19,6 +20,11 @@ __all__ = ["app", "create_app"]
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
+
+    # 익명키 검증기를 여기서 한 번 만든다.
+    # 요청 시점에만 만들면 설정이 잘못된 리비전도 /health 가 200 이라 배포가 성공으로 보인다.
+    # 인증서가 없는 운영 배포는 첫 요청 500 이 아니라 기동 실패로 드러나야 한다.
+    get_verifier(settings)
 
     app = FastAPI(
         title="10초 가계부 API",

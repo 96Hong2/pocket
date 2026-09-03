@@ -124,12 +124,21 @@ import {
 | `TossAds.initialize({ callbacks })` | 5.239.0 | `.isSupported()` 있음. 멱등 |
 | `TossAds.attachBanner(adGroupId, target, opts)` → `{ destroy() }` | 5.239.0 | |
 | `TossAds.destroy(slotId)` / `destroyAll()` | – | |
-| `getOperationalEnvironment()` → `'toss' \| 'sandbox'` | – | 브라우저에서는 던진다 |
+| `Environment.environment` → `'toss' \| 'sandbox'` (속성) | – | 브라우저에서는 던진다. flat `getOperationalEnvironment()` 는 deprecated |
 | `isMinVersionSupported({ android, ios })` | – | `'5.x.y'` \| `'always'` \| `'never'` |
 
 **deprecated 라 쓰지 않는다**: `fetchAlbumPhotos`, flat `openCamera`, flat `getNetworkStatus`,
-`getTossAppVersion`, flat `getServerTime`, `saveBase64Data`, `getUserKeyForGame`, `TossAds.attach`.
-전부 네임스페이스 형태(`Device.*`, `Environment.*`, `File.*`, `User.*`)를 쓴다.
+`getTossAppVersion`, flat `getServerTime`, `saveBase64Data`, `getUserKeyForGame`, `TossAds.attach`,
+`getOperationalEnvironment`, flat `getAnonymousKey`, `getPlatformOS`, `getLocale`, `getSafeAreaInsets`.
+전부 네임스페이스 형태(`Device.*`, `Environment.*`, `File.*`, `User.*`, `SafeArea.*`)를 쓴다.
+
+**에러 판정은 메시지 문자열로 하지 않는다.** SDK 의 메시지는 한국어 안내문이라
+`unsupported`·`permission` 같은 영어 단어가 없다. 실제 형태는 이렇다.
+
+| 상황 | 판정 |
+|---|---|
+| 미지원 버전 | `error.name === 'UNSUPPORTED_APP_VERSION'` (OS 부족이면 `UNSUPPORTED_OS_VERSION`) |
+| 권한 거부 | `error instanceof PermissionError` (하위 클래스 전부 포함. 패키지가 export 한다) |
 
 `apps-in-toss.config.ts` 3.x 스키마: `appName`, `brand.primaryColor`, `permissions`, `navigationBar`, `webView`, `webBundleDir`.
 `brand.displayName` 과 `brand.icon` 은 **없다.** 앱 표시 이름과 아이콘은 개발자센터 콘솔에서 설정한다.
@@ -143,7 +152,8 @@ import {
 ```bash
 curl -sS https://developers-apps-in-toss.toss.im/intro/guide.md | head -60        # 서비스 오픈 정책
 curl -sS https://developers-apps-in-toss.toss.im/checklist/app-nongame.md | head -60  # 비게임 출시 가이드
-curl -sS https://developers-apps-in-toss.toss.im/guide/monetization/in-app-ad.md | head -60  # 인앱 광고
+curl -sS https://developers-apps-in-toss.toss.im/guide/monetization/in-app-ad.md | head -60  # 인앱 광고(정책 표)
+curl -sS https://developers-apps-in-toss.toss.im/documentation/common/monetization/iaa/web-banner.md | head -80  # 배너 규격 정본(100%·96px·내부 비움·자동갱신)
 curl -sS https://developers-apps-in-toss.toss.im/design/consumer-ux-guide.md | head -60     # UI/UX 가이드
 ```
 

@@ -13,13 +13,28 @@
 
 금액 타입은 두 가지다.
 
-- `Money = Numeric(14, 0)`: 거래·예산·목표. 원 단위 정수라 소수점이 없다
-- `LargeMoney = Numeric(16, 0)`: 자산 항목. 자산은 자릿수가 더 크다
+- `MoneyColumn = Numeric(14, 0)`: 거래·예산·목표. 원 단위 정수라 소수점이 없다
+- `LargeMoneyColumn = Numeric(16, 0)`: 자산 항목. 자산은 자릿수가 더 크다
+
+이름 끝에 `Column` 이 붙은 이유는 계산에 쓰는 값 객체 `app/domain/money.py` 의 `Money` 와
+헷갈리지 않게 하기 위해서다. 둘은 완전히 다른 것이다.
 
 부동소수점을 쓰지 않는 이유는 돈이라서다. 0.1 을 세 번 더해서 0.30000000000000004 가 나오는 자리에 예산을 두지 않는다.
 
 enum 은 전부 파이썬 `StrEnum` 이고 DB 에는 문자열(`VARCHAR(32)`)로 들어간다.
 PostgreSQL 네이티브 enum 타입을 만들지 않는다. 값 하나 추가하려고 `ALTER TYPE` 마이그레이션을 쓰지 않기 위해서다.
+
+**enum 정의는 `app/domain` 한 곳에 있다.** `TransactionType`·`TransactionSource` 는
+`domain/aggregation.py`, `CategoryKind` 는 `domain/categories.py`, `AssetGroup` 은
+`domain/assets.py` 다. `models` 와 API 스키마는 그것을 가져다 쓴다.
+같은 값 목록을 두 곳에 적으면 하나만 고치는 사고가 난다.
+
+## 시간대
+
+`occurred_at` 같은 `timestamptz` 는 **UTC 로 저장**한다.
+**월 경계와 '오늘'은 `users.timezone`(기본 `Asia/Seoul`) 기준**으로 다시 계산한다.
+헬퍼는 `modules/transactions/service.py` 의 `today_for`·`period_for`·`_period_bounds` 다.
+UTC 로 날짜를 뽑으면 한국에서 자정부터 아침 9시까지의 거래가 전달로 집계된다.
 
 ## ER 다이어그램
 
@@ -61,6 +76,11 @@ erDiagram
 
 **이름·이메일·전화번호 컬럼이 없다.** 없어서 못 쓰는 것이 아니라 안 갖기로 한 것이다.
 
+⚠ **탈퇴 동작은 아직 정하지 않았다.** `users` 에 `SoftDeleteMixin` 이 붙어 있고
+`anon_key_hash` 가 unique 라, 삭제 표시된 사용자가 다시 들어오면 옛 행에 그대로 붙어
+지운 데이터가 살아난다. 설정 화면에 '데이터 삭제' 를 만들 때 둘 중 하나로 정하고 여기에 적는다.
+(a) 하드 삭제(FK CASCADE) (b) 삭제 시 `anon_key_hash` 를 덮어써 재진입이 새 행이 되게 한다.
+
 ## categories
 
 | 필드 | 타입 | 설명 |
@@ -73,6 +93,11 @@ erDiagram
 
 `(user_id, name)` 이 유일하고 `postgresql_nulls_not_distinct=True` 를 걸었다.
 이게 없으면 NULL 끼리는 서로 다른 값으로 취급돼 기본 카테고리 이름이 중복으로 생긴다.
+
+**기본 카테고리 목록의 정본은 `app/domain/categories.py` 의 `DEFAULT_CATEGORIES` 다.**
+이름·종류·아이콘 키·순서가 거기 있고, LLM 분류 힌트와 프론트 아이콘 매핑이 그걸 따라간다.
+프론트 `shared/ui/icons.ts` 와 어긋나면 `tests/domain/test_categories.py` 가 깨진다.
+시드는 아직 넣지 않았다.
 
 ## transactions
 

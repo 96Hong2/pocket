@@ -23,7 +23,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Entity, Money, str_enum_type
+from app.db.base import Entity, MoneyColumn, str_enum_type
 from app.models.transaction import TransactionSource, TransactionType
 
 
@@ -76,7 +76,7 @@ class ImportCandidate(Entity):
         ForeignKey("import_batches.id", ondelete="CASCADE"), nullable=False, index=True
     )
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    amount: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(MoneyColumn, nullable=False)
     type: Mapped[TransactionType] = mapped_column(
         str_enum_type(TransactionType, name="transaction_type"), nullable=False
     )

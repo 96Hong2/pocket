@@ -55,6 +55,7 @@ export const radius = {
   pill: '999px',
   sheet: '24px',
   card: '20px',
+  inset: '16px',
   button: '14px',
   lg: '13px',
   md: '12px',

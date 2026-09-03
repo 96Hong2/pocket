@@ -19,14 +19,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Entity, LargeMoney, SoftDeleteMixin, str_enum_type
+from app.db.base import Entity, LargeMoneyColumn, SoftDeleteMixin, str_enum_type
 
+# 자산 그룹의 정의는 domain 한 곳에 있다.
+from app.domain.assets import AssetGroup
 
-class AssetGroup(StrEnum):
-    CASH = "cash"
-    INVESTMENT = "investment"
-    DEPOSIT = "deposit"
-    DEBT = "debt"
+__all__ = ["AssetGroup", "AssetItem", "AssetSnapshot", "AssetSource"]
 
 
 class AssetSource(StrEnum):
@@ -71,7 +69,7 @@ class AssetItem(Entity, SoftDeleteMixin):
     )
     # 금융사·항목 표시명. 계좌·카드번호는 저장하지 않는다.
     label: Mapped[str | None] = mapped_column(String(80), nullable=True)
-    amount: Mapped[Decimal] = mapped_column(LargeMoney, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(LargeMoneyColumn, nullable=False)
     # 캡처 인식값의 신뢰도. 직접 입력이면 1.0.
     confidence: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("1.0"))
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
