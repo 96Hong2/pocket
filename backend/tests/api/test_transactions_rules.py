@@ -214,3 +214,53 @@ def test_새_사용자_행이_한_개만_생긴다(client: TestClient, db: Sessi
     client.get("/api/v1/transactions", headers=AUTH)
     client.get("/api/v1/transactions/summary", headers=AUTH)
     assert len(db.scalars(select(User)).all()) == 1
+
+
+# ── 수정 ────────────────────────────────────────────────
+# 피드백 화면에서 카테고리를 한 번 눌러 고치는 동선이다.
+
+
+def test_카테고리를_고치면_판정과_예산이_다시_온다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    food = next(c for c in default_categories if c.name == "식비")
+    created = client.post("/api/v1/transactions", json=_payload(), headers=AUTH).json()
+
+    r = client.patch(
+        f"/api/v1/transactions/{created['transaction']['id']}",
+        json={"category_id": str(food.id)},
+        headers=AUTH,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["transaction"]["category_id"] == str(food.id)
+    assert body["feedback"]["kind"] in {"on_track", "month_fact", "large_expense"}
+    assert body["budget"] is not None
+
+
+def test_수정도_저장과_같은_검증을_쓴다(client: TestClient) -> None:
+    created = client.post("/api/v1/transactions", json=_payload(), headers=AUTH).json()
+    tx_id = created["transaction"]["id"]
+
+    bad_category = client.patch(
+        f"/api/v1/transactions/{tx_id}",
+        json={"category_id": str(uuid.uuid4())},
+        headers=AUTH,
+    )
+    assert bad_category.status_code == 422
+    assert bad_category.json()["error"]["code"] == "INVALID_CATEGORY"
+
+    naive_time = client.patch(
+        f"/api/v1/transactions/{tx_id}",
+        json={"occurred_at": "2026-09-01T00:30:00"},
+        headers=AUTH,
+    )
+    assert naive_time.status_code == 422
+
+
+def test_남의_거래는_고칠_수_없다(client: TestClient) -> None:
+    r = client.patch(
+        f"/api/v1/transactions/{uuid.uuid4()}", json={"merchant": "바꿔치기"}, headers=AUTH
+    )
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "NOT_FOUND"

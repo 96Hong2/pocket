@@ -14,6 +14,32 @@ docs/       아키텍처 · 데이터 모델 · API 계약 · 설계 결정 기�
 
 ## 시작하기
 
+### 로컬 DB
+
+PostgreSQL 하나를 도커로 띄운다. 배포용이 아니라 개발과 검증에만 쓴다.
+
+```bash
+make db-up        # postgres:18-alpine 을 5434 에 띄운다
+make migrate      # pocket 과 pocket_e2e 두 DB 에 스키마를 올린다
+```
+
+**개발 스택과 e2e 스택은 서로 다른 DB 를 본다.** 컨테이너는 하나고 DB 가 둘이다.
+
+| | 프론트 | 백엔드 | DB |
+| --- | --- | --- | --- |
+| 개발 | 5173 | 8000 | `pocket` |
+| e2e | 5183 | 8100 | `pocket_e2e` |
+
+포트를 갈라 둔 이유는 하나다. 손으로 띄워 둔 개발 서버를 테스트가 주워 쓰면 개발 데이터에 테스트가 쓴다.
+
+5434 를 쓰는 것도 이유가 있다. 이 맥에는 다른 프로젝트의 postgres 가 5432·5433 에 이미 떠 있다.
+그 컨테이너는 우리 것이 아니니 건드리지 않는다.
+
+`docker/initdb/` 스크립트는 **데이터 볼륨이 비어 있는 첫 기동에만** 돈다.
+그 안을 고쳤다면 `make db-reset` 으로 볼륨을 지워야 반영된다. 데이터는 사라진다.
+
+Docker Desktop 이 꺼져 있으면 `make` 가 먼저 알려 준다.
+
 ### 프론트
 
 ```bash
@@ -33,8 +59,12 @@ PostgreSQL이 필요하다.
 cd backend
 uv sync
 cp .env.example .env               # DATABASE_URL 을 자기 것으로
-uv run alembic upgrade head
-ALLOW_UNVERIFIED_ANON_KEY=true uv run uvicorn app.main:app --reload
+```
+
+띄우는 것은 루트에서 한다. `make` 가 DB 를 먼저 확인하고 접속 주소를 넣어 준다.
+
+```bash
+make dev-back                      # http://localhost:8000, DB 는 pocket
 ```
 
 `ALLOW_UNVERIFIED_ANON_KEY=true` 없이는 기동이 실패한다.
@@ -46,8 +76,11 @@ ALLOW_UNVERIFIED_ANON_KEY=true uv run uvicorn app.main:app --reload
 ```bash
 make check     # 린트 · 타입 · 테스트 · 빌드 전부
 make test      # 테스트만
-make e2e       # 브라우저 스모크
+make e2e       # 브라우저. DB 스키마를 올리고 자기 포트로 서버를 띄운다
 ```
+
+`make e2e` 는 서버를 직접 띄운다. 이미 5183·8100 이 물려 있으면 남의 서버를 주워 쓰지 않고 그 자리에서 실패한다.
+그때는 그 포트를 먼저 비운다. e2e 규약과 새 spec 을 만드는 순서는 [frontend/e2e/README.md](frontend/e2e/README.md) 에 있다.
 
 명령의 정본은 `frontend/package.json` 의 scripts 다. Makefile·CI·`app-guard` 가 그걸 부른다.
 브라우저 스모크는 앱인토스 개발 도구가 넣어 주는 목 SDK 위에서 돈다.
@@ -85,4 +118,4 @@ make e2e       # 브라우저 스모크
 - `frontend/src/features/*` (지금은 빈 폴더다. 화면은 `pages/` 의 자리표시자다)
 - 광고 배너 슬롯 컴포넌트 (브릿지 계약과 목 시나리오까지만 있다)
 - 기본 카테고리 시드 (목록 정본은 `backend/app/domain/categories.py`)
-- 백엔드 컨테이너와 Cloud Run 배포 설정
+- 백엔드 컨테이너와 Cloud Run 배포 설정 (`compose.yaml` 은 로컬 DB 전용이라 배포와 무관하다)

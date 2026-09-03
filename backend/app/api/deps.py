@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.errors import ApiError
+from app.api.errors import ApiError, ErrorCode
 from app.core.config import Settings, get_settings
 from app.db.session import get_session
 from app.integrations.apps_in_toss.anon_key import (
@@ -72,7 +72,7 @@ async def get_verified_identity(
 ) -> VerifiedIdentity:
     """검증은 외부 호출이라 async 로 둔다. DB 는 아래 동기 의존성이 맡는다."""
     if not x_anon_key:
-        raise ApiError("UNAUTHORIZED", "사용자 정보를 확인하지 못했어요.", status_code=401)
+        raise ApiError(ErrorCode.UNAUTHORIZED, "사용자 정보를 확인하지 못했어요.", status_code=401)
     return await verifier.verify(x_anon_key)
 
 

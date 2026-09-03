@@ -36,10 +36,15 @@ git diff --name-only | rg 'shared/toss/'
 
 ```bash
 # 모델·스키마에 음수 허용 흔적
-rg -n "amount" backend/app --glob '*.py' | rg -i "negative|allow_neg|ge=-|gt=-"
+# (제약 이름 amount_non_negative 는 정상이다. 'negative' 만 보면 그게 걸려 결과를 안 보게 된다)
+rg -n "amount" backend/app --glob '*.py' | rg -i "negative|allow_neg|ge=-|gt=-" | rg -v "non_negative"
 # 저장 경로에서 부호를 뒤집는 코드
-rg -n -- "-\s*amount|amount\s*\*\s*-1|abs\(" backend/app frontend/src
+# (css 클래스 .pk-amount 와 ADR 표의 '-amount' 가 걸리므로 대입·반환 자리만 본다)
+rg -n -e "amount\s*\*\s*-1" -e "-1\s*\*\s*amount" -e "(=|return)\s*-\s*\w*amount" \
+  backend/app frontend/src -g '*.py' -g '*.ts' -g '*.tsx'
 ```
+
+`Math.abs` 와 `Money.abs` 는 표시·거리 계산용이라 정상이다. 저장 직전에 부호를 만드는 자리만 본다.
 
 `amount` 컬럼에 `CheckConstraint('amount > 0')` 이 걸려 있어야 한다.
 
@@ -95,13 +100,15 @@ find frontend/src/features/assets frontend/src/features/goals frontend/src/featu
 ```
 
 셋 다 안 나와야 한다. 나왔으면 멈추고 왜 필요한지 먼저 확인한다.
-`frontend/src/features/*` 는 아직 빈 폴더라 마지막 명령은 아무것도 못 잡는다. 그게 정상이다.
+`frontend/src/features/*` 에 P1 폴더(assets·goals·recovery)가 생겼다면 그 자체가 신호다. M1 은 기록·예산까지다.
 
 ## 6. 광고 정책을 어기지 않았나
 
 ```bash
 # X(숨기기) 버튼과 자체 라벨 (목 배너에 라벨을 다시 넣는 것도 잡는다)
-rg -n -i "숨기기|hideAd|dismissAd|closeAd|'AD'|\"AD\"|토스 광고|목 배너|dashed" frontend/src/features/ads frontend/src/shared
+# (토큰 정의 shared/tokens 에 dashed 라는 색 이름이 있어 제외한다. 안 그러면 항상 걸린다)
+rg -n -i "숨기기|hideAd|dismissAd|closeAd|'AD'|\"AD\"|토스 광고|목 배너|dashed" \
+  frontend/src/features/ads frontend/src/shared --glob '!frontend/src/shared/tokens/**'
 # 우리가 새로고침하는 코드
 rg -n "setInterval|setTimeout" frontend/src/features/ads
 # 운영 광고 ID 하드코딩
@@ -123,12 +130,13 @@ rg -n "adGroupId|ait-ad-" frontend/src --glob '!frontend/src/shared/toss/**' | r
 # 금지 접미사
 rg --files frontend/src | rg -i "(New|V2|V3|Final|Real|Copy)\.(tsx|ts)$"
 # 같은 역할이 여러 개 생겼는지
-rg --files frontend/src | rg -i "transactionrow|monthselector|bottomsheet|tabbar"
+rg --files frontend/src | rg -i "transactionrow|monthstepper|bottomsheet|tabbar"
 # 쓰레기통 파일
 rg --files frontend/src | rg -i "utils\.ts$|helpers\.ts$"
 ```
 
-거래 표시는 `TransactionRow` 하나, 월 이동은 `MonthSelector` 하나다.
+거래 표시는 `TransactionRow` 하나, 월 이동은 `MonthStepper` 하나다.
+각각 파일이 하나씩만 나와야 한다. 같은 역할이 두 개 나오면 멈춘다.
 Bottom Sheet / Error / Empty / Loading 은 화면마다 새로 만들지 말고 공용 컴포넌트의 variant 로 만든다.
 색은 hex 를 직접 쓰지 않는다.
 
@@ -153,7 +161,41 @@ uv pip list --outdated || true
 
 새 패키지를 넣었으면 `docs/DEPENDENCIES.md` 에 실제 resolved 버전과 이유를 적는다.
 
-## 9. Apps in Toss 이름을 지어내지 않았나
+## 9. e2e 구조를 무너뜨리지 않았나
+
+e2e 도 자산이다. 규약은 `frontend/e2e/README.md` 에 있고, 새 spec 을 만들기 전에 읽는다.
+계층은 `specs → screens → support` 한 방향이다.
+
+```bash
+# spec 이 셀렉터를 직접 잡았는가. 셀렉터는 screens/ 안에만 있다
+rg -n "page\.(locator|getBy)" frontend/e2e/specs
+# spec 이 fixtures 를 우회했는가. 우회하면 콘솔·익명키 가드가 안 걸린다
+rg -n "^import \{[^}]*\} from '@playwright/test'" frontend/e2e/specs
+# spec 이 화면을 직접 열었는가. 진입은 screens/ 의 open() 이 한다
+rg -n "\.goto\(" frontend/e2e/specs
+# 고정 시간 대기. 느린 기계에서 무조건 깨진다
+rg -n "waitForTimeout" frontend/e2e -g '*.ts'
+# e2e 가 화면 코드를 끌어왔는가. e2e 는 브라우저 밖에서 돈다
+rg -n "from '.*src/.*\.(tsx|css)'" frontend/e2e -g '*.ts'
+# 주소·포트를 박아 넣었는가. support/env.ts 가 정본이다
+rg -n "localhost:[0-9]+" frontend/e2e/specs frontend/e2e/screens
+# 셀렉터 문자열 사본. 정본은 src/shared/testIds.ts 하나다
+rg -n "data-testid" frontend/e2e -g '*.ts'
+```
+
+**전부 아무것도 안 나와야 한다.**
+
+익명키 격리는 `frontend/e2e/support/anonKey.ts` 가 devtools 목 내부 구조에 기대고 있다.
+`@apps-in-toss/devtools` 를 올렸으면 격리를 증명하는 spec 을 반드시 돌린다.
+
+```bash
+cd frontend && npx playwright test e2e/specs/anon-key-isolation.spec.ts
+```
+
+여기가 깨진 채로 두면 모든 테스트가 백엔드에서 한 사용자로 합쳐진다.
+`POCKET_DISABLE_AIT_DEVTOOLS=1` 로 우회하지 않는다. 이유는 `frontend/e2e/README.md` 에 있다.
+
+## 10. Apps in Toss 이름을 지어내지 않았나
 
 기억으로 API 이름을 쓰지 않는다. `.claude/skills/ait-docs` 순서로 확인한다.
 
@@ -181,6 +223,12 @@ rg -n "TossAds\.attach\b" frontend/src
 ```bash
 cd frontend && npm run lint && npm run typecheck && npm test && npm run build:web
 cd ../backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run pytest
+```
+
+화면이나 e2e 를 건드렸으면 브라우저까지 돌린다. DB 와 스키마는 `make` 가 챙긴다.
+
+```bash
+make e2e
 ```
 
 `npm run build` 는 `ait build` 까지 하는 배포용이라 CI 에서는 `build:web` 만 돈다.

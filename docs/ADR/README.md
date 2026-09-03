@@ -11,6 +11,7 @@
 | [0005](0005-transfer-refund-aggregation.md) | transfer 는 집계에서 빼고 refund 는 지출을 차감한다 | 확정 (PRD 미정 → 우리 결정) |
 | [0006](0006-immediate-feedback-thresholds.md) | Immediate Feedback 임계값 | 확정 (PRD 미정 → 우리 결정, 데이터 쌓이면 재조정) |
 | [0007](0007-remaining-days-include-today.md) | 남은 일수에 오늘을 포함한다 | 확정 (PRD 미정 → 우리 결정) |
+| [0008](0008-idempotent-seed-and-budget-upsert.md) | 이미 자리를 차지한 행을 만나면 덮어쓴다 (카테고리 시드 · 예산 저장) | 확정 (PRD 미정 → 우리 결정) |
 
 새 ADR 은 다음 번호를 붙이고 `배경 / 결정 / 근거 / 대안 / 결과` 순서로 짧게 쓴다.
 PRD 가 정하지 않아 우리가 정한 것은 그 사실을 반드시 적는다.

@@ -13,9 +13,10 @@ from sqlalchemy.pool import StaticPool
 from app.api.deps import _verifier_for, get_verified_identity
 from app.core.config import get_settings
 from app.db.session import get_session
+from app.domain.categories import DEFAULT_CATEGORIES
 from app.integrations.apps_in_toss.anon_key import VerifiedIdentity
 from app.main import create_app
-from app.models import Base
+from app.models import Base, Category
 
 
 def _sqlite_engine() -> Engine:
@@ -99,3 +100,25 @@ def unauthenticated_client(monkeypatch: pytest.MonkeyPatch, engine: Engine) -> I
 
     get_settings.cache_clear()
     _verifier_for.cache_clear()
+
+
+@pytest.fixture
+def default_categories(db: Session) -> list[Category]:
+    """기본 카테고리를 심는다.
+
+    실제로는 마이그레이션이 넣는데 여기 DB 는 create_all 로 만들어서 비어 있다.
+    목록이 마이그레이션과 어긋나지 않는 것은 tests/test_default_category_seed.py 가 지킨다.
+    """
+    rows = [
+        Category(
+            user_id=None,
+            name=c.name,
+            kind=c.kind,
+            icon_key=c.icon_key,
+            sort_order=c.sort_order,
+        )
+        for c in DEFAULT_CATEGORIES
+    ]
+    db.add_all(rows)
+    db.commit()
+    return rows

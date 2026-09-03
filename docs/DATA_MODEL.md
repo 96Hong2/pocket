@@ -97,7 +97,12 @@ erDiagram
 **기본 카테고리 목록의 정본은 `app/domain/categories.py` 의 `DEFAULT_CATEGORIES` 다.**
 이름·종류·아이콘 키·순서가 거기 있고, LLM 분류 힌트와 프론트 아이콘 매핑이 그걸 따라간다.
 프론트 `shared/ui/icons.ts` 와 어긋나면 `tests/domain/test_categories.py` 가 깨진다.
-시드는 아직 넣지 않았다.
+
+**기본 11개는 마이그레이션 `c4a1b8f2d7e3` 이 심는다.** `user_id` 는 NULL 이고 id 는 이름으로
+만든 uuid5 라 어느 환경에서 돌려도 값이 같다. 이미 있는 이름은 건드리지 않아서 두 번 돌아도
+중복이 생기지 않는다. 목록은 그 파일 안에 값으로 박혀 있다. 적용이 끝난 리비전의 의미가
+나중에 바뀌면 안 되기 때문이고, 도메인 목록과 어긋나면
+`tests/test_default_category_seed.py` 가 잡는다(ADR-0008).
 
 ## transactions
 
@@ -147,6 +152,10 @@ sha256( occurred_on(YYYY-MM-DD) | amount(정수) | normalize(merchant) | type )
 
 `(user_id, period_start)` 가 유일하다. **소프트 삭제한 행도 이 자리를 지킨다.**
 사용자가 자동 복사분을 지웠는데 다음 조회에서 또 복사되면 안 되기 때문이다. 지운 행 자체가 tombstone 역할을 한다.
+
+다만 사용자가 그 기간 예산을 **직접 다시 정하면**(`PUT /budgets`) 그 행을 되살린다.
+tombstone 은 자동 복사를 막으려던 것이지 직접 정하는 것까지 막으려던 것이 아니다.
+되살릴 때 `is_auto_carried` 를 false 로 내린다(ADR-0008).
 
 `category_budgets` 는 `(budget_id, category_id)` 가 유일하고 `amount >= 0` 이다. 예산을 지우면 같이 지워진다.
 
