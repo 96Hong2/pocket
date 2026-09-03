@@ -1,6 +1,7 @@
 import { request, type APIRequestContext } from '@playwright/test';
 
 import type { TransactionType } from '../../src/shared/api/types';
+import { toLedgerDate } from '../../src/shared/lib/format';
 
 import { E2E_API_URL } from './env';
 
@@ -126,17 +127,21 @@ export class PrepApi {
 }
 
 /**
- * 심을 시각. 그 날 정오에서 분 단위로 뒤로 센다.
+ * 심을 시각. **가계부 시간대(Asia/Seoul)** 의 그 날 정오에서 분 단위로 뒤로 센다.
  *
  * 기준을 "지금" 으로 두면 자정 직후에 돌린 실행에서 같은 날에 심으려던 것들이
- * 전날로 흩어진다. 날짜로 고르는 화면은 그것만으로 깨진다.
- * 정오를 기준으로 두면 하루 안에서 700분까지 흔들려도 날이 바뀌지 않는다.
+ * 전날로 흩어진다. 정오를 기준으로 두면 하루 안에서 700분까지 흔들려도 날이 안 바뀐다.
+ *
+ * 그 정오를 **기기 시간대로** 만들면 안 된다. CI 런너는 UTC 라 KST 로 이미 다음 날인
+ * 시각에 돌리면 기준일이 하루 어긋나고, 화면이 보는 '오늘' 에 아무것도 안 심긴다.
+ * 실제로 로컬은 초록인데 CI 만 9건 빨개졌다. 그래서 오프셋을 고정해 만든다.
+ *
+ * KST 는 서머타임이 없어서 24시간을 빼면 날짜가 정확히 하루 물러난다.
  */
 function seedTime(daysAgo: number, minutesAgo: number): Date {
-  const day = new Date();
-  day.setDate(day.getDate() - daysAgo);
-  day.setHours(12, 0, 0, 0);
-  return new Date(day.getTime() - minutesAgo * 60_000);
+  // 화면·서버가 쓰는 것과 같은 시간대 기준의 오늘. LEDGER_TIME_ZONE 이 Asia/Seoul 이다.
+  const noon = new Date(`${toLedgerDate(new Date())}T12:00:00+09:00`);
+  return new Date(noon.getTime() - daysAgo * 86_400_000 - minutesAgo * 60_000);
 }
 
 function expectOk(status: number, body: string, what: string): void {
