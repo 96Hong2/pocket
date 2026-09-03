@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
+    "demo": "playwright test --config playwright.demo.config.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "build:web": "tsc -b && vite build"

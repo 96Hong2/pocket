@@ -58,3 +58,10 @@ docs/design/
 # 화면을 찍은 png 가 저장소에 쌓이지 않게 한다. 아이콘 자산만 예외다.
 *.png
 !frontend/public/icons/**/*.png
+
+# 화면 동작 영상. 용량이 크고 레포에 둘 것이 아니다.
+# 만드는 방법은 frontend/e2e/README.md 「데모 녹화」 절에 있다.
+frontend/demo-videos/
+
+# 검증용으로 찍어 둔 임시 스크린샷 (public 레포에 두지 않는다)
+frontend/plan_check.png

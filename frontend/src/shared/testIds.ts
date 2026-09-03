@@ -23,8 +23,12 @@ export const TEST_IDS = {
   adSlot: 'ad-slot',
   /** 기록 시트에서 지금 눌러 둔 금액 */
   recordAmount: 'record-amount',
+  /** 금액 아래에서 다음에 무엇을 하면 되는지 알려 주는 한 줄 */
+  recordHint: 'record-hint',
   /** 저장 직후 피드백 한 줄 */
   feedbackHeadline: 'feedback-headline',
+  /** 피드백 둘째 줄. 남은 예산 같은 숫자가 여기 붙는다. */
+  feedbackDetail: 'feedback-detail',
 } as const;
 
 export type TestIdKey = keyof typeof TEST_IDS;
