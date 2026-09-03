@@ -1,25 +1,34 @@
-"""예산 조회·저장과, 홈이 되돌리기 뒤에 숫자를 되돌릴 수 있는지.
+"""예산 조회·저장·삭제와, 홈이 되돌리기 뒤에 숫자를 되돌릴 수 있는지.
 
 예산이 없는 것은 정상 상태다. 여기 있는 것은 전부 화면이 막히는 자리다.
+
+기간을 실제 오늘에서 만든다. 예산 쓰기는 끝나지 않은 기간에만 되므로 달을 고정해 적으면
+그 달이 지나는 순간 전부 422 가 되어, 코드가 아니라 달력 때문에 빨개진다.
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Budget, User
+from app.models import Budget, Category, CategoryBudget, CategoryKind, User
+from app.modules import ledger
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
-PERIOD = "year=2026&month=9"
+
+TODAY = datetime.now(ZoneInfo(ledger.DEFAULT_TIMEZONE)).date()
+PERIOD = f"year={TODAY.year}&month={TODAY.month}"
+# 이미 끝난 달. 어느 시점에 돌려도 과거다.
+CLOSED_PERIOD = "year=2020&month=1"
 
 
 def _expense(amount: str = "12000", **over: object) -> dict:
     body: dict = {
-        "occurred_at": "2026-09-15T12:30:00+09:00",
+        "occurred_at": f"{TODAY.isoformat()}T12:30:00+09:00",
         "amount": amount,
         "type": "expense",
         "merchant": "테스트 식당",
@@ -27,6 +36,12 @@ def _expense(amount: str = "12000", **over: object) -> dict:
     }
     body.update(over)
     return body
+
+
+def _category(db: Session, name: str) -> Category:
+    row = db.scalar(select(Category).where(Category.name == name))
+    assert row is not None
+    return row
 
 
 def _budget_row(db: Session) -> Budget:
@@ -49,6 +64,7 @@ def test_예산이_없어도_200_이고_금액이_null_이다(client: TestClient
     assert body["budget"]["remaining_budget"] is None
     assert body["budget"]["spend_progress"] is None
     assert body["budget"]["budgeted_spend"] == "0"
+    assert body["category_budgets"] == []
     assert body["has_any_transaction"] is False
     assert body["days_since_last_transaction"] is None
 
@@ -159,3 +175,218 @@ def test_비율은_지수_표기로_나가지_않는다(client: TestClient) -> N
     budget = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()["budget"]
     assert budget["spend_progress"] == "0.0000"
     assert budget["pace_ratio"] == "0.0000"
+
+
+# ── 끝난 기간 ───────────────────────────────────────────
+
+
+def test_지난_기간에는_예산을_저장하지도_지우지도_못한다(client: TestClient) -> None:
+    """화면에서만 막으면 API 로 보낸 요청이 지난달 숫자를 조용히 바꾼다.
+
+    저장만 막아도 부족하다. 지우기로 우회해 지난달 게이지를 통째로 없앨 수 있다.
+    """
+    saved = client.put(f"/api/v1/budgets?{CLOSED_PERIOD}", json={"amount": "600000"}, headers=AUTH)
+    deleted = client.request("DELETE", f"/api/v1/budgets?{CLOSED_PERIOD}", headers=AUTH)
+    assert saved.status_code == 422, saved.text
+    assert saved.json()["error"]["code"] == "PERIOD_CLOSED"
+    assert deleted.status_code == 422, deleted.text
+    assert deleted.json()["error"]["code"] == "PERIOD_CLOSED"
+
+
+def test_지난_기간에는_카테고리_예산도_바꿀_수_없다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """전체 예산만 잠그면 카테고리 한도로 지난달 초과 판정을 바꿀 수 있다."""
+    food = _category(db, "식비")
+    put = client.put(
+        f"/api/v1/budgets/categories/{food.id}?{CLOSED_PERIOD}",
+        json={"amount": "300000"},
+        headers=AUTH,
+    )
+    delete = client.request(
+        "DELETE", f"/api/v1/budgets/categories/{food.id}?{CLOSED_PERIOD}", headers=AUTH
+    )
+    assert put.status_code == 422, put.text
+    assert put.json()["error"]["code"] == "PERIOD_CLOSED"
+    assert delete.status_code == 422, delete.text
+
+
+def test_고칠_수_있는지는_예산이_없어도_기간이_정한다(client: TestClient) -> None:
+    """예산이 없는 지난달에도 화면은 '보기만 할 수 있어요' 를 그려야 한다."""
+    now = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()["budget"]
+    closed = client.get(f"/api/v1/budgets?{CLOSED_PERIOD}", headers=AUTH).json()["budget"]
+    assert now["amount"] is None
+    assert now["is_editable"] is True
+    assert closed["is_editable"] is False
+
+
+# ── 삭제 ────────────────────────────────────────────────
+
+
+def test_예산을_지우면_카테고리_한도까지_사라지고_두_번_눌러도_204(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """카테고리 행이 남아 있으면 예산을 다시 정할 때 지운 한도가 되살아난다.
+
+    지우기는 멱등이다. 예산이 없는 기간에 한 번 더 눌러도 오류가 아니다.
+    """
+    food = _category(db, "식비")
+    client.put(f"/api/v1/budgets?{PERIOD}", json={"amount": "600000"}, headers=AUTH)
+    client.put(
+        f"/api/v1/budgets/categories/{food.id}?{PERIOD}", json={"amount": "300000"}, headers=AUTH
+    )
+
+    first = client.request("DELETE", f"/api/v1/budgets?{PERIOD}", headers=AUTH)
+    second = client.request("DELETE", f"/api/v1/budgets?{PERIOD}", headers=AUTH)
+    assert first.status_code == 204, first.text
+    assert second.status_code == 204, second.text
+    assert client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()["budget"]["amount"] is None
+
+    client.put(f"/api/v1/budgets?{PERIOD}", json={"amount": "500000"}, headers=AUTH)
+    body = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()
+    assert body["budget"]["amount"] == "500000"
+    assert body["category_budgets"] == []
+
+
+# ── 카테고리 예산 ───────────────────────────────────────
+
+
+def test_전체_예산_없이는_카테고리_예산을_정할_수_없다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """카테고리 한도는 전체 예산에 딸린다. 붙일 곳이 없으면 저장할 수 없다."""
+    food = _category(db, "식비")
+    r = client.put(
+        f"/api/v1/budgets/categories/{food.id}?{PERIOD}", json={"amount": "300000"}, headers=AUTH
+    )
+    assert r.status_code == 422, r.text
+    assert r.json()["error"]["code"] == "INVALID_REQUEST"
+
+
+def test_카테고리_예산을_두_번_정해도_409_가_아니다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """행이 unique 자리를 지키고 있다. 덮어쓰지 않으면 한도를 고칠 수 없다."""
+    food = _category(db, "식비")
+    client.put(f"/api/v1/budgets?{PERIOD}", json={"amount": "600000"}, headers=AUTH)
+    url = f"/api/v1/budgets/categories/{food.id}?{PERIOD}"
+
+    first = client.put(url, json={"amount": "300000"}, headers=AUTH)
+    second = client.put(url, json={"amount": "200000"}, headers=AUTH)
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    rows = second.json()["category_budgets"]
+    # 정한 카테고리만 온다. 전체를 0원으로 채워 보내면 정한 것과 안 정한 것을 구분할 수 없다.
+    assert [(row["category_id"], row["amount"]) for row in rows] == [(str(food.id), "200000")]
+    # 응답이 조회와 같은 모양이라 화면이 그대로 캐시에 넣는다.
+    assert second.json()["budget"]["amount"] == "600000"
+
+
+def test_남의_카테고리나_없는_카테고리에는_한도를_걸_수_없다(
+    client: TestClient, db: Session
+) -> None:
+    """소유 판정이 없으면 남의 분류에 내 한도가 붙고, 없는 id 는 외래키 위반으로 500 이 된다."""
+    client.put(f"/api/v1/budgets?{PERIOD}", json={"amount": "600000"}, headers=AUTH)
+    stranger = User(anon_key_hash="다른-사람")
+    db.add(stranger)
+    db.flush()
+    theirs = Category(
+        user_id=stranger.id, name="남의 분류", kind=CategoryKind.EXPENSE, icon_key="26_sparkles"
+    )
+    db.add(theirs)
+    db.commit()
+
+    others = client.put(
+        f"/api/v1/budgets/categories/{theirs.id}?{PERIOD}",
+        json={"amount": "100000"},
+        headers=AUTH,
+    )
+    missing = client.put(
+        f"/api/v1/budgets/categories/00000000-0000-0000-0000-000000000000?{PERIOD}",
+        json={"amount": "100000"},
+        headers=AUTH,
+    )
+    assert others.status_code == 422, others.text
+    assert others.json()["error"]["code"] == "INVALID_CATEGORY"
+    assert missing.status_code == 422, missing.text
+    assert missing.json()["error"]["code"] == "INVALID_CATEGORY"
+
+
+def test_카테고리_예산_사용액은_환불과_이체와_예산제외를_뺀다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """전체 게이지와 같은 규칙이어야 한다. 한 줄만 다르게 세면 초과 안내가 어긋난다."""
+    food = _category(db, "식비")
+    client.put(f"/api/v1/budgets?{PERIOD}", json={"amount": "600000"}, headers=AUTH)
+    client.put(
+        f"/api/v1/budgets/categories/{food.id}?{PERIOD}", json={"amount": "300000"}, headers=AUTH
+    )
+
+    spent = client.post(
+        "/api/v1/transactions", json=_expense("50000", category_id=str(food.id)), headers=AUTH
+    ).json()
+    client.post(
+        "/api/v1/transactions",
+        json=_expense(
+            "20000",
+            type="refund",
+            refund_of_transaction_id=spent["transaction"]["id"],
+        ),
+        headers=AUTH,
+    )
+    client.post(
+        "/api/v1/transactions",
+        json=_expense("10000", type="transfer", category_id=str(food.id)),
+        headers=AUTH,
+    )
+    client.post(
+        "/api/v1/transactions",
+        json=_expense("40000", category_id=str(food.id), excluded_from_budget=True),
+        headers=AUTH,
+    )
+
+    row = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()["category_budgets"][0]
+    assert row["budgeted_spend"] == "30000"
+    assert row["remaining"] == "270000"
+    assert row["spend_progress"] == "0.1000"
+    assert row["is_over_budget"] is False
+
+
+def test_카테고리_예산을_넘기면_남은_금액이_음수로_온다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """0 으로 붙이면 화면이 얼마나 넘겼는지 말할 수 없다."""
+    food = _category(db, "식비")
+    client.put(f"/api/v1/budgets?{PERIOD}", json={"amount": "600000"}, headers=AUTH)
+    client.put(
+        f"/api/v1/budgets/categories/{food.id}?{PERIOD}", json={"amount": "30000"}, headers=AUTH
+    )
+    client.post(
+        "/api/v1/transactions", json=_expense("50000", category_id=str(food.id)), headers=AUTH
+    )
+
+    row = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()["category_budgets"][0]
+    assert row["remaining"] == "-20000"
+    assert row["is_over_budget"] is True
+
+
+def test_카테고리_예산을_지우면_목록에서_빠지고_다시_정할_수_있다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """소프트 삭제한 행이 unique 자리를 지킨다. 되살리지 않으면 영구히 막힌다."""
+    food = _category(db, "식비")
+    client.put(f"/api/v1/budgets?{PERIOD}", json={"amount": "600000"}, headers=AUTH)
+    url = f"/api/v1/budgets/categories/{food.id}?{PERIOD}"
+    client.put(url, json={"amount": "300000"}, headers=AUTH)
+
+    first = client.request("DELETE", url, headers=AUTH)
+    second = client.request("DELETE", url, headers=AUTH)
+    assert first.status_code == 204, first.text
+    assert second.status_code == 204, second.text
+    assert client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()["category_budgets"] == []
+
+    again = client.put(url, json={"amount": "150000"}, headers=AUTH)
+    assert again.status_code == 200, again.text
+    assert again.json()["category_budgets"][0]["amount"] == "150000"
+    assert len(db.scalars(select(CategoryBudget)).all()) == 1

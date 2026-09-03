@@ -41,6 +41,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | `INVALID_REQUEST` | 422 | 요청 형식 오류 |
 | `INVALID_CATEGORY` | 422 | 내 카테고리도 기본 카테고리도 아닌 값 |
 | `INVALID_REFUND_TARGET` | 422 | 환불 대상이 내 지출이 아님 |
+| `PERIOD_CLOSED` | 422 | 이미 끝난 기간의 예산을 바꾸려 함. 지난달은 보기만 된다 |
 | `HTTP_ERROR` | 그대로 | 라우팅 단계에서 난 오류(없는 경로, 허용하지 않는 메서드) |
 | `INTERNAL_ERROR` | 500 | 서버 오류. 본문 형태는 위와 같다 |
 
@@ -133,7 +134,8 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
     "total_days": 30, "elapsed_days": 3, "remaining_days": 28,
     "spend_progress": "0.0240", "pace_ratio": "0.2400",
     "projected_month_end": "120000",
-    "is_projection_reliable": true, "is_over_budget": false
+    "is_projection_reliable": true, "is_over_budget": false,
+    "is_auto_carried": false, "is_editable": true
   },
   "undo_window_seconds": 8,
   "undo_until": "2026-09-03T03:51:21.611884Z"
@@ -155,6 +157,11 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 - `budgeted_spend` 는 예산에 반영되는 지출이다. 환불은 빼고 이체는 아예 세지 않는다.
 - **남은 예산(`remaining_budget`)·이번 달 차액(`monthly_delta`)·순자산은 서로 다른 개념이라
   절대 한 필드로 합치지 않는다.**
+- `is_auto_carried` 는 직전 기간에서 자동으로 복사된 예산이라는 뜻이다. 화면이 "지난달 예산을
+  그대로 가져왔어요" 배너를 띄우는 근거다. 사용자가 `PUT` 으로 한 번 손대면 false 가 된다.
+- `is_editable` 은 이 기간을 지금 고칠 수 있나다. `period_end` 가 사용자 시간대의 오늘보다
+  앞서면 false 이고, 그때 예산 쓰기는 전부 `PERIOD_CLOSED` 다. **예산이 없어도(`amount` null)
+  채워서 준다.** 기간만으로 정해지기 때문이다.
 
 거래 저장·수정 응답에서 `budget` 이 `null` 인 경우가 하나 있다. 저장은 성공했는데 그 뒤의
 판정이 실패해 서버가 흡수했을 때다. 그때 `feedback.kind` 도 `month_fact` 로 떨어지고 숫자가
@@ -199,22 +206,39 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 
 | 메서드 | 경로 | 하는 일 |
 | --- | --- | --- |
-| GET | `/budgets?year=&month=` | 그 달의 예산 상태. 기본은 사용자 시간대 이번 달 |
-| PUT | `/budgets?year=&month=` | 예산 저장. 바디는 `{"amount": "600000"}` |
+| GET | `/budgets?year=&month=` | 그 달의 예산 상태와 카테고리 예산. 기본은 사용자 시간대 이번 달 |
+| PUT | `/budgets?year=&month=` | 전체 예산 저장. 바디는 `{"amount": "600000"}` |
+| DELETE | `/budgets?year=&month=` | 예산 삭제. 딸린 카테고리 예산도 함께 지운다 |
+| PUT | `/budgets/categories/{category_id}?year=&month=` | 카테고리 한도 저장. 바디는 `{"amount": "300000"}` |
+| DELETE | `/budgets/categories/{category_id}?year=&month=` | 카테고리 한도 삭제 |
 
 - **예산을 정하지 않은 것은 정상 상태다.** 조회는 200 이고 `budget.amount` 가 `null` 이다.
   404 가 아니다.
 - **PUT 은 멱등이다.** 같은 기간에 몇 번을 보내도 409 가 나지 않는다. `(user_id, period_start)`
   가 unique 이고 소프트 삭제한 행도 그 자리를 지키므로, 새로 만들지 않고 있던 행을 덮어쓴다.
-  지웠던 기간을 다시 정하면 그 행을 되살린다(ADR-0008).
+  지웠던 기간을 다시 정하면 그 행을 되살린다(ADR-0008). 카테고리 한도도 같은 방식이다.
 - 금액은 원 단위 정수이고 **1원 이상**이다. 0원은 받지 않는다. '예산 없음'과 구분되지 않는데다
   게이지 비율의 분모가 0 이 되어 화면이 그릴 수 없다.
+- **DELETE 는 204 이고 멱등이다.** 예산이 없어도 204 다. 실제로 지우지 않고 표시만 남기는데,
+  그 표시가 자동 이어쓰기(아래)가 방금 지운 예산을 다시 만들어 놓는 것을 막는다.
+- **끝난 기간의 쓰기는 전부 422 `PERIOD_CLOSED` 다.** 위 다섯 중 GET 을 뺀 넷이 해당한다.
+  화면에서만 막으면 API 로 보낸 요청이 지난달 숫자를 나중에 바꾼다.
+- 카테고리 한도는 전체 예산에 딸린다. 전체 예산이 없으면 422 `INVALID_REQUEST` 다.
+  `category_id` 는 내 카테고리이거나 기본 카테고리여야 한다. 아니면 422 `INVALID_CATEGORY`.
+- **카테고리 한도 저장·삭제 응답은 조회와 같은 `BudgetOut` 이다**(삭제는 204). 화면이 응답을
+  그대로 캐시에 넣어 다시 그린다.
 
-두 엔드포인트의 응답은 같은 모양이다.
+조회·저장 응답은 같은 모양이다.
 
 ```json
 {
   "budget": { "amount": "500000", "spend_progress": "0.0240", ... },
+  "category_budgets": [
+    {
+      "category_id": "...", "amount": "300000", "budgeted_spend": "30000",
+      "remaining": "270000", "spend_progress": "0.1000", "is_over_budget": false
+    }
+  ],
   "month_expense": "12000",
   "month_income": "0",
   "monthly_delta": "-12000",
@@ -223,17 +247,51 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 }
 ```
 
+`category_budgets` 는 **정한 카테고리만** 온다. 정하지 않은 카테고리는 목록에 없고, 예산 자체가
+없으면 빈 배열이다. 순서는 카테고리 목록과 같다(`sort_order`, `name`). `budgeted_spend` 는 전체
+게이지와 같은 규칙이다: 환불을 빼고 이체와 예산 제외 거래는 세지 않는다. `remaining` 은 넘겼을 때
+음수 그대로 온다. **카테고리 한도의 합이 전체 예산보다 커도 서버는 막지 않는다.** 화면이 한 줄로
+알려 주기만 한다.
+
+`category_budgets` 는 `GET`·`PUT`·`DELETE /budgets...` 응답에만 있다. **거래 저장·수정 응답에는
+싣지 않는다.** 거기서 필요한 것은 홈 히어로가 쓰는 예산 상태 블록 하나뿐이다.
+
 `has_any_transaction` 과 `days_since_last_transaction` 은 홈이 첫 사용·기본·복귀 중 어느
 화면을 그릴지 고르는 근거다. 둘 다 사용자 시간대 기준이고, 오늘 기록했으면 0 이다.
 기록이 하나도 없으면 `has_any_transaction` 이 false 이고 날짜는 `null` 이다.
 되돌리기로 지운 기록은 세지 않는다.
 
+### 예산 자동 이어쓰기
+
+새 달의 예산을 만들 계기가 될 사용자 동작이 따로 없다. 그래서 **예산 상태를 만드는 자리에서
+서버가 한 번 확인한다.** 예산 블록을 싣는 응답(예산 조회·저장, 거래 저장·수정, 기간 요약)이
+전부 같은 결과를 본다. 판단은 `backend/app/domain/carryover.py` 한 곳이 한다.
+
+- **오늘이 속한 기간에서만 일어난다.** 지난달이나 다음달을 넘겨보는 것만으로 없던 예산이
+  생기지 않는다.
+- 직전 기간(바로 앞 1개)의 금액과 카테고리 한도를 그대로 복사하고 `is_auto_carried` 를 붙인다.
+  지워진 카테고리에 걸린 한도는 넘어오지 않는다.
+- 이번 기간에 예산이 이미 있으면 그대로 둔다. 지운 적이 있으면 다시 만들지 않는다.
+- `user_preferences.budget_auto_carryover` 가 false 면 하지 않는다(아래 설정).
+
+### 설정
+
+| 메서드 | 경로 | 하는 일 |
+| --- | --- | --- |
+| GET | `/preferences` | 지금 설정. 행이 없으면 기본값으로 만들어 준다 |
+| PATCH | `/preferences` | 보낸 필드만 고친다. 응답은 GET 과 같은 모양 |
+
+```json
+{ "budget_auto_carryover": true }
+```
+
+**지금 여는 값은 이 하나뿐이다.** 예산 화면의 이어쓰기 토글이 읽고 쓴다. 홈 히어로·알림 같은
+나머지 설정은 화면이 생기는 마일스톤에서 함께 연다.
+
 ## 아직 없는 것
 
-- 리포트·설정·캡처·자산·목표 엔드포인트. 도메인 계산과 데이터 모델은 준비돼 있어 라우터만 붙이면 된다.
+- 리포트·캡처·자산·목표 엔드포인트. 도메인 계산과 데이터 모델은 준비돼 있어 라우터만 붙이면 된다.
   `backend/app/modules/` 아래 각 폴더가 자리만 잡혀 있다.
+- 설정은 `budget_auto_carryover` 한 값만 열려 있다. 홈 히어로·알림·리포트 옵션은 아직 없다.
 - 카테고리 생성·수정·삭제. 지금은 조회만 있다.
-- 카테고리별 예산(`category_budgets`)과 예산 자동 이어쓰기. 도메인(`domain/carryover.py`)은
-  있지만 아직 아무도 부르지 않는다.
-- 예산 삭제. 지금은 `PUT` 으로 금액을 바꾸는 것만 된다.
 - 요청 본문 크기 제한. 이미지 업로드가 들어오는 시점에 프록시나 미들웨어로 건다.

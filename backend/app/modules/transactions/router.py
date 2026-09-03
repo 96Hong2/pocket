@@ -59,7 +59,14 @@ def _feedback_out(result: FeedbackResult) -> FeedbackOut:
 
 def _budget_out(outcome: service.SaveOutcome) -> BudgetStateOut | None:
     state = outcome.budget_status
-    return to_budget_state(outcome.period, state) if state is not None else None
+    if state is None:
+        return None
+    return to_budget_state(
+        outcome.period,
+        state,
+        is_auto_carried=outcome.is_auto_carried,
+        today=outcome.today,
+    )
 
 
 @router.post("", response_model=TransactionCreated, status_code=status.HTTP_201_CREATED)
@@ -138,16 +145,22 @@ def summary(
     period: MonthQuery,
 ) -> PeriodSummaryOut:
     # 기본 기간은 사용자 시간대의 오늘이 속한 달이다. 서버가 UTC 로 돌아도 마찬가지다.
-    month = period or ledger.period_for(user, ledger.today_for(user))
+    today = ledger.today_for(user)
+    month = period or ledger.period_for(user, today)
     totals = ledger.load_period_totals(session, user, month)
-    budget_status = budgets.budget_status(session, user, month, totals, ledger.today_for(user))
+    budget_status = budgets.budget_status(session, user, month, totals, today)
     return PeriodSummaryOut(
         period_start=month.start,
         period_end=month.end,
         month_expense=totals.month_expense.amount,
         month_income=totals.month_income.amount,
         monthly_delta=totals.monthly_delta.amount,
-        budget=to_budget_state(month, budget_status),
+        budget=to_budget_state(
+            month,
+            budget_status,
+            is_auto_carried=budgets.is_carried(session, user, month),
+            today=today,
+        ),
     )
 
 
