@@ -11,6 +11,7 @@
 @import './features/home/home.css';
 @import './features/quick-record/quick-record.css';
 @import './features/ads/ads.css';
+@import './features/transactions/transactions.css';
 
 /*
   디자인 토큰. 이 블록이 CSS 쪽 정본이고, 같은 값이 shared/tokens/index.ts 에 있다.

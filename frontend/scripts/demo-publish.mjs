@@ -119,7 +119,8 @@ const GROUPS = [
   { upTo: 8, title: '홈 화면', lead: '상황마다 달라지는 얼굴, 그리고 잘 안 될 때' },
   { upTo: 16, title: '기록 시트', lead: '금액을 찍고 카테고리를 고르고 되돌리는 자리' },
   { upTo: 21, title: '화면 이동', lead: '탭과 뒤로가기, 아직 자리만 잡아 둔 화면들' },
-  { upTo: 999, title: '공용 UI', lead: '앱이 쓰는 부품을 한자리에 모아 둔 개발용 화면' },
+  { upTo: 23, title: '공용 UI', lead: '앱이 쓰는 부품을 한자리에 모아 둔 개발용 화면' },
+  { upTo: 999, title: '내역과 수정', lead: '달력으로 다시 보고, 찾고, 고치고, 지우는 자리' },
 ];
 
 function groupOf(no) {

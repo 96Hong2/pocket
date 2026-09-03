@@ -17,11 +17,14 @@ from decimal import Decimal
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.api.amounts import MAX_AMOUNT, integral_won
+from app.api.months import MAX_YEAR, MIN_YEAR
 from app.domain.aggregation import TransactionSource, TransactionType
 from app.domain.feedback import FeedbackKind
 from app.modules.budgets.schemas import BudgetStateOut
 
 __all__ = [
+    "CalendarDayOut",
+    "CalendarMonthOut",
     "FeedbackOut",
     "PeriodSummaryOut",
     "TransactionCreate",
@@ -31,6 +34,33 @@ __all__ = [
     "TransactionUpdate",
     "TransactionUpdated",
 ]
+
+
+def _in_range(value: datetime | None) -> datetime | None:
+    """기간을 만들 수 없는 연도를 막는다.
+
+    질의 파라미터에는 같은 방어가 이미 걸려 있는데 본문 시각만 빠져 있었다.
+    `date(1, 1, 1)` 이나 `9999-12-31` 을 보내면 시간대 변환과 월 경계 계산이
+    OverflowError 로 터져 500 이 되고, 저장이 성공한 경우에는 홈이 계속 어긋난다.
+    """
+    if value is None:
+        return None
+    if not MIN_YEAR <= value.year <= MAX_YEAR:
+        raise ValueError(f"거래 시각은 {MIN_YEAR}년부터 {MAX_YEAR}년 사이여야 해요.")
+    return value
+
+
+def _clean_text(value: str | None) -> str | None:
+    """NUL·제어문자를 막는다.
+
+    PostgreSQL 은 text 에 NUL(0x00)을 넣지 못해 드라이버가 DataError 를 낸다.
+    테스트가 SQLite 라 그대로 통과하고 운영에서만 500 이 된다. 여기서 422 로 떨어뜨린다.
+    """
+    if value is None:
+        return None
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
+        raise ValueError("상호에 넣을 수 없는 문자가 있어요.")
+    return value
 
 
 class TransactionCreate(BaseModel):
@@ -48,6 +78,8 @@ class TransactionCreate(BaseModel):
     refund_of_transaction_id: uuid.UUID | None = None
 
     _check_amount = field_validator("amount")(integral_won)
+    _check_occurred_at = field_validator("occurred_at")(_in_range)
+    _check_merchant = field_validator("merchant")(_clean_text)
 
     @model_validator(mode="after")
     def _zero_only_for_no_spend(self) -> TransactionCreate:
@@ -71,6 +103,8 @@ class TransactionUpdate(BaseModel):
     excluded_from_budget: bool | None = None
 
     _check_amount = field_validator("amount")(integral_won)
+    _check_occurred_at = field_validator("occurred_at")(_in_range)
+    _check_merchant = field_validator("merchant")(_clean_text)
 
 
 class TransactionOut(BaseModel):
@@ -89,8 +123,25 @@ class TransactionOut(BaseModel):
 
 class TransactionListOut(BaseModel):
     items: list[TransactionOut]
-    # 다음 페이지 커서. null 이면 끝이다.
+    # 다음 페이지 커서. null 이면 끝이다. 다음 요청의 cursor 로 그대로 넘긴다.
     next_cursor: str | None = None
+
+
+class CalendarDayOut(BaseModel):
+    """달력 한 칸. 집계에 잡히는 거래가 없는 날은 응답에 없다.
+
+    expense 는 그날 환불을 뺀 값이라 음수가 될 수 있다.
+    """
+
+    day: date
+    expense: Decimal
+    income: Decimal
+
+
+class CalendarMonthOut(BaseModel):
+    period_start: date
+    period_end: date
+    days: list[CalendarDayOut]
 
 
 class FeedbackOut(BaseModel):

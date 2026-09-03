@@ -36,6 +36,9 @@ export const queryKeys = {
   summaries: () => [ROOT, 'summary'] as const,
   summary: (params?: MonthParams) => [ROOT, 'summary', monthPart(params)] as const,
 
+  calendars: () => [ROOT, 'calendar'] as const,
+  calendar: (params?: MonthParams) => [ROOT, 'calendar', monthPart(params)] as const,
+
   transactionLists: () => [ROOT, 'transactions'] as const,
   transactions: (params?: TransactionListParams) =>
     [
@@ -47,6 +50,9 @@ export const queryKeys = {
           : undefined,
       ),
       params?.limit ?? 'default',
+      // 날짜와 검색어가 키에 없으면 하루 목록과 검색 결과가 같은 자리를 서로 덮는다.
+      params?.day ?? '',
+      params?.q ?? '',
     ] as const,
 };
 
@@ -56,5 +62,10 @@ export const queryKeys = {
  * 카테고리는 여기 없다. 거래를 저장해도 카테고리 목록은 달라지지 않는다.
  */
 export function moneyQueryKeys(): ReadonlyArray<readonly string[]> {
-  return [queryKeys.budgets(), queryKeys.summaries(), queryKeys.transactionLists()];
+  return [
+    queryKeys.budgets(),
+    queryKeys.summaries(),
+    queryKeys.transactionLists(),
+    queryKeys.calendars(),
+  ];
 }

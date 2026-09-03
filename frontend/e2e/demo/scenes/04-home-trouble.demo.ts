@@ -91,12 +91,16 @@ test('06 불러오는 중과 못 불러온 홈, 그리고 다시 시도', async 
   );
   await home.open();
 
-  await demo.step('본문이 통째로 사라지고 이유와 다시 시도만 남는다');
+  await demo.step('히어로 자리에 이유와 다시 시도가 대신 들어온다');
   await expect(home.loadError).toBeVisible();
   await expect(home.retryButton).toBeVisible();
-  // 숫자를 0 으로 그려 놓고 아무 일 없는 척하지 않는다. 히어로와 버튼이 아예 없다.
+  // 숫자를 0 으로 그려 놓고 아무 일 없는 척하지 않는다. 히어로 숫자는 아예 없다.
   await expect(home.hero.monthSpent).toHaveCount(0);
-  await expect(home.recordButton).toHaveCount(0);
+  await demo.beat(2);
+
+  await demo.step('그래도 10초 기록은 남는다. 못 읽는 것이 쓰는 것을 막지 않는다');
+  // 이 앱의 목적은 기록이다. 조회 실패가 기록 진입점을 지우면 앱이 통째로 멈춘 것과 같다.
+  await expect(home.recordButton).toBeVisible();
   await demo.clearStep();
   await demo.beat(3);
 

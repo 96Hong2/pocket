@@ -8,7 +8,7 @@
  * **지금 화면이 실제로 쓰는 조회만 있다.** 나머지는 그 화면을 만들 때 여기에 더한다.
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import type { MonthParams, TransactionListParams } from './client';
 import { useApiClient, useApiReady } from './context';
@@ -70,6 +70,41 @@ export function useSummary(params?: MonthParams) {
   return useQuery({
     queryKey: queryKeys.summary(params),
     queryFn: ({ signal }) => client.getSummary(params, { signal }),
+    enabled: isReady,
+  });
+}
+
+/**
+ * 커서로 이어 받는 거래 목록.
+ *
+ * 달력 화면의 검색 결과와 전체 내역이 쓴다. 홈은 이걸 쓰지 않는다. 홈은 그 달을 한 번 받아
+ * 오늘 것만 골라 그리므로 페이지를 넘길 이유가 없다.
+ *
+ * 커서는 queryKey 에 넣지 않는다. 페이지마다 키가 달라지면 이어 붙일 대상을 잃는다.
+ */
+export function useTransactionPages(params?: TransactionListParams) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useInfiniteQuery({
+    queryKey: queryKeys.transactions(params),
+    queryFn: ({ pageParam, signal }) =>
+      client.listTransactions({ ...params, cursor: pageParam ?? undefined }, { signal }),
+    initialPageParam: null as string | null,
+    // null 이면 더 없다는 뜻이다. 서버가 마지막 페이지에 커서를 주지 않는다.
+    getNextPageParam: (last) => last.next_cursor ?? null,
+    enabled: isReady,
+  });
+}
+
+/** 달력 격자용 날짜별 합계. 기록이 있는 날만 온다. 빈 칸은 화면이 채운다. */
+export function useCalendar(params?: MonthParams) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.calendar(params),
+    queryFn: ({ signal }) => client.getCalendar(params, { signal }),
     enabled: isReady,
   });
 }

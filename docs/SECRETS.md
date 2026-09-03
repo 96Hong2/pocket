@@ -102,7 +102,7 @@ provider 를 아직 고르지 않았다. 지금은 `StubLlmStructuredClient`(규
 
 | 이름 | 값 | 비고 |
 |---|---|---|
-| `VITE_ADS_BANNER_AD_GROUP_ID` | 콘솔에서 발급한 운영 adGroupId | 번들에 박히므로 "감춰지는" 값은 아니다. 다만 저장소에는 남기지 않는다 |
+| `VITE_AD_GROUP_ID` | 콘솔에서 발급한 운영 adGroupId | 번들에 박히므로 "감춰지는" 값은 아니다. 다만 저장소에는 남기지 않는다 |
 
 값이 비어 있으면 배너 슬롯 자체를 접는다. 빈 자리를 남기지 않는다.
 
@@ -127,7 +127,7 @@ ALLOW_UNVERIFIED_ANON_KEY=true
 
 인증서가 아직 없으므로 `TOSS_MTLS_*_PATH` 두 줄은 비워 두고 `ALLOW_UNVERIFIED_ANON_KEY=true` 로 둔다.
 
-프론트는 `frontend/.env.local` 에 `VITE_ADS_BANNER_AD_GROUP_ID=ait-ad-test-banner-id`.
+프론트는 `frontend/.env.local` 에 `VITE_AD_GROUP_ID=ait-ad-test-banner-id`.
 
 ---
 

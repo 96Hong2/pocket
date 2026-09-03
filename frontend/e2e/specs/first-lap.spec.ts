@@ -202,3 +202,32 @@ test('저장 응답이 300ms 안에 온다', async ({ page, home, recordSheet })
   expect(elapsed, '저장 응답 시간을 재지 못했다').toBeGreaterThan(0);
   expect(elapsed, `저장 응답이 ${Math.round(elapsed)}ms 걸렸다`).toBeLessThan(300);
 });
+
+test('되돌리기 버튼이 남은 초를 세어 보여준다', async ({ home, recordSheet, prep }) => {
+  /*
+    카운트다운 단언이 데모 녹화에만 있어서 CI 가 지키지 않았다.
+    만료(12초를 기다려 409 를 받는 것)는 여기 옮기지 않는다. 고정 대기가 필요해
+    검증 규약과 부딪히고, 그 장면은 데모 13번이 계속 보여준다.
+  */
+  const categoryId = await prep.categoryIdByName('식비');
+  await prep.addExpense({ amount: 20_000, daysAgo: 0, categoryId });
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+
+  await recordSheet.waitOpen();
+  await recordSheet.input.enterAmount(12_000);
+  await recordSheet.input.pickCategory('식비');
+  await recordSheet.feedback.waitSaved();
+
+  const started = await recordSheet.feedback.undoSecondsLeft();
+  expect(started, '되돌리기 배지가 남은 초를 못 그렸다').not.toBeNull();
+  expect(started).toBeGreaterThan(0);
+  expect(started).toBeLessThanOrEqual(8);
+
+  // 숫자가 실제로 줄어드는지 본다. 멈춘 배지는 창이 흐르는 것을 증명하지 않는다.
+  await expect
+    .poll(() => recordSheet.feedback.undoSecondsLeft(), { timeout: 5_000 })
+    .toBeLessThan(started as number);
+});

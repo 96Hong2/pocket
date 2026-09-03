@@ -52,6 +52,26 @@ export interface paths {
         patch: operations["update_api_v1_transactions__tx_id__patch"];
         trace?: never;
     };
+    "/api/v1/transactions/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Calendar
+         * @description 달력 격자용 날짜별 합계. 기본 기간은 사용자 시간대의 이번 달이다.
+         */
+        get: operations["calendar_api_v1_transactions_calendar_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transactions/summary": {
         parameters: {
             query?: never;
@@ -209,6 +229,38 @@ export interface components {
              * @description 원 단위 정수. 1원 이상
              */
             amount: number | string;
+        };
+        /**
+         * CalendarDayOut
+         * @description 달력 한 칸. 집계에 잡히는 거래가 없는 날은 응답에 없다.
+         *
+         *     expense 는 그날 환불을 뺀 값이라 음수가 될 수 있다.
+         */
+        CalendarDayOut: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Expense */
+            expense: string;
+            /** Income */
+            income: string;
+        };
+        /** CalendarMonthOut */
+        CalendarMonthOut: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Days */
+            days: components["schemas"]["CalendarDayOut"][];
         };
         /**
          * CategoryKind
@@ -442,9 +494,15 @@ export interface operations {
     index_api_v1_transactions_get: {
         parameters: {
             query?: {
+                /** @description 이 날 하루만. 날짜는 사용자 시간대로 판단한다 */
+                day?: string | null;
+                /** @description 상호나 카테고리 이름 부분일치. 대소문자를 가리지 않는다 */
+                q?: string | null;
+                limit?: number;
+                /** @description 앞 응답의 next_cursor 를 그대로 넘긴다 */
+                cursor?: string | null;
                 year?: number | null;
                 month?: number | null;
-                limit?: number;
             };
             header?: {
                 "X-Anon-Key"?: string | null;
@@ -699,6 +757,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionUpdated"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    calendar_api_v1_transactions_calendar_get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarMonthOut"];
                 };
             };
             /** @description 식별키가 없거나 검증에 실패 */

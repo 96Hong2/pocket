@@ -164,5 +164,13 @@ export function buildFeedbackMessage(
       return onTrack(feedback);
     case 'month_fact':
       return monthFact(feedback);
+    default: {
+      // 서버가 kind 를 하나 늘렸을 때다. 여기서 undefined 를 돌려주면 저장 직후
+      // 앱 전체가 크래시 화면으로 떨어진다. 사실만 말하는 문장으로 내려앉힌다.
+      // 소진 검사는 남겨 둔다. 값을 늘리면 타입 검사가 이 자리를 가리킨다.
+      const unknown: never = feedback.kind;
+      void unknown;
+      return monthFact(feedback);
+    }
   }
 }

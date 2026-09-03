@@ -18,9 +18,10 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DataError, IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.config import get_settings
 from app.integrations.apps_in_toss.anon_key import (
     AnonKeyAuthError,
     AnonKeyVerificationUnavailable,
@@ -89,6 +90,23 @@ def _body(code: ErrorCode, message: str) -> dict[str, dict[str, str]]:
     return {"error": {"code": code.value, "message": message}}
 
 
+def _cors_headers(request: Request) -> dict[str, str]:
+    """500 응답에 CORS 헤더를 직접 붙인다.
+
+    미처리 예외는 starlette 의 ServerErrorMiddleware 가 잡고, 그 미들웨어가
+    CORSMiddleware 보다 바깥에 있다. 그래서 500 만 CORS 헤더 없이 나가고,
+    브라우저는 본문을 읽기 전에 차단한다. 화면이 INTERNAL_ERROR 분기를 한 번도
+    타지 못하고 늘 "연결이 불안정해요" 로 잘못 말하게 된다.
+    """
+    origin = request.headers.get("origin")
+    if origin is None:
+        return {}
+    allowed = get_settings().cors_origins
+    if origin not in allowed and "*" not in allowed:
+        return {}
+    return {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
+
+
 def install_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError) -> JSONResponse:
@@ -123,6 +141,16 @@ def install_exception_handlers(app: FastAPI) -> None:
             content=_body(ErrorCode.HTTP_ERROR, str(exc.detail)),
         )
 
+    @app.exception_handler(DataError)
+    async def _data_error(_: Request, exc: DataError) -> JSONResponse:
+        # 값이 컬럼에 들어갈 수 없을 때다(예: text 에 NUL 바이트).
+        # 스키마에서 먼저 막지만, 새 필드가 늘 때 여기가 안전망이다. 500 으로 새지 않게 한다.
+        logger.exception("DB 가 받지 못하는 값")
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content=_body(ErrorCode.INVALID_REQUEST, "보낸 값을 저장할 수 없어요."),
+        )
+
     @app.exception_handler(IntegrityError)
     async def _integrity(_: Request, exc: IntegrityError) -> JSONResponse:
         # 원인 문자열에 값이 섞여 있어 그대로 내보내지 않는다.
@@ -135,10 +163,12 @@ def install_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(Exception)
-    async def _unhandled(_: Request, exc: Exception) -> JSONResponse:
+    async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
         # 이 핸들러가 없으면 500 이 text/plain 으로 나가 오류 봉투 계약이 깨진다.
+        # 여기는 CORSMiddleware 밖이라 헤더를 직접 붙여야 브라우저가 본문을 읽는다.
         logger.exception("처리하지 못한 오류")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=_body(ErrorCode.INTERNAL_ERROR, "잠시 후 다시 시도해 주세요."),
+            headers=_cors_headers(request),
         )

@@ -28,8 +28,10 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "DEFAULT_TIMEZONE",
     "as_utc",
+    "day_bounds",
     "days_since_last_transaction",
     "last_transaction_date",
+    "load_day_totals",
     "load_period_totals",
     "local_date",
     "period_bounds",
@@ -77,6 +79,13 @@ def period_bounds(period: BudgetPeriod, tz: ZoneInfo) -> tuple[datetime, datetim
     return start, end
 
 
+def day_bounds(day: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
+    """하루의 [자정, 다음 자정) 을 사용자 시간대로 만들어 UTC 로 넘긴다."""
+    start = datetime.combine(day, time.min, tzinfo=tz).astimezone(UTC)
+    end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=tz).astimezone(UTC)
+    return start, end
+
+
 def period_transactions(session: Session, user: User, period: BudgetPeriod) -> list[Transaction]:
     start, end = period_bounds(period, user_tz(user))
     stmt = (
@@ -107,6 +116,17 @@ def load_period_totals(session: Session, user: User, period: BudgetPeriod) -> ag
     tz = user_tz(user)
     rows = period_transactions(session, user, period)
     return agg.aggregate_period([_to_domain(t, tz) for t in rows], period)
+
+
+def load_day_totals(session: Session, user: User, period: BudgetPeriod) -> list[agg.DayTotals]:
+    """달력 격자용 날짜별 합계. 날짜는 사용자 시간대로 접는다.
+
+    화면이 달의 거래를 전부 받아 스스로 접지 않는 이유: 같은 화면에 무한 스크롤이 붙어 있어서
+    "전부 받아야 달력이 맞는다" 와 "조금씩 받는다" 가 서로 싸운다. 접는 일은 서버가 한다.
+    """
+    tz = user_tz(user)
+    rows = period_transactions(session, user, period)
+    return agg.aggregate_days([_to_domain(t, tz) for t in rows], period)
 
 
 def last_transaction_date(session: Session, user: User) -> date | None:

@@ -180,4 +180,20 @@
   .screen-state__action:active {
     background: var(--color-sage-800);
   }
+
+  /* ── 화면을 못 그렸을 때 ─────────────────────────── */
+  /* 앱 전체를 대신하는 자리와, 화면 하나만 대신하는 자리를 갈라 둔다. */
+
+  .shell-crash {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px calc(20px + var(--safe-left)) calc(24px + var(--safe-bottom))
+      calc(20px + var(--safe-right));
+  }
+
+  .shell-crash--inline {
+    padding: 48px 20px;
+  }
 }

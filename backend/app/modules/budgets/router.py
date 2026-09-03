@@ -6,22 +6,17 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES
+from app.api.months import MonthQuery
 from app.domain.period import BudgetPeriod
 from app.modules import ledger
 from app.modules.budgets import service
 from app.modules.budgets.schemas import BudgetOut, BudgetUpsert, to_budget_state
 
 router = APIRouter(prefix="/budgets", tags=["budgets"], responses=ERROR_RESPONSES)
-
-# 예산 기간을 만들 수 없는 연도는 라우터에서 막는다. 도메인이 ValueError 로 죽지 않게 한다.
-MIN_YEAR, MAX_YEAR = 2000, 2100
-
-YearParam = Query(default=None, ge=MIN_YEAR, le=MAX_YEAR)
-MonthParam = Query(default=None, ge=1, le=12)
 
 
 def _view(session: DbSession, user: CurrentUser, period: BudgetPeriod) -> BudgetOut:
@@ -38,31 +33,20 @@ def _view(session: DbSession, user: CurrentUser, period: BudgetPeriod) -> Budget
     )
 
 
-def _period(user: CurrentUser, year: int | None, month: int | None) -> BudgetPeriod:
+def _period(user: CurrentUser, period: BudgetPeriod | None) -> BudgetPeriod:
     # 기본 기간은 사용자 시간대의 오늘이 속한 달이다. 서버가 UTC 로 돌아도 마찬가지다.
-    if year and month:
-        return BudgetPeriod.of_month(year, month)
-    return ledger.period_for(user, ledger.today_for(user))
+    return period or ledger.period_for(user, ledger.today_for(user))
 
 
 @router.get("", response_model=BudgetOut)
-def show(
-    session: DbSession,
-    user: CurrentUser,
-    year: int | None = YearParam,
-    month: int | None = MonthParam,
-) -> BudgetOut:
-    return _view(session, user, _period(user, year, month))
+def show(session: DbSession, user: CurrentUser, period: MonthQuery) -> BudgetOut:
+    return _view(session, user, _period(user, period))
 
 
 @router.put("", response_model=BudgetOut)
 def upsert(
-    body: BudgetUpsert,
-    session: DbSession,
-    user: CurrentUser,
-    year: int | None = YearParam,
-    month: int | None = MonthParam,
+    body: BudgetUpsert, session: DbSession, user: CurrentUser, period: MonthQuery
 ) -> BudgetOut:
-    period = _period(user, year, month)
-    service.upsert_budget(session, user, period, body.amount)
-    return _view(session, user, period)
+    month = _period(user, period)
+    service.upsert_budget(session, user, month, body.amount)
+    return _view(session, user, month)

@@ -25,8 +25,9 @@ export const TAB_ROOTS: string[] = [ROUTES.home, ROUTES.report, ROUTES.manage];
  */
 export const PARENT_OF: Record<string, string> = {
   [ROUTES.calendar]: ROUTES.home,
-  [ROUTES.goal]: ROUTES.home,
-  [ROUTES.assets]: ROUTES.home,
+  // 목표·자산의 입구는 관리 탭뿐이다. 홈으로 보내면 들어온 자리와 다른 곳으로 나간다.
+  [ROUTES.goal]: ROUTES.manage,
+  [ROUTES.assets]: ROUTES.manage,
   [ROUTES.categories]: ROUTES.manage,
   [ROUTES.settings]: ROUTES.manage,
   [ROUTES.notifications]: ROUTES.settings,

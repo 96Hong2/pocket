@@ -21,10 +21,12 @@ from app.domain.money import Money
 from app.domain.period import BudgetPeriod
 
 __all__ = [
+    "DayTotals",
     "PeriodTotals",
     "TransactionInput",
     "TransactionSource",
     "TransactionType",
+    "aggregate_days",
     "aggregate_period",
 ]
 
@@ -113,3 +115,52 @@ def aggregate_period(
 
 def _accumulate(bucket: dict[str | None, Money], category_id: str | None, amount: Money) -> None:
     bucket[category_id] = bucket.get(category_id, Money.zero()) + amount
+
+
+@dataclass(frozen=True)
+class DayTotals:
+    """달력 한 칸에 들어갈 하루 합계.
+
+    환불이 그날 지출을 깎으므로 expense 는 음수가 될 수 있다. 0 으로 붙이지 않는다.
+    예산 제외 거래도 목록에 남으므로 여기서는 센다. 빠지는 것은 예산 계산에서다.
+    """
+
+    day: date
+    expense: Money
+    income: Money
+
+
+def aggregate_days(
+    transactions: Iterable[TransactionInput],
+    period: BudgetPeriod,
+) -> list[DayTotals]:
+    """날짜별 지출·수입을 날짜순으로 접는다. 규칙은 위 표와 같다.
+
+    집계에 잡히는 거래가 하나도 없는 날은 결과에 넣지 않는다. 이체만 있는 날도 마찬가지다.
+    달력 격자는 빈 칸을 스스로 채우므로, 값이 0 인 날을 굳이 실어 보내지 않는다.
+    """
+    expenses: dict[date, Money] = {}
+    incomes: dict[date, Money] = {}
+
+    for tx in transactions:
+        if tx.is_deleted or not period.contains(tx.occurred_on):
+            continue
+        if tx.type is TransactionType.TRANSFER:
+            continue
+
+        if tx.type is TransactionType.INCOME:
+            incomes[tx.occurred_on] = incomes.get(tx.occurred_on, Money.zero()) + tx.amount
+            continue
+
+        signed = tx.amount if tx.type is TransactionType.EXPENSE else -tx.amount
+        expenses[tx.occurred_on] = expenses.get(tx.occurred_on, Money.zero()) + signed
+
+    days = sorted(expenses.keys() | incomes.keys())
+    return [
+        DayTotals(
+            day=day,
+            expense=expenses.get(day, Money.zero()),
+            income=incomes.get(day, Money.zero()),
+        )
+        for day in days
+    ]

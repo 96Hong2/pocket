@@ -69,7 +69,10 @@ export function useCreateTransaction(params?: MonthParams) {
     mutationFn: (body: TransactionCreate) => client.createTransaction(body),
     onSuccess: (created) => {
       writeBudgetState(queryClient, created.budget, params);
-      return invalidateMoney(queryClient);
+      // 무효화를 기다리지 않는다. 여기서 return 하면 mutation 이 pending 인 채로 남아
+      // 피드백 패널이 '저장 응답' 이 아니라 '홈 다시 받기' 가 끝날 때까지 안 뜬다.
+      // 10초 안에 끝나야 하는 흐름에서 그 왕복만큼이 그대로 체감된다.
+      void invalidateMoney(queryClient);
     },
   });
 }
@@ -106,6 +109,22 @@ export function useUndoTransaction() {
 
   return useMutation({
     mutationFn: (transactionId: string) => client.undoTransaction(transactionId),
+    onSuccess: () => invalidateMoney(queryClient),
+  });
+}
+
+/**
+ * 거래 삭제.
+ *
+ * 되돌리기와 다르다. 되돌리기는 저장 직후 짧은 시간에만 되고, 이건 수정 시트에서 언제든 된다.
+ * 서버는 행을 남기고 표시만 지운다. 204 라 돌려받는 값이 없어 무효화로 화면을 맞춘다.
+ */
+export function useDeleteTransaction() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (transactionId: string) => client.deleteTransaction(transactionId),
     onSuccess: () => invalidateMoney(queryClient),
   });
 }

@@ -4,6 +4,7 @@ from app.domain.aggregation import (
     PeriodTotals,
     TransactionInput,
     TransactionType,
+    aggregate_days,
     aggregate_period,
 )
 from app.domain.money import Money, won
@@ -130,3 +131,48 @@ def test_환불이_지출보다_크면_카테고리_지출이_음수가_된다()
     assert result.category_spend["food"] == won(-20_000)
     assert result.budgeted_spend == won(-20_000)
     assert result.monthly_delta == won(20_000)
+
+
+# ── 날짜별 접기 ─────────────────────────────────────────
+# 규칙은 기간 집계와 같아야 한다. 구현이 둘이라 어긋날 수 있는 자리다.
+
+
+def test_환불은_그_날_지출을_깎는다():
+    days = aggregate_days(
+        [
+            tx(10_000, TransactionType.EXPENSE, day=10),
+            tx(3_000, TransactionType.REFUND, day=10),
+        ],
+        PERIOD,
+    )
+    assert [(d.day, d.expense) for d in days] == [(date(2026, 9, 10), won(7_000))]
+
+
+def test_예산_제외_거래도_달력에는_센다():
+    """예산에서만 빠진다. 달력에서 사라지면 사용자는 기록이 없어진 줄 안다."""
+    days = aggregate_days([tx(50_000, TransactionType.EXPENSE, day=12, excluded=True)], PERIOD)
+    assert [(d.day, d.expense) for d in days] == [(date(2026, 9, 12), won(50_000))]
+
+
+def test_날짜순으로_돌려준다():
+    days = aggregate_days(
+        [
+            tx(1_000, TransactionType.EXPENSE, day=20),
+            tx(2_000, TransactionType.EXPENSE, day=3),
+            tx(3_000, TransactionType.INCOME, day=11),
+        ],
+        PERIOD,
+    )
+    assert [d.day.day for d in days] == [3, 11, 20]
+
+
+def test_기간_밖과_삭제된_것은_버린다():
+    days = aggregate_days(
+        [
+            TransactionInput(date(2026, 8, 31), won(9_000), TransactionType.EXPENSE),
+            tx(9_000, TransactionType.EXPENSE, day=5, deleted=True),
+            tx(1_000, TransactionType.EXPENSE, day=6),
+        ],
+        PERIOD,
+    )
+    assert [d.day.day for d in days] == [6]

@@ -122,6 +122,74 @@
         "operationId": "index_api_v1_transactions_get",
         "parameters": [
           {
+            "name": "day",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "이 날 하루만. 날짜는 사용자 시간대로 판단한다",
+              "title": "Day"
+            },
+            "description": "이 날 하루만. 날짜는 사용자 시간대로 판단한다"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 60
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "상호나 카테고리 이름 부분일치. 대소문자를 가리지 않는다",
+              "title": "Q"
+            },
+            "description": "상호나 카테고리 이름 부분일치. 대소문자를 가리지 않는다"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "앞 응답의 next_cursor 를 그대로 넘긴다",
+              "title": "Cursor"
+            },
+            "description": "앞 응답의 next_cursor 를 그대로 넘긴다"
+          },
+          {
             "name": "year",
             "in": "query",
             "required": false,
@@ -155,18 +223,6 @@
                 }
               ],
               "title": "Month"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
             }
           },
           {
@@ -415,6 +471,142 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/transactions/calendar": {
+      "get": {
+        "tags": [
+          "transactions"
+        ],
+        "summary": "Calendar",
+        "description": "달력 격자용 날짜별 합계. 기본 기간은 사용자 시간대의 이번 달이다.",
+        "operationId": "calendar_api_v1_transactions_calendar_get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 2000
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 12,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarMonthOut"
+                }
+              }
+            }
           },
           "401": {
             "description": "식별키가 없거나 검증에 실패",
@@ -1316,6 +1508,61 @@
         ],
         "title": "BudgetUpsert",
         "description": "예산 저장 요청. 같은 기간에 몇 번을 보내도 결과가 같다."
+      },
+      "CalendarDayOut": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          },
+          "expense": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Expense"
+          },
+          "income": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Income"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "expense",
+          "income"
+        ],
+        "title": "CalendarDayOut",
+        "description": "달력 한 칸. 집계에 잡히는 거래가 없는 날은 응답에 없다.\n\nexpense 는 그날 환불을 뺀 값이라 음수가 될 수 있다."
+      },
+      "CalendarMonthOut": {
+        "properties": {
+          "period_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Period End"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarDayOut"
+            },
+            "type": "array",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period_start",
+          "period_end",
+          "days"
+        ],
+        "title": "CalendarMonthOut"
       },
       "CategoryKind": {
         "type": "string",

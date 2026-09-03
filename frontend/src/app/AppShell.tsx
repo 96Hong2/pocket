@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 
 import { LoadingState, iconUrl, type IconName } from '../shared/ui';
 
+import { ErrorBoundary } from './ErrorBoundary';
 import { ROUTES, SCREEN_TITLES, isTabRoot } from './router/routes';
 
 interface TabItem {
@@ -55,9 +56,16 @@ export function AppShell() {
       <div
         className={`shell__content ${showTabBar ? 'shell__content--with-tabbar' : 'shell__content--plain'}`}
       >
-        <Suspense fallback={<LoadingState />}>
-          <Outlet />
-        </Suspense>
+        {/*
+          화면 하나가 죽어도 탭바와 뒤로가기는 살아 있어야 한다.
+          바깥 바운더리만 두면 리포트 화면 하나 때문에 앱이 통째로 크래시 화면이 되고,
+          거기서는 홈으로 돌아갈 방법이 없다. key 로 화면을 옮길 때마다 다시 시도된다.
+        */}
+        <ErrorBoundary variant="screen" key={pathname}>
+          <Suspense fallback={<LoadingState />}>
+            <Outlet />
+          </Suspense>
+        </ErrorBoundary>
       </div>
       {showTabBar && <TabBar />}
     </div>
