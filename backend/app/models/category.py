@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import uuid
-from enum import StrEnum
 
 from sqlalchemy import ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Entity, SoftDeleteMixin, str_enum_type
 
+# 카테고리 종류와 기본 목록의 정본은 domain 이다.
+from app.domain.categories import CategoryKind
 
-class CategoryKind(StrEnum):
-    EXPENSE = "expense"
-    INCOME = "income"
-    TRANSFER = "transfer"
+__all__ = ["Category", "CategoryKind"]
 
 
 class Category(Entity, SoftDeleteMixin):

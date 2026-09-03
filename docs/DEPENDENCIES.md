@@ -16,7 +16,7 @@
 | react-dom | 19.2.8 | 19.2.8 | react 와 짝 |
 | react-router | 8.3.1 | 8.3.1 | 화면 18개에 뒤로가기·딥링크가 필요하다. v8 은 `react-router-dom` 없이 단일 패키지다 |
 | @tanstack/react-query | 5.102.8 | 5.102.8 | 서버 상태 캐시·무효화. 저장 직후 홈이 즉시 갱신돼야 해서 필요하다 |
-| zod | 4.5.4 | 4.5.4 | API 응답과 LLM structured output 검증. 스키마 하나로 타입까지 뽑는다 |
+| zod | 4.5.4 | 4.5.4 | API 응답 검증용. ⚠ **아직 어디서도 쓰지 않는다.** `shared/api` 를 만들 때 쓰거나 빼기로 정한다. LLM structured output 검증은 백엔드 pydantic 이 한다 |
 | @apps-in-toss/web-framework | 3.2.0 | 3.2.0 | 미니앱 SDK. 최신 안정 3.x |
 
 ### 빌드·개발 도구
@@ -26,7 +26,7 @@
 | vite | 8.2.2 | 8.2.2 | 번들러. `ait build` 가 `dist` 를 그대로 감싼다 |
 | @vitejs/plugin-react | 6.1.1 | 6.1.1 | React 변환(Oxc 기반) |
 | typescript | 7.0.2 | 7.0.2 | 최신 안정 |
-| tailwindcss | 4.3.3 | 4.3.3 | 유틸리티 CSS. 토큰을 `@theme` 로 선언해 hex 하드코딩을 막는다 |
+| tailwindcss | 4.3.3 | 4.3.3 | **토큰 선언에만 쓴다.** `@theme` 로 색·반경을 정의해 hex 하드코딩을 막는다. tsx 에 유틸리티 클래스는 쓰지 않는다(AI_DEV_RULES §6) |
 | @tailwindcss/vite | 4.3.3 | 4.3.3 | Tailwind 4 의 Vite 플러그인. PostCSS 설정이 필요 없다 |
 | @apps-in-toss/devtools | 3.2.0 | 3.2.0 | dev 서버에 목 SDK 를 주입한다. 브라우저에서 `sandbox` 로 잡히는 이유 |
 | oxlint | 1.81.0 | 1.81.0 | 린터. Vite 8 템플릿 기본값이고 ESLint 보다 빠르다 |
@@ -79,7 +79,7 @@
 | ruff | 0.16.5 | 0.16.5 | 린트와 포맷을 한 도구로. black + flake8 + isort 를 대체한다 |
 | mypy | 2.3.1 | 2.3.1 | 타입 체크 |
 
-`pyproject.toml` 은 `requires-python = ">=3.13"` 이고 실제 venv 는 3.14.4 다. 3.13 을 하한으로 둔 것은 배포 환경이 아직 3.14 를 안 줄 수도 있어서다.
+`pyproject.toml` 은 `requires-python = ">=3.13"` 이고 실제 venv 는 **3.14.4** 다. 3.13 을 하한으로 둔 것은 배포 환경이 아직 3.14 를 안 줄 수도 있어서다.
 
 ## beta / rc / canary 확인
 

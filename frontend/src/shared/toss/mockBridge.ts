@@ -93,13 +93,12 @@ class MockAdsBridge implements AdsBridge {
       return { destroy: () => {} };
     }
 
+    // 실제 배너와 같은 규격으로 자리만 채운다.
+    // 우리가 라벨·테두리를 그리면 정책(광고 UI 임의 수정)에 걸리고,
+    // 높이가 다르면 e2e 로 잡은 레이아웃이 실기기에서 어긋난다.
     const node = document.createElement('div');
     node.dataset.testid = 'mock-ad-banner';
-    node.textContent = 'AD · 목 배너';
-    node.style.cssText =
-      'height:76px;display:flex;align-items:center;justify-content:center;' +
-      'border:1.5px dashed #DCD8CE;border-radius:14px;background:#fff;' +
-      'font-size:12px;font-weight:600;color:#B0AB9F';
+    node.style.cssText = 'width:100%;height:100%;min-height:96px';
     target.appendChild(node);
     queueMicrotask(() => options.onRendered?.('mock-slot-1'));
     return { destroy: () => node.remove() };

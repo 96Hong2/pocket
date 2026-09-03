@@ -45,9 +45,9 @@ toss-client.key   개인키. 이게 유출되면 우리 앱 자격으로 호출�
 | 이름 | 값 | 비고 |
 |---|---|---|
 | `TOSS_API_BASE_URL` | `https://apps-in-toss-api.toss.im` | 비밀 아님 |
-| `TOSS_CLIENT_CERT_PATH` | 인증서 파일 절대경로 | |
-| `TOSS_CLIENT_KEY_PATH` | 개인키 파일 절대경로 | |
-| `ALLOW_UNVERIFIED_ANON_KEY` | `true`(로컬) / `false`(그 외) | §3 |
+| `TOSS_MTLS_CERT_PATH` | 인증서 파일 절대경로 | |
+| `TOSS_MTLS_KEY_PATH` | 개인키 파일 절대경로 | |
+| `ALLOW_UNVERIFIED_ANON_KEY` | `true` 는 `ENVIRONMENT=local` 에서만 | §3 |
 | `ENVIRONMENT` | `local` / `dev` / `prod` | `prod` 면 검증 생략 불가 |
 
 ---
@@ -57,12 +57,19 @@ toss-client.key   개인키. 이게 유출되면 우리 앱 자격으로 호출�
 `app/integrations/apps_in_toss/anon_key.py` 의 `create_anon_key_verifier` 가 설정만 보고 고른다.
 
 ```
-ENVIRONMENT=prod 이고 ALLOW_UNVERIFIED_ANON_KEY=true   → 기동 실패
-인증서 두 파일이 실제로 있음                            → TossAnonKeyVerifier (실제 검증)
-인증서 없고 ENVIRONMENT=prod                            → 기동 실패
-인증서 없고 ALLOW_UNVERIFIED_ANON_KEY=false             → 기동 실패
-인증서 없고 ALLOW_UNVERIFIED_ANON_KEY=true (로컬)       → TrustingAnonKeyVerifier + 경고 로그
+ENVIRONMENT != local 이고 ALLOW_UNVERIFIED_ANON_KEY=true → 기동 실패
+인증서 두 파일이 실제로 있음                              → TossAnonKeyVerifier (실제 검증 + 10분 캐시)
+인증서 없고 ENVIRONMENT != local                          → 기동 실패
+인증서 없고 ALLOW_UNVERIFIED_ANON_KEY=false               → 기동 실패
+인증서 없고 ALLOW_UNVERIFIED_ANON_KEY=true (local)        → TrustingAnonKeyVerifier + 경고 로그
 ```
+
+**기동 실패는 말 그대로 기동 단계다.** `create_app()` 이 검증기를 먼저 만들기 때문에,
+설정이 잘못된 리비전은 `/health` 조차 뜨지 않는다. 첫 요청에서야 500 이 나면
+Cloud Run 헬스체크가 통과해 잘못된 리비전이 트래픽을 받는다.
+
+**검증 결과는 10분 캐시한다.** 화면 하나가 목록·요약을 함께 부르므로 캐시가 없으면
+토스 API 분당 한도(미니앱당 3,000회)에 사용자 수보다 먼저 걸린다. 성공만 캐시한다.
 
 `TrustingAnonKeyVerifier` 는 익명키를 **검증하지 않고 통과시킨다.** 로컬 개발 전용이고,
 운영에서는 위 규칙 때문에 절대 선택되지 않는다. 켜져 있으면 경고 로그가 계속 남는다.
@@ -76,8 +83,8 @@ provider 를 아직 고르지 않았다. 지금은 `StubLlmStructuredClient`(규
 
 | 이름 | 값 | 비고 |
 |---|---|---|
-| `LLM_PROVIDER` | `stub` / (정해지면 provider 이름) | 기본값 `stub` |
-| `LLM_API_KEY` | provider 콘솔에서 발급 | `LLM_PROVIDER=stub` 이면 필요 없다 |
+| `LLM_PROVIDER` | `stub` / (정해지면 provider 이름) | ⚠ 아직 `Settings` 에 필드가 없다. provider 를 고를 때 추가한다 |
+| `LLM_API_KEY` | provider 콘솔에서 발급 | 위와 같다 |
 
 지켜야 하는 것:
 
@@ -91,6 +98,7 @@ provider 를 아직 고르지 않았다. 지금은 `StubLlmStructuredClient`(규
 
 - 개발·테스트는 공식 테스트 ID `ait-ad-test-banner-id` 를 쓴다. 이건 공개 상수라 비밀이 아니다.
 - **운영 adGroupId 는 소스에 하드코딩하지 않는다.** 프론트 빌드 환경변수로 넣는다.
+- 광고는 프론트에서만 부른다. 백엔드에는 이 값이 필요 없다.
 
 | 이름 | 값 | 비고 |
 |---|---|---|
@@ -109,15 +117,15 @@ provider 를 아직 고르지 않았다. 지금은 `StubLlmStructuredClient`(규
 ENVIRONMENT=local
 
 TOSS_API_BASE_URL=https://apps-in-toss-api.toss.im
-TOSS_CLIENT_CERT_PATH=/Users/<나>/.pocket/secrets/toss-client.crt
-TOSS_CLIENT_KEY_PATH=/Users/<나>/.pocket/secrets/toss-client.key
+TOSS_MTLS_CERT_PATH=/Users/<나>/.pocket/secrets/toss-client.crt
+TOSS_MTLS_KEY_PATH=/Users/<나>/.pocket/secrets/toss-client.key
 ALLOW_UNVERIFIED_ANON_KEY=true
 
-LLM_PROVIDER=stub
-LLM_API_KEY=
 ```
 
-인증서가 아직 없으므로 `TOSS_CLIENT_*_PATH` 두 줄은 비워 두고 `ALLOW_UNVERIFIED_ANON_KEY=true` 로 둔다.
+`LLM_PROVIDER`·`LLM_API_KEY` 는 아직 코드가 읽지 않는다. provider 를 고를 때 함께 넣는다.
+
+인증서가 아직 없으므로 `TOSS_MTLS_*_PATH` 두 줄은 비워 두고 `ALLOW_UNVERIFIED_ANON_KEY=true` 로 둔다.
 
 프론트는 `frontend/.env.local` 에 `VITE_ADS_BANNER_AD_GROUP_ID=ait-ad-test-banner-id`.
 
@@ -161,8 +169,8 @@ gcloud run deploy pocket-backend \
   --set-secrets=LLM_API_KEY=pocket-llm-api-key:latest \
   --set-env-vars=ENVIRONMENT=prod \
   --set-env-vars=ALLOW_UNVERIFIED_ANON_KEY=false \
-  --set-env-vars=TOSS_CLIENT_CERT_PATH=/secrets/toss/toss-client.crt \
-  --set-env-vars=TOSS_CLIENT_KEY_PATH=/secrets/toss/toss-client.key
+  --set-env-vars=TOSS_MTLS_CERT_PATH=/secrets/toss/toss-client.crt \
+  --set-env-vars=TOSS_MTLS_KEY_PATH=/secrets/toss/toss-client.key
 ```
 
 `:latest` 로 걸면 시크릿을 새 버전으로 올린 뒤 **리비전을 다시 배포해야** 반영된다.
@@ -171,7 +179,7 @@ gcloud run deploy pocket-backend \
 ### 7.4 배포 전 확인
 
 - `ENVIRONMENT=prod` 인데 `ALLOW_UNVERIFIED_ANON_KEY=true` 면 앱이 기동하지 않는다. 의도된 동작이다.
-- 인증서 마운트 경로와 `TOSS_CLIENT_*_PATH` 값이 같은지 확인한다.
+- 인증서 마운트 경로와 `TOSS_MTLS_*_PATH` 값이 같은지 확인한다.
 - 로그에 인증서 내용·키·익명키 원문이 찍히지 않는지 확인한다.
 
 ---

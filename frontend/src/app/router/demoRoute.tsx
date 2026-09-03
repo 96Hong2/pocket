@@ -4,7 +4,7 @@ type DemoModule = { default: ComponentType };
 
 /**
  * 공용 UI 갤러리는 `shared/ui/__demo__` 가 정본이다.
- * glob 으로 찾는 이유는 그 폴더가 아직 없어도 빌드가 깨지지 않게 하기 위해서다.
+ * glob 으로 찾는 이유는 운영 번들에서 갤러리를 통째로 빼기 위해서다.
  */
 async function loadDemoGallery(): Promise<DemoModule> {
   const modules = import.meta.glob('../../shared/ui/__demo__/index.{ts,tsx}') as Record<

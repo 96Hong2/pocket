@@ -34,9 +34,9 @@ _ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 _AMOUNT = re.compile(r"(\d[\d,]*)\s*(만원|천원|원)?")
 
 _TYPE_KEYWORDS: tuple[tuple[TransactionType, tuple[str, ...]], ...] = (
-    ("refund", ("환불", "취소", "반품")),
-    ("transfer", ("이체", "송금", "출금", "충전")),
-    ("income", ("월급", "급여", "수입", "입금", "용돈", "정산받")),
+    (TransactionType.REFUND, ("환불", "취소", "반품")),
+    (TransactionType.TRANSFER, ("이체", "송금", "출금", "충전")),
+    (TransactionType.INCOME, ("월급", "급여", "수입", "입금", "용돈", "정산받")),
 )
 
 _CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -160,7 +160,7 @@ def _guess_type(text: str) -> TransactionType:
     for transaction_type, keywords in _TYPE_KEYWORDS:
         if any(keyword in text for keyword in keywords):
             return transaction_type
-    return "expense"
+    return TransactionType.EXPENSE
 
 
 def _guess_category(text: str) -> str | None:

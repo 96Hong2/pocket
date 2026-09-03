@@ -78,7 +78,9 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 2000
                 },
                 {
                   "type": "null"
@@ -173,7 +175,9 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 2000
                 },
                 {
                   "type": "null"
@@ -373,11 +377,22 @@
   },
   "components": {
     "schemas": {
+      "FeedbackKind": {
+        "type": "string",
+        "enum": [
+          "over_budget",
+          "pace_warning",
+          "large_expense",
+          "achievement",
+          "on_track",
+          "month_fact"
+        ],
+        "title": "FeedbackKind"
+      },
       "FeedbackOut": {
         "properties": {
           "kind": {
-            "type": "string",
-            "title": "Kind"
+            "$ref": "#/components/schemas/FeedbackKind"
           },
           "remaining_budget": {
             "anyOf": [
@@ -426,6 +441,18 @@
             ],
             "title": "Over Amount"
           },
+          "over_category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Over Category Id"
+          },
           "saved_amount": {
             "anyOf": [
               {
@@ -462,6 +489,18 @@
             ],
             "title": "Pace Ratio"
           },
+          "projected_month_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projected Month End"
+          },
           "category_spend": {
             "anyOf": [
               {
@@ -485,6 +524,18 @@
               }
             ],
             "title": "Category Budget Amount"
+          },
+          "large_expense_threshold": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Large Expense Threshold"
           }
         },
         "type": "object",
@@ -556,7 +607,8 @@
             "anyOf": [
               {
                 "type": "number",
-                "exclusiveMinimum": 0.0
+                "maximum": 99999999999999.0,
+                "minimum": 0.0
               },
               {
                 "type": "string",
@@ -564,12 +616,11 @@
               }
             ],
             "title": "Amount",
-            "description": "원 단위 양수"
+            "description": "원 단위 정수. 무지출일만 0"
           },
           "type": {
-            "type": "string",
-            "pattern": "^(expense|income|transfer|refund)$",
-            "title": "Type"
+            "$ref": "#/components/schemas/TransactionType",
+            "default": "expense"
           },
           "merchant": {
             "anyOf": [
@@ -596,9 +647,7 @@
             "title": "Category Id"
           },
           "source": {
-            "type": "string",
-            "pattern": "^(keypad|nl|screenshot|receipt|asset_screenshot|no_spend)$",
-            "title": "Source",
+            "$ref": "#/components/schemas/TransactionSource",
             "default": "keypad"
           },
           "confidence": {
@@ -629,8 +678,7 @@
         "type": "object",
         "required": [
           "occurred_at",
-          "amount",
-          "type"
+          "amount"
         ],
         "title": "TransactionCreate",
         "description": "표준 거래 형식. 파싱 결과와 손입력이 같은 형태로 들어온다."
@@ -645,14 +693,20 @@
           },
           "undo_window_seconds": {
             "type": "integer",
-            "title": "Undo Window Seconds",
-            "default": 8
+            "title": "Undo Window Seconds"
+          },
+          "undo_until": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Undo Until"
           }
         },
         "type": "object",
         "required": [
           "transaction",
-          "feedback"
+          "feedback",
+          "undo_window_seconds",
+          "undo_until"
         ],
         "title": "TransactionCreated"
       },
@@ -701,8 +755,7 @@
             "title": "Amount"
           },
           "type": {
-            "type": "string",
-            "title": "Type"
+            "$ref": "#/components/schemas/TransactionType"
           },
           "merchant": {
             "anyOf": [
@@ -728,8 +781,7 @@
             "title": "Category Id"
           },
           "source": {
-            "type": "string",
-            "title": "Source"
+            "$ref": "#/components/schemas/TransactionSource"
           },
           "confidence": {
             "type": "number",
@@ -753,6 +805,30 @@
           "excluded_from_budget"
         ],
         "title": "TransactionOut"
+      },
+      "TransactionSource": {
+        "type": "string",
+        "enum": [
+          "keypad",
+          "nl",
+          "screenshot",
+          "receipt",
+          "asset_screenshot",
+          "no_spend"
+        ],
+        "title": "TransactionSource",
+        "description": "어떤 입력 경로로 들어왔는지. 값을 늘릴 때 고칠 자리는 여기 하나다."
+      },
+      "TransactionType": {
+        "type": "string",
+        "enum": [
+          "expense",
+          "income",
+          "transfer",
+          "refund"
+        ],
+        "title": "TransactionType",
+        "description": "거래 종류의 유일한 정의. models·schemas·llm 이 전부 이걸 가져다 쓴다."
       },
       "ValidationError": {
         "properties": {

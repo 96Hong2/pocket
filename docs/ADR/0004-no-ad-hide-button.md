@@ -34,3 +34,10 @@ SSP 정책 세 조항에 동시에 걸린다.
 - **우리가 새로고침하지 않는다.** SDK 가 (렌더 10초 경과 + visibility false→true) 조건으로 자동 갱신한다. 타이머로 destroy + attach 를 반복하는 것은 "광고 영역 주기적 Refresh" 로 성과 조작에 해당한다. 화면 재마운트도 사실상 refresh 라서 **배너는 홈 한 곳에만** 둔다.
 - `isSupported` / `onNoFill` / `onAdFailedToRender` 를 모두 처리하고, 광고가 없으면 빈 자리를 남기지 말고 **슬롯 자체를 접는다**.
 - 개발·테스트는 공식 테스트 ID `ait-ad-test-banner-id` 를 쓴다. 운영 ID 는 하드코딩하지 않고 환경변수로 넣는다.
+
+## 근거 원문
+
+배너 규격(가로 100%, 높이 96px, 내부 비움, 자동 갱신 조건, 테스트 ID)의 정본은
+`documentation/common/monetization/iaa/web-banner.md` 다.
+금지 행위 표(광고 은닉·UI 임의 수정·주기적 Refresh)는 `guide/monetization/in-app-ad.md` 에 있다.
+`.md` 를 붙여 `curl` 로 받으면 원문을 그대로 볼 수 있다.

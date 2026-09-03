@@ -16,14 +16,14 @@
 6. **상단 네비게이션 바를 직접 그리지 않는다.** 플랫폼이 그린다. 설정은 `frontend/apps-in-toss.config.ts`.
 7. **광고에 닫기(X) 버튼이나 자체 라벨을 넣지 않는다.** 배너를 우리가 새로고침하지 않는다. → ADR-0004
 8. **OCR/LLM 원문과 계좌·카드번호를 저장하거나 로그에 남기지 않는다.**
-9. **P2 를 선구현하지 않는다.** P1 은 모델까지만, 화면은 만들지 않는다.
+9. **P2 를 선구현하지 않는다.** P1 은 모델·라우트 자리표시자까지다. 데이터 조회와 입력 UI 는 P1 착수 전에 만들지 않는다.
 10. **최신 안정 버전만 쓴다.** beta·rc·canary 금지. 새 의존성은 추가 전에 근거를 남긴다.
 
 ## 어디를 봐야 하나
 
 | 무엇 | 어디 |
 | --- | --- |
-| 제품 요구사항 | 레포에 없다. 옵시디언 볼트 `프로젝트 - 은홍/10초 가계부/원본/` (PRD v5 가 정본) |
+| 제품 요구사항 | 레포에 없다. 레포 밖 개인 노트에 PRD v5 가 정본으로 있다(경로는 인계 문서) |
 | 상시 개발 규칙 | `AI_DEV_RULES.md` |
 | 레이어와 경계 | `docs/ARCHITECTURE.md` |
 | 엔티티·필드 | `docs/DATA_MODEL.md` |
@@ -31,19 +31,23 @@
 | 설치된 실제 버전 | `docs/DEPENDENCIES.md` |
 | 왜 그렇게 정했나 | `docs/ADR/` |
 | 비밀값 넣는 법 | `docs/SECRETS.md` |
-| 디자인 시안 | 레포에 없다. 볼트 `프로젝트 - 은홍/10초 가계부/원본/디자인 시안 v2.1.html` |
+| 디자인 시안 | 레포에 없다. PRD 와 같은 자리에 있다 |
 | 변경 전 자가점검 | `.claude/skills/app-guard` |
 | 앱인토스 사실 확인 | `.claude/skills/ait-docs` |
 
 ## 명령
 
+`frontend/package.json` 의 scripts 가 명령의 정본이다. Makefile·CI·app-guard 도 이걸 쓴다.
+
 ```bash
 # 프론트
 cd frontend
 npm run dev            # vite dev (브라우저에서 공식 목 SDK 로 동작)
-npm run build          # tsc -b && vite build && ait build → pocket.ait
-npx tsc -b             # 타입 검사
-npx oxlint src         # 린트
+npm run typecheck      # tsc -b
+npm run lint           # oxlint src tests e2e
+npm test               # vitest
+npm run build:web      # tsc -b && vite build   (CI 가 도는 것)
+npm run build          # build:web && ait build → pocket.ait  (배포용)
 
 # 백엔드
 cd backend
@@ -51,8 +55,15 @@ uv run uvicorn app.main:app --reload
 uv run pytest -q
 uv run ruff check . && uv run ruff format --check .
 uv run mypy app
-ALLOW_UNVERIFIED_ANON_KEY=true uv run python scripts/export_openapi.py
+ALLOW_UNVERIFIED_ANON_KEY=true uv run python scripts/export_openapi.py  # 스키마를 고쳤으면 반드시
 ```
 
-로컬에서 백엔드를 띄우려면 `ALLOW_UNVERIFIED_ANON_KEY=true` 가 필요하다.
-mTLS 인증서가 없으면 익명키 검증기를 만들 수 없어 기동이 실패하도록 되어 있다. 의도된 동작이다.
+로컬에서 백엔드를 띄우려면 `ENVIRONMENT=local` 과 `ALLOW_UNVERIFIED_ANON_KEY=true` 가 필요하다.
+인증서가 없으면 익명키 검증기를 만들 수 없어 **기동이 실패한다**(`create_app` 이 검증기를 먼저 만든다).
+검증 생략은 `local` 에서만 켤 수 있다. dev 도 QR 테스트로 여러 사람이 붙는 공용 서버라 막아 뒀다.
+
+## 시간대
+
+**월 경계와 '오늘'은 사용자 시간대(`users.timezone`, 기본 `Asia/Seoul`) 기준이다.**
+DB 에는 UTC 로 저장하고, 조회할 때 `service.today_for` · `service.period_for` 로 되돌린다.
+UTC 로 날짜를 뽑으면 한국에서 자정부터 아침 9시까지 저장한 거래가 전달로 집계된다.

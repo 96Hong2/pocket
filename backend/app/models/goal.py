@@ -17,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Entity, Money, SoftDeleteMixin, str_enum_type
+from app.db.base import Entity, MoneyColumn, SoftDeleteMixin, str_enum_type
 
 
 class GoalStatus(StrEnum):
@@ -49,10 +49,12 @@ class Goal(Entity, SoftDeleteMixin):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     title: Mapped[str] = mapped_column(String(60), nullable=False)
-    target_amount: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    target_amount: Mapped[Decimal] = mapped_column(MoneyColumn, nullable=False)
     target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     # 목표를 만들 때 이미 모아둔 금액.
-    initial_amount: Mapped[Decimal] = mapped_column(Money, nullable=False, server_default=text("0"))
+    initial_amount: Mapped[Decimal] = mapped_column(
+        MoneyColumn, nullable=False, server_default=text("0")
+    )
     status: Mapped[GoalStatus] = mapped_column(
         str_enum_type(GoalStatus, name="goal_status"),
         nullable=False,
@@ -77,7 +79,7 @@ class GoalContribution(Entity, SoftDeleteMixin):
         ForeignKey("goals.id", ondelete="CASCADE"), nullable=False
     )
     occurred_on: Mapped[date] = mapped_column(Date, nullable=False)
-    amount: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(MoneyColumn, nullable=False)
     source: Mapped[GoalContributionSource] = mapped_column(
         str_enum_type(GoalContributionSource, name="goal_contribution_source"),
         nullable=False,

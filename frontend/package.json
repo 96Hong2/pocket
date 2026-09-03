@@ -5,17 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && ait build",
+    "build": "npm run build:web && ait build",
     "preview": "vite preview",
     "deploy": "ait deploy",
     "typecheck": "tsc -b",
-    "lint": "oxlint",
+    "lint": "oxlint src tests e2e",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "build:web": "tsc -b && vite build"
   },
   "dependencies": {
     "@apps-in-toss/web-framework": "^3.2.0",

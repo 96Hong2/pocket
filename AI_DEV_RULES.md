@@ -3,13 +3,14 @@
 이 파일은 이 프로젝트를 수정하는 모든 AI/개발자가 지켜야 하는 **상시 규칙**이다. 새로운 구현 아이디어보다 이 규칙이 우선한다.
 
 ## 1. Source of Truth
-1. 제품 요구사항: 레포 밖에 있다. 옵시디언 볼트 `프로젝트 - 은홍/10초 가계부/원본/` (PRD v5 가 정본)
+1. 제품 요구사항: 레포 밖 개인 노트에 있다(PRD v5 가 정본). 경로는 인계 문서에 있다.
 2. 아키텍처: `docs/ARCHITECTURE.md`
 3. 데이터 모델: `docs/DATA_MODEL.md`
 4. Apps in Toss 사실/SDK/API: **최신 공식 문서**
 5. 문서와 코드가 충돌하면 임의 추측하지 말고 근거를 확인해 문서 또는 코드를 함께 수정한다.
 
-Apps in Toss API/SDK 이름을 기억으로 추측하지 않는다. 관련 작업 전 `apps-in-toss` MCP 또는 공식 `docs-search` skill로 최신 문서를 확인한다.
+Apps in Toss API/SDK 이름을 기억으로 추측하지 않는다. 확인 순서는 `.claude/skills/ait-docs` 에 있다.
+설치된 패키지의 타입 정의(`frontend/node_modules/@apps-in-toss/web-framework/dist/index.d.ts`)가 가장 정확하다. 공식 문서는 일부가 2.x 기준으로 낡아 있다.
 
 ## 2. Product Invariants
 - 첫 기록 전 필수 질문 0개.
@@ -59,9 +60,10 @@ Apps in Toss API/SDK 이름을 기억으로 추측하지 않는다. 관련 작�
 - TDS로 전체 UI를 덮어씌우지 않는다.
 - Apps in Toss Navigation/Tab 등 플랫폼 chrome은 공식 가이드 우선.
 - 동일 거래 표시는 하나의 `TransactionRow`를 사용.
-- 월 이동 UI는 하나의 `MonthSelector`를 사용.
+- 월 이동 UI는 하나의 `MonthStepper`를 사용.
 - Bottom Sheet/Error/Empty/Loading 상태를 화면마다 새로 만들지 말고 공용 component variant로 구현.
 - 색상 hex를 feature마다 하드코딩하지 말고 token 사용.
+- Tailwind는 `index.css`의 `@theme` 토큰 선언에만 쓴다. 화면과 공용 컴포넌트는 `shared/ui/ui.css`·`app/shell.css`의 BEM 클래스로 그리고, tsx에 유틸리티 클래스를 쓰지 않는다. 예외는 `shared/ui/__demo__` 레이아웃뿐이다.
 - 접근성: 터치 영역, contrast, 큰 글자, tabular numeric 확인.
 
 ## 7. Apps in Toss Rules
@@ -80,7 +82,7 @@ Apps in Toss API/SDK 이름을 기억으로 추측하지 않는다. 관련 작�
 - 기록 CTA 위/기록/저장 중간 광고 금지.
 - 최대 1개 slot부터 실험.
 - `isSupported`, `NoFill`, render failure 처리.
-- X 숨김 UI가 정책상 허용되는지 출시 전 최신 문서를 재확인.
+- 광고 닫기(X) 버튼과 자체 `AD` 라벨을 넣지 않는다. 재확인은 끝났다(ADR-0004).
 - 광고가 없을 때 빈 자리 유지 금지.
 
 ## 9. State & Data

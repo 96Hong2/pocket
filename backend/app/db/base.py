@@ -19,9 +19,10 @@ NAMING_CONVENTION = {
     "pk": "pk_%(table_name)s",
 }
 
-# 금액은 소수점 없는 원 단위. 양수로 저장하고 의미는 type 이 구분한다.
-Money = Numeric(14, 0)
-LargeMoney = Numeric(16, 0)
+# 금액 컬럼 타입. 소수점 없는 원 단위이고 양수로 저장한다. 의미는 type 이 구분한다.
+# 이름 끝에 Column 을 붙인 이유: app/domain/money.py 의 값 객체 Money 와 헷갈리지 않기 위해서다.
+MoneyColumn = Numeric(14, 0)
+LargeMoneyColumn = Numeric(16, 0)
 
 
 class Base(DeclarativeBase):
@@ -30,7 +31,7 @@ class Base(DeclarativeBase):
     type_annotation_map = {
         uuid.UUID: Uuid(as_uuid=True),
         datetime: DateTime(timezone=True),
-        Decimal: Money,
+        Decimal: MoneyColumn,
     }
 
 

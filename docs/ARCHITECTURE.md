@@ -112,12 +112,17 @@ flowchart TD
 
 ```
 src/
-  app/        router · providers (앱을 조립하는 자리)
-  pages/      라우트 하나 = 파일 하나
+  app/        router · providers (앱을 조립하는 자리)      ← 있다
+  pages/      라우트 하나 = 파일 하나                      ← 있다
+  shared/     ui · toss · tokens · lib                     ← 있다
+  shared/api  HTTP 클라이언트                              ← 아직 없다
   features/   transactions · quick-record · imports · budgets · reports
-              assets · goals · recovery · ads · settings
-  shared/     ui · toss · api · tokens · lib
+              assets · goals · recovery · ads · settings   ← 아직 없다(폴더만)
 ```
+
+**`features/` 와 `shared/api` 는 아직 비어 있다.** 첫 vertical slice 에서 채운다.
+지금 화면은 `pages/` 의 자리표시자이고, 공용 컴포넌트는 `shared/ui` 에 있다.
+`features/` 폴더가 비어 있는 동안 `app-guard` 의 그 절 검사는 아무것도 잡지 못한다.
 
 `features/` 끼리는 서로의 내부를 import 하지 않는다. 두 feature 가 같은 것을 필요로 하면 `shared/` 로 올린다.
 올리는 기준은 "두 곳 이상에서 실제로 쓰고 있다"이고, 나중에 쓸 것 같아서 미리 올리지 않는다.
@@ -129,15 +134,23 @@ Zustand 같은 전역 상태 라이브러리는 실제로 막히기 전에는 �
 
 ```
 app/
-  core/          설정 · 로깅 · 예외
-  db/            세션 · 베이스 · 모델
-  domain/        순수 계산 (예산 · 페이스 · 피드백 · 중복 fingerprint)
-  api/           의존성 · 라우터 조립
+  core/          설정 · 로깅
+  db/            세션 · 선언 베이스
+  models/        SQLAlchemy ORM
+  domain/        순수 계산 (예산 · 페이스 · 피드백 · 중복 fingerprint · 기본 카테고리)
+  api/           의존성 · 예외 변환 · 라우터 조립
   modules/       transactions · budgets · reports · assets · goals · imports · settings
   integrations/  apps_in_toss · llm
 migrations/      alembic
-tests/           domain · api
+tests/           domain · api · integrations · 마이그레이션 스모크
 ```
+
+**enum 정본은 `domain` 이다.** `TransactionType` · `TransactionSource` 는 `domain/aggregation.py`,
+`CategoryKind` 와 기본 카테고리는 `domain/categories.py`, `AssetGroup` 은 `domain/assets.py` 에 있고
+`models` 와 API 스키마가 그것을 가져다 쓴다. 같은 값 목록을 두 곳에 적지 않는다.
+
+금액 컬럼 타입은 `db/base.py` 의 `MoneyColumn` 이고, 계산에 쓰는 값 객체는 `domain/money.py` 의
+`Money` 다. 이름이 겹치지 않게 컬럼 쪽에 `Column` 을 붙였다.
 
 `domain/` 은 DB 도 HTTP 도 모른다. 값을 받아 값을 돌려주는 함수만 있다.
 남은 예산, 하루 쓸 수 있는 돈, 페이스 비율, 피드백 단계 선택이 여기 산다.
@@ -149,3 +162,14 @@ tests/           domain · api
 - 프론트 빌드 산출물은 `frontend/dist` 이고 `ait build` 가 `pocket.ait` 로 묶는다.
 - 백엔드 CORS 는 실서비스 origin 네 개(`pocket.web.tossmini.com`, `pocket.private-web.tossmini.com`, `pocket.apps.tossmini.com`, `pocket.private-apps.tossmini.com`)와 로컬 `http://localhost:5173` 을 허용한다. 3.x 번들이 2.x origin 으로 서비스되는 기간이 있어 둘 다 필요하다.
 - 서비스워커와 offline-first 는 쓰지 않는다. 오프라인 대비는 키패드 입력을 로컬 큐에 잠깐 담아 두는 것까지다.
+
+## 시간대
+
+**월 경계와 '오늘'은 사용자 시간대(`users.timezone`, 기본 `Asia/Seoul`) 기준이다.**
+
+- 저장은 UTC 로 정규화한다(`occurred_at` 은 시간대가 붙은 값만 받는다).
+- 기간 조회 경계는 그 시간대의 자정을 UTC 로 옮겨 비교한다.
+- '오늘'은 `datetime.now(ZoneInfo(user.timezone)).date()` 다.
+
+UTC 로 날짜를 뽑으면 한국에서 자정부터 아침 9시까지 저장한 거래가 전달로 집계되고,
+말일 밤에는 남은 일수가 하루 어긋난다. 헬퍼는 `modules/transactions/service.py` 에 모여 있다.

@@ -12,6 +12,7 @@ from typing import Annotated
 
 from fastapi import Depends, Header
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError
@@ -81,14 +82,25 @@ def get_current_user(
 ) -> User:
     key_hash = _hash(identity.anon_key)
     user = session.scalar(select(User).where(User.anon_key_hash == key_hash))
-    if user is None:
-        # 첫 진입이다. 가입 절차 없이 여기서 계정이 생긴다.
+    if user is not None:
+        return user
+
+    # 첫 진입이다. 가입 절차 없이 여기서 계정이 생긴다.
+    # 홈이 목록·요약을 동시에 부르므로 같은 키로 두 요청이 함께 들어온다.
+    # 경쟁에서 진 쪽은 unique 위반이 나므로 되돌리고 이긴 쪽의 행을 쓴다.
+    try:
         user = User(anon_key_hash=key_hash)
         session.add(user)
         session.flush()
         session.add(UserPreference(user_id=user.id))
         session.commit()
-        session.refresh(user)
+    except IntegrityError:
+        session.rollback()
+        user = session.scalar(select(User).where(User.anon_key_hash == key_hash))
+        if user is None:
+            raise
+        return user
+    session.refresh(user)
     return user
 
 

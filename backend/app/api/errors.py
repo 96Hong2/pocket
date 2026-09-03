@@ -6,15 +6,20 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.integrations.apps_in_toss.anon_key import (
     AnonKeyAuthError,
     AnonKeyVerificationUnavailable,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["ApiError", "install_exception_handlers"]
 
@@ -65,4 +70,22 @@ def install_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=exc.status_code,
             content=_body("HTTP_ERROR", str(exc.detail)),
+        )
+
+    @app.exception_handler(IntegrityError)
+    async def _integrity(_: Request, exc: IntegrityError) -> JSONResponse:
+        # 원인 문자열에 값이 섞여 있어 그대로 내보내지 않는다.
+        logger.exception("DB 제약 위반")
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content=_body("CONFLICT", "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요."),
+        )
+
+    @app.exception_handler(Exception)
+    async def _unhandled(_: Request, exc: Exception) -> JSONResponse:
+        # 이 핸들러가 없으면 500 이 text/plain 으로 나가 오류 봉투 계약이 깨진다.
+        logger.exception("처리하지 못한 오류")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=_body("INTERNAL_ERROR", "잠시 후 다시 시도해 주세요."),
         )

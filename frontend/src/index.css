@@ -65,6 +65,8 @@
   --radius-pill: 999px;
   --radius-sheet: 24px;
   --radius-card: 20px;
+  /* 세이지50·bg 인셋 패널. 시안에서 8곳에 쓰인다. */
+  --radius-inset: 16px;
   --radius-button: 14px;
   --radius-lg: 13px;
   --radius-md: 12px;
