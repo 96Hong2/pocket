@@ -1,17 +1,16 @@
 import { Link } from 'react-router';
 
 import { ROUTES } from '../app/router/routes';
+import { BudgetSection } from '../features/budgets';
 
-import { Placeholder } from './Placeholder';
-
-/** 관리 탭. 하위 화면으로 들어가는 입구다. */
+/** 관리 탭. 예산을 여기서 바로 고치고, 나머지는 하위 화면으로 들어간다. */
 export default function ManagePage() {
   return (
     <div className="page">
       <h1 className="page__title">관리</h1>
       <p className="page__lead">예산과 분류를 손봐요</p>
 
-      <Placeholder label="이번 달 예산">예산 금액과 카테고리 예산을 고친다.</Placeholder>
+      <BudgetSection />
 
       <nav aria-label="관리 하위 화면">
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>

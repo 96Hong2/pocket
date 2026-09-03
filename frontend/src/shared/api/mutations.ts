@@ -22,6 +22,8 @@ import type {
   BudgetStateOut,
   BudgetUpsert,
   PeriodSummaryOut,
+  PreferencesOut,
+  PreferencesPatch,
   TransactionCreate,
   TransactionUpdate,
 } from './types';
@@ -129,6 +131,13 @@ export function useDeleteTransaction() {
   });
 }
 
+/** 응답이 조회와 같은 모양인 예산 저장들이 화면을 맞추는 방법. 저장·카테고리 저장이 함께 쓴다. */
+function writeBudget(queryClient: QueryClient, budget: BudgetOut, params?: MonthParams): void {
+  // 조회와 같은 모양이라 통째로 넣는다. 요약 쪽은 예산 블록만 갈아 끼우면 된다.
+  queryClient.setQueryData<BudgetOut>(queryKeys.budget(params), budget);
+  writeBudgetState(queryClient, budget.budget, params);
+}
+
 /** 예산 저장. 응답이 조회와 같은 모양이라 그대로 캐시에 넣는다. */
 export function useSaveBudget(params?: MonthParams) {
   const client = useApiClient();
@@ -137,10 +146,69 @@ export function useSaveBudget(params?: MonthParams) {
   return useMutation({
     mutationFn: (body: BudgetUpsert) => client.saveBudget(body, params),
     onSuccess: (budget) => {
-      // 조회와 같은 모양이라 통째로 넣는다. 요약 쪽은 예산 블록만 갈아 끼우면 된다.
-      queryClient.setQueryData<BudgetOut>(queryKeys.budget(params), budget);
-      writeBudgetState(queryClient, budget.budget, params);
+      writeBudget(queryClient, budget, params);
       return invalidateMoney(queryClient);
+    },
+  });
+}
+
+/**
+ * 예산 지우기.
+ *
+ * 204 라 돌려받는 값이 없다. 카테고리 예산까지 한꺼번에 사라지므로 캐시를 손보지 않고
+ * 다시 받는다. 지운 자리는 다음 기간으로 이어쓰지 않겠다는 표시로도 남는다.
+ */
+export function useDeleteBudget(params?: MonthParams) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => client.deleteBudget(params),
+    onSuccess: () => invalidateMoney(queryClient),
+  });
+}
+
+/** 카테고리 한도 저장. 응답이 예산 조회 전체라 예산 저장과 같은 방식으로 넣는다. */
+export function useSaveCategoryBudget(params?: MonthParams) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { categoryId: string; body: BudgetUpsert }) =>
+      client.saveCategoryBudget(input.categoryId, input.body, params),
+    onSuccess: (budget) => {
+      writeBudget(queryClient, budget, params);
+      return invalidateMoney(queryClient);
+    },
+  });
+}
+
+/** 카테고리 한도 지우기. 204 라 다시 받아 맞춘다. */
+export function useDeleteCategoryBudget(params?: MonthParams) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (categoryId: string) => client.deleteCategoryBudget(categoryId, params),
+    onSuccess: () => invalidateMoney(queryClient),
+  });
+}
+
+/**
+ * 앱 설정 저장.
+ *
+ * 이어쓰기를 끄고 켜는 것이 다음 기간에 예산이 생기는지를 바꾼다. 그래서 설정만이 아니라
+ * 예산 캐시도 함께 무효화한다. 돈 숫자는 그대로라 나머지는 건드리지 않는다.
+ */
+export function useSavePreferences() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: PreferencesPatch) => client.savePreferences(body),
+    onSuccess: (preferences) => {
+      queryClient.setQueryData<PreferencesOut>(queryKeys.preferences(), preferences);
+      return queryClient.invalidateQueries({ queryKey: queryKeys.budgets() });
     },
   });
 }

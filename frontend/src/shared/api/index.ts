@@ -18,14 +18,19 @@ export {
   useBudget,
   useCalendar,
   useCategories,
+  usePreferences,
   useSummary,
   useTransactionPages,
   useTransactions,
 } from './queries';
 export {
   useCreateTransaction,
+  useDeleteBudget,
+  useDeleteCategoryBudget,
   useDeleteTransaction,
   useSaveBudget,
+  useSaveCategoryBudget,
+  useSavePreferences,
   useUndoTransaction,
   useUpdateTransaction,
 } from './mutations';

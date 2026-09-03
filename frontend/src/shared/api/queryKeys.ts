@@ -29,6 +29,9 @@ export const queryKeys = {
 
   categories: () => [ROOT, 'categories'] as const,
 
+  /** 앱 설정. 달과 무관하다. */
+  preferences: () => [ROOT, 'preferences'] as const,
+
   /** 달을 가리지 않는 예산 전부. 무효화할 때 쓴다. */
   budgets: () => [ROOT, 'budget'] as const,
   budget: (params?: MonthParams) => [ROOT, 'budget', monthPart(params)] as const,

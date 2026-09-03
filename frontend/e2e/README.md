@@ -33,6 +33,23 @@ e2e/
 그 동작의 배경이 되는 상태는 화면으로 만들 수 있어도 `support/api.ts` 로 심어도 된다.
 며칠 비운 상태처럼 화면으로는 아예 만들 수 없는 것도 여기로 심는다.
 
+`PrepApi` 로 심을 수 있는 것.
+
+| 부르는 것 | 심는 것 |
+| --- | --- |
+| `addTransaction` · `addSeries` · `addExpense` | 거래. 종류·가맹점·예산 제외·며칠 전까지 정한다 |
+| `setBudget(금액, 달?)` · `deleteBudget(달?)` | 전체 예산. 달을 빼면 이번 달이다 |
+| `setCategoryBudget(카테고리, 금액, 달?)` · `deleteCategoryBudget(카테고리, 달?)` | 카테고리 예산 |
+| `setAutoCarryover(켬)` | 다음 달로 예산을 이어 쓸지 |
+| `categoryIdByName` | 이름으로 카테고리 id 찾기 |
+
+달은 `2026-08` 모양이고, `thisMonth()`·`lastMonth()` 로 얻는다. 기기 시간대로 만들지 않는다.
+지난달 예산은 이어쓰기를 보려고 심는다. 끝난 기간의 쓰기는 제품 규칙이 막아 두므로
+`support/servers.ts` 가 백엔드에 `ALLOW_PAST_PERIOD_BUDGET_WRITE=true` 를 넘겨 e2e 스택에서만 잠금을 연다.
+그래서 **여기서는 `422 PERIOD_CLOSED` 를 못 본다.** 잠금 자체는 스위치가 꺼진 백엔드 API 테스트가 지킨다.
+응답의 `is_editable` 은 스위치와 무관하게 진짜 규칙으로 계산되므로 "끝난 달은 보기만 한다" 는
+화면 동작은 여기서 그대로 검증된다.
+
 ## 새 spec 을 만드는 순서
 
 1. `screens/` 를 먼저 연다. 필요한 동작이 이미 있으면 그걸 쓴다.
@@ -153,7 +170,7 @@ node scripts/demo-publish.mjs <폴더>       webm 을 mp4 로 옮기고 인덱�
 | `demo.open(제목, 설명)` | 영상 맨 앞 제목 카드. 페이지를 연 뒤에 부른다 |
 | `demo.step(문구)` | 위쪽 자막. 누르기 **직전에** 부른다 |
 | `demo.clearStep()` | 자막을 걷는다. 화면 전체를 보여줄 때 |
-| `demo.beat(n)` | n 박자 쉰다. 기본 한 박자는 0.9초 |
+| `demo.beat(n)` | n 박자 쉰다. 한 박자는 750ms (`support/director.ts` 의 `BEAT_MS`) |
 
 `waitForTimeout` 은 `demo` 안에서만 쓴다. 검증 spec 에서는 여전히 금지다.
 영상은 사람이 보는 것이라 "상태가 됐다" 와 "눈으로 따라갔다" 가 다르다.
