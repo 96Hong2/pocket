@@ -52,7 +52,7 @@ npm run build          # build:web && ait build → pocket.ait  (배포용)
 # 백엔드
 cd backend
 uv run uvicorn app.main:app --reload
-uv run pytest -q
+ALLOW_UNVERIFIED_ANON_KEY=true uv run pytest -q   # 인증서가 없으면 수집 단계에서 죽는다
 uv run ruff check . && uv run ruff format --check .
 uv run mypy app
 ALLOW_UNVERIFIED_ANON_KEY=true uv run python scripts/export_openapi.py  # 스키마를 고쳤으면 반드시

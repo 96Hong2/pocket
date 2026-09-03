@@ -121,8 +121,8 @@ import {
 | `partner.addAccessoryButton({ id, title, icon })` / `removeAccessoryButton()` | – | 액세서리는 최대 1개 |
 | `tdsEvent.addEventListener('navigationAccessoryEvent', { onEvent })` | – | |
 | `graniteEvent.addEventListener('backEvent', { onEvent })` | – | ⚠ 등록하면 플랫폼 기본 뒤로가기가 막힌다. 우리가 이동·종료를 처리해야 한다 |
-| `TossAds.initialize({ callbacks })` | 5.239.0 | `.isSupported()` 있음. 멱등 |
-| `TossAds.attachBanner(adGroupId, target, opts)` → `{ destroy() }` | 5.239.0 | |
+| `TossAds.initialize({ callbacks })` | 5.241.0 | `.isSupported()` 있음. 멱등 |
+| `TossAds.attachBanner(adGroupId, target, opts)` → `{ destroy() }` | 5.241.0 | |
 | `TossAds.destroy(slotId)` / `destroyAll()` | – | |
 | `Environment.environment` → `'toss' \| 'sandbox'` (속성) | – | 브라우저에서는 던진다. flat `getOperationalEnvironment()` 는 deprecated |
 | `isMinVersionSupported({ android, ios })` | – | `'5.x.y'` \| `'always'` \| `'never'` |

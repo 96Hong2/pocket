@@ -8,7 +8,7 @@ dev-back:
 
 test:
 	cd frontend && npm test
-	cd backend && uv run pytest -q
+	cd backend && ALLOW_UNVERIFIED_ANON_KEY=true uv run pytest -q
 
 lint:
 	cd frontend && npm run lint
