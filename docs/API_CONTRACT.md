@@ -42,6 +42,8 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | `INVALID_CATEGORY` | 422 | 내 카테고리도 기본 카테고리도 아닌 값 |
 | `INVALID_REFUND_TARGET` | 422 | 환불 대상이 내 지출이 아님 |
 | `PERIOD_CLOSED` | 422 | 이미 끝난 기간의 예산을 바꾸려 함. 지난달은 보기만 된다 |
+| `USAGE_LIMIT` | 429 | 하루에 쓸 수 있는 줄글 분석을 다 썼다. 키패드 기록은 그대로 된다 |
+| `PARSE_UNAVAILABLE` | 503 | 지금은 문장을 읽지 못했다. 잠시 뒤 다시 |
 | `HTTP_ERROR` | 그대로 | 라우팅 단계에서 난 오류(없는 경로, 허용하지 않는 메서드) |
 | `INTERNAL_ERROR` | 500 | 서버 오류. 본문 형태는 위와 같다 |
 
@@ -278,6 +280,47 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 - 이번 기간에 예산이 이미 있으면 그대로 둔다. 지운 적이 있으면 다시 만들지 않는다.
 - `user_preferences.budget_auto_carryover` 가 false 면 하지 않는다(아래 설정).
 
+### 줄글 입력
+
+분석은 거래를 만들지 않는다. 검토 단위(`ImportBatch`)와 후보만 만들고, 저장은 `commit` 한 번이다.
+
+| 메서드 | 경로 | 하는 일 |
+| --- | --- | --- |
+| POST | `/imports/text` | 줄글을 읽어 후보를 만든다. 201 |
+| PATCH | `/imports/{batch_id}/candidates/{candidate_id}` | 후보 한 줄을 고친다. 응답은 묶음 전체 |
+| POST | `/imports/{batch_id}/commit` | 고른 후보를 거래로 저장한다 |
+| DELETE | `/imports/{batch_id}` | 검토를 접는다. 없어도 204 |
+
+요청은 `{ "text": "점심 12000 스벅 4500 어제 택시 9000" }` 하나다(1~1000자).
+
+응답에는 `selected_count` 와 `selected_total` 이 실린다. **화면이 다시 더하지 않는다.**
+두 곳에서 세면 저장 버튼의 숫자와 실제 저장되는 것이 어긋난다.
+
+`meta.is_stub` 이 true 면 실제 모델이 아니라 규칙 파서가 읽은 것이다. 그 결과로 인식 정확도를
+재지 않는다.
+
+후보의 `is_low_confidence` 가 true 면 `is_selected` 는 false 로 내려온다.
+**저신뢰 후보를 서버가 켜서 보내지 않는다.** 사람이 켜야 저장된다.
+`is_duplicate` 는 같은 지문의 거래가 이미 있다는 뜻이고, 이것도 꺼진 채로 온다.
+
+PATCH 는 **보낸 항목만** 바꾼다. `merchant` 와 `category_id` 는 `null` 을 명시하면 비운다
+(설정 PATCH 와 규칙이 다르다. 여기는 '값 없음' 을 저장할 자리가 있다).
+내용을 고치면 `confidence` 가 1 이 되고 그 줄은 저장 대상이 된다. 사람이 직접 본 값이기 때문이다.
+
+commit 응답은 `created_count`·`total_amount` 와 함께 **마지막 한 건 기준의** `feedback`·`budget`
+을 준다. 화면이 홈을 다시 부르지 않고 남은 예산을 보여줄 수 있다.
+이미 저장한 묶음에 다시 commit 하면 409 `CONFLICT` 다.
+
+### 기억한 분류
+
+| 메서드 | 경로 | 하는 일 |
+| --- | --- | --- |
+| GET | `/merchant-rules` | 기억한 상호·분류 목록. 자주 맞은 순 |
+| DELETE | `/merchant-rules/{rule_id}` | 규칙 하나 지우기 |
+
+규칙은 줄글 저장 때 자동으로 쌓인다. 분류 우선순위는 `내 규칙 → 모델이 고른 이름 → 사용자 확인` 이다.
+**공용 상호 사전은 아직 없다.**
+
 ### 설정
 
 | 메서드 | 경로 | 하는 일 |
@@ -297,7 +340,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 
 ## 아직 없는 것
 
-- 리포트·캡처·자산·목표 엔드포인트. 도메인 계산과 데이터 모델은 준비돼 있어 라우터만 붙이면 된다.
+- 리포트·캡처·영수증·자산·목표 엔드포인트. 도메인 계산과 데이터 모델은 준비돼 있어 라우터만 붙이면 된다.
   `backend/app/modules/` 아래 각 폴더가 자리만 잡혀 있다.
 - 설정은 `budget_auto_carryover` 한 값만 열려 있다. 홈 히어로·알림·리포트 옵션은 아직 없다.
 - 카테고리 생성·수정·삭제. 지금은 조회만 있다.

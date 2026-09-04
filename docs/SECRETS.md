@@ -107,6 +107,14 @@ provider 를 아직 고르지 않았다. 지금은 `StubLlmStructuredClient`(규
 - 키를 코드·테스트 픽스처·로그·에러 메시지에 넣지 않는다.
 - **OCR/LLM 에 보낸 원문과 받은 원문을 저장하거나 로그에 남기지 않는다.** analytics·error log 도 포함이다.
 - 캡처 이미지 바이트를 로그에 찍지 않는다(`LlmImage.__repr__` 가 길이만 남기도록 막아 뒀다).
+- **모델에 보내기 전에 카드·계좌·전화번호를 가린다**(`app/domain/redaction.py`). 저장을 안 하는
+  것만으로는 부족하다. 보낸 순간 원문이 provider 쪽 기록에 남는다.
+  가리는 경계(금액·날짜는 안 가린다)는 `tests/domain/test_redaction.py` 가 지킨다.
+
+| 이름 | 값 | 비고 |
+|---|---|---|
+| `NL_PARSE_DAILY_LIMIT` | 기본 300 | 하루에 받아 주는 줄글 분석 횟수. 비밀값은 아니다.
+  넘으면 429 `USAGE_LIMIT` 이고 키패드 기록은 그대로 된다. 실제 비용을 재고 나서 좁힌다 |
 
 ---
 
