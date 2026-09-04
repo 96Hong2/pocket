@@ -281,6 +281,21 @@ class RecordNaturalLanguage {
     return this.root.getByRole('alert');
   }
 
+  /** 분석 응답을 기다리는 동안 도는 스피너. 이름으로 다른 로딩 자리와 갈린다. */
+  get analyzing(): Locator {
+    return this.root.getByRole('status', { name: '읽는 중이에요' });
+  }
+
+  /** 한 번에 읽는 상한을 넘겼을 때 몇 건이 빠졌는지 말하는 안내. */
+  get truncatedNotice(): Locator {
+    return this.root.getByText('한 번에 20건까지만 읽어요', { exact: false });
+  }
+
+  /** 분류 목록을 못 불러왔을 때 검토 화면에 뜨는 안내. 키패드 쪽 문구와 다르다. */
+  get categoriesError(): Locator {
+    return this.root.getByText('분류를 불러오지 못했어요');
+  }
+
   /** 검토 단계에 들어섰다는 표시. 후보가 없어도 이 줄은 있다. */
   get readLine(): Locator {
     return this.root.getByText('이렇게 이해했어요', { exact: false });

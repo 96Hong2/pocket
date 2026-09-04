@@ -293,7 +293,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 
 요청은 `{ "text": "점심 12000 스벅 4500 어제 택시 9000" }` 하나다(1~1000자).
 
-응답에는 `selected_count` 와 `selected_total` 이 실린다. **화면이 다시 더하지 않는다.**
+응답에는 `selected_count` 와 `selected_expense_total`(지출만 센다) 이 실린다. **화면이 다시 더하지 않는다.**
 두 곳에서 세면 저장 버튼의 숫자와 실제 저장되는 것이 어긋난다.
 
 `meta.is_stub` 이 true 면 실제 모델이 아니라 규칙 파서가 읽은 것이다. 그 결과로 인식 정확도를
@@ -305,9 +305,12 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 
 PATCH 는 **보낸 항목만** 바꾼다. `merchant` 와 `category_id` 는 `null` 을 명시하면 비운다
 (설정 PATCH 와 규칙이 다르다. 여기는 '값 없음' 을 저장할 자리가 있다).
-내용을 고치면 `confidence` 가 1 이 되고 그 줄은 저장 대상이 된다. 사람이 직접 본 값이기 때문이다.
+내용을 고치면 `confidence` 가 1 이 된다. 사람이 직접 본 값이기 때문이다.
+저장 대상 여부는 **이번 고치기로 새로 생긴 차단 사유만** 반영한다. 고쳐서 이제야 이미 저장한 것과
+같아졌거나 환불이 되면 꺼지고, 차단 사유가 사라지면 켜진다. 처음부터 중복·환불이던 줄을 사람이
+손으로 켠 것은 그대로 둔다. `is_selected` 를 함께 보내면 그 값이 그대로 남는다.
 
-commit 응답은 `created_count`·`total_amount` 와 함께 **마지막 한 건 기준의** `feedback`·`budget`
+commit 응답은 `created_count`·`expense_total`(지출만 센다) 와 함께 **마지막 한 건 기준의** `feedback`·`budget`
 을 준다. 화면이 홈을 다시 부르지 않고 남은 예산을 보여줄 수 있다.
 이미 저장한 묶음에 다시 commit 하면 409 `CONFLICT` 다.
 

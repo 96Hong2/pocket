@@ -271,6 +271,30 @@ class CategoryBudgetArea {
     return this.row(name).getByRole('button', { name: `${name} 예산 수정` });
   }
 
+  /** 그 줄 게이지가 스크린리더에 알리는 사용률(%). */
+  async gaugePercent(name: string): Promise<number | null> {
+    const value = await this.gauge(name).getAttribute('aria-valuenow');
+    return value == null ? null : Number(value);
+  }
+
+  /**
+   * 그 줄 게이지 채움의 실제 색.
+   *
+   * 한도를 넘겼는지는 줄에 글로 적히지 않고 색만 바뀐다. 클래스 이름이 아니라
+   * 브라우저가 계산한 값을 읽어, 스타일을 어떻게 붙였든 화면에 그려진 색으로 본다.
+   */
+  async gaugeFillColor(name: string): Promise<string> {
+    return this.gauge(name)
+      .locator('*')
+      .first()
+      .evaluate((element) => getComputedStyle(element).backgroundColor);
+  }
+
+  /** 그 줄의 게이지. 줄마다 스크린리더 이름이 달라 그것으로 집는다. */
+  private gauge(name: string): Locator {
+    return this.row(name).getByRole('progressbar', { name: `${name} 예산 사용률` });
+  }
+
   /** 새 카테고리 한도를 정한다. */
   async add(name: string, amount: number): Promise<void> {
     await this.addButton.click();

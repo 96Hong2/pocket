@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 import { ROUTES } from '../../src/app/router/routes';
+import { dayCellLabel } from '../../src/features/transactions/ledgerView';
 import { TEST_IDS } from '../../src/shared/testIds';
 
 /**
@@ -101,6 +102,17 @@ class CalendarGridArea {
   async cellCount(): Promise<number> {
     return this.root.getByRole('button').count();
   }
+
+  /**
+   * 그 날 칸이 스크린리더에 읽히는 이름.
+   *
+   * 문구는 화면이 쓰는 함수를 그대로 부른다. 베껴 적으면 화면만 바뀌어도 눈치채지 못한다.
+   * 안 적은 쪽은 0원이다. 환불이 그날 지출을 깎으므로 expense 는 음수로 들어올 수 있다.
+   */
+  cellName(iso: string, totals?: { expense?: number; income?: number }): string {
+    if (totals == null) return dayCellLabel(iso);
+    return dayCellLabel(iso, { expense: totals.expense ?? 0, income: totals.income ?? 0 });
+  }
 }
 
 /**
@@ -178,10 +190,16 @@ class SearchArea {
     return this.page.getByText('맞는 내역이 없어요', { exact: true });
   }
 
-  /** 찍고 나서 입력이 잦아들기를 기다린다. 화면이 250ms 뒤에 서버를 부른다. */
+  /**
+   * 찍고 나서 입력이 잦아들기를 기다린다. 화면이 250ms 뒤에 서버를 부른다.
+   *
+   * 결과가 0건이면 건수 줄과 '맞는 내역이 없어요' 가 함께 뜬다. 둘 중 하나만 뜬다고 보고
+   * 기다리면 strict mode 위반으로 죽는다. 여기서는 "결과가 도착했다" 만 확인하고,
+   * 어느 쪽이 맞는지는 부르는 spec 이 단언한다.
+   */
   async find(text: string): Promise<void> {
     await this.input.fill(text);
-    await expect(this.resultCount.or(this.noResult)).toBeVisible();
+    await expect(this.resultCount.or(this.noResult).first()).toBeVisible();
   }
 
   async clear(): Promise<void> {
@@ -242,6 +260,11 @@ class EditSheetArea {
   /** 저장이 실패했을 때 버튼 위에 뜨는 한 줄. */
   get notice(): Locator {
     return this.root.getByRole('alert');
+  }
+
+  /** 금액이 비었거나 0일 때 완료가 잠긴 이유를 알리는 한 줄. */
+  get amountHint(): Locator {
+    return this.root.getByText('금액은 1원부터 넣을 수 있어요', { exact: true });
   }
 
   async done(): Promise<void> {

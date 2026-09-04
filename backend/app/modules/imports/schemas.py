@@ -120,7 +120,8 @@ class ImportCommitOut(BaseModel):
 
     batch: ImportBatchOut
     created_count: int
-    total_amount: Decimal
+    # 저장 버튼과 같은 규칙이다. 지출만 센다.
+    expense_total: Decimal
     feedback: FeedbackOut | None = None
     budget: BudgetStateOut | None = None
 

@@ -33,8 +33,6 @@ logger = logging.getLogger(__name__)
 
 PROVIDER_NAME = "stub"
 
-# 한 번에 읽어 들이는 건수 상한. PRD 가 정한 1~20 건이다.
-MAX_CANDIDATES = 20
 
 _TYPE_KEYWORDS: tuple[tuple[TransactionType, tuple[str, ...]], ...] = (
     (TransactionType.REFUND, ("환불", "취소", "반품")),
@@ -107,7 +105,9 @@ def parse_text(text: str, *, today: date | None = None) -> TransactionExtraction
     leading = _leading_date(entries, today=today)
 
     candidates: list[ExtractedTransaction] = []
-    for entry in entries[:MAX_CANDIDATES]:
+    # 여기서 자르지 않는다. 상한과 '몇 건이 빠졌는지' 는 검토 단위를 만드는 쪽이 정한다.
+    # 미리 잘라 넘기면 빠진 건수가 늘 0 이 되어 안내가 영영 뜨지 않는다.
+    for entry in entries:
         parsed = _parse_entry(entry, today=today, inherited=leading)
         if parsed is None:
             continue

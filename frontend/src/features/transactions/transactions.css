@@ -324,6 +324,12 @@
     line-height: 1.5;
   }
 
+  .tx-edit__hint {
+    margin: 12px 0 0;
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
   .tx-edit__notice {
     margin: 12px 0 0;
     font-size: var(--text-13);

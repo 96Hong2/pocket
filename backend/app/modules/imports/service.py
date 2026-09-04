@@ -61,21 +61,24 @@ MAX_CANDIDATES = 20
 
 
 class CommitResult:
-    """저장 결과. 마지막 한 건의 판정을 함께 들고 다닌다."""
+    """저장 결과. 마지막 한 건의 판정을 함께 들고 다닌다.
 
-    __slots__ = ("batch", "created_count", "outcome", "total_amount")
+    합계는 지출만 센다. 검토 화면의 저장 버튼과 같은 규칙이라야 두 화면이 같은 숫자를 말한다.
+    """
+
+    __slots__ = ("batch", "created_count", "expense_total", "outcome")
 
     def __init__(
         self,
         *,
         batch: ImportBatch,
         created_count: int,
-        total_amount: Decimal,
+        expense_total: Decimal,
         outcome: transactions.SaveOutcome | None,
     ) -> None:
         self.batch = batch
         self.created_count = created_count
-        self.total_amount = total_amount
+        self.expense_total = expense_total
         self.outcome = outcome
 
 
@@ -151,6 +154,10 @@ def update_candidate(
     if "category_id" in data:
         categories.require_owned(session, user, data["category_id"])  # type: ignore[arg-type]
 
+    # 재판정에 쓸 고치기 전 상태. setattr 로 값이 바뀌기 전에 떠 둔다.
+    was_duplicate = row.is_duplicate
+    was_refund = row.type == TransactionType.REFUND
+
     for field, value in data.items():
         if field == "occurred_at" and isinstance(value, datetime):
             value = value.astimezone(UTC)
@@ -167,9 +174,15 @@ def update_candidate(
         row.is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in (
             _known_fingerprints(session, user)
         )
-        if "is_selected" not in data and not row.is_duplicate:
-            # 이미 저장한 것과 같아졌으면 켜지 않는다. 켜면 같은 거래가 두 번 저장된다.
-            row.is_selected = True
+        if "is_selected" not in data:
+            now_refund = row.type == TransactionType.REFUND
+            if (row.is_duplicate and not was_duplicate) or (now_refund and not was_refund):
+                # 고쳐서 이제야 이미 있는 것과 같아졌거나 환불이 된 줄만 끈다.
+                # 안 끄면 켜진 채 남아 같은 거래가 두 번 저장된다.
+                row.is_selected = False
+            elif not row.is_duplicate and not now_refund:
+                row.is_selected = True
+            # 처음부터 중복이거나 환불이던 줄은 건드리지 않는다. 사람이 손으로 켠 선택이다.
 
     session.commit()
     session.refresh(batch)
@@ -204,9 +217,10 @@ def commit_batch(
     total = Decimal(0)
     outcome: transactions.SaveOutcome | None = None
     for row in chosen:
+        spent = row.amount if row.type == TransactionType.EXPENSE else Decimal(0)
         if row.transaction_id is not None:
             # 앞선 시도에서 이미 저장한 건이다. 다시 저장하면 두 번 들어간다.
-            total += row.amount
+            total += spent
             continue
         tx, outcome = transactions.create_transaction(
             session,
@@ -224,7 +238,7 @@ def commit_batch(
             today=day,
         )
         row.transaction_id = tx.id
-        total += row.amount
+        total += spent
         _learn_rule(session, user, row)
 
     batch.status = ImportBatchStatus.COMMITTED
@@ -233,7 +247,9 @@ def commit_batch(
     batch.completed_at = datetime.now(UTC)
     session.commit()
     session.refresh(batch)
-    return CommitResult(batch=batch, created_count=len(chosen), total_amount=total, outcome=outcome)
+    return CommitResult(
+        batch=batch, created_count=len(chosen), expense_total=total, outcome=outcome
+    )
 
 
 def delete_batch(session: Session, user: User, batch_id: uuid.UUID) -> None:

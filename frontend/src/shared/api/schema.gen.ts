@@ -597,8 +597,8 @@ export interface components {
             batch: components["schemas"]["ImportBatchOut"];
             /** Created Count */
             created_count: number;
-            /** Total Amount */
-            total_amount: string;
+            /** Expense Total */
+            expense_total: string;
             feedback?: components["schemas"]["FeedbackOut"] | null;
             budget?: components["schemas"]["BudgetStateOut"] | null;
         };
