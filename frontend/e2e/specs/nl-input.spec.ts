@@ -24,6 +24,13 @@ function today(): string {
   return formatDayLabel(toLedgerDate(new Date()));
 }
 
+/** `2026-09-02` 모양. 날짜 입력칸이 받는 형식이다. */
+function twoDaysAgoIso(): string {
+  const now = new Date();
+  now.setDate(now.getDate() - 2);
+  return toLedgerDate(now);
+}
+
 // ── 적고 이해시키기 ──────────────────────────────
 
 test('줄글 탭이 열려 있고, 한 줄에 적은 세 건을 따로 읽는다', async ({ home, recordSheet }) => {
@@ -249,4 +256,95 @@ test('기억한 분류를 관리 탭에서 보고 지우면 원래 분류로 돌
   await recordSheet.methodTab('줄글').click();
   await recordSheet.nl.analyze('올리브영 5000');
   await expect(recordSheet.nl.row('올리브영')).toContainText('건강·미용');
+});
+
+// ── 리뷰가 잡은 자리 ─────────────────────────────
+
+test('만과 천을 이어 쓴 금액을 한 건으로 읽는다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('커피 3만5천원');
+
+  // 두 건으로 갈리면 뒤 조각이 저신뢰라 기본 선택에서 빠져 5,000원이 조용히 사라진다.
+  await expect(recordSheet.nl.rows).toHaveCount(1);
+  await expect(recordSheet.nl.amount('커피')).toHaveText(formatCurrency(35000));
+  await expect(recordSheet.nl.saveButton).toHaveText(`1건 저장 · ${formatCurrency(35000)}`);
+});
+
+test('날짜를 고치면 목록의 날짜가 그대로 따라온다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+  await expect(recordSheet.nl.day('점심')).toHaveText(today());
+
+  await recordSheet.nl.openEdit('점심');
+  await recordSheet.nl.form.dayField.fill(twoDaysAgoIso());
+  await recordSheet.nl.form.apply();
+
+  await expect(recordSheet.nl.day('점심')).toHaveText(formatDayLabel(twoDaysAgoIso()));
+});
+
+test('검토하다 키패드에 다녀와도 후보 목록이 남는다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(THREE_ITEMS);
+  await expect(recordSheet.nl.rows).toHaveCount(3);
+
+  await recordSheet.methodTab('키패드').click();
+  await expect(recordSheet.input.amountText).toBeVisible();
+
+  await recordSheet.methodTab('줄글').click();
+  // 언마운트하면 적어 둔 줄글과 검토 목록이 통째로 사라진다.
+  await expect(recordSheet.nl.rows).toHaveCount(3);
+  await expect(recordSheet.nl.saveButton).toHaveText(`3건 저장 · ${formatCurrency(25500)}`);
+});
+
+test('수입이 섞이면 저장 버튼이 지출만 센다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000 월급 2000000 입금');
+
+  // 수입을 지출과 한 덩어리로 더하면 버튼이 실제로 쓴 돈과 다른 값을 말한다.
+  await expect(recordSheet.nl.saveButton).toHaveText(`2건 저장 · ${formatCurrency(12000)}`);
+});
+
+test('환불로 읽힌 것은 스스로 켜지지 않는다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('스벅 환불 40000');
+
+  // 되돌릴 지출을 고를 자리가 없다. 대상 없이 저장하면 쓴 적 없는 돈이 예산으로 돌아온다.
+  await expect(recordSheet.nl.checkbox('스벅 환불')).not.toBeChecked();
+  await expect(recordSheet.nl.saveButton).toBeDisabled();
+});
+
+test('이미 저장한 것의 분류만 바꿔도 저장 대상이 되지 않는다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+  await recordSheet.nl.save();
+  await recordSheet.nl.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+  await recordSheet.nl.openEdit('점심');
+  await recordSheet.nl.form.categoryChip('생활').click();
+  await recordSheet.nl.form.apply();
+
+  await expect(recordSheet.nl.chip('점심', '이미 있어요')).toBeVisible();
+  await expect(recordSheet.nl.checkbox('점심')).not.toBeChecked();
 });

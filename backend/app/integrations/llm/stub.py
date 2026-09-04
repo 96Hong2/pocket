@@ -101,17 +101,31 @@ def parse_text(text: str, *, today: date | None = None) -> TransactionExtraction
     if not text.strip():
         return TransactionExtraction()
 
-    candidates: list[ExtractedTransaction] = []
+    entries = split_entries(text)
     # 맨 앞에 적은 날짜는 뒤따르는 조각에도 이어진다. "어제 점심 12000 커피 4500" 이 둘 다 어제다.
-    leading: date | None = None
-    for index, entry in enumerate(split_entries(text)[:MAX_CANDIDATES]):
+    # 첫 조각에 금액이 없어 후보가 안 나와도 그 날짜는 살려서 물려준다.
+    leading = _leading_date(entries, today=today)
+
+    candidates: list[ExtractedTransaction] = []
+    for entry in entries[:MAX_CANDIDATES]:
         parsed = _parse_entry(entry, today=today, inherited=leading)
         if parsed is None:
             continue
-        if index == 0:
+        if leading is None:
             leading = parsed.occurred_at
         candidates.append(parsed)
     return TransactionExtraction(candidates=candidates)
+
+
+def _leading_date(entries: list[str], *, today: date | None) -> date | None:
+    """맨 앞 조각에 적힌 날짜. 그 조각이 금액 없는 날짜 말뿐이어도 읽는다."""
+    if not entries:
+        return None
+    found, rest = read_date(entries[0], today=today)
+    if found is None:
+        return None
+    # 첫 조각에 금액이 있으면 그 건의 날짜다. 아래 반복이 다시 읽으므로 여기서는 넘긴다.
+    return found if not find_amounts(rest) else None
 
 
 def _parse_entry(

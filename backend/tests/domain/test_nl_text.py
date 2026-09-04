@@ -62,3 +62,21 @@ def test_날짜를_안_적으면_비워_둔다() -> None:
 def test_날짜의_숫자를_금액으로_읽지_않는다() -> None:
     _, rest = read_date("2026-08-30 점심 12000", today=TODAY)
     assert [amount.value for amount in find_amounts(rest)] == [12000]
+
+
+def test_만과_천을_이어_쓴_금액을_한_덩어리로_읽는다() -> None:
+    assert [amount.value for amount in find_amounts("커피 3만5천원")] == [35000]
+    assert [amount.value for amount in find_amounts("점심 1만2천원")] == [12000]
+    assert [amount.value for amount in find_amounts("커피 3만 5천원")] == [35000]
+    assert split_entries("커피 3만5천원") == ["커피 3만5천원"]
+
+
+def test_만_뒤의_개수는_금액에_더하지_않는다() -> None:
+    assert [amount.value for amount in find_amounts("커피 3만 2잔")] == [30000]
+
+
+def test_연도까지_적은_날짜를_통째로_읽는다() -> None:
+    found, rest = read_date("2026년 1월 2일 점심 12000", today=TODAY)
+    assert found == date(2026, 1, 2)
+    # 연도를 안 걷어내면 2026 이 금액으로 읽혀 유령 후보가 생긴다.
+    assert [amount.value for amount in find_amounts(rest)] == [12000]

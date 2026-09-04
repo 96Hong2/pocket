@@ -132,6 +132,11 @@
 }
 
 @layer base {
+  /* feature CSS 가 display 를 지정하면 UA 기본값을 이겨 버린다. 감추라면 감춘다. */
+  [hidden] {
+    display: none !important;
+  }
+
   html {
     color-scheme: light;
     -webkit-text-size-adjust: 100%;

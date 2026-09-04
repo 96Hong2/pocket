@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
 from app.core.config import get_settings
-from app.domain.fingerprint import build_fingerprint, normalize_merchant
+from app.domain.fingerprint import Fingerprint, build_fingerprint, normalize_merchant
 from app.domain.money import Money
 from app.domain.redaction import redact
 from app.integrations.llm import (
@@ -94,13 +94,17 @@ def parse_text(
     # 저장하지 않는 것만으로는 부족하다. 보내기 전에 가린다.
     cleaned = redact(text)
     extraction = _extract(client, text=cleaned.text, today=day)
-    candidates = attach_source(extraction, TransactionSource.NL)[:MAX_CANDIDATES]
+    found = attach_source(extraction, TransactionSource.NL)
+    candidates = found[:MAX_CANDIDATES]
+    dropped = len(found) - len(candidates)
 
     batch = ImportBatch(
         user_id=user.id,
         source=TransactionSource.NL,
         status=ImportBatchStatus.READY,
         detected_count=len(candidates),
+        # 상한을 넘겨 버린 건수를 남긴다. 조용히 사라지면 사용자가 몇 건을 잃었는지 모른다.
+        error_code=f"TRUNCATED:{dropped}" if dropped else None,
     )
     session.add(batch)
     session.flush()
@@ -158,9 +162,14 @@ def update_candidate(
     if _touches_content(data):
         # 사람이 직접 본 값이다. 점선 표시를 남겨 두면 고쳐도 계속 의심스러워 보인다.
         row.confidence = 1.0
-        row.is_selected = True if "is_selected" not in data else row.is_selected
-        row.fingerprint = _fingerprint_of(row, user)
-        row.is_duplicate = row.fingerprint in _known_fingerprints(session, user)
+        fingerprint = _fingerprint_of(row, user)
+        row.fingerprint = fingerprint.value
+        row.is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in (
+            _known_fingerprints(session, user)
+        )
+        if "is_selected" not in data and not row.is_duplicate:
+            # 이미 저장한 것과 같아졌으면 켜지 않는다. 켜면 같은 거래가 두 번 저장된다.
+            row.is_selected = True
 
     session.commit()
     session.refresh(batch)
@@ -183,9 +192,22 @@ def commit_batch(
             ErrorCode.INVALID_REQUEST, "저장할 항목을 하나 이상 골라 주세요.", status_code=422
         )
 
+    for row in chosen:
+        if row.type == TransactionType.REFUND:
+            raise ApiError(
+                ErrorCode.INVALID_REFUND_TARGET,
+                "환불은 내역에서 원래 지출을 찾아 되돌려 주세요.",
+                status_code=422,
+            )
+        categories.require_owned(session, user, row.category_id)
+
     total = Decimal(0)
     outcome: transactions.SaveOutcome | None = None
     for row in chosen:
+        if row.transaction_id is not None:
+            # 앞선 시도에서 이미 저장한 건이다. 다시 저장하면 두 번 들어간다.
+            total += row.amount
+            continue
         tx, outcome = transactions.create_transaction(
             session,
             user,
@@ -207,6 +229,7 @@ def commit_batch(
 
     batch.status = ImportBatchStatus.COMMITTED
     batch.committed_count = len(chosen)
+    batch.error_code = None
     batch.completed_at = datetime.now(UTC)
     session.commit()
     session.refresh(batch)
@@ -279,6 +302,8 @@ def _to_row(
     )
     is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in known
     low = candidate.confidence < LOW_CONFIDENCE_THRESHOLD
+    # 환불은 되돌릴 지출을 골라야 한다. 대상 없이 저장하면 쓴 적 없는 돈이 예산으로 돌아온다.
+    needs_target = candidate.type == TransactionType.REFUND
     return ImportCandidate(
         import_batch_id=batch.id,
         occurred_at=occurred_at,
@@ -291,7 +316,7 @@ def _to_row(
         fingerprint=fingerprint.value,
         is_duplicate=is_duplicate,
         # 확신이 낮거나 이미 있는 것은 스스로 켜지지 않는다. 사람이 켜야 저장된다.
-        is_selected=not low and not is_duplicate,
+        is_selected=not low and not is_duplicate and not needs_target,
         sort_order=order,
     )
 
@@ -358,13 +383,13 @@ def _known_fingerprints(session: Session, user: User) -> set[str]:
     return {value for value in session.scalars(stmt) if value}
 
 
-def _fingerprint_of(row: ImportCandidate, user: User) -> str:
+def _fingerprint_of(row: ImportCandidate, user: User) -> Fingerprint:
     return build_fingerprint(
         occurred_on=ledger.local_date(row.occurred_at, ledger.user_tz(user)),
         amount=Money(row.amount),
         type=row.type,
         merchant=row.merchant,
-    ).value
+    )
 
 
 def _learn_rule(session: Session, user: User, row: ImportCandidate) -> None:

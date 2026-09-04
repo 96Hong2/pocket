@@ -27,17 +27,20 @@ __all__ = [
 # 그러지 않으면 "커피 2잔 4500" 의 2 가 금액이 된다.
 MIN_BARE_AMOUNT = 100
 
+# 만 단위는 정규식이 따로 잡는다. 여기 남는 것은 천·원과 단위 없는 숫자다.
 _UNIT_MULTIPLIER: dict[str | None, int] = {
-    "만원": 10_000,
     "천원": 1_000,
-    "만": 10_000,
     "천": 1_000,
     "원": 1,
     None: 1,
 }
 
+# 만·천을 이어 쓴 표기를 한 덩어리로 잡는다. 앞 대안이 먼저 걸려야 "3만5천원" 이 갈리지 않는다.
 # 단위가 없으면 뒤의 공백까지 먹지 않게 한다. 먹으면 조각을 끊는 자리가 뒤로 밀린다.
-_AMOUNT = re.compile(r"(\d[\d,]*)(?:\s*(만원|천원|원|만|천))?")
+_AMOUNT = re.compile(
+    r"(?P<man>\d[\d,]*)\s*만(?:\s*(?P<cheon>\d[\d,]*)\s*천)?(?:\s*(?P<sub>\d[\d,]*)\s*(?=원))?\s*원?"
+    r"|(?P<num>\d[\d,]*)(?:\s*(?P<unit>천원|천|원))?"
+)
 
 # 숫자 뒤에 이런 말이 붙으면 금액이 아니라 개수다.
 _COUNTING_UNITS = ("잔", "개", "명", "시", "분", "번", "층", "살", "인분", "인", "박", "일차")
@@ -53,7 +56,10 @@ _RELATIVE_DAYS: tuple[tuple[str, int], ...] = (
 )
 
 _ISO_DATE = re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b")
-_KOREAN_DATE = re.compile(r"\b(\d{1,2})\s*월\s*(\d{1,2})\s*일")
+# 연도를 함께 적으면 그 연도를 쓴다. 안 먹으면 "2026" 이 남아 금액으로 읽힌다.
+_KOREAN_DATE = re.compile(
+    r"(?:(?P<year>\d{4})\s*년\s*)?(?P<month>\d{1,2})\s*월\s*(?P<day>\d{1,2})\s*일"
+)
 _SLASH_DATE = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})(?!\d)")
 _DAYS_AGO = re.compile(r"(\d{1,3})\s*일\s*전")
 
@@ -70,15 +76,28 @@ class Amount:
     end: int
 
 
+def _digits(raw: str) -> int:
+    return int(raw.replace(",", ""))
+
+
 def find_amounts(text: str) -> list[Amount]:
     """금액으로 읽히는 것을 앞에서부터 모두 찾는다. 날짜는 먼저 지우고 부른다."""
     found: list[Amount] = []
     for match in _AMOUNT.finditer(text):
-        digits = match.group(1).replace(",", "")
-        if not digits:
-            continue
-        unit = match.group(2)
-        value = int(digits) * _UNIT_MULTIPLIER[unit]
+        unit: str | None
+        if match.group("man"):
+            unit = "만"
+            value = _digits(match.group("man")) * 10_000
+            if match.group("cheon"):
+                value += _digits(match.group("cheon")) * 1_000
+            if match.group("sub"):
+                value += _digits(match.group("sub"))
+        else:
+            raw = match.group("num")
+            if not raw:
+                continue
+            unit = match.group("unit")
+            value = _digits(raw) * _UNIT_MULTIPLIER[unit]
         if value <= 0:
             continue
         if unit is None:
@@ -159,10 +178,19 @@ def _find_date_span(text: str, *, today: date | None) -> tuple[date | None, int,
         found = _safe_date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
         candidates.append((match.start(), found, match.start(), match.end()))
 
-    for pattern in (_KOREAN_DATE, _SLASH_DATE):
-        match = pattern.search(text)
-        if match is None:
-            continue
+    match = _KOREAN_DATE.search(text)
+    if match is not None:
+        month, day = int(match.group("month")), int(match.group("day"))
+        year = match.group("year")
+        if year is not None:
+            # 연·월·일이 다 적혀 있어 오늘을 몰라도 정할 수 있다.
+            found = _safe_date(int(year), month, day)
+        else:
+            found = _month_day(month, day, today=today) if today is not None else None
+        candidates.append((match.start(), found, match.start(), match.end()))
+
+    match = _SLASH_DATE.search(text)
+    if match is not None:
         found = (
             _month_day(int(match.group(1)), int(match.group(2)), today=today)
             if today is not None

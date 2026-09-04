@@ -24,11 +24,16 @@ import {
   type SegmentedOption,
 } from '../../shared/ui';
 
+/**
+ * 고를 수 있는 종류.
+ *
+ * 환불은 없다. 되돌릴 지출을 함께 골라야 하는데 그 자리가 아직 없다.
+ * 대상 없는 환불을 저장하면 쓴 적 없는 돈이 남은 예산으로 돌아온다.
+ */
 const TYPES: SegmentedOption<TransactionType>[] = [
   { value: 'expense', label: '지출' },
   { value: 'income', label: '수입' },
   { value: 'transfer', label: '이체' },
-  { value: 'refund', label: '환불' },
 ];
 
 export interface CandidateRowProps {
@@ -184,7 +189,11 @@ function CandidateForm({ candidate, categories, disabled, onSave }: CandidateFor
         className="nl-form__types"
         options={TYPES}
         value={type}
-        onChange={setType}
+        onChange={(next) => {
+          setType(next);
+          // 지출 분류는 지출에만 붙는다. 남겨 두면 수입이 '식비' 로 저장된다.
+          if (next !== 'expense') setCategoryId(null);
+        }}
         ariaLabel="종류"
       />
 

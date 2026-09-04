@@ -10,9 +10,10 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import AwareDatetime, BaseModel, Field, field_validator
+from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
 
 from app.api.amounts import MAX_AMOUNT, integral_won
+from app.api.months import MAX_YEAR, MIN_YEAR
 from app.domain.aggregation import TransactionSource, TransactionType
 from app.integrations.llm import LOW_CONFIDENCE_THRESHOLD, LlmStructuredClient
 from app.models.import_batch import ImportBatch, ImportBatchStatus, ImportCandidate
@@ -66,9 +67,13 @@ class ImportBatchOut(BaseModel):
     source: TransactionSource
     status: ImportBatchStatus
     detected_count: int
-    # 지금 고른 것의 건수와 합계. 저장 버튼에 그대로 적는다.
+    # 상한을 넘겨 버린 건수 같은, 화면이 알려야 할 사정. 원문은 담지 않는다.
+    error_code: str | None = None
+    # 지금 고른 것의 건수. 저장 버튼에 그대로 적는다.
     selected_count: int
-    selected_total: Decimal
+    # 고른 것 중 **지출**만 더한 값. 수입·이체를 지출과 한 덩어리로 더하면
+    # "2건 저장 · 21,000원" 이 실제로 쓴 돈과 달라진다.
+    selected_expense_total: Decimal
     meta: ImportMetaOut
     candidates: list[ImportCandidateOut] = Field(default_factory=list)
 
@@ -88,6 +93,26 @@ class ImportCandidatePatch(BaseModel):
     is_selected: bool | None = None
 
     _check_amount = field_validator("amount")(integral_won)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def _in_range(cls, value: datetime | None) -> datetime | None:
+        """기간을 만들 수 없는 연도를 막는다. 거래 저장과 같은 규칙을 쓴다."""
+        if value is not None and not MIN_YEAR <= value.year <= MAX_YEAR:
+            raise ValueError(f"거래 시각은 {MIN_YEAR}년부터 {MAX_YEAR}년 사이여야 해요.")
+        return value
+
+    @model_validator(mode="after")
+    def _reject_explicit_nulls(self) -> ImportCandidatePatch:
+        """비울 수 없는 값에 null 을 보내면 막는다.
+
+        `merchant` 와 `category_id` 만 '비우기' 가 있다. 나머지에 null 이 들어오면
+        그대로 컬럼에 써서 NOT NULL 위반이나 엉뚱한 409 로 죽는다.
+        """
+        for field in ("amount", "type", "is_selected", "occurred_at"):
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(f"{field} 는 비울 수 없어요.")
+        return self
 
 
 class ImportCommitOut(BaseModel):
@@ -122,13 +147,15 @@ def to_batch(batch: ImportBatch, *, client: LlmStructuredClient) -> ImportBatchO
     """
     candidates = [to_candidate(row) for row in batch.candidates]
     chosen = [item for item in candidates if item.is_selected]
+    spent = [item.amount for item in chosen if item.type == TransactionType.EXPENSE]
     return ImportBatchOut(
         id=batch.id,
         source=batch.source,
         status=batch.status,
         detected_count=batch.detected_count,
+        error_code=batch.error_code,
         selected_count=len(chosen),
-        selected_total=sum((item.amount for item in chosen), Decimal(0)),
+        selected_expense_total=sum(spent, Decimal(0)),
         meta=ImportMetaOut(provider=client.provider, is_stub=client.is_stub),
         candidates=candidates,
     )

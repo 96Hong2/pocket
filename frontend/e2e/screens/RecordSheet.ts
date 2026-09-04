@@ -263,9 +263,14 @@ class RecordNaturalLanguage {
     return this.root.getByRole('button', { name: '다시 쓰기' });
   }
 
-  /** `3건 저장 · 25,500원`. 건수와 합계가 버튼 이름에 그대로 있다. */
+  /**
+   * `3건 저장 · 25,500원`. 건수와 지출 합계가 버튼 이름에 그대로 있다.
+   *
+   * 고른 것에 지출이 없으면 금액 없이 `2건 저장` 이다. 수입을 지출과 더해 적으면
+   * 쓴 돈처럼 읽히기 때문이다. 그래서 합계 부분까지 이름으로 잡지 않는다.
+   */
   get saveButton(): Locator {
-    return this.root.getByRole('button', { name: /건 저장 · / });
+    return this.root.getByRole('button', { name: /^\d+건 저장/ });
   }
 
   get confirmButton(): Locator {
@@ -288,7 +293,7 @@ class RecordNaturalLanguage {
 
   /** 저장을 마친 뒤의 한 줄. `3건 저장했어요 · 25,500원` */
   get savedTitle(): Locator {
-    return this.root.getByText(/건 저장했어요 · /);
+    return this.root.getByText(/건 저장했어요/);
   }
 
   get rows(): Locator {

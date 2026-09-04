@@ -47,3 +47,18 @@ def test_가린_뒤에도_같이_적은_금액은_남는다() -> None:
     result = redact("카드 1234-5678-9012-3456 으로 점심 12000")
     assert "12000" in result.text
     assert "3456" not in result.text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "카카오뱅크 3333-01-1234567 로 월세 이체",
+        "주민번호 900101-1234567 병원",
+        "계좌 1002-123-456789 입금",
+    ],
+)
+def test_그룹이_일곱_자리를_넘어도_가린다(text: str) -> None:
+    """한국 계좌번호는 마지막 묶음이 일곱 자리를 넘는 것이 흔하다."""
+    result = redact(text)
+    assert MASK in result.text
+    assert "1234567" not in result.text

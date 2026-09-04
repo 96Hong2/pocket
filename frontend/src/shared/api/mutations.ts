@@ -248,15 +248,18 @@ export function usePatchImportCandidate() {
  *
  * 여러 건이 한꺼번에 생기므로 돈에 얽힌 캐시를 전부 다시 받는다.
  * 기억한 분류도 이때 늘어난다.
+ *
+ * **응답의 예산 블록을 캐시에 덮어쓰지 않는다.** 지난 달 날짜로 저장하면 서버가 그 달의
+ * 예산 상태를 주는데, 그걸 이번 달 자리에 넣으면 홈이 남의 달 숫자를 보여준다.
+ * 여기는 10초 루프가 아니라 검토를 마친 뒤라 왕복 한 번이 더 들어도 된다.
  */
-export function useCommitImport(params?: MonthParams) {
+export function useCommitImport() {
   const client = useApiClient();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (batchId: string): Promise<ImportCommitOut> => client.commitImport(batchId),
-    onSuccess: (result) => {
-      writeBudgetState(queryClient, result.budget, params);
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.merchantRules() });
       return invalidateMoney(queryClient);
     },

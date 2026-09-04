@@ -3415,14 +3415,25 @@
             "type": "integer",
             "title": "Detected Count"
           },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
           "selected_count": {
             "type": "integer",
             "title": "Selected Count"
           },
-          "selected_total": {
+          "selected_expense_total": {
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Selected Total"
+            "title": "Selected Expense Total"
           },
           "meta": {
             "$ref": "#/components/schemas/ImportMetaOut"
@@ -3442,7 +3453,7 @@
           "status",
           "detected_count",
           "selected_count",
-          "selected_total",
+          "selected_expense_total",
           "meta"
         ],
         "title": "ImportBatchOut"

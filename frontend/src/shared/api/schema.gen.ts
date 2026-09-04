@@ -16,2682 +16,2670 @@
  */
 
 export interface paths {
-  '/api/v1/transactions': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Index */
+        get: operations["index_api_v1_transactions_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_transactions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Index */
-    get: operations['index_api_v1_transactions_get'];
-    put?: never;
-    /** Create */
-    post: operations['create_api_v1_transactions_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/transactions/{tx_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/transactions/{tx_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Destroy */
+        delete: operations["destroy_api_v1_transactions__tx_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update */
+        patch: operations["update_api_v1_transactions__tx_id__patch"];
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    /** Destroy */
-    delete: operations['destroy_api_v1_transactions__tx_id__delete'];
-    options?: never;
-    head?: never;
-    /** Update */
-    patch: operations['update_api_v1_transactions__tx_id__patch'];
-    trace?: never;
-  };
-  '/api/v1/transactions/calendar': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/transactions/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Calendar
+         * @description 달력 격자용 날짜별 합계. 기본 기간은 사용자 시간대의 이번 달이다.
+         */
+        get: operations["calendar_api_v1_transactions_calendar_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Calendar
-     * @description 달력 격자용 날짜별 합계. 기본 기간은 사용자 시간대의 이번 달이다.
-     */
-    get: operations['calendar_api_v1_transactions_calendar_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/transactions/summary': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/transactions/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Summary */
+        get: operations["summary_api_v1_transactions_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Summary */
-    get: operations['summary_api_v1_transactions_summary_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/transactions/{tx_id}/undo': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/transactions/{tx_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Undo */
+        post: operations["undo_api_v1_transactions__tx_id__undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Undo */
-    post: operations['undo_api_v1_transactions__tx_id__undo_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/categories': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Index */
+        get: operations["index_api_v1_categories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Index */
-    get: operations['index_api_v1_categories_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/budgets': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/budgets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Show */
+        get: operations["show_api_v1_budgets_get"];
+        /** Upsert */
+        put: operations["upsert_api_v1_budgets_put"];
+        post?: never;
+        /**
+         * Destroy
+         * @description 예산이 없어도 204 다. 화면이 두 번 눌러도 같은 결과여야 한다.
+         */
+        delete: operations["destroy_api_v1_budgets_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Show */
-    get: operations['show_api_v1_budgets_get'];
-    /** Upsert */
-    put: operations['upsert_api_v1_budgets_put'];
-    post?: never;
-    /**
-     * Destroy
-     * @description 예산이 없어도 204 다. 화면이 두 번 눌러도 같은 결과여야 한다.
-     */
-    delete: operations['destroy_api_v1_budgets_delete'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/budgets/categories/{category_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/budgets/categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upsert Category
+         * @description 조회와 같은 모양으로 답한다. 화면이 응답을 그대로 캐시에 넣어 다시 그린다.
+         */
+        put: operations["upsert_category_api_v1_budgets_categories__category_id__put"];
+        post?: never;
+        /** Destroy Category */
+        delete: operations["destroy_category_api_v1_budgets_categories__category_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    /**
-     * Upsert Category
-     * @description 조회와 같은 모양으로 답한다. 화면이 응답을 그대로 캐시에 넣어 다시 그린다.
-     */
-    put: operations['upsert_category_api_v1_budgets_categories__category_id__put'];
-    post?: never;
-    /** Destroy Category */
-    delete: operations['destroy_category_api_v1_budgets_categories__category_id__delete'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/preferences': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Show */
+        get: operations["show_api_v1_preferences_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update */
+        patch: operations["update_api_v1_preferences_patch"];
+        trace?: never;
     };
-    /** Show */
-    get: operations['show_api_v1_preferences_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** Update */
-    patch: operations['update_api_v1_preferences_patch'];
-    trace?: never;
-  };
-  '/api/v1/imports/text': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/imports/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Analyze Text */
+        post: operations["analyze_text_api_v1_imports_text_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Analyze Text */
-    post: operations['analyze_text_api_v1_imports_text_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/imports/{batch_id}/candidates/{candidate_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/imports/{batch_id}/candidates/{candidate_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Candidate */
+        patch: operations["patch_candidate_api_v1_imports__batch_id__candidates__candidate_id__patch"];
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** Patch Candidate */
-    patch: operations['patch_candidate_api_v1_imports__batch_id__candidates__candidate_id__patch'];
-    trace?: never;
-  };
-  '/api/v1/imports/{batch_id}/commit': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/imports/{batch_id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit */
+        post: operations["commit_api_v1_imports__batch_id__commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Commit */
-    post: operations['commit_api_v1_imports__batch_id__commit_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/imports/{batch_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/imports/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Destroy */
+        delete: operations["destroy_api_v1_imports__batch_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    /** Destroy */
-    delete: operations['destroy_api_v1_imports__batch_id__delete'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/merchant-rules': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/merchant-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Index */
+        get: operations["index_api_v1_merchant_rules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Index */
-    get: operations['index_api_v1_merchant_rules_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/merchant-rules/{rule_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/merchant-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Destroy */
+        delete: operations["destroy_api_v1_merchant_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    /** Destroy */
-    delete: operations['destroy_api_v1_merchant_rules__rule_id__delete'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/health': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["health_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Health */
-    get: operations['health_health_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /**
-     * BudgetOut
-     * @description 예산 조회·저장 응답. 홈이 첫 화면을 고르는 근거를 함께 준다.
-     */
-    BudgetOut: {
-      budget: components['schemas']['BudgetStateOut'];
-      /** Category Budgets */
-      category_budgets: components['schemas']['CategoryBudgetOut'][];
-      /** Month Expense */
-      month_expense: string;
-      /** Month Income */
-      month_income: string;
-      /** Monthly Delta */
-      monthly_delta: string;
-      /** Has Any Transaction */
-      has_any_transaction: boolean;
-      /** Days Since Last Transaction */
-      days_since_last_transaction: number | null;
+    schemas: {
+        /**
+         * BudgetOut
+         * @description 예산 조회·저장 응답. 홈이 첫 화면을 고르는 근거를 함께 준다.
+         */
+        BudgetOut: {
+            budget: components["schemas"]["BudgetStateOut"];
+            /** Category Budgets */
+            category_budgets: components["schemas"]["CategoryBudgetOut"][];
+            /** Month Expense */
+            month_expense: string;
+            /** Month Income */
+            month_income: string;
+            /** Monthly Delta */
+            monthly_delta: string;
+            /** Has Any Transaction */
+            has_any_transaction: boolean;
+            /** Days Since Last Transaction */
+            days_since_last_transaction: number | null;
+        };
+        /**
+         * BudgetStateOut
+         * @description 예산 상태. 예산을 정하지 않은 것은 정상이고 그때 amount 가 null 이다.
+         */
+        BudgetStateOut: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Amount */
+            amount: string | null;
+            /** Budgeted Spend */
+            budgeted_spend: string;
+            /** Remaining Budget */
+            remaining_budget: string | null;
+            /** Daily Allowance */
+            daily_allowance: string | null;
+            /** Total Days */
+            total_days: number;
+            /** Elapsed Days */
+            elapsed_days: number;
+            /** Remaining Days */
+            remaining_days: number;
+            /** Spend Progress */
+            spend_progress: string | null;
+            /** Pace Ratio */
+            pace_ratio: string | null;
+            /** Projected Month End */
+            projected_month_end: string;
+            /** Is Projection Reliable */
+            is_projection_reliable: boolean;
+            /** Is Over Budget */
+            is_over_budget: boolean;
+            /** Is Auto Carried */
+            is_auto_carried: boolean;
+            /** Is Editable */
+            is_editable: boolean;
+        };
+        /**
+         * BudgetUpsert
+         * @description 예산 저장 요청. 같은 기간에 몇 번을 보내도 결과가 같다.
+         */
+        BudgetUpsert: {
+            /**
+             * Amount
+             * @description 원 단위 정수. 1원 이상
+             */
+            amount: number | string;
+        };
+        /**
+         * CalendarDayOut
+         * @description 달력 한 칸. 집계에 잡히는 거래가 없는 날은 응답에 없다.
+         *
+         *     expense 는 그날 환불을 뺀 값이라 음수가 될 수 있다.
+         */
+        CalendarDayOut: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Expense */
+            expense: string;
+            /** Income */
+            income: string;
+        };
+        /** CalendarMonthOut */
+        CalendarMonthOut: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Days */
+            days: components["schemas"]["CalendarDayOut"][];
+        };
+        /**
+         * CategoryBudgetOut
+         * @description 카테고리 한 줄. 전체 예산 게이지와 같은 규칙으로 계산한다.
+         */
+        CategoryBudgetOut: {
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** Amount */
+            amount: string;
+            /** Budgeted Spend */
+            budgeted_spend: string;
+            /** Remaining */
+            remaining: string;
+            /** Spend Progress */
+            spend_progress: string | null;
+            /** Is Over Budget */
+            is_over_budget: boolean;
+        };
+        /**
+         * CategoryKind
+         * @enum {string}
+         */
+        CategoryKind: "expense" | "income" | "transfer";
+        /** CategoryListOut */
+        CategoryListOut: {
+            /** Items */
+            items: components["schemas"]["CategoryOut"][];
+        };
+        /** CategoryOut */
+        CategoryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            kind: components["schemas"]["CategoryKind"];
+            /** Icon Key */
+            icon_key: string;
+            /** Sort Order */
+            sort_order: number;
+            /** Is Default */
+            is_default: boolean;
+        };
+        /** ErrorBody */
+        ErrorBody: {
+            code: components["schemas"]["ErrorCode"];
+            /** Message */
+            message: string;
+        };
+        /**
+         * ErrorCode
+         * @description 오류 code 의 유일한 정의. docs/API_CONTRACT.md 의 표가 이 값을 설명한다.
+         * @enum {string}
+         */
+        ErrorCode: "UNAUTHORIZED" | "VERIFY_UNAVAILABLE" | "NOT_FOUND" | "UNDO_EXPIRED" | "CONFLICT" | "INVALID_REQUEST" | "INVALID_CATEGORY" | "INVALID_REFUND_TARGET" | "PERIOD_CLOSED" | "USAGE_LIMIT" | "PARSE_UNAVAILABLE" | "HTTP_ERROR" | "INTERNAL_ERROR";
+        /** ErrorEnvelope */
+        ErrorEnvelope: {
+            error: components["schemas"]["ErrorBody"];
+        };
+        /**
+         * FeedbackKind
+         * @enum {string}
+         */
+        FeedbackKind: "over_budget" | "pace_warning" | "large_expense" | "achievement" | "on_track" | "month_fact";
+        /**
+         * FeedbackOut
+         * @description 저장 직후 돌려주는 판정 결과.
+         *
+         *     문장이 아니라 숫자와 종류만 준다. 문장 조립은 화면이 한다.
+         */
+        FeedbackOut: {
+            kind: components["schemas"]["FeedbackKind"];
+            /** Remaining Budget */
+            remaining_budget?: string | null;
+            /** Daily Allowance */
+            daily_allowance?: string | null;
+            /** Remaining Days */
+            remaining_days?: number | null;
+            /** Over Amount */
+            over_amount?: string | null;
+            /** Over Category Id */
+            over_category_id?: string | null;
+            /** Saved Amount */
+            saved_amount?: string | null;
+            /** Month Expense */
+            month_expense?: string | null;
+            /** Pace Ratio */
+            pace_ratio?: string | null;
+            /** Projected Month End */
+            projected_month_end?: string | null;
+            /** Category Spend */
+            category_spend?: string | null;
+            /** Category Budget Amount */
+            category_budget_amount?: string | null;
+            /** Large Expense Threshold */
+            large_expense_threshold?: string | null;
+        };
+        /** ImportBatchOut */
+        ImportBatchOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            source: components["schemas"]["TransactionSource"];
+            status: components["schemas"]["ImportBatchStatus"];
+            /** Detected Count */
+            detected_count: number;
+            /** Error Code */
+            error_code?: string | null;
+            /** Selected Count */
+            selected_count: number;
+            /** Selected Expense Total */
+            selected_expense_total: string;
+            meta: components["schemas"]["ImportMetaOut"];
+            /** Candidates */
+            candidates?: components["schemas"]["ImportCandidateOut"][];
+        };
+        /**
+         * ImportBatchStatus
+         * @enum {string}
+         */
+        ImportBatchStatus: "pending" | "analyzing" | "ready" | "committed" | "failed";
+        /** ImportCandidateOut */
+        ImportCandidateOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Amount */
+            amount: string;
+            type: components["schemas"]["TransactionType"];
+            /** Merchant */
+            merchant?: string | null;
+            /** Category Id */
+            category_id?: string | null;
+            /** Confidence */
+            confidence: number;
+            /** Is Low Confidence */
+            is_low_confidence: boolean;
+            /** Is Duplicate */
+            is_duplicate: boolean;
+            /** Is Selected */
+            is_selected: boolean;
+        };
+        /**
+         * ImportCandidatePatch
+         * @description 후보 한 줄 고치기. 보낸 항목만 바뀐다.
+         *
+         *     `merchant` 와 `category_id` 는 명시적으로 null 을 보내면 비운다.
+         *     '안 보냄' 과 'null 로 보냄' 을 가르려고 라우터가 exclude_unset 으로 넘긴다.
+         */
+        ImportCandidatePatch: {
+            /** Occurred At */
+            occurred_at?: string | null;
+            /** Amount */
+            amount?: number | string | null;
+            type?: components["schemas"]["TransactionType"] | null;
+            /** Merchant */
+            merchant?: string | null;
+            /** Category Id */
+            category_id?: string | null;
+            /** Is Selected */
+            is_selected?: boolean | null;
+        };
+        /**
+         * ImportCommitOut
+         * @description 저장 결과. 마지막 한 건 기준으로 지금 돈 상태를 함께 준다.
+         */
+        ImportCommitOut: {
+            batch: components["schemas"]["ImportBatchOut"];
+            /** Created Count */
+            created_count: number;
+            /** Total Amount */
+            total_amount: string;
+            feedback?: components["schemas"]["FeedbackOut"] | null;
+            budget?: components["schemas"]["BudgetStateOut"] | null;
+        };
+        /**
+         * ImportMetaOut
+         * @description 이 결과가 어디서 나왔는지. 스텁 결과를 진짜 성공으로 오해하지 않게 한다.
+         */
+        ImportMetaOut: {
+            /** Provider */
+            provider: string;
+            /** Is Stub */
+            is_stub: boolean;
+            /** Notes */
+            notes?: string[];
+        };
+        /**
+         * ImportTextIn
+         * @description 줄글 한 덩어리. 여러 건이 들어 있을 수 있다.
+         */
+        ImportTextIn: {
+            /** Text */
+            text: string;
+        };
+        /** MerchantRuleListOut */
+        MerchantRuleListOut: {
+            /** Items */
+            items?: components["schemas"]["MerchantRuleOut"][];
+        };
+        /** MerchantRuleOut */
+        MerchantRuleOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Merchant */
+            merchant: string;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** Applied Count */
+            applied_count: number;
+        };
+        /** PeriodSummaryOut */
+        PeriodSummaryOut: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Month Expense */
+            month_expense: string;
+            /** Month Income */
+            month_income: string;
+            /** Monthly Delta */
+            monthly_delta: string;
+            budget: components["schemas"]["BudgetStateOut"];
+        };
+        /** PreferencesOut */
+        PreferencesOut: {
+            /** Budget Auto Carryover */
+            budget_auto_carryover: boolean;
+        };
+        /**
+         * PreferencesPatch
+         * @description 보낸 필드만 고친다.
+         *
+         *     필드를 빼는 것과 null 을 보내는 것이 같다. 둘 다 "이 값은 그대로 둔다" 는 뜻이다.
+         *     스키마가 null 을 허용한다고 말해 두고 실제로는 422 로 막으면, 생성 타입을 보고 쓴
+         *     클라이언트가 런타임에야 막힌다. 넘어온 null 은 service 가 건너뛴다.
+         */
+        PreferencesPatch: {
+            /** Budget Auto Carryover */
+            budget_auto_carryover?: boolean | null;
+        };
+        /**
+         * TransactionCreate
+         * @description 표준 거래 형식. 파싱 결과와 손입력이 같은 형태로 들어온다.
+         */
+        TransactionCreate: {
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /**
+             * Amount
+             * @description 원 단위 정수. 무지출일만 0
+             */
+            amount: number | string;
+            /** @default expense */
+            type: components["schemas"]["TransactionType"];
+            /** Merchant */
+            merchant?: string | null;
+            /** Category Id */
+            category_id?: string | null;
+            /** @default keypad */
+            source: components["schemas"]["TransactionSource"];
+            /**
+             * Confidence
+             * @default 1
+             */
+            confidence: number;
+            /**
+             * Excluded From Budget
+             * @default false
+             */
+            excluded_from_budget: boolean;
+            /** Refund Of Transaction Id */
+            refund_of_transaction_id?: string | null;
+        };
+        /** TransactionCreated */
+        TransactionCreated: {
+            transaction: components["schemas"]["TransactionOut"];
+            feedback: components["schemas"]["FeedbackOut"];
+            budget?: components["schemas"]["BudgetStateOut"] | null;
+            /** Undo Window Seconds */
+            undo_window_seconds: number;
+            /**
+             * Undo Until
+             * Format: date-time
+             */
+            undo_until: string;
+        };
+        /** TransactionListOut */
+        TransactionListOut: {
+            /** Items */
+            items: components["schemas"]["TransactionOut"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /** TransactionOut */
+        TransactionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Amount */
+            amount: string;
+            type: components["schemas"]["TransactionType"];
+            /** Merchant */
+            merchant: string | null;
+            /** Category Id */
+            category_id: string | null;
+            source: components["schemas"]["TransactionSource"];
+            /** Confidence */
+            confidence: number;
+            /** Excluded From Budget */
+            excluded_from_budget: boolean;
+        };
+        /**
+         * TransactionSource
+         * @description 어떤 입력 경로로 들어왔는지. 값을 늘릴 때 고칠 자리는 여기 하나다.
+         * @enum {string}
+         */
+        TransactionSource: "keypad" | "nl" | "screenshot" | "receipt" | "asset_screenshot" | "no_spend";
+        /**
+         * TransactionType
+         * @description 거래 종류의 유일한 정의. models·schemas·llm 이 전부 이걸 가져다 쓴다.
+         * @enum {string}
+         */
+        TransactionType: "expense" | "income" | "transfer" | "refund";
+        /**
+         * TransactionUpdate
+         * @description 보낸 필드만 고친다. 검증과 시각 정규화는 저장 경로와 같은 것을 쓴다.
+         */
+        TransactionUpdate: {
+            /** Occurred At */
+            occurred_at?: string | null;
+            /** Amount */
+            amount?: number | string | null;
+            type?: components["schemas"]["TransactionType"] | null;
+            /** Merchant */
+            merchant?: string | null;
+            /** Category Id */
+            category_id?: string | null;
+            /** Excluded From Budget */
+            excluded_from_budget?: boolean | null;
+        };
+        /**
+         * TransactionUpdated
+         * @description 수정 응답. 카테고리를 바꾸면 판정과 예산 상태가 달라져 함께 준다.
+         */
+        TransactionUpdated: {
+            transaction: components["schemas"]["TransactionOut"];
+            feedback: components["schemas"]["FeedbackOut"];
+            budget?: components["schemas"]["BudgetStateOut"] | null;
+        };
     };
-    /**
-     * BudgetStateOut
-     * @description 예산 상태. 예산을 정하지 않은 것은 정상이고 그때 amount 가 null 이다.
-     */
-    BudgetStateOut: {
-      /**
-       * Period Start
-       * Format: date
-       */
-      period_start: string;
-      /**
-       * Period End
-       * Format: date
-       */
-      period_end: string;
-      /** Amount */
-      amount: string | null;
-      /** Budgeted Spend */
-      budgeted_spend: string;
-      /** Remaining Budget */
-      remaining_budget: string | null;
-      /** Daily Allowance */
-      daily_allowance: string | null;
-      /** Total Days */
-      total_days: number;
-      /** Elapsed Days */
-      elapsed_days: number;
-      /** Remaining Days */
-      remaining_days: number;
-      /** Spend Progress */
-      spend_progress: string | null;
-      /** Pace Ratio */
-      pace_ratio: string | null;
-      /** Projected Month End */
-      projected_month_end: string;
-      /** Is Projection Reliable */
-      is_projection_reliable: boolean;
-      /** Is Over Budget */
-      is_over_budget: boolean;
-      /** Is Auto Carried */
-      is_auto_carried: boolean;
-      /** Is Editable */
-      is_editable: boolean;
-    };
-    /**
-     * BudgetUpsert
-     * @description 예산 저장 요청. 같은 기간에 몇 번을 보내도 결과가 같다.
-     */
-    BudgetUpsert: {
-      /**
-       * Amount
-       * @description 원 단위 정수. 1원 이상
-       */
-      amount: number | string;
-    };
-    /**
-     * CalendarDayOut
-     * @description 달력 한 칸. 집계에 잡히는 거래가 없는 날은 응답에 없다.
-     *
-     *     expense 는 그날 환불을 뺀 값이라 음수가 될 수 있다.
-     */
-    CalendarDayOut: {
-      /**
-       * Day
-       * Format: date
-       */
-      day: string;
-      /** Expense */
-      expense: string;
-      /** Income */
-      income: string;
-    };
-    /** CalendarMonthOut */
-    CalendarMonthOut: {
-      /**
-       * Period Start
-       * Format: date
-       */
-      period_start: string;
-      /**
-       * Period End
-       * Format: date
-       */
-      period_end: string;
-      /** Days */
-      days: components['schemas']['CalendarDayOut'][];
-    };
-    /**
-     * CategoryBudgetOut
-     * @description 카테고리 한 줄. 전체 예산 게이지와 같은 규칙으로 계산한다.
-     */
-    CategoryBudgetOut: {
-      /**
-       * Category Id
-       * Format: uuid
-       */
-      category_id: string;
-      /** Amount */
-      amount: string;
-      /** Budgeted Spend */
-      budgeted_spend: string;
-      /** Remaining */
-      remaining: string;
-      /** Spend Progress */
-      spend_progress: string | null;
-      /** Is Over Budget */
-      is_over_budget: boolean;
-    };
-    /**
-     * CategoryKind
-     * @enum {string}
-     */
-    CategoryKind: 'expense' | 'income' | 'transfer';
-    /** CategoryListOut */
-    CategoryListOut: {
-      /** Items */
-      items: components['schemas']['CategoryOut'][];
-    };
-    /** CategoryOut */
-    CategoryOut: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /** Name */
-      name: string;
-      kind: components['schemas']['CategoryKind'];
-      /** Icon Key */
-      icon_key: string;
-      /** Sort Order */
-      sort_order: number;
-      /** Is Default */
-      is_default: boolean;
-    };
-    /** ErrorBody */
-    ErrorBody: {
-      code: components['schemas']['ErrorCode'];
-      /** Message */
-      message: string;
-    };
-    /**
-     * ErrorCode
-     * @description 오류 code 의 유일한 정의. docs/API_CONTRACT.md 의 표가 이 값을 설명한다.
-     * @enum {string}
-     */
-    ErrorCode:
-      | 'UNAUTHORIZED'
-      | 'VERIFY_UNAVAILABLE'
-      | 'NOT_FOUND'
-      | 'UNDO_EXPIRED'
-      | 'CONFLICT'
-      | 'INVALID_REQUEST'
-      | 'INVALID_CATEGORY'
-      | 'INVALID_REFUND_TARGET'
-      | 'PERIOD_CLOSED'
-      | 'USAGE_LIMIT'
-      | 'PARSE_UNAVAILABLE'
-      | 'HTTP_ERROR'
-      | 'INTERNAL_ERROR';
-    /** ErrorEnvelope */
-    ErrorEnvelope: {
-      error: components['schemas']['ErrorBody'];
-    };
-    /**
-     * FeedbackKind
-     * @enum {string}
-     */
-    FeedbackKind:
-      'over_budget' | 'pace_warning' | 'large_expense' | 'achievement' | 'on_track' | 'month_fact';
-    /**
-     * FeedbackOut
-     * @description 저장 직후 돌려주는 판정 결과.
-     *
-     *     문장이 아니라 숫자와 종류만 준다. 문장 조립은 화면이 한다.
-     */
-    FeedbackOut: {
-      kind: components['schemas']['FeedbackKind'];
-      /** Remaining Budget */
-      remaining_budget?: string | null;
-      /** Daily Allowance */
-      daily_allowance?: string | null;
-      /** Remaining Days */
-      remaining_days?: number | null;
-      /** Over Amount */
-      over_amount?: string | null;
-      /** Over Category Id */
-      over_category_id?: string | null;
-      /** Saved Amount */
-      saved_amount?: string | null;
-      /** Month Expense */
-      month_expense?: string | null;
-      /** Pace Ratio */
-      pace_ratio?: string | null;
-      /** Projected Month End */
-      projected_month_end?: string | null;
-      /** Category Spend */
-      category_spend?: string | null;
-      /** Category Budget Amount */
-      category_budget_amount?: string | null;
-      /** Large Expense Threshold */
-      large_expense_threshold?: string | null;
-    };
-    /** ImportBatchOut */
-    ImportBatchOut: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      source: components['schemas']['TransactionSource'];
-      status: components['schemas']['ImportBatchStatus'];
-      /** Detected Count */
-      detected_count: number;
-      /** Selected Count */
-      selected_count: number;
-      /** Selected Total */
-      selected_total: string;
-      meta: components['schemas']['ImportMetaOut'];
-      /** Candidates */
-      candidates?: components['schemas']['ImportCandidateOut'][];
-    };
-    /**
-     * ImportBatchStatus
-     * @enum {string}
-     */
-    ImportBatchStatus: 'pending' | 'analyzing' | 'ready' | 'committed' | 'failed';
-    /** ImportCandidateOut */
-    ImportCandidateOut: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /**
-       * Occurred At
-       * Format: date-time
-       */
-      occurred_at: string;
-      /** Amount */
-      amount: string;
-      type: components['schemas']['TransactionType'];
-      /** Merchant */
-      merchant?: string | null;
-      /** Category Id */
-      category_id?: string | null;
-      /** Confidence */
-      confidence: number;
-      /** Is Low Confidence */
-      is_low_confidence: boolean;
-      /** Is Duplicate */
-      is_duplicate: boolean;
-      /** Is Selected */
-      is_selected: boolean;
-    };
-    /**
-     * ImportCandidatePatch
-     * @description 후보 한 줄 고치기. 보낸 항목만 바뀐다.
-     *
-     *     `merchant` 와 `category_id` 는 명시적으로 null 을 보내면 비운다.
-     *     '안 보냄' 과 'null 로 보냄' 을 가르려고 라우터가 exclude_unset 으로 넘긴다.
-     */
-    ImportCandidatePatch: {
-      /** Occurred At */
-      occurred_at?: string | null;
-      /** Amount */
-      amount?: number | string | null;
-      type?: components['schemas']['TransactionType'] | null;
-      /** Merchant */
-      merchant?: string | null;
-      /** Category Id */
-      category_id?: string | null;
-      /** Is Selected */
-      is_selected?: boolean | null;
-    };
-    /**
-     * ImportCommitOut
-     * @description 저장 결과. 마지막 한 건 기준으로 지금 돈 상태를 함께 준다.
-     */
-    ImportCommitOut: {
-      batch: components['schemas']['ImportBatchOut'];
-      /** Created Count */
-      created_count: number;
-      /** Total Amount */
-      total_amount: string;
-      feedback?: components['schemas']['FeedbackOut'] | null;
-      budget?: components['schemas']['BudgetStateOut'] | null;
-    };
-    /**
-     * ImportMetaOut
-     * @description 이 결과가 어디서 나왔는지. 스텁 결과를 진짜 성공으로 오해하지 않게 한다.
-     */
-    ImportMetaOut: {
-      /** Provider */
-      provider: string;
-      /** Is Stub */
-      is_stub: boolean;
-      /** Notes */
-      notes?: string[];
-    };
-    /**
-     * ImportTextIn
-     * @description 줄글 한 덩어리. 여러 건이 들어 있을 수 있다.
-     */
-    ImportTextIn: {
-      /** Text */
-      text: string;
-    };
-    /** MerchantRuleListOut */
-    MerchantRuleListOut: {
-      /** Items */
-      items?: components['schemas']['MerchantRuleOut'][];
-    };
-    /** MerchantRuleOut */
-    MerchantRuleOut: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /** Merchant */
-      merchant: string;
-      /**
-       * Category Id
-       * Format: uuid
-       */
-      category_id: string;
-      /** Applied Count */
-      applied_count: number;
-    };
-    /** PeriodSummaryOut */
-    PeriodSummaryOut: {
-      /**
-       * Period Start
-       * Format: date
-       */
-      period_start: string;
-      /**
-       * Period End
-       * Format: date
-       */
-      period_end: string;
-      /** Month Expense */
-      month_expense: string;
-      /** Month Income */
-      month_income: string;
-      /** Monthly Delta */
-      monthly_delta: string;
-      budget: components['schemas']['BudgetStateOut'];
-    };
-    /** PreferencesOut */
-    PreferencesOut: {
-      /** Budget Auto Carryover */
-      budget_auto_carryover: boolean;
-    };
-    /**
-     * PreferencesPatch
-     * @description 보낸 필드만 고친다.
-     *
-     *     필드를 빼는 것과 null 을 보내는 것이 같다. 둘 다 "이 값은 그대로 둔다" 는 뜻이다.
-     *     스키마가 null 을 허용한다고 말해 두고 실제로는 422 로 막으면, 생성 타입을 보고 쓴
-     *     클라이언트가 런타임에야 막힌다. 넘어온 null 은 service 가 건너뛴다.
-     */
-    PreferencesPatch: {
-      /** Budget Auto Carryover */
-      budget_auto_carryover?: boolean | null;
-    };
-    /**
-     * TransactionCreate
-     * @description 표준 거래 형식. 파싱 결과와 손입력이 같은 형태로 들어온다.
-     */
-    TransactionCreate: {
-      /**
-       * Occurred At
-       * Format: date-time
-       */
-      occurred_at: string;
-      /**
-       * Amount
-       * @description 원 단위 정수. 무지출일만 0
-       */
-      amount: number | string;
-      /** @default expense */
-      type: components['schemas']['TransactionType'];
-      /** Merchant */
-      merchant?: string | null;
-      /** Category Id */
-      category_id?: string | null;
-      /** @default keypad */
-      source: components['schemas']['TransactionSource'];
-      /**
-       * Confidence
-       * @default 1
-       */
-      confidence: number;
-      /**
-       * Excluded From Budget
-       * @default false
-       */
-      excluded_from_budget: boolean;
-      /** Refund Of Transaction Id */
-      refund_of_transaction_id?: string | null;
-    };
-    /** TransactionCreated */
-    TransactionCreated: {
-      transaction: components['schemas']['TransactionOut'];
-      feedback: components['schemas']['FeedbackOut'];
-      budget?: components['schemas']['BudgetStateOut'] | null;
-      /** Undo Window Seconds */
-      undo_window_seconds: number;
-      /**
-       * Undo Until
-       * Format: date-time
-       */
-      undo_until: string;
-    };
-    /** TransactionListOut */
-    TransactionListOut: {
-      /** Items */
-      items: components['schemas']['TransactionOut'][];
-      /** Next Cursor */
-      next_cursor?: string | null;
-    };
-    /** TransactionOut */
-    TransactionOut: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /**
-       * Occurred At
-       * Format: date-time
-       */
-      occurred_at: string;
-      /** Amount */
-      amount: string;
-      type: components['schemas']['TransactionType'];
-      /** Merchant */
-      merchant: string | null;
-      /** Category Id */
-      category_id: string | null;
-      source: components['schemas']['TransactionSource'];
-      /** Confidence */
-      confidence: number;
-      /** Excluded From Budget */
-      excluded_from_budget: boolean;
-    };
-    /**
-     * TransactionSource
-     * @description 어떤 입력 경로로 들어왔는지. 값을 늘릴 때 고칠 자리는 여기 하나다.
-     * @enum {string}
-     */
-    TransactionSource: 'keypad' | 'nl' | 'screenshot' | 'receipt' | 'asset_screenshot' | 'no_spend';
-    /**
-     * TransactionType
-     * @description 거래 종류의 유일한 정의. models·schemas·llm 이 전부 이걸 가져다 쓴다.
-     * @enum {string}
-     */
-    TransactionType: 'expense' | 'income' | 'transfer' | 'refund';
-    /**
-     * TransactionUpdate
-     * @description 보낸 필드만 고친다. 검증과 시각 정규화는 저장 경로와 같은 것을 쓴다.
-     */
-    TransactionUpdate: {
-      /** Occurred At */
-      occurred_at?: string | null;
-      /** Amount */
-      amount?: number | string | null;
-      type?: components['schemas']['TransactionType'] | null;
-      /** Merchant */
-      merchant?: string | null;
-      /** Category Id */
-      category_id?: string | null;
-      /** Excluded From Budget */
-      excluded_from_budget?: boolean | null;
-    };
-    /**
-     * TransactionUpdated
-     * @description 수정 응답. 카테고리를 바꾸면 판정과 예산 상태가 달라져 함께 준다.
-     */
-    TransactionUpdated: {
-      transaction: components['schemas']['TransactionOut'];
-      feedback: components['schemas']['FeedbackOut'];
-      budget?: components['schemas']['BudgetStateOut'] | null;
-    };
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  index_api_v1_transactions_get: {
-    parameters: {
-      query?: {
-        /** @description 이 날 하루만. 날짜는 사용자 시간대로 판단한다 */
-        day?: string | null;
-        /** @description 상호나 카테고리 이름 부분일치. 대소문자를 가리지 않는다 */
-        q?: string | null;
-        limit?: number;
-        /** @description 앞 응답의 next_cursor 를 그대로 넘긴다 */
-        cursor?: string | null;
-        year?: number | null;
-        month?: number | null;
-      };
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
+    index_api_v1_transactions_get: {
+        parameters: {
+            query?: {
+                /** @description 이 날 하루만. 날짜는 사용자 시간대로 판단한다 */
+                day?: string | null;
+                /** @description 상호나 카테고리 이름 부분일치. 대소문자를 가리지 않는다 */
+                q?: string | null;
+                limit?: number;
+                /** @description 앞 응답의 next_cursor 를 그대로 넘긴다 */
+                cursor?: string | null;
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionListOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    create_api_v1_transactions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['TransactionListOut'];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransactionCreate"];
+            };
         };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionCreated"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
     };
-  };
-  create_api_v1_transactions_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
+    destroy_api_v1_transactions__tx_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                tx_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['TransactionCreate'];
-      };
+    update_api_v1_transactions__tx_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                tx_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransactionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionUpdated"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
+    calendar_api_v1_transactions_calendar_get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['TransactionCreated'];
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarMonthOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
     };
-  };
-  destroy_api_v1_transactions__tx_id__delete: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path: {
-        tx_id: string;
-      };
-      cookie?: never;
+    summary_api_v1_transactions_summary_get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodSummaryOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown;
+    undo_api_v1_transactions__tx_id__undo_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                tx_id: string;
+            };
+            cookie?: never;
         };
-        content?: never;
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
     };
-  };
-  update_api_v1_transactions__tx_id__patch: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path: {
-        tx_id: string;
-      };
-      cookie?: never;
+    index_api_v1_categories_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryListOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['TransactionUpdate'];
-      };
+    show_api_v1_budgets_get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    upsert_api_v1_budgets_put: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['TransactionUpdated'];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetUpsert"];
+            };
         };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
     };
-  };
-  calendar_api_v1_transactions_calendar_get: {
-    parameters: {
-      query?: {
-        year?: number | null;
-        month?: number | null;
-      };
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
+    destroy_api_v1_budgets_delete: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    upsert_category_api_v1_budgets_categories__category_id__put: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['CalendarMonthOut'];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetUpsert"];
+            };
         };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
     };
-  };
-  summary_api_v1_transactions_summary_get: {
-    parameters: {
-      query?: {
-        year?: number | null;
-        month?: number | null;
-      };
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
+    destroy_category_api_v1_budgets_categories__category_id__delete: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    show_api_v1_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['PeriodSummaryOut'];
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
     };
-  };
-  undo_api_v1_transactions__tx_id__undo_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path: {
-        tx_id: string;
-      };
-      cookie?: never;
+    update_api_v1_preferences_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown;
+    analyze_text_api_v1_imports_text_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content?: never;
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportTextIn"];
+            };
         };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
     };
-  };
-  index_api_v1_categories_get: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
+    patch_candidate_api_v1_imports__batch_id__candidates__candidate_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                batch_id: string;
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportCandidatePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    commit_api_v1_imports__batch_id__commit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['CategoryListOut'];
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportCommitOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
     };
-  };
-  show_api_v1_budgets_get: {
-    parameters: {
-      query?: {
-        year?: number | null;
-        month?: number | null;
-      };
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
+    destroy_api_v1_imports__batch_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    index_api_v1_merchant_rules_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['BudgetOut'];
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantRuleListOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
     };
-  };
-  upsert_api_v1_budgets_put: {
-    parameters: {
-      query?: {
-        year?: number | null;
-        month?: number | null;
-      };
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
+    destroy_api_v1_merchant_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['BudgetUpsert'];
-      };
+    health_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
     };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['BudgetOut'];
-        };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  destroy_api_v1_budgets_delete: {
-    parameters: {
-      query?: {
-        year?: number | null;
-        month?: number | null;
-      };
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  upsert_category_api_v1_budgets_categories__category_id__put: {
-    parameters: {
-      query?: {
-        year?: number | null;
-        month?: number | null;
-      };
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path: {
-        category_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['BudgetUpsert'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['BudgetOut'];
-        };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  destroy_category_api_v1_budgets_categories__category_id__delete: {
-    parameters: {
-      query?: {
-        year?: number | null;
-        month?: number | null;
-      };
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path: {
-        category_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  show_api_v1_preferences_get: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PreferencesOut'];
-        };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  update_api_v1_preferences_patch: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PreferencesPatch'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PreferencesOut'];
-        };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  analyze_text_api_v1_imports_text_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ImportTextIn'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ImportBatchOut'];
-        };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  patch_candidate_api_v1_imports__batch_id__candidates__candidate_id__patch: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path: {
-        batch_id: string;
-        candidate_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ImportCandidatePatch'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ImportBatchOut'];
-        };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  commit_api_v1_imports__batch_id__commit_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path: {
-        batch_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ImportCommitOut'];
-        };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  destroy_api_v1_imports__batch_id__delete: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path: {
-        batch_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  index_api_v1_merchant_rules_get: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['MerchantRuleListOut'];
-        };
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  destroy_api_v1_merchant_rules__rule_id__delete: {
-    parameters: {
-      query?: never;
-      header?: {
-        'X-Anon-Key'?: string | null;
-      };
-      path: {
-        rule_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description 식별키가 없거나 검증에 실패 */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 없거나 내 것이 아님 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 되돌리기 만료·동시 저장 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 요청 값 오류 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 하루에 쓸 수 있는 만큼을 넘김 */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 서버 오류 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-      /** @description 검증 서버가 일시적으로 응답하지 않음 */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorEnvelope'];
-        };
-      };
-    };
-  };
-  health_health_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-    };
-  };
 }
