@@ -51,6 +51,8 @@ class ErrorCode(StrEnum):
     INVALID_CATEGORY = "INVALID_CATEGORY"
     INVALID_REFUND_TARGET = "INVALID_REFUND_TARGET"
     PERIOD_CLOSED = "PERIOD_CLOSED"
+    USAGE_LIMIT = "USAGE_LIMIT"
+    PARSE_UNAVAILABLE = "PARSE_UNAVAILABLE"
     HTTP_ERROR = "HTTP_ERROR"
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
@@ -72,6 +74,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorEnvelope, "description": "없거나 내 것이 아님"},
     409: {"model": ErrorEnvelope, "description": "되돌리기 만료·동시 저장"},
     422: {"model": ErrorEnvelope, "description": "요청 값 오류"},
+    429: {"model": ErrorEnvelope, "description": "하루에 쓸 수 있는 만큼을 넘김"},
     500: {"model": ErrorEnvelope, "description": "서버 오류"},
     503: {"model": ErrorEnvelope, "description": "검증 서버가 일시적으로 응답하지 않음"},
 }

@@ -92,6 +92,16 @@
               }
             }
           },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "500": {
             "description": "서버 오류",
             "content": {
@@ -293,6 +303,16 @@
               }
             }
           },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "500": {
             "description": "서버 오류",
             "content": {
@@ -412,6 +432,16 @@
               }
             }
           },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "500": {
             "description": "서버 오류",
             "content": {
@@ -504,6 +534,16 @@
           },
           "422": {
             "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
             "content": {
               "application/json": {
                 "schema": {
@@ -648,6 +688,16 @@
               }
             }
           },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "500": {
             "description": "서버 오류",
             "content": {
@@ -783,6 +833,16 @@
               }
             }
           },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "500": {
             "description": "서버 오류",
             "content": {
@@ -885,6 +945,16 @@
               }
             }
           },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "500": {
             "description": "서버 오류",
             "content": {
@@ -976,6 +1046,16 @@
           },
           "422": {
             "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
             "content": {
               "application/json": {
                 "schema": {
@@ -1111,6 +1191,16 @@
           },
           "422": {
             "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
             "content": {
               "application/json": {
                 "schema": {
@@ -1262,6 +1352,16 @@
               }
             }
           },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "500": {
             "description": "서버 오류",
             "content": {
@@ -1381,6 +1481,16 @@
           },
           "422": {
             "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
             "content": {
               "application/json": {
                 "schema": {
@@ -1545,6 +1655,16 @@
               }
             }
           },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "500": {
             "description": "서버 오류",
             "content": {
@@ -1681,6 +1801,16 @@
               }
             }
           },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "500": {
             "description": "서버 오류",
             "content": {
@@ -1772,6 +1902,16 @@
           },
           "422": {
             "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
             "content": {
               "application/json": {
                 "schema": {
@@ -1879,6 +2019,726 @@
           },
           "422": {
             "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/imports/text": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Analyze Text",
+        "operationId": "analyze_text_api_v1_imports_text_post",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportTextIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/imports/{batch_id}/candidates/{candidate_id}": {
+      "patch": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Patch Candidate",
+        "operationId": "patch_candidate_api_v1_imports__batch_id__candidates__candidate_id__patch",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "candidate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Candidate Id"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportCandidatePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/imports/{batch_id}/commit": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Commit",
+        "operationId": "commit_api_v1_imports__batch_id__commit_post",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportCommitOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/imports/{batch_id}": {
+      "delete": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Destroy",
+        "operationId": "destroy_api_v1_imports__batch_id__delete",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/merchant-rules": {
+      "get": {
+        "tags": [
+          "merchant-rules"
+        ],
+        "summary": "Index",
+        "operationId": "index_api_v1_merchant_rules_get",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantRuleListOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/merchant-rules/{rule_id}": {
+      "delete": {
+        "tags": [
+          "merchant-rules"
+        ],
+        "summary": "Destroy",
+        "operationId": "destroy_api_v1_merchant_rules__rule_id__delete",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Rule Id"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
             "content": {
               "application/json": {
                 "schema": {
@@ -2350,6 +3210,8 @@
           "INVALID_CATEGORY",
           "INVALID_REFUND_TARGET",
           "PERIOD_CLOSED",
+          "USAGE_LIMIT",
+          "PARSE_UNAVAILABLE",
           "HTTP_ERROR",
           "INTERNAL_ERROR"
         ],
@@ -2535,6 +3397,349 @@
         ],
         "title": "FeedbackOut",
         "description": "저장 직후 돌려주는 판정 결과.\n\n문장이 아니라 숫자와 종류만 준다. 문장 조립은 화면이 한다."
+      },
+      "ImportBatchOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "source": {
+            "$ref": "#/components/schemas/TransactionSource"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ImportBatchStatus"
+          },
+          "detected_count": {
+            "type": "integer",
+            "title": "Detected Count"
+          },
+          "selected_count": {
+            "type": "integer",
+            "title": "Selected Count"
+          },
+          "selected_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Selected Total"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ImportMetaOut"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ImportCandidateOut"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "status",
+          "detected_count",
+          "selected_count",
+          "selected_total",
+          "meta"
+        ],
+        "title": "ImportBatchOut"
+      },
+      "ImportBatchStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "analyzing",
+          "ready",
+          "committed",
+          "failed"
+        ],
+        "title": "ImportBatchStatus"
+      },
+      "ImportCandidateOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TransactionType"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "is_low_confidence": {
+            "type": "boolean",
+            "title": "Is Low Confidence"
+          },
+          "is_duplicate": {
+            "type": "boolean",
+            "title": "Is Duplicate"
+          },
+          "is_selected": {
+            "type": "boolean",
+            "title": "Is Selected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "occurred_at",
+          "amount",
+          "type",
+          "confidence",
+          "is_low_confidence",
+          "is_duplicate",
+          "is_selected"
+        ],
+        "title": "ImportCandidateOut"
+      },
+      "ImportCandidatePatch": {
+        "properties": {
+          "occurred_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TransactionType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "is_selected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Selected"
+          }
+        },
+        "type": "object",
+        "title": "ImportCandidatePatch",
+        "description": "후보 한 줄 고치기. 보낸 항목만 바뀐다.\n\n`merchant` 와 `category_id` 는 명시적으로 null 을 보내면 비운다.\n'안 보냄' 과 'null 로 보냄' 을 가르려고 라우터가 exclude_unset 으로 넘긴다."
+      },
+      "ImportCommitOut": {
+        "properties": {
+          "batch": {
+            "$ref": "#/components/schemas/ImportBatchOut"
+          },
+          "created_count": {
+            "type": "integer",
+            "title": "Created Count"
+          },
+          "total_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Amount"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedbackOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BudgetStateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch",
+          "created_count",
+          "total_amount"
+        ],
+        "title": "ImportCommitOut",
+        "description": "저장 결과. 마지막 한 건 기준으로 지금 돈 상태를 함께 준다."
+      },
+      "ImportMetaOut": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "is_stub": {
+            "type": "boolean",
+            "title": "Is Stub"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "is_stub"
+        ],
+        "title": "ImportMetaOut",
+        "description": "이 결과가 어디서 나왔는지. 스텁 결과를 진짜 성공으로 오해하지 않게 한다."
+      },
+      "ImportTextIn": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ImportTextIn",
+        "description": "줄글 한 덩어리. 여러 건이 들어 있을 수 있다."
+      },
+      "MerchantRuleListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MerchantRuleOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "title": "MerchantRuleListOut"
+      },
+      "MerchantRuleOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "merchant": {
+            "type": "string",
+            "title": "Merchant"
+          },
+          "category_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Category Id"
+          },
+          "applied_count": {
+            "type": "integer",
+            "title": "Applied Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "merchant",
+          "category_id",
+          "applied_count"
+        ],
+        "title": "MerchantRuleOut"
       },
       "PeriodSummaryOut": {
         "properties": {

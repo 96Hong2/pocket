@@ -16,10 +16,11 @@ from decimal import Decimal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.api.amounts import MAX_AMOUNT, integral_won
+from app.api.amounts import MAX_AMOUNT, integral_won, ratio_out
 from app.api.months import MAX_YEAR, MIN_YEAR
 from app.domain.aggregation import TransactionSource, TransactionType
-from app.domain.feedback import FeedbackKind
+from app.domain.feedback import FeedbackKind, FeedbackResult
+from app.domain.money import Money
 from app.modules.budgets.schemas import BudgetStateOut
 
 __all__ = [
@@ -33,6 +34,7 @@ __all__ = [
     "TransactionOut",
     "TransactionUpdate",
     "TransactionUpdated",
+    "to_feedback",
 ]
 
 
@@ -195,3 +197,26 @@ class PeriodSummaryOut(BaseModel):
     # 예산 상태. 예산을 정하지 않았으면 budget.amount 가 null 이다.
     # 앱을 다시 열거나 되돌린 뒤 홈을 다시 그릴 때 이 블록으로 채운다.
     budget: BudgetStateOut
+
+
+def _amount(value: Money | None) -> Decimal | None:
+    return value.amount if value is not None else None
+
+
+def to_feedback(result: FeedbackResult) -> FeedbackOut:
+    """판정 결과를 응답 형태로 옮긴다. 문장은 만들지 않는다."""
+    return FeedbackOut(
+        kind=result.kind,
+        remaining_budget=_amount(result.remaining_budget),
+        daily_allowance=_amount(result.daily_allowance),
+        remaining_days=result.remaining_days,
+        over_amount=_amount(result.over_amount),
+        over_category_id=uuid.UUID(result.over_category_id) if result.over_category_id else None,
+        saved_amount=_amount(result.saved_amount),
+        month_expense=_amount(result.month_expense),
+        pace_ratio=ratio_out(result.pace_ratio),
+        projected_month_end=_amount(result.projected_month_end),
+        category_spend=_amount(result.category_spend),
+        category_budget_amount=_amount(result.category_budget_amount),
+        large_expense_threshold=_amount(result.large_expense_threshold),
+    )

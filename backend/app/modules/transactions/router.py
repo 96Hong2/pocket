@@ -4,16 +4,12 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from decimal import Decimal
 
 from fastapi import APIRouter, Query, Response, status
 
-from app.api.amounts import ratio_out
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES
 from app.api.months import MonthQuery
-from app.domain.feedback import FeedbackResult
-from app.domain.money import Money
 from app.modules import ledger
 from app.modules.budgets import service as budgets
 from app.modules.budgets.schemas import BudgetStateOut, to_budget_state
@@ -21,7 +17,6 @@ from app.modules.transactions import service
 from app.modules.transactions.schemas import (
     CalendarDayOut,
     CalendarMonthOut,
-    FeedbackOut,
     PeriodSummaryOut,
     TransactionCreate,
     TransactionCreated,
@@ -29,32 +24,10 @@ from app.modules.transactions.schemas import (
     TransactionOut,
     TransactionUpdate,
     TransactionUpdated,
+    to_feedback,
 )
 
 router = APIRouter(prefix="/transactions", tags=["transactions"], responses=ERROR_RESPONSES)
-
-
-def _amount(value: Money | None) -> Decimal | None:
-    return value.amount if value is not None else None
-
-
-def _feedback_out(result: FeedbackResult) -> FeedbackOut:
-    """판정 결과를 응답 형태로 옮긴다. 문장은 만들지 않는다."""
-    return FeedbackOut(
-        kind=result.kind,
-        remaining_budget=_amount(result.remaining_budget),
-        daily_allowance=_amount(result.daily_allowance),
-        remaining_days=result.remaining_days,
-        over_amount=_amount(result.over_amount),
-        over_category_id=uuid.UUID(result.over_category_id) if result.over_category_id else None,
-        saved_amount=_amount(result.saved_amount),
-        month_expense=_amount(result.month_expense),
-        pace_ratio=ratio_out(result.pace_ratio),
-        projected_month_end=_amount(result.projected_month_end),
-        category_spend=_amount(result.category_spend),
-        category_budget_amount=_amount(result.category_budget_amount),
-        large_expense_threshold=_amount(result.large_expense_threshold),
-    )
 
 
 def _budget_out(outcome: service.SaveOutcome) -> BudgetStateOut | None:
@@ -74,7 +47,7 @@ def create(body: TransactionCreate, session: DbSession, user: CurrentUser) -> Tr
     tx, outcome = service.create_transaction(session, user, body.model_dump())
     return TransactionCreated(
         transaction=TransactionOut.model_validate(tx),
-        feedback=_feedback_out(outcome.feedback),
+        feedback=to_feedback(outcome.feedback),
         budget=_budget_out(outcome),
         undo_window_seconds=int(service.UNDO_WINDOW.total_seconds()),
         undo_until=service.undo_deadline(tx),
@@ -90,7 +63,7 @@ def update(
     )
     return TransactionUpdated(
         transaction=TransactionOut.model_validate(tx),
-        feedback=_feedback_out(outcome.feedback),
+        feedback=to_feedback(outcome.feedback),
         budget=_budget_out(outcome),
     )
 

@@ -24,6 +24,8 @@ class MerchantRule(Entity, SoftDeleteMixin):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     merchant_normalized: Mapped[str] = mapped_column(String(120), nullable=False)
+    # 화면에 그대로 보여 줄 표기. 정규화하면 띄어쓰기와 대소문자가 사라져 읽기 나쁘다.
+    merchant: Mapped[str | None] = mapped_column(String(120), nullable=True)
     category_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("categories.id", ondelete="CASCADE"), nullable=False, index=True
     )

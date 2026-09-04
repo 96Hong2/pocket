@@ -24,12 +24,15 @@ from app.integrations.apps_in_toss.anon_key import (
     VerifiedIdentity,
     create_anon_key_verifier,
 )
+from app.integrations.llm import LlmStructuredClient, get_llm_client
 from app.models import User, UserPreference
 
-__all__ = ["CurrentUser", "DbSession", "get_current_user", "get_verifier"]
+__all__ = ["CurrentUser", "DbSession", "LlmClient", "get_current_user", "get_verifier"]
 
 DbSession = Annotated[Session, Depends(get_session)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
+# 파싱 클라이언트. 테스트가 갈아끼울 수 있게 의존성으로 받는다.
+LlmClient = Annotated[LlmStructuredClient, Depends(get_llm_client)]
 
 
 @lru_cache(maxsize=1)

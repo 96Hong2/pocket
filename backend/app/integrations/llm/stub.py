@@ -2,8 +2,10 @@
 
 API 키 없이 개발·테스트가 돌아가게 한다. 같은 입력이면 항상 같은 결과다.
 
-"12000 점심" 정도의 아주 단순한 규칙만 본다. 못 읽으면 후보를 만들지 않거나
-confidence 를 낮게 준다. 스텁이 쓰였다는 사실은 ParseMeta.is_stub 으로 드러난다.
+`점심 12000 스벅 4500 어제 택시 9000` 정도의 한국어 가계부 문장을 읽는다.
+끊는 자리와 날짜 환산은 `app.domain.nl_text` 가 정하고, 여기서는 종류·분류·상호만 본다.
+못 읽으면 후보를 만들지 않거나 confidence 를 낮게 준다.
+스텁이 쓰였다는 사실은 ParseMeta.is_stub 으로 드러난다.
 
 계산은 하지 않는다. 금액을 읽어 옮길 뿐 더하거나 빼지 않는다.
 """
@@ -14,6 +16,7 @@ import logging
 import re
 from datetime import date
 
+from app.domain.nl_text import find_amounts, read_date, split_entries
 from app.integrations.llm.contracts import (
     ExtractedTransaction,
     TransactionExtraction,
@@ -30,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 PROVIDER_NAME = "stub"
 
-_ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
-_AMOUNT = re.compile(r"(\d[\d,]*)\s*(만원|천원|원)?")
+# 한 번에 읽어 들이는 건수 상한. PRD 가 정한 1~20 건이다.
+MAX_CANDIDATES = 20
 
 _TYPE_KEYWORDS: tuple[tuple[TransactionType, tuple[str, ...]], ...] = (
     (TransactionType.REFUND, ("환불", "취소", "반품")),
@@ -40,21 +43,20 @@ _TYPE_KEYWORDS: tuple[tuple[TransactionType, tuple[str, ...]], ...] = (
 )
 
 _CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("식비", ("점심", "저녁", "아침", "밥", "식당", "김밥", "국밥", "배달")),
-    ("카페·간식", ("커피", "카페", "라떼", "아메리카노", "디저트", "빵")),
-    ("교통", ("택시", "버스", "지하철", "기차", "주유", "톨비")),
+    ("식비", ("점심", "저녁", "아침", "밥", "식당", "김밥", "국밥", "배달", "치킨", "분식")),
+    ("카페·간식", ("커피", "카페", "라떼", "아메리카노", "디저트", "빵", "스벅", "스타벅스")),
+    ("교통", ("택시", "버스", "지하철", "기차", "주유", "톨비", "주차")),
     ("쇼핑", ("옷", "쇼핑", "신발", "가방")),
-    ("생활", ("마트", "편의점", "생필품", "세제")),
+    ("생활", ("마트", "편의점", "생필품", "세제", "다이소")),
     ("주거·고정비", ("월세", "관리비", "전기세", "통신비", "보험")),
     ("여가·취미", ("영화", "게임", "공연", "책", "여행")),
-    ("건강·미용", ("병원", "약국", "미용실", "헬스", "화장품")),
+    ("건강·미용", ("병원", "약국", "미용실", "헬스", "화장품", "올리브영")),
 )
-
-_CURRENCY_MULTIPLIER = {"만원": 10_000, "천원": 1_000, "원": 1, None: 1}
 
 _BASE_CONFIDENCE = 0.35
 _MERCHANT_BONUS = 0.20
 _CATEGORY_BONUS = 0.10
+_DATE_BONUS = 0.05
 
 
 class StubLlmStructuredClient:
@@ -80,6 +82,7 @@ class StubLlmStructuredClient:
         schema: type[SchemaT],
         text: str | None = None,
         image: LlmImage | None = None,
+        today: date | None = None,
     ) -> SchemaT:
         del prompt  # 스텁은 프롬프트를 보지 않는다.
         require_single_input(text, image)
@@ -89,71 +92,58 @@ class StubLlmStructuredClient:
             # 스텁은 이미지 인식을 하지 않는다. 캡처 경로는 실제 provider 가 필요하다.
             return schema.model_validate(TransactionExtraction().model_dump())
         assert text is not None
-        extraction = parse_text(text)
+        extraction = parse_text(text, today=today)
         return schema.model_validate(extraction.model_dump())
 
 
-def parse_text(text: str) -> TransactionExtraction:
-    """줄글 한 줄에서 거래 후보 하나를 뽑는다. 못 뽑으면 빈 목록."""
-    cleaned = text.strip()
-    if not cleaned:
+def parse_text(text: str, *, today: date | None = None) -> TransactionExtraction:
+    """줄글에서 거래 후보를 뽑는다. 하나도 못 뽑으면 빈 목록."""
+    if not text.strip():
         return TransactionExtraction()
 
-    # 날짜를 먼저 떼어낸다. 그러지 않으면 "2026-01-02" 의 2026 이 금액으로 잡힌다.
-    occurred_at, rest = _take_iso_date(cleaned)
-    amount, amount_span = _find_amount(rest)
-    if amount is None or amount_span is None:
-        return TransactionExtraction()
+    candidates: list[ExtractedTransaction] = []
+    # 맨 앞에 적은 날짜는 뒤따르는 조각에도 이어진다. "어제 점심 12000 커피 4500" 이 둘 다 어제다.
+    leading: date | None = None
+    for index, entry in enumerate(split_entries(text)[:MAX_CANDIDATES]):
+        parsed = _parse_entry(entry, today=today, inherited=leading)
+        if parsed is None:
+            continue
+        if index == 0:
+            leading = parsed.occurred_at
+        candidates.append(parsed)
+    return TransactionExtraction(candidates=candidates)
 
-    remainder = (rest[: amount_span[0]] + " " + rest[amount_span[1] :]).strip()
+
+def _parse_entry(
+    entry: str, *, today: date | None, inherited: date | None
+) -> ExtractedTransaction | None:
+    occurred_at, rest = read_date(entry, today=today)
+    amounts = find_amounts(rest)
+    if not amounts:
+        return None
+    amount = amounts[0]
+
+    remainder = f"{rest[: amount.start]} {rest[amount.end :]}".strip()
     transaction_type = _guess_type(rest)
     merchant = _clean_merchant(remainder)
-    category = _guess_category(rest) if transaction_type == "expense" else None
+    category = _guess_category(rest) if transaction_type == TransactionType.EXPENSE else None
 
     confidence = _BASE_CONFIDENCE
     if merchant:
         confidence += _MERCHANT_BONUS
     if category:
         confidence += _CATEGORY_BONUS
+    if occurred_at is not None:
+        confidence += _DATE_BONUS
 
-    return TransactionExtraction(
-        candidates=[
-            ExtractedTransaction(
-                occurred_at=occurred_at,
-                amount=amount,
-                type=transaction_type,
-                merchant=merchant,
-                category=category,
-                confidence=round(confidence, 2),
-            )
-        ]
+    return ExtractedTransaction(
+        occurred_at=occurred_at or inherited,
+        amount=amount.value,
+        type=transaction_type,
+        merchant=merchant,
+        category=category,
+        confidence=round(confidence, 2),
     )
-
-
-def _find_amount(text: str) -> tuple[int | None, tuple[int, int] | None]:
-    for match in _AMOUNT.finditer(text):
-        digits = match.group(1).replace(",", "")
-        if not digits:
-            continue
-        unit = match.group(2)
-        value = int(digits) * _CURRENCY_MULTIPLIER[unit]
-        if value <= 0:
-            continue
-        return value, match.span()
-    return None, None
-
-
-def _take_iso_date(text: str) -> tuple[date | None, str]:
-    match = _ISO_DATE.search(text)
-    if match is None:
-        # 상대 날짜("어제")는 추측하지 않는다. 비워 두면 호출자가 정한다.
-        return None, text
-    try:
-        parsed = date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
-    except ValueError:
-        return None, text
-    stripped = (text[: match.start()] + " " + text[match.end() :]).strip()
-    return parsed, stripped
 
 
 def _guess_type(text: str) -> TransactionType:
