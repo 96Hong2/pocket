@@ -45,15 +45,23 @@ describe('parseErrorEnvelope', () => {
 });
 
 describe('문구 폴백', () => {
-  it('code 별 우리 문구를 먼저 쓴다', () => {
-    expect(apiErrorMessage('UNDO_EXPIRED', '서버 문구')).toBe('되돌릴 수 있는 시간이 지났어요.');
+  it('서버 문구를 먼저 쓴다', () => {
+    // 같은 code 라도 서버는 상황을 알고 말한다. 우리 문구로 덮으면 무엇을 고칠지 알 수 없다.
+    expect(apiErrorMessage('INVALID_REQUEST', '전체 예산을 먼저 정해 주세요.')).toBe(
+      '전체 예산을 먼저 정해 주세요.',
+    );
+    expect(apiErrorMessage('PERIOD_CLOSED', '지난 기간의 예산은 바꿀 수 없어요.')).toBe(
+      '지난 기간의 예산은 바꿀 수 없어요.',
+    );
   });
 
-  it('모르는 code 는 서버 문구를 쓴다', () => {
-    expect(apiErrorMessage('RATE_LIMITED', '너무 자주 눌렀어요.')).toBe('너무 자주 눌렀어요.');
+  it('서버 문구가 없으면 code 별 우리 문구로 간다', () => {
+    expect(apiErrorMessage('UNDO_EXPIRED', null)).toBe('되돌릴 수 있는 시간이 지났어요.');
+    // 요청이 서버에 닿지 못한 실패는 서버 문구가 있을 수 없다.
+    expect(apiErrorMessage('CLIENT_NETWORK')).toBe('연결이 불안정해요. 네트워크를 확인해 주세요.');
   });
 
-  it('서버 문구도 없으면 기본값으로 간다', () => {
+  it('둘 다 없으면 기본값으로 간다', () => {
     expect(apiErrorMessage('RATE_LIMITED', null)).toBe('잠시 뒤 다시 시도해 주세요.');
   });
 });

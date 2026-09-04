@@ -1,13 +1,7 @@
-import { useId, useState } from 'react';
+import { useState } from 'react';
 
 import { ApiError, useSaveBudget } from '../../shared/api';
-import { formatNumber } from '../../shared/lib/format';
-import { Button, CategoryAvatar, SageCard } from '../../shared/ui';
-
-/** 원 단위 정수만 받는다. 서버도 1원 이상 정수만 받는다. */
-function digitsOnly(value: string): string {
-  return value.replace(/\D/g, '').slice(0, 12).replace(/^0+/, '');
-}
+import { AmountField, Button, CategoryAvatar, SageCard } from '../../shared/ui';
 
 /**
  * 첫 기록을 마친 사람에게만 뜨는 예산 제안.
@@ -15,7 +9,6 @@ function digitsOnly(value: string): string {
  * 받는 것은 금액 하나다. 기간·카테고리별 예산은 여기서 묻지 않는다.
  */
 export function BudgetSuggestCard() {
-  const inputId = useId();
   const [digits, setDigits] = useState('');
   const saveBudget = useSaveBudget();
 
@@ -32,22 +25,7 @@ export function BudgetSuggestCard() {
         </p>
       </div>
 
-      <label className="budget-field" htmlFor={inputId}>
-        <span className="budget-field__label">이번 달 예산</span>
-        <span className="budget-field__box">
-          <input
-            id={inputId}
-            className="budget-field__input"
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder="0"
-            value={digits === '' ? '' : formatNumber(amount)}
-            onChange={(event) => setDigits(digitsOnly(event.target.value))}
-          />
-          <span className="budget-field__unit">원</span>
-        </span>
-      </label>
+      <AmountField label="이번 달 예산" value={digits} onChange={setDigits} />
 
       {message ? (
         <p className="home-card__error" role="alert">

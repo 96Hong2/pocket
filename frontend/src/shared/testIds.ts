@@ -33,6 +33,24 @@ export const TEST_IDS = {
   monthTotalDelta: 'month-total-delta',
   /** 달력에서 고른 날의 지출 합계 */
   dayTotal: 'day-total',
+  /** 관리 탭 전체 예산 카드의 한도 금액 */
+  budgetTotalAmount: 'budget-total-amount',
+  /** 전체 예산 카드의 게이지 */
+  budgetTotalGauge: 'budget-total-gauge',
+  /** 전체 예산 카드의 사용액 */
+  budgetUsed: 'budget-used',
+  /** 전체 예산 카드의 남은 금액 */
+  budgetLeft: 'budget-left',
+  /** 전체 예산 카드 아래 한 줄. 진행률과 하루 가용액이 여기 붙는다. */
+  budgetCaption: 'budget-caption',
+  /** 카테고리 예산 한 줄. 어느 카테고리인지는 줄 안의 이름으로 가른다. */
+  categoryBudgetRow: 'category-budget-row',
+  /** 카테고리 예산 한 줄의 사용액 */
+  categoryBudgetUsed: 'category-budget-used',
+  /** 카테고리 예산 한 줄의 한도 */
+  categoryBudgetCap: 'category-budget-cap',
+  /** 카테고리 예산 합이 전체 예산보다 클 때 뜨는 안내 한 줄 */
+  categoryBudgetSum: 'category-budget-sum',
   /** 저장 직후 피드백 한 줄 */
   feedbackHeadline: 'feedback-headline',
   /** 피드백 둘째 줄. 남은 예산 같은 숫자가 여기 붙는다. */

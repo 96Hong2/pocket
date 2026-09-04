@@ -23,6 +23,10 @@ export const E2E_SERVERS: PlaywrightTestConfig['webServer'] = [
       // 프론트를 5173 이 아닌 포트로 띄우므로 백엔드 기본 허용 목록에서 벗어난다.
       // 소스를 고치지 않고 여기서 넘겨 준다.
       CORS_ORIGINS: E2E_WEB_URL,
+      // 자동 이어쓰기를 화면으로 보려면 지난달 예산이 이미 있어야 하는데, 끝난 기간의 쓰기를
+      // 제품 규칙이 막아 둔다. 시간을 앞당길 수 없어 그 상태를 만들 길이 이것뿐이다.
+      // 잠금 자체(422)는 이 스위치가 꺼진 백엔드 API 테스트가 지킨다. 자세한 배경은 docs/SECRETS.md §3.1.
+      ALLOW_PAST_PERIOD_BUDGET_WRITE: 'true',
     },
     // 기동 실패가 'url 대기 타임아웃' 으로만 보이지 않게 로그를 흘린다.
     stdout: 'pipe',

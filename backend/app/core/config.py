@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     # 익명 식별키 검증을 건너뛰는 로컬 개발용 스위치.
     allow_unverified_anon_key: bool = False
 
+    # 끝난 기간의 예산 쓰기를 열어 두는 로컬 전용 스위치. 화면 검증에만 쓴다.
+    # 자동 이어쓰기를 화면으로 증명하려면 '지난달 예산이 이미 있는 상태' 가 있어야 하는데,
+    # 제품 규칙이 그 기간의 쓰기를 막고 있어 만들 길이 없다. 시간을 앞당길 수도 없다.
+    # 이 스위치는 쓰기 잠금만 푼다. 화면이 읽기 전용인지 판단하는 is_editable 은 그대로
+    # 진짜 규칙으로 계산되므로 '끝난 달은 보기만 한다' 는 동작은 켠 채로도 검증된다.
+    allow_past_period_budget_write: bool = False
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_cors_origins(cls, value: object) -> object:
@@ -67,6 +74,16 @@ class Settings(BaseSettings):
         # 검증을 끄면 아무 문자열로도 남의 데이터에 접근할 수 있어 local 에서만 허용한다.
         if self.allow_unverified_anon_key and self.environment != "local":
             raise ValueError("ALLOW_UNVERIFIED_ANON_KEY는 ENVIRONMENT=local 에서만 켤 수 있습니다.")
+        return self
+
+    @model_validator(mode="after")
+    def _reject_past_period_write_outside_local(self) -> Settings:
+        # 켜진 채로 배포되면 끝난 달의 예산이 나중에 달라질 수 있다.
+        # 이미 보여 준 지난달 게이지와 리포트를 믿을 수 없게 되므로 local 밖에서는 막는다.
+        if self.allow_past_period_budget_write and self.environment != "local":
+            raise ValueError(
+                "ALLOW_PAST_PERIOD_BUDGET_WRITE는 ENVIRONMENT=local 에서만 켤 수 있습니다."
+            )
         return self
 
     @property

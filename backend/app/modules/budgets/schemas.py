@@ -11,6 +11,7 @@ BudgetStateOut 은 홈 히어로가 쓰는 한 덩어리다. 예산 조회·거�
 
 from __future__ import annotations
 
+import uuid
 from datetime import date
 from decimal import Decimal
 
@@ -18,14 +19,16 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.api.amounts import MAX_AMOUNT, integral_won, ratio_out
 from app.domain.budget import BudgetStatus
-from app.domain.money import Money
+from app.domain.money import Money, ratio
 from app.domain.period import BudgetPeriod
 
 __all__ = [
     "BudgetOut",
     "BudgetStateOut",
     "BudgetUpsert",
+    "CategoryBudgetOut",
     "to_budget_state",
+    "to_category_budget",
 ]
 
 
@@ -60,12 +63,31 @@ class BudgetStateOut(BaseModel):
     # 초반 며칠은 표본이 적어 예측을 화면에 내보내지 않는다.
     is_projection_reliable: bool
     is_over_budget: bool
+    # 직전 기간에서 자동으로 복사된 예산인가. 안내 배너의 근거다.
+    is_auto_carried: bool
+    # 이 기간을 지금 고칠 수 있나. 예산이 없어도 기간만으로 정해진다.
+    is_editable: bool
+
+
+class CategoryBudgetOut(BaseModel):
+    """카테고리 한 줄. 전체 예산 게이지와 같은 규칙으로 계산한다."""
+
+    category_id: uuid.UUID
+    amount: Decimal
+    # 그 카테고리의 예산 반영 지출. 환불은 빼고 이체와 예산 제외 거래는 세지 않는다.
+    budgeted_spend: Decimal
+    # 넘겼으면 음수 그대로 둔다. 화면이 초과 금액을 그대로 쓴다.
+    remaining: Decimal
+    spend_progress: Decimal | None
+    is_over_budget: bool
 
 
 class BudgetOut(BaseModel):
     """예산 조회·저장 응답. 홈이 첫 화면을 고르는 근거를 함께 준다."""
 
     budget: BudgetStateOut
+    # 정한 카테고리만 온다. 전체 예산이 없으면 빈 배열이다.
+    category_budgets: list[CategoryBudgetOut]
     month_expense: Decimal
     month_income: Decimal
     # 수입 - 지출. 남은 예산과 다른 개념이라 따로 준다.
@@ -80,7 +102,13 @@ def _amount(value: Money | None) -> Decimal | None:
     return value.amount if value is not None else None
 
 
-def to_budget_state(period: BudgetPeriod, status: BudgetStatus) -> BudgetStateOut:
+def to_budget_state(
+    period: BudgetPeriod,
+    status: BudgetStatus,
+    *,
+    is_auto_carried: bool,
+    today: date,
+) -> BudgetStateOut:
     """도메인 판정 결과를 응답 형태로 옮긴다. 여기서 숫자를 새로 만들지 않는다."""
     return BudgetStateOut(
         period_start=period.start,
@@ -97,4 +125,21 @@ def to_budget_state(period: BudgetPeriod, status: BudgetStatus) -> BudgetStateOu
         projected_month_end=status.projected_month_end.amount,
         is_projection_reliable=status.is_projection_reliable,
         is_over_budget=status.is_over_budget,
+        is_auto_carried=is_auto_carried,
+        is_editable=period.end >= today,
+    )
+
+
+def to_category_budget(
+    category_id: uuid.UUID, amount: Money, budgeted_spend: Money
+) -> CategoryBudgetOut:
+    """카테고리 한 줄을 응답 형태로 만든다. 합계는 이미 집계가 끝난 값을 받는다."""
+    remaining = amount - budgeted_spend
+    return CategoryBudgetOut(
+        category_id=category_id,
+        amount=amount.amount,
+        budgeted_spend=budgeted_spend.amount,
+        remaining=remaining.amount,
+        spend_progress=ratio_out(ratio(budgeted_spend, amount)),
+        is_over_budget=remaining.is_negative,
     )

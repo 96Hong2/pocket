@@ -1,7 +1,7 @@
 import { request, type APIRequestContext } from '@playwright/test';
 
 import type { TransactionType } from '../../src/shared/api/types';
-import { toLedgerDate } from '../../src/shared/lib/format';
+import { shiftMonth, toLedgerDate } from '../../src/shared/lib/format';
 
 import { E2E_API_URL } from './env';
 
@@ -109,11 +109,47 @@ export class PrepApi {
     await this.addTransaction(options);
   }
 
-  async setBudget(amount: number): Promise<void> {
-    const response = await this.context.put('/api/v1/budgets', {
+  /**
+   * 전체 예산을 심는다. `month` 를 주면 그 달에, 없으면 이번 달에 심는다.
+   *
+   * 지난달을 심는 것은 자동 이어쓰기를 화면으로 보기 위해서다. 서버가 끝난 기간의 쓰기를
+   * 막으므로 e2e 스택에서만 잠금을 열어 둔다(`support/servers.ts`).
+   */
+  async setBudget(amount: number, month?: string): Promise<void> {
+    const response = await this.context.put(`/api/v1/budgets${monthQuery(month)}`, {
       data: { amount: String(amount) },
     });
     expectOk(response.status(), await response.text(), '예산을 심지 못했다');
+  }
+
+  /** 예산을 지운다. 지운 자리(tombstone)가 자동 이어쓰기를 막는다. */
+  async deleteBudget(month?: string): Promise<void> {
+    const response = await this.context.delete(`/api/v1/budgets${monthQuery(month)}`);
+    expectOk(response.status(), await response.text(), '예산을 지우지 못했다');
+  }
+
+  /** 카테고리 예산 하나를 심는다. 전체 예산이 먼저 있어야 한다. */
+  async setCategoryBudget(categoryId: string, amount: number, month?: string): Promise<void> {
+    const response = await this.context.put(
+      `/api/v1/budgets/categories/${categoryId}${monthQuery(month)}`,
+      { data: { amount: String(amount) } },
+    );
+    expectOk(response.status(), await response.text(), '카테고리 예산을 심지 못했다');
+  }
+
+  async deleteCategoryBudget(categoryId: string, month?: string): Promise<void> {
+    const response = await this.context.delete(
+      `/api/v1/budgets/categories/${categoryId}${monthQuery(month)}`,
+    );
+    expectOk(response.status(), await response.text(), '카테고리 예산을 지우지 못했다');
+  }
+
+  /** 자동 이어쓰기 설정. 끄면 다음 기간에 예산이 만들어지지 않는다. */
+  async setAutoCarryover(enabled: boolean): Promise<void> {
+    const response = await this.context.patch('/api/v1/preferences', {
+      data: { budget_auto_carryover: enabled },
+    });
+    expectOk(response.status(), await response.text(), '이어쓰기 설정을 바꾸지 못했다');
   }
 
   /** 기본 카테고리 목록. 이름으로 id 를 찾을 때 쓴다. */
@@ -124,6 +160,28 @@ export class PrepApi {
     if (found == null) throw new Error(`카테고리 '${name}' 을 찾지 못했다`);
     return found.id;
   }
+}
+
+/**
+ * 가계부 시간대 기준 이번 달. `2026-09` 모양이다.
+ *
+ * 기기 시간대로 만들면 안 된다. UTC 로 도는 CI 런너에서는 KST 로 이미 다음 달인
+ * 시각에 돌린 실행이 전달을 가리킨다.
+ */
+export function thisMonth(): string {
+  return toLedgerDate(new Date()).slice(0, 7);
+}
+
+/** 가계부 시간대 기준 지난달. 이어쓰기를 보려면 여기에 예산을 심는다. */
+export function lastMonth(): string {
+  return shiftMonth(thisMonth(), -1);
+}
+
+/** 달을 주면 `?year=&month=`, 없으면 빈 문자열. 서버는 인자가 없으면 오늘이 속한 기간을 쓴다. */
+function monthQuery(month?: string): string {
+  if (month == null) return '';
+  const [year, monthNumber] = month.split('-');
+  return `?year=${Number(year)}&month=${Number(monthNumber)}`;
 }
 
 /**

@@ -432,6 +432,81 @@
     color: var(--color-muted);
   }
 
+  /* ── AmountField ────────────────────────────────────── */
+  .pk-amount-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .pk-amount-field__label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  .pk-amount-field__box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 48px;
+    padding: 0 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-button);
+  }
+
+  /* 포커스 링은 상자가 그린다. 굵기와 색은 index.css 의 전역 focus-visible 과 같다. */
+  .pk-amount-field__box:focus-within {
+    border-color: var(--color-sage-700);
+    outline: 2px solid var(--color-sage-700);
+    outline-offset: 2px;
+  }
+
+  .pk-amount-field__input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    /* 링이 상자와 겹쳐 두 겹이 되지 않게 입력칸 자체는 그리지 않는다. */
+    outline: none;
+  }
+
+  .pk-amount-field__input::placeholder {
+    color: var(--color-placeholder);
+  }
+
+  .pk-amount-field__unit {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .pk-amount-field--compact .pk-amount-field__label {
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .pk-amount-field--compact .pk-amount-field__box {
+    height: 40px;
+    gap: 4px;
+    padding: 0 12px;
+    background: var(--color-bg);
+    border-radius: var(--radius-sm);
+  }
+
+  .pk-amount-field--compact .pk-amount-field__input {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-extrabold);
+  }
+
   /* ── TransactionRow ─────────────────────────────────── */
   .pk-tx {
     display: flex;

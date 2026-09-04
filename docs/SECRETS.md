@@ -48,6 +48,7 @@ toss-client.key   개인키. 이게 유출되면 우리 앱 자격으로 호출�
 | `TOSS_MTLS_CERT_PATH` | 인증서 파일 절대경로 | |
 | `TOSS_MTLS_KEY_PATH` | 개인키 파일 절대경로 | |
 | `ALLOW_UNVERIFIED_ANON_KEY` | `true` 는 `ENVIRONMENT=local` 에서만 | §3 |
+| `ALLOW_PAST_PERIOD_BUDGET_WRITE` | `true` 는 `ENVIRONMENT=local` 에서만 | 화면 검증 스택 전용, §3.1 |
 | `ENVIRONMENT` | `local` / `dev` / `prod` | `prod` 면 검증 생략 불가 |
 
 ---
@@ -63,6 +64,21 @@ ENVIRONMENT != local 이고 ALLOW_UNVERIFIED_ANON_KEY=true → 기동 실패
 인증서 없고 ALLOW_UNVERIFIED_ANON_KEY=false               → 기동 실패
 인증서 없고 ALLOW_UNVERIFIED_ANON_KEY=true (local)        → TrustingAnonKeyVerifier + 경고 로그
 ```
+
+### 3.1 `ALLOW_PAST_PERIOD_BUDGET_WRITE`
+
+끝난 기간의 예산은 바꿀 수 없다. 이미 보여 준 지난달 게이지와 리포트가 나중에 달라지면
+숫자를 믿을 수 없게 되기 때문이다. 쓰기 넷(`PUT`·`DELETE` 예산, `PUT`·`DELETE` 카테고리 예산)이
+`422 PERIOD_CLOSED` 로 막힌다.
+
+그런데 자동 이어쓰기를 **화면으로** 확인하려면 "지난달 예산이 이미 있는 상태" 가 필요하다.
+시간을 앞당길 수 없고 그 상태를 만들 다른 경로도 없어서, 화면 검증 스택에서만 이 잠금을 연다.
+
+- 켜는 곳은 `frontend/e2e/support/servers.ts` 하나뿐이다. 배포 설정에는 넣지 않는다.
+- `ENVIRONMENT` 가 `local` 이 아니면 기동에 실패한다.
+- 이 스위치는 **쓰기 잠금만** 푼다. 응답의 `is_editable` 은 켠 채로도 진짜 규칙
+  (`period_end >= 사용자 시간대의 오늘`)으로 계산되므로, "끝난 달은 보기만 한다" 는 화면 동작은
+  그대로 검증된다. 잠금 자체(`422`)는 스위치가 꺼진 API 테스트가 지킨다.
 
 **기동 실패는 말 그대로 기동 단계다.** `create_app()` 이 검증기를 먼저 만들기 때문에,
 설정이 잘못된 리비전은 `/health` 조차 뜨지 않는다. 첫 요청에서야 500 이 나면

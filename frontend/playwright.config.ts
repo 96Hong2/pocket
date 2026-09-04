@@ -28,6 +28,22 @@ export default defineConfig({
     timezoneId: 'Asia/Seoul',
   },
   // 미니앱은 토스 앱 WebView 안에서 돈다. 데스크탑 폭으로 재면 레이아웃 확인이 거짓이 된다.
-  projects: [{ name: 'mobile-chromium', use: { ...devices['Pixel 8'] } }],
+  //
+  // 속도 단언은 따로 떼어 맨 뒤에 혼자 돌린다. 벽시계로 재는 값이라 다른 워커가 같은 서버를
+  // 두드리면 그 경합까지 함께 재게 된다. spec 이 늘었을 때 서버 처리 시간은 그대로인데
+  // 이 단언만 빨개진 적이 있다. 자세한 이유는 e2e/specs/save-speed.spec.ts 머릿글에 있다.
+  projects: [
+    {
+      name: 'mobile-chromium',
+      use: { ...devices['Pixel 8'] },
+      testIgnore: '**/save-speed.spec.ts',
+    },
+    {
+      name: 'perf',
+      use: { ...devices['Pixel 8'] },
+      testMatch: '**/save-speed.spec.ts',
+      dependencies: ['mobile-chromium'],
+    },
+  ],
   webServer: E2E_SERVERS,
 });

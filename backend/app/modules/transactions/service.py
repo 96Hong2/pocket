@@ -32,6 +32,7 @@ from app.domain.period import BudgetPeriod
 from app.models import Category, Transaction, User
 from app.modules import ledger
 from app.modules.budgets import service as budgets
+from app.modules.categories import service as categories
 
 logger = logging.getLogger(__name__)
 
@@ -60,30 +61,20 @@ UNDO_GRACE = timedelta(seconds=3)
 
 @dataclass(frozen=True)
 class SaveOutcome:
-    """저장·수정 직후 화면에 돌려줄 것. 판정이 실패하면 budget_status 가 None 이다."""
+    """저장·수정 직후 화면에 돌려줄 것. 판정이 실패하면 budget_status 가 None 이다.
+
+    today 를 함께 담는 이유: 예산 블록의 '지금 고칠 수 있나' 는 사용자 시간대의 오늘로
+    정해진다. 응답을 만드는 라우터가 시각을 다시 구하면 두 값이 갈릴 수 있다.
+    """
 
     feedback: FeedbackResult
     period: BudgetPeriod
+    today: date
     budget_status: BudgetStatus | None
+    is_auto_carried: bool = False
 
 
 # ── 검증 ────────────────────────────────────────────────
-
-
-def _require_category(session: Session, user: User, category_id: uuid.UUID | None) -> None:
-    """내 카테고리이거나 기본 카테고리(user_id NULL)여야 한다."""
-    if category_id is None:
-        return
-    found = session.scalar(
-        select(Category.id).where(
-            Category.id == category_id,
-            Category.deleted_at.is_(None),
-            # NULL 은 IN 으로 못 잡는다. 기본 카테고리(user_id NULL)를 놓치지 않게 따로 쓴다.
-            or_(Category.user_id == user.id, Category.user_id.is_(None)),
-        )
-    )
-    if found is None:
-        raise ApiError(ErrorCode.INVALID_CATEGORY, "카테고리를 찾지 못했어요.", status_code=422)
 
 
 def _refund_target(
@@ -190,6 +181,7 @@ def evaluate(session: Session, user: User, tx: Transaction, today: date) -> Save
     try:
         totals = ledger.load_period_totals(session, user, period)
         status = budgets.budget_status(session, user, period, totals, today)
+        carried = budgets.is_carried(session, user, period)
         cat_key = str(tx.category_id) if tx.category_id else None
         result = evaluate_feedback(
             FeedbackInput(
@@ -209,8 +201,8 @@ def evaluate(session: Session, user: User, tx: Transaction, today: date) -> Save
         )
     except Exception:
         logger.exception("피드백 판정에 실패했다. 저장은 유지한다 transaction_id=%s", tx.id)
-        return SaveOutcome(FeedbackResult(kind=FeedbackKind.MONTH_FACT), period, None)
-    return SaveOutcome(result, period, status)
+        return SaveOutcome(FeedbackResult(kind=FeedbackKind.MONTH_FACT), period, today, None)
+    return SaveOutcome(result, period, today, status, is_auto_carried=carried)
 
 
 # ── 저장 ────────────────────────────────────────────────
@@ -219,7 +211,7 @@ def evaluate(session: Session, user: User, tx: Transaction, today: date) -> Save
 def create_transaction(
     session: Session, user: User, data: dict, *, today: date | None = None
 ) -> tuple[Transaction, SaveOutcome]:
-    _require_category(session, user, data.get("category_id"))
+    categories.require_owned(session, user, data.get("category_id"))
     target = _refund_target(session, user, data.get("refund_of_transaction_id"), data.get("amount"))
 
     payload = _normalized(data)
@@ -248,7 +240,7 @@ def update_transaction(
     payload = _normalized(data)
 
     if "category_id" in payload:
-        _require_category(session, user, payload["category_id"])
+        categories.require_owned(session, user, payload["category_id"])
     if "amount" in payload and tx.source is agg.TransactionSource.NO_SPEND:
         # 무지출일 기록은 금액이 0 이라는 것 자체가 의미다.
         raise ApiError(ErrorCode.INVALID_REQUEST, "무지출일 기록의 금액은 바꿀 수 없어요.", 422)

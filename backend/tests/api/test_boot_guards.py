@@ -39,6 +39,18 @@ def test_local_이_아니면_검증을_끌_수_없다(monkeypatch: pytest.Monkey
         Settings()
 
 
+def test_local_이_아니면_지난_기간_쓰기를_열_수_없다(monkeypatch: pytest.MonkeyPatch) -> None:
+    """켜진 채로 배포되면 끝난 달의 예산이 나중에 달라진다.
+
+    이미 보여 준 지난달 게이지와 리포트를 믿을 수 없게 되므로 기동에서 막는다.
+    """
+    monkeypatch.setenv("ENVIRONMENT", "dev")
+    monkeypatch.setenv("ALLOW_PAST_PERIOD_BUDGET_WRITE", "true")
+
+    with pytest.raises(ValueError, match="local"):
+        Settings()
+
+
 def test_local_에서는_검증을_끄고_뜬다(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENVIRONMENT", "local")
     monkeypatch.setenv("ALLOW_UNVERIFIED_ANON_KEY", "true")

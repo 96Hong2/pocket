@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { useOverlayBackClose } from '../../app/providers';
 import {
   parseDecimalOr,
   useDeleteTransaction,
@@ -10,7 +11,14 @@ import {
   type TransactionUpdate,
 } from '../../shared/api';
 import { formatDayLabel } from '../../shared/lib/format';
-import { BottomSheet, Button, CategoryAvatar, Toggle, toIconName } from '../../shared/ui';
+import {
+  AmountField,
+  BottomSheet,
+  Button,
+  CategoryAvatar,
+  Toggle,
+  toIconName,
+} from '../../shared/ui';
 
 /**
  * 수정 시트. 상호·금액·카테고리·예산 제외를 한 화면에서 고친다.
@@ -29,6 +37,9 @@ export interface EditSheetProps {
 }
 
 export function EditSheet({ transaction, categories, month, onClose }: EditSheetProps) {
+  // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
+  useOverlayBackClose(transaction != null, onClose);
+
   return (
     <BottomSheet
       open={transaction != null}
@@ -142,15 +153,13 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
             maxLength={120}
           />
         </label>
-        <label className="tx-edit__field tx-edit__field--amount">
-          <span className="tx-edit__label">금액</span>
-          <input
-            className="tx-edit__input tx-edit__input--amount"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ''))}
-            inputMode="numeric"
-          />
-        </label>
+        <AmountField
+          className="tx-edit__field--amount"
+          variant="compact"
+          label="금액"
+          value={amount}
+          onChange={setAmount}
+        />
       </div>
 
       <div className="tx-edit__cats" role="group" aria-label="카테고리">

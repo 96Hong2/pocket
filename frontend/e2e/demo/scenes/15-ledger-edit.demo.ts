@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../../src/shared/lib/format';
+import { formatCurrency, formatNumber } from '../../../src/shared/lib/format';
 import { expect, test } from '../support/director';
 
 /**
@@ -26,7 +26,7 @@ test('27 수정 시트에서 상호·금액·카테고리를 고친다', async (
 
   await demo.step('지금 값이 그대로 들어와 있다');
   await expect(calendar.edit.merchant).toHaveValue('스타벅스');
-  await expect(calendar.edit.amount).toHaveValue('12000');
+  await expect(calendar.edit.amount).toHaveValue(formatNumber(12_000));
   await expect(calendar.edit.pickedCategory).toHaveText(/식비/);
   await demo.beat(3);
 

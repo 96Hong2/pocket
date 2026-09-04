@@ -123,7 +123,10 @@ test('16 저장이 실패해도 시트는 닫히지 않고 금액이 남는다',
     await route.fulfill({
       status: 500,
       contentType: 'application/json',
-      body: JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: '저장하지 못했어요' } }),
+      // 진짜 서버가 500 에 실어 보내는 봉투 그대로다. 화면은 이 문구를 그대로 보여준다.
+      body: JSON.stringify({
+        error: { code: 'INTERNAL_ERROR', message: '잠시 후 다시 시도해 주세요.' },
+      }),
     });
   });
 
@@ -148,7 +151,7 @@ test('16 저장이 실패해도 시트는 닫히지 않고 금액이 남는다',
 
   await demo.step('서버가 실패로 답했다');
   releaseSave();
-  await expect(recordSheet.input.notice).toHaveText('문제가 생겼어요. 잠시 뒤 다시 시도해 주세요.');
+  await expect(recordSheet.input.notice).toHaveText('잠시 후 다시 시도해 주세요.');
   await demo.beat(2);
 
   await demo.step('시트는 그대로 열려 있고 금액도 지워지지 않는다');

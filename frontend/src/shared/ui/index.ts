@@ -1,4 +1,9 @@
 export { Amount, type AmountProps, type AmountTone } from './Amount';
+export {
+  AmountField,
+  type AmountFieldProps,
+  type AmountFieldVariant,
+} from './AmountField';
 export { BottomSheet, type BottomSheetProps } from './BottomSheet';
 export { Button, type ButtonProps, type ButtonVariant } from './Button';
 export { Card, type CardPadding, type CardProps } from './Card';

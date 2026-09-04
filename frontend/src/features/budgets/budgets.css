@@ -1,0 +1,342 @@
+/*
+  관리 탭 예산 섹션 전용 스펙. 색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
+  카드·게이지·칩·시트는 shared/ui 가 그리고, 여기에는 이 화면에만 있는 배치만 둔다.
+*/
+
+@layer components {
+  .budget {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .budget__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .budget__title {
+    margin: 0;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-extrabold);
+    color: var(--color-ink);
+  }
+
+  /* 끝난 달 안내와 지우기 실패 안내. 둘 다 한 줄이라 같은 모양을 쓴다. */
+  .budget__closed,
+  .budget__notice {
+    margin: 0;
+    padding: 10px 14px;
+    background: var(--color-surface-sunken);
+    border-radius: var(--radius-md);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .budget__notice {
+    color: var(--color-amber-700);
+  }
+
+  /* 안내 옆에 '다시 시도' 를 붙이는 줄. */
+  .budget__notice--row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 6px 4px 14px;
+  }
+
+  /* ── 이어쓰기 배너 ───────────────────────────────── */
+
+  .budget-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--color-sage-50);
+    border-radius: var(--radius-inset);
+  }
+
+  .budget-banner__text {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-800);
+  }
+
+  .budget-banner__action {
+    flex: none;
+    min-height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--color-sage-300);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  /* ── 전체 예산 카드 ─────────────────────────────── */
+
+  .budget-total {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .budget-total__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .budget-total__title {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .budget-total__edit {
+    min-height: 32px;
+    padding: 0 8px;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  .budget-total__amount {
+    color: var(--color-ink);
+  }
+
+  .budget-total__gauge {
+    margin-top: 2px;
+  }
+
+  .budget-total__meta {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .budget-total__caption {
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-sage-700);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .budget-total__delete {
+    align-self: flex-start;
+    min-height: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    text-decoration: underline;
+  }
+
+  .budget-total__delete:disabled {
+    color: var(--color-disabled);
+  }
+
+  /* ── 카테고리 예산 ──────────────────────────────── */
+
+  .budget-cats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .budget-cats__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 2px;
+  }
+
+  .budget-cats__title {
+    margin: 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .budget-cats__list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .budget-cat__hit {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 60px;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: var(--radius-inset);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    font-family: inherit;
+    text-align: left;
+  }
+
+  .budget-cat__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .budget-cat__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .budget-cat__name {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .budget-cat__nums {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .budget-cat__cap {
+    color: var(--color-muted);
+  }
+
+  .budget-cats__add {
+    min-height: 44px;
+    border: 1px dashed var(--color-dashed);
+    border-radius: var(--radius-inset);
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  .budget-cats__sum {
+    margin: 0;
+    padding: 0 2px;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+    line-height: 1.5;
+  }
+
+  /* ── 이어쓰기 설정 한 줄 ─────────────────────────── */
+
+  .budget-setting {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--color-surface);
+    border-radius: var(--radius-inset);
+    box-shadow: var(--shadow-card);
+  }
+
+  .budget-setting__text {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  /* ── 예산 시트 ──────────────────────────────────── */
+
+  .budget-sheet__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .budget-sheet__cats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+  }
+
+  .budget-sheet__cat {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 6px;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .budget-sheet__cat--on {
+    background: var(--color-sage-50);
+    box-shadow: inset 0 0 0 1.5px var(--color-sage-700);
+  }
+
+  .budget-sheet__picked {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .budget-sheet__notice {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+
+  .budget-sheet__actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .budget-sheet__actions > * {
+    flex: 1;
+  }
+
+  .budget-sheet__done {
+    flex: 2;
+  }
+}

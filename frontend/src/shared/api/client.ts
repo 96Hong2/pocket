@@ -16,6 +16,8 @@ import type {
   CalendarMonthOut,
   CategoryListOut,
   PeriodSummaryOut,
+  PreferencesOut,
+  PreferencesPatch,
   TransactionCreate,
   TransactionCreated,
   TransactionListOut,
@@ -54,10 +56,16 @@ const PATHS = {
   calendar: '/api/v1/transactions/calendar',
   categories: '/api/v1/categories',
   budgets: '/api/v1/budgets',
+  categoryBudgets: '/api/v1/budgets/categories',
+  preferences: '/api/v1/preferences',
 } as const;
 
 function transactionPath(id: string): string {
   return `${PATHS.transactions}/${encodeURIComponent(id)}`;
+}
+
+function categoryBudgetPath(categoryId: string): string {
+  return `${PATHS.categoryBudgets}/${encodeURIComponent(categoryId)}`;
 }
 
 function monthQuery(params?: MonthParams): RequestSpec['query'] {
@@ -86,6 +94,24 @@ export interface ApiClient extends Transport {
   getBudget(params?: MonthParams, options?: CallOptions): Promise<BudgetOut>;
   /** 예산 저장. 같은 기간에 몇 번을 보내도 결과가 같다. */
   saveBudget(body: BudgetUpsert, params?: MonthParams, options?: CallOptions): Promise<BudgetOut>;
+  /** 예산 지우기. 카테고리 예산도 함께 사라진다. 예산이 없어도 204 다. */
+  deleteBudget(params?: MonthParams, options?: CallOptions): Promise<void>;
+  /** 카테고리 한도 저장. 응답은 조회와 같은 `BudgetOut` 이라 그대로 캐시에 넣는다. */
+  saveCategoryBudget(
+    categoryId: string,
+    body: BudgetUpsert,
+    params?: MonthParams,
+    options?: CallOptions,
+  ): Promise<BudgetOut>;
+  /** 카테고리 한도 지우기. 없어도 204 다. */
+  deleteCategoryBudget(
+    categoryId: string,
+    params?: MonthParams,
+    options?: CallOptions,
+  ): Promise<void>;
+  getPreferences(options?: CallOptions): Promise<PreferencesOut>;
+  /** 보낸 필드만 고친다. 응답은 고친 뒤 전체 설정이다. */
+  savePreferences(body: PreferencesPatch, options?: CallOptions): Promise<PreferencesOut>;
 }
 
 export function createApiClient(options: TransportOptions): ApiClient {
@@ -184,6 +210,51 @@ export function createApiClient(options: TransportOptions): ApiClient {
         method: 'PUT',
         path: PATHS.budgets,
         query: monthQuery(params),
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    deleteBudget(params, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: PATHS.budgets,
+        query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
+    saveCategoryBudget(categoryId, body, params, call) {
+      return transport.request<BudgetOut>({
+        method: 'PUT',
+        path: categoryBudgetPath(categoryId),
+        query: monthQuery(params),
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    deleteCategoryBudget(categoryId, params, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: categoryBudgetPath(categoryId),
+        query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
+    getPreferences(call) {
+      return transport.request<PreferencesOut>({
+        method: 'GET',
+        path: PATHS.preferences,
+        signal: call?.signal,
+      });
+    },
+
+    savePreferences(body, call) {
+      return transport.request<PreferencesOut>({
+        method: 'PATCH',
+        path: PATHS.preferences,
         body,
         signal: call?.signal,
       });
