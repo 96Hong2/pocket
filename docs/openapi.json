@@ -3632,10 +3632,10 @@
             "type": "integer",
             "title": "Created Count"
           },
-          "total_amount": {
+          "expense_total": {
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Total Amount"
+            "title": "Expense Total"
           },
           "feedback": {
             "anyOf": [
@@ -3662,7 +3662,7 @@
         "required": [
           "batch",
           "created_count",
-          "total_amount"
+          "expense_total"
         ],
         "title": "ImportCommitOut",
         "description": "저장 결과. 마지막 한 건 기준으로 지금 돈 상태를 함께 준다."

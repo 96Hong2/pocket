@@ -66,7 +66,7 @@ def commit(
     return ImportCommitOut(
         batch=to_batch(result.batch, client=client),
         created_count=result.created_count,
-        total_amount=result.total_amount,
+        expense_total=result.expense_total,
         feedback=to_feedback(outcome.feedback) if outcome is not None else None,
         budget=budget,
     )

@@ -96,15 +96,16 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
   const busy = update.isPending || remove.isPending;
   const pickable = categories.filter((item) => item.kind === CATEGORY_KIND[transaction.type]);
 
+  const nextAmount = Number(amount);
+  // 저장할 수 없는 금액이면 완료를 잠근다. 열어 두면 금액만 조용히 빠지고 나머지가 저장된다.
+  const amountOk = amount !== '' && Number.isFinite(nextAmount) && nextAmount > 0;
+
   function changes(): TransactionUpdate {
     const next: TransactionUpdate = {};
     const trimmed = merchant.trim();
-    const nextAmount = Number(amount);
 
     if (trimmed !== (transaction.merchant ?? '')) next.merchant = trimmed === '' ? null : trimmed;
-    if (Number.isFinite(nextAmount) && nextAmount > 0 && nextAmount !== savedAmount) {
-      next.amount = String(nextAmount);
-    }
+    if (nextAmount !== savedAmount) next.amount = String(nextAmount);
     if (categoryId !== (transaction.category_id ?? null)) next.category_id = categoryId;
     if (excluded !== transaction.excluded_from_budget) next.excluded_from_budget = excluded;
     return next;
@@ -191,6 +192,8 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
         <Toggle checked={excluded} onChange={setExcluded} ariaLabelledBy="tx-exclude-label" />
       </div>
 
+      {!amountOk ? <p className="tx-edit__hint">금액은 1원부터 넣을 수 있어요</p> : null}
+
       {failed ? (
         <p className="tx-edit__notice" role="alert">
           고친 것을 저장하지 못했어요. 입력한 값은 그대로 있어요.
@@ -201,7 +204,11 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
         <Button variant="outline" onClick={() => void destroy()} disabled={busy}>
           삭제
         </Button>
-        <Button className="tx-edit__done" onClick={() => void submit()} disabled={busy}>
+        <Button
+          className="tx-edit__done"
+          onClick={() => void submit()}
+          disabled={busy || !amountOk}
+        >
           완료
         </Button>
       </div>

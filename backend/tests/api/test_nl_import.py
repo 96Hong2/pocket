@@ -97,7 +97,7 @@ def test_고르지_않은_것은_저장되지_않는다(client: TestClient, defa
     assert committed.status_code == 200, committed.text
     body = committed.json()
     assert body["created_count"] == 2
-    assert body["total_amount"] == "13500"
+    assert body["expense_total"] == "13500"
 
     listed = client.get("/api/v1/transactions", headers=AUTH).json()
     assert len(listed["items"]) == 2
@@ -292,6 +292,80 @@ def test_이미_있는_것의_분류만_바꿔도_켜지지_않는다(client: Te
     ).json()
 
     # 분류만 바꿔도 지문은 그대로다. 켜 주면 같은 거래가 두 번 저장된다.
+    assert fixed["candidates"][0]["is_duplicate"] is True
+    assert fixed["candidates"][0]["is_selected"] is False
+
+
+def test_손으로_켠_중복_줄은_분류를_고쳐도_켜진_채_남는다(
+    client: TestClient, default_categories
+) -> None:
+    names = {str(category.id): category.name for category in default_categories}
+    first = _analyze(client, "점심 12000")
+    client.post(f"/api/v1/imports/{first['id']}/commit", headers=AUTH)
+
+    second = _analyze(client, "점심 12000")
+    candidate = second["candidates"][0]
+    turned_on = client.patch(
+        f"/api/v1/imports/{second['id']}/candidates/{candidate['id']}",
+        json={"is_selected": True},
+        headers=AUTH,
+    ).json()
+    assert turned_on["selected_count"] == 1
+
+    other = next(cid for cid, name in names.items() if name == "생활")
+    fixed = client.patch(
+        f"/api/v1/imports/{second['id']}/candidates/{candidate['id']}",
+        json={"category_id": other},
+        headers=AUTH,
+    ).json()
+
+    # 정말 두 번 산 것이라 손으로 켠 줄이다. 관계없는 편집이 그 선택을 되돌리면 안 된다.
+    assert fixed["candidates"][0]["is_selected"] is True
+    assert fixed["selected_count"] == 1
+    assert fixed["selected_expense_total"] == "12000"
+
+    committed = client.post(f"/api/v1/imports/{second['id']}/commit", headers=AUTH)
+    assert committed.status_code == 200, committed.text
+    assert committed.json()["created_count"] == 1
+
+
+def test_손으로_켠_환불_줄은_상호를_고쳐도_켜진_채_남는다(
+    client: TestClient, default_categories
+) -> None:
+    batch = _analyze(client, "스벅 환불 40000")
+    candidate = batch["candidates"][0]
+    client.patch(
+        f"/api/v1/imports/{batch['id']}/candidates/{candidate['id']}",
+        json={"is_selected": True},
+        headers=AUTH,
+    )
+
+    fixed = client.patch(
+        f"/api/v1/imports/{batch['id']}/candidates/{candidate['id']}",
+        json={"merchant": "스타벅스 강남"},
+        headers=AUTH,
+    ).json()
+
+    assert fixed["candidates"][0]["is_selected"] is True
+    assert fixed["selected_count"] == 1
+
+
+def test_고쳐서_이미_있는_것과_같아지면_켜진_줄이_꺼진다(
+    client: TestClient, default_categories
+) -> None:
+    first = _analyze(client, "점심 12000")
+    client.post(f"/api/v1/imports/{first['id']}/commit", headers=AUTH)
+
+    second = _analyze(client, "커피 4500")
+    candidate = second["candidates"][0]
+    assert candidate["is_selected"] is True
+
+    fixed = client.patch(
+        f"/api/v1/imports/{second['id']}/candidates/{candidate['id']}",
+        json={"merchant": "점심", "amount": "12000"},
+        headers=AUTH,
+    ).json()
+
     assert fixed["candidates"][0]["is_duplicate"] is True
     assert fixed["candidates"][0]["is_selected"] is False
 

@@ -235,7 +235,7 @@ function SavedPanel({ result, onDone }: { result: ImportCommitOut; onDone: () =>
   // 지난달 날짜로 저장하면 서버가 그 달의 예산 상태를 준다. 그걸 '이번 달' 이라고 적으면 거짓말이다.
   const isThisMonth = budget != null && budget.period_start.slice(0, 7) === thisMonth();
   const remaining = isThisMonth ? budget.remaining_budget : null;
-  const total = parseDecimalOr(result.total_amount, 0);
+  const total = parseDecimalOr(result.expense_total, 0);
 
   return (
     <div className="nl nl--saved" role="status">
