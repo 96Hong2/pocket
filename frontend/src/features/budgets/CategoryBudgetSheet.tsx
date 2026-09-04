@@ -39,8 +39,12 @@ export function CategoryBudgetSheet({
   rows,
   onClose,
 }: CategoryBudgetSheetProps) {
+  // 저장·삭제 응답을 기다리는 동안에는 닫히지 않는다.
+  // 닫히면 폼이 사라져 실패를 그릴 자리가 없어진다. 적어 둔 한도도 함께 사라진다.
+  const [busy, setBusy] = useState(false);
+
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
-  useOverlayBackClose(target != null, onClose);
+  useOverlayBackClose(target != null && !busy, onClose);
 
   const editing = target?.categoryId ?? null;
 
@@ -48,6 +52,7 @@ export function CategoryBudgetSheet({
     <BottomSheet
       open={target != null}
       onClose={onClose}
+      dismissible={!busy}
       title={editing == null ? '카테고리 예산 추가' : '카테고리 예산'}
       className="budget-sheet"
     >
@@ -59,6 +64,7 @@ export function CategoryBudgetSheet({
           month={month}
           categories={categories}
           rows={rows}
+          onBusyChange={setBusy}
           onClose={onClose}
         />
       ) : null}
@@ -71,6 +77,7 @@ interface CategoryBudgetFormProps {
   month: MonthParams;
   categories: CategoryOut[];
   rows: CategoryBudgetOut[];
+  onBusyChange: (busy: boolean) => void;
   onClose: () => void;
 }
 
@@ -79,6 +86,7 @@ function CategoryBudgetForm({
   month,
   categories,
   rows,
+  onBusyChange,
   onClose,
 }: CategoryBudgetFormProps) {
   const save = useSaveCategoryBudget(month);
@@ -100,10 +108,27 @@ function CategoryBudgetForm({
   const budgeted = new Set(rows.map((row) => row.category_id));
   const pickable = categories.filter((item) => !budgeted.has(item.id));
   const current = categories.find((item) => item.id === categoryId);
+  const adding = categoryId == null;
+
+  // 고를 것이 하나도 없으면 이유를 말한다. 칩도 없고 저장도 안 되는 빈 시트만 남으면
+  // 사용자는 화면이 고장 난 것으로 읽는다.
+  if (adding && pickable.length === 0) {
+    return (
+      <div className="budget-sheet__body">
+        <p className="budget-sheet__notice">
+          고를 수 있는 카테고리가 없어요. 이미 모든 카테고리에 한도를 정했거나 카테고리 목록을
+          불러오지 못했어요.
+        </p>
+        <Button fullWidth variant="outline" onClick={onClose}>
+          닫기
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="budget-sheet__body">
-      {categoryId == null ? (
+      {adding ? (
         <div className="budget-sheet__cats" role="group" aria-label="카테고리">
           {pickable.map((category) => (
             <button
@@ -123,10 +148,11 @@ function CategoryBudgetForm({
           ))}
         </div>
       ) : (
-        <p className="budget-sheet__picked">
+        // 아이콘이 div 라 문단(p) 안에 둘 수 없다. 브라우저가 문단을 먼저 닫아 버린다.
+        <div className="budget-sheet__picked">
           <CategoryAvatar icon={toIconName(current?.icon_key)} size={28} />
           {current?.name ?? '카테고리'}
-        </p>
+        </div>
       )}
 
       <AmountField label="한도" value={digits} onChange={setDigits} />
@@ -142,7 +168,14 @@ function CategoryBudgetForm({
           <Button
             variant="outline"
             disabled={busy}
-            onClick={() => remove.mutate(categoryId, { onSuccess: onClose })}
+            onClick={() => {
+              // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
+              onBusyChange(true);
+              remove.mutate(categoryId, {
+                onSettled: () => onBusyChange(false),
+                onSuccess: onClose,
+              });
+            }}
           >
             지우기
           </Button>
@@ -152,9 +185,10 @@ function CategoryBudgetForm({
           disabled={!canSave}
           onClick={() => {
             if (picked == null) return;
+            onBusyChange(true);
             save.mutate(
               { categoryId: picked, body: { amount: next } },
-              { onSuccess: onClose },
+              { onSettled: () => onBusyChange(false), onSuccess: onClose },
             );
           }}
         >

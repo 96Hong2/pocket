@@ -9,12 +9,14 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.domain.period import BudgetPeriod
 from app.models import Budget, Category, CategoryBudget, CategoryKind, User
 from app.modules import ledger
 
@@ -22,6 +24,7 @@ AUTH = {"X-Anon-Key": "test-anon-key"}
 
 TODAY = datetime.now(ZoneInfo(ledger.DEFAULT_TIMEZONE)).date()
 PERIOD = f"year={TODAY.year}&month={TODAY.month}"
+LAST_MONTH = BudgetPeriod.containing(TODAY).previous_period()
 # 이미 끝난 달. 어느 시점에 돌려도 과거다.
 CLOSED_PERIOD = "year=2020&month=1"
 
@@ -50,6 +53,26 @@ def _budget_row(db: Session) -> Budget:
     row = db.scalar(select(Budget).where(Budget.user_id == user.id))
     assert row is not None
     return row
+
+
+def _seed_last_month(client: TestClient, db: Session, amount: str = "600000") -> None:
+    """지난달 예산을 직접 심는다. 지난 기간은 API 로 저장할 수 없다.
+
+    이걸 심어 두면 이번 달 첫 요청이 자동 이어쓰기로 예산을 만든다.
+    첫 요청이 곧 가입이라 사용자를 먼저 만들어 둔다.
+    """
+    client.get("/api/v1/categories", headers=AUTH)
+    user = db.scalar(select(User))
+    assert user is not None
+    db.add(
+        Budget(
+            user_id=user.id,
+            period_start=LAST_MONTH.start,
+            period_end=LAST_MONTH.end,
+            amount=Decimal(amount),
+        )
+    )
+    db.commit()
 
 
 # ── 조회 ────────────────────────────────────────────────
@@ -140,6 +163,31 @@ def test_요약에도_같은_예산_블록이_실린다(client: TestClient) -> N
     # 남은 예산과 이번 달 차액은 다른 개념이라 따로 온다.
     assert summary["monthly_delta"] == "-12000"
     assert summary["budget"]["remaining_budget"] == "588000"
+
+
+def test_요약의_이어쓰기_표시와_기간_잠금이_예산_조회와_같다(
+    client: TestClient, db: Session
+) -> None:
+    """앱을 다시 열면 홈은 요약만 보고 배너와 편집 가능 여부를 정한다.
+
+    같은 예산 블록인데 요약에서만 값이 어긋나면, 홈은 배너를 안 띄우거나 끝난 달에
+    입력 버튼을 그린다. 나머지 필드가 같은지는 위 테스트가 이미 본다.
+    """
+    _seed_last_month(client, db, "600000")
+
+    summary = client.get(f"/api/v1/transactions/summary?{PERIOD}", headers=AUTH).json()["budget"]
+    budget = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()["budget"]
+    assert summary == budget
+    # 지난달에서 이어써서 만들어진 예산이다. 배너의 근거가 참이고, 이번 달이라 고칠 수 있다.
+    assert summary["is_auto_carried"] is True
+    assert summary["is_editable"] is True
+
+    closed = client.get(f"/api/v1/transactions/summary?{CLOSED_PERIOD}", headers=AUTH).json()[
+        "budget"
+    ]
+    # 끝난 달에는 이어쓰기가 일어나지 않고 고칠 수도 없다.
+    assert closed["is_auto_carried"] is False
+    assert closed["is_editable"] is False
 
 
 def test_되돌리면_숫자가_원래대로_돌아온다(client: TestClient) -> None:
@@ -283,10 +331,14 @@ def test_카테고리_예산을_두_번_정해도_409_가_아니다(
     assert second.json()["budget"]["amount"] == "600000"
 
 
-def test_남의_카테고리나_없는_카테고리에는_한도를_걸_수_없다(
+def test_남의_카테고리나_없는_카테고리에는_한도를_걸_수도_지울_수도_없다(
     client: TestClient, db: Session
 ) -> None:
-    """소유 판정이 없으면 남의 분류에 내 한도가 붙고, 없는 id 는 외래키 위반으로 500 이 된다."""
+    """소유 판정이 없으면 남의 분류에 내 한도가 붙고, 없는 id 는 외래키 위반으로 500 이 된다.
+
+    삭제도 같은 규칙을 지나야 한다. 한쪽만 검사하면 같은 자원에 규칙이 둘이 되어,
+    저장은 거절당한 id 로 삭제를 보내면 204 라 성공한 것처럼 보인다.
+    """
     client.put(f"/api/v1/budgets?{PERIOD}", json={"amount": "600000"}, headers=AUTH)
     stranger = User(anon_key_hash="다른-사람")
     db.add(stranger)
@@ -307,10 +359,22 @@ def test_남의_카테고리나_없는_카테고리에는_한도를_걸_수_없�
         json={"amount": "100000"},
         headers=AUTH,
     )
+    others_delete = client.request(
+        "DELETE", f"/api/v1/budgets/categories/{theirs.id}?{PERIOD}", headers=AUTH
+    )
+    missing_delete = client.request(
+        "DELETE",
+        f"/api/v1/budgets/categories/00000000-0000-0000-0000-000000000000?{PERIOD}",
+        headers=AUTH,
+    )
     assert others.status_code == 422, others.text
     assert others.json()["error"]["code"] == "INVALID_CATEGORY"
     assert missing.status_code == 422, missing.text
     assert missing.json()["error"]["code"] == "INVALID_CATEGORY"
+    assert others_delete.status_code == 422, others_delete.text
+    assert others_delete.json()["error"]["code"] == "INVALID_CATEGORY"
+    assert missing_delete.status_code == 422, missing_delete.text
+    assert missing_delete.json()["error"]["code"] == "INVALID_CATEGORY"
 
 
 def test_카테고리_예산_사용액은_환불과_이체와_예산제외를_뺀다(

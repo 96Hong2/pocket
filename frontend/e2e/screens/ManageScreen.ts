@@ -116,6 +116,13 @@ class BudgetTotalArea {
     return this.section.getByText(/^(아직 \d{1,2}월 예산이 없어요|이 달엔 예산이 없었어요)$/);
   }
 
+  /** 빈 상태의 설명 한 줄. 왜 없는지 단정하지 않고 아는 것만 말하는 자리다. */
+  get emptyNote(): Locator {
+    return this.section.getByText(
+      /^(정하면 남은 예산과 하루에 쓸 수 있는 돈을 알려드려요\.|예산 없이 기록만 해도 괜찮아요)$/,
+    );
+  }
+
   /** 아직 예산이 없을 때 여는 버튼. */
   get startButton(): Locator {
     return this.section.getByRole('button', { name: '예산 정하기' });
@@ -149,26 +156,21 @@ class BudgetTotalArea {
     return value == null ? null : Number(value);
   }
 
-  /**
-   * 캡션이 말하는 남은 일수. 없으면 null.
-   *
-   * 하루 가용액이 이 일수로 나눈 값인지 spec 이 되짚는 데 쓴다.
-   */
-  async remainingDays(): Promise<number | null> {
-    if ((await this.caption.count()) === 0) return null;
-    const matched = /(\d+)일 남음/.exec((await this.caption.textContent()) ?? '');
-    return matched == null ? null : Number(matched[1]);
-  }
-
   /** 처음 정한다. 시트를 열고 금액을 넣어 저장한다. */
   async start(amount: number): Promise<void> {
     await this.startButton.click();
     await this.sheet.save(amount);
   }
 
+  /** 카드의 `수정` 으로 시트만 연다. 열린 시트에 무엇이 들어 있는지 볼 때 쓴다. */
+  async openEdit(): Promise<void> {
+    await this.editButton.click();
+    await this.sheet.waitOpen();
+  }
+
   /** 카드의 `수정` 으로 금액을 바꾼다. */
   async edit(amount: number): Promise<void> {
-    await this.editButton.click();
+    await this.openEdit();
     await this.sheet.save(amount);
   }
 
@@ -274,17 +276,21 @@ class CategoryBudgetArea {
     await this.sheet.save(amount);
   }
 
-  /** 이미 정해 둔 줄을 눌러 한도를 바꾼다. */
-  async edit(name: string, amount: number): Promise<void> {
+  /** 이미 정해 둔 줄을 눌러 시트만 연다. 지금 한도가 들어 있는지 볼 때 쓴다. */
+  async openEdit(name: string): Promise<void> {
     await this.editButton(name).click();
     await this.sheet.waitOpen();
+  }
+
+  /** 이미 정해 둔 줄을 눌러 한도를 바꾼다. */
+  async edit(name: string, amount: number): Promise<void> {
+    await this.openEdit(name);
     await this.sheet.save(amount);
   }
 
   /** 이미 정해 둔 줄을 눌러 한도를 지운다. */
   async remove(name: string): Promise<void> {
-    await this.editButton(name).click();
-    await this.sheet.waitOpen();
+    await this.openEdit(name);
     await this.sheet.remove();
   }
 }
@@ -310,9 +316,14 @@ class CategoryBudgetSheetArea {
     return this.root.getByRole('button', { name: '지우기', exact: true });
   }
 
+  /** 고르기 칩 묶음. 추가할 때만 있고, 이미 정한 줄을 고칠 때는 없다. */
+  get picker(): Locator {
+    return this.root.getByRole('group', { name: '카테고리' });
+  }
+
   /** 고를 수 있는 카테고리 칩. 이미 한도가 있는 것은 여기 없다. */
   categoryChip(name: string): Locator {
-    return this.root.getByRole('group', { name: '카테고리' }).getByRole('button', { name });
+    return this.picker.getByRole('button', { name });
   }
 
   async waitOpen(): Promise<void> {

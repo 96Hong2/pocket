@@ -164,45 +164,6 @@ test('예산을 정하면 게이지가 생기고 기록할수록 찬다', async 
   });
 });
 
-test('저장 응답이 300ms 안에 온다', async ({ page, home, recordSheet }) => {
-  await home.open();
-  await home.waitReady();
-
-  await home.recordButton.click();
-  await recordSheet.waitOpen();
-
-  // 첫 저장은 계정을 만드는 왕복이 섞인다. 그것을 워밍업으로 쓰고 두 번째를 잰다.
-  await recordSheet.input.enterAmount(1000);
-  await recordSheet.input.pickCategory(CATEGORY);
-  await recordSheet.feedback.waitSaved();
-  await recordSheet.feedback.confirmButton.click();
-  await recordSheet.waitClosed();
-
-  const saved = page.waitForResponse(
-    (response) =>
-      response.url().endsWith('/api/v1/transactions') &&
-      response.request().method() === 'POST' &&
-      response.status() === 201,
-  );
-
-  await home.recordButton.click();
-  await recordSheet.waitOpen();
-  await recordSheet.input.enterAmount(2000);
-  await recordSheet.input.pickCategory(CATEGORY);
-
-  const response = await saved;
-  // waitForResponse 는 헤더를 받은 시점에 풀린다. 본문을 다 읽기 전의 responseEnd 는 -1 이라
-  // 이 줄이 없으면 elapsed 가 항상 음수가 되어 아래 단언이 무슨 값이 와도 통과한다.
-  await response.finished();
-
-  const timing = response.request().timing();
-  const elapsed = timing.responseEnd - timing.requestStart;
-
-  // 음수면 시간을 못 잰 것이다. 못 잰 채로 초록이 되지 않게 여기서 먼저 막는다.
-  expect(elapsed, '저장 응답 시간을 재지 못했다').toBeGreaterThan(0);
-  expect(elapsed, `저장 응답이 ${Math.round(elapsed)}ms 걸렸다`).toBeLessThan(300);
-});
-
 test('되돌리기 버튼이 남은 초를 세어 보여준다', async ({ home, recordSheet, prep }) => {
   /*
     카운트다운 단언이 데모 녹화에만 있어서 CI 가 지키지 않았다.

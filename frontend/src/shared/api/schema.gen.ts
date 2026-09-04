@@ -440,7 +440,11 @@ export interface components {
         };
         /**
          * PreferencesPatch
-         * @description 보낸 필드만 고친다. 빠진 필드는 지금 값을 그대로 둔다.
+         * @description 보낸 필드만 고친다.
+         *
+         *     필드를 빼는 것과 null 을 보내는 것이 같다. 둘 다 "이 값은 그대로 둔다" 는 뜻이다.
+         *     스키마가 null 을 허용한다고 말해 두고 실제로는 422 로 막으면, 생성 타입을 보고 쓴
+         *     클라이언트가 런타임에야 막힌다. 넘어온 null 은 service 가 건너뛴다.
          */
         PreferencesPatch: {
             /** Budget Auto Carryover */

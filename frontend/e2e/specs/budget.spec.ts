@@ -1,4 +1,9 @@
-import { formatCurrency, formatMonthLabel } from '../../src/shared/lib/format';
+import {
+  formatCurrency,
+  formatMonthLabel,
+  shiftMonth,
+  toLedgerDate,
+} from '../../src/shared/lib/format';
 import { lastMonth, thisMonth } from '../support/api';
 import { expect, test } from '../support/fixtures';
 
@@ -17,12 +22,33 @@ import { expect, test } from '../support/fixtures';
 
 const THIS_MONTH = thisMonth();
 const LAST_MONTH = lastMonth();
+/** 예산을 한 번도 정한 적 없는 끝난 달을 보려고 두 칸 물러난다. */
+const TWO_MONTHS_AGO = shiftMonth(THIS_MONTH, -2);
 
 /** 화면이 빈 상태 제목에 적는 달. `아직 9월 예산이 없어요`. */
 const MONTH_NUMBER = Number(THIS_MONTH.slice(5, 7));
 const LAST_MONTH_NUMBER = Number(LAST_MONTH.slice(5, 7));
 
 const NO_BUDGET_TITLE = `아직 ${MONTH_NUMBER}월 예산이 없어요`;
+
+/**
+ * 이번 달에 남은 일수. 오늘을 포함해 마지막 날까지 센다. 서버가 세는 방식과 같다.
+ *
+ * 화면이 적어 둔 일수를 읽어다 기대값을 만들면, 서버가 하루 적게 줘도 앞뒤가 맞아
+ * 그대로 통과한다. 달력에서 직접 세어 못 박는다.
+ *
+ * 오늘은 기기 시간대가 아니라 가계부 시간대로 얻는다. UTC 로 도는 CI 에서 하루 어긋난다.
+ */
+function remainingDaysThisMonth(): number {
+  const [year, month, day] = toLedgerDate(new Date()).split('-').map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  return lastDay - day + 1;
+}
+
+/** 지난달 마지막 날은 며칠 전인가. 오늘이 며칠이든 그만큼 물러나면 지난달 말일이다. */
+function daysAgoForLastMonth(): number {
+  return Number(toLedgerDate(new Date()).slice(8, 10));
+}
 
 // ── 예산이 없는 상태 ────────────────────────────────────
 
@@ -36,6 +62,10 @@ test('예산이 없으면 관리 탭이 정하기를 권하고, 홈은 쓴 돈�
   await manage.waitReady();
 
   await expect(manage.total.emptyTitle).toHaveText(NO_BUDGET_TITLE);
+  // 왜 없는지는 화면이 모른다. 지난달 사정을 아는 척하지 않고 할 수 있는 것만 말한다.
+  await expect(manage.total.emptyNote).toHaveText(
+    '정하면 남은 예산과 하루에 쓸 수 있는 돈을 알려드려요.',
+  );
   await expect(manage.total.startButton).toBeVisible();
 
   // 정한 것이 없으니 게이지도 숫자도 그리지 않는다.
@@ -98,10 +128,10 @@ test('전체 예산을 정하면 그 자리에서 게이지가 생기고, 홈도
   expect(await manage.total.gaugePercent(), '게이지가 사용률을 안 그렸다').toBe(20);
 
   // 하루 가용액은 서버가 남은 일수로 나눠 준다. 화면이 다시 계산하지 않는다.
-  // 그래서 화면이 함께 적는 남은 일수로 되짚는다. 다른 값을 실어 보내면 여기서 깨진다.
-  const days = await manage.total.remainingDays();
-  expect(days, '캡션에 남은 일수가 없다').not.toBeNull();
-  const daily = Math.floor(480_000 / Math.max(1, days ?? 0));
+  // 남은 일수도 캡션에서 읽어 오면 서버가 하루 적게 줘도 하루 가용액과 앞뒤가 맞아 통과한다.
+  // 달력으로 직접 세어 두 숫자를 함께 못 박는다.
+  const days = remainingDaysThisMonth();
+  const daily = Math.floor(480_000 / days);
   await expect(manage.total.caption).toHaveText(
     `20% 사용 · 하루 ${formatCurrency(daily)} · ${days}일 남음`,
   );
@@ -112,6 +142,31 @@ test('전체 예산을 정하면 그 자리에서 게이지가 생기고, 홈도
   // 홈은 달을 인자 없이 부른다. 캐시가 갈려 있어도 같은 값이 보여야 한다.
   await expect(home.hero.remainingBudget).toHaveText(formatCurrency(480_000));
   expect(await home.hero.gaugePercent(), '홈 게이지가 없다').toBe(20);
+});
+
+test('수정 시트는 지금 정해 둔 금액을 담아 열리고, 금액은 세 자리마다 끊어 보여준다', async ({
+  manage,
+  prep,
+}) => {
+  await prep.setBudget(1_200_000);
+
+  await manage.open();
+  await manage.waitReady();
+
+  // 콤마 표기 자체가 확인 대상이라 여기서는 기대값을 직접 적는다.
+  // formatCurrency 로 적으면 콤마가 사라질 때 기대값도 같이 사라져 아무것도 못 잡는다.
+  await expect(manage.total.amount).toHaveText('1,200,000원');
+
+  await manage.total.openEdit();
+  // 빈 칸으로 열면 지금 얼마인지 모른 채 처음부터 다시 눌러야 한다.
+  await expect(manage.total.sheet.amountField).toHaveValue('1,200,000');
+
+  await manage.total.sheet.save(900_000);
+  await expect(manage.total.amount).toHaveText('900,000원');
+
+  // 다시 열면 방금 바꾼 값이 들어 있다. 처음 값이 남아 있지 않다.
+  await manage.total.openEdit();
+  await expect(manage.total.sheet.amountField).toHaveValue('900,000');
 });
 
 // ── 카테고리 예산 ───────────────────────────────────────
@@ -136,6 +191,42 @@ test('카테고리 예산은 정한 것만 목록에 남는다', async ({ manage
   // 정하지 않은 카테고리를 0원으로 채워 넣지 않는다.
   await expect(manage.categories.row('쇼핑')).toHaveCount(0);
   await expect(manage.categories.row('생활')).toHaveCount(0);
+});
+
+test('정해 둔 카테고리 한도를 눌러 고치고, 지우면 목록에서 빠진다', async ({ manage, prep }) => {
+  const food = await prep.categoryIdByName('식비');
+  const transport = await prep.categoryIdByName('교통');
+  await prep.setBudget(600_000);
+  await prep.setCategoryBudget(food, 200_000);
+  await prep.setCategoryBudget(transport, 100_000);
+
+  await manage.open();
+  await manage.waitReady();
+  await expect(manage.categories.rows).toHaveCount(2);
+
+  await manage.categories.openEdit('식비');
+
+  // 고칠 때는 대상이 이미 정해져 있다. 다른 카테고리를 고르는 칩이 아예 없다.
+  await expect(manage.categories.sheet.picker).toHaveCount(0);
+  // 지금 한도를 담고 열려야 얼마에서 얼마로 바꾸는지 알고 고친다.
+  await expect(manage.categories.sheet.amountField).toHaveValue('200,000');
+
+  await manage.categories.sheet.save(250_000);
+
+  await expect(manage.categories.cap('식비')).toHaveText('250,000원');
+  await expect(manage.categories.rows).toHaveCount(2);
+
+  await manage.categories.remove('교통');
+
+  await expect(manage.categories.row('교통')).toHaveCount(0);
+  await expect(manage.categories.rows).toHaveCount(1);
+  await expect(manage.categories.countBadge).toHaveText('1개');
+
+  // 지운 줄이 다음 조회에서 되살아나지 않고, 남긴 줄은 고친 값 그대로다.
+  await manage.open();
+  await manage.waitReady();
+  await expect(manage.categories.row('교통')).toHaveCount(0);
+  await expect(manage.categories.cap('식비')).toHaveText('250,000원');
 });
 
 test('그 카테고리로 지출하면 그 줄의 사용액이 움직인다', async ({
@@ -359,4 +450,31 @@ test('지난달로 옮기면 고칠 입구가 모두 사라지고 보기만 할 
   await expect(manage.total.startButton).toHaveCount(0);
   await expect(manage.categories.addButton).toHaveCount(0);
   await expect(manage.categories.editButton('식비')).toHaveCount(0);
+});
+
+test('끝난 달은 결과만 말하고, 예산이 없던 달에는 정하기를 권하지 않는다', async ({
+  manage,
+  prep,
+}) => {
+  // 지난달에는 300,000 을 정해 240,000 을 썼다. 그 앞 달에는 예산이 아예 없었다.
+  await prep.setBudget(300_000, LAST_MONTH);
+  await prep.addExpense({ amount: 240_000, daysAgo: daysAgoForLastMonth() });
+
+  await manage.open();
+  await manage.waitReady();
+  await manage.goToMonth(formatMonthLabel(LAST_MONTH));
+
+  await expect(manage.closedNotice).toBeVisible();
+  await expect(manage.total.amount).toHaveText(formatCurrency(300_000));
+  // 끝난 달에 하루 얼마·며칠 남음을 적으면 이제 와서 지킬 수 없는 것을 알려 주는 셈이다.
+  await expect(manage.total.caption).toHaveText('80% 사용 · 예산 안에서 끝났어요');
+
+  await manage.goToMonth(formatMonthLabel(TWO_MONTHS_AGO));
+
+  await expect(manage.closedNotice).toBeVisible();
+  await expect(manage.total.emptyTitle).toHaveText('이 달엔 예산이 없었어요');
+  await expect(manage.total.emptyNote).toHaveText('예산 없이 기록만 해도 괜찮아요');
+  // 끝난 달의 예산은 이제 와서 정할 수 없다. 권하는 문구도 버튼도 두지 않는다.
+  await expect(manage.total.startButton).toHaveCount(0);
+  await expect(manage.categories.addButton).toHaveCount(0);
 });

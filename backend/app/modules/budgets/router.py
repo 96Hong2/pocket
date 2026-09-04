@@ -67,10 +67,19 @@ def _period(user: CurrentUser, period: BudgetPeriod | None) -> BudgetPeriod:
     return period or ledger.period_for(user, ledger.today_for(user))
 
 
-def _writable(user: CurrentUser, period: BudgetPeriod | None) -> BudgetPeriod:
-    """쓰기 요청이 지날 자리. 끝난 기간이면 여기서 422 로 막는다."""
+def _writable(session: DbSession, user: CurrentUser, period: BudgetPeriod | None) -> BudgetPeriod:
+    """쓰기 요청이 지날 자리. 끝난 기간이면 여기서 422 로 막고, 이어쓰기를 한 번 지난다.
+
+    쓰기도 조회와 같은 상태를 보고 시작해야 한다. 이어쓰기는 조회가 하는 일이지만, 새 달에
+    조회보다 쓰기가 먼저 오는 경우가 실제로 있다. 그때 쓰기가 이 단계를 건너뛰면 답이 갈린다.
+    지우기는 지울 행이 없어 표시를 남기지 못하고 그대로 204 를 주는데, 곧이은 조회가
+    지난달 예산을 이어써서 방금 지운 예산을 되살린다. 카테고리 한도 저장은 붙일 전체 예산이
+    없다며 422 로 거절했다가, 조회를 한 번 하고 같은 요청을 다시 보내면 200 이 된다.
+    """
     month = _period(user, period)
-    service.require_open_period(month, ledger.today_for(user))
+    today = ledger.today_for(user)
+    service.require_open_period(month, today)
+    service.ensure_carryover(session, user, month, today)
     return month
 
 
@@ -83,7 +92,7 @@ def show(session: DbSession, user: CurrentUser, period: MonthQuery) -> BudgetOut
 def upsert(
     body: BudgetUpsert, session: DbSession, user: CurrentUser, period: MonthQuery
 ) -> BudgetOut:
-    month = _writable(user, period)
+    month = _writable(session, user, period)
     service.upsert_budget(session, user, month, body.amount)
     return _view(session, user, month)
 
@@ -91,7 +100,7 @@ def upsert(
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
 def destroy(session: DbSession, user: CurrentUser, period: MonthQuery) -> Response:
     """예산이 없어도 204 다. 화면이 두 번 눌러도 같은 결과여야 한다."""
-    month = _writable(user, period)
+    month = _writable(session, user, period)
     service.delete_budget(session, user, month)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -105,7 +114,7 @@ def upsert_category(
     period: MonthQuery,
 ) -> BudgetOut:
     """조회와 같은 모양으로 답한다. 화면이 응답을 그대로 캐시에 넣어 다시 그린다."""
-    month = _writable(user, period)
+    month = _writable(session, user, period)
     service.upsert_category_budget(session, user, month, category_id, body.amount)
     return _view(session, user, month)
 
@@ -114,6 +123,6 @@ def upsert_category(
 def destroy_category(
     category_id: uuid.UUID, session: DbSession, user: CurrentUser, period: MonthQuery
 ) -> Response:
-    month = _writable(user, period)
+    month = _writable(session, user, period)
     service.delete_category_budget(session, user, month, category_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

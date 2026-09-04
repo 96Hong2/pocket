@@ -285,7 +285,13 @@ def upsert_category_budget(
 def delete_category_budget(
     session: Session, user: User, period: BudgetPeriod, category_id: uuid.UUID
 ) -> None:
-    """없으면 아무것도 하지 않는다. 두 번 눌러도 같은 결과다."""
+    """없으면 아무것도 하지 않는다. 두 번 눌러도 같은 결과다.
+
+    지울 때도 저장과 같은 소유 판정을 지난다. 한쪽만 검사하면 같은 자원에 규칙이 둘이 되어,
+    없는 카테고리나 남의 카테고리로 보낸 요청이 저장에서는 422 인데 삭제에서는 204 로
+    성공처럼 보인다. 전체 예산이 없는 것은 다르다. 지울 것 자체가 없으니 그대로 204 다.
+    """
+    categories.require_owned(session, user, category_id)
     budget = find_budget(session, user, period)
     if budget is None:
         return
@@ -364,14 +370,21 @@ def ensure_carryover(session: Session, user: User, period: BudgetPeriod, today: 
     if not period.contains(today) or not period.is_full_month:
         return
 
-    current = find_budget(session, user, period)
+    if find_budget(session, user, period) is not None:
+        # decide_carryover 가 ALREADY_EXISTS 로 답할 자리를 앞당겨 끊는다. 판단을 다시
+        # 하는 것이 아니라, 답이 정해진 경우에 넘길 값을 모으는 일을 그만두는 것이다.
+        # 지난 기간 예산·양쪽 카테고리 예산·설정 조회 넷이 전부 버려지는데, 예산 블록을
+        # 싣는 응답이 모두 여기를 지나서 기록 직후 응답도 같이 느려진다.
+        # 나머지 분기(껐는지·지웠는지·지난달이 있는지)는 그대로 도메인 함수가 판단한다.
+        return
+
     previous = period.previous_period()
     result = decide_carryover(
-        current_budget=_snapshot(session, period, current),
+        current_budget=None,
         previous_budget=_snapshot(session, previous, find_budget(session, user, previous)),
         auto_carryover_enabled=_auto_carryover_enabled(session, user),
         # 지운 적이 있으면 소프트 삭제한 행이 남아 있다. 그 표시가 다시 만드는 것을 막는다.
-        has_tombstone=current is None and _any_budget_row(session, user, period) is not None,
+        has_tombstone=_any_budget_row(session, user, period) is not None,
     )
     if not result.should_copy or result.amount is None:
         return

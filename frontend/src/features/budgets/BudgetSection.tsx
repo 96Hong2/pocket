@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import {
+  ApiError,
   parseDecimal,
   useBudget,
   useCategories,
@@ -8,7 +9,7 @@ import {
   type CategoryBudgetOut,
 } from '../../shared/api';
 import { shiftMonth, toLedgerDate } from '../../shared/lib/format';
-import { Card, ErrorState, LoadingState, MonthStepper } from '../../shared/ui';
+import { Card, ErrorState, LoadingState, MonthStepper, RetryButton } from '../../shared/ui';
 
 import { BudgetAmountSheet } from './BudgetAmountSheet';
 import { BudgetTotalCard } from './BudgetTotalCard';
@@ -52,6 +53,12 @@ export function BudgetSection() {
   const expenseCategories = (categories.data?.items ?? []).filter(
     (category) => category.kind === 'expense',
   );
+  const removeFailure =
+    removeBudget.error instanceof ApiError
+      ? removeBudget.error.message
+      : removeBudget.isError
+        ? '예산을 지우지 못했어요.'
+        : null;
 
   function moveMonth(next: string): void {
     setMonth(next);
@@ -74,6 +81,17 @@ export function BudgetSection() {
           minMonth={shiftMonth(thisMonth, -MONTHS_BACK)}
         />
       </div>
+
+      {/*
+        카테고리 목록이 없으면 예산 줄에 이름 대신 '카테고리' 가 찍히고 고를 칩도 비어 버린다.
+        조용히 그러면 예산이 지워진 것처럼 보인다. 무슨 일인지 말하고 다시 받을 입구를 준다.
+      */}
+      {categories.isError ? (
+        <div className="budget__notice budget__notice--row">
+          <span>카테고리를 불러오지 못해 이름과 아이콘이 비어 있어요</span>
+          <RetryButton variant="ghost" onRetry={() => void categories.refetch()} />
+        </div>
+      ) : null}
 
       {budget.isError ? (
         <Card padding="md">
@@ -115,12 +133,17 @@ export function BudgetSection() {
             editable={editable}
             busy={removeBudget.isPending}
             onEdit={() => setAmountOpen(true)}
-            onDelete={() => removeBudget.mutate()}
+            // 전체 예산이 없어지면 카테고리 한도를 붙일 자리도 사라진다. 재조회를 기다리는 사이
+            // 열어 둔 시트를 함께 닫는다. 남겨 두면 저장을 눌러야 막힌 이유를 알게 된다.
+            onDelete={() =>
+              removeBudget.mutate(undefined, { onSuccess: () => setCategoryTarget(null) })
+            }
           />
 
-          {removeBudget.isError ? (
+          {/* 왜 못 지웠는지는 서버가 안다. 끝난 기간이라 막힌 것을 다시 시도로 안내하지 않는다. */}
+          {removeFailure ? (
             <p className="budget__notice" role="alert">
-              예산을 지우지 못했어요. 잠시 뒤 다시 시도해 주세요.
+              {removeFailure}
             </p>
           ) : null}
 

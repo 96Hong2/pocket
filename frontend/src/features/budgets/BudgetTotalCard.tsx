@@ -43,7 +43,9 @@ export function BudgetTotalCard({
             size="inline"
             icon="32_piggybank"
             title={`아직 ${month}월 예산이 없어요`}
-            description="지난달에도 예산이 없어서 그대로 뒀어요. 정하면 남은 예산과 하루 가용액을 알려드려요."
+            // 왜 없는지는 화면이 모른다. 지난달 예산이 멀쩡히 있어도 이어쓰기를 껐거나
+            // 이어써진 예산을 지웠으면 여기로 온다. 아는 것만 말한다.
+            description="정하면 남은 예산과 하루에 쓸 수 있는 돈을 알려드려요."
             actionLabel="예산 정하기"
             onAction={onEdit}
           />

@@ -116,12 +116,14 @@ src/
   pages/      라우트 하나 = 파일 하나                      ← 있다
   shared/     ui · toss · tokens · lib                     ← 있다
   shared/api  HTTP 클라이언트 · 생성 타입 · 쿼리 훅        ← 있다
-  features/   home · quick-record · ads                    ← 있다
-              transactions · imports · budgets · reports
-              assets · goals · recovery · settings         ← 아직 없다
+  features/   home · quick-record · ads
+              transactions · budgets                       ← 있다
+              imports · reports · assets · goals
+              recovery · settings                          ← 폴더만 있고 비어 있다
 ```
 
-**`features/` 에는 지금 화면 셋이 있다.** 홈(`home`), 기록 시트(`quick-record`), 배너 슬롯(`ads`) 이다.
+**`features/` 에는 지금 화면 다섯이 있다.** 홈(`home`), 기록 시트(`quick-record`),
+배너 슬롯(`ads`), 내역·달력·수정(`transactions`), 관리 탭 예산 섹션(`budgets`) 이다.
 나머지 화면은 아직 `pages/` 의 자리표시자다. feature 하나는 컴포넌트와 판정 함수, 그리고
 화면 스펙 CSS 파일 하나(`<feature>.css`, `index.css` 가 불러온다)를 함께 가진다.
 
@@ -138,8 +140,8 @@ shared/api/
   client.ts       엔드포인트 하나에 메서드 하나
   context.ts      useApiClient() · useApiReady()
   queryKeys.ts    queryKey 규약과 무효화 대상
-  queries.ts      조회 훅 (useCategories · useBudget · useTransactions · useSummary)
-  mutations.ts    변경 훅 (저장 · 수정 · 되돌리기 · 예산 저장)
+  queries.ts      조회 훅 (카테고리 · 설정 · 예산 · 거래 목록 · 기간 요약 · 달력)
+  mutations.ts    변경 훅 (거래 저장·수정·삭제·되돌리기 · 예산 · 카테고리 한도 · 설정)
 ```
 
 생성 타입은 **커밋한다.** CI 의 frontend 잡은 백엔드 없이 도는데 그때도 타입이 있어야 빌드된다.
@@ -149,9 +151,9 @@ shared/api/
 **조회·변경 훅이 `features/` 가 아니라 `shared` 에 있는 이유**는 무효화 대상이 feature 경계를
 넘기 때문이다. 예산 상태는 홈·기록·예산 설정이 같이 보고, 거래를 하나 저장하면 셋이 한꺼번에
 낡는다. 키를 feature 마다 만들면 어느 한 곳이 반드시 빠진다.
-지금 있는 훅은 카테고리·예산·목록 조회와 저장·수정·되돌리기·예산 저장이다. 삭제 훅만
-아직 없고, 내역 화면을 만들 때 더한다. `useSummary` 는 만들어 두었지만 아직 어느 화면도
-쓰지 않는다. 홈은 `useBudget` 과 `useTransactions` 로 그린다.
+지금 있는 조회 훅은 카테고리·설정·예산·목록·요약·달력이고, 변경 훅은 거래 저장·수정·삭제·
+되돌리기와 예산 저장·삭제, 카테고리 한도 저장·삭제, 설정 저장이다. 홈은 `useBudget` 과
+`useTransactions` 로, 달력 화면은 `useSummary` 와 `useCalendar` 로 그린다.
 
 익명 식별키는 클라이언트가 **게터로** 읽는다. 값으로 받으면 식별키가 도착할 때마다 인스턴스가
 새로 만들어진다. 만드는 자리는 `app/providers/ApiProvider.tsx` 이고, 식별키가 아직 없거나

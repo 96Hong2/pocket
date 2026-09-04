@@ -40,7 +40,13 @@ export type ClientErrorCode = (typeof CLIENT_ERROR_CODES)[keyof typeof CLIENT_ER
  */
 export type ApiErrorCode = ErrorCode | ClientErrorCode | (string & {});
 
-/** code 별 우리 문구. 여기 없는 code 는 서버 message 를 그대로 쓴다. */
+/**
+ * 서버가 문구를 주지 않았을 때 쓸 code 별 우리 문구.
+ *
+ * 서버 문구를 이걸로 덮지 않는다. 같은 code 라도 서버는 상황을 알고 말한다.
+ * "전체 예산을 먼저 정해 주세요" 를 "입력한 내용을 다시 확인해 주세요" 로 바꾸면
+ * 사용자는 무엇을 고쳐야 하는지 영영 모른다.
+ */
 const MESSAGES: Record<string, string> = {
   UNAUTHORIZED: '사용자 확인에 실패했어요. 앱을 다시 열어 주세요.',
   VERIFY_UNAVAILABLE: '지금은 확인이 어려워요. 잠시 뒤 다시 시도해 주세요.',
@@ -66,9 +72,9 @@ const MESSAGES: Record<string, string> = {
 
 const DEFAULT_MESSAGE = '잠시 뒤 다시 시도해 주세요.';
 
-/** code 별 우리 문구 → 서버 message → 기본값 순으로 고른다. */
+/** 서버 message → code 별 우리 문구 → 기본값 순으로 고른다. */
 export function apiErrorMessage(code: ApiErrorCode, serverMessage?: string | null): string {
-  return MESSAGES[code] ?? serverMessage ?? DEFAULT_MESSAGE;
+  return serverMessage ?? MESSAGES[code] ?? DEFAULT_MESSAGE;
 }
 
 export interface ParsedErrorBody {

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 
 __all__ = ["PreferencesOut", "PreferencesPatch"]
 
@@ -17,18 +17,11 @@ class PreferencesOut(BaseModel):
 
 
 class PreferencesPatch(BaseModel):
-    """보낸 필드만 고친다. 빠진 필드는 지금 값을 그대로 둔다."""
+    """보낸 필드만 고친다.
+
+    필드를 빼는 것과 null 을 보내는 것이 같다. 둘 다 "이 값은 그대로 둔다" 는 뜻이다.
+    스키마가 null 을 허용한다고 말해 두고 실제로는 422 로 막으면, 생성 타입을 보고 쓴
+    클라이언트가 런타임에야 막힌다. 넘어온 null 은 service 가 건너뛴다.
+    """
 
     budget_auto_carryover: bool | None = None
-
-    @field_validator("budget_auto_carryover")
-    @classmethod
-    def _reject_null(cls, value: bool | None) -> bool:
-        """필드를 빼는 것과 null 을 보내는 것은 다르다.
-
-        기본값이 있는 컬럼이라 null 을 그대로 넣으면 제약 위반이 나고, 화면은 요청 형식
-        오류 대신 '다시 시도해 주세요' 를 보게 된다. 여기서 422 로 떨어뜨린다.
-        """
-        if value is None:
-            raise ValueError("자동 이어쓰기 설정에는 true 나 false 를 보내 주세요.")
-        return value

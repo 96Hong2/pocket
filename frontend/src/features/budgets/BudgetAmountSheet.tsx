@@ -15,14 +15,29 @@ export interface BudgetAmountSheetProps {
 
 /** 전체 예산 금액을 정하는 시트. 처음 정할 때와 고칠 때가 같은 화면이다. */
 export function BudgetAmountSheet({ open, month, amount, onClose }: BudgetAmountSheetProps) {
+  // 저장 응답을 기다리는 동안에는 닫히지 않는다.
+  // 닫히면 폼이 사라져 실패를 그릴 자리가 없어진다. 적어 둔 금액도 함께 사라진다.
+  const [saving, setSaving] = useState(false);
+
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
-  useOverlayBackClose(open, onClose);
+  useOverlayBackClose(open && !saving, onClose);
 
   return (
-    <BottomSheet open={open} onClose={onClose} title="전체 예산" className="budget-sheet">
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      dismissible={!saving}
+      title="전체 예산"
+      className="budget-sheet"
+    >
       {open ? (
         // 열 때마다 새로 마운트해 지금 저장된 금액을 넣는다. 효과로 되넣으면 앞 값이 한 프레임 남는다.
-        <BudgetAmountForm month={month} amount={amount} onClose={onClose} />
+        <BudgetAmountForm
+          month={month}
+          amount={amount}
+          onSavingChange={setSaving}
+          onClose={onClose}
+        />
       ) : null}
     </BottomSheet>
   );
@@ -31,10 +46,11 @@ export function BudgetAmountSheet({ open, month, amount, onClose }: BudgetAmount
 interface BudgetAmountFormProps {
   month: MonthParams;
   amount: number | null;
+  onSavingChange: (saving: boolean) => void;
   onClose: () => void;
 }
 
-function BudgetAmountForm({ month, amount, onClose }: BudgetAmountFormProps) {
+function BudgetAmountForm({ month, amount, onSavingChange, onClose }: BudgetAmountFormProps) {
   const save = useSaveBudget(month);
   const [digits, setDigits] = useState(amount == null ? '' : String(amount));
 
@@ -55,7 +71,14 @@ function BudgetAmountForm({ month, amount, onClose }: BudgetAmountFormProps) {
       <Button
         fullWidth
         disabled={!canSave}
-        onClick={() => save.mutate({ amount: next }, { onSuccess: onClose })}
+        onClick={() => {
+          // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
+          onSavingChange(true);
+          save.mutate(
+            { amount: next },
+            { onSettled: () => onSavingChange(false), onSuccess: onClose },
+          );
+        }}
       >
         저장
       </Button>

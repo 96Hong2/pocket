@@ -115,6 +115,42 @@
     color: var(--color-muted);
   }
 
+  /*
+    하위 화면으로 들어가는 링크 줄. 카드 한 장 안에 쌓는다.
+    화살표는 ::after 로 그린다. 링크 글자에 섞이면 스크린리더가 함께 읽는다.
+  */
+  .link-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .link-rows > li + li .link-row {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .link-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 52px;
+    gap: 8px;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+
+  .link-row::after {
+    content: '';
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid var(--color-placeholder);
+    border-right: 2px solid var(--color-placeholder);
+    transform: rotate(45deg);
+  }
+
   /* 아직 데이터가 붙지 않은 자리. 다음 슬라이스에서 실제 카드가 들어온다. */
   .placeholder {
     border: 1px dashed var(--color-dashed);

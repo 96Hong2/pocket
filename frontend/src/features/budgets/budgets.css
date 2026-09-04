@@ -41,6 +41,15 @@
     color: var(--color-amber-700);
   }
 
+  /* 안내 옆에 '다시 시도' 를 붙이는 줄. */
+  .budget__notice--row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 6px 4px 14px;
+  }
+
   /* ── 이어쓰기 배너 ───────────────────────────────── */
 
   .budget-banner {

@@ -70,10 +70,12 @@ test('20 관리 탭이 데리고 있는 화면들', async ({ appShell, home, man
   await appShell.expectScreen('앱 설정', '예산 기간과 알림을 정해요');
   await demo.beat(2);
 
-  await demo.step('예산 기간은 달력 월로 고정이고, 자동 이어쓰기만 켜고 끄게 된다');
+  await demo.step('예산 기간은 달력 월로 고정이고, 이어쓰기는 관리 탭에서 켜고 끈다');
   await expect(appShell.placeholderLabel('예산 기간')).toBeVisible();
   await expect(
-    appShell.placeholderNote('기간은 달력 월로 고정이다. 자동 이어쓰기 켜기·끄기만 둔다.'),
+    appShell.placeholderNote(
+      '기간은 달력 월로 고정이다. 자동 이어쓰기는 관리 탭 예산 아래에서 켜고 끈다.',
+    ),
   ).toBeVisible();
   await demo.beat(2);
 

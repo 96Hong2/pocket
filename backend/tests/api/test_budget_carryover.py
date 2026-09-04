@@ -161,6 +161,18 @@ def test_자동_이어쓰기를_끄면_만들어지지_않는다(
     assert [row.period_start for row in _budget_rows(db)] == [LAST_MONTH.start]
 
 
+def test_설정에_null_을_보내면_지금_값을_그대로_둔다(client: TestClient) -> None:
+    """스키마가 null 을 허용한다고 말한다. 생성 타입을 보고 쓴 화면이 런타임에 막히면 안 된다.
+
+    필드를 빼는 것과 null 을 보내는 것이 같다. 둘 다 이 값은 건드리지 말라는 뜻이다.
+    """
+    client.patch("/api/v1/preferences", json={"budget_auto_carryover": False}, headers=AUTH)
+
+    kept = client.patch("/api/v1/preferences", json={"budget_auto_carryover": None}, headers=AUTH)
+    assert kept.status_code == 200, kept.text
+    assert kept.json()["budget_auto_carryover"] is False
+
+
 def test_이어써진_예산을_지우면_다시_조회해도_되살아나지_않는다(
     client: TestClient, db: Session, user: User
 ) -> None:
@@ -174,6 +186,48 @@ def test_이어써진_예산을_지우면_다시_조회해도_되살아나지_�
     body = client.get(f"/api/v1/budgets?{_query(THIS_MONTH)}", headers=AUTH).json()
     assert body["budget"]["amount"] is None
     assert body["category_budgets"] == []
+
+
+# ── 조회보다 쓰기가 먼저 올 때 ──────────────────────────
+
+
+def test_조회하지_않은_달에_바로_지우면_되살아나지_않는다(
+    client: TestClient, db: Session, user: User
+) -> None:
+    """새 달의 첫 요청이 조회가 아니라 지우기일 수 있다.
+
+    쓰기가 이어쓰기를 지나지 않으면 지울 행이 없어 그냥 204 를 주고, 표시도 남지 않는다.
+    그 뒤 조회가 지난달 예산을 이어써서 방금 지운 예산을 만들어 놓는다.
+    """
+    _seed_last_month(db, user, "600000")
+
+    deleted = client.request("DELETE", f"/api/v1/budgets?{_query(THIS_MONTH)}", headers=AUTH)
+    assert deleted.status_code == 204, deleted.text
+
+    body = client.get(f"/api/v1/budgets?{_query(THIS_MONTH)}", headers=AUTH).json()
+    assert body["budget"]["amount"] is None
+    assert body["category_budgets"] == []
+
+
+def test_조회하지_않은_달에_바로_카테고리_한도를_정할_수_있다(
+    client: TestClient, db: Session, user: User, default_categories: list[Category]
+) -> None:
+    """같은 상태에 같은 요청인데 앞선 조회 여부로 답이 갈리면 안 된다.
+
+    이어쓰기로 생길 전체 예산을 쓰기 경로가 보지 못하면 붙일 곳이 없다며 422 로 거절하고,
+    조회를 한 번 하고 같은 요청을 다시 보내면 200 이 된다.
+    """
+    food = _category(db, "식비")
+    _seed_last_month(db, user, "600000")
+
+    saved = client.put(
+        f"/api/v1/budgets/categories/{food.id}?{_query(THIS_MONTH)}",
+        json={"amount": "300000"},
+        headers=AUTH,
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["budget"]["amount"] == "600000"
+    assert saved.json()["category_budgets"][0]["amount"] == "300000"
 
 
 # ── 다른 달을 넘겨볼 때 ─────────────────────────────────

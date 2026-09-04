@@ -12,7 +12,7 @@ export default function SettingsPage() {
       <p className="page__lead">예산 기간과 알림을 정해요</p>
 
       <Placeholder label="예산 기간">
-        기간은 달력 월로 고정이다. 자동 이어쓰기 켜기·끄기만 둔다.
+        기간은 달력 월로 고정이다. 자동 이어쓰기는 관리 탭 예산 아래에서 켜고 끈다.
       </Placeholder>
 
       <nav aria-label="설정 하위 화면">
