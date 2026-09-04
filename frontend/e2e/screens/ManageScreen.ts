@@ -23,6 +23,8 @@ export class ManageScreen {
   readonly banner: CarryoverBannerArea;
   /** 예산 섹션 아래 설정 한 줄. */
   readonly settings: BudgetSettingArea;
+  /** 기억한 분류 규칙 목록. 예산 섹션 밖이라 페이지에서 잡는다. */
+  readonly rules: MerchantRuleArea;
 
   constructor(page: Page) {
     this.page = page;
@@ -32,6 +34,7 @@ export class ManageScreen {
     this.categories = new CategoryBudgetArea(page);
     this.banner = new CarryoverBannerArea(page);
     this.settings = new BudgetSettingArea(page);
+    this.rules = new MerchantRuleArea(page);
   }
 
   async open(): Promise<void> {
@@ -389,5 +392,31 @@ class BudgetSettingArea {
   async setCarryover(enabled: boolean): Promise<void> {
     await this.carryoverToggle.click();
     await expect(this.carryoverToggle).toHaveAttribute('aria-checked', String(enabled));
+  }
+}
+
+/** 관리 탭의 기억한 분류. 줄글로 저장할 때 늘어난다. */
+class MerchantRuleArea {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('region', { name: '기억한 분류', exact: true });
+  }
+
+  get rows(): Locator {
+    return this.root.getByTestId(TEST_IDS.merchantRuleRow);
+  }
+
+  get emptyTitle(): Locator {
+    return this.root.getByText('아직 기억한 분류가 없어요');
+  }
+
+  row(merchant: string): Locator {
+    return this.rows.filter({ hasText: merchant });
+  }
+
+  async remove(merchant: string): Promise<void> {
+    await this.row(merchant).getByRole('button', { name: '지우기' }).click();
+    await expect(this.row(merchant)).toHaveCount(0);
   }
 }

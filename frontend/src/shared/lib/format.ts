@@ -53,6 +53,9 @@ export function toIsoDate(date: Date): string {
  */
 export const LEDGER_TIME_ZONE = 'Asia/Seoul';
 
+/** 서머타임이 없어 고정값이다. 시간대가 설정으로 열리면 이 상수도 함께 없어진다. */
+const LEDGER_UTC_OFFSET = '+09:00';
+
 // sv-SE 로케일이 `YYYY-MM-DD` 를 준다. 서버가 쓰는 날짜 표기와 같은 모양이다.
 const ledgerDateFormat = new Intl.DateTimeFormat('sv-SE', {
   timeZone: LEDGER_TIME_ZONE,
@@ -61,6 +64,16 @@ const ledgerDateFormat = new Intl.DateTimeFormat('sv-SE', {
 /** Date → `2026-09-03` (기기가 어디에 있든 가계부 기준 시간대) */
 export function toLedgerDate(date: Date): string {
   return ledgerDateFormat.format(date);
+}
+
+/**
+ * `2026-09-03` → 그 날 가계부 시간대 정오의 ISO 시각.
+ *
+ * 날짜만 고른 값을 서버에 보낼 때 쓴다. 자정에 가까운 시각을 고르면 시간대를 옮기는
+ * 순간 하루가 밀린다. 정오는 어느 쪽으로 옮겨도 같은 날에 남는다.
+ */
+export function toLedgerNoonIso(day: string): string {
+  return `${day}T12:00:00${LEDGER_UTC_OFFSET}`;
 }
 
 /** `2026-09-03` → 로컬 자정 Date */

@@ -17,12 +17,15 @@ export class RecordSheet {
   readonly input: RecordInput;
   /** 저장 후. 피드백 한마디·되돌리기·카테고리 바꾸기. */
   readonly feedback: RecordFeedback;
+  /** 줄글 탭. 적기·검토·저장이 한 자리에서 이어진다. */
+  readonly nl: RecordNaturalLanguage;
 
   constructor(page: Page) {
     this.page = page;
     this.root = page.getByRole('dialog', { name: '10초 기록' });
     this.input = new RecordInput(this.root);
     this.feedback = new RecordFeedback(this.root);
+    this.nl = new RecordNaturalLanguage(this.root);
   }
 
   get isVisible(): Promise<boolean> {
@@ -43,7 +46,7 @@ export class RecordSheet {
   }
 
   /**
-   * 기록 방법 탭. 키패드만 열려 있고 나머지 셋은 다음 마일스톤 자리다.
+   * 기록 방법 탭. 키패드와 줄글이 열려 있고 캡처·영수증은 다음 마일스톤 자리다.
    *
    * SegmentedControl 이 `role="radio"` 를 붙인다. button 으로 잡으면 하나도 안 걸린다.
    */
@@ -235,6 +238,151 @@ class RecordFeedback {
  * 키패드에 두 자리 키가 `00` 하나뿐이라 뒤에서부터 0 을 둘씩 묶는다.
  * 12000 이면 `1` `2` `00` `0` 네 번이다.
  */
+/**
+ * 줄글 얼굴.
+ *
+ * 적기 → 검토 → 저장 뒤가 같은 자리에서 갈린다. 셋을 한 객체로 들고
+ * 무엇이 보이는지로 지금 어느 단계인지 가른다.
+ */
+class RecordNaturalLanguage {
+  private readonly root: Locator;
+
+  constructor(root: Locator) {
+    this.root = root;
+  }
+
+  get textarea(): Locator {
+    return this.root.getByLabel('무엇을 썼나요');
+  }
+
+  get analyzeButton(): Locator {
+    return this.root.getByRole('button', { name: '분석' });
+  }
+
+  get rewriteButton(): Locator {
+    return this.root.getByRole('button', { name: '다시 쓰기' });
+  }
+
+  /** `3건 저장 · 25,500원`. 건수와 합계가 버튼 이름에 그대로 있다. */
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: /건 저장 · / });
+  }
+
+  get confirmButton(): Locator {
+    return this.root.getByRole('button', { name: '확인' });
+  }
+
+  get notice(): Locator {
+    return this.root.getByRole('alert');
+  }
+
+  /** 검토 단계에 들어섰다는 표시. 후보가 없어도 이 줄은 있다. */
+  get readLine(): Locator {
+    return this.root.getByText('이렇게 이해했어요', { exact: false });
+  }
+
+  /** 금액을 하나도 못 읽었을 때 뜨는 안내. */
+  get emptyNotice(): Locator {
+    return this.root.getByText('문장에서 금액을 찾지 못했어요', { exact: false });
+  }
+
+  /** 저장을 마친 뒤의 한 줄. `3건 저장했어요 · 25,500원` */
+  get savedTitle(): Locator {
+    return this.root.getByText(/건 저장했어요 · /);
+  }
+
+  get rows(): Locator {
+    return this.root.getByTestId(TEST_IDS.nlCandidateRow);
+  }
+
+  /** 이름으로 잡는다. 상호가 비면 화면이 '이름 없음' 으로 그린다. */
+  row(name: string): Locator {
+    return this.rows.filter({ has: this.root.page().getByRole('checkbox', { name, exact: true }) });
+  }
+
+  checkbox(name: string): Locator {
+    return this.root.getByRole('checkbox', { name, exact: true });
+  }
+
+  amount(name: string): Locator {
+    return this.row(name).getByTestId(TEST_IDS.nlCandidateAmount);
+  }
+
+  day(name: string): Locator {
+    return this.row(name).getByTestId(TEST_IDS.nlCandidateDate);
+  }
+
+  /** `이미 있어요`·`확인 필요` 같은 칩. 없으면 개수 0 이다. */
+  chip(name: string, label: string): Locator {
+    return this.row(name).getByText(label, { exact: true });
+  }
+
+  async analyze(text: string): Promise<void> {
+    await this.textarea.fill(text);
+    await this.analyzeButton.click();
+    await expect(this.readLine).toBeVisible();
+  }
+
+  async toggle(name: string, selected: boolean): Promise<void> {
+    const box = this.checkbox(name);
+    await box.click();
+    await expect(box).toBeChecked({ checked: selected });
+  }
+
+  async openEdit(name: string): Promise<void> {
+    await this.row(name).getByRole('button', { name: '고치기' }).click();
+    await expect(this.root.getByRole('button', { name: '이대로 고치기' })).toBeVisible();
+  }
+
+  /** 펼쳐 둔 고치기 폼. 한 번에 하나만 열린다. */
+  get form(): RecordNaturalLanguageForm {
+    return new RecordNaturalLanguageForm(this.root);
+  }
+
+  async save(): Promise<void> {
+    await this.saveButton.click();
+    await expect(this.savedTitle).toBeVisible();
+  }
+}
+
+/** 후보 한 줄을 고치는 폼. */
+class RecordNaturalLanguageForm {
+  private readonly root: Locator;
+
+  constructor(root: Locator) {
+    this.root = root;
+  }
+
+  get merchantField(): Locator {
+    return this.root.getByLabel('상호');
+  }
+
+  get amountField(): Locator {
+    return this.root.getByLabel('금액');
+  }
+
+  get dayField(): Locator {
+    return this.root.getByLabel('날짜');
+  }
+
+  get doneButton(): Locator {
+    return this.root.getByRole('button', { name: '이대로 고치기' });
+  }
+
+  typeTab(label: '지출' | '수입' | '이체' | '환불'): Locator {
+    return this.root.getByRole('radiogroup', { name: '종류' }).getByRole('radio', { name: label });
+  }
+
+  categoryChip(name: string): Locator {
+    return this.root.getByRole('group', { name: '분류' }).getByRole('button', { name });
+  }
+
+  async apply(): Promise<void> {
+    await this.doneButton.click();
+    await expect(this.doneButton).toHaveCount(0);
+  }
+}
+
 export function keyStrokesFor(amount: number): string[] {
   const digits = String(Math.trunc(amount));
   const keys: string[] = [];

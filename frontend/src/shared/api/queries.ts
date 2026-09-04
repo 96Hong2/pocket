@@ -127,3 +127,19 @@ export function useCalendar(params?: MonthParams) {
     enabled: isReady,
   });
 }
+
+/**
+ * 기억한 분류 규칙.
+ *
+ * 줄글로 저장할 때마다 늘어나므로 오래 붙들지 않는다. 관리 탭에서만 본다.
+ */
+export function useMerchantRules() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.merchantRules(),
+    queryFn: ({ signal }) => client.listMerchantRules({ signal }),
+    enabled: isReady,
+  });
+}
