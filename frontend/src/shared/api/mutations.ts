@@ -23,6 +23,9 @@ import type {
   BudgetUpsert,
   PeriodSummaryOut,
   PreferencesOut,
+  ImportBatchOut,
+  ImportCandidatePatch,
+  ImportCommitOut,
   PreferencesPatch,
   TransactionCreate,
   TransactionUpdate,
@@ -210,5 +213,75 @@ export function useSavePreferences() {
       queryClient.setQueryData<PreferencesOut>(queryKeys.preferences(), preferences);
       return queryClient.invalidateQueries({ queryKey: queryKeys.budgets() });
     },
+  });
+}
+
+/**
+ * 줄글 분석.
+ *
+ * 여기서는 캐시를 건드리지 않는다. 분석은 아직 거래를 만들지 않아 돈이 움직이지 않는다.
+ */
+export function useAnalyzeText() {
+  const client = useApiClient();
+
+  return useMutation({
+    mutationFn: (text: string) => client.analyzeText(text),
+  });
+}
+
+/** 검토 화면에서 후보 한 줄 고치기. 응답이 묶음 전체라 화면이 그대로 갈아 끼운다. */
+export function usePatchImportCandidate() {
+  const client = useApiClient();
+
+  return useMutation({
+    mutationFn: (input: {
+      batchId: string;
+      candidateId: string;
+      body: ImportCandidatePatch;
+    }): Promise<ImportBatchOut> =>
+      client.patchImportCandidate(input.batchId, input.candidateId, input.body),
+  });
+}
+
+/**
+ * 고른 후보 저장.
+ *
+ * 여러 건이 한꺼번에 생기므로 돈에 얽힌 캐시를 전부 다시 받는다.
+ * 기억한 분류도 이때 늘어난다.
+ *
+ * **응답의 예산 블록을 캐시에 덮어쓰지 않는다.** 지난 달 날짜로 저장하면 서버가 그 달의
+ * 예산 상태를 주는데, 그걸 이번 달 자리에 넣으면 홈이 남의 달 숫자를 보여준다.
+ * 여기는 10초 루프가 아니라 검토를 마친 뒤라 왕복 한 번이 더 들어도 된다.
+ */
+export function useCommitImport() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (batchId: string): Promise<ImportCommitOut> => client.commitImport(batchId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.merchantRules() });
+      return invalidateMoney(queryClient);
+    },
+  });
+}
+
+/** 검토 접기. 저장한 거래는 남는다. */
+export function useDeleteImport() {
+  const client = useApiClient();
+
+  return useMutation({
+    mutationFn: (batchId: string) => client.deleteImport(batchId),
+  });
+}
+
+/** 기억한 분류 지우기. 다음 분석부터 그 상호는 다시 모델이 정한다. */
+export function useDeleteMerchantRule() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ruleId: string) => client.deleteMerchantRule(ruleId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.merchantRules() }),
   });
 }

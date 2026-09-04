@@ -1,0 +1,466 @@
+"""줄글 입력의 분석·검토·저장.
+
+분석은 거래를 만들지 않는다. 검토 단위(ImportBatch)와 후보만 만든다.
+저장은 commit 이 따로 하고, 그때 만들어지는 거래는 키패드로 적은 것과 같은 길을 지난다.
+
+확신이 낮은 후보를 조용히 확정하지 않는다. 그런 후보는 서버가 선택을 꺼서 내려보낸다.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, date, datetime, time
+from decimal import Decimal
+from functools import partial
+
+import anyio.from_thread
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session
+
+from app.api.errors import ApiError, ErrorCode
+from app.core.config import get_settings
+from app.domain.fingerprint import Fingerprint, build_fingerprint, normalize_merchant
+from app.domain.money import Money
+from app.domain.redaction import redact
+from app.integrations.llm import (
+    LOW_CONFIDENCE_THRESHOLD,
+    LlmError,
+    LlmStructuredClient,
+    TransactionCandidate,
+    TransactionExtraction,
+    TransactionSource,
+    TransactionType,
+    attach_source,
+    natural_language_prompt,
+)
+from app.models import (
+    Category,
+    ImportBatch,
+    ImportBatchStatus,
+    ImportCandidate,
+    MerchantRule,
+    ParseUsage,
+    Transaction,
+    User,
+)
+from app.modules import ledger
+from app.modules.categories import service as categories
+from app.modules.transactions import service as transactions
+
+__all__ = [
+    "CommitResult",
+    "commit_batch",
+    "delete_batch",
+    "get_batch",
+    "parse_text",
+    "update_candidate",
+]
+
+# 검토 화면에 한 번에 올리는 상한. 그 이상은 사람이 훑어보지 못한다.
+MAX_CANDIDATES = 20
+
+
+class CommitResult:
+    """저장 결과. 마지막 한 건의 판정을 함께 들고 다닌다."""
+
+    __slots__ = ("batch", "created_count", "outcome", "total_amount")
+
+    def __init__(
+        self,
+        *,
+        batch: ImportBatch,
+        created_count: int,
+        total_amount: Decimal,
+        outcome: transactions.SaveOutcome | None,
+    ) -> None:
+        self.batch = batch
+        self.created_count = created_count
+        self.total_amount = total_amount
+        self.outcome = outcome
+
+
+def parse_text(
+    session: Session,
+    user: User,
+    *,
+    text: str,
+    client: LlmStructuredClient,
+    today: date | None = None,
+) -> ImportBatch:
+    """줄글에서 거래 후보를 뽑아 검토 단위를 만든다."""
+    day = today or ledger.today_for(user)
+    _require_quota(session, user, day)
+
+    # 저장하지 않는 것만으로는 부족하다. 보내기 전에 가린다.
+    cleaned = redact(text)
+    extraction = _extract(client, text=cleaned.text, today=day)
+    found = attach_source(extraction, TransactionSource.NL)
+    candidates = found[:MAX_CANDIDATES]
+    dropped = len(found) - len(candidates)
+
+    batch = ImportBatch(
+        user_id=user.id,
+        source=TransactionSource.NL,
+        status=ImportBatchStatus.READY,
+        detected_count=len(candidates),
+        # 상한을 넘겨 버린 건수를 남긴다. 조용히 사라지면 사용자가 몇 건을 잃었는지 모른다.
+        error_code=f"TRUNCATED:{dropped}" if dropped else None,
+    )
+    session.add(batch)
+    session.flush()
+
+    known = _known_fingerprints(session, user)
+    rules = _rules_by_merchant(session, user)
+    for order, candidate in enumerate(candidates):
+        session.add(_to_row(session, user, batch, candidate, order, day, known, rules))
+
+    session.commit()
+    session.refresh(batch)
+
+    _record_usage(
+        session,
+        user,
+        client=client,
+        input_length=len(text),
+        redacted_count=cleaned.count,
+        candidate_count=len(candidates),
+    )
+    return batch
+
+
+def get_batch(session: Session, user: User, batch_id: uuid.UUID) -> ImportBatch:
+    batch = session.get(ImportBatch, batch_id)
+    if batch is None or batch.user_id != user.id:
+        raise ApiError(ErrorCode.NOT_FOUND, "분석 결과를 찾지 못했어요.", status_code=404)
+    return batch
+
+
+def update_candidate(
+    session: Session,
+    user: User,
+    batch_id: uuid.UUID,
+    candidate_id: uuid.UUID,
+    data: dict[str, object],
+) -> ImportBatch:
+    """후보 한 줄을 고친다. 보낸 항목만 바뀐다."""
+    batch = _require_open(session, user, batch_id)
+    row = next((item for item in batch.candidates if item.id == candidate_id), None)
+    if row is None:
+        raise ApiError(ErrorCode.NOT_FOUND, "고칠 항목을 찾지 못했어요.", status_code=404)
+
+    if "category_id" in data:
+        categories.require_owned(session, user, data["category_id"])  # type: ignore[arg-type]
+
+    for field, value in data.items():
+        if field == "occurred_at" and isinstance(value, datetime):
+            value = value.astimezone(UTC)
+        setattr(row, field, value)
+
+    if "merchant" in data:
+        row.merchant_normalized = normalize_merchant(row.merchant) or None
+
+    if _touches_content(data):
+        # 사람이 직접 본 값이다. 점선 표시를 남겨 두면 고쳐도 계속 의심스러워 보인다.
+        row.confidence = 1.0
+        fingerprint = _fingerprint_of(row, user)
+        row.fingerprint = fingerprint.value
+        row.is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in (
+            _known_fingerprints(session, user)
+        )
+        if "is_selected" not in data and not row.is_duplicate:
+            # 이미 저장한 것과 같아졌으면 켜지 않는다. 켜면 같은 거래가 두 번 저장된다.
+            row.is_selected = True
+
+    session.commit()
+    session.refresh(batch)
+    return batch
+
+
+def commit_batch(
+    session: Session,
+    user: User,
+    batch_id: uuid.UUID,
+    *,
+    today: date | None = None,
+) -> CommitResult:
+    """고른 후보를 실제 거래로 저장한다."""
+    batch = _require_open(session, user, batch_id)
+    day = today or ledger.today_for(user)
+    chosen = [row for row in batch.candidates if row.is_selected]
+    if not chosen:
+        raise ApiError(
+            ErrorCode.INVALID_REQUEST, "저장할 항목을 하나 이상 골라 주세요.", status_code=422
+        )
+
+    for row in chosen:
+        if row.type == TransactionType.REFUND:
+            raise ApiError(
+                ErrorCode.INVALID_REFUND_TARGET,
+                "환불은 내역에서 원래 지출을 찾아 되돌려 주세요.",
+                status_code=422,
+            )
+        categories.require_owned(session, user, row.category_id)
+
+    total = Decimal(0)
+    outcome: transactions.SaveOutcome | None = None
+    for row in chosen:
+        if row.transaction_id is not None:
+            # 앞선 시도에서 이미 저장한 건이다. 다시 저장하면 두 번 들어간다.
+            total += row.amount
+            continue
+        tx, outcome = transactions.create_transaction(
+            session,
+            user,
+            {
+                "occurred_at": ledger.as_utc(row.occurred_at),
+                "amount": row.amount,
+                "type": row.type,
+                "merchant": row.merchant,
+                "category_id": row.category_id,
+                "source": batch.source,
+                "confidence": row.confidence,
+                "excluded_from_budget": False,
+            },
+            today=day,
+        )
+        row.transaction_id = tx.id
+        total += row.amount
+        _learn_rule(session, user, row)
+
+    batch.status = ImportBatchStatus.COMMITTED
+    batch.committed_count = len(chosen)
+    batch.error_code = None
+    batch.completed_at = datetime.now(UTC)
+    session.commit()
+    session.refresh(batch)
+    return CommitResult(batch=batch, created_count=len(chosen), total_amount=total, outcome=outcome)
+
+
+def delete_batch(session: Session, user: User, batch_id: uuid.UUID) -> None:
+    """검토를 접는다. 후보는 함께 사라지고 저장한 거래는 남는다."""
+    batch = session.get(ImportBatch, batch_id)
+    if batch is None or batch.user_id != user.id:
+        return
+    session.delete(batch)
+    session.commit()
+
+
+def _require_open(session: Session, user: User, batch_id: uuid.UUID) -> ImportBatch:
+    batch = get_batch(session, user, batch_id)
+    if batch.status == ImportBatchStatus.COMMITTED:
+        raise ApiError(ErrorCode.CONFLICT, "이미 저장한 분석 결과예요.", status_code=409)
+    return batch
+
+
+def _touches_content(data: dict[str, object]) -> bool:
+    return any(field != "is_selected" for field in data)
+
+
+def _extract(client: LlmStructuredClient, *, text: str, today: date) -> TransactionExtraction:
+    """비동기 포트를 동기 서비스에서 부른다.
+
+    이 앱의 핸들러는 전부 동기라 FastAPI 가 워커 스레드에서 돌린다.
+    `anyio.from_thread.run` 이 그 스레드에서 본래 이벤트 루프로 코루틴을 넘긴다.
+    핸들러를 async 로 바꾸면 동기 SQLAlchemy 가 루프를 막는다.
+    """
+    call = partial(
+        client.extract,
+        prompt=natural_language_prompt(today),
+        schema=TransactionExtraction,
+        text=text,
+        today=today,
+    )
+    try:
+        return anyio.from_thread.run(call)
+    except LlmError as exc:
+        raise ApiError(
+            ErrorCode.PARSE_UNAVAILABLE,
+            "지금은 문장을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+            status_code=503,
+        ) from exc
+
+
+def _to_row(
+    session: Session,
+    user: User,
+    batch: ImportBatch,
+    candidate: TransactionCandidate,
+    order: int,
+    today: date,
+    known: set[str],
+    rules: dict[str, uuid.UUID],
+) -> ImportCandidate:
+    occurred_at = _occurred_at(candidate.occurred_at, user, today)
+    merchant_normalized = normalize_merchant(candidate.merchant) or None
+    category_id = _category_for(session, user, candidate, merchant_normalized, rules)
+    amount = Decimal(candidate.amount)
+    fingerprint = build_fingerprint(
+        occurred_on=ledger.local_date(occurred_at, ledger.user_tz(user)),
+        amount=Money(amount),
+        type=candidate.type,
+        merchant=candidate.merchant,
+    )
+    is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in known
+    low = candidate.confidence < LOW_CONFIDENCE_THRESHOLD
+    # 환불은 되돌릴 지출을 골라야 한다. 대상 없이 저장하면 쓴 적 없는 돈이 예산으로 돌아온다.
+    needs_target = candidate.type == TransactionType.REFUND
+    return ImportCandidate(
+        import_batch_id=batch.id,
+        occurred_at=occurred_at,
+        amount=amount,
+        type=candidate.type,
+        merchant=candidate.merchant,
+        merchant_normalized=merchant_normalized,
+        category_id=category_id,
+        confidence=candidate.confidence,
+        fingerprint=fingerprint.value,
+        is_duplicate=is_duplicate,
+        # 확신이 낮거나 이미 있는 것은 스스로 켜지지 않는다. 사람이 켜야 저장된다.
+        is_selected=not low and not is_duplicate and not needs_target,
+        sort_order=order,
+    )
+
+
+def _occurred_at(occurred_on: date | None, user: User, today: date) -> datetime:
+    """날짜만 아는 값을 시각으로 옮긴다.
+
+    오늘 것은 지금 시각이고, 지난 날은 그 날 정오다. 자정에 가까운 시각을 골라 두면
+    시간대 계산에서 하루가 밀린다.
+    """
+    tz = ledger.user_tz(user)
+    if occurred_on is None or occurred_on == today:
+        return datetime.now(UTC)
+    return datetime.combine(occurred_on, time(hour=12), tzinfo=tz).astimezone(UTC)
+
+
+def _category_for(
+    session: Session,
+    user: User,
+    candidate: TransactionCandidate,
+    merchant_normalized: str | None,
+    rules: dict[str, uuid.UUID],
+) -> uuid.UUID | None:
+    """분류 우선순위: 내 규칙 → 모델이 고른 이름 → 사용자 확인.
+
+    공용 상호 사전은 아직 없다. 없는 단계를 있는 척 끼워 넣지 않는다.
+    """
+    if merchant_normalized and merchant_normalized in rules:
+        return rules[merchant_normalized]
+    if candidate.category is None:
+        return None
+    return _category_id_by_name(session, user, candidate.category)
+
+
+def _category_id_by_name(session: Session, user: User, name: str) -> uuid.UUID | None:
+    stmt = (
+        select(Category.id)
+        .where(
+            Category.name == name,
+            Category.deleted_at.is_(None),
+            # IN (id, NULL) 은 NULL 을 못 잡는다. 공용 카테고리가 통째로 빠진다.
+            or_(Category.user_id == user.id, Category.user_id.is_(None)),
+        )
+        # 내가 만든 것이 공용보다 앞선다.
+        .order_by(Category.user_id.is_(None))
+        .limit(1)
+    )
+    return session.scalars(stmt).first()
+
+
+def _rules_by_merchant(session: Session, user: User) -> dict[str, uuid.UUID]:
+    stmt = select(MerchantRule).where(
+        MerchantRule.user_id == user.id, MerchantRule.deleted_at.is_(None)
+    )
+    return {row.merchant_normalized: row.category_id for row in session.scalars(stmt)}
+
+
+def _known_fingerprints(session: Session, user: User) -> set[str]:
+    stmt = select(Transaction.fingerprint).where(
+        Transaction.user_id == user.id,
+        Transaction.deleted_at.is_(None),
+        Transaction.fingerprint.is_not(None),
+    )
+    return {value for value in session.scalars(stmt) if value}
+
+
+def _fingerprint_of(row: ImportCandidate, user: User) -> Fingerprint:
+    return build_fingerprint(
+        occurred_on=ledger.local_date(row.occurred_at, ledger.user_tz(user)),
+        amount=Money(row.amount),
+        type=row.type,
+        merchant=row.merchant,
+    )
+
+
+def _learn_rule(session: Session, user: User, row: ImportCandidate) -> None:
+    """저장한 상호와 분류를 기억한다. 다음 분석에서 이 규칙이 모델보다 앞선다."""
+    if not row.merchant_normalized or row.category_id is None:
+        return
+    if row.type != TransactionType.EXPENSE:
+        # 이체·수입에는 분류가 하나뿐이라 기억할 것이 없다.
+        return
+    existing = session.scalars(
+        select(MerchantRule).where(
+            MerchantRule.user_id == user.id,
+            MerchantRule.merchant_normalized == row.merchant_normalized,
+        )
+    ).first()
+    if existing is None:
+        session.add(
+            MerchantRule(
+                user_id=user.id,
+                merchant_normalized=row.merchant_normalized,
+                merchant=row.merchant,
+                category_id=row.category_id,
+                applied_count=1,
+            )
+        )
+        return
+    existing.deleted_at = None
+    existing.merchant = row.merchant
+    existing.category_id = row.category_id
+    existing.applied_count += 1
+
+
+def _record_usage(
+    session: Session,
+    user: User,
+    *,
+    client: LlmStructuredClient,
+    input_length: int,
+    redacted_count: int,
+    candidate_count: int,
+) -> None:
+    session.add(
+        ParseUsage(
+            user_id=user.id,
+            source=TransactionSource.NL,
+            provider=client.provider,
+            is_stub=client.is_stub,
+            input_length=input_length,
+            redacted_count=redacted_count,
+            candidate_count=candidate_count,
+        )
+    )
+    session.commit()
+
+
+def _require_quota(session: Session, user: User, today: date) -> None:
+    """하루에 쓸 수 있는 만큼을 넘겼는지 본다.
+
+    상한은 넉넉하다. 습관이 붙기 전에 막으면 앱을 쓸 이유가 사라진다.
+    막혀도 키패드 기록은 그대로 돌아간다.
+    """
+    limit = get_settings().nl_parse_daily_limit
+    start, _ = ledger.day_bounds(today, ledger.user_tz(user))
+    used = session.scalar(
+        select(func.count())
+        .select_from(ParseUsage)
+        .where(ParseUsage.user_id == user.id, ParseUsage.created_at >= start)
+    )
+    if (used or 0) >= limit:
+        raise ApiError(
+            ErrorCode.USAGE_LIMIT,
+            "오늘은 줄글 분석을 충분히 썼어요. 키패드로는 계속 기록할 수 있어요.",
+            status_code=429,
+        )

@@ -29,6 +29,9 @@ export const queryKeys = {
 
   categories: () => [ROOT, 'categories'] as const,
 
+  /** 기억한 분류 규칙. 달과 무관하다. */
+  merchantRules: () => [ROOT, 'merchant-rules'] as const,
+
   /** 앱 설정. 달과 무관하다. */
   preferences: () => [ROOT, 'preferences'] as const,
 

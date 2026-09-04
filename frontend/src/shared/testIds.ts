@@ -51,6 +51,14 @@ export const TEST_IDS = {
   categoryBudgetCap: 'category-budget-cap',
   /** 카테고리 예산 합이 전체 예산보다 클 때 뜨는 안내 한 줄 */
   categoryBudgetSum: 'category-budget-sum',
+  /** 줄글 검토 목록의 후보 한 줄 */
+  nlCandidateRow: 'nl-candidate-row',
+  /** 후보 한 줄의 금액 */
+  nlCandidateAmount: 'nl-candidate-amount',
+  /** 후보 한 줄의 날짜 */
+  nlCandidateDate: 'nl-candidate-date',
+  /** 관리 탭에서 기억한 분류 한 줄 */
+  merchantRuleRow: 'merchant-rule-row',
   /** 저장 직후 피드백 한 줄 */
   feedbackHeadline: 'feedback-headline',
   /** 피드백 둘째 줄. 남은 예산 같은 숫자가 여기 붙는다. */

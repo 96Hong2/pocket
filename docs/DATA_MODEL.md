@@ -138,6 +138,9 @@ erDiagram
 sha256( occurred_on(YYYY-MM-DD) | amount(정수) | normalize(merchant) | type )
 ```
 
+지문은 거래를 저장·수정할 때 서버가 채운다(`transactions.service._stamp_identity`).
+M4 이전에 저장한 거래에는 지문이 없어 중복 판정에 걸리지 않는다. 되메우지 않았다.
+
 범위는 `user_id` 안이다. **정확히 일치할 때만** 중복 후보로 보고, 후보는 **기본 미선택**으로 보여준다.
 `merchant` 가 비어 있으면 fingerprint 는 만들되 중복 판정에서 뺀다. 상호가 없는 두 건이 같은 금액이라는 이유로 묶이면 오탐이 너무 많다.
 
@@ -195,11 +198,13 @@ pref.budget_auto_carryover = false         → 복사 안 함
 
 ## merchant_rules
 
-사용자가 고친 분류를 기억한다. 전역 사전보다 이 규칙이 우선한다.
+줄글로 저장할 때 상호와 분류를 기억한다. 전역 사전보다 이 규칙이 우선한다.
+소프트 삭제라 지웠다가 같은 상호를 다시 저장하면 그 행을 되살린다.
 
 | 필드 | 설명 |
 |---|---|
 | `user_id` + `merchant_normalized` | 유일. 한 상호에 규칙 하나 |
+| `merchant` | 화면에 그대로 보여 줄 표기. 정규화하면 띄어쓰기·대소문자가 사라져 읽기 나쁘다 |
 | `category_id` | 이 상호는 이 카테고리 |
 | `applied_count` | 실제로 몇 번 맞았는지. 자주 쓰는 카테고리를 앞에 놓을 때 쓴다 |
 
@@ -226,6 +231,23 @@ pref.budget_auto_carryover = false         → 복사 안 함
 제약은 `amount > 0`, `confidence` 0~1. 배치를 지우면 후보도 지워진다.
 
 **원본 이미지, OCR 텍스트, LLM 응답 원문은 이 표에 없다.** 구조화된 후보만 남긴다.
+
+## parse_usages
+
+줄글·캡처 분석을 몇 번 불렀는지 센다. 비용을 재고 나서 상한을 정하려고 만든 표다.
+
+| 필드 | 설명 |
+|---|---|
+| `source` | `transactions.source` 와 같은 enum |
+| `provider` / `is_stub` | 스텁으로 잰 수치를 실제 모델 성능으로 오해하지 않게 함께 남긴다 |
+| `input_length` | 글자 수만. **무엇을 적었는지는 남기지 않는다** |
+| `redacted_count` | 보내기 전에 가린 숫자 뭉치 개수. 가리는 규칙이 실제로 도는지 확인한다 |
+| `candidate_count` | 뽑은 후보 건수 |
+
+인덱스는 `(user_id, created_at)`. 하루치를 세는 질의가 이걸 때린다.
+상한은 `NL_PARSE_DAILY_LIMIT`(기본 300)이고, 넘으면 429 `USAGE_LIMIT` 이다.
+
+**이 표만 봐서는 무엇을 적었는지 알 수 없다.** 그것이 이 표의 설계 조건이다.
 
 ## asset_snapshots / asset_items (P1)
 

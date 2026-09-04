@@ -29,10 +29,7 @@ function cellName(iso: string, ...parts: string[]): string {
 
 // ── 달력과 하루 목록 ────────────────────────────────────
 
-test('달력이 날짜별 합계를 보여주고, 날짜를 누르면 그 날만 남는다', async ({
-  prep,
-  calendar,
-}) => {
+test('달력이 날짜별 합계를 보여주고, 날짜를 누르면 그 날만 남는다', async ({ prep, calendar }) => {
   await prep.addTransaction({ amount: 12_000, merchant: '스타벅스', minutesAgo: 1 });
   await prep.addTransaction({ amount: 3_000, merchant: '이마트', minutesAgo: 2 });
   await prep.addTransaction({ amount: 8_000, merchant: '어제분식', daysAgo: OTHER_DAY_AGO });
@@ -41,17 +38,11 @@ test('달력이 날짜별 합계를 보여주고, 날짜를 누르면 그 날만
   await calendar.waitReady();
 
   // 달마다 며칠인지 화면이 스스로 맞춘다.
-  const daysInMonth = new Date(
-    Number(TODAY.slice(0, 4)),
-    Number(TODAY.slice(5, 7)),
-    0,
-  ).getDate();
+  const daysInMonth = new Date(Number(TODAY.slice(0, 4)), Number(TODAY.slice(5, 7)), 0).getDate();
   expect(await calendar.grid.cellCount()).toBe(daysInMonth);
 
   await expect(calendar.totals.expense).toHaveText(formatCurrency(23_000));
-  await expect(
-    calendar.grid.cell(cellName(TODAY, `지출 ${formatCurrency(15_000)}`)),
-  ).toBeVisible();
+  await expect(calendar.grid.cell(cellName(TODAY, `지출 ${formatCurrency(15_000)}`))).toBeVisible();
 
   // 처음에는 오늘이 골라져 있다.
   await expect(calendar.grid.selected).toHaveAttribute(

@@ -8,11 +8,15 @@
 
 LLM 에게 숫자 계산을 시키지 않는다. 파싱과 분류만 시킨다.
 합계·잔액·증감·페이스는 domain 이 결정적으로 계산한다.
+
+`today` 는 계산을 시키는 값이 아니라 사실을 알려 주는 값이다. '어제' 가 며칠인지는
+가계부 시간대의 오늘에 달려 있고, 그것을 모르면 구현체가 날짜를 지어내게 된다.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Protocol, TypeVar, runtime_checkable
 
 from pydantic import BaseModel
@@ -75,6 +79,7 @@ class LlmStructuredClient(Protocol):
         schema: type[SchemaT],
         text: str | None = None,
         image: LlmImage | None = None,
+        today: date | None = None,
     ) -> SchemaT: ...
 
 

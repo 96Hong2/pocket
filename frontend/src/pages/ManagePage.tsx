@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { IdentityNotice } from '../app/IdentityNotice';
 import { ROUTES } from '../app/router/routes';
 import { BudgetSection } from '../features/budgets';
+import { MerchantRuleList } from '../features/imports';
 import { Card } from '../shared/ui';
 
 /** 관리 탭 아래에 달린 화면들. 순서가 곧 화면에 보이는 순서다. */
@@ -24,6 +25,8 @@ export default function ManagePage() {
       <IdentityNotice />
 
       <BudgetSection />
+
+      <MerchantRuleList />
 
       <nav aria-label="관리 하위 화면">
         <Card padding="list">

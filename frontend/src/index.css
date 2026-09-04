@@ -13,6 +13,7 @@
 @import './features/ads/ads.css';
 @import './features/transactions/transactions.css';
 @import './features/budgets/budgets.css';
+@import './features/imports/imports.css';
 
 /*
   디자인 토큰. 이 블록이 CSS 쪽 정본이고, 같은 값이 shared/tokens/index.ts 에 있다.
@@ -131,6 +132,11 @@
 }
 
 @layer base {
+  /* feature CSS 가 display 를 지정하면 UA 기본값을 이겨 버린다. 감추라면 감춘다. */
+  [hidden] {
+    display: none !important;
+  }
+
   html {
     color-scheme: light;
     -webkit-text-size-adjust: 100%;

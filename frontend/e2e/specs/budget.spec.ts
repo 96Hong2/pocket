@@ -417,10 +417,7 @@ test('이어써진 예산을 지우면 다시 열어도 되살아나지 않는�
 
 // ── 끝난 달 ─────────────────────────────────────────────
 
-test('지난달로 옮기면 고칠 입구가 모두 사라지고 보기만 할 수 있다', async ({
-  manage,
-  prep,
-}) => {
+test('지난달로 옮기면 고칠 입구가 모두 사라지고 보기만 할 수 있다', async ({ manage, prep }) => {
   const food = await prep.categoryIdByName('식비');
   await prep.setBudget(600_000);
   await prep.setCategoryBudget(food, 200_000);

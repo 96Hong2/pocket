@@ -15,6 +15,10 @@ import type {
   BudgetUpsert,
   CalendarMonthOut,
   CategoryListOut,
+  ImportBatchOut,
+  ImportCandidatePatch,
+  ImportCommitOut,
+  MerchantRuleListOut,
   PeriodSummaryOut,
   PreferencesOut,
   PreferencesPatch,
@@ -58,6 +62,8 @@ const PATHS = {
   budgets: '/api/v1/budgets',
   categoryBudgets: '/api/v1/budgets/categories',
   preferences: '/api/v1/preferences',
+  imports: '/api/v1/imports',
+  merchantRules: '/api/v1/merchant-rules',
 } as const;
 
 function transactionPath(id: string): string {
@@ -66,6 +72,14 @@ function transactionPath(id: string): string {
 
 function categoryBudgetPath(categoryId: string): string {
   return `${PATHS.categoryBudgets}/${encodeURIComponent(categoryId)}`;
+}
+
+function importPath(batchId: string): string {
+  return `${PATHS.imports}/${encodeURIComponent(batchId)}`;
+}
+
+function candidatePath(batchId: string, candidateId: string): string {
+  return `${importPath(batchId)}/candidates/${encodeURIComponent(candidateId)}`;
 }
 
 function monthQuery(params?: MonthParams): RequestSpec['query'] {
@@ -112,6 +126,21 @@ export interface ApiClient extends Transport {
   getPreferences(options?: CallOptions): Promise<PreferencesOut>;
   /** 보낸 필드만 고친다. 응답은 고친 뒤 전체 설정이다. */
   savePreferences(body: PreferencesPatch, options?: CallOptions): Promise<PreferencesOut>;
+  /** 줄글 분석. 거래를 만들지 않고 검토 단위만 만든다. */
+  analyzeText(text: string, options?: CallOptions): Promise<ImportBatchOut>;
+  /** 후보 한 줄 고치기. 보낸 항목만 바뀌고, 응답은 묶음 전체다. */
+  patchImportCandidate(
+    batchId: string,
+    candidateId: string,
+    body: ImportCandidatePatch,
+    options?: CallOptions,
+  ): Promise<ImportBatchOut>;
+  /** 고른 후보를 실제 거래로 저장한다. */
+  commitImport(batchId: string, options?: CallOptions): Promise<ImportCommitOut>;
+  /** 검토를 접는다. 없어도 204 다. */
+  deleteImport(batchId: string, options?: CallOptions): Promise<void>;
+  listMerchantRules(options?: CallOptions): Promise<MerchantRuleListOut>;
+  deleteMerchantRule(ruleId: string, options?: CallOptions): Promise<void>;
 }
 
 export function createApiClient(options: TransportOptions): ApiClient {
@@ -256,6 +285,56 @@ export function createApiClient(options: TransportOptions): ApiClient {
         method: 'PATCH',
         path: PATHS.preferences,
         body,
+        signal: call?.signal,
+      });
+    },
+
+    analyzeText(text, call) {
+      return transport.request<ImportBatchOut>({
+        method: 'POST',
+        path: `${PATHS.imports}/text`,
+        body: { text },
+        signal: call?.signal,
+      });
+    },
+
+    patchImportCandidate(batchId, candidateId, body, call) {
+      return transport.request<ImportBatchOut>({
+        method: 'PATCH',
+        path: candidatePath(batchId, candidateId),
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    commitImport(batchId, call) {
+      return transport.request<ImportCommitOut>({
+        method: 'POST',
+        path: `${importPath(batchId)}/commit`,
+        signal: call?.signal,
+      });
+    },
+
+    deleteImport(batchId, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: importPath(batchId),
+        signal: call?.signal,
+      });
+    },
+
+    listMerchantRules(call) {
+      return transport.request<MerchantRuleListOut>({
+        method: 'GET',
+        path: PATHS.merchantRules,
+        signal: call?.signal,
+      });
+    },
+
+    deleteMerchantRule(ruleId, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: `${PATHS.merchantRules}/${encodeURIComponent(ruleId)}`,
         signal: call?.signal,
       });
     },

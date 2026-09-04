@@ -1,0 +1,310 @@
+/*
+ * 줄글 입력과 기억한 분류.
+ *
+ * 색·반경·글자는 전부 index.css 의 토큰에서 읽는다. 공용 프리미티브는 shared/ui 가 그리고,
+ * 여기에는 이 화면에만 있는 배치만 둔다.
+ */
+
+@layer components {
+  /* ── 줄글 적기 ─────────────────────────── */
+  .nl {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .nl__field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .nl__label {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .nl__input {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-inset);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: var(--text-16);
+    line-height: 1.5;
+    resize: none;
+  }
+
+  .nl__input::placeholder {
+    color: var(--color-placeholder);
+  }
+
+  .nl__hint,
+  .nl__read {
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  .nl__empty {
+    padding: 20px 4px;
+    font-size: var(--text-14);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  .nl__notice {
+    font-size: var(--text-13);
+    color: var(--color-expense);
+  }
+
+  .nl__list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 46vh;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .nl__actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .nl__done {
+    flex: 1;
+  }
+
+  /* ── 후보 한 줄 ────────────────────────── */
+  .nl-item {
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-inset);
+    background: var(--color-surface);
+  }
+
+  .nl-item__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .nl-item__pick {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .nl-item__pick input {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    accent-color: var(--color-sage-700);
+  }
+
+  .nl-item__name {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nl-item__amount {
+    flex: none;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 확신이 낮은 값은 점선으로 표시한다. 지워야 할 값이 아니라 눈으로 볼 값이라는 뜻이다. */
+  .nl-item__amount--unsure {
+    text-decoration: underline dashed var(--color-dashed);
+    text-underline-offset: 4px;
+  }
+
+  .nl-item__meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding-left: 30px;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  .nl-item__dot {
+    color: var(--color-disabled);
+  }
+
+  .nl-item__edit {
+    margin-left: auto;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+    color: var(--color-sage-700);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  /* ── 한 줄 고치기 ──────────────────────── */
+  .nl-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .nl-form__fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .nl-form__field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .nl-form__label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .nl-form__input {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: var(--text-15);
+  }
+
+  .nl-form__cats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .nl-form__cat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px 6px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: var(--text-13);
+  }
+
+  .nl-form__cat--on {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  /* ── 저장 뒤 ──────────────────────────── */
+  .nl--saved {
+    align-items: stretch;
+    padding: 8px 0;
+    text-align: center;
+  }
+
+  .nl__saved-title {
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .nl__saved-detail {
+    font-size: var(--text-14);
+    color: var(--color-muted);
+  }
+
+  /* ── 기억한 분류 ──────────────────────── */
+  .rules {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  .rules__title {
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .rules__lead {
+    margin-top: 4px;
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  .rules__list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .rules__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 4px;
+  }
+
+  .rules__row + .rules__row {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .rules__merchant {
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rules__category {
+    margin-left: auto;
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  .rules__delete {
+    padding: 4px 10px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+    color: var(--color-muted);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .rules__notice {
+    font-size: var(--text-13);
+    color: var(--color-expense);
+  }
+}

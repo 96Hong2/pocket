@@ -18,6 +18,8 @@ import {
   type SegmentedOption,
 } from '../../shared/ui';
 
+import { NaturalLanguageTab } from '../imports';
+
 import { CategoryChips } from './CategoryChips';
 import { FeedbackPanel } from './FeedbackPanel';
 import { toAmount } from './digits';
@@ -27,10 +29,10 @@ import { undoDeadline } from './useUndoCountdown';
 
 type RecordTab = 'keypad' | 'nl' | 'capture' | 'receipt';
 
-/** 뒤 셋은 다음 마일스톤에서 열린다. 자리만 두어 어디로 가는지 보이게 한다. */
+/** 뒤 둘은 다음 마일스톤에서 열린다. 자리만 두어 어디로 가는지 보이게 한다. */
 const TABS: SegmentedOption<RecordTab>[] = [
   { value: 'keypad', label: '키패드' },
-  { value: 'nl', label: '줄글', disabled: true },
+  { value: 'nl', label: '줄글' },
   { value: 'capture', label: '캡처', disabled: true },
   { value: 'receipt', label: '영수증', disabled: true },
 ];
@@ -58,12 +60,7 @@ export function QuickRecordSheet({ open, onClose }: { open: boolean; onClose: ()
   useOverlayBackClose(open && !saving, onClose);
 
   return (
-    <BottomSheet
-      open={open}
-      onClose={onClose}
-      dismissible={!saving}
-      ariaLabel="10초 기록"
-    >
+    <BottomSheet open={open} onClose={onClose} dismissible={!saving} ariaLabel="10초 기록">
       <RecordBody onDone={onClose} onSavingChange={setSaving} />
     </BottomSheet>
   );
@@ -82,6 +79,8 @@ function RecordBody({
   const create = useCreateTransaction();
 
   const [tab, setTab] = useState<RecordTab>('keypad');
+  // 무언가 도는 중에는 탭을 옮기지 못한다. 옮기면 응답이 돌아올 자리가 사라진다.
+  const [busy, setBusy] = useState(false);
   const [digits, setDigits] = useState('');
   const [saved, setSaved] = useState<SavedState | null>(null);
   const [repeat, setRepeat] = useState<LastRecord | null>(null);
@@ -100,11 +99,16 @@ function RecordBody({
     (category) => category.kind === 'expense',
   );
 
+  /** 껍데기(닫기 막기)와 탭 잠금에 같은 신호를 쓴다. */
+  function markBusy(next: boolean): void {
+    setBusy(next);
+    onSavingChange(next);
+  }
+
   function save(category: CategoryOut, amount: number): void {
     if (!Number.isFinite(amount) || amount <= 0) return;
 
-    // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
-    onSavingChange(true);
+    markBusy(true);
     create.mutate(
       {
         occurred_at: new Date().toISOString(),
@@ -117,7 +121,7 @@ function RecordBody({
         excluded_from_budget: false,
       },
       {
-        onSettled: () => onSavingChange(false),
+        onSettled: () => markBusy(false),
         onSuccess: (created) => {
           setSaved({
             transaction: created.transaction,
@@ -169,52 +173,61 @@ function RecordBody({
     <div className="record">
       <SegmentedControl
         className="record__tabs"
-        options={TABS}
+        options={TABS.map((option) =>
+          option.value === tab ? option : { ...option, disabled: option.disabled || busy },
+        )}
         value={tab}
         onChange={setTab}
         ariaLabel="기록 방법"
       />
 
-      {repeat && repeatCategory ? (
-        <div className="record__repeat">
-          <button
-            type="button"
-            className="repeat-chip"
-            disabled={create.isPending}
-            onClick={() => {
-              setDigits(String(repeat.amount));
-              save(repeatCategory, repeat.amount);
-            }}
-          >
-            한 번 더 · {repeat.categoryName} {formatCurrency(repeat.amount)}
-          </button>
-        </div>
-      ) : null}
+      {/* 감추기만 하고 남겨 둔다. 언마운트하면 적어 둔 줄글과 검토 목록이 사라진다. */}
+      <div hidden={tab !== 'nl'}>
+        <NaturalLanguageTab onBusyChange={markBusy} onDone={onDone} />
+      </div>
 
-      <AmountDisplay digits={digits} hint={hint} />
+      <div hidden={tab !== 'keypad'}>
+        {repeat && repeatCategory ? (
+          <div className="record__repeat">
+            <button
+              type="button"
+              className="repeat-chip"
+              disabled={create.isPending}
+              onClick={() => {
+                setDigits(String(repeat.amount));
+                save(repeatCategory, repeat.amount);
+              }}
+            >
+              한 번 더 · {repeat.categoryName} {formatCurrency(repeat.amount)}
+            </button>
+          </div>
+        ) : null}
 
-      {saveError ? (
-        <p className="record__notice" role="alert">
-          {saveError.message}
-        </p>
-      ) : null}
+        <AmountDisplay digits={digits} hint={hint} />
 
-      {categories.isPending ? <LoadingState size="inline" /> : null}
-      {categories.isError ? (
-        <ErrorState
-          size="inline"
-          title="카테고리를 불러오지 못했어요"
-          onRetry={() => void categories.refetch()}
+        {saveError ? (
+          <p className="record__notice" role="alert">
+            {saveError.message}
+          </p>
+        ) : null}
+
+        {categories.isPending ? <LoadingState size="inline" /> : null}
+        {categories.isError ? (
+          <ErrorState
+            size="inline"
+            title="카테고리를 불러오지 못했어요"
+            onRetry={() => void categories.refetch()}
+          />
+        ) : null}
+
+        <CategoryChips
+          categories={expenseCategories}
+          disabled={amount <= 0 || create.isPending}
+          onPick={(category) => save(category, amount)}
         />
-      ) : null}
 
-      <CategoryChips
-        categories={expenseCategories}
-        disabled={amount <= 0 || create.isPending}
-        onPick={(category) => save(category, amount)}
-      />
-
-      <Keypad digits={digits} onChange={setDigits} />
+        <Keypad digits={digits} onChange={setDigits} />
+      </div>
     </div>
   );
 }

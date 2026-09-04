@@ -12,6 +12,7 @@ from app.integrations.llm.contracts import (
     TransactionType,
     attach_source,
 )
+from app.integrations.llm.factory import get_llm_client
 from app.integrations.llm.port import (
     LlmError,
     LlmImage,
@@ -46,6 +47,7 @@ __all__ = [
     "TransactionType",
     "attach_source",
     "build_meta",
+    "get_llm_client",
     "natural_language_prompt",
     "screenshot_prompt",
 ]

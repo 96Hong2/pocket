@@ -42,6 +42,18 @@ export type CategoryBudgetOut = Schemas['CategoryBudgetOut'];
 /** 문장이 아니라 종류와 숫자만 온다. 문장 조립은 화면이 한다. */
 export type FeedbackOut = Schemas['FeedbackOut'];
 
+// ── 줄글 입력 ──────────────────────────────────
+/** 검토 단위. 아직 거래가 아니라 후보 묶음이다. */
+export type ImportBatchOut = Schemas['ImportBatchOut'];
+/** 후보 한 줄. `is_low_confidence` 면 화면이 점선으로 표시하고 기본 선택에서 뺀다. */
+export type ImportCandidateOut = Schemas['ImportCandidateOut'];
+export type ImportCandidatePatch = Schemas['ImportCandidatePatch'];
+export type ImportTextIn = Schemas['ImportTextIn'];
+export type ImportCommitOut = Schemas['ImportCommitOut'];
+/** 기억한 분류 규칙. 지울 수 있다. */
+export type MerchantRuleOut = Schemas['MerchantRuleOut'];
+export type MerchantRuleListOut = Schemas['MerchantRuleListOut'];
+
 // ── 카테고리 ───────────────────────────────────
 export type CategoryOut = Schemas['CategoryOut'];
 export type CategoryListOut = Schemas['CategoryListOut'];

@@ -50,7 +50,12 @@ test('24 달력이 그 달을 한눈에 보여준다', async ({ demo, calendar, 
   const cafe = await prep.categoryIdByName('카페·간식');
   const meal = await prep.categoryIdByName('식비');
 
-  await prep.addTransaction({ amount: COFFEE, minutesAgo: 1, categoryId: cafe, merchant: '스타벅스' });
+  await prep.addTransaction({
+    amount: COFFEE,
+    minutesAgo: 1,
+    categoryId: cafe,
+    merchant: '스타벅스',
+  });
   await prep.addTransaction({ amount: MEAL, minutesAgo: 2, categoryId: meal });
   await prep.addTransaction({
     amount: TRANSFER,
@@ -112,9 +117,24 @@ test('25 상호나 카테고리 이름으로 찾는다', async ({ demo, calendar
   const cafe = await prep.categoryIdByName('카페·간식');
   const meal = await prep.categoryIdByName('식비');
 
-  await prep.addTransaction({ amount: COFFEE, minutesAgo: 1, categoryId: cafe, merchant: '스타벅스' });
-  await prep.addTransaction({ amount: 5_600, minutesAgo: 2, categoryId: cafe, merchant: 'CU 삼성점' });
-  await prep.addTransaction({ amount: MEAL, minutesAgo: 3, categoryId: meal, merchant: '김밥천국' });
+  await prep.addTransaction({
+    amount: COFFEE,
+    minutesAgo: 1,
+    categoryId: cafe,
+    merchant: '스타벅스',
+  });
+  await prep.addTransaction({
+    amount: 5_600,
+    minutesAgo: 2,
+    categoryId: cafe,
+    merchant: 'CU 삼성점',
+  });
+  await prep.addTransaction({
+    amount: MEAL,
+    minutesAgo: 3,
+    categoryId: meal,
+    merchant: '김밥천국',
+  });
 
   await calendar.open();
   await calendar.waitReady();

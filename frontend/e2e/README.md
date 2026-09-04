@@ -16,7 +16,7 @@ e2e/
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
     HomeScreen       홈. 안쪽을 hero·today·budget·ads·recovery 로 나눠 들고 있다
-    RecordSheet      기록 시트. 안쪽이 input(저장 전)·feedback(저장 후) 둘이다
+    RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글) 셋이다
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
     ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·categories·banner·settings 로 나눠 들고 있다
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
@@ -36,13 +36,13 @@ e2e/
 
 `PrepApi` 로 심을 수 있는 것.
 
-| 부르는 것 | 심는 것 |
-| --- | --- |
-| `addTransaction` · `addSeries` · `addExpense` | 거래. 종류·가맹점·예산 제외·며칠 전까지 정한다 |
-| `setBudget(금액, 달?)` · `deleteBudget(달?)` | 전체 예산. 달을 빼면 이번 달이다 |
-| `setCategoryBudget(카테고리, 금액, 달?)` · `deleteCategoryBudget(카테고리, 달?)` | 카테고리 예산 |
-| `setAutoCarryover(켬)` | 다음 달로 예산을 이어 쓸지 |
-| `categoryIdByName` | 이름으로 카테고리 id 찾기 |
+| 부르는 것                                                                        | 심는 것                                        |
+| -------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `addTransaction` · `addSeries` · `addExpense`                                    | 거래. 종류·가맹점·예산 제외·며칠 전까지 정한다 |
+| `setBudget(금액, 달?)` · `deleteBudget(달?)`                                     | 전체 예산. 달을 빼면 이번 달이다               |
+| `setCategoryBudget(카테고리, 금액, 달?)` · `deleteCategoryBudget(카테고리, 달?)` | 카테고리 예산                                  |
+| `setAutoCarryover(켬)`                                                           | 다음 달로 예산을 이어 쓸지                     |
+| `categoryIdByName`                                                               | 이름으로 카테고리 id 찾기                      |
 
 달은 `2026-08` 모양이고, `thisMonth()`·`lastMonth()` 로 얻는다. 기기 시간대로 만들지 않는다.
 지난달 예산은 이어쓰기를 보려고 심는다. 끝난 기간의 쓰기는 제품 규칙이 막아 두므로
@@ -85,7 +85,7 @@ e2e/
 
 - 같은 절차를 **spec 2개**가 복붙하면 그때 `screens/` 의 메서드로 올린다. 1개면 spec 안에 둔다.
 - 화면 객체의 메서드가 **10개**를 넘으면 화면 안의 영역을 별도 객체로 쪼갠다.
-  실제로 두 번 쪼갰다. `RecordSheet` 는 저장 전후로 보이는 것이 달라 `input`·`feedback` 으로,
+  실제로 두 번 쪼갰다. `RecordSheet` 는 저장 전후와 입력 방법이 달라 `input`·`feedback`·`nl` 로,
   `HomeScreen` 은 카드가 쌓인 화면이라 `hero`·`today`·`budget`·`ads`·`recovery` 로 나눴다.
   쪼갠 뒤에도 파일은 하나다. 한 화면을 여러 파일로 흩으면 어디를 봐야 할지 알 수 없어진다.
 - 하나의 절차가 **화면 3개**를 가로지르면 그때 `flows/` 를 새로 만든다. 지금은 없다. 미리 만들지 않는다.
@@ -166,12 +166,12 @@ node scripts/demo-publish.mjs <폴더>       webm 을 mp4 로 옮기고 인덱�
 
 ### 연출
 
-| 부르는 것 | 하는 일 |
-| --- | --- |
-| `demo.open(제목, 설명)` | 영상 맨 앞 제목 카드. 페이지를 연 뒤에 부른다 |
-| `demo.step(문구)` | 위쪽 자막. 누르기 **직전에** 부른다 |
-| `demo.clearStep()` | 자막을 걷는다. 화면 전체를 보여줄 때 |
-| `demo.beat(n)` | n 박자 쉰다. 한 박자는 750ms (`support/director.ts` 의 `BEAT_MS`) |
+| 부르는 것               | 하는 일                                                           |
+| ----------------------- | ----------------------------------------------------------------- |
+| `demo.open(제목, 설명)` | 영상 맨 앞 제목 카드. 페이지를 연 뒤에 부른다                     |
+| `demo.step(문구)`       | 위쪽 자막. 누르기 **직전에** 부른다                               |
+| `demo.clearStep()`      | 자막을 걷는다. 화면 전체를 보여줄 때                              |
+| `demo.beat(n)`          | n 박자 쉰다. 한 박자는 750ms (`support/director.ts` 의 `BEAT_MS`) |
 
 `waitForTimeout` 은 `demo` 안에서만 쓴다. 검증 spec 에서는 여전히 금지다.
 영상은 사람이 보는 것이라 "상태가 됐다" 와 "눈으로 따라갔다" 가 다르다.

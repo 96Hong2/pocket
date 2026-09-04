@@ -14,11 +14,7 @@ const AMOUNT = 12_000;
 const FIRST_CATEGORY = '식비';
 const MOVED_CATEGORY = '카페·간식';
 
-test('14 저장한 뒤 카테고리 고치고 한 번 더로 반복하기', async ({
-  demo,
-  home,
-  recordSheet,
-}) => {
+test('14 저장한 뒤 카테고리 고치고 한 번 더로 반복하기', async ({ demo, home, recordSheet }) => {
   await home.open();
   await home.waitReady();
   await demo.open('저장한 뒤에 고치기', '분류를 바꾸고, 다음엔 칩 하나로 같은 기록을 만든다');

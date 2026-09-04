@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Category, CategoryKind, Transaction, User
+from app.modules import ledger
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
 
@@ -314,3 +316,30 @@ def test_남의_거래는_고칠_수_없다(client: TestClient) -> None:
     )
     assert r.status_code == 404
     assert r.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_상호를_고치면_지문도_함께_바뀐다(client: TestClient, default_categories) -> None:
+    """지문을 안 고치면 이미 적은 것을 다시 올려도 줄글이 중복으로 못 잡는다."""
+    created = client.post(
+        "/api/v1/transactions",
+        json={
+            "occurred_at": datetime.now(ZoneInfo(ledger.DEFAULT_TIMEZONE)).isoformat(),
+            "amount": "12000",
+            "type": "expense",
+            "merchant": "김밥천국",
+            "source": "keypad",
+            "confidence": 1,
+            "excluded_from_budget": False,
+        },
+        headers=AUTH,
+    )
+    assert created.status_code == 201, created.text
+    tx_id = created.json()["transaction"]["id"]
+
+    updated = client.patch(f"/api/v1/transactions/{tx_id}", json={"merchant": "스벅"}, headers=AUTH)
+    assert updated.status_code == 200, updated.text
+
+    # 고친 이름으로 줄글을 다시 넣으면 중복으로 잡혀야 한다.
+    analyzed = client.post("/api/v1/imports/text", json={"text": "스벅 12000"}, headers=AUTH)
+    assert analyzed.status_code == 201, analyzed.text
+    assert analyzed.json()["candidates"][0]["is_duplicate"] is True

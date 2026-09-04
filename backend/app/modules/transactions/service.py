@@ -27,6 +27,7 @@ from app.domain.feedback import (
     SavedTransaction,
     evaluate_feedback,
 )
+from app.domain.fingerprint import build_fingerprint
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod
 from app.models import Category, Transaction, User
@@ -166,6 +167,23 @@ def _normalized(data: dict) -> dict:
     return payload
 
 
+def _stamp_identity(tx: Transaction, user: User) -> None:
+    """상호 정규화와 지문을 채운다.
+
+    입력 경로가 달라도 같은 거래는 같은 지문이어야 한다. 그래야 줄글·캡처가
+    이미 적은 것을 다시 올리지 않는다. 지문은 저장할 때 한 번만 만든다.
+    """
+    tz = ledger.user_tz(user)
+    fingerprint = build_fingerprint(
+        occurred_on=ledger.local_date(tx.occurred_at, tz),
+        amount=Money(tx.amount),
+        type=tx.type,
+        merchant=tx.merchant,
+    )
+    tx.merchant_normalized = fingerprint.merchant_normalized or None
+    tx.fingerprint = fingerprint.value
+
+
 # ── 판정 ────────────────────────────────────────────────
 
 
@@ -222,6 +240,7 @@ def create_transaction(
         payload["category_id"] = target.category_id
 
     tx = Transaction(user_id=user.id, **payload)
+    _stamp_identity(tx, user)
     session.add(tx)
     session.commit()
     session.refresh(tx)
@@ -251,6 +270,7 @@ def update_transaction(
 
     for field, value in payload.items():
         setattr(tx, field, value)
+    _stamp_identity(tx, user)
     session.commit()
     session.refresh(tx)
 

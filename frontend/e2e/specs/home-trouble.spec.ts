@@ -90,8 +90,18 @@ test('오늘 목록이 종류와 예산 제외를 라벨로 갈라 그린다', a
   const cafe = await prep.categoryIdByName('카페·간식');
   const etc = await prep.categoryIdByName('기타');
 
-  await prep.addTransaction({ amount: 4_500, minutesAgo: 1, categoryId: cafe, merchant: '스타벅스' });
-  await prep.addTransaction({ amount: 300_000, minutesAgo: 2, type: 'transfer', merchant: '카카오뱅크' });
+  await prep.addTransaction({
+    amount: 4_500,
+    minutesAgo: 1,
+    categoryId: cafe,
+    merchant: '스타벅스',
+  });
+  await prep.addTransaction({
+    amount: 300_000,
+    minutesAgo: 2,
+    type: 'transfer',
+    merchant: '카카오뱅크',
+  });
   await prep.addTransaction({ amount: 2_000_000, minutesAgo: 3, type: 'income', merchant: '월급' });
   await prep.addTransaction({
     amount: 40_000,
