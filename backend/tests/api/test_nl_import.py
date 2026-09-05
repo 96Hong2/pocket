@@ -350,6 +350,52 @@ def test_손으로_켠_환불_줄은_상호를_고쳐도_켜진_채_남는다(
     assert fixed["selected_count"] == 1
 
 
+def test_손으로_끈_평범한_줄은_상호를_고쳐도_꺼진_채_남는다(
+    client: TestClient, default_categories
+) -> None:
+    """빼기로 한 줄을 고쳤다고 되켜면, 안 넣기로 한 건이 조용히 저장된다."""
+    batch = _analyze(client, "점심 12000 스벅 4500")
+    candidate = batch["candidates"][1]
+    assert candidate["is_selected"] is True
+
+    turned_off = client.patch(
+        f"/api/v1/imports/{batch['id']}/candidates/{candidate['id']}",
+        json={"is_selected": False},
+        headers=AUTH,
+    ).json()
+    assert turned_off["selected_count"] == 1
+
+    # 상호 오타만 고친다. 뺀다는 결정과는 상관없는 편집이다.
+    fixed = client.patch(
+        f"/api/v1/imports/{batch['id']}/candidates/{candidate['id']}",
+        json={"merchant": "스타벅스"},
+        headers=AUTH,
+    ).json()
+
+    assert fixed["candidates"][1]["is_selected"] is False
+    assert fixed["selected_count"] == 1
+    assert fixed["selected_expense_total"] == "12000"
+
+    committed = client.post(f"/api/v1/imports/{batch['id']}/commit", headers=AUTH)
+    assert committed.json()["created_count"] == 1
+
+
+def test_확신이_낮아_꺼진_줄은_고치면_켜진다(client: TestClient, default_categories) -> None:
+    """대조군. 서버가 꺼 둔 줄은 사람이 값을 확인해 주면 켜져야 한다."""
+    batch = _analyze(client, "9000")
+    candidate = batch["candidates"][0]
+    assert candidate["is_selected"] is False
+
+    fixed = client.patch(
+        f"/api/v1/imports/{batch['id']}/candidates/{candidate['id']}",
+        json={"merchant": "김밥천국"},
+        headers=AUTH,
+    ).json()
+
+    assert fixed["candidates"][0]["is_selected"] is True
+    assert fixed["selected_count"] == 1
+
+
 def test_고쳐서_이미_있는_것과_같아지면_켜진_줄이_꺼진다(
     client: TestClient, default_categories
 ) -> None:

@@ -129,7 +129,11 @@ class ImportCandidatePatch(BaseModel):
 
 
 class ImportCommitOut(BaseModel):
-    """저장 결과. 마지막 한 건 기준으로 지금 돈 상태를 함께 준다."""
+    """저장 결과. 지금 돈 상태를 함께 준다.
+
+    `feedback` 과 `budget` 의 기준이 다르다. 묶음이 여러 달에 걸칠 수 있어서다.
+    `feedback` 은 마지막 한 건, `budget` 은 오늘이 속한 기간(없으면 가장 늦은 기간)이다.
+    """
 
     batch: ImportBatchOut
     created_count: int

@@ -21,7 +21,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
+from app.domain.aggregation import TransactionType
+from app.domain.redaction import MASK
 from app.integrations.llm import LlmError, get_llm_client
+from app.integrations.llm.contracts import ExtractedTransaction, TransactionExtraction
 from app.integrations.llm.stub import StubLlmStructuredClient
 from app.models import ImportBatch, ImportCandidate, ParseUsage, Transaction
 from app.modules import ledger
@@ -41,6 +44,8 @@ PAYLOAD = base64.b64encode(PNG_BYTES).decode()
 IMAGE = f"data:image/png;base64,{PAYLOAD}"
 # 형식은 맞고 매직바이트만 틀린 값. 서버가 payload 를 디코드한 뒤에 막는다.
 BROKEN_IMAGE = f"data:image/png;base64,{base64.b64encode(MARKER * 8).decode()}"
+# 캡처에 찍혀 모델이 상호로 읽어 온 카드번호. 저장까지 가면 영구히 남는다.
+LEAKED_CARD = "1234-5678-9012-3456"
 
 
 def _analyze(client: TestClient, image: str = IMAGE) -> dict:
@@ -248,6 +253,27 @@ class _PromptRecorder(StubLlmStructuredClient):
         )
 
 
+class _LeakyClient(StubLlmStructuredClient):
+    """카드번호가 박힌 상호를 돌려주는 모델.
+
+    이미지 안의 숫자는 가릴 수단이 없으므로, 모델이 그것을 읽어 상호로 돌려주는 순간이
+    마지막 그물이다. 스텁은 늘 깨끗한 상호만 내서 이 그물을 지나지 않는다.
+    """
+
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        return TransactionExtraction(
+            candidates=[
+                ExtractedTransaction(
+                    amount=12000,
+                    type=TransactionType.EXPENSE,
+                    merchant=f"{LEAKED_CARD} 승인",
+                    category="식비",
+                    confidence=0.95,
+                )
+            ]
+        )
+
+
 class _BrokenClient(StubLlmStructuredClient):
     """읽기가 실패하는 모델. 실패했을 때 무엇을 못 읽었다고 말하는지 본다."""
 
@@ -276,6 +302,27 @@ def test_줄글은_줄글용_지시를_보낸다(client: TestClient, default_cat
     sent = recorder.prompts[0]
     assert "사용자가 쓴 줄글" in sent
     assert "결제 내역 캡처 이미지" not in sent
+
+
+def test_모델이_상호에_카드번호를_실어_와도_가려서_저장한다(
+    client: TestClient, db: Session, default_categories
+) -> None:
+    """이미지는 못 가린다. 모델이 돌려준 값을 가리는 것이 마지막 그물이다."""
+    with _using(client, _LeakyClient):
+        batch = _analyze(client)
+
+    assert batch["candidates"][0]["merchant"] == f"{MASK} 승인"
+
+    client.post(f"/api/v1/imports/{batch['id']}/commit", headers=AUTH)
+
+    # 거래와 기억한 분류까지 훑는다. 한 자리만 보면 다음에 새는 자리를 놓친다.
+    stored = _string_values(db, ImportBatch, ImportCandidate, Transaction)
+    assert stored, "읽을 행이 하나도 없다. 스캔이 아무것도 안 보고 통과했다"
+    for value in stored:
+        assert LEAKED_CARD not in value
+
+    rules = client.get("/api/v1/merchant-rules", headers=AUTH)
+    assert LEAKED_CARD not in rules.text
 
 
 def test_읽기가_실패하면_사진에_맞는_문구로_알린다(client: TestClient, default_categories) -> None:
@@ -314,6 +361,39 @@ def test_달이_바뀐_직후_저장해도_예산은_이번_달을_말한다(
     assert body["budget"]["period_start"] == "2026-09-01"
     # 9월에 든 것은 오늘 날짜 두 건(스타벅스 4,500 + GS25 3,200)뿐이다.
     assert body["budget"]["remaining_budget"] == "592300"
+
+
+def test_전부_지난달_것이면_마지막까지_반영된_예산을_말한다(
+    client: TestClient, default_categories, monkeypatch
+) -> None:
+    """같은 달 스냅샷이 여럿일 때 앞엣것을 고르면, 뒤에 저장한 건이 빠진 채로 보인다."""
+    from app.modules import ledger as ledger_module
+
+    monkeypatch.setattr(ledger_module, "today_for", lambda user: date(2026, 9, 20))
+    budget = client.put(
+        "/api/v1/budgets?period_start=2026-09-01", json={"amount": "600000"}, headers=AUTH
+    )
+    assert budget.status_code == 200, budget.text
+
+    # 달을 넘긴다. 스텁의 어제·그저께 건이 지난달로 떨어지고 오늘 것만 이번 달에 남는다.
+    monkeypatch.setattr(ledger_module, "today_for", lambda user: date(2026, 10, 1))
+    batch = _analyze(client)
+
+    # 이번 달에 드는 오늘 두 건을 뺀다. 남는 것은 9/30 김밥천국과 9/29 쿠팡뿐이다.
+    for merchant in ("스타벅스", "GS25"):
+        client.patch(
+            f"/api/v1/imports/{batch['id']}/candidates/{_row(batch, merchant)['id']}",
+            json={"is_selected": False},
+            headers=AUTH,
+        )
+
+    committed = client.post(f"/api/v1/imports/{batch['id']}/commit", headers=AUTH)
+    assert committed.status_code == 200, committed.text
+    body = committed.json()
+
+    assert body["budget"]["period_start"] == "2026-09-01"
+    # 8,000 + 32,900 이 둘 다 빠진 값이다. 앞 스냅샷을 고르면 32,900 이 남아 592,000 이 된다.
+    assert body["budget"]["remaining_budget"] == "559100"
 
 
 def _string_values(db: Session, *models: type) -> list[str]:

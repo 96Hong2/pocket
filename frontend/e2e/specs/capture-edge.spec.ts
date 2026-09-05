@@ -126,6 +126,24 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
   await expect(recordSheet.closeButton).toBeVisible();
 });
 
+test('탭을 옮겨도 Tab 키가 시트 밖으로 새지 않는다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('캡처').click();
+  await expect(recordSheet.capture.guide).toBeVisible();
+
+  // 감춘 탭(키패드·줄글)의 버튼이 DOM 에 그대로 남아 있다. 그것까지 포커스 대상으로 세면
+  // 마지막 자리가 안 보이는 요소가 되어 되감기가 안 걸리고 포커스가 시트 밖으로 나간다.
+  //
+  // 한 번 누를 때마다 본다. 끝에서 한 번만 보면 놓친다. 시트는 포털이라 문서 맨 뒤에 붙고,
+  // 새어 나간 포커스가 문서를 한 바퀴 돌아 시트로 되돌아오기 때문이다.
+  for (let press = 1; press <= 12; press += 1) {
+    await recordSheet.pressTab(1);
+    expect(await recordSheet.focusInside, `${press}번째 Tab 에서 시트 밖으로 나갔다`).toBe(true);
+  }
+});
+
 test.describe('일부러 실패시켰을 때', () => {
   test.use({
     // 일부러 만든 실패다. 브라우저가 그 응답을 콘솔에 적는 것이고 앱이 낸 오류가 아니다.

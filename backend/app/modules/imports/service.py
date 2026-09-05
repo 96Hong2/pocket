@@ -227,6 +227,8 @@ def update_candidate(
     # 재판정에 쓸 고치기 전 상태. setattr 로 값이 바뀌기 전에 떠 둔다.
     was_duplicate = row.is_duplicate
     was_refund = row.type == TransactionType.REFUND
+    # 서버가 스스로 꺼 둔 줄인지. 셋 중 아무 이유도 없이 꺼져 있으면 사람이 손으로 끈 것이다.
+    was_blocked = was_duplicate or was_refund or row.confidence < LOW_CONFIDENCE_THRESHOLD
 
     for field, value in data.items():
         if field == "occurred_at" and isinstance(value, datetime):
@@ -246,13 +248,15 @@ def update_candidate(
         )
         if "is_selected" not in data:
             now_refund = row.type == TransactionType.REFUND
-            if (row.is_duplicate and not was_duplicate) or (now_refund and not was_refund):
+            now_blocked = row.is_duplicate or now_refund
+            if now_blocked and not (was_duplicate or was_refund):
                 # 고쳐서 이제야 이미 있는 것과 같아졌거나 환불이 된 줄만 끈다.
                 # 안 끄면 켜진 채 남아 같은 거래가 두 번 저장된다.
                 row.is_selected = False
-            elif not row.is_duplicate and not now_refund:
+            elif not now_blocked and was_blocked:
+                # 꺼 둘 이유가 사라졌으니 되켠다.
+                # 사람이 손으로 끈 줄은 애초에 이유가 없어 여기 안 걸리고 꺼진 채 남는다.
                 row.is_selected = True
-            # 처음부터 중복이거나 환불이던 줄은 건드리지 않는다. 사람이 손으로 켠 선택이다.
 
     session.commit()
     session.refresh(batch)
@@ -345,7 +349,9 @@ def _budget_outcome(
     for item in reversed(outcomes):
         if item.period == current:
             return item
-    return max(outcomes, key=lambda item: item.period.start)
+    # reversed 를 지나게 한다. 같은 기간이 여럿이면 max 가 앞엣것을 고르는데,
+    # 앞 스냅샷에는 뒤에 저장한 건이 빠져 있어 남은 예산이 그만큼 많아 보인다.
+    return max(reversed(outcomes), key=lambda item: item.period.start)
 
 
 def delete_batch(session: Session, user: User, batch_id: uuid.UUID) -> None:

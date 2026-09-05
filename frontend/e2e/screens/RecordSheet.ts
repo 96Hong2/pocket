@@ -65,6 +65,23 @@ export class RecordSheet {
   async closeByEsc(): Promise<void> {
     await this.page.keyboard.press('Escape');
   }
+
+  /** Tab 을 여러 번 눌러 포커스를 한 바퀴 돌린다. */
+  async pressTab(times: number): Promise<void> {
+    for (let step = 0; step < times; step += 1) {
+      await this.page.keyboard.press('Tab');
+    }
+  }
+
+  /**
+   * 포커스가 아직 시트 안에 있나.
+   *
+   * 감춘 탭의 버튼까지 포커스 대상으로 세면 마지막 자리가 안 보이는 요소가 되어
+   * 되돌리는 손잡이가 영영 안 잡힌다. 그러면 Tab 이 시트 밖으로 샌다.
+   */
+  get focusInside(): Promise<boolean> {
+    return this.root.evaluate((sheet) => sheet.contains(document.activeElement));
+  }
 }
 
 /** 저장 전 얼굴. */
