@@ -42,6 +42,9 @@ export const queryKeys = {
   summaries: () => [ROOT, 'summary'] as const,
   summary: (params?: MonthParams) => [ROOT, 'summary', monthPart(params)] as const,
 
+  reports: () => [ROOT, 'report'] as const,
+  report: (params?: MonthParams) => [ROOT, 'report', monthPart(params)] as const,
+
   calendars: () => [ROOT, 'calendar'] as const,
   calendar: (params?: MonthParams) => [ROOT, 'calendar', monthPart(params)] as const,
 
@@ -73,5 +76,7 @@ export function moneyQueryKeys(): ReadonlyArray<readonly string[]> {
     queryKeys.summaries(),
     queryKeys.transactionLists(),
     queryKeys.calendars(),
+    // 리포트도 거래를 세는 화면이다. 빼면 저장 뒤 리포트만 옛 숫자를 보여준다.
+    queryKeys.reports(),
   ];
 }

@@ -94,6 +94,23 @@ export function useSummary(params?: MonthParams) {
 }
 
 /**
+ * 월 리포트. 그 화면이 그리는 것을 한 응답으로 받는다.
+ *
+ * 총액을 `useSummary` 에서, 조각을 여기서 가져오면 둘 사이에 저장이 끼는 순간
+ * 도넛과 헤드라인이 서로 다른 말을 한다. 리포트 화면은 이 훅 하나만 쓴다.
+ */
+export function useMonthlyReport(params?: MonthParams) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.report(params),
+    queryFn: ({ signal }) => client.getMonthlyReport(params, { signal }),
+    enabled: isReady,
+  });
+}
+
+/**
  * 커서로 이어 받는 거래 목록.
  *
  * 달력 화면의 검색 결과와 전체 내역이 쓴다. 홈은 이걸 쓰지 않는다. 홈은 그 달을 한 번 받아

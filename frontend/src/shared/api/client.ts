@@ -19,6 +19,7 @@ import type {
   ImportCandidatePatch,
   ImportCommitOut,
   MerchantRuleListOut,
+  MonthlyReportOut,
   PeriodSummaryOut,
   PreferencesOut,
   PreferencesPatch,
@@ -64,6 +65,7 @@ export interface CallOptions {
 const PATHS = {
   transactions: '/api/v1/transactions',
   summary: '/api/v1/transactions/summary',
+  monthlyReport: '/api/v1/reports/monthly',
   calendar: '/api/v1/transactions/calendar',
   categories: '/api/v1/categories',
   budgets: '/api/v1/budgets',
@@ -109,6 +111,9 @@ export interface ApiClient extends Transport {
   /** 방금 저장한 것 되돌리기. 본문 없는 204 로 온다. */
   undoTransaction(id: string, options?: CallOptions): Promise<void>;
   getSummary(params?: MonthParams, options?: CallOptions): Promise<PeriodSummaryOut>;
+
+  /** 리포트 화면이 그리는 것 전부. 조회 하나로 끝낸다. */
+  getMonthlyReport(params?: MonthParams, options?: CallOptions): Promise<MonthlyReportOut>;
   /** 달력 격자용 날짜별 합계. 기록이 있는 날만 온다. */
   getCalendar(params?: MonthParams, options?: CallOptions): Promise<CalendarMonthOut>;
   listCategories(options?: CallOptions): Promise<CategoryListOut>;
@@ -220,6 +225,15 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<PeriodSummaryOut>({
         method: 'GET',
         path: PATHS.summary,
+        query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
+    getMonthlyReport(params, call) {
+      return transport.request<MonthlyReportOut>({
+        method: 'GET',
+        path: PATHS.monthlyReport,
         query: monthQuery(params),
         signal: call?.signal,
       });

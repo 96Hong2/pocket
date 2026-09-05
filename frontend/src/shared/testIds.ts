@@ -62,6 +62,25 @@ export const TEST_IDS = {
   capturePanel: 'capture-panel',
   /** 영수증 탭 패널. 같은 이유로 둔다. */
   receiptPanel: 'receipt-panel',
+
+  /** 리포트의 이번 달 총액 */
+  reportTotal: 'report-total',
+  /** 리포트 도넛. 조각 수를 세고 비어 있는지 본다. */
+  reportDonut: 'report-donut',
+  /** 도넛·목록이 함께 쓰는 조각 한 줄 */
+  reportBreakdownRow: 'report-breakdown-row',
+  /** 조각 한 줄의 금액 */
+  reportRowAmount: 'report-row-amount',
+  /** 조각 한 줄의 비중 */
+  reportRowShare: 'report-row-share',
+  /** 6개월 추이 막대 하나 */
+  reportTrendBar: 'report-trend-bar',
+  /** 지난 기간과의 비교 한 줄. 무엇과 견줬는지 날짜가 글자로 들어 있다. */
+  reportComparison: 'report-comparison',
+  /** 이번 주 대 지난주 한 줄 */
+  reportWeeks: 'report-weeks',
+  /** 예산 사용률 한 줄. 예산이 있을 때만 있다. */
+  reportBudgetLine: 'report-budget-line',
   /** 줄글 검토 목록의 후보 한 줄 */
   nlCandidateRow: 'nl-candidate-row',
   /** 후보 한 줄의 금액 */

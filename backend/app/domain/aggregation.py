@@ -73,6 +73,8 @@ class PeriodTotals:
     category_spend: dict[str | None, Money] = field(default_factory=dict)
     # 예산용: excluded 제외
     category_budgeted_spend: dict[str | None, Money] = field(default_factory=dict)
+    # 리포트의 수입 모드용. 예산은 수입을 안 보므로 excluded 를 가르지 않는다.
+    category_income: dict[str | None, Money] = field(default_factory=dict)
 
 
 def aggregate_period(
@@ -85,6 +87,7 @@ def aggregate_period(
     month_income = Money.zero()
     category_spend: dict[str | None, Money] = {}
     category_budgeted_spend: dict[str | None, Money] = {}
+    category_income: dict[str | None, Money] = {}
 
     for tx in transactions:
         if tx.is_deleted or not period.contains(tx.occurred_on):
@@ -94,6 +97,7 @@ def aggregate_period(
 
         if tx.type is TransactionType.INCOME:
             month_income = month_income + tx.amount
+            _accumulate(category_income, tx.category_id, tx.amount)
             continue
 
         signed = tx.amount if tx.type is TransactionType.EXPENSE else -tx.amount
@@ -110,6 +114,7 @@ def aggregate_period(
         monthly_delta=month_income - month_expense,
         category_spend=category_spend,
         category_budgeted_spend=category_budgeted_spend,
+        category_income=category_income,
     )
 
 

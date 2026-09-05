@@ -28,6 +28,10 @@ export type TransactionUpdate = Schemas['TransactionUpdate'];
 export type TransactionUpdated = Schemas['TransactionUpdated'];
 export type TransactionListOut = Schemas['TransactionListOut'];
 export type PeriodSummaryOut = Schemas['PeriodSummaryOut'];
+export type MonthlyReportOut = Schemas['MonthlyReportOut'];
+export type BreakdownRowOut = Schemas['BreakdownRowOut'];
+export type TrendPointOut = Schemas['TrendPointOut'];
+export type PeriodComparisonOut = Schemas['PeriodComparisonOut'];
 /** 달력 한 칸. 기록이 있는 날만 온다. `expense` 는 환불을 뺀 값이라 음수일 수 있다. */
 export type CalendarDayOut = Schemas['CalendarDayOut'];
 export type CalendarMonthOut = Schemas['CalendarMonthOut'];

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import calendar
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
-__all__ = ["BudgetPeriod", "PeriodProgress"]
+__all__ = ["BudgetPeriod", "PeriodProgress", "same_day_window", "week_of"]
 
 
 @dataclass(frozen=True)
@@ -85,3 +85,25 @@ class BudgetPeriod:
     def _require_full_month(self) -> None:
         if not self.is_full_month:
             raise ValueError("월 전체가 아닌 기간에는 이전·다음 기간이 없다")
+
+
+def same_day_window(period: BudgetPeriod, day: date) -> BudgetPeriod:
+    """그 달의 1일부터 `day` 와 **같은 날짜**까지.
+
+    "지난달과 비교" 를 달 전체로 하면 이번 달은 아직 다 안 지나서 늘 줄어든 것처럼 보인다.
+    5일에 보는 사람에게는 지난달 1~5일과 견줘야 뜻이 있다.
+
+    같은 날짜가 그 달에 없으면 말일로 붙인다(3월 31일 → 2월 28일).
+    `day` 가 그 달보다 뒤여도 **끝으로 늘리지 않는다.** 늘리면 달 전체가 되어
+    이 함수가 있는 이유가 사라진다.
+    """
+    last_day = calendar.monthrange(period.start.year, period.start.month)[1]
+    return BudgetPeriod(
+        period.start, date(period.start.year, period.start.month, min(day.day, last_day))
+    )
+
+
+def week_of(day: date) -> BudgetPeriod:
+    """그 날이 속한 주. 월요일에 시작해 일요일에 끝난다."""
+    monday = day - timedelta(days=day.weekday())
+    return BudgetPeriod(monday, monday + timedelta(days=6))

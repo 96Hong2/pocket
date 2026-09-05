@@ -20,6 +20,7 @@ export {
   useCategories,
   useMerchantRules,
   usePreferences,
+  useMonthlyReport,
   useSummary,
   useTransactionPages,
   useTransactions,
