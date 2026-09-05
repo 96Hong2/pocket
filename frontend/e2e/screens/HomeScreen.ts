@@ -122,6 +122,16 @@ class HomeHero {
     return this.page.getByText(/^\d+% 썼어요$/);
   }
 
+  /**
+   * 표시 설정을 못 받아 기본 화면을 그리고 있다는 안내.
+   *
+   * 폴백 화면이 서버 기본값과 같은 모양이라, 이 줄이 있는지 없는지가
+   * "설정을 받아서 이 화면" 과 "못 받아서 떨어진 화면" 을 가르는 유일한 표시다.
+   */
+  get preferencesNotice(): Locator {
+    return this.page.getByText('표시 설정을 불러오지 못해 기본 화면으로 보여주고 있어요.');
+  }
+
   /** 첫 진입에만 뜨는 부담 덜기 문구. 기록이 하나라도 생기면 사라진다. */
   get firstLead(): Locator {
     return this.page.getByText('가계부 쓰러 오지 마세요.');
@@ -365,12 +375,36 @@ class RecoveryCard {
   }
 
   /**
+   * 디자인 토큰 하나의 실제 색을 브라우저가 계산한 값으로 읽는다.
+   *
+   * 게이지 색을 16진수로 적어 두면 토큰이 바뀔 때 검사가 조용히 낡는다.
+   * 견줄 색을 페이지에서 직접 뽑아 오면 그 일이 없다.
+   */
+  async tokenColor(token: string): Promise<string> {
+    return this.page.evaluate((name) => {
+      const probe = document.createElement('div');
+      probe.style.backgroundColor = `var(${name})`;
+      document.body.appendChild(probe);
+      const value = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return value;
+    }, token);
+  }
+
+  /**
    * 며칠 빠졌는지·연속이 끊겼는지를 세는 표현. **페이지 전체**에서 훑는다.
    *
    * 카드 안만 보면 같은 말이 히어로나 오늘 목록에 새로 생겼을 때 놓친다.
    * 돌아온 사람에게 실점을 알리지 않는다는 약속이라 화면 어디에도 있으면 안 된다.
+   *
+   * 활용형까지 잡는다. `놓친` 만 적으면 `놓쳤어요` 를 지나치고, `일 만이네요` 만 적으면
+   * `4일 만에` 를 지나친다. 문구를 조금 바꾸는 것만으로 이 가드가 무력해지면 안 된다.
+   * 다만 정리 진행 줄(`최근 7일 중 2일 정리했어요`)에도 날 수가 들어 있어서,
+   * `\d+일` 을 통째로 금지할 수는 없다. **날 수에 붙는 실점 어투**만 센다.
    */
   get punishingText(): Locator {
-    return this.page.getByText(/일 만이네요|일 빠짐|일째|연속|끊|놓친/);
+    return this.page.getByText(
+      /\d+\s*일\s*(만|째|빠짐|동안|넘게)|놓쳤|놓친|연속\s*기록|기록이\s*끊|이어지지\s*않/,
+    );
   }
 }

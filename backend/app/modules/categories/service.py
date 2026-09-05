@@ -130,12 +130,35 @@ def _reject_duplicate(rows: list[Category], key: str, *, skip_id: uuid.UUID | No
 
 
 def _duplicate_error() -> ApiError:
-    """동시에 같은 이름이 들어와 DB 가 막은 경우.
+    """같은 이름이 동시에 들어와 DB 가 막은 경우.
 
     그대로 두면 전역 IntegrityError 핸들러가 "잠시 후 다시 시도" 라고 답한다.
     이름 충돌은 기다린다고 풀리지 않으니 거짓말이다.
     """
     return ApiError(ErrorCode.DUPLICATE_CATEGORY, _DUPLICATE, status_code=409)
+
+
+def _free_name_slot(
+    session: Session, rows: list[Category], user: User, key: str, *, keep_id: uuid.UUID
+) -> None:
+    """지운 행이 붙들고 있는 이름 자리를 비운다.
+
+    유니크 인덱스에 `deleted_at` 이 없어서, 지운 행이 그 이름을 계속 잡고 있다.
+    만들기는 그 행을 되살려 비켜 가지만 이름 바꾸기는 그럴 수 없다. 바꿀 행이 이미 살아 있어서다.
+    그대로 두면 화면 어디에도 없는 이름 때문에 "이미 있어요" 가 나가고, 몇 번을 다시 눌러도
+    풀리지 않는다.
+
+    지운 행을 아주 지우지는 않는다. 거래가 그 행을 가리키고 있어 하드 삭제하면
+    과거 기록이 분류를 잃는다. 이름만 아무도 못 쓰는 값으로 옮긴다.
+    """
+    for row in rows:
+        if row.deleted_at is None or row.user_id != user.id or row.id == keep_id:
+            continue
+        if _key(row.name) == key:
+            row.name = f"~{row.id.hex}"
+            # 먼저 자리를 비우고 나서 새 이름을 붙인다. 한 번에 커밋하면 UPDATE 순서를
+            # ORM 이 정하는데, 새 이름이 먼저 나가면 아직 안 비운 자리와 부딪힌다.
+            session.flush()
 
 
 # ── 쓰기 ────────────────────────────────────────────────
@@ -198,7 +221,10 @@ def update_category(
 
     if "name" in payload:
         name = _fold(payload["name"])
-        _reject_duplicate(_comparable(session, user), _key(name), skip_id=row.id)
+        key = _key(name)
+        rows = _comparable(session, user)
+        _reject_duplicate(rows, key, skip_id=row.id)
+        _free_name_slot(session, rows, user, key, keep_id=row.id)
         row.name = name
     if "icon_key" in payload:
         row.icon_key = payload["icon_key"]

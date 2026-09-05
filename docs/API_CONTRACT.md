@@ -443,7 +443,9 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 | `income_expense` | 이번 달 차액. 번 돈과 쓴 돈을 함께 |
 | `income_and_budget` | 번 돈과 남은 예산 |
 
-예산을 아직 정하지 않았으면 예산이 걸린 값은 쓴 돈 화면으로 떨어진다. **그 폴백은 화면이 정한다.**
+예산을 아직 정하지 않았으면 예산이 걸린 값은 예산을 안 쓰는 갈래로 떨어진다.
+`remaining_budget` 은 쓴 돈으로, `income_and_budget` 은 번 돈·쓴 돈으로 간다.
+**그 폴백은 화면이 정한다**(`frontend/src/features/home/homeMode.ts` 의 `resolveHeroLayout` 하나뿐이다).
 서버는 고른 값을 그대로 돌려준다.
 
 `PATCH` 에서 **필드를 빼는 것과 `null` 을 보내는 것이 같다.** 둘 다 "이 값은 그대로 둔다" 는

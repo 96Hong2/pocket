@@ -55,9 +55,14 @@ export class SettingsScreen {
     await expect(this.heroChoice(label)).toHaveAttribute('aria-checked', 'true');
   }
 
-  /** 고른 것이 홈을 어떻게 바꾸는지 되짚는 한 줄. 라벨 세 개만으로는 결과가 안 그려진다. */
+  /**
+   * 고른 것이 홈을 어떻게 바꾸는지 되짚는 한 줄. 라벨 세 개만으로는 결과가 안 그려진다.
+   *
+   * 글자로 잡지 않는다. 문구가 예산 유무에 따라 갈려서, 앞머리를 못 박으면
+   * 한쪽 문구만 잡히고 다른 쪽에서는 조상 요소가 통째로 잡힌다.
+   */
   get preview(): Locator {
-    return this.page.getByText(/^홈 맨 위에 .+ 보여요\.$/);
+    return this.page.getByTestId(TEST_IDS.homeHeroPreview);
   }
 
   /** 사진을 올리는 사람이 가장 먼저 묻는 것에 답하는 한 줄. */

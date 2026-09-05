@@ -13,7 +13,8 @@ export function PrivacyNotice() {
   return (
     <section className="setting-block">
       <p className="setting-note">
-        캡처 원본은 정리 직후 지워져요. 저장되는 것은 날짜, 상호, 금액, 분류뿐이에요.
+        캡처 원본은 정리 직후 지워져요. 저장되는 것은 날짜, 금액, 상호, 분류처럼 기록에 필요한
+        것뿐이에요.
       </p>
 
       <nav aria-label="설정 하위 화면">

@@ -231,7 +231,13 @@ export function useUpdateCategory() {
   });
 }
 
-/** 지우면 그 카테고리의 한도 줄도 함께 사라지므로 예산까지 다시 받는다. */
+/**
+ * 카테고리 지우기.
+ *
+ * 서버가 그 카테고리에 딸린 한도와 기억한 분류까지 함께 지운다. 세 캐시가 같이 낡으므로
+ * 셋 다 무효화한다. 기억한 분류를 빼먹으면 관리 탭에 이미 없는 규칙 줄이 남고,
+ * 그 줄의 지우기가 서버에 없는 것을 지우려 든다.
+ */
 export function useDeleteCategory() {
   const client = useApiClient();
   const queryClient = useQueryClient();
@@ -241,6 +247,7 @@ export function useDeleteCategory() {
     onSuccess: async () => {
       await invalidateCategories(queryClient);
       await queryClient.invalidateQueries({ queryKey: queryKeys.budgets() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.merchantRules() });
     },
   });
 }

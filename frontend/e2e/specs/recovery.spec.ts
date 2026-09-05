@@ -18,10 +18,6 @@ const AWAY_DAYS = 4;
 /** 정리 진행을 세는 창. 오늘을 포함한 7일이다. */
 const WINDOW_DAYS = 7;
 
-/** 예산을 넘긴 상태를 만드는 짝. 200,000 을 쓰면 정확히 200% 다. */
-const OVER_BUDGET = 100_000;
-const OVER_SPEND = 200_000;
-
 /**
  * 캡처 스텁이 늘 내는 5건 중 서버가 스스로 켜 주는 것들.
  *
@@ -37,13 +33,7 @@ const CAPTURE_TODAY = ['스타벅스', 'GS25'] as const;
 const MONTH_NUMBER = Number(thisMonth().slice(5, 7));
 
 test('사흘 넘게 비면 복구 카드가 뜨고, 벌주는 말이 없다', async ({ home, prep }) => {
-  // 예산을 두 배로 넘긴 상태를 함께 만든다. 히어로 게이지가 경고색으로 바뀌는 자리다.
-  // 이 지출도 나흘 전이어야 한다. 오늘로 심으면 마지막 기록이 오늘이 되어 카드가 아예 안 뜬다.
-  //
-  // 달이 바뀐 직후(1~3일)에는 나흘 전이 지난달이라 이번 달 사용률이 0% 가 된다.
-  // 카드가 뜨려면 마지막 기록이 사흘보다 전이어야 해서, 그 며칠은 두 조건이 함께 설 수 없다.
-  await prep.setBudget(OVER_BUDGET);
-  await prep.addExpense({ amount: OVER_SPEND, daysAgo: AWAY_DAYS });
+  await prep.addExpense({ amount: 12_000, daysAgo: AWAY_DAYS });
 
   await home.open();
   await home.waitReady();
@@ -56,15 +46,14 @@ test('사흘 넘게 비면 복구 카드가 뜨고, 벌주는 말이 없다', as
   // 돌아온 것은 경고할 일이 아니다. 카드 안에 경고 자리를 만들지 않는다.
   await expect(home.recovery.alerts).toHaveCount(0);
 
-  // 예산을 넘긴 히어로 게이지는 경고색으로 바뀐다. 카드가 안 떠서 붉은 색이 없는 것과
-  // 구별되게, 색을 재기 전에 카드가 실제로 떠 있는 것을 위에서 먼저 못 박았다.
-  await expect(home.hero.spendPercent).toHaveText('200% 썼어요');
-  expect(await home.hero.gaugePercent()).toBe(100);
-
-  // 같은 화면에 게이지가 둘인데 복구 쪽만은 경고색을 쓰지 않는다.
-  const heroFill = await home.hero.gaugeFillColor();
-  const recoveryFill = await home.recovery.gaugeFillColor();
-  expect(recoveryFill, '복구 게이지가 예산 게이지와 같은 색이다').not.toBe(heroFill);
+  // 복구 게이지는 경고색으로 가지 않는다.
+  //
+  // 예산을 넘긴 히어로 게이지와 견주는 방법을 쓰지 않는다. 그러려면 이번 달 지출이
+  // 있어야 하는데 복구 카드는 마지막 기록이 사흘보다 전이어야 떠서, 달이 바뀐 직후
+  // 며칠은 두 조건이 함께 설 수 없다. 코드가 아니라 달력 때문에 빨개진다.
+  // 그래서 경고색 토큰을 화면에서 직접 뽑아 그 색이 아님을 본다.
+  const warning = await home.recovery.tokenColor('--color-amber-300');
+  expect(await home.recovery.gaugeFillColor(), '복구 게이지가 경고색이다').not.toBe(warning);
 });
 
 test('복구 카드 버튼은 기록 시트를 캡처 탭으로 연다', async ({ home, prep, recordSheet }) => {

@@ -177,11 +177,14 @@ class CategorySheet {
     return this.root.getByRole('group', { name: '지우기 확인' });
   }
 
-  /** 확인 자리가 하는 약속. 지워도 기록은 남는다고 적혀 있다. */
+  /**
+   * 확인 자리가 하는 약속.
+   *
+   * 남는 것(기록)과 함께 사라지는 것(한도·기억한 분류)을 둘 다 적는다.
+   * 되돌릴 수 없는 것을 빼고 적으면 확인 한 단을 둔 뜻이 없다.
+   */
   get confirmText(): Locator {
-    return this.confirmArea.getByText('지울까요? 이 카테고리를 쓰던 기록은 그대로 남아요', {
-      exact: true,
-    });
+    return this.confirmArea.getByText(/^지울까요\? .*한도와 기억한 분류는 함께 사라지고/);
   }
 
   /** 확인 자리 안의 지우기. 바깥의 같은 이름과 섞이지 않게 여기서만 찾는다. */

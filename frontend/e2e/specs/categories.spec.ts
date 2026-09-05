@@ -44,11 +44,8 @@ test('기본 카테고리와 내가 만든 것이 다른 자리에 놓인다', a
   await appShell.expectScreen('카테고리 관리', '내가 쓰는 카테고리만 남겨요');
   await categories.waitReady();
 
-  // 같은 이름이 두 구획 중 한쪽에서만 잡혀야 구분이 실제로 되고 있는 것이다.
   await expect(categories.basicRow('식비')).toBeVisible();
   await expect(categories.basicRow('카페·간식')).toBeVisible();
-  await expect(categories.mineRow('식비')).toHaveCount(0);
-  await expect(categories.mineRow('카페·간식')).toHaveCount(0);
 
   // 개수를 박아 둔다. 기본 목록이 늘거나 줄면 화면보다 여기가 먼저 걸린다.
   await expect(categories.basicRows).toHaveCount(11);
@@ -80,6 +77,13 @@ test('카테고리를 만들면 새로고침 없이 목록에 나타난다', asy
 
   // 새로 만든 것이 기본 뒤에 선다. 앞으로 오면 기록 시트 칩의 첫 자리를 빼앗는다.
   expect(await categories.rowNames()).toEqual([...BASIC_CATEGORIES, PET]);
+
+  // 구분을 여기서 본다. **양쪽 구획이 다 찬 뒤에** 서로의 이름이 건너편에서 안 잡혀야
+  // 구분이 실제로 되고 있는 것이다. 내 구획이 비어 있을 때 '식비가 거기 없다' 를 세면,
+  // 화면이 구분을 어떻게 하든 늘 참이라 아무것도 지키지 못한다.
+  await expect(categories.mineRow('식비')).toHaveCount(0);
+  await expect(categories.basicRow(PET)).toHaveCount(0);
+  await expect(categories.mineRow(PET)).toBeVisible();
 });
 
 /**

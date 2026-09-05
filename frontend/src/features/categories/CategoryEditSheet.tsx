@@ -81,8 +81,10 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
   const trimmed = name.trim();
   const canSave = trimmed !== '' && !busy;
 
+  // 지우기 실패 문구가 남아 있으면 그다음 저장이 왜 막혔는지 말하지 못한다.
+  // 확인을 접을 때 지우기 오류를 함께 지운다.
   const failure =
-    failureOf(remove.error, '카테고리를 지우지 못했어요.') ??
+    (confirming ? failureOf(remove.error, '카테고리를 지우지 못했어요.') : null) ??
     failureOf(update.error, '카테고리를 저장하지 못했어요.') ??
     failureOf(create.error, '카테고리를 저장하지 못했어요.');
 
@@ -140,10 +142,18 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
       {confirming ? (
         <div className="cat-sheet__confirm" role="group" aria-label="지우기 확인">
           <p className="cat-sheet__confirm-text">
-            지울까요? 이 카테고리를 쓰던 기록은 그대로 남아요
+            지울까요? 이 카테고리로 적어 둔 기록은 그대로 남아요. 대신 걸어 둔 한도와 기억한 분류는
+            함께 사라지고, 같은 이름으로 다시 만들어도 그 둘은 돌아오지 않아요
           </p>
           <div className="cat-sheet__actions">
-            <Button variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                remove.reset();
+                setConfirming(false);
+              }}
+            >
               그대로 둘게요
             </Button>
             <Button variant="outline" disabled={busy} onClick={destroy}>

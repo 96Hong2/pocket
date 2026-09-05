@@ -61,6 +61,9 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
         <HomeHero
           view={view}
           budget={budget.data}
+          // 설정을 기다리느라 히어로를 비워 두지 않는다. 첫 진입이 한 박자 늦어 보이는 쪽이
+          // 더 나쁘다. 대신 아직 못 받은 동안은 서버 기본값과 같은 화면이고, 실패로 굳으면
+          // 히어로가 그 사실을 한 줄로 밝힌다.
           layout={resolveHeroLayout(preferences.data?.home_hero, view.hasBudget)}
           preferencesFailed={preferences.isError}
           onRetryPreferences={() => void preferences.refetch()}

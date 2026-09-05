@@ -85,7 +85,10 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await demo.beat(2);
 
   await demo.step('홈 맨 위에 무엇을 크게 보여줄지 세 갈래 중에 고른다');
-  await expect(settings.preview).toHaveText('홈 맨 위에 남은 예산이 먼저 보여요.');
+  // 이 계정은 예산을 아직 안 정했다. 되짚는 한 줄이 그 사실까지 말해 홈과 같은 말이 된다.
+  await expect(settings.preview).toHaveText(
+    '아직 예산을 안 정해서, 홈 맨 위에 이번 달 쓴 돈이 보여요.',
+  );
   await demo.beat(2);
 
   await demo.step('수입·지출로 바꾸면 아래 한 줄이 결과를 말로 되짚어 준다');

@@ -17,6 +17,7 @@ const MONTH_NUMBER = Number(toLedgerDate(new Date()).slice(5, 7));
 const INCOME = 2_000_000;
 const EXPENSE = 500_000;
 const DELTA = INCOME - EXPENSE;
+const BUDGET = 1_000_000;
 
 test('홈 표시 방식을 바꾸면 홈이 그대로 바뀐다', async ({
   appShell,
@@ -43,7 +44,10 @@ test('홈 표시 방식을 바꾸면 홈이 그대로 바뀐다', async ({
     await appShell.followLink('앱 설정');
     await settings.waitReady();
 
-    await expect(settings.preview).toHaveText('홈 맨 위에 남은 예산이 먼저 보여요.');
+    // 예산을 아직 안 정한 상태다. 미리보기가 그 사실까지 말해야 홈과 같은 말이 된다.
+    await expect(settings.preview).toHaveText(
+      '아직 예산을 안 정해서, 홈 맨 위에 이번 달 쓴 돈이 보여요.',
+    );
     await settings.chooseHero('수입·지출');
     await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 차액이 먼저 보여요.');
   });
@@ -67,7 +71,9 @@ test('홈 표시 방식을 바꾸면 홈이 그대로 바뀐다', async ({
     await settings.waitReady();
 
     await settings.chooseHero('남은 예산');
-    await expect(settings.preview).toHaveText('홈 맨 위에 남은 예산이 먼저 보여요.');
+    await expect(settings.preview).toHaveText(
+      '아직 예산을 안 정해서, 홈 맨 위에 이번 달 쓴 돈이 보여요.',
+    );
 
     await appShell.pressBack();
     await appShell.goToTab('홈');
@@ -78,6 +84,35 @@ test('홈 표시 방식을 바꾸면 홈이 그대로 바뀐다', async ({
     await expect(home.hero.monthSpent).toHaveText(formatCurrency(EXPENSE));
     await expect(settings.heroResult.delta).toHaveCount(0);
   });
+});
+
+test('예산을 정해 두면 수입·예산 갈래가 홈에 그대로 나온다', async ({
+  appShell,
+  home,
+  settings,
+  prep,
+}) => {
+  // 세 갈래 중 이것만 예산이 있어야 성립한다. 안 눌러 보면 값 배선이 바뀌어도 아무도 모른다.
+  await prep.addTransaction({ amount: INCOME, daysAgo: 0, type: 'income' });
+  await prep.addExpense({ amount: EXPENSE, daysAgo: 0 });
+  await prep.setBudget(BUDGET);
+
+  await settings.open();
+  await settings.waitReady();
+  await settings.chooseHero('수입·예산');
+  await expect(settings.preview).toHaveText('홈 맨 위에 번 돈과 남은 예산이 함께 보여요.');
+
+  // 앱 설정은 하위 화면이라 탭바가 없다. 관리로 한 단 나온 뒤에 홈으로 건너간다.
+  await appShell.pressBack();
+  await appShell.goToTab('홈');
+  await home.waitReady();
+
+  await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 번 돈과 남은 예산`);
+  await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - EXPENSE));
+  await expect(settings.heroResult.income).toHaveText(formatSignedCurrency(INCOME));
+  // 예산이 걸린 갈래라 게이지도 함께 온다. 차액은 이 갈래에 없다.
+  await expect(home.hero.gauge).toBeVisible();
+  await expect(settings.heroResult.delta).toHaveCount(0);
 });
 
 test('첫 사용 때 홈 표시 방식을 묻지 않는다', async ({ home, settings }) => {
@@ -93,6 +128,9 @@ test('첫 사용 때 홈 표시 방식을 묻지 않는다', async ({ home, sett
   await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 쓴 돈`);
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(0));
   await expect(home.hero.remainingBudget).toHaveCount(0);
+  // 설정을 **받아서** 이 화면인지 못 받아서 떨어진 것인지 갈라 본다. 폴백 화면이 서버
+  // 기본값과 같은 모양이라, 이 줄이 없으면 설정 조회가 통째로 깨져도 이 검사가 초록이다.
+  await expect(home.hero.preferencesNotice).toHaveCount(0);
 });
 
 test('개인정보처리방침 링크가 실제로 도착한다', async ({ appShell, settings }) => {
@@ -100,7 +138,7 @@ test('개인정보처리방침 링크가 실제로 도착한다', async ({ appSh
   await settings.waitReady();
 
   await expect(settings.captureNotice).toHaveText(
-    '캡처 원본은 정리 직후 지워져요. 저장되는 것은 날짜, 상호, 금액, 분류뿐이에요.',
+    '캡처 원본은 정리 직후 지워져요. 저장되는 것은 날짜, 금액, 상호, 분류처럼 기록에 필요한 것뿐이에요.',
   );
   await expect(settings.privacyLink).toBeVisible();
 

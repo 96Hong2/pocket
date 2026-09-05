@@ -25,6 +25,8 @@ export const TEST_IDS = {
   heroDelta: 'hero-delta',
   /** 복구 카드의 주간 정리 게이지. 예산 게이지와 색이 달라야 한다. */
   recoveryGauge: 'recovery-gauge',
+  /** 앱 설정에서 고른 것이 홈을 어떻게 바꾸는지 되짚는 한 줄. */
+  homeHeroPreview: 'home-hero-preview',
   /** 홈의 광고 자리. 채울 광고가 없으면 높이가 0 이어야 한다. */
   adSlot: 'ad-slot',
   /** 기록 시트에서 지금 눌러 둔 금액 */

@@ -240,6 +240,12 @@ def test_분류를_지우면_기억한_규칙도_함께_빠진다(
 
     assert client.delete(f"/api/v1/categories/{mine['id']}", headers=AUTH).status_code == 204
     assert client.get("/api/v1/merchant-rules", headers=AUTH).json()["items"] == []
+    # 목록이 비는 것만으로는 부족하다. 조회가 지운 분류를 걸러 주므로, 규칙이 DB 에 살아 있어도
+    # 빈 목록이 나온다. 실제로 지워졌는지는 행을 직접 봐야 갈린다.
+    rule = db.scalars(
+        select(MerchantRule).where(MerchantRule.merchant_normalized == "스타벅스")
+    ).one()
+    assert rule.deleted_at is not None
 
 
 def test_분류를_지우면_거기_걸린_한도도_함께_빠진다(
@@ -281,3 +287,29 @@ def test_지운_이름으로_다시_만들면_같은_행이_돌아온다(
     assert again.json()["id"] == mine["id"]
     assert again.json()["icon_key"] == "26_sparkles"
     assert _names(client).count("카페") == 1
+
+
+def test_지운_이름으로_이름을_바꿀_수_있다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """지운 행이 붙들고 있던 이름 자리를 비켜 준다.
+
+    화면 어디에도 없는 이름 때문에 "이미 있어요" 가 나가면 사용자는 되돌릴 방법이 없다.
+    """
+    del default_categories
+    old = _create(client, name="카페").json()
+    assert client.delete(f"/api/v1/categories/{old['id']}", headers=AUTH).status_code == 204
+
+    mine = _create(client, name="커피").json()
+    renamed = client.patch(f"/api/v1/categories/{mine['id']}", json={"name": "카페"}, headers=AUTH)
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["name"] == "카페"
+
+    names = [row["name"] for row in client.get("/api/v1/categories", headers=AUTH).json()["items"]]
+    assert names.count("카페") == 1
+
+    # 지운 행은 그대로 남는다. 하드 삭제하면 그 분류로 적어 둔 과거 거래가 분류를 잃는다.
+    tomb = db.get(Category, uuid.UUID(old["id"]))
+    assert tomb is not None
+    assert tomb.deleted_at is not None
+    assert tomb.name != "카페"

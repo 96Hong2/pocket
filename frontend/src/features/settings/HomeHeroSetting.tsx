@@ -1,7 +1,17 @@
 import { useId } from 'react';
 
-import { ApiError, usePreferences, useSavePreferences, type HomeHero } from '../../shared/api';
+import {
+  ApiError,
+  parseDecimal,
+  useBudget,
+  usePreferences,
+  useSavePreferences,
+  type HomeHero,
+} from '../../shared/api';
+import { TEST_IDS } from '../../shared/testIds';
 import { RetryButton, SegmentedControl, type SegmentedOption } from '../../shared/ui';
+
+import { resolveHeroLayout, type HeroLayout } from '../home/homeMode';
 
 const OPTIONS: SegmentedOption<HomeHero>[] = [
   { value: 'remaining_budget', label: '남은 예산' },
@@ -9,11 +19,18 @@ const OPTIONS: SegmentedOption<HomeHero>[] = [
   { value: 'income_and_budget', label: '수입·예산' },
 ];
 
-/** 고른 것이 홈을 어떻게 바꾸는지. 라벨 세 개만 보고는 결과가 그려지지 않는다. */
-const PREVIEW: Record<HomeHero, string> = {
-  remaining_budget: '홈 맨 위에 남은 예산이 먼저 보여요.',
-  income_expense: '홈 맨 위에 이번 달 차액이 먼저 보여요.',
-  income_and_budget: '홈 맨 위에 번 돈과 남은 예산이 함께 보여요.',
+/**
+ * 고른 것이 홈을 어떻게 바꾸는지. 라벨 세 개만 보고는 결과가 그려지지 않는다.
+ *
+ * **예산을 정했는지까지 봐야 한다.** 예산이 없으면 홈은 예산이 걸린 갈래를 쓰지 못하고
+ * `resolveHeroLayout` 이 다른 것으로 떨어뜨린다. 여기서 그 폴백을 무시하면, 고른 즉시
+ * 화면과 다른 말을 하는 안내가 된다. 예산 미설정은 예외가 아니라 새로 온 사람의 기본 상태다.
+ */
+const PREVIEW: Record<HeroLayout, string> = {
+  remainingBudget: '홈 맨 위에 남은 예산이 먼저 보여요.',
+  monthSpent: '아직 예산을 안 정해서, 홈 맨 위에 이번 달 쓴 돈이 보여요.',
+  incomeAndSpent: '홈 맨 위에 이번 달 차액이 먼저 보여요.',
+  incomeAndBudget: '홈 맨 위에 번 돈과 남은 예산이 함께 보여요.',
 };
 
 /**
@@ -26,6 +43,7 @@ const PREVIEW: Record<HomeHero, string> = {
 export function HomeHeroSetting() {
   const titleId = useId();
   const preferences = usePreferences();
+  const budget = useBudget();
   const save = useSavePreferences();
 
   if (preferences.isError) {
@@ -52,6 +70,10 @@ export function HomeHeroSetting() {
     ? OPTIONS.map((option) => ({ ...option, disabled: true }))
     : OPTIONS;
 
+  // 폴백 규칙을 여기서 다시 짜지 않는다. 홈이 쓰는 그 함수를 그대로 부른다.
+  const amount = parseDecimal(budget.data?.budget.amount ?? null);
+  const layout = resolveHeroLayout(hero, amount != null && amount > 0);
+
   return (
     <section className="setting-block" aria-labelledby={titleId}>
       <h2 id={titleId} className="setting-block__title">
@@ -65,7 +87,9 @@ export function HomeHeroSetting() {
         onChange={(next) => save.mutate({ home_hero: next })}
       />
 
-      <p className="setting-block__hint">{PREVIEW[hero]}</p>
+      <p className="setting-block__hint" data-testid={TEST_IDS.homeHeroPreview}>
+        {PREVIEW[layout]}
+      </p>
 
       {/* 저장이 실패하면 고른 자리가 원래대로 돌아간다. 왜 돌아갔는지 여기서 말한다. */}
       {failure ? (

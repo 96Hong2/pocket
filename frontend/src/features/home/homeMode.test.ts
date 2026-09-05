@@ -74,6 +74,20 @@ describe('resolveHomeView', () => {
     expect(view.hasBudget).toBe(true);
   });
 
+  // 위 두 검사는 입력과 기대값을 같은 상수로 쓴다. 그래서 상수가 3 에서 4 로 바뀌어도
+  // 둘 다 통과한다. 경계가 정확히 사흘이라는 것은 여기서 숫자로 못 박는다.
+  it('경계는 사흘이다', () => {
+    expect(RECOVERY_AFTER_DAYS).toBe(3);
+
+    const away = (days: number) =>
+      resolveHomeView(
+        input({ hasAnyTransaction: true, daysSinceLastTransaction: days, budgetAmount: '1000000' }),
+      ).mode;
+
+    expect(away(2)).toBe('default');
+    expect(away(3)).toBe('recovery');
+  });
+
   it('기록이 하나도 없으면 오래 비었어도 복귀가 아니다', () => {
     const view = resolveHomeView(input({ hasAnyTransaction: false, daysSinceLastTransaction: 30 }));
 
