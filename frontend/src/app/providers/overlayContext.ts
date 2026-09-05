@@ -22,14 +22,22 @@ export function useOverlay(): OverlayContextValue {
 /**
  * 시트·모달이 열려 있는 동안 뒤로가기를 자기 닫기로 가져간다.
  * 바텀시트 컴포넌트가 이 훅 하나만 부르면 뒤로가기 처리가 끝난다.
+ *
+ * `locked` 는 저장·분석이 도는 중처럼 닫으면 안 되는 상태다. 이때도 **등록은 유지하고**
+ * 뒤로가기를 삼키기만 한다. 등록을 풀면 스택이 비어 뒤로가기가 미니앱을 통째로 닫는다.
  */
-export function useOverlayBackClose(isOpen: boolean, onClose: () => void): void {
+export function useOverlayBackClose(isOpen: boolean, onClose: () => void, locked = false): void {
   const overlay = useOverlay();
   const latest = useRef(onClose);
   latest.current = onClose;
+  const isLocked = useRef(locked);
+  isLocked.current = locked;
 
   useEffect(() => {
     if (!isOpen) return;
-    return overlay.register(() => latest.current());
+    return overlay.register(() => {
+      if (isLocked.current) return;
+      latest.current();
+    });
   }, [isOpen, overlay]);
 }

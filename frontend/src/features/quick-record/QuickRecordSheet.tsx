@@ -57,7 +57,8 @@ export function QuickRecordSheet({ open, onClose }: { open: boolean; onClose: ()
   const [saving, setSaving] = useState(false);
 
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 미니앱이 닫힌다.
-  useOverlayBackClose(open && !saving, onClose);
+  // 저장·분석 중에는 삼키기만 한다.
+  useOverlayBackClose(open, onClose, saving);
 
   return (
     <BottomSheet open={open} onClose={onClose} dismissible={!saving} ariaLabel="10초 기록">

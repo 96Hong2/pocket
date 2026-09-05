@@ -68,13 +68,15 @@ def commit(
 ) -> ImportCommitOut:
     result = service.commit_batch(session, user, batch_id)
     outcome = result.outcome
+    # 예산은 마지막 한 건이 아니라 서비스가 고른 기간의 것으로 말한다.
+    for_budget = result.budget_outcome
     budget = None
-    if outcome is not None and outcome.budget_status is not None:
+    if for_budget is not None and for_budget.budget_status is not None:
         budget = to_budget_state(
-            outcome.period,
-            outcome.budget_status,
-            is_auto_carried=outcome.is_auto_carried,
-            today=outcome.today,
+            for_budget.period,
+            for_budget.budget_status,
+            is_auto_carried=for_budget.is_auto_carried,
+            today=for_budget.today,
         )
     return ImportCommitOut(
         batch=to_batch(result.batch, client=client),

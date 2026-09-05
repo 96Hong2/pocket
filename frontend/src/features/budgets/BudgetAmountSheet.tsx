@@ -20,7 +20,7 @@ export function BudgetAmountSheet({ open, month, amount, onClose }: BudgetAmount
   const [saving, setSaving] = useState(false);
 
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
-  useOverlayBackClose(open && !saving, onClose);
+  useOverlayBackClose(open, onClose, saving);
 
   return (
     <BottomSheet

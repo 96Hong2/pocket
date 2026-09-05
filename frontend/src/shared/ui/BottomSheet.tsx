@@ -52,8 +52,10 @@ export function BottomSheet({
       if (event.key !== 'Tab' || !sheetRef.current) return;
 
       // 시트 밖으로 포커스가 새지 않게 앞뒤를 이어 붙인다.
-      const targets = Array.from(
-        sheetRef.current.querySelectorAll<HTMLElement>(FOCUSABLE),
+      // 감춘 탭도 DOM 에 남으므로 화면에 없는 것은 뺀다. 안 빼면 첫·끝이 안 보이는 버튼이 되어
+      // Tab 이 시트 밖으로 샌다.
+      const targets = Array.from(sheetRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (element) => element.checkVisibility(),
       );
       if (targets.length === 0) {
         event.preventDefault();
@@ -83,10 +85,7 @@ export function BottomSheet({
 
   return createPortal(
     <div className="pk-sheet-root">
-      <div
-        className="pk-sheet-dim"
-        onClick={dismissible ? onClose : undefined}
-      />
+      <div className="pk-sheet-dim" onClick={dismissible ? onClose : undefined} />
       <div
         ref={sheetRef}
         className={cx('pk-sheet', className)}
@@ -103,12 +102,7 @@ export function BottomSheet({
               {title}
             </div>
             {showCloseButton && dismissible ? (
-              <button
-                type="button"
-                className="pk-sheet__close"
-                onClick={onClose}
-                aria-label="닫기"
-              >
+              <button type="button" className="pk-sheet__close" onClick={onClose} aria-label="닫기">
                 <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
                   <path
                     d="M4 4l10 10M14 4L4 14"

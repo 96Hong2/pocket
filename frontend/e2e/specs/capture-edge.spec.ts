@@ -5,6 +5,7 @@ import {
   photoPermissionDenied,
   seedAlbumPhotos,
 } from '../support/album';
+import { pressSystemBack, watchAppClose } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -34,7 +35,7 @@ function envelope(status: number, code: string, message: string) {
 const PARSE_DOWN = envelope(
   503,
   'PARSE_UNAVAILABLE',
-  '지금은 문장을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.',
+  '지금은 캡처를 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.',
 );
 const OVER_LIMIT = envelope(
   429,
@@ -76,12 +77,13 @@ test('사진 접근이 꺼져 있으면 무슨 일인지 말해 주고 다시 �
   await recordSheet.capture.pickButton.click();
 
   await expect(recordSheet.capture.permissionDenied).toBeVisible();
-  // 알 수 없는 오류로 뭉개면 사용자는 무엇을 고쳐야 할지 모른다.
-  await expect(recordSheet.capture.pickAlert).toHaveCount(0);
-  await expect(recordSheet.capture.rows).toHaveCount(0);
 
-  // 이 탭에서 할 수 있는 일이 남아 있어야 한다.
-  await expect(recordSheet.capture.pickButton).toBeVisible();
+  // 권한을 켜고 돌아온 척 다시 눌러 본다. 이 탭에서 할 수 있는 일이 남아 있어야 한다.
+  await recordSheet.capture.pickButton.click();
+
+  // 여전히 거부면 같은 화면으로 돌아온다. 알 수 없는 오류로 뭉개면 무엇을 고칠지 모른다.
+  await expect(recordSheet.capture.permissionDenied).toBeVisible();
+  await expect(recordSheet.capture.pickAlert).toHaveCount(0);
 });
 
 test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ home, page, recordSheet }) => {
@@ -95,6 +97,7 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
   });
 
   await seedAlbumPhotos(CAPTURE_DATA_URI)(page);
+  const appClosed = watchAppClose(page);
   await home.open();
   await home.waitReady();
   expect(await albumPhotosSeeded(page)).toBe(true);
@@ -109,6 +112,11 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
   await expect(recordSheet.closeButton).toHaveCount(0);
   await recordSheet.closeByEsc();
   await recordSheet.waitOpen();
+
+  // 시트가 뒤로가기를 삼켜야 한다. 놓으면 미니앱이 통째로 닫혀 읽던 것이 사라진다.
+  await pressSystemBack(page);
+  await recordSheet.waitOpen();
+  expect(appClosed()).toBe(false);
 
   release();
 
@@ -162,7 +170,7 @@ test.describe('일부러 실패시켰을 때', () => {
     await recordSheet.methodTab('캡처').click();
     await recordSheet.capture.pickButton.click();
 
-    await expect(recordSheet.capture.pickAlert).toContainText('지금은 문장을 읽지 못했어요');
+    await expect(recordSheet.capture.pickAlert).toContainText('지금은 캡처를 읽지 못했어요');
     await expect(recordSheet.capture.guide).toBeVisible();
     await expect(recordSheet.capture.pickButton).toBeEnabled();
     // 한 자리가 실패했다고 시트가 잠겨 버리면 키패드로도 못 적는다.

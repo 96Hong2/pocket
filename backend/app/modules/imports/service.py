@@ -64,12 +64,12 @@ MAX_CANDIDATES = 20
 
 
 class CommitResult:
-    """저장 결과. 마지막 한 건의 판정을 함께 들고 다닌다.
+    """저장 결과. 마지막 한 건의 판정과, 예산을 말할 기준 한 건을 함께 들고 다닌다.
 
     합계는 지출만 센다. 검토 화면의 저장 버튼과 같은 규칙이라야 두 화면이 같은 숫자를 말한다.
     """
 
-    __slots__ = ("batch", "created_count", "expense_total", "outcome")
+    __slots__ = ("batch", "budget_outcome", "created_count", "expense_total", "outcome")
 
     def __init__(
         self,
@@ -78,11 +78,14 @@ class CommitResult:
         created_count: int,
         expense_total: Decimal,
         outcome: transactions.SaveOutcome | None,
+        budget_outcome: transactions.SaveOutcome | None,
     ) -> None:
         self.batch = batch
         self.created_count = created_count
         self.expense_total = expense_total
         self.outcome = outcome
+        # 예산은 마지막 한 건이 아니라 저장한 것들 중 오늘이 속한 기간을 고른다.
+        self.budget_outcome = budget_outcome
 
 
 def parse_text(
@@ -99,7 +102,13 @@ def parse_text(
 
     # 저장하지 않는 것만으로는 부족하다. 보내기 전에 가린다.
     cleaned = redact(text)
-    extraction = _extract(client, prompt=natural_language_prompt(day), today=day, text=cleaned.text)
+    extraction = _extract(
+        client,
+        prompt=natural_language_prompt(day),
+        today=day,
+        subject="문장을",
+        text=cleaned.text,
+    )
     return _build_batch(
         session,
         user,
@@ -127,7 +136,9 @@ def parse_image(
     day = today or ledger.today_for(user)
     _require_quota(session, user, day, label="캡처 분석")
 
-    extraction = _extract(client, prompt=screenshot_prompt(day), today=day, image=image)
+    extraction = _extract(
+        client, prompt=screenshot_prompt(day), today=day, subject="캡처를", image=image
+    )
     return _build_batch(
         session,
         user,
@@ -275,6 +286,7 @@ def commit_batch(
 
     total = Decimal(0)
     outcome: transactions.SaveOutcome | None = None
+    outcomes: list[transactions.SaveOutcome] = []
     for row in chosen:
         spent = row.amount if row.type == TransactionType.EXPENSE else Decimal(0)
         if row.transaction_id is not None:
@@ -298,6 +310,7 @@ def commit_batch(
             },
             today=day,
         )
+        outcomes.append(outcome)
         row.transaction_id = tx.id
         total += spent
         _learn_rule(session, user, row)
@@ -309,8 +322,30 @@ def commit_batch(
     session.commit()
     session.refresh(batch)
     return CommitResult(
-        batch=batch, created_count=len(chosen), expense_total=total, outcome=outcome
+        batch=batch,
+        created_count=len(chosen),
+        expense_total=total,
+        outcome=outcome,
+        budget_outcome=_budget_outcome(outcomes, ledger.period_for(user, day)),
     )
+
+
+def _budget_outcome(
+    outcomes: list[transactions.SaveOutcome], current: ledger.BudgetPeriod
+) -> transactions.SaveOutcome | None:
+    """저장한 것들 중 어느 기간의 예산을 말할지 고른다.
+
+    묶음은 여러 달에 걸칠 수 있다. 마지막 저장 건에 맡기면 정렬 순서가 곧 답이 되어,
+    캡처처럼 그저께 건이 마지막인 묶음은 달이 바뀐 직후 지난달 예산을 말한다.
+    지금 달이 섞여 있으면 그것을, 아니면 가장 늦은 기간을 고른다.
+    """
+    if not outcomes:
+        return None
+    # 뒤에서부터 찾는다. 판정은 저장한 그 시점의 스냅샷이라 앞엣것은 뒤에 저장한 건이 빠져 있다.
+    for item in reversed(outcomes):
+        if item.period == current:
+            return item
+    return max(outcomes, key=lambda item: item.period.start)
 
 
 def delete_batch(session: Session, user: User, batch_id: uuid.UUID) -> None:
@@ -338,6 +373,7 @@ def _extract(
     *,
     prompt: str,
     today: date,
+    subject: str,
     text: str | None = None,
     image: LlmImage | None = None,
 ) -> TransactionExtraction:
@@ -348,6 +384,8 @@ def _extract(
     핸들러를 async 로 바꾸면 동기 SQLAlchemy 가 루프를 막는다.
 
     text 와 image 중 하나만 넣는다. 둘 다거나 둘 다 아니면 포트가 막는다.
+    subject 는 실패했을 때 사용자에게 무엇을 못 읽었는지 말하는 말이다. 사진을 넣었는데
+    '문장을 읽지 못했다' 고 하면 거짓말이 된다.
     """
     call = partial(
         client.extract,
@@ -362,7 +400,7 @@ def _extract(
     except LlmError as exc:
         raise ApiError(
             ErrorCode.PARSE_UNAVAILABLE,
-            "지금은 문장을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+            f"지금은 {subject} 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
             status_code=503,
         ) from exc
 
@@ -378,14 +416,17 @@ def _to_row(
     rules: dict[str, uuid.UUID],
 ) -> ImportCandidate:
     occurred_at = _occurred_at(candidate.occurred_at, user, today)
-    merchant_normalized = normalize_merchant(candidate.merchant) or None
+    # 돌아온 값도 가린다. 캡처는 입력을 가릴 수단이 없어(이미지다) 여기가 유일한 그물이고,
+    # 줄글도 모델이 지어낸 숫자가 섞일 수 있다. 여기서 막지 않으면 거래·기억한 분류에 영구히 남는다.
+    merchant = redact(candidate.merchant).text if candidate.merchant else None
+    merchant_normalized = normalize_merchant(merchant) or None
     category_id = _category_for(session, user, candidate, merchant_normalized, rules)
     amount = Decimal(candidate.amount)
     fingerprint = build_fingerprint(
         occurred_on=ledger.local_date(occurred_at, ledger.user_tz(user)),
         amount=Money(amount),
         type=candidate.type,
-        merchant=candidate.merchant,
+        merchant=merchant,
     )
     is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in known
     low = candidate.confidence < LOW_CONFIDENCE_THRESHOLD
@@ -396,7 +437,7 @@ def _to_row(
         occurred_at=occurred_at,
         amount=amount,
         type=candidate.type,
-        merchant=candidate.merchant,
+        merchant=merchant,
         merchant_normalized=merchant_normalized,
         category_id=category_id,
         confidence=candidate.confidence,

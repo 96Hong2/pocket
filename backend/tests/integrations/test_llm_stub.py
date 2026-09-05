@@ -165,7 +165,10 @@ async def test_image_categories_exist_in_the_default_set(client) -> None:
         today=date(2026, 3, 10),
     )
 
-    assert {item.category for item in result.candidates} <= set(DEFAULT_CATEGORY_HINTS)
+    names = {item.category for item in result.candidates}
+    # 후보가 비면 검사할 이름이 없어 부분집합 비교가 진공으로 통과한다.
+    assert names
+    assert names <= set(DEFAULT_CATEGORY_HINTS)
 
 
 async def test_both_or_neither_input_is_rejected(client) -> None:

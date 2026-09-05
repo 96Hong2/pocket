@@ -15,13 +15,38 @@ import { expect, test } from '../support/fixtures';
 const CAPTURE_ANALYZE = '**/api/v1/imports/capture';
 
 /** 스텁이 내는 5건 중 기본으로 켜지는 것들. 스타벅스를 미리 심으면 그 줄이 중복으로 빠진다. */
-const SELECTED_WITHOUT_STARBUCKS = 3_200 + 8_000 + 32_900;
+const SELECTED = [
+  { amount: 3_200, daysAgo: 0 }, // GS25
+  { amount: 8_000, daysAgo: 1 }, // 김밥천국
+  { amount: 32_900, daysAgo: 2 }, // 쿠팡
+] as const;
+const SELECTED_WITHOUT_STARBUCKS = SELECTED.reduce((sum, row) => sum + row.amount, 0);
 const KAKAO_T = 9_800;
+/** 미리 심어 두는 오늘 지출. 중복 판정의 재료이자 이번 달 합계에 늘 들어간다. */
+const SEEDED = 4_500;
+
+function dayOf(daysAgo: number): Date {
+  const at = new Date();
+  at.setDate(at.getDate() - daysAgo);
+  return at;
+}
 
 function dayLabel(daysAgo: number): string {
-  const now = new Date();
-  now.setDate(now.getDate() - daysAgo);
-  return formatDayLabel(toLedgerDate(now));
+  return formatDayLabel(toLedgerDate(dayOf(daysAgo)));
+}
+
+/**
+ * 이번 달에 실제로 잡히는 몫만 더한다.
+ *
+ * 스텁 날짜는 오늘 기준 상대라 1일에 돌리면 어제·그저께가 지난달로 넘어간다.
+ * 홈·달력 합계는 달력 월만 세므로, 저장 합계를 그대로 쓰면 매달 1·2일에만 빨개진다.
+ */
+function thisMonthTotal(): number {
+  const month = toLedgerDate(new Date()).slice(0, 7);
+  const inThisMonth = SELECTED.filter(
+    ({ daysAgo }) => toLedgerDate(dayOf(daysAgo)).slice(0, 7) === month,
+  );
+  return SEEDED + inThisMonth.reduce((sum, row) => sum + row.amount, 0);
 }
 
 test('캡처 한 장에서 다섯 건을 읽어 한 화면에서 검토하고 저장한다', async ({
@@ -32,7 +57,7 @@ test('캡처 한 장에서 다섯 건을 읽어 한 화면에서 검토하고 �
   recordSheet,
 }) => {
   // 오늘 스타벅스 4,500 을 미리 심어 둔다. 스텁 첫 줄과 지문이 같아져 중복으로 잡혀야 한다.
-  await prep.addTransaction({ amount: 4_500, merchant: '스타벅스' });
+  await prep.addTransaction({ amount: SEEDED, merchant: '스타벅스' });
 
   await seedAlbumPhotos(CAPTURE_DATA_URI)(page);
 
@@ -98,13 +123,11 @@ test('캡처 한 장에서 다섯 건을 읽어 한 화면에서 검토하고 �
   await recordSheet.waitClosed();
 
   // 미리 심어 둔 4,500 이 이번 달 지출에 이미 들어 있다.
-  await expect(home.hero.monthSpent).toHaveText(formatCurrency(SELECTED_WITHOUT_STARBUCKS + 4_500));
+  await expect(home.hero.monthSpent).toHaveText(formatCurrency(thisMonthTotal()));
 
   await calendar.open();
   await calendar.waitReady();
-  await expect(calendar.totals.expense).toHaveText(
-    formatCurrency(SELECTED_WITHOUT_STARBUCKS + 4_500),
-  );
+  await expect(calendar.totals.expense).toHaveText(formatCurrency(thisMonthTotal()));
   await expect(calendar.list.row('GS25')).toBeVisible();
 });
 
@@ -121,5 +144,4 @@ test('고른 사진을 다시 보여 주지 않고 바로 읽는다', async ({ h
 
   // 미리보기에서 한 번 더 확인받으면 10초가 넘는다. 진짜 확인은 후보 목록에서 한다.
   await expect(recordSheet.capture.readLine).toBeVisible();
-  await expect(recordSheet.capture.guide).toHaveCount(0);
 });

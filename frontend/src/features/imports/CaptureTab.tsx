@@ -102,6 +102,8 @@ export function CaptureTab({ onBusyChange, onDone }: CaptureTabProps) {
 
   async function pick(): Promise<void> {
     setPickFailure(null);
+    // 직전 분석 오류도 지운다. 안 지우면 취소하고 나왔을 때 붉은 줄이 그대로 남는다.
+    analyze.reset();
     // 앨범이 열려 있는 동안과 읽는 동안 내내 잠근다. 중간에 시트가 닫히면 결과가 갈 곳이 없다.
     onBusyChange(true);
     try {

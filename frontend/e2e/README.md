@@ -13,6 +13,8 @@ e2e/
                  보통은 fixtures 가 걸고, 이 장치 자체를 증명하는 spec 만 직접 부른다
     api.ts       사전 조건을 심는다. spec 은 `prep` 픽스처로 받는다
     album.ts     devtools 목 앨범 다이얼. 사진 심기·권한 거부와 각각의 짝 확인 함수
+    aitMock.ts   그 밖의 devtools 목 다이얼. 광고 미채움·시스템 뒤로가기·미니앱 종료 감시
+    servers.ts   playwright.config 가 띄우는 dev 서버 정의
     fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다. spec 은 여기서 시작한다
   fixtures/    테스트가 쓰는 파일. 지금은 캡처용 PNG 한 장(capture.png)
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
@@ -130,10 +132,10 @@ devtools 를 올린 뒤 그 spec 이 깨지면 `support/anonKey.ts` 를 목 구�
 
 `support/album.ts` 는 익명키 트랩과 같은 모양이다. **다이얼마다 짝 확인 함수를 둔다.**
 
-| 거는 것                     | 확인하는 짝                    |
-| --------------------------- | ------------------------------ |
-| `seedAlbumPhotos(dataUri)`  | `albumPhotosSeeded(page)`      |
-| `denyPhotoPermission()`     | `photoPermissionDenied(page)`  |
+| 거는 것                    | 확인하는 짝                   |
+| -------------------------- | ----------------------------- |
+| `seedAlbumPhotos(dataUri)` | `albumPhotosSeeded(page)`     |
+| `denyPhotoPermission()`    | `photoPermissionDenied(page)` |
 
 짝을 안 부르면 **다이얼이 안 걸린 채로 초록이 된다.** 목 내부 구조(슬라이스 이름)에 기대는
 코드라 devtools 를 올리면 여기가 먼저 조용히 깨진다. 심는 사진은 `fixtures/capture.png` 를

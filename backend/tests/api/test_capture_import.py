@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import base64
 import logging
-from datetime import datetime
+from collections.abc import Callable
+from contextlib import contextmanager
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -19,6 +21,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
+from app.integrations.llm import LlmError, get_llm_client
+from app.integrations.llm.stub import StubLlmStructuredClient
 from app.models import ImportBatch, ImportCandidate, ParseUsage, Transaction
 from app.modules import ledger
 
@@ -35,6 +39,8 @@ PNG_BYTES = (
 )
 PAYLOAD = base64.b64encode(PNG_BYTES).decode()
 IMAGE = f"data:image/png;base64,{PAYLOAD}"
+# 형식은 맞고 매직바이트만 틀린 값. 서버가 payload 를 디코드한 뒤에 막는다.
+BROKEN_IMAGE = f"data:image/png;base64,{base64.b64encode(MARKER * 8).decode()}"
 
 
 def _analyze(client: TestClient, image: str = IMAGE) -> dict:
@@ -177,10 +183,7 @@ def test_업로드한_이미지가_로그에_남지_않는다(
 def test_읽지_못한_사진은_422_이고_응답에_입력이_안_실린다(
     client: TestClient, default_categories
 ) -> None:
-    # 형식은 맞고 매직바이트만 틀린 값이라, 서버가 payload 를 디코드한 뒤에 막는다.
-    broken = f"data:image/png;base64,{base64.b64encode(MARKER * 8).decode()}"
-
-    response = client.post("/api/v1/imports/capture", json={"image": broken}, headers=AUTH)
+    response = client.post("/api/v1/imports/capture", json={"image": BROKEN_IMAGE}, headers=AUTH)
 
     assert response.status_code == 422, response.text
     assert response.json()["error"]["code"] == "INVALID_REQUEST"
@@ -191,10 +194,15 @@ def test_읽지_못한_사진은_422_이고_응답에_입력이_안_실린다(
 def test_읽지_못한_사진은_사용량으로_세지_않는다(
     client: TestClient, db: Session, default_categories
 ) -> None:
-    client.post("/api/v1/imports/capture", json={"image": "그냥 문자열이 아닌 값"}, headers=AUTH)
+    # 스키마의 길이 하한에서 튕기면 라우터에 닿지도 못한다. 형식은 맞고 내용만 틀린 값을 쓴다.
+    response = client.post("/api/v1/imports/capture", json={"image": BROKEN_IMAGE}, headers=AUTH)
 
+    assert response.status_code == 422, response.text
     assert db.scalars(select(ParseUsage)).all() == []
     assert db.scalars(select(ImportBatch)).all() == []
+
+    # 막힌 요청이 상한을 깎지 않았다는 것을 다음 요청이 통과하는 것으로 확인한다.
+    assert _analyze(client)["detected_count"] == 5
 
 
 def test_하루_상한을_넘기면_캡처도_막힌다(
@@ -213,6 +221,99 @@ def test_하루_상한을_넘기면_캡처도_막힌다(
     finally:
         monkeypatch.delenv("NL_PARSE_DAILY_LIMIT", raising=False)
         get_settings.cache_clear()
+
+
+@contextmanager
+def _using(client: TestClient, factory: Callable[[], StubLlmStructuredClient]):
+    """이번 요청 동안만 모델을 갈아 끼운다. 픽스처가 앱을 새로 만들므로 그 앱에 건다."""
+    overrides = client.app.dependency_overrides  # type: ignore[attr-defined]
+    overrides[get_llm_client] = factory
+    try:
+        yield
+    finally:
+        overrides.pop(get_llm_client, None)
+
+
+class _PromptRecorder(StubLlmStructuredClient):
+    """스텁 동작은 그대로 두고 어떤 지시를 보냈는지만 받아 적는다."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.prompts: list[str] = []
+
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        self.prompts.append(prompt)
+        return await super().extract(
+            prompt=prompt, schema=schema, text=text, image=image, today=today
+        )
+
+
+class _BrokenClient(StubLlmStructuredClient):
+    """읽기가 실패하는 모델. 실패했을 때 무엇을 못 읽었다고 말하는지 본다."""
+
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        raise LlmError("모델이 응답하지 않았다")
+
+
+def test_캡처는_캡처용_지시를_보낸다(client: TestClient, default_categories) -> None:
+    recorder = _PromptRecorder()
+    with _using(client, lambda: recorder):
+        _analyze(client)
+
+    assert len(recorder.prompts) == 1
+    sent = recorder.prompts[0]
+    # 줄글 지시가 사진에 가면 모델이 무엇을 볼지 다르게 이해한다.
+    assert "결제 내역 캡처 이미지" in sent
+    assert "사용자가 쓴 줄글" not in sent
+
+
+def test_줄글은_줄글용_지시를_보낸다(client: TestClient, default_categories) -> None:
+    recorder = _PromptRecorder()
+    with _using(client, lambda: recorder):
+        response = client.post("/api/v1/imports/text", json={"text": "점심 12000"}, headers=AUTH)
+        assert response.status_code == 201, response.text
+
+    sent = recorder.prompts[0]
+    assert "사용자가 쓴 줄글" in sent
+    assert "결제 내역 캡처 이미지" not in sent
+
+
+def test_읽기가_실패하면_사진에_맞는_문구로_알린다(client: TestClient, default_categories) -> None:
+    with _using(client, _BrokenClient):
+        response = client.post("/api/v1/imports/capture", json={"image": IMAGE}, headers=AUTH)
+        text = client.post("/api/v1/imports/text", json={"text": "점심 12000"}, headers=AUTH)
+
+    tail = " 읽지 못했어요. 잠시 뒤 다시 시도해 주세요."
+
+    assert response.status_code == 503, response.text
+    # 사진을 넣었는데 '문장을 읽지 못했다' 고 하면 무엇을 고쳐야 할지 알 수 없다.
+    assert response.json()["error"]["message"] == "지금은 캡처를" + tail
+    assert text.json()["error"]["message"] == "지금은 문장을" + tail
+
+
+def test_달이_바뀐_직후_저장해도_예산은_이번_달을_말한다(
+    client: TestClient, default_categories, monkeypatch
+) -> None:
+    """스텁은 그저께 건을 마지막으로 저장한다. 그것을 기준 삼으면 1일에 지난달 예산을 말한다."""
+    from app.modules import ledger as ledger_module
+
+    first_day = date(2026, 9, 1)
+    monkeypatch.setattr(ledger_module, "today_for", lambda user: first_day)
+
+    budget = client.put(
+        "/api/v1/budgets?period_start=2026-09-01", json={"amount": "600000"}, headers=AUTH
+    )
+    assert budget.status_code == 200, budget.text
+
+    batch = _analyze(client)
+    committed = client.post(f"/api/v1/imports/{batch['id']}/commit", headers=AUTH)
+
+    assert committed.status_code == 200, committed.text
+    body = committed.json()
+    assert body["budget"] is not None
+    assert body["budget"]["period_start"] == "2026-09-01"
+    # 9월에 든 것은 오늘 날짜 두 건(스타벅스 4,500 + GS25 3,200)뿐이다.
+    assert body["budget"]["remaining_budget"] == "592300"
 
 
 def _string_values(db: Session, *models: type) -> list[str]:
