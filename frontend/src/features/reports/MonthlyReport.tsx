@@ -30,8 +30,6 @@ import {
   type SegmentedOption,
 } from '../../shared/ui';
 
-import { AdSlot } from '../ads';
-
 import { CategoryDonut } from './CategoryDonut';
 import { donutColors } from './donutColors';
 import { TrendBars } from './TrendBars';
@@ -205,8 +203,10 @@ export function MonthlyReport({
         <TrendBars points={data.trend} mode={mode} currentMonth={month} />
       </Card>
 
-      {/* 스크롤하는 화면 맨 아래 한 자리. 채울 광고가 없으면 접혀서 자리를 안 남긴다. */}
-      <AdSlot />
+      {/*
+        광고 자리는 홈 한 곳뿐이다. 시안에는 여기에도 배너가 있지만 PRD v5 가 홈으로 못 박았다.
+        달을 옮길 때마다 본문을 다시 그려서 배너가 다시 붙고, 그것이 곧 광고 새로고침이 된다.
+      */}
     </div>
   );
 }

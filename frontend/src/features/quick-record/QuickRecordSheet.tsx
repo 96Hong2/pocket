@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 
+import { useQueryClient } from '@tanstack/react-query';
+
 import { useBridge, useOverlayBackClose } from '../../app/providers';
 import {
   ApiError,
+  queryKeys,
   useCategories,
   useCreateTransaction,
   type CategoryOut,
   type FeedbackOut,
+  type PreferencesOut,
   type TransactionOut,
 } from '../../shared/api';
 import { formatCurrency } from '../../shared/lib/format';
@@ -26,10 +30,10 @@ import { FeedbackPanel } from './FeedbackPanel';
 import { toAmount } from './digits';
 import { AmountDisplay, Keypad } from './Keypad';
 import { readLastRecord, writeLastRecord, type LastRecord } from './lastRecord';
+import { DEFAULT_RECORD_TAB, recordMethodOf, type RecordTab } from './recordTab';
 import { undoDeadline } from './useUndoCountdown';
 
-/** 시트를 여는 쪽이 어느 탭으로 열지 고를 수 있게 밖으로 낸다. */
-export type RecordTab = 'keypad' | 'nl' | 'capture' | 'receipt';
+export type { RecordTab };
 
 const TABS: SegmentedOption<RecordTab>[] = [
   { value: 'keypad', label: '키패드' },
@@ -91,10 +95,11 @@ function RecordBody({
   onSavingChange: (saving: boolean) => void;
 }) {
   const bridge = useBridge();
+  const queryClient = useQueryClient();
   const categories = useCategories();
   const create = useCreateTransaction();
 
-  const [tab, setTab] = useState<RecordTab>(initialTab ?? 'keypad');
+  const [tab, setTab] = useState<RecordTab>(initialTab ?? DEFAULT_RECORD_TAB);
   // 무언가 도는 중에는 탭을 옮기지 못한다. 옮기면 응답이 돌아올 자리가 사라진다.
   const [busy, setBusy] = useState(false);
   const [digits, setDigits] = useState('');
@@ -119,6 +124,22 @@ function RecordBody({
   function markBusy(next: boolean): void {
     setBusy(next);
     onSavingChange(next);
+  }
+
+  /**
+   * 한 건을 저장하고 시트를 닫는다. 저장을 마친 얼굴에서만 여기로 온다.
+   *
+   * 서버는 저장할 때 이 방식을 기억해 뒀다. 설정은 오래 들고 있어서 여기서 캐시를 맞춰 두지
+   * 않으면, 시트를 다시 열 때 앱을 켤 당시의 옛 값으로 열린다. 다시 불러오는 대신 값을
+   * 직접 넣는 이유는, 응답을 기다리는 사이에 시트가 다시 열리면 여전히 지난 탭이기 때문이다.
+   *
+   * 되돌린 뒤에도 남긴다. 되돌리기가 지우는 것은 거래지 방금 무엇으로 적었나가 아니다.
+   */
+  function finish(): void {
+    queryClient.setQueryData<PreferencesOut>(queryKeys.preferences(), (prev) =>
+      prev == null ? prev : { ...prev, last_record_method: recordMethodOf(tab) },
+    );
+    onDone();
   }
 
   function save(category: CategoryOut, amount: number): void {
@@ -161,7 +182,7 @@ function RecordBody({
         feedback={saved.feedback}
         categories={expenseCategories}
         deadline={saved.deadline}
-        onUndone={onDone}
+        onUndone={finish}
         onUpdated={(updated) =>
           setSaved({
             transaction: updated.transaction,
@@ -170,7 +191,7 @@ function RecordBody({
             deadline: saved.deadline,
           })
         }
-        onConfirm={onDone}
+        onConfirm={finish}
       />
     );
   }
@@ -199,18 +220,18 @@ function RecordBody({
 
       {/* 감추기만 하고 남겨 둔다. 언마운트하면 적어 둔 줄글과 검토 목록이 사라진다. */}
       <div hidden={tab !== 'nl'}>
-        <NaturalLanguageTab onBusyChange={markBusy} onDone={onDone} />
+        <NaturalLanguageTab onBusyChange={markBusy} onDone={finish} />
       </div>
 
       <div hidden={tab !== 'capture'}>
-        <ImageImportTab kind="capture" onBusyChange={markBusy} onDone={onDone} />
+        <ImageImportTab kind="capture" onBusyChange={markBusy} onDone={finish} />
       </div>
 
       <div hidden={tab !== 'receipt'}>
         <ImageImportTab
           kind="receipt"
           onBusyChange={markBusy}
-          onDone={onDone}
+          onDone={finish}
           // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
           fallbackAction={
             <Button variant="ghost" onClick={() => setTab('keypad')}>

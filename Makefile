@@ -7,7 +7,7 @@ E2E_DATABASE_URL ?= postgresql+psycopg://pocket:pocket@localhost:5434/pocket_e2e
 
 .PHONY: dev-front dev-back test lint check e2e e2e-edge \
         docker-check db-up db-down db-reset db-psql migrate-dev migrate-e2e migrate \
-        image image-run
+        image image-run ait serve-public
 
 ## ── 개발 서버 ───────────────────────────────────
 
@@ -91,3 +91,16 @@ image-run: image db-up
 		-e ALLOW_UNVERIFIED_ANON_KEY=true \
 		-e DATABASE_URL='postgresql+psycopg://pocket:pocket@host.docker.internal:5434/pocket' \
 		pocket-backend:local
+
+## ── 실기기 테스트 ───────────────────────────────
+
+# 콘솔에 올릴 번들. API_BASE_URL 을 안 주면 빌드는 되지만 실기기에서 아무것도 못 부른다.
+# 운영 번들은 https 만 받는다(frontend/src/shared/api/baseUrl.ts).
+ait:
+	@test -n "$(API_BASE_URL)" || { echo "API_BASE_URL 이 필요하다. 예: make ait API_BASE_URL=https://..."; exit 1; }
+	cd frontend && VITE_API_BASE_URL='$(API_BASE_URL)' npm run build
+	@echo "frontend/pocket.ait 를 콘솔에 올린다."
+
+# 운영 서버가 서기 전까지 쓰는 임시 공개 주소. 자세한 것은 스크립트 맨 위 주석.
+serve-public:
+	./scripts/serve-public.sh

@@ -1,5 +1,5 @@
 # 로컬 개발과 e2e 검증에 쓰는 PostgreSQL 하나.
-# 배포용이 아니다. Cloud Run 에 올릴 백엔드 컨테이너는 아직 없다(README 「아직 만들지 않은 것」).
+# 배포용이 아니다. 운영 이미지는 docker/backend/Dockerfile 이고 순서는 docs/DEPLOY.md 에 있다.
 #
 # 이 맥에는 다른 프로젝트의 postgres 가 이미 떠 있다.
 #   5432 lead_mgmt_db · 5433 deckspace-db

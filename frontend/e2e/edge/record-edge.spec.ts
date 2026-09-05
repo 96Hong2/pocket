@@ -20,6 +20,28 @@ test('0원은 저장으로 넘어가지 않는다', async ({ home, recordSheet }
   await expect(recordSheet.input.categoryChip('식비')).toBeDisabled();
 });
 
+test('저장한 뒤에도 0원으로는 고칠 수 없다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.enterAmount(9_000);
+  await recordSheet.input.pickCategory('식비');
+  await recordSheet.feedback.waitSaved();
+
+  await recordSheet.feedback.changeAmountButton.click();
+  await recordSheet.feedback.clearAmount();
+
+  // 저장이 0 원을 막으니 고치기도 같다. 여기가 열려 있으면 저장을 우회해 0 원 기록이 남는다.
+  await expect(recordSheet.feedback.amountText).toHaveText(formatCurrency(0));
+  await expect(recordSheet.feedback.applyAmountButton).toBeDisabled();
+
+  // 다시 누르면 풀린다. 한 번 지웠다고 고치는 길까지 막히면 안 된다.
+  await recordSheet.feedback.enterAmount(5_000);
+  await expect(recordSheet.feedback.applyAmountButton).toBeEnabled();
+});
+
 test('지웠다 다시 적으면 금액이 처음부터 다시 쌓인다', async ({ home, recordSheet }) => {
   await home.open();
   await home.waitReady();
@@ -90,6 +112,43 @@ test('저장이 도는 동안 같은 분류를 다시 눌러도 한 건만 저�
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
   await expect(home.today.amount(formatCurrency(7_000))).toHaveCount(1);
+});
+
+test('줄글로 적고 나면 다음부터 줄글 탭으로 열린다', async ({ home, page, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  // 아직 한 번도 적지 않은 사람은 키패드로 시작한다.
+  await expect(recordSheet.methodTab('키패드')).toHaveAttribute('aria-checked', 'true');
+
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+  await recordSheet.nl.save();
+  await recordSheet.nl.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  // 같은 자리에서 다시 열었을 때. 매번 탭을 다시 고르게 하면 10초가 두 번 걸린다.
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await expect(recordSheet.methodTab('줄글')).toHaveAttribute('aria-checked', 'true');
+  await expect(recordSheet.nl.textarea).toBeVisible();
+  await recordSheet.closeByEsc();
+  await recordSheet.waitClosed();
+
+  // 앱을 다시 켠 다음. 화면이 잠깐 들고 있던 것이 아니라 서버가 기억해야 여기서 산다.
+  const preferencesLoaded = page.waitForResponse(
+    (res) =>
+      res.url().startsWith(`${E2E_API_URL}/api/v1/preferences`) && res.request().method() === 'GET',
+  );
+  await home.open();
+  await home.waitReady();
+  await preferencesLoaded;
+
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await expect(recordSheet.methodTab('줄글')).toHaveAttribute('aria-checked', 'true');
 });
 
 test.describe('저장이 실패했을 때', () => {

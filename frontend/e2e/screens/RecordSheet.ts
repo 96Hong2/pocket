@@ -15,7 +15,7 @@ export class RecordSheet {
 
   /** 저장 전. 금액·키패드·카테고리 칩. */
   readonly input: RecordInput;
-  /** 저장 후. 피드백 한마디·되돌리기·카테고리 바꾸기. */
+  /** 저장 후. 피드백 한마디·되돌리기·금액과 카테고리 바꾸기. */
   readonly feedback: RecordFeedback;
   /** 줄글 탭. 적기·검토·저장이 한 자리에서 이어진다. */
   readonly nl: RecordNaturalLanguage;
@@ -217,6 +217,44 @@ class RecordFeedback {
     return this.root.getByRole('button', { name: '카테고리 바꾸기' });
   }
 
+  /** 금액을 고치러 키패드를 펴는 버튼. */
+  get changeAmountButton(): Locator {
+    return this.root.getByRole('button', { name: '금액 바꾸기' });
+  }
+
+  /** 금액 바꾸기를 눌렀을 때 키패드 위에 뜨는 제목. 접혀 있으면 없다. */
+  get changeAmountTitle(): Locator {
+    return this.root.getByText('얼마로 고칠까요?', { exact: true });
+  }
+
+  /** 고치는 중인 금액. 저장 전 키패드와 같은 자리를 쓴다. */
+  get amountText(): Locator {
+    return this.root.getByTestId(TEST_IDS.recordAmount);
+  }
+
+  /** 눌러 둔 금액으로 실제로 고치는 버튼. 0 원이면 눌리지 않는다. */
+  get applyAmountButton(): Locator {
+    return this.root.getByRole('button', { name: '이 금액으로 고치기' });
+  }
+
+  get backspaceKey(): Locator {
+    return this.root.getByRole('button', { name: '한 자리 지우기' });
+  }
+
+  numberKey(key: string): Locator {
+    return this.root.getByRole('button', { name: key, exact: true });
+  }
+
+  /**
+   * 저장한 거래 한 줄의 금액. 금액을 고치면 여기가 새 값으로 바뀐다.
+   *
+   * 이 자리에는 접근성 이름이 없고, 줄을 그리는 것은 여러 화면이 함께 쓰는 컴포넌트라
+   * 이 화면만 보고 testid 를 붙일 수 없다. 그려진 클래스로 잡는다.
+   */
+  get savedAmount(): Locator {
+    return this.root.locator('.pk-tx__amount');
+  }
+
   /** 카테고리 바꾸기를 눌렀을 때 칩 위에 뜨는 제목. 접혀 있으면 없다. */
   get changeTitle(): Locator {
     return this.root.getByText('어디에 넣을까요?', { exact: true });
@@ -264,6 +302,24 @@ class RecordFeedback {
   async changeCategory(name: string): Promise<void> {
     await this.changeCategoryButton.click();
     await this.categoryChip(name).click();
+  }
+
+  /**
+   * 눌러 둔 금액을 지운다.
+   *
+   * 자릿수를 미리 알 수 없어 화면에 찍힌 숫자만큼 지우기를 누른다.
+   * 빈 상태도 `0원` 으로 그려져 한 번은 헛눌리지만, 지워진 뒤 더 눌러도 값은 그대로다.
+   */
+  async clearAmount(): Promise<void> {
+    const shown = (await this.amountText.textContent()) ?? '';
+    const digits = shown.replace(/\D/g, '').length;
+    for (let step = 0; step < digits; step += 1) await this.backspaceKey.click();
+  }
+
+  /** 펼쳐 둔 키패드에서 금액을 다시 누른다. 지우고 처음부터 찍는다. */
+  async enterAmount(amount: number): Promise<void> {
+    await this.clearAmount();
+    for (const key of keyStrokesFor(amount)) await this.numberKey(key).click();
   }
 }
 

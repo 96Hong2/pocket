@@ -63,9 +63,18 @@
     font-size: var(--text-13);
   }
 
+  /*
+    후보 목록 위아래에 붙는 한 줄. 지출 빨강은 내역 부호·달력·차트 전용이라 여기 쓰지 않는다.
+    role 이 두 가지로 갈리고 뜻도 다르다. 그냥 알려 주는 줄(status)은 보조색으로 두고,
+    손을 봐야 하는 줄(alert)만 앰버로 올린다.
+  */
   .nl__notice {
     font-size: var(--text-13);
-    color: var(--color-expense);
+    color: var(--color-muted);
+  }
+
+  .nl__notice[role='alert'] {
+    color: var(--color-amber-700);
   }
 
   .nl__list {
@@ -260,12 +269,13 @@
     color: var(--color-muted);
   }
 
+  /* 사진을 못 고르거나 못 읽었을 때. 다시 해야 하는 줄이라 앰버로 세운다. */
   .capture__alert {
     font-size: var(--text-13);
-    color: var(--color-expense);
+    color: var(--color-amber-700);
   }
 
-  /* 결과를 지어냈다는 사실을 알리는 줄. 오류가 아니라서 붉게 쓰지 않는다. */
+  /* 결과를 지어냈다는 사실을 알리는 줄. 다시 할 일이 없어 눈에 세우지 않는다. */
   .capture__stub {
     padding: 10px 12px;
     border-radius: var(--radius-inset);
@@ -340,8 +350,9 @@
     font-weight: var(--font-weight-semibold);
   }
 
+  /* 지우기가 막혔을 때. 다시 눌러야 하는 줄이라 앰버로 세운다. */
   .rules__notice {
     font-size: var(--text-13);
-    color: var(--color-expense);
+    color: var(--color-amber-700);
   }
 }

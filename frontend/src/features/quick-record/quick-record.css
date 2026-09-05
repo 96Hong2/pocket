@@ -269,6 +269,11 @@
     color: var(--color-muted);
   }
 
+  /* 키패드와 붙어 있으면 마지막 줄 키를 누르려다 눌린다. */
+  .feedback__apply {
+    margin-top: 10px;
+  }
+
   .feedback__actions {
     display: flex;
     gap: 8px;
@@ -277,5 +282,10 @@
 
   .feedback__actions > * {
     flex: 1;
+  }
+
+  /* 고치는 버튼 둘 아래 한 줄을 통째로 쓴다. 여기가 이 화면을 끝내는 자리다. */
+  .feedback__confirm {
+    margin-top: 8px;
   }
 }

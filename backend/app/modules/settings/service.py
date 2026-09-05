@@ -10,9 +10,20 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.domain.aggregation import TransactionSource
 from app.models import User, UserPreference
+from app.models.preference import RecordMethod
 
-__all__ = ["get_preferences", "update_preferences"]
+__all__ = ["get_preferences", "remember_record_method", "update_preferences"]
+
+# 기록 시트에 탭이 있는 입력 경로만 기억한다. 자산 캡처와 무지출일은 그 시트에서 오지 않아
+# 여기 넣으면 다음에 열 수 없는 탭을 가리키게 된다.
+_METHOD_BY_SOURCE: dict[TransactionSource, RecordMethod] = {
+    TransactionSource.KEYPAD: RecordMethod.KEYPAD,
+    TransactionSource.NL: RecordMethod.NL,
+    TransactionSource.SCREENSHOT: RecordMethod.SCREENSHOT,
+    TransactionSource.RECEIPT: RecordMethod.RECEIPT,
+}
 
 
 def _find(session: Session, user: User) -> UserPreference | None:
@@ -54,3 +65,24 @@ def update_preferences(session: Session, user: User, data: dict) -> UserPreferen
     session.commit()
     session.refresh(row)
     return row
+
+
+def remember_record_method(session: Session, user: User, source: TransactionSource) -> None:
+    """다음에 기록 시트를 어느 탭으로 열지 남긴다. 거래를 저장한 뒤에 부른다.
+
+    저장이 끝난 다음이라 여기서 커밋해도 거래가 반쪽으로 남지 않는다. 반대로 저장 전에
+    부르면 이 커밋이 아직 검증 중인 거래까지 함께 밀어 넣는다.
+
+    값이 그대로면 아무것도 쓰지 않는다. 여러 건을 한 번에 저장하는 검토 화면이 건마다
+    불러도 UPDATE 는 한 번이다.
+    """
+    method = _METHOD_BY_SOURCE.get(source)
+    if method is None:
+        return
+
+    row = get_preferences(session, user)
+    if row.last_record_method == method:
+        return
+
+    row.last_record_method = method
+    session.commit()

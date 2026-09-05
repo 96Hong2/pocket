@@ -82,6 +82,21 @@ test('그 달 지출을 총액·조각·6개월 흐름으로 보여준다', asyn
 
   // 조각 둘이면 도넛을 그린다. 하나면 100% 링이라 알려 주는 것이 없어 안 그린다.
   await expect(report.donutSlices).toHaveCount(2);
+
+  // 개수만 세면 **색이 하나도 안 칠해져도 통과한다.** 실제로 그런 적이 있다.
+  // 도넛 램프를 tailwind 의 `@theme` 안에 두면 클래스에서 안 쓰인 변수를 지우는데,
+  // 그 이름을 화면 코드가 문자열로 만들어 써서 도구가 못 본다. 도넛이 통째로 투명해졌다.
+  const painted = await report.paintedColors();
+  expect(painted.slices, '도넛 조각이 둘이 아니다').toHaveLength(2);
+  for (const stroke of painted.slices) {
+    expect(stroke, `도넛 조각에 색이 안 칠해졌다: ${JSON.stringify(painted)}`).toMatch(/^rgba?\(/);
+  }
+  // 같은 색이면 조각을 갈라 놓은 뜻이 없다.
+  expect(new Set(painted.slices).size, '조각 색이 서로 같다').toBe(2);
+  // 목록 줄의 색 점도 같은 램프를 쓴다. 도넛만 고치고 목록을 빠뜨리면 여기서 걸린다.
+  expect(painted.swatches, '목록 줄 색 점이 둘이 아니다').toHaveLength(2);
+  expect(new Set(painted.swatches)).toEqual(new Set(painted.slices));
+
   await expect(report.rows).toHaveCount(2);
   await expect(report.amount('식비')).toHaveText(formatCurrency(30_000));
   // 비중은 서버가 준다. 화면이 금액을 다시 나누면 두 곳에서 센 것이 된다.

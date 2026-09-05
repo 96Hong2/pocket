@@ -18,6 +18,7 @@ def _out(row: UserPreference) -> PreferencesOut:
     return PreferencesOut(
         budget_auto_carryover=row.budget_auto_carryover,
         home_hero=row.home_hero,
+        last_record_method=row.last_record_method,
     )
 
 

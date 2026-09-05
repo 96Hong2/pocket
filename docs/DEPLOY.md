@@ -190,7 +190,31 @@ gcloud sql instances delete pocket-restore-check      # 확인이 끝나면 지�
 
 ---
 
-## 9. 배포 전 점검표
+## 9. 실기기 테스트 (운영 서버가 서기 전)
+
+Cloud Run 이 아직 없어도 실기기에서 한 번 돌려 볼 수 있다. 토스 앱이 우리 백엔드를
+**공개 https 주소**로 부르므로, 이 맥의 백엔드를 임시 터널로 잠깐 연다.
+
+```bash
+make serve-public                    # 주소를 찍는다. 창을 닫으면 사라진다
+make ait API_BASE_URL=https://<위에서 받은 주소>
+# frontend/pocket.ait 를 콘솔에 올리고 QR 로 연다
+```
+
+지켜야 하는 것 셋.
+
+- **http 주소로는 못 만든다.** 운영 번들은 https 만 받는다(`frontend/src/shared/api/baseUrl.ts`).
+  토스 앱이 http 요청을 차단해서, 통과시키면 실기기에서 모든 조회가 조용히 실패한다
+- **CORS 는 이미 열어 뒀다.** `pocket.apps.tossmini.com`(실서비스)과
+  `pocket.private-apps.tossmini.com`(콘솔 QR)이 기본값에 있다. `appName` 을 바꾸면 여기도 바꾼다.
+  3.x 번들이 2.x origin 으로 서비스되고 있어 `web.tossmini.com` 쪽도 함께 열어 뒀다
+- **이 서버는 익명 식별키를 검증하지 않는다.** mTLS 인증서가 없어서다. 주소를 아는 사람은
+  아무 키나 보내 남의 기록을 볼 수 있다. **테스트가 끝나면 반드시 끈다.** 오래 켜 두지 않는다
+
+샌드박스 앱으로는 못 한다. SDK 3.x 는 샌드박스 앱을 제공하지 않는다(공식 문서 「테스트앱(샌드박스)」).
+브라우저 devtools 목이 그 자리를 대신하고, 실기기는 콘솔 QR 하나뿐이다.
+
+## 10. 배포 전 점검표
 
 - [ ] `make check` 초록 (린트·타입·단위)
 - [ ] `make e2e` 초록
@@ -200,3 +224,4 @@ gcloud sql instances delete pocket-restore-check      # 확인이 끝나면 지�
 - [ ] 인증서 마운트 경로와 `TOSS_MTLS_*_PATH` 가 같다
 - [ ] 프론트 빌드에 운영 `VITE_AD_GROUP_ID` 가 들어갔다 (개발 중 테스트 ID 로 뜨면 정책 위반)
 - [ ] 배포 뒤 연기 검사 두 줄을 실제로 돌렸다
+- [ ] 콘솔 로고·스크린샷·문안이 최신인가 (`docs/store/`)

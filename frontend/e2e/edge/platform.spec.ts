@@ -154,3 +154,20 @@ for (const root of TAB_ROOTS) {
     ).toBeLessThanOrEqual(overflow.visual + 1);
   });
 }
+
+test('두 손가락 확대를 막아 둔다', async ({ appShell, home, page }) => {
+  await appShell.open();
+  await home.waitReady();
+
+  // 확대가 열려 있으면 사용자가 실수로 벌린 순간 탭바와 시트가 화면 밖으로 나간다.
+  // 지도처럼 확대가 필요한 화면이 없으므로 출시 점검표대로 잠가 둔다.
+  const viewport = await page
+    .locator('meta[name="viewport"]')
+    .getAttribute('content', { timeout: 5_000 });
+
+  expect(viewport, 'viewport 메타가 없다').not.toBeNull();
+  expect(viewport, `확대가 열려 있다: ${viewport}`).toContain('user-scalable=no');
+  expect(viewport, `최대 배율이 안 잠겼다: ${viewport}`).toContain('maximum-scale=1');
+  // 안전영역 값을 이것으로 받는다. 확대를 막다가 같이 지우면 상단바에 글자가 가린다.
+  expect(viewport, `안전영역 설정이 사라졌다: ${viewport}`).toContain('viewport-fit=cover');
+});

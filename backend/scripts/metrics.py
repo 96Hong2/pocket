@@ -14,7 +14,7 @@ PRD 14장이 정한 숫자를 **지금 데이터베이스에서 실제로 셀 �
   안 고치고 넘어간 오류가 정답이 된다. 표본을 손으로 채점해야 한다
 - 유료 전환: 결제가 아직 없다
 
-못 재는 것을 재는 척하지 않는다. 그래서 여기에는 여덟 개만 있다.
+못 재는 것을 재는 척하지 않는다. 그래서 여기에는 아홉 개만 있다.
 """
 
 from __future__ import annotations
@@ -50,10 +50,42 @@ def _ratio(hit: int, total: int) -> str:
 
 
 def assisted_record_rate(conn: Connection) -> Metric:
-    """북극성. 읽어 온 값을 손대지 않고 저장한 비율.
+    """북극성. PRD 정의 그대로 `손 안 대고 저장된 거래 ÷ 전체 거래`.
 
-    분모는 **저장까지 간 후보**다. 검토하다 만 것과 사용자가 선택을 끈 것은 세지 않는다.
-    키패드 기록은 애초에 읽어 온 값이 없으므로 분모 밖이다. 넣으면 비율이 저절로 올라간다.
+    분모는 **저장된 모든 거래**다. 키패드로 직접 친 것도 여기 들어간다. 지표가 재려는 것은
+    인식 품질이 아니라 기록 노동이 줄었는지라, 손으로 친 기록을 빼면 잴 대상이 사라진다.
+    분자는 읽어 온 값을 고치지 않고 그대로 저장한 후보가 만든 거래다.
+    """
+    row = conn.execute(
+        text(
+            """
+            SELECT count(*) AS total,
+                   count(*) FILTER (
+                       WHERE EXISTS (
+                           SELECT 1
+                           FROM import_candidates c
+                           WHERE c.transaction_id = t.id
+                             AND c.was_edited IS FALSE
+                       )
+                   ) AS untouched
+            FROM transactions t
+            WHERE t.deleted_at IS NULL
+            """
+        )
+    ).one()
+    return Metric(
+        "손 안 대고 저장된 비율 (북극성 · 출시 게이트는 이 값이다)",
+        _ratio(row.untouched, row.total),
+        "MVP 65% · 6개월 85%",
+        "분모는 저장된 전체 거래다. 키패드로 친 것도 분모에 든다",
+    )
+
+
+def ai_path_untouched_rate(conn: Connection) -> Metric:
+    """참고값. AI 경로 안에서만 본 무수정률.
+
+    분모가 저장까지 간 후보뿐이라 키패드가 통째로 빠진다. 북극성보다 늘 높게 나오므로
+    게이트로 쓰지 않는다. 줄글·캡처가 읽어 온 값을 얼마나 그대로 쓰는지만 본다.
     """
     row = conn.execute(
         text(
@@ -66,10 +98,10 @@ def assisted_record_rate(conn: Connection) -> Metric:
         )
     ).one()
     return Metric(
-        "손 안 대고 저장된 비율 (북극성)",
+        "AI 경로 안에서의 무수정률 (참고)",
         _ratio(row.untouched, row.committed),
-        "MVP 65% · 6개월 85%",
-        "분모는 저장까지 간 후보다. 키패드는 분모 밖이다",
+        "게이트 아님",
+        "분모는 저장까지 간 후보뿐이다. 인식이 얼마나 그대로 쓰이는지만 본다",
     )
 
 
@@ -245,6 +277,7 @@ def main() -> int:
     with engine.connect() as conn:
         metrics = [
             assisted_record_rate(conn),
+            ai_path_untouched_rate(conn),
             source_mix(conn),
             first_record_success(conn),
             time_to_first_record(conn),

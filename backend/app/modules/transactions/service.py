@@ -10,7 +10,7 @@ import base64
 import binascii
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
@@ -19,13 +19,18 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
 from app.domain import aggregation as agg
-from app.domain.budget import BudgetStatus
+from app.domain.budget import BudgetStatus, evaluate_budget
 from app.domain.feedback import (
+    AchievementEvidence,
     FeedbackInput,
     FeedbackKind,
     FeedbackResult,
     SavedTransaction,
     evaluate_feedback,
+    first_projection_within_budget,
+    large_expense_threshold,
+    no_spend_streak_evidence,
+    weekly_decrease_evidence,
 )
 from app.domain.fingerprint import build_fingerprint
 from app.domain.money import Money
@@ -34,6 +39,7 @@ from app.models import Category, Transaction, User
 from app.modules import ledger
 from app.modules.budgets import service as budgets
 from app.modules.categories import service as categories
+from app.modules.settings import service as settings
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +64,8 @@ SEARCH_MAX_LENGTH = 60
 UNDO_WINDOW = timedelta(seconds=8)
 # 왕복 지연과 사용자 반응 시간을 감안한 여유. 화면에 보인 시간 안에 눌렀는데 거절되면 안 된다.
 UNDO_GRACE = timedelta(seconds=3)
+
+_ONE_DAY = timedelta(days=1)
 
 
 @dataclass(frozen=True)
@@ -201,26 +209,108 @@ def evaluate(session: Session, user: User, tx: Transaction, today: date) -> Save
         status = budgets.budget_status(session, user, period, totals, today)
         carried = budgets.is_carried(session, user, period)
         cat_key = str(tx.category_id) if tx.category_id else None
-        result = evaluate_feedback(
-            FeedbackInput(
-                saved=SavedTransaction(
-                    amount=Money(tx.amount),
-                    type=tx.type,
-                    category_id=cat_key,
-                    excluded_from_budget=tx.excluded_from_budget,
-                ),
-                month_expense=totals.month_expense,
-                budget_status=status if status.has_budget else None,
-                category_budget_amount=budgets.category_budget_amount(
-                    session, user, period, tx.category_id
-                ),
-                category_budgeted_spend=totals.category_budgeted_spend.get(cat_key),
-            )
+        data = FeedbackInput(
+            saved=SavedTransaction(
+                amount=Money(tx.amount),
+                type=tx.type,
+                category_id=cat_key,
+                excluded_from_budget=tx.excluded_from_budget,
+            ),
+            month_expense=totals.month_expense,
+            budget_status=status if status.has_budget else None,
+            category_budget_amount=budgets.category_budget_amount(
+                session, user, period, tx.category_id
+            ),
+            category_budgeted_spend=totals.category_budgeted_spend.get(cat_key),
+            category_median_90d=_category_median(session, user, tx, status, today),
         )
+        result = evaluate_feedback(data)
+        if result.kind in (FeedbackKind.ON_TRACK, FeedbackKind.MONTH_FACT):
+            # 성취는 앞의 네 단계가 아무것도 잡지 못했을 때만 쓰인다. 재료를 미리 읽어 두면
+            # 저장 응답마다 안 쓸 조회가 붙는다. 판정은 재료를 넣어 한 번 더 돌린다.
+            evidence = _achievement(session, user, tx, period, status, today)
+            if evidence is not None:
+                result = evaluate_feedback(replace(data, achievement=evidence))
     except Exception:
         logger.exception("피드백 판정에 실패했다. 저장은 유지한다 transaction_id=%s", tx.id)
         return SaveOutcome(FeedbackResult(kind=FeedbackKind.MONTH_FACT), period, today, None)
     return SaveOutcome(result, period, today, status, is_auto_carried=carried)
+
+
+def _category_median(
+    session: Session, user: User, tx: Transaction, status: BudgetStatus, today: date
+) -> Money | None:
+    """큰 지출 판정에 쓸 그 카테고리의 평소 결제 크기.
+
+    중앙값은 기준을 올리기만 한다. 나머지 두 값만으로도 이미 기준에 못 미치면 결과가
+    달라지지 않으므로 조회하지 않는다. 저장 응답에 붙는 조회라 판정을 바꿀 수 있을 때만 부른다.
+    """
+    if tx.type is not agg.TransactionType.EXPENSE or tx.category_id is None:
+        return None
+    without_median = large_expense_threshold(
+        budget_amount=status.budget_amount, category_median_90d=None
+    )
+    if Money(tx.amount) < without_median:
+        return None
+    return ledger.load_category_expense_median(
+        session, user, category_id=tx.category_id, today=today, exclude_transaction_id=tx.id
+    )
+
+
+def _achievement(
+    session: Session,
+    user: User,
+    tx: Transaction,
+    period: BudgetPeriod,
+    status: BudgetStatus,
+    today: date,
+) -> AchievementEvidence | None:
+    """실제 데이터로 확인되는 성취를 찾는다. 없으면 None 이고, 그러면 아무 말도 하지 않는다.
+
+    보는 순서는 주간 감소, 무지출 연속, 월말 예상이다. 앞의 둘은 한 번의 조회로 읽고,
+    월말 예상은 그 둘이 비었을 때만 재료를 읽는다.
+    """
+    facts = ledger.load_achievement_facts(session, user, today, category_id=tx.category_id)
+    weekly = weekly_decrease_evidence(
+        this_week=facts.this_week_category_spend,
+        last_week=facts.last_week_category_spend,
+    )
+    if weekly is not None:
+        return weekly
+
+    streak = no_spend_streak_evidence(facts.no_spend_streak_days)
+    if streak is not None:
+        return streak
+
+    return _projection_achievement(session, user, period, status, today)
+
+
+def _projection_achievement(
+    session: Session, user: User, period: BudgetPeriod, status: BudgetStatus, today: date
+) -> AchievementEvidence | None:
+    """월말 예상이 이번 달 들어 처음으로 예산 이하로 내려왔나.
+
+    오늘이 예산 이하가 아니면 지난 날을 읽을 필요가 없어 먼저 끊는다.
+    초반 사흘의 예상은 표본이 적어 크게 튀므로 오늘도 지난 날도 그 기간은 세지 않는다.
+    지난 날의 예상은 지금 예산으로 다시 세운다. 달 중간에 예산을 바꿨으면 그만큼 어긋난다.
+    """
+    budget = status.budget_amount
+    if budget is None or not status.is_projection_reliable:
+        return None
+    if status.projected_month_end > budget:
+        return None
+
+    earlier = [
+        evaluate_budget(budget_amount=budget, budgeted_spend=spend, period=period, today=day)
+        for day, spend in ledger.load_daily_budgeted_spend(session, user, period, today - _ONE_DAY)
+    ]
+    return first_projection_within_budget(
+        today_projected=status.projected_month_end,
+        budget_amount=budget,
+        earlier_projected=[
+            state.projected_month_end for state in earlier if state.is_projection_reliable
+        ],
+    )
 
 
 # ── 저장 ────────────────────────────────────────────────
@@ -251,6 +341,11 @@ def create_transaction(
     session.add(tx)
     session.commit()
     session.refresh(tx)
+
+    # 다음번에 기록 시트를 이 방식으로 열어 준다. 여기 한 곳이면 네 입구가 다 걸린다.
+    # 줄글·캡처·영수증은 검토 목록을 저장할 때 건마다 이 함수를 지난다.
+    # 거래를 커밋한 뒤에 부른다. 앞에 두면 아직 검증 중인 거래까지 함께 커밋된다.
+    settings.remember_record_method(session, user, tx.source)
 
     return tx, evaluate(session, user, tx, today or ledger.today_for(user))
 

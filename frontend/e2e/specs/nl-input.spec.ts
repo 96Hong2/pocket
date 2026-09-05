@@ -226,9 +226,9 @@ test('분류를 바꿔 저장하면 다음번에 그 분류가 먼저 잡힌다'
   await expect(recordSheet.nl.row('올리브영')).toContainText('생활');
 });
 
-test('기억한 분류를 관리 탭에서 보고 지우면 원래 분류로 돌아간다', async ({
+test('기억한 분류를 카테고리 관리에서 보고 지우면 원래 분류로 돌아간다', async ({
+  categories,
   home,
-  manage,
   recordSheet,
 }) => {
   await home.open();
@@ -243,12 +243,12 @@ test('기억한 분류를 관리 탭에서 보고 지우면 원래 분류로 돌
   await recordSheet.nl.confirmButton.click();
   await recordSheet.waitClosed();
 
-  await manage.open();
-  await manage.waitReady();
-  await expect(manage.rules.row('올리브영')).toContainText('생활');
+  await categories.open();
+  await categories.waitReady();
+  await expect(categories.rules.row('올리브영')).toContainText('생활');
 
-  await manage.rules.remove('올리브영');
-  await expect(manage.rules.emptyTitle).toBeVisible();
+  await categories.rules.remove('올리브영');
+  await expect(categories.rules.emptyTitle).toBeVisible();
 
   await home.open();
   await home.waitReady();

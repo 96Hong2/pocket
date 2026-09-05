@@ -72,6 +72,24 @@ export class ReportScreen {
     return this.donut.locator('circle');
   }
 
+  /**
+   * 조각과 목록 줄에 실제로 칠해진 색.
+   *
+   * 조각 수만 세면 **색이 하나도 안 칠해져도 통과한다.** 실제로 그런 적이 있다.
+   * 램프를 `@theme` 안에 두면 tailwind 가 클래스에서 안 쓰인 변수를 지우는데,
+   * 그 이름을 JS 가 문자열로 만들어 써서 도구가 못 본다. 그래서 화면에서 계산된 값을 본다.
+   */
+  async paintedColors(): Promise<{ slices: string[]; swatches: string[] }> {
+    return this.root.evaluate(() => {
+      const paint = (selector: string, prop: 'stroke' | 'backgroundColor') =>
+        [...document.querySelectorAll(selector)].map((el) => getComputedStyle(el)[prop]);
+      return {
+        slices: paint('[data-testid="report-donut"] circle', 'stroke'),
+        swatches: paint('.report__row-swatch:not(.is-empty)', 'backgroundColor'),
+      };
+    });
+  }
+
   get rows(): Locator {
     return this.root.getByTestId(TEST_IDS.reportBreakdownRow);
   }
@@ -94,9 +112,7 @@ export class ReportScreen {
   }
 
   trendBar(month: string): Locator {
-    return this.root.locator(
-      `[data-testid="${TEST_IDS.reportTrendBar}"][data-month="${month}"]`,
-    );
+    return this.root.locator(`[data-testid="${TEST_IDS.reportTrendBar}"][data-month="${month}"]`);
   }
 
   /**
@@ -152,6 +168,16 @@ export class ReportScreen {
    */
   get emptyModeNotice(): Locator {
     return this.root.getByText(/^이 달엔 (수입|소비) 기록이 없어요$/);
+  }
+
+  /**
+   * 광고 자리. 리포트에는 없어야 한다.
+   *
+   * 배너는 홈 한 곳뿐이다. 이 화면은 달을 옮길 때마다 본문을 다시 그려서,
+   * 여기에 두면 배너가 다시 붙고 그것이 곧 광고 새로고침이 된다.
+   */
+  get adSlot(): Locator {
+    return this.root.getByTestId(TEST_IDS.adSlot);
   }
 
   /** 조회가 실패했을 때 본문 자리를 대신하는 제목. */

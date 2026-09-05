@@ -15,6 +15,8 @@ import {
   toHomeViewInput,
 } from '../features/home';
 import { QuickRecordSheet, type RecordTab } from '../features/quick-record';
+// 방식 → 탭 환산은 시트 옆에 있다. 배럴에는 시트만 나와 있어 파일을 곧장 가리킨다.
+import { DEFAULT_RECORD_TAB, resolveRecordTab } from '../features/quick-record/recordTab';
 import { useBudget, useCategories, usePreferences, useTransactions } from '../shared/api';
 import { Button, ErrorState, LoadingState, iconUrl } from '../shared/ui';
 
@@ -77,7 +79,13 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
         <RecoveryCard progress={budget.data.recovery} onCatchUp={() => onRecord('capture')} />
       ) : null}
 
-      <RecordButton onClick={() => onRecord('keypad')} />
+      {/*
+        마지막에 쓴 방식으로 연다. 설정이 아직 안 왔으면 기다리지 않고 키패드로 연다.
+        시트가 늦게 열리면 10초 안에 적는다는 약속부터 깨진다.
+      */}
+      <RecordButton
+        onClick={() => onRecord(resolveRecordTab(preferences.data?.last_record_method))}
+      />
 
       {view?.showBudgetSuggestion ? <BudgetSuggestCard /> : null}
 
@@ -103,7 +111,7 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
 export default function HomePage() {
   const [sheet, setSheet] = useState<{ open: boolean; tab: RecordTab }>({
     open: false,
-    tab: 'keypad',
+    tab: DEFAULT_RECORD_TAB,
   });
 
   return (

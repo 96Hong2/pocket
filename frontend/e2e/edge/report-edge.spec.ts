@@ -102,6 +102,25 @@ test('아주 긴 분류 이름이 리포트를 가로로 밀지 않는다', asyn
   );
 });
 
+test('리포트에는 광고 자리가 없다', async ({ home, report }) => {
+  // 광고 자체가 안 붙는 환경이라 없는 것이 아니라는 것부터 홈에서 확인한다.
+  await home.open();
+  await home.waitReady();
+  await expect(home.ads.banner).toBeVisible();
+
+  await report.open();
+  await report.waitReady();
+
+  // 시안에는 리포트 아래에도 배너가 있지만 배너는 홈 한 곳뿐이다.
+  await expect(report.adSlot).toHaveCount(0);
+
+  // 달을 옮기면 본문을 통째로 다시 그린다. 여기에 배너가 있으면 그때마다 다시 붙어
+  // 우리가 광고를 새로고침하는 것이 된다.
+  await report.goPreviousMonth();
+  await report.waitReady();
+  await expect(report.adSlot).toHaveCount(0);
+});
+
 test.describe('리포트 조회가 실패했을 때', () => {
   test.use({ consoleErrorAllowList: [/Failed to load resource[\s\S]*500/] });
 

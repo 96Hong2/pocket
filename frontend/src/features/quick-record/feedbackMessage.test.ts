@@ -69,6 +69,56 @@ describe('buildFeedbackMessage', () => {
     }
   });
 
+  describe('성취는 근거마다 다른 말을 한다', () => {
+    // 셋에 같은 문장을 쓰면 근거 없는 칭찬과 구분되지 않는다.
+    it('지난주보다 덜 쓴 것', () => {
+      const message = buildFeedbackMessage(
+        feedback('achievement', {
+          achievement_kind: 'weekly_decrease',
+          achievement_decreased_amount: '32000',
+          remaining_budget: '340000',
+        }),
+      );
+      expect(message.badge).toBe('잘 하고 있어요');
+      expect(message.headline).toContain('32,000원');
+      expect(message.headline).toContain('지난주');
+    });
+
+    it('무지출 연속', () => {
+      const message = buildFeedbackMessage(
+        feedback('achievement', {
+          achievement_kind: 'no_spend_streak',
+          achievement_no_spend_days: 2,
+        }),
+      );
+      expect(message.headline).toBe('2일 연속 안 쓴 날이에요.');
+    });
+
+    it('월말 예상이 예산 안', () => {
+      const message = buildFeedbackMessage(
+        feedback('achievement', { achievement_kind: 'projected_within_budget' }),
+      );
+      expect(message.headline).toContain('예산 안에서');
+    });
+
+    // 근거를 안 주면 칭찬하지 않는다. 배지가 붙으면 억지 칭찬이 된다.
+    it('근거가 없으면 칭찬하지 않는다', () => {
+      const message = buildFeedbackMessage(feedback('achievement', { month_expense: '340000' }));
+      expect(message.badge).toBeUndefined();
+      expect(message.headline).not.toContain('잘');
+    });
+
+    it('무지출 연속인데 날 수가 0이면 칭찬하지 않는다', () => {
+      const message = buildFeedbackMessage(
+        feedback('achievement', {
+          achievement_kind: 'no_spend_streak',
+          achievement_no_spend_days: 0,
+        }),
+      );
+      expect(message.badge).toBeUndefined();
+    });
+  });
+
   it('서버가 준 숫자를 그대로 문장에 넣는다', () => {
     const text = fullText('on_track', {
       remaining_budget: '340000',

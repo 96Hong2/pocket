@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import { IdentityNotice } from '../app/IdentityNotice';
 import { ROUTES } from '../app/router/routes';
 import { BudgetSection } from '../features/budgets';
-import { MerchantRuleList } from '../features/imports';
 import { Card } from '../shared/ui';
 
 /**
@@ -29,8 +28,6 @@ export default function ManagePage() {
       <IdentityNotice />
 
       <BudgetSection />
-
-      <MerchantRuleList />
 
       <nav aria-label="관리 하위 화면">
         <Card padding="list">

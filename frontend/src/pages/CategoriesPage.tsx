@@ -1,5 +1,6 @@
 import { IdentityNotice } from '../app/IdentityNotice';
 import { CategoryManageList } from '../features/categories';
+import { MerchantRuleList } from '../features/imports';
 
 /** 카테고리 관리. 기본 카테고리를 보고, 내가 만든 것만 손본다. */
 export default function CategoriesPage() {
@@ -12,6 +13,9 @@ export default function CategoriesPage() {
       <IdentityNotice />
 
       <CategoryManageList />
+
+      {/* 상호를 카테고리에 묶어 둔 목록이라, 카테고리를 손보는 이 화면 안에 둔다. */}
+      <MerchantRuleList />
     </div>
   );
 }

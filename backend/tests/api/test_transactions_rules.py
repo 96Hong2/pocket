@@ -343,3 +343,40 @@ def test_상호를_고치면_지문도_함께_바뀐다(client: TestClient, defa
     analyzed = client.post("/api/v1/imports/text", json={"text": "스벅 12000"}, headers=AUTH)
     assert analyzed.status_code == 201, analyzed.text
     assert analyzed.json()["candidates"][0]["is_duplicate"] is True
+
+
+def test_성취_근거가_응답에_실린다(client: TestClient) -> None:
+    """판정만 내려보내면 화면이 셋에 같은 말을 쓴다.
+
+    무엇을 보고 성취라고 했는지가 응답에 없으면, 근거 없는 칭찬과 구분되지 않는다.
+    도메인 테스트가 통과해도 응답 매핑에서 다시 빠질 수 있어 API 로 왕복시켜 본다.
+    """
+    kst = ZoneInfo("Asia/Seoul")
+    today = datetime.now(kst).date()
+
+    def no_spend(on: object) -> dict:
+        return _payload(
+            occurred_at=f"{on}T12:00:00+09:00", amount="0", source="no_spend", merchant=None
+        )
+
+    created = client.post(
+        "/api/v1/transactions", json=no_spend(today - timedelta(days=1)), headers=AUTH
+    )
+    assert created.status_code == 201, created.text
+
+    body = client.post("/api/v1/transactions", json=no_spend(today), headers=AUTH).json()
+    feedback = body["feedback"]
+
+    assert feedback["kind"] == "achievement"
+    assert feedback["achievement_kind"] == "no_spend_streak"
+    assert feedback["achievement_no_spend_days"] == 2
+
+
+def test_성취가_아니면_근거_자리가_비어_있다(client: TestClient) -> None:
+    body = client.post("/api/v1/transactions", json=_payload(), headers=AUTH).json()
+    feedback = body["feedback"]
+
+    assert feedback["kind"] != "achievement"
+    assert feedback["achievement_kind"] is None
+    assert feedback["achievement_no_spend_days"] is None
+    assert feedback["achievement_decreased_amount"] is None

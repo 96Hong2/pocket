@@ -1,9 +1,11 @@
 """설정 API 스키마.
 
-지금 여는 값은 자동 이어쓰기와 홈 표시 방식 둘이다. 예산 화면의 토글과 홈이 각각 읽고 쓴다.
-알림처럼 아직 화면이 없는 설정은 여기 열지 않는다.
+지금 여는 값은 자동 이어쓰기, 홈 표시 방식, 마지막 기록 방식 셋이다.
+앞의 둘은 화면이 읽고 쓰지만 마지막 기록 방식은 읽기만 연다. 그 값은 사용자가 고르는 것이
+아니라 거래를 저장할 때 서버가 남기는 흔적이라, 화면이 쓸 수 있으면 실제로 쓴 방식과
+어긋난 값이 들어올 자리가 생긴다. 알림처럼 아직 화면이 없는 설정은 여기 열지 않는다.
 
-홈 표시 방식은 모델의 enum 을 그대로 쓴다. 값 목록을 여기 다시 적지 않는다.
+값 목록은 모델의 enum 을 그대로 쓴다. 여기 다시 적지 않는다.
 그래야 openapi.json 에 enum 이 실려 프론트 타입이 문자열로 뭉개지지 않는다.
 """
 
@@ -11,7 +13,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from app.models.preference import HomeHero
+from app.models.preference import HomeHero, RecordMethod
 
 __all__ = ["PreferencesOut", "PreferencesPatch"]
 
@@ -21,6 +23,8 @@ class PreferencesOut(BaseModel):
     budget_auto_carryover: bool
     # 홈 맨 위에 무엇을 크게 보여줄지.
     home_hero: HomeHero
+    # 마지막에 쓴 기록 방식. 홈이 기록 시트를 이 탭으로 연다. 아직 한 건도 없으면 null.
+    last_record_method: RecordMethod | None
 
 
 class PreferencesPatch(BaseModel):
