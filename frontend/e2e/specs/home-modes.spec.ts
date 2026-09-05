@@ -6,36 +6,8 @@ import { expect, test } from '../support/fixtures';
  * 홈이 상황에 따라 다른 얼굴로 뜬다.
  *
  * 확인하려는 동작은 화면으로 하고, 그 배경이 되는 상태만 API 로 심는다.
+ * 며칠 비운 뒤의 복구 카드는 볼 것이 많아 `recovery.spec.ts` 로 따로 나갔다.
  */
-
-test('며칠 비우면 복구 카드가 뜨고, 오늘 기록하면 사라진다', async ({
-  home,
-  recordSheet,
-  prep,
-}) => {
-  await test.step('나흘 전 기록만 있는 상태를 만든다', async () => {
-    const foodId = await prep.categoryIdByName('식비');
-    await prep.addExpense({ amount: 9_000, daysAgo: 4, categoryId: foodId });
-  });
-
-  await test.step('복구 카드가 뜬다', async () => {
-    await home.open();
-    await home.waitReady();
-    await expect(home.recovery.catchUpButton).toBeVisible();
-  });
-
-  await test.step('오늘 기록하면 카드가 사라진다', async () => {
-    await home.recovery.catchUpButton.click();
-    await recordSheet.waitOpen();
-    await recordSheet.input.enterAmount(5_000);
-    await recordSheet.input.pickCategory('식비');
-    await recordSheet.feedback.waitSaved();
-    await recordSheet.feedback.confirmButton.click();
-    await recordSheet.waitClosed();
-
-    await expect(home.recovery.catchUpButton).toHaveCount(0);
-  });
-});
 
 test('예산이 있으면 남은 예산이 먼저 보인다', async ({ home, prep }) => {
   // 확인하려는 것은 처음 열었을 때의 얼굴이다. 화면으로 예산을 정하면 이미 넘어간 뒤라

@@ -24,6 +24,7 @@ from app.modules.budgets.schemas import (
     CategoryBudgetOut,
     to_budget_state,
     to_category_budget,
+    to_recovery,
 )
 
 router = APIRouter(prefix="/budgets", tags=["budgets"], responses=ERROR_RESPONSES)
@@ -46,6 +47,8 @@ def _view(session: DbSession, user: CurrentUser, period: BudgetPeriod) -> Budget
     today = ledger.today_for(user)
     totals = ledger.load_period_totals(session, user, period)
     status = service.budget_status(session, user, period, totals, today)
+    # 마지막 기록일은 두 필드가 함께 쓴다. 한 번만 읽는다.
+    last_recorded = ledger.last_transaction_date(session, user)
     return BudgetOut(
         budget=to_budget_state(
             period,
@@ -57,8 +60,9 @@ def _view(session: DbSession, user: CurrentUser, period: BudgetPeriod) -> Budget
         month_expense=totals.month_expense.amount,
         month_income=totals.month_income.amount,
         monthly_delta=totals.monthly_delta.amount,
-        has_any_transaction=ledger.last_transaction_date(session, user) is not None,
-        days_since_last_transaction=ledger.days_since_last_transaction(session, user, today),
+        has_any_transaction=last_recorded is not None,
+        days_since_last_transaction=ledger.days_since(last_recorded, today),
+        recovery=to_recovery(ledger.load_recovery_progress(session, user, today)),
     )
 
 

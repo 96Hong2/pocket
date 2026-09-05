@@ -31,8 +31,8 @@ export function useCategories() {
 /**
  * 앱 설정.
  *
- * 지금 열려 있는 것은 예산 이어쓰기 하나뿐이다. 행이 없는 사용자에게는 서버가 기본값으로
- * 만들어 주므로 '설정이 없는 상태' 를 화면이 따로 다루지 않는다.
+ * 지금 열려 있는 것은 예산 이어쓰기와 홈 표시 방식 둘이다. 행이 없는 사용자에게는 서버가
+ * 기본값으로 만들어 주므로 '설정이 없는 상태' 를 화면이 따로 다루지 않는다.
  */
 export function usePreferences() {
   const client = useApiClient();
@@ -42,7 +42,7 @@ export function usePreferences() {
     queryKey: queryKeys.preferences(),
     queryFn: ({ signal }) => client.getPreferences({ signal }),
     enabled: isReady,
-    // 거래·예산을 저장해도 달라지지 않는다. 바뀌는 것은 사용자가 토글을 누를 때뿐이다.
+    // 거래·예산을 저장해도 달라지지 않는다. 바뀌는 것은 사용자가 설정을 직접 바꿀 때뿐이다.
     staleTime: 30 * 60_000,
   });
 }

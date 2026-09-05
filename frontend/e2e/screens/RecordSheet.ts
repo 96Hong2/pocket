@@ -141,6 +141,18 @@ class RecordInput {
     return this.root.getByRole('button', { name, exact: true });
   }
 
+  /**
+   * 칩에 적힌 이름을 위에서 아래로 읽는다.
+   *
+   * 칩 순서는 서버가 준 목록 순서 그대로다. 내가 만든 분류가 어느 자리에 앉는지를
+   * 화면으로 볼 수 있는 곳이 여기뿐이라, 순서를 지키려면 이 값을 봐야 한다.
+   * 관리 화면 목록은 기본과 내 것을 구획으로 갈라 그려서, 서버 순서가 뒤집혀도 거기서는 안 드러난다.
+   */
+  async categoryChipNames(): Promise<string[]> {
+    const names = await this.root.locator('.cat-chips__name').allTextContents();
+    return names.map((name) => name.trim());
+  }
+
   numberKey(key: string): Locator {
     return this.root.getByRole('button', { name: key, exact: true });
   }

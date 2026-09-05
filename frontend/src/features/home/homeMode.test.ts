@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { RECOVERY_AFTER_DAYS, resolveHomeView, type HomeViewInput } from './homeMode';
+import {
+  RECOVERY_AFTER_DAYS,
+  resolveHeroLayout,
+  resolveHomeView,
+  type HomeViewInput,
+} from './homeMode';
 
 function input(overrides: Partial<HomeViewInput> = {}): HomeViewInput {
   return {
@@ -78,5 +83,33 @@ describe('resolveHomeView', () => {
   it('예산 금액이 0 이거나 읽히지 않으면 예산이 없는 것으로 본다', () => {
     expect(resolveHomeView(input({ budgetAmount: '0' })).hasBudget).toBe(false);
     expect(resolveHomeView(input({ budgetAmount: '' })).hasBudget).toBe(false);
+  });
+});
+
+describe('resolveHeroLayout', () => {
+  it('남은 예산 설정에 예산이 있으면 남은 예산을 크게 보여준다', () => {
+    expect(resolveHeroLayout('remaining_budget', true)).toBe('remainingBudget');
+  });
+
+  it('남은 예산 설정인데 예산이 없으면 이번 달 쓴 돈으로 떨어진다', () => {
+    expect(resolveHeroLayout('remaining_budget', false)).toBe('monthSpent');
+  });
+
+  it('번 돈과 쓴 돈은 예산이 있든 없든 같은 화면이다', () => {
+    expect(resolveHeroLayout('income_expense', true)).toBe('incomeAndSpent');
+    expect(resolveHeroLayout('income_expense', false)).toBe('incomeAndSpent');
+  });
+
+  it('번 돈과 남은 예산은 예산을 정했을 때만 그 모양이다', () => {
+    expect(resolveHeroLayout('income_and_budget', true)).toBe('incomeAndBudget');
+  });
+
+  it('번 돈과 남은 예산인데 예산이 없으면 번 돈과 쓴 돈으로 떨어진다', () => {
+    expect(resolveHeroLayout('income_and_budget', false)).toBe('incomeAndSpent');
+  });
+
+  it('설정을 아직 못 받았으면 남은 예산 설정과 같게 떨어진다', () => {
+    expect(resolveHeroLayout(undefined, true)).toBe(resolveHeroLayout('remaining_budget', true));
+    expect(resolveHeroLayout(undefined, false)).toBe(resolveHeroLayout('remaining_budget', false));
   });
 });

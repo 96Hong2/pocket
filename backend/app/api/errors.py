@@ -47,6 +47,9 @@ class ErrorCode(StrEnum):
     NOT_FOUND = "NOT_FOUND"
     UNDO_EXPIRED = "UNDO_EXPIRED"
     CONFLICT = "CONFLICT"
+    # 이름이 이미 있어서 막힌 것. CONFLICT 와 조언이 반대라 따로 둔다.
+    # CONFLICT 는 다시 시도하면 되는 자리인데, 같은 이름은 다시 보내도 영영 안 된다.
+    DUPLICATE_CATEGORY = "DUPLICATE_CATEGORY"
     INVALID_REQUEST = "INVALID_REQUEST"
     INVALID_CATEGORY = "INVALID_CATEGORY"
     INVALID_REFUND_TARGET = "INVALID_REFUND_TARGET"
@@ -72,7 +75,7 @@ class ErrorEnvelope(BaseModel):
 ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorEnvelope, "description": "식별키가 없거나 검증에 실패"},
     404: {"model": ErrorEnvelope, "description": "없거나 내 것이 아님"},
-    409: {"model": ErrorEnvelope, "description": "되돌리기 만료·동시 저장"},
+    409: {"model": ErrorEnvelope, "description": "되돌리기 만료·동시 저장·이름 중복"},
     422: {"model": ErrorEnvelope, "description": "요청 값 오류"},
     429: {"model": ErrorEnvelope, "description": "하루에 쓸 수 있는 만큼을 넘김"},
     500: {"model": ErrorEnvelope, "description": "서버 오류"},

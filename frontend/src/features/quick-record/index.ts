@@ -5,4 +5,4 @@ export {
   type FeedbackMessage,
   type FeedbackMessageOptions,
 } from './feedbackMessage';
-export { QuickRecordSheet } from './QuickRecordSheet';
+export { QuickRecordSheet, type RecordTab } from './QuickRecordSheet';

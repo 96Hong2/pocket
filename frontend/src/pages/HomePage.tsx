@@ -10,11 +10,12 @@ import {
   HomeHero,
   RecoveryCard,
   TodayList,
+  resolveHeroLayout,
   resolveHomeView,
   toHomeViewInput,
 } from '../features/home';
-import { QuickRecordSheet } from '../features/quick-record';
-import { useBudget, useCategories, useTransactions } from '../shared/api';
+import { QuickRecordSheet, type RecordTab } from '../features/quick-record';
+import { useBudget, useCategories, usePreferences, useTransactions } from '../shared/api';
 import { Button, ErrorState, LoadingState, iconUrl } from '../shared/ui';
 
 function RecordButton({ onClick }: { onClick: () => void }) {
@@ -32,11 +33,12 @@ function RecordButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function HomeContent({ onRecord }: { onRecord: () => void }) {
+function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
   const { state } = useIdentity();
   const budget = useBudget();
   const categories = useCategories();
   const transactions = useTransactions();
+  const preferences = usePreferences();
 
   // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다.
   // 아직 오는 중일 때만 기다리게 하고, 실패·미지원은 위 안내가 이유를 말한다.
@@ -56,16 +58,23 @@ function HomeContent({ onRecord }: { onRecord: () => void }) {
   return (
     <>
       {view != null && budget.data != null ? (
-        <HomeHero view={view} budget={budget.data} />
+        <HomeHero
+          view={view}
+          budget={budget.data}
+          layout={resolveHeroLayout(preferences.data?.home_hero, view.hasBudget)}
+          preferencesFailed={preferences.isError}
+          onRetryPreferences={() => void preferences.refetch()}
+        />
       ) : (
         <ErrorState onRetry={() => void budget.refetch()} />
       )}
 
+      {/* 며칠치를 한 건씩 손으로 적는 것은 애초에 안 될 제안이라 캡처 탭으로 연다. */}
       {view?.mode === 'recovery' && budget.data != null ? (
-        <RecoveryCard daysAway={budget.data.days_since_last_transaction} onCatchUp={onRecord} />
+        <RecoveryCard progress={budget.data.recovery} onCatchUp={() => onRecord('capture')} />
       ) : null}
 
-      <RecordButton onClick={onRecord} />
+      <RecordButton onClick={() => onRecord('keypad')} />
 
       {view?.showBudgetSuggestion ? <BudgetSuggestCard /> : null}
 
@@ -89,19 +98,26 @@ function HomeContent({ onRecord }: { onRecord: () => void }) {
 }
 
 export default function HomePage() {
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheet, setSheet] = useState<{ open: boolean; tab: RecordTab }>({
+    open: false,
+    tab: 'keypad',
+  });
 
   return (
     <div className="page home">
       <IdentityNotice />
-      <HomeContent onRecord={() => setSheetOpen(true)} />
+      <HomeContent onRecord={(tab) => setSheet({ open: true, tab })} />
       {/*
         배너는 모드 분기 밖 최상위 자식이다. 안쪽에 두면 홈이 모드를 바꿀 때마다
         슬롯이 다시 마운트되고, 그것이 사실상 우리가 광고를 새로고침하는 것이 된다.
       */}
       <AdSlot />
       <div className="home__tail" />
-      <QuickRecordSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+      <QuickRecordSheet
+        open={sheet.open}
+        initialTab={sheet.tab}
+        onClose={() => setSheet((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

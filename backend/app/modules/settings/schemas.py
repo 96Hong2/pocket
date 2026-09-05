@@ -1,12 +1,17 @@
 """설정 API 스키마.
 
-지금 여는 값은 자동 이어쓰기 하나뿐이다. 예산 화면의 토글이 이 값을 읽고 쓴다.
-앱 설정 전체(홈 히어로·알림 등)는 뒤 마일스톤 몫이라 여기서 미리 열지 않는다.
+지금 여는 값은 자동 이어쓰기와 홈 표시 방식 둘이다. 예산 화면의 토글과 홈이 각각 읽고 쓴다.
+알림처럼 아직 화면이 없는 설정은 여기 열지 않는다.
+
+홈 표시 방식은 모델의 enum 을 그대로 쓴다. 값 목록을 여기 다시 적지 않는다.
+그래야 openapi.json 에 enum 이 실려 프론트 타입이 문자열로 뭉개지지 않는다.
 """
 
 from __future__ import annotations
 
 from pydantic import BaseModel
+
+from app.models.preference import HomeHero
 
 __all__ = ["PreferencesOut", "PreferencesPatch"]
 
@@ -14,6 +19,8 @@ __all__ = ["PreferencesOut", "PreferencesPatch"]
 class PreferencesOut(BaseModel):
     # 새 기간에 예산이 없으면 직전 기간 예산을 복사할지.
     budget_auto_carryover: bool
+    # 홈 맨 위에 무엇을 크게 보여줄지.
+    home_hero: HomeHero
 
 
 class PreferencesPatch(BaseModel):
@@ -25,3 +32,4 @@ class PreferencesPatch(BaseModel):
     """
 
     budget_auto_carryover: bool | None = None
+    home_hero: HomeHero | None = None

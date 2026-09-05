@@ -99,6 +99,18 @@ def test_기록하면_홈이_고를_근거가_바뀐다(client: TestClient) -> N
     assert body["days_since_last_transaction"] is not None
 
 
+def test_최근_7일_정리_진행이_늘_실린다(client: TestClient) -> None:
+    """복구 카드는 빠진 날이 아니라 정리한 날을 센다. 기록이 없어도 필드는 온다."""
+    body = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()
+    assert body["recovery"] == {"window_days": 7, "recorded_days": 0, "progress": "0.0000"}
+
+    client.post("/api/v1/transactions", json=_expense(), headers=AUTH)
+    client.post("/api/v1/transactions", json=_expense(amount="3000"), headers=AUTH)
+    body = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()
+    assert body["recovery"]["recorded_days"] == 1
+    assert body["recovery"]["progress"] == "0.1429"
+
+
 # ── 저장 ────────────────────────────────────────────────
 
 

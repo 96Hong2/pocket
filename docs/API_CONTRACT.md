@@ -38,6 +38,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | `NOT_FOUND` | 404 | 남의 거래이거나 이미 지워진 것 |
 | `UNDO_EXPIRED` | 409 | 되돌리기 가능 시간이 지남 |
 | `CONFLICT` | 409 | 같은 자원을 동시에 만들려다 부딪힘. 다시 부르면 된다 |
+| `DUPLICATE_CATEGORY` | 409 | 그 이름의 카테고리가 이미 있다. **다시 보내도 안 된다.** 이름을 바꿔야 한다 |
 | `INVALID_REQUEST` | 422 | 요청 형식 오류 |
 | `INVALID_CATEGORY` | 422 | 내 카테고리도 기본 카테고리도 아닌 값 |
 | `INVALID_REFUND_TARGET` | 422 | 환불 대상이 내 지출이 아님 |
@@ -46,6 +47,15 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | `PARSE_UNAVAILABLE` | 503 | 지금은 읽지 못했다. 잠시 뒤 다시. 문구가 갈린다: 줄글은 '문장을', 캡처는 '캡처를', 영수증은 '영수증을' |
 | `HTTP_ERROR` | 그대로 | 라우팅 단계에서 난 오류(없는 경로, 허용하지 않는 메서드) |
 | `INTERNAL_ERROR` | 500 | 서버 오류. 본문 형태는 위와 같다 |
+
+## 시각 표기
+
+**응답의 시각에는 언제나 시간대가 붙는다**(`2026-09-06T00:12:00+00:00`). 저장은 UTC 로 정규화하고,
+달 경계와 '오늘' 은 사용자 시간대(`users.timezone`, 기본 Asia/Seoul)로 판단한다.
+
+시간대를 뗀 값을 실어 보내면 받는 쪽이 자기 시간대로 읽어, 한국에서 자정부터 아침 아홉 시 사이에
+저장한 것이 하루 전으로 보인다. PostgreSQL 은 시간대를 붙여 돌려주지만 SQLite 는 잃어버리므로
+(검증 하네스가 SQLite 다) 응답을 만드는 자리에서 한 번 더 붙인다.
 
 ## 엔드포인트
 
@@ -199,10 +209,42 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | 메서드 | 경로 | 하는 일 |
 | --- | --- | --- |
 | GET | `/categories` | 기본 카테고리 + 내 카테고리. `sort_order`, `name` 순 |
+| POST | `/categories` | 내 카테고리 만들기. 바디는 `{"name": "반려동물", "icon_key": "16_paw"}` |
+| PATCH | `/categories/{category_id}` | 내 카테고리 고치기. 보낸 필드만 바뀐다 |
+| DELETE | `/categories/{category_id}` | 내 카테고리 지우기. 204 |
 
 기본 카테고리 11개는 마이그레이션이 심는다(`user_id` 가 NULL 이라 모든 사용자에게 보인다).
 목록 정본은 `app/domain/categories.py` 다. 응답의 `icon_key` 가
 `frontend/public/icons/sm/<icon_key>.png` 와 1:1 이고, `is_default` 는 `user_id` 가 없다는 뜻이다.
+
+**종류는 고를 수 없다.** 만든 카테고리는 늘 `expense` 다. 기록 시트의 칩이 지출 카테고리만
+거르기 때문에, 수입 카테고리를 만들면 만든 사람이 정작 그것을 칩에서 못 찾는다.
+
+`sort_order` 는 서버가 `USER_CATEGORY_SORT_ORDER`(85)로 넣는다. 기본 지출 분류(10~80) 뒤,
+'기타'(90) 앞이다. 컬럼 기본값 0 을 그대로 쓰면 내가 만든 것이 '식비'보다 앞에 선다.
+**표시 순서를 바꾸는 API 는 아직 없다.**
+
+이름 겹침은 서버가 **직접** 판정한다. 유니크 키가 `(user_id, name)` 이라 기본 카테고리의 '식비'와
+내 '식비'는 DB 에서 서로 다른 자리로 통과한다. 앞뒤 공백을 지우고 안쪽 연속 공백을 하나로 줄인 뒤
+대소문자를 무시하고 견준다. 겹치면 409 `DUPLICATE_CATEGORY` 다.
+
+**지운 이름으로 다시 만들면 그 행이 되살아난다**(같은 `id` 가 돌아온다). 유니크 인덱스에
+`deleted_at` 이 없어 지운 이름이 자리를 계속 잡고 있기 때문이고, 예산·카테고리 한도가 쓰는
+방식과 같다(ADR-0008). 되살리므로 과거 거래가 이름을 되찾는다.
+
+**기본 카테고리는 고치거나 지울 수 없다.** 422 `INVALID_REQUEST` 다. 남의 것과 없는 것은 404 다.
+404 를 쓰지 않는 이유는, 사용자 눈에 보이는 행을 '찾지 못했어요' 라고 하면 거짓말이어서다.
+
+지울 때 **함께 사라지는 것**과 **남는 것**이 갈린다.
+
+- 함께 소프트 삭제: 그 카테고리의 카테고리 한도(`category_budgets`), 기억한 분류(`merchant_rules`)
+- 그대로 남음: **거래**. `transactions.category_id` 를 건드리지 않는다
+
+기억한 분류를 남기면 다음 캡처·줄글 분석이 죽은 카테고리 id 를 후보에 붙이고, 저장이
+422 `INVALID_CATEGORY` 로 **묶음 전체를 거절**한다. 사용자는 왜 저장이 안 되는지 알 길이 없다.
+조회 쪽(`merchant_rules` 목록, 상호 규칙 조회)도 지운 카테고리를 건너뛴다. 이중 방어다.
+
+두 번 지워도 204 다(멱등).
 
 ### 예산
 
@@ -248,7 +290,8 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
   "month_income": "0",
   "monthly_delta": "-12000",
   "has_any_transaction": true,
-  "days_since_last_transaction": 0
+  "days_since_last_transaction": 0,
+  "recovery": { "window_days": 7, "recorded_days": 2, "progress": "0.2857" }
 }
 ```
 
@@ -266,6 +309,19 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 화면을 그릴지 고르는 근거다. 둘 다 사용자 시간대 기준이고, 오늘 기록했으면 0 이다.
 기록이 하나도 없으면 `has_any_transaction` 이 false 이고 날짜는 `null` 이다.
 되돌리기로 지운 기록은 세지 않는다.
+
+`recovery` 는 **최근 며칠 중 며칠 기록했나**다. 며칠 비었을 때 홈에 뜨는 복구 카드가 쓴다.
+`null` 이 없고 늘 실린다. 창은 오늘을 포함한 7일이고 그 길이를 `window_days` 로 함께 보낸다.
+화면이 7 을 박지 않게 하려는 것이다.
+
+- **빠진 날 수는 주지 않는다.** 서버가 만들지 않으면 화면이 쓸 수 없다. 연속 기록이 끊긴 것을
+  실점처럼 다루면 돌아온 사람을 한 번 더 밀어낸다.
+- 거래 종류를 가리지 않는다. **이체만 있는 날도 '정리한 날'** 이다.
+  `days_since_last_transaction` 이 이미 종류를 안 가려서, 여기서만 빼면 두 값이 다른 말을 한다.
+- `progress` 는 `recorded_days / window_days` 이고 소수 넷째 자리에서 반올림한다.
+  화면이 나누지 않는다. 게이지 너비를 두 곳에서 계산하지 않으려는 것이다.
+- **복구 카드를 띄울지는 서버가 정하지 않는다.** 며칠부터 복구로 볼지(사흘)는 화면이 안다.
+  서버는 사실만 준다.
 
 ### 예산 자동 이어쓰기
 
@@ -372,11 +428,23 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 | PATCH | `/preferences` | 보낸 필드만 고친다. 응답은 GET 과 같은 모양 |
 
 ```json
-{ "budget_auto_carryover": true }
+{ "budget_auto_carryover": true, "home_hero": "remaining_budget" }
 ```
 
-**지금 여는 값은 이 하나뿐이다.** 예산 화면의 이어쓰기 토글이 읽고 쓴다. 홈 히어로·알림 같은
-나머지 설정은 화면이 생기는 마일스톤에서 함께 연다.
+**지금 여는 값은 둘이다.** `budget_auto_carryover` 는 예산 화면의 이어쓰기 토글이 읽고 쓴다.
+`home_hero` 는 앱 설정 화면이 쓰고 홈 히어로가 읽는다. 알림처럼 아직 화면이 없는 설정은 열지 않는다.
+
+`home_hero` 는 셋 중 하나다. 값 목록의 정본은 `app/models/preference.py` 의 `HomeHero` 이고,
+그 enum 이 그대로 `openapi.json` 에 실린다.
+
+| 값 | 홈 맨 위에 보이는 것 |
+| --- | --- |
+| `remaining_budget` | 남은 예산 (기본값) |
+| `income_expense` | 이번 달 차액. 번 돈과 쓴 돈을 함께 |
+| `income_and_budget` | 번 돈과 남은 예산 |
+
+예산을 아직 정하지 않았으면 예산이 걸린 값은 쓴 돈 화면으로 떨어진다. **그 폴백은 화면이 정한다.**
+서버는 고른 값을 그대로 돌려준다.
 
 `PATCH` 에서 **필드를 빼는 것과 `null` 을 보내는 것이 같다.** 둘 다 "이 값은 그대로 둔다" 는
 뜻이다. 전부 기본값이 있는 컬럼이라 '값 없음' 을 저장할 자리가 없다.
@@ -422,8 +490,10 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 
 - 자산·목표 엔드포인트. 도메인 계산과 데이터 모델은 준비돼 있어 라우터만 붙이면 된다.
   `backend/app/modules/` 아래 각 폴더가 자리만 잡혀 있다.
-- 설정은 `budget_auto_carryover` 한 값만 열려 있다. 홈 히어로·알림·리포트 옵션은 아직 없다.
-- 카테고리 생성·수정·삭제. 지금은 조회만 있다.
+- 설정은 `budget_auto_carryover` 와 `home_hero` 둘만 열려 있다. 알림·리포트 옵션은 아직 없다.
+- **카테고리 표시 순서 바꾸기.** 만들고 고치고 지우는 것은 열렸지만 순서는 서버가 정한 자리 그대로다.
+- **살아 있는 카테고리를, 내가 지운 카테고리와 같은 이름으로 rename 하는 길.** 지운 이름이 유니크
+  자리를 잡고 있어 409 로 막힌다. 화면에 그 이름이 안 보이니 사용자는 이유를 모른다.
 - **입구별 하루 상한.** 줄글·캡처·영수증 셋이 `NL_PARSE_DAILY_LIMIT` 하나를 나눠 쓴다. 429 문구만
   '줄글 분석' / '캡처 분석' / '영수증 분석' 으로 갈린다(503 문구도 마찬가지로 갈린다).
   `parse_usages.source` 에 `screenshot`·`receipt` 가 쌓이므로, 갈라야 할 때

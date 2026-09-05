@@ -43,6 +43,8 @@ export type BudgetOut = Schemas['BudgetOut'];
 export type BudgetUpsert = Schemas['BudgetUpsert'];
 /** 카테고리 한 줄. 한도와 그 카테고리 사용액이 함께 온다. 예산 조회 응답에만 실린다. */
 export type CategoryBudgetOut = Schemas['CategoryBudgetOut'];
+/** 최근 며칠 중 며칠 기록했나. 빠진 날 수는 오지 않는다. 예산 조회 응답에 늘 실린다. */
+export type RecoveryProgressOut = Schemas['RecoveryProgressOut'];
 /** 문장이 아니라 종류와 숫자만 온다. 문장 조립은 화면이 한다. */
 export type FeedbackOut = Schemas['FeedbackOut'];
 
@@ -63,11 +65,15 @@ export type MerchantRuleListOut = Schemas['MerchantRuleListOut'];
 // ── 카테고리 ───────────────────────────────────
 export type CategoryOut = Schemas['CategoryOut'];
 export type CategoryListOut = Schemas['CategoryListOut'];
+/** 내가 만드는 카테고리. 종류는 서버가 지출로 고정하므로 보내지 않는다. */
+export type CategoryCreate = Schemas['CategoryCreate'];
+export type CategoryUpdate = Schemas['CategoryUpdate'];
 
 // ── 설정 ──────────────────────────────────────
-/** 지금 열려 있는 설정은 예산 이어쓰기 하나뿐이다. */
 export type PreferencesOut = Schemas['PreferencesOut'];
 export type PreferencesPatch = Schemas['PreferencesPatch'];
+/** 홈 맨 위에 무엇을 크게 보여줄지. */
+export type HomeHero = Schemas['HomeHero'];
 
 // ── 오류 ──────────────────────────────────────
 export type ErrorBody = Schemas['ErrorBody'];

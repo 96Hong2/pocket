@@ -13,6 +13,7 @@ from enum import StrEnum
 
 __all__ = [
     "DEFAULT_CATEGORIES",
+    "USER_CATEGORY_SORT_ORDER",
     "CategoryKind",
     "DefaultCategory",
     "default_category_icons",
@@ -49,6 +50,12 @@ DEFAULT_CATEGORIES: tuple[DefaultCategory, ...] = (
     # 이체는 화살표다. 집계에서 빠지는 대신 목록에는 라벨과 함께 남는다.
     DefaultCategory("이체", CategoryKind.TRANSFER, "05_choice_arrows", 110),
 )
+
+
+# 사용자가 직접 만든 지출 분류가 앉는 자리. 기본 지출 분류(10~80) 뒤, '기타'(90) 앞이다.
+# 컬럼 기본값인 0 을 그대로 쓰면 내가 만든 것이 '식비'보다 앞에 서서 목록이 뒤집힌다.
+# '기타'는 지출 목록의 끝에 남겨 둔다. 마지막 자리가 흔들리면 어디까지가 지출인지 읽기 어렵다.
+USER_CATEGORY_SORT_ORDER = 85
 
 
 def expense_category_names() -> tuple[str, ...]:

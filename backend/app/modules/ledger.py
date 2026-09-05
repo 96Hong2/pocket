@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.domain import aggregation as agg
+from app.domain import aggregation as agg, recovery
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod
 from app.models import Transaction, User
@@ -30,11 +30,13 @@ __all__ = [
     "DEFAULT_TIMEZONE",
     "as_utc",
     "day_bounds",
+    "days_since",
     "days_since_last_transaction",
     "last_transaction_date",
     "load_day_totals",
     "load_period_totals",
     "load_range_totals",
+    "load_recovery_progress",
     "local_date",
     "period_bounds",
     "period_for",
@@ -162,11 +164,30 @@ def last_transaction_date(session: Session, user: User) -> date | None:
     return local_date(latest, user_tz(user)) if latest is not None else None
 
 
+def days_since(last: date | None, today: date) -> int | None:
+    """이미 읽어 둔 마지막 기록일로 며칠 지났는지 센다. 기록이 없으면 None.
+
+    마지막 기록일을 함께 쓰는 응답이 있어서, 같은 쿼리를 두 번 돌지 않게 계산만 떼어 뒀다.
+    앞날짜로 기록한 경우가 있어 음수가 되지 않게 0 으로 붙인다.
+    """
+    return max((today - last).days, 0) if last is not None else None
+
+
 def days_since_last_transaction(session: Session, user: User, today: date) -> int | None:
     """마지막 기록 이후 며칠 지났나. 오늘 기록했으면 0, 기록이 없으면 None.
 
     홈이 첫 사용·기본·복귀 중 어느 화면을 그릴지 고르는 근거다.
-    앞날짜로 기록한 경우가 있어 음수가 되지 않게 0 으로 붙인다.
     """
-    last = last_transaction_date(session, user)
-    return max((today - last).days, 0) if last is not None else None
+    return days_since(last_transaction_date(session, user), today)
+
+
+def load_recovery_progress(session: Session, user: User, today: date) -> recovery.RecoveryProgress:
+    """최근 7일 중 며칠 기록했나.
+
+    창 안의 행을 한 번 읽고 접는 일은 도메인이 한다. 어떤 날을 '정리한 날' 로 볼지는
+    집계 규칙이라, SQL 로 세면 같은 규칙이 두 곳에 적힌다.
+    """
+    tz = user_tz(user)
+    window = recovery.recovery_window(today)
+    rows = period_transactions(session, user, window)
+    return recovery.build_progress([_to_domain(t, tz) for t in rows], window)

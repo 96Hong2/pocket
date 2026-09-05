@@ -84,9 +84,29 @@ class HomeHero {
     return this.page.getByTestId(TEST_IDS.remainingBudget);
   }
 
-  /** 예산을 정하기 전 그리는 이번 달 지출. */
+  /** 예산을 정하기 전 그리는 이번 달 지출. 수입·지출 히어로에서는 큰 숫자 아래 칸으로 내려간다. */
   get monthSpent(): Locator {
     return this.page.getByTestId(TEST_IDS.monthSpent);
+  }
+
+  /** 수입을 함께 그리는 히어로의 번 돈. 다른 히어로에는 아예 없다. */
+  get income(): Locator {
+    return this.page.getByTestId(TEST_IDS.heroIncome);
+  }
+
+  /** 이번 달 차액. 부호가 붙고, 남은 예산과 다른 개념이다. */
+  get delta(): Locator {
+    return this.page.getByTestId(TEST_IDS.heroDelta);
+  }
+
+  /**
+   * 히어로가 무엇을 보여주는 중인지 스스로 적는 한 줄. `9월 · 남은 예산`.
+   *
+   * 같은 문구가 히어로 section 의 aria-label 로도 붙는다. 눈에 보이는 쪽을 잡는다.
+   * 숫자로 끝나지 않는 것으로 좁혀야 금액까지 이어 붙은 section 전체가 함께 잡히지 않는다.
+   */
+  get label(): Locator {
+    return this.page.getByText(/^\d+월 · \D+$/);
   }
 
   get dailyAllowance(): Locator {
@@ -121,23 +141,33 @@ class HomeHero {
 
   /** 게이지가 스크린리더에 알리는 사용률(%). 게이지가 없으면 null. */
   async gaugePercent(): Promise<number | null> {
-    if ((await this.gauge.count()) === 0) return null;
-    const value = await this.gauge.getAttribute('aria-valuenow');
-    return value == null ? null : Number(value);
+    return gaugePercentOf(this.gauge);
   }
 
-  /**
-   * 게이지 채움의 실제 색.
-   *
-   * 클래스 이름이 아니라 브라우저가 계산한 값을 읽는다. 스타일을 어떻게 붙였든
-   * 화면에 실제로 그려진 색이 바뀌었는지만 본다.
-   */
+  /** 게이지 채움의 실제 색. */
   async gaugeFillColor(): Promise<string> {
-    return this.gauge
-      .locator('*')
-      .first()
-      .evaluate((element) => getComputedStyle(element).backgroundColor);
+    return gaugeFillColorOf(this.gauge);
   }
+}
+
+/** 게이지가 스크린리더에 알리는 값(%). 게이지가 없으면 null. */
+async function gaugePercentOf(gauge: Locator): Promise<number | null> {
+  if ((await gauge.count()) === 0) return null;
+  const value = await gauge.getAttribute('aria-valuenow');
+  return value == null ? null : Number(value);
+}
+
+/**
+ * 게이지 채움의 실제 색.
+ *
+ * 클래스 이름이 아니라 브라우저가 계산한 값을 읽는다. 스타일을 어떻게 붙였든
+ * 화면에 실제로 그려진 색이 무엇인지만 본다.
+ */
+function gaugeFillColorOf(gauge: Locator): Promise<string> {
+  return gauge
+    .locator('*')
+    .first()
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
 }
 
 /** 오늘 목록. 홈 아래쪽에 붙는 카드 하나다. */
@@ -282,7 +312,7 @@ class AdArea {
   }
 }
 
-/** 며칠 비웠을 때 뜨는 복귀 카드. 벌주지 않고 다시 이어 쓰게 돕는다. */
+/** 며칠 비웠을 때 뜨는 복귀 카드. 벌주지 않고 밀린 것을 한 번에 정리하게 돕는다. */
 class RecoveryCard {
   private readonly page: Page;
 
@@ -290,12 +320,57 @@ class RecoveryCard {
     this.page = page;
   }
 
-  get catchUpButton(): Locator {
-    return this.page.getByRole('button', { name: '기억나는 것 하나 적기' });
+  /**
+   * 카드 한 덩어리.
+   *
+   * 카드에는 role 도 접근성 이름도 붙어 있지 않아 이름으로 집을 자리가 없다.
+   * 클래스로 잡는 것은 금지라, 카드의 직계 자식인 버튼에서 부모로 한 칸 올라가 잡는다.
+   * 카드가 이름을 갖게 되면 그때 이름으로 바꾼다.
+   */
+  get card(): Locator {
+    return this.catchUpButton.locator('..');
   }
 
-  /** 며칠 만인지 말하는 줄. 며칠을 비웠는지는 서버가 세어 준다. */
-  lead(daysAway: number): Locator {
-    return this.page.getByText(`${daysAway}일 만이네요. 반가워요.`);
+  /** 밀린 며칠치를 한 번에 정리하러 가는 버튼. 누르면 기록 시트가 캡처 탭으로 열린다. */
+  get catchUpButton(): Locator {
+    return this.page.getByRole('button', { name: '밀린 내역 한 번에 정리' });
+  }
+
+  /**
+   * 최근 며칠 중 며칠을 정리했는지 말하는 한 줄.
+   *
+   * 하루도 없으면 숫자를 세는 대신 다른 말로 바뀐다. 둘 다 이 자리에 온다.
+   */
+  get progressText(): Locator {
+    return this.card.getByText(/^(최근 \d+일 중 \d+일 정리했어요|이번 주는 지금부터 시작이에요)$/);
+  }
+
+  /** 카드 안의 경고 자리. 돌아온 것을 경고할 일이 아니라 늘 비어 있어야 한다. */
+  get alerts(): Locator {
+    return this.card.getByRole('alert');
+  }
+
+  get gauge(): Locator {
+    return this.page.getByTestId(TEST_IDS.recoveryGauge);
+  }
+
+  /** 게이지가 스크린리더에 알리는 정리 진행(%). 게이지가 없으면 null. */
+  async gaugePercent(): Promise<number | null> {
+    return gaugePercentOf(this.gauge);
+  }
+
+  /** 게이지 채움의 실제 색. 예산 게이지와 같은 방법으로 잰다. */
+  async gaugeFillColor(): Promise<string> {
+    return gaugeFillColorOf(this.gauge);
+  }
+
+  /**
+   * 며칠 빠졌는지·연속이 끊겼는지를 세는 표현. **페이지 전체**에서 훑는다.
+   *
+   * 카드 안만 보면 같은 말이 히어로나 오늘 목록에 새로 생겼을 때 놓친다.
+   * 돌아온 사람에게 실점을 알리지 않는다는 약속이라 화면 어디에도 있으면 안 된다.
+   */
+  get punishingText(): Locator {
+    return this.page.getByText(/일 만이네요|일 빠짐|일째|연속|끊|놓친/);
   }
 }

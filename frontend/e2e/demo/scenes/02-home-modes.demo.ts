@@ -1,12 +1,14 @@
 import { formatCurrency, toLedgerDate } from '../../../src/shared/lib/format';
 import type { HomeScreen } from '../../screens/HomeScreen';
 import type { RecordSheet } from '../../screens/RecordSheet';
+import { CAPTURE_DATA_URI, mockImagesSeeded, seedMockImages } from '../../support/deviceMock';
 import { expect, test } from '../support/director';
 
 /**
  * 홈이 상황마다 다른 얼굴로 뜨는 것을 두 영상에 담는다.
  *
- * 03 은 얼굴이 바뀌는 순서다. 첫 진입, 며칠 비운 뒤의 복구 카드, 예산을 정한 뒤, 다시 적은 뒤.
+ * 03 은 얼굴이 바뀌는 순서다. 첫 진입, 며칠 비운 뒤의 복구 카드, 예산을 정한 뒤,
+ * 밀린 것을 캡처 한 장으로 정리한 뒤.
  * 04 는 예산 게이지의 색이다. 0% 부터 100% 까지는 같은 세이지고, 넘기는 순간에만 앰버로 바뀐다.
  * 배경 상태는 prep 으로 심고, 보여줄 동작은 홈 화면에서 실제로 누른다.
  */
@@ -16,6 +18,9 @@ const CATEGORY = '식비';
 /** 며칠 비운 상태. 복구 카드는 사흘째부터 뜬다. */
 const AWAY_DAYS = 4;
 const AWAY_AMOUNT = 9_000;
+
+/** 오늘까지 이레를 세는 창. 나흘 전 한 건이면 그중 하루를 채운 셈이다. */
+const WINDOW_DAYS = 7;
 
 /**
  * 비운 날의 지출 중 이번 달에 잡히는 몫.
@@ -32,7 +37,33 @@ function awayInThisMonth(): number {
 }
 
 const BUDGET = 300_000;
-const CATCH_UP_AMOUNT = 12_000;
+
+/**
+ * 캡처 스텁이 늘 내는 5건 중 서버가 스스로 켜 주는 넷. 확신이 낮은 카카오T 만 꺼진 채로 온다.
+ * 오늘 것이 둘 있어서, 저장하면 마지막 기록일이 오늘이 되고 복구 카드가 걷힌다.
+ */
+const CAPTURE_SELECTED: readonly { amount: number; daysAgo: number }[] = [
+  { amount: 4_500, daysAgo: 0 }, // 스타벅스
+  { amount: 3_200, daysAgo: 0 }, // GS25
+  { amount: 8_000, daysAgo: 1 }, // 김밥천국
+  { amount: 32_900, daysAgo: 2 }, // 쿠팡
+];
+const CAPTURE_TOTAL = CAPTURE_SELECTED.reduce((sum, row) => sum + row.amount, 0);
+
+/**
+ * 저장한 넷 중 이번 달에 잡히는 몫.
+ *
+ * 스텁 날짜는 오늘 기준 상대라 달 초에 돌리면 어제·그저께가 지난달로 넘어간다.
+ * 남은 예산은 달력 월만 세므로 합계를 그대로 빼면 매달 1·2일에만 영상이 깨진다.
+ */
+function captureInThisMonth(): number {
+  const month = toLedgerDate(new Date()).slice(0, 7);
+  return CAPTURE_SELECTED.filter(({ daysAgo }) => {
+    const at = new Date();
+    at.setDate(at.getDate() - daysAgo);
+    return toLedgerDate(at).slice(0, 7) === month;
+  }).reduce((sum, row) => sum + row.amount, 0);
+}
 
 const GAUGE_BUDGET = 100_000;
 /** 30% 까지 채운다. */
@@ -55,8 +86,12 @@ async function recordOnce(home: HomeScreen, sheet: RecordSheet, amount: number):
 }
 
 test('03 홈이 상황마다 다른 얼굴로 뜬다', async ({ page, home, recordSheet, prep, demo }) => {
+  // 뒤에서 복구 카드가 캡처 탭을 여는 데까지 간다. 앨범은 네이티브라 목에 사진을 미리 심어 둔다.
+  await seedMockImages(CAPTURE_DATA_URI)(page);
+
   await home.open();
   await home.waitReady();
+  expect(await mockImagesSeeded(page), '목에 사진이 안 심겼다').toBe(true);
   await demo.open('상황마다 다른 홈', '예산과 기록이 어떤 상태냐에 따라 홈이 다른 얼굴로 뜬다');
 
   await demo.step('첫 진입. 예산도 기록도 없다');
@@ -83,9 +118,12 @@ test('03 홈이 상황마다 다른 얼굴로 뜬다', async ({ page, home, reco
   await page.reload();
   await home.waitReady();
 
-  await demo.step('며칠 비웠다. 빠진 날을 세는 대신 다음 한 걸음만 준다');
-  await expect(home.recovery.lead(AWAY_DAYS)).toBeVisible();
+  await demo.step('며칠 비웠다. 빠진 날을 세는 대신 채운 날만 세어 보여준다');
+  await expect(home.recovery.card).toBeVisible();
+  await expect(home.recovery.progressText).toHaveText(`최근 ${WINDOW_DAYS}일 중 1일 정리했어요`);
   await expect(home.recovery.catchUpButton).toBeVisible();
+  // 며칠 만인지, 연속이 끊겼는지는 화면 어디에도 적지 않는다.
+  await expect(home.recovery.punishingText).toHaveCount(0);
   // 기록이 생겼으니 첫 진입 문구는 걷힌다.
   await expect(home.hero.firstLead).toHaveCount(0);
   await demo.beat(3);
@@ -108,26 +146,43 @@ test('03 홈이 상황마다 다른 얼굴로 뜬다', async ({ page, home, reco
   );
   await demo.beat(3);
 
-  await demo.step('복구 카드의 버튼으로 하나 적어 본다');
+  await demo.step('밀린 내역 한 번에 정리를 누른다');
   await home.recovery.catchUpButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.input.enterAmount(CATCH_UP_AMOUNT);
-  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(CATCH_UP_AMOUNT));
-  await recordSheet.input.pickCategory(CATEGORY);
-  await recordSheet.feedback.waitSaved();
-  await recordSheet.feedback.confirmButton.click();
-  await recordSheet.waitClosed();
 
-  await demo.step('오늘 적었으니 복구 카드가 걷힌다. 남은 예산도 그만큼 줄었다');
-  await expect(home.recovery.catchUpButton).toHaveCount(0);
-  await expect(home.hero.remainingBudget).toHaveText(
-    formatCurrency(BUDGET - awayInThisMonth() - CATCH_UP_AMOUNT),
+  await demo.step('며칠치를 한 건씩 적는 건 무리라, 캡처 탭이 먼저 열려 있다');
+  await expect(recordSheet.methodTab('캡처')).toHaveAttribute('aria-checked', 'true');
+  await expect(recordSheet.capture.guide).toBeVisible();
+  await demo.beat(3);
+
+  await demo.step('거래내역 캡처 한 장을 고른다');
+  await recordSheet.capture.pick();
+
+  await demo.step('한 장에서 다섯 건을 읽어 검토 목록으로 펼친다');
+  await expect(recordSheet.capture.rows).toHaveCount(5);
+  await demo.beat(3);
+
+  await demo.step('확신이 낮은 줄만 꺼져 있다. 나머지 넷을 한 번에 저장한다');
+  await expect(recordSheet.capture.checkbox('카카오T')).not.toBeChecked();
+  await recordSheet.capture.save();
+  await expect(recordSheet.capture.savedTitle).toHaveText(
+    `${CAPTURE_SELECTED.length}건 저장했어요 · ${formatCurrency(CAPTURE_TOTAL)}`,
   );
   await demo.beat(2);
 
-  await demo.step('오늘 목록에도 방금 적은 것이 한 줄로 남는다');
+  await recordSheet.capture.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  await demo.step('오늘 것이 생겼으니 복구 카드가 걷힌다. 남은 예산도 그만큼 줄었다');
+  await expect(home.recovery.card).toHaveCount(0);
+  await expect(home.hero.remainingBudget).toHaveText(
+    formatCurrency(BUDGET - awayInThisMonth() - captureInThisMonth()),
+  );
+  await demo.beat(2);
+
+  await demo.step('오늘 목록에도 방금 정리한 것이 줄로 남는다');
   await home.today.reveal();
-  await expect(home.today.row(CATEGORY)).toBeInViewport();
+  await expect(home.today.row('스타벅스')).toBeInViewport();
   await demo.beat(2);
 
   await demo.clearStep();
