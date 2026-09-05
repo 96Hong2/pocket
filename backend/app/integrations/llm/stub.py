@@ -7,7 +7,8 @@ API 키 없이 개발·테스트가 돌아가게 한다. 같은 입력이면 항
 못 읽으면 후보를 만들지 않거나 confidence 를 낮게 준다.
 스텁이 쓰였다는 사실은 ParseMeta.is_stub 으로 드러난다.
 
-캡처는 읽지 않는다. 이미지가 오면 바이트를 한 번도 보지 않고 정해 둔 예시를 낸다.
+이미지는 읽지 않는다. 바이트를 한 번도 보지 않고 정해 둔 예시를 낸다.
+캡처와 영수증은 결과 모양이 아주 달라야 해서, 프롬프트에 심긴 표지로 둘을 가른다.
 
 계산은 하지 않는다. 금액을 읽어 옮길 뿐 더하거나 빼지 않는다.
 """
@@ -30,6 +31,7 @@ from app.integrations.llm.port import (
     SchemaT,
     require_single_input,
 )
+from app.integrations.llm.prompts import RECEIPT_TASK_MARKER
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +68,12 @@ _IMAGE_SAMPLE: tuple[tuple[str, int, str, float, int], ...] = (
     ("쿠팡", 32900, "쇼핑", 0.86, 2),
 )
 
+# 영수증 한 장에 대해 늘 내는 한 건. 상호를 못 읽은 영수증이다.
+# 총액만 읽히고 이름을 못 읽는 것이 실제로 가장 흔하고, 그때 금액을 살리는 것이 이 기능의 약속이다.
+# 그 약속을 화면에서 보려면 예시가 그 모양이어야 한다.
+# confidence 는 낮은 축이지만 0.5 위라서 서버가 스스로 선택을 켜 둔다.
+_RECEIPT_SAMPLE = (23_500, "식비", 0.72)
+
 _BASE_CONFIDENCE = 0.35
 _MERCHANT_BONUS = 0.20
 _CATEGORY_BONUS = 0.10
@@ -97,14 +105,22 @@ class StubLlmStructuredClient:
         image: LlmImage | None = None,
         today: date | None = None,
     ) -> SchemaT:
-        del prompt  # 스텁은 프롬프트를 보지 않는다.
         require_single_input(text, image)
         if schema is not TransactionExtraction:
             raise LlmSchemaError(f"스텁은 {TransactionExtraction.__name__} 만 만들 수 있다")
         if image is not None:
             # 이미지를 읽지 않는다. 배관이 도는지 보려고 정해 둔 예시다.
             # 이 결과로 인식 정확도를 재면 안 된다. 실제 인식은 vision provider 가 붙어야 한다.
-            return schema.model_validate(sample_image_extraction(today).model_dump())
+            #
+            # 프롬프트를 보는 자리는 여기 하나뿐이고 스텁만의 것이다. 실제 vision provider 는
+            # 프롬프트를 통째로 모델에 넘기므로 이 분기가 필요 없고, 붙는 날 함께 사라진다.
+            sample = (
+                sample_receipt_extraction(today)
+                if RECEIPT_TASK_MARKER in prompt
+                else sample_image_extraction(today)
+            )
+            return schema.model_validate(sample.model_dump())
+        del prompt  # 줄글은 규칙 파서가 읽는다. 프롬프트를 보지 않는다.
         assert text is not None
         extraction = parse_text(text, today=today)
         return schema.model_validate(extraction.model_dump())
@@ -123,6 +139,24 @@ def sample_image_extraction(today: date | None = None) -> TransactionExtraction:
                 confidence=confidence,
             )
             for merchant, amount, category, confidence, days_back in _IMAGE_SAMPLE
+        ]
+    )
+
+
+def sample_receipt_extraction(today: date | None = None) -> TransactionExtraction:
+    """영수증에 대해 늘 같은 한 건. 상호를 못 읽은 채 총액만 남은 모양이다."""
+    amount, category, confidence = _RECEIPT_SAMPLE
+    return TransactionExtraction(
+        candidates=[
+            ExtractedTransaction(
+                occurred_at=today,
+                amount=amount,
+                type=TransactionType.EXPENSE,
+                # 이름 자리를 비워 둔다. 화면이 이 줄을 버리지 않고 '이름 없음' 으로 살리는지 본다.
+                merchant=None,
+                category=category,
+                confidence=confidence,
+            )
         ]
     )
 

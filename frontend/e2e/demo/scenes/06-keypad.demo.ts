@@ -25,9 +25,6 @@ const AFTER_BACKSPACE = [1_200, 120, 12, 1, 0] as const;
 /** 키패드에 놓인 숫자 키. 순서도 화면에 보이는 그대로다. */
 const NUMBER_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0'] as const;
 
-/** 기록 방법 네 가지 중 아직 안 열린 것. 이제 영수증 하나만 남았다. */
-const LOCKED_TABS = ['영수증'] as const;
-
 /** 지출 카테고리. 서버가 시드한 순서 그대로 3열로 놓인다. */
 const EXPENSE_CATEGORIES = [
   '식비',
@@ -62,14 +59,11 @@ test('09 키패드로 금액을 찍는 규칙', async ({ home, recordSheet, demo
   await expect(recordSheet.input.hint).toHaveText(EMPTY_HINT);
   await demo.beat(2);
 
-  await demo.step('기록 방법은 네 가지. 지금 열려 있는 것은 키패드·줄글·캡처다');
+  await demo.step('기록 방법은 네 가지. 키패드·줄글·캡처·영수증이 모두 열려 있다');
   await expect(recordSheet.methodTabs).toHaveCount(4);
   await expect(recordSheet.methodTab('키패드')).toHaveAttribute('aria-checked', 'true');
-  await expect(recordSheet.methodTab('줄글')).toBeEnabled();
-  await expect(recordSheet.methodTab('캡처')).toBeEnabled();
-  for (const label of LOCKED_TABS) {
-    // 영수증은 다음 마일스톤 자리다. 눌리지 않게 막아 두고 자리만 보여준다.
-    await expect(recordSheet.methodTab(label)).toBeDisabled();
+  for (const label of ['줄글', '캡처', '영수증'] as const) {
+    await expect(recordSheet.methodTab(label)).toBeEnabled();
   }
   await demo.beat(3);
 

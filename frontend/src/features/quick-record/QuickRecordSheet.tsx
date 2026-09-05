@@ -12,13 +12,14 @@ import {
 import { formatCurrency } from '../../shared/lib/format';
 import {
   BottomSheet,
+  Button,
   ErrorState,
   LoadingState,
   SegmentedControl,
   type SegmentedOption,
 } from '../../shared/ui';
 
-import { CaptureTab, NaturalLanguageTab } from '../imports';
+import { ImageImportTab, NaturalLanguageTab } from '../imports';
 
 import { CategoryChips } from './CategoryChips';
 import { FeedbackPanel } from './FeedbackPanel';
@@ -29,12 +30,11 @@ import { undoDeadline } from './useUndoCountdown';
 
 type RecordTab = 'keypad' | 'nl' | 'capture' | 'receipt';
 
-/** 영수증은 다음 마일스톤에서 열린다. 자리만 두어 어디로 가는지 보이게 한다. */
 const TABS: SegmentedOption<RecordTab>[] = [
   { value: 'keypad', label: '키패드' },
   { value: 'nl', label: '줄글' },
   { value: 'capture', label: '캡처' },
-  { value: 'receipt', label: '영수증', disabled: true },
+  { value: 'receipt', label: '영수증' },
 ];
 
 interface SavedState {
@@ -188,7 +188,21 @@ function RecordBody({
       </div>
 
       <div hidden={tab !== 'capture'}>
-        <CaptureTab onBusyChange={markBusy} onDone={onDone} />
+        <ImageImportTab kind="capture" onBusyChange={markBusy} onDone={onDone} />
+      </div>
+
+      <div hidden={tab !== 'receipt'}>
+        <ImageImportTab
+          kind="receipt"
+          onBusyChange={markBusy}
+          onDone={onDone}
+          // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
+          fallbackAction={
+            <Button variant="ghost" onClick={() => setTab('keypad')}>
+              키패드로 입력
+            </Button>
+          }
+        />
       </div>
 
       <div hidden={tab !== 'keypad'}>

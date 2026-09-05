@@ -20,7 +20,9 @@ export class RecordSheet {
   /** 줄글 탭. 적기·검토·저장이 한 자리에서 이어진다. */
   readonly nl: RecordNaturalLanguage;
   /** 캡처 탭. 앨범에서 한 장 골라 읽고, 그 뒤로는 줄글과 같은 검토 화면이다. */
-  readonly capture: RecordCapture;
+  readonly capture: RecordImageImport;
+  /** 영수증 탭. 카메라로 찍는 것만 다르고 그 뒤는 캡처와 같다. */
+  readonly receipt: RecordImageImport;
 
   constructor(page: Page) {
     this.page = page;
@@ -28,7 +30,8 @@ export class RecordSheet {
     this.input = new RecordInput(this.root);
     this.feedback = new RecordFeedback(this.root);
     this.nl = new RecordNaturalLanguage(this.root);
-    this.capture = new RecordCapture(this.root);
+    this.capture = new RecordImageImport(this.root, CAPTURE_LABELS);
+    this.receipt = new RecordImageImport(this.root, RECEIPT_LABELS);
   }
 
   get isVisible(): Promise<boolean> {
@@ -49,7 +52,7 @@ export class RecordSheet {
   }
 
   /**
-   * 기록 방법 탭. 키패드·줄글·캡처가 열려 있고 영수증은 다음 마일스톤 자리다.
+   * 기록 방법 탭. 넷 다 열려 있다.
    *
    * SegmentedControl 이 `role="radio"` 를 붙인다. button 으로 잡으면 하나도 안 걸린다.
    */
@@ -442,31 +445,65 @@ export function keyStrokesFor(amount: number): string[] {
   return keys;
 }
 
-/**
- * 캡처 탭.
- *
- * 앨범에서 한 장 고르면 서버가 읽고, 그 뒤로는 줄글과 같은 검토 화면이다.
- * 그래서 후보 줄·저장 버튼 셀렉터가 줄글 것과 같고, 패널 안으로 좁혀야 서로 안 섞인다.
- */
-class RecordCapture {
-  private readonly root: Locator;
+/** 캡처와 영수증이 서로 다르게 가진 문구. 나머지는 같은 검토 화면이라 셀렉터가 하나다. */
+interface ImageImportLabels {
+  panelTestId: string;
+  guide: string;
+  /** 사진을 가져오는 버튼. 실패한 뒤에는 `다시 시도` 로 바뀐다. */
+  pickButton: RegExp;
+  analyzingLabel: string;
+  emptyNotice: string;
+  restartLabel: string;
+  permissionTitle: string;
+}
 
-  constructor(root: Locator) {
-    this.root = root.getByTestId(TEST_IDS.capturePanel);
+const CAPTURE_LABELS: ImageImportLabels = {
+  panelTestId: TEST_IDS.capturePanel,
+  guide: '거래내역 캡처를 골라주세요',
+  pickButton: /^(캡처 고르기|다시 시도)$/,
+  analyzingLabel: '캡처를 읽는 중이에요',
+  emptyNotice: '캡처에서 거래를 찾지 못했어요',
+  restartLabel: '다시 고르기',
+  permissionTitle: '사진 접근이 꺼져 있어요',
+};
+
+const RECEIPT_LABELS: ImageImportLabels = {
+  panelTestId: TEST_IDS.receiptPanel,
+  guide: '영수증이 잘 보이게 찍어주세요',
+  pickButton: /^(영수증 찍기|다시 시도)$/,
+  analyzingLabel: '영수증을 읽는 중이에요',
+  emptyNotice: '영수증을 읽지 못했어요',
+  restartLabel: '다시 찍기',
+  permissionTitle: '카메라 접근이 꺼져 있어요',
+};
+
+/**
+ * 사진 한 장으로 적는 탭. 캡처(앨범)와 영수증(카메라)이 이 객체를 나눠 쓴다.
+ *
+ * 한 장을 가져오면 서버가 읽고, 그 뒤로는 줄글과 같은 검토 화면이다.
+ * 그래서 후보 줄·저장 버튼 셀렉터가 줄글 것과 같고, 패널 안으로 좁혀야 서로 안 섞인다.
+ * 두 탭이 갈리는 것은 문구뿐이라 클래스를 복사하지 않고 표만 바꿔 끼운다.
+ */
+class RecordImageImport {
+  private readonly root: Locator;
+  private readonly labels: ImageImportLabels;
+
+  constructor(root: Locator, labels: ImageImportLabels) {
+    this.root = root.getByTestId(labels.panelTestId);
+    this.labels = labels;
   }
 
   get guide(): Locator {
-    return this.root.getByText('거래내역 캡처를 골라주세요', { exact: false });
+    return this.root.getByText(this.labels.guide, { exact: false });
   }
 
-  /** 앨범을 열지 못한 뒤에는 같은 버튼이 `다시 시도` 로 바뀐다. */
   get pickButton(): Locator {
-    return this.root.getByRole('button', { name: /^(캡처 고르기|다시 시도)$/ });
+    return this.root.getByRole('button', { name: this.labels.pickButton });
   }
 
-  /** 분석 응답을 기다리는 동안 도는 스피너. 줄글 쪽 문구와 다르다. */
+  /** 분석 응답을 기다리는 동안 도는 스피너. 탭마다 문구가 다르다. */
   get analyzing(): Locator {
-    return this.root.getByRole('status', { name: '캡처를 읽는 중이에요' });
+    return this.root.getByRole('status', { name: this.labels.analyzingLabel });
   }
 
   /** 스텁이 지어낸 결과라는 안내. provider 가 붙으면 사라진다. */
@@ -474,19 +511,29 @@ class RecordCapture {
     return this.root.getByText('아직 예시 결과예요', { exact: false });
   }
 
-  /** 사진 접근이 꺼져 있을 때 뜨는 화면의 제목. */
+  /** 접근 권한이 꺼져 있을 때 뜨는 화면의 제목. 사진과 카메라가 다른 말이다. */
   get permissionDenied(): Locator {
-    return this.root.getByText('사진 접근이 꺼져 있어요', { exact: true });
+    return this.root.getByText(this.labels.permissionTitle, { exact: true });
   }
 
-  /** 앨범을 아예 열지 못했을 때의 한 줄. 권한 거부와 다른 자리다. */
+  /** 앨범·카메라를 아예 열지 못했을 때의 한 줄. 권한 거부와 다른 자리다. */
   get pickAlert(): Locator {
     return this.root.getByRole('alert');
   }
 
-  /** 캡처에서 한 건도 못 읽었을 때의 안내. */
+  /** 한 건도 못 읽었을 때의 안내. */
   get emptyNotice(): Locator {
-    return this.root.getByText('캡처에서 거래를 찾지 못했어요', { exact: false });
+    return this.root.getByText(this.labels.emptyNotice, { exact: false });
+  }
+
+  /** 왜 못 읽었는지 짚어 주는 둘째 줄. 영수증에만 있다. */
+  get emptyReason(): Locator {
+    return this.root.getByText('사진이 어둡거나 구겨져 있으면', { exact: false });
+  }
+
+  /** 사진으로 안 될 때 손으로 적으러 가는 버튼. */
+  get keypadFallbackButton(): Locator {
+    return this.root.getByRole('button', { name: '키패드로 입력' });
   }
 
   /** 검토 단계에 들어섰다는 표시. 후보가 없어도 이 줄은 있다. */
@@ -495,7 +542,7 @@ class RecordCapture {
   }
 
   get restartButton(): Locator {
-    return this.root.getByRole('button', { name: '다시 고르기' });
+    return this.root.getByRole('button', { name: this.labels.restartLabel });
   }
 
   get saveButton(): Locator {
@@ -515,6 +562,7 @@ class RecordCapture {
     return this.root.getByTestId(TEST_IDS.nlCandidateRow);
   }
 
+  /** 이름으로 잡는다. 상호가 비면 화면이 '이름 없음' 으로 그린다. */
   row(name: string): Locator {
     return this.rows.filter({ has: this.root.page().getByRole('checkbox', { name, exact: true }) });
   }
@@ -536,7 +584,7 @@ class RecordCapture {
     return this.row(name).getByText(label, { exact: true });
   }
 
-  /** 앨범에서 고르고 검토 화면에 닿을 때까지. */
+  /** 사진을 가져와 검토 화면에 닿을 때까지. */
   async pick(): Promise<void> {
     await this.pickButton.click();
     await expect(this.readLine).toBeVisible();

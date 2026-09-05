@@ -60,6 +60,8 @@ export const TEST_IDS = {
   nlPanel: 'nl-panel',
   /** 캡처 탭 패널. 같은 이유로 둔다. */
   capturePanel: 'capture-panel',
+  /** 영수증 탭 패널. 같은 이유로 둔다. */
+  receiptPanel: 'receipt-panel',
   /** 줄글 검토 목록의 후보 한 줄 */
   nlCandidateRow: 'nl-candidate-row',
   /** 후보 한 줄의 금액 */

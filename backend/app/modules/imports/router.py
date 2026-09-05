@@ -1,7 +1,10 @@
-"""줄글·캡처 입력 엔드포인트.
+"""줄글·캡처·영수증 입력 엔드포인트.
 
 분석은 거래를 만들지 않는다. 저장은 commit 한 번이다.
-입구만 둘이고, 검토·수정·저장 라우터는 묶음 단위라 둘이 그대로 나눠 쓴다.
+입구만 셋이고, 검토·수정·저장 라우터는 묶음 단위라 셋이 그대로 나눠 쓴다.
+
+캡처와 영수증을 한 경로에 종류 필드로 합치지 않는다. 합치면 필드를 안 보내도 캡처로 조용히
+돌아 저장까지 초록인 채 출처만 틀린다. 경로가 다르면 배선이 끊긴 순간 드러난다.
 """
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ from fastapi import APIRouter, Response, status
 from app.api.deps import CurrentUser, DbSession, LlmClient
 from app.api.errors import ERROR_RESPONSES
 from app.api.images import decode_data_url
+from app.integrations.llm import TransactionSource
 from app.modules.budgets.schemas import to_budget_state
 from app.modules.imports import service
 from app.modules.imports.schemas import (
@@ -42,7 +46,21 @@ def analyze_capture(
 ) -> ImportBatchOut:
     # async 로 바꾸지 않는다. service._extract 의 anyio.from_thread.run 이 워커 스레드를 전제한다.
     image = decode_data_url(body.image)
-    batch = service.parse_image(session, user, image=image, client=client)
+    batch = service.parse_image(
+        session, user, image=image, source=TransactionSource.SCREENSHOT, client=client
+    )
+    return to_batch(batch, client=client)
+
+
+@router.post("/receipt", response_model=ImportBatchOut, status_code=status.HTTP_201_CREATED)
+def analyze_receipt(
+    body: ImportImageIn, session: DbSession, user: CurrentUser, client: LlmClient
+) -> ImportBatchOut:
+    # 캡처와 같은 이유로 async 로 바꾸지 않는다.
+    image = decode_data_url(body.image)
+    batch = service.parse_image(
+        session, user, image=image, source=TransactionSource.RECEIPT, client=client
+    )
     return to_batch(batch, client=client)
 
 

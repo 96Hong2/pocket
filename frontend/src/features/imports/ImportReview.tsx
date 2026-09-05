@@ -30,7 +30,9 @@ export interface ImportReviewProps {
   /** 되돌리는 버튼 문구. 줄글은 다시 쓰기, 캡처는 다시 고르기다. */
   restartLabel: string;
   /** 후보가 하나도 없을 때의 안내. 무엇을 다시 하면 되는지가 탭마다 다르다. */
-  emptyMessage: string;
+  emptyMessage: ReactNode;
+  /** 이 방법으로는 안 될 때 갈 다른 길. 안내 바로 아래에 놓인다. */
+  emptyAction?: ReactNode;
   /** 저장 직후에도 같은 사실이라 한 노드를 검토 화면과 저장 화면 두 자리에 그대로 쓴다. */
   notice?: ReactNode;
 }
@@ -50,6 +52,7 @@ export function ImportReview({
   testId,
   restartLabel,
   emptyMessage,
+  emptyAction,
   notice,
 }: ImportReviewProps) {
   const categories = useCategories();
@@ -102,7 +105,10 @@ export function ImportReview({
       ) : null}
 
       {candidates.length === 0 ? (
-        <p className="nl__empty">{emptyMessage}</p>
+        <div className="nl__empty">
+          {emptyMessage}
+          {emptyAction}
+        </div>
       ) : (
         <ul className="nl__list">
           {candidates.map((candidate) => (

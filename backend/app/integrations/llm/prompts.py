@@ -35,6 +35,15 @@ _SCREENSHOT_TASK = (
     "입력은 결제 내역 캡처 이미지다. 보이는 거래만 뽑는다. 가려지거나 잘린 항목은 만들지 않는다."
 )
 
+# 영수증 지시를 받았는지 스텁이 가르는 표지. 스텁은 이미지를 안 보고 프롬프트만 볼 수 있어서,
+# 이 조각이 없으면 영수증 한 장에도 캡처용 예시 다섯 건이 나온다. 문구를 고쳐도 이 말은 남긴다.
+RECEIPT_TASK_MARKER = "종이 영수증"
+
+_RECEIPT_TASK = (
+    f"입력은 {RECEIPT_TASK_MARKER} 한 장이다. 인쇄된 결제 총액 한 건만 옮긴다."
+    " 품목을 따로 나누지 않는다. 총액·상호·날짜 중 못 읽은 것은 null 로 둔다."
+)
+
 
 def _base(today: date | None) -> str:
     rules = _RULES.format(categories=", ".join(DEFAULT_CATEGORY_HINTS))
@@ -47,3 +56,7 @@ def natural_language_prompt(today: date | None = None) -> str:
 
 def screenshot_prompt(today: date | None = None) -> str:
     return f"{_base(today)}\n{_SCREENSHOT_TASK}"
+
+
+def receipt_prompt(today: date | None = None) -> str:
+    return f"{_base(today)}\n{_RECEIPT_TASK}"
