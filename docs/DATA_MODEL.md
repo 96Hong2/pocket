@@ -214,7 +214,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 
 | import_batches | 설명 |
 |---|---|
-| `source` | `transactions.source` 와 같은 enum. 지금 실제로 들어오는 값은 `nl` 과 `screenshot` 둘이다 |
+| `source` | `transactions.source` 와 같은 enum. 지금 실제로 들어오는 값은 `nl` · `screenshot` · `receipt` 셋이다 |
 | `status` | `pending` → `analyzing` → `ready` → `committed`, 실패는 `failed` |
 | `detected_count` / `committed_count` | "N건 인식, M건 저장" 문구의 근거 |
 | `error_code` | 재시도 화면에서 무엇이 실패했는지 구분하는 코드. **원문은 담지 않는다** |

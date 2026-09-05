@@ -23,7 +23,9 @@ from app.integrations.llm.port import (
     build_meta,
 )
 from app.integrations.llm.prompts import (
+    RECEIPT_TASK_MARKER,
     natural_language_prompt,
+    receipt_prompt,
     screenshot_prompt,
 )
 from app.integrations.llm.stub import StubLlmStructuredClient
@@ -31,6 +33,7 @@ from app.integrations.llm.stub import StubLlmStructuredClient
 __all__ = [
     "DEFAULT_CATEGORY_HINTS",
     "LOW_CONFIDENCE_THRESHOLD",
+    "RECEIPT_TASK_MARKER",
     "ExtractedTransaction",
     "LlmError",
     "LlmImage",
@@ -49,5 +52,6 @@ __all__ = [
     "build_meta",
     "get_llm_client",
     "natural_language_prompt",
+    "receipt_prompt",
     "screenshot_prompt",
 ]

@@ -1,5 +1,5 @@
 import { formatCurrency, formatDayLabel, toLedgerDate } from '../../src/shared/lib/format';
-import { CAPTURE_DATA_URI, albumPhotosSeeded, seedAlbumPhotos } from '../support/album';
+import { CAPTURE_DATA_URI, mockImagesSeeded, seedMockImages } from '../support/deviceMock';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -59,7 +59,7 @@ test('캡처 한 장에서 다섯 건을 읽어 한 화면에서 검토하고 �
   // 오늘 스타벅스 4,500 을 미리 심어 둔다. 스텁 첫 줄과 지문이 같아져 중복으로 잡혀야 한다.
   await prep.addTransaction({ amount: SEEDED, merchant: '스타벅스' });
 
-  await seedAlbumPhotos(CAPTURE_DATA_URI)(page);
+  await seedMockImages(CAPTURE_DATA_URI)(page);
 
   // 스텁은 바이트를 안 본다. 이 한 겹이 없으면 프론트가 빈 값을 보내도 전 구간이 초록이다.
   let sentImage: string | null = null;
@@ -73,7 +73,7 @@ test('캡처 한 장에서 다섯 건을 읽어 한 화면에서 검토하고 �
   await home.open();
   await home.waitReady();
   // 다이얼이 안 걸린 채로 통과하면 목이 만든 기본 그림을 보고 있는 것이다.
-  expect(await albumPhotosSeeded(page)).toBe(true);
+  expect(await mockImagesSeeded(page)).toBe(true);
 
   await home.recordButton.click();
   await recordSheet.waitOpen();
@@ -132,11 +132,11 @@ test('캡처 한 장에서 다섯 건을 읽어 한 화면에서 검토하고 �
 });
 
 test('고른 사진을 다시 보여 주지 않고 바로 읽는다', async ({ home, page, recordSheet }) => {
-  await seedAlbumPhotos(CAPTURE_DATA_URI)(page);
+  await seedMockImages(CAPTURE_DATA_URI)(page);
 
   await home.open();
   await home.waitReady();
-  expect(await albumPhotosSeeded(page)).toBe(true);
+  expect(await mockImagesSeeded(page)).toBe(true);
 
   await home.recordButton.click();
   await recordSheet.methodTab('캡처').click();

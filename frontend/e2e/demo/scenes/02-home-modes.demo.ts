@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../../src/shared/lib/format';
+import { formatCurrency, toLedgerDate } from '../../../src/shared/lib/format';
 import type { HomeScreen } from '../../screens/HomeScreen';
 import type { RecordSheet } from '../../screens/RecordSheet';
 import { expect, test } from '../support/director';
@@ -16,6 +16,20 @@ const CATEGORY = '식비';
 /** 며칠 비운 상태. 복구 카드는 사흘째부터 뜬다. */
 const AWAY_DAYS = 4;
 const AWAY_AMOUNT = 9_000;
+
+/**
+ * 비운 날의 지출 중 이번 달에 잡히는 몫.
+ *
+ * 나흘 전은 달 초에는 지난달이고 그 뒤로는 이번 달이다. 히어로·게이지는 달력 월만 세므로
+ * 어느 쪽이든 한 값으로 박아 두면 매달 5일을 넘기는 순간부터 이 영상이 깨진다.
+ */
+function awayInThisMonth(): number {
+  const now = new Date();
+  const away = new Date();
+  away.setDate(away.getDate() - AWAY_DAYS);
+  const sameMonth = toLedgerDate(away).slice(0, 7) === toLedgerDate(now).slice(0, 7);
+  return sameMonth ? AWAY_AMOUNT : 0;
+}
 
 const BUDGET = 300_000;
 const CATCH_UP_AMOUNT = 12_000;
@@ -79,18 +93,19 @@ test('03 홈이 상황마다 다른 얼굴로 뜬다', async ({ page, home, reco
   await demo.step('기록이 하나 생겼으니 예산 제안 카드도 같이 붙는다');
   await expect(home.budget.suggestLead).toBeVisible();
   await expect(home.budget.saveButton).toBeVisible();
-  // 4일 전이면 지난달이다. 이번 달 히어로 숫자는 그대로 0원이다.
-  await expect(home.hero.monthSpent).toHaveText(formatCurrency(0));
+  await expect(home.hero.monthSpent).toHaveText(formatCurrency(awayInThisMonth()));
   await demo.beat(3);
 
   await demo.step(`제안 카드에 이번 달 예산 ${formatCurrency(BUDGET)}을 넣는다`);
   await home.budget.set(BUDGET);
 
   await demo.step('히어로가 남은 예산으로 바뀌고 제안 카드는 걷힌다. 복구 카드는 남는다');
-  await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET));
+  await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - awayInThisMonth()));
   await expect(home.budget.saveButton).toHaveCount(0);
   await expect(home.recovery.catchUpButton).toBeVisible();
-  expect(await home.hero.gaugePercent(), '게이지가 안 생겼다').toBe(0);
+  expect(await home.hero.gaugePercent(), '게이지가 안 생겼다').toBe(
+    Math.round((awayInThisMonth() / BUDGET) * 100),
+  );
   await demo.beat(3);
 
   await demo.step('복구 카드의 버튼으로 하나 적어 본다');
@@ -105,7 +120,9 @@ test('03 홈이 상황마다 다른 얼굴로 뜬다', async ({ page, home, reco
 
   await demo.step('오늘 적었으니 복구 카드가 걷힌다. 남은 예산도 그만큼 줄었다');
   await expect(home.recovery.catchUpButton).toHaveCount(0);
-  await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - CATCH_UP_AMOUNT));
+  await expect(home.hero.remainingBudget).toHaveText(
+    formatCurrency(BUDGET - awayInThisMonth() - CATCH_UP_AMOUNT),
+  );
   await demo.beat(2);
 
   await demo.step('오늘 목록에도 방금 적은 것이 한 줄로 남는다');

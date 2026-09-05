@@ -12,15 +12,16 @@ e2e/
     anonKey.ts   테스트별 익명키 생성과 devtools 목에 주입하는 트랩.
                  보통은 fixtures 가 걸고, 이 장치 자체를 증명하는 spec 만 직접 부른다
     api.ts       사전 조건을 심는다. spec 은 `prep` 픽스처로 받는다
-    album.ts     devtools 목 앨범 다이얼. 사진 심기·권한 거부와 각각의 짝 확인 함수
+    deviceMock.ts devtools 목 앨범·카메라 다이얼. 사진 심기·권한 거부와 각각의 짝 확인 함수
     aitMock.ts   그 밖의 devtools 목 다이얼. 광고 미채움·시스템 뒤로가기·미니앱 종료 감시
     servers.ts   playwright.config 가 띄우는 dev 서버 정의
     fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다. spec 은 여기서 시작한다
-  fixtures/    테스트가 쓰는 파일. 지금은 캡처용 PNG 한 장(capture.png)
+  fixtures/    테스트가 쓰는 파일. 지금은 사진용 PNG 한 장(capture.png). 캡처와 영수증이 함께 쓴다
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
     HomeScreen       홈. 안쪽을 hero·today·budget·ads·recovery 로 나눠 들고 있다
-    RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글)·capture(캡처) 넷이다
+    RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글)·capture(캡처)·receipt(영수증) 다섯이다
+                     capture 와 receipt 는 같은 클래스에 문구 표만 바꿔 끼운 둘이다
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
     ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·categories·banner·settings 로 나눠 들고 있다
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
@@ -122,20 +123,30 @@ devtools 를 올린 뒤 그 spec 이 깨지면 `support/anonKey.ts` 를 목 구�
 **`POCKET_DISABLE_AIT_DEVTOOLS=1` 로 우회하지 않는다.** 그 길로 가면 우리 MockMiniAppBridge 가 도는 탓에
 실기기 브릿지 코드가 e2e 에서 한 줄도 돌지 않고, 두 모드를 같이 띄우면 vite 의존성 캐시를 서로 덮어써 앱이 빈 화면이 된다.
 
-## 앨범 목
+## 앨범·카메라 목
 
-캡처 탭은 `Device.getPhotos` 로 앨범을 연다. devtools 목이 그 자리를 대신하고, 분기는
-`deviceModes.photos` 가 정한다. 기본값 `mock` 은 `mockData.images` 에 있는 dataUri 를 그대로
-돌려주고 비어 있으면 캔버스로 만든 placeholder 3장을 준다. **파일 선택 다이얼로그가 아예 뜨지
-않는다.** `web` 모드는 취소를 예외로 던져 우리 계약(취소 = 빈 배열)과 어긋나고, `prompt` 모드는
-패널 입력을 30초 기다린다. 그래서 `mock` 모드를 두고 사진만 심는다.
+캡처 탭은 `Device.getPhotos`, 영수증 탭은 `Device.openCamera` 를 부른다. devtools 목이 그 자리를
+대신하고, 분기는 `deviceModes.photos`·`deviceModes.camera` 가 정한다(둘 다 기본값 `mock`).
+**둘은 같은 `mockData.images` 를 읽는다.** 그래서 사진을 따로 심을 이유가 없고, 반대로
+브릿지를 잘못 불러도 사진이 나와 초록이 된다. 그 어긋남은 **사진 권한만 끄고 영수증을 돌려서** 잡는다.
 
-`support/album.ts` 는 익명키 트랩과 같은 모양이다. **다이얼마다 짝 확인 함수를 둔다.**
+`mock` 은 `mockData.images` 의 dataUri 를 그대로 돌려주고 **비어 있을 때만** 캔버스로 만든
+placeholder 3장으로 바꿔친다. **파일 선택 다이얼로그가 아예 뜨지 않는다.** `web` 모드는 취소를
+예외로 던져 우리 계약(취소 = 빈 값)과 어긋나고, `prompt` 모드는 패널 입력을 30초 기다린다.
+그래서 `mock` 모드를 두고 사진만 심는다.
 
-| 거는 것                    | 확인하는 짝                   |
-| -------------------------- | ----------------------------- |
-| `seedAlbumPhotos(dataUri)` | `albumPhotosSeeded(page)`     |
-| `denyPhotoPermission()`    | `photoPermissionDenied(page)` |
+**촬영 취소는 빈 문자열 한 개(`CANCELLED_SHOT`)로 만든다.** 배열이 비지 않았으므로 placeholder 로
+바뀌지 않고, `openCameraMock()` 이 `dataUri: ''` 를 내고, 그 값이 `tossBridge.captureReceipt` 의
+`image?.dataUri ? ... : null` 을 **실기기와 같은 코드로** 지나 null 이 된다.
+⚠ 실기기가 취소를 정말 빈 dataUri 로 주는지는 확인하지 못했다. 우리 분기가 옳게 도는 것까지다.
+
+`support/deviceMock.ts` 는 익명키 트랩과 같은 모양이다. **다이얼마다 짝 확인 함수를 둔다.**
+
+| 거는 것                   | 확인하는 짝                    |
+| ------------------------- | ------------------------------ |
+| `seedMockImages(dataUri)` | `mockImagesSeeded(page)`       |
+| `denyPhotoPermission()`   | `photoPermissionDenied(page)`  |
+| `denyCameraPermission()`  | `cameraPermissionDenied(page)` |
 
 짝을 안 부르면 **다이얼이 안 걸린 채로 초록이 된다.** 목 내부 구조(슬라이스 이름)에 기대는
 코드라 devtools 를 올리면 여기가 먼저 조용히 깨진다. 심는 사진은 `fixtures/capture.png` 를
@@ -155,20 +166,23 @@ base64 로 만든 data URL 이고, `addInitScript` 인자는 모든 문서마다
 
 ## e2e 로 확인할 수 없는 것
 
-- **미지원 토스 앱 버전 화면.** devtools 목은 `isSupported` 가 항상 true 다. 앨범은 애초에
-  `Device.getPhotos` 에 버전 게이트가 없어 `supports('albumPick')` 이 늘 true 다.
+- **미지원 토스 앱 버전 화면.** devtools 목은 `isSupported` 가 항상 true 다. 앨범도 카메라도
+  버전 게이트가 없어 `supports('albumPick')`·`supports('camera')` 가 늘 true 다.
   미지원 분기는 vitest 에서 `createBridge({ forceMock: true, scenario })` 로 본다.
-- **앨범에서 아무것도 안 고르고 닫기(취소).** `mock` 모드에는 취소라는 개념이 없어 항상 사진이
-  온다. 취소도 vitest 에서 `scenario: { album: 'cancel' }` 로 본다. 그건 우리 목이 '취소 = 빈
-  배열' 이라고 가정한 것을 보는 것이라, **실기기가 예외를 던진다면 초록인 채로 틀린다.**
+- **앨범에서 아무것도 안 고르고 닫기(취소).** `mock` 모드의 앨범은 배열을 돌려주므로 빈 배열을
+  만들 수 없다. 앨범 취소는 vitest 에서 `scenario: { album: 'cancel' }` 로 본다.
+  (**촬영 취소는 e2e 에서 본다.** 빈 dataUri 한 개로 만든다. 위 「앨범·카메라 목」 참고)
+- **실기기가 취소를 어떻게 알리는지.** 우리는 '빈 값 = 취소' 로 계약했는데 SDK 타입에 적혀 있지
+  않고 devtools 의 web 모드는 예외를 던진다. **실기기가 예외를 던진다면 초록인 채로 틀린다.**
   실기기에서 취소를 한 번 눌러 보기 전까지는 미검증이다.
 - **배너 실제 크기와 네이티브 권한 팝업.** 실기기에서만 보인다.
 - **광고 채움/미채움(NoFill)의 실제 응답.** 목이 주는 시나리오까지만이다.
-- **캡처 인식 정확도.** 서버 스텁이 이미지를 읽지 않고 정해 둔 5건을 낸다. 여기서 증명하는 것은
-  배관(고른 사진이 서버까지 가고 후보가 화면에 그려지고 저장된다)까지다.
+- **사진 인식 정확도.** 서버 스텁이 이미지를 읽지 않고 정해 둔 예시를 낸다(캡처 5건 · 영수증 1건).
+  여기서 증명하는 것은 배관(가져온 사진이 서버까지 가고 후보가 화면에 그려지고 저장된다)까지다.
 
 **사진 권한 거부는 목록에서 뺐다.** 예전에는 vitest 몫이었는데, devtools 가 프레임워크를 목으로
-alias 해서 `instanceof PermissionError` 분기가 e2e 에서 실제로 돈다. 위 「앨범 목」 참고.
+alias 해서 `instanceof PermissionError` 분기가 e2e 에서 실제로 돈다. 카메라도 같다.
+위 「앨범·카메라 목」 참고.
 
 ## 도구 설정 메모
 

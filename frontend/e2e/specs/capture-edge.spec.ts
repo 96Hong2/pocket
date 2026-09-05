@@ -1,10 +1,10 @@
 import {
   CAPTURE_DATA_URI,
-  albumPhotosSeeded,
+  mockImagesSeeded,
   denyPhotoPermission,
   photoPermissionDenied,
-  seedAlbumPhotos,
-} from '../support/album';
+  seedMockImages,
+} from '../support/deviceMock';
 import { pressSystemBack, watchAppClose } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
 
@@ -96,11 +96,11 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
     await route.continue();
   });
 
-  await seedAlbumPhotos(CAPTURE_DATA_URI)(page);
+  await seedMockImages(CAPTURE_DATA_URI)(page);
   const appClosed = watchAppClose(page);
   await home.open();
   await home.waitReady();
-  expect(await albumPhotosSeeded(page)).toBe(true);
+  expect(await mockImagesSeeded(page)).toBe(true);
 
   await home.recordButton.click();
   await recordSheet.methodTab('캡처').click();
@@ -155,14 +155,14 @@ test.describe('일부러 실패시켰을 때', () => {
     page,
     recordSheet,
   }) => {
-    await seedAlbumPhotos(CAPTURE_DATA_URI)(page);
+    await seedMockImages(CAPTURE_DATA_URI)(page);
     await page.route(CAPTURE_ANALYZE, (route) =>
       route.request().method() === 'POST' ? route.fulfill(EMPTY_BATCH) : route.continue(),
     );
 
     await home.open();
     await home.waitReady();
-    expect(await albumPhotosSeeded(page)).toBe(true);
+    expect(await mockImagesSeeded(page)).toBe(true);
 
     await home.recordButton.click();
     await recordSheet.methodTab('캡처').click();
@@ -171,13 +171,14 @@ test.describe('일부러 실패시켰을 때', () => {
     await expect(recordSheet.capture.emptyNotice).toBeVisible();
     // 저장할 것이 없으면 저장 버튼도 없어야 한다. 눌러도 아무 일이 없으면 더 헷갈린다.
     await expect(recordSheet.capture.saveButton).toHaveCount(0);
+    await expect(recordSheet.capture.readLine).toHaveCount(0);
 
     await recordSheet.capture.restartButton.click();
     await expect(recordSheet.capture.guide).toBeVisible();
   });
 
   test('읽기가 실패해도 첫 화면이 남고 다시 고를 수 있다', async ({ home, page, recordSheet }) => {
-    await seedAlbumPhotos(CAPTURE_DATA_URI)(page);
+    await seedMockImages(CAPTURE_DATA_URI)(page);
     await page.route(CAPTURE_ANALYZE, (route) =>
       route.request().method() === 'POST' ? route.fulfill(PARSE_DOWN) : route.continue(),
     );
@@ -197,7 +198,7 @@ test.describe('일부러 실패시켰을 때', () => {
   });
 
   test('하루 상한에 걸려도 키패드는 그대로 쓸 수 있다', async ({ home, page, recordSheet }) => {
-    await seedAlbumPhotos(CAPTURE_DATA_URI)(page);
+    await seedMockImages(CAPTURE_DATA_URI)(page);
     await page.route(CAPTURE_ANALYZE, (route) =>
       route.request().method() === 'POST' ? route.fulfill(OVER_LIMIT) : route.continue(),
     );

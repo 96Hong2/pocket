@@ -230,16 +230,17 @@ export function useAnalyzeText() {
 }
 
 /**
- * 캡처 분석.
+ * 사진 한 장 분석. 캡처와 영수증이 나눠 쓴다.
  *
  * 줄글과 같은 이유로 캐시를 건드리지 않는다. 저장은 `useCommitImport` 가 하고,
- * 두 탭이 그 훅 하나를 함께 쓴다.
+ * 세 탭이 그 훅 하나를 함께 쓴다.
  */
-export function useAnalyzeCapture() {
+export function useAnalyzeImage(kind: 'capture' | 'receipt') {
   const client = useApiClient();
 
   return useMutation({
-    mutationFn: (dataUri: string): Promise<ImportBatchOut> => client.analyzeCapture(dataUri),
+    mutationFn: (dataUri: string): Promise<ImportBatchOut> =>
+      kind === 'receipt' ? client.analyzeReceipt(dataUri) : client.analyzeCapture(dataUri),
   });
 }
 

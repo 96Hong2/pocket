@@ -48,10 +48,19 @@
   }
 
   .nl__empty {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
     padding: 20px 4px;
     font-size: var(--text-14);
     color: var(--color-muted);
     text-align: center;
+  }
+
+  /* 왜 못 읽었는지 짚어 주는 둘째 줄. 첫 줄보다 작게 둔다. */
+  .nl__empty span {
+    font-size: var(--text-13);
   }
 
   .nl__notice {

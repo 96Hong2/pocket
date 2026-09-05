@@ -1,4 +1,4 @@
-"""줄글 입력의 분석·검토·저장.
+"""줄글·캡처·영수증 입력의 분석·검토·저장.
 
 분석은 거래를 만들지 않는다. 검토 단위(ImportBatch)와 후보만 만든다.
 저장은 commit 이 따로 하고, 그때 만들어지는 거래는 키패드로 적은 것과 같은 길을 지난다.
@@ -9,9 +9,11 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from functools import partial
+from typing import NamedTuple
 
 import anyio.from_thread
 from sqlalchemy import func, or_, select
@@ -33,6 +35,7 @@ from app.integrations.llm import (
     TransactionType,
     attach_source,
     natural_language_prompt,
+    receipt_prompt,
     screenshot_prompt,
 )
 from app.models import (
@@ -61,6 +64,25 @@ __all__ = [
 
 # 검토 화면에 한 번에 올리는 상한. 그 이상은 사람이 훑어보지 못한다.
 MAX_CANDIDATES = 20
+
+
+class _ImageKind(NamedTuple):
+    """이미지 한 장을 읽는 입구가 서로 다르게 가진 것."""
+
+    prompt: Callable[[date], str]
+    """모델에게 무엇을 읽는지 알려 주는 지시."""
+    subject: str
+    """못 읽었을 때 사용자에게 말하는 말. '지금은 OO 읽지 못했어요' 자리에 들어간다."""
+    quota_label: str
+    """하루 상한에 걸렸을 때 무엇을 다 썼는지 말하는 말."""
+
+
+# 프롬프트·문구·출처를 한 줄에 묶어 둔다. 따로 두면 영수증을 캡처 프롬프트로 읽고도
+# 화면에는 영수증이라 적히는 어긋남이 조용히 생긴다.
+_IMAGE_KINDS: dict[TransactionSource, _ImageKind] = {
+    TransactionSource.SCREENSHOT: _ImageKind(screenshot_prompt, "캡처를", "캡처 분석"),
+    TransactionSource.RECEIPT: _ImageKind(receipt_prompt, "영수증을", "영수증 분석"),
+}
 
 
 class CommitResult:
@@ -126,23 +148,28 @@ def parse_image(
     user: User,
     *,
     image: LlmImage,
+    source: TransactionSource,
     client: LlmStructuredClient,
     today: date | None = None,
 ) -> ImportBatch:
-    """캡처 한 장에서 거래 후보를 뽑아 검토 단위를 만든다.
+    """이미지 한 장에서 거래 후보를 뽑아 검토 단위를 만든다.
+
+    캡처와 영수증이 이 함수를 나눠 쓴다. 갈리는 것은 프롬프트와 문구뿐이고
+    자르기·중복 판정·상호 학습·저장은 그 아래로 같은 길이다.
 
     이미지는 어디에도 저장하지 않는다. 요청이 끝나면 파이썬 객체와 함께 사라진다.
     """
+    kind = _IMAGE_KINDS[source]
     day = today or ledger.today_for(user)
-    _require_quota(session, user, day, label="캡처 분석")
+    _require_quota(session, user, day, label=kind.quota_label)
 
     extraction = _extract(
-        client, prompt=screenshot_prompt(day), today=day, subject="캡처를", image=image
+        client, prompt=kind.prompt(day), today=day, subject=kind.subject, image=image
     )
     return _build_batch(
         session,
         user,
-        source=TransactionSource.SCREENSHOT,
+        source=source,
         extraction=extraction,
         day=day,
         client=client,
