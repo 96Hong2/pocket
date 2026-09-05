@@ -22,6 +22,7 @@ e2e/
     HomeScreen       홈. 안쪽을 hero·today·budget·ads·recovery 로 나눠 들고 있다
     RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글)·capture(캡처)·receipt(영수증) 다섯이다
                      capture 와 receipt 는 같은 클래스에 문구 표만 바꿔 끼운 둘이다
+    ReportScreen     리포트 탭. 총액·도넛·조각 목록·6개월 흐름
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
     ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·categories·banner·settings 로 나눠 들고 있다
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
@@ -183,6 +184,16 @@ base64 로 만든 data URL 이고, `addInitScript` 인자는 모든 문서마다
 **사진 권한 거부는 목록에서 뺐다.** 예전에는 vitest 몫이었는데, devtools 가 프레임워크를 목으로
 alias 해서 `instanceof PermissionError` 분기가 e2e 에서 실제로 돈다. 카메라도 같다.
 위 「앨범·카메라 목」 참고.
+
+## 탭바 클릭 실패는 그 화면이 가로로 넘친다는 신호다 (2026-09-05)
+
+**본문이 가로로 넘치면 브라우저가 화면 전체를 축소하고, 화면 아래 고정된 탭바가 보이는 영역
+밖으로 밀려나 눌리지 않는다.** `goToTab` 은 여러 spec 이 이미 쓰고 있으므로(예산 spec 들),
+갑자기 안 눌리면 탭바를 의심하기 전에 **그 화면의 가로 폭**을 본다.
+실제로 리포트 추이 막대에서 그렇게 잡았다. 라벨이 줄바꿈을 막아 412px 화면을 570px 로 밀었다.
+
+가로 넘침을 직접 재려면 `innerWidth` 와 견주면 안 된다. 축소되면 `innerWidth` 도 함께 커져
+둘이 늘 같아진다(항진 명제다). **`visualViewport.width` 와 견준다.**
 
 ## 도구 설정 메모
 

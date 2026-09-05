@@ -4,6 +4,7 @@ import { AppShell } from '../screens/AppShell';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ManageScreen } from '../screens/ManageScreen';
+import { ReportScreen } from '../screens/ReportScreen';
 import { RecordSheet } from '../screens/RecordSheet';
 
 import { anonKeyFor, installAnonKeyTrap, probeAnonKey } from './anonKey';
@@ -27,6 +28,8 @@ interface PocketFixtures {
   calendar: CalendarScreen;
   /** 관리 탭. 예산 카드·카테고리 예산·이어쓰기 배너·설정을 한 화면이 가진다. */
   manage: ManageScreen;
+  /** 리포트 탭. 총액·도넛·조각 목록·6개월 흐름을 한 화면이 가진다. */
+  report: ReportScreen;
   /** 확인하려는 동작의 배경 상태를 심는다. 브라우저와 같은 익명키를 쓴다. */
   prep: PrepApi;
 }
@@ -58,6 +61,10 @@ export const test = base.extend<PocketFixtures>({
 
   manage: async ({ page }, use) => {
     await use(new ManageScreen(page));
+  },
+
+  report: async ({ page }, use) => {
+    await use(new ReportScreen(page));
   },
 
   prep: async ({ anonKey }, use) => {

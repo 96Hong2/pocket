@@ -1,0 +1,146 @@
+@layer components {
+  .report {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    /* 막대가 클 수 있는 높이. 라벨 몫을 뺀 값이라 100% 짜리 막대가 라벨을 안 밀어낸다. */
+    --report-trend-track: 96px;
+  }
+
+  .report__modes {
+    align-self: stretch;
+  }
+
+  .report__headline {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .report__headline-label {
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  /* 크기·굵기는 공용 Amount 가 정한다. 여기서는 자리만 잡는다. */
+  .report__headline-value {
+    letter-spacing: -0.5px;
+  }
+
+  .report__meta {
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  .report__note {
+    margin-top: 8px;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  .report__section {
+    margin-bottom: 12px;
+    font-size: var(--text-15);
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+
+  .report__empty {
+    text-align: center;
+    color: var(--color-muted);
+  }
+
+  .report__empty-hint {
+    margin-top: 4px;
+    font-size: var(--text-13);
+  }
+
+  /* 한 화면에 차트 하나. 도넛은 여기 하나뿐이다. */
+  .report__donut {
+    display: block;
+    width: 160px;
+    height: 160px;
+    margin: 0 auto 16px;
+  }
+
+  .report__list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .report__row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    align-items: baseline;
+    font-size: var(--text-14);
+  }
+
+  .report__row-name {
+    color: var(--color-ink);
+  }
+
+  .report__row-amount {
+    font-variant-numeric: tabular-nums;
+    color: var(--color-ink);
+  }
+
+  .report__row-share {
+    min-width: 40px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--color-muted);
+  }
+
+  /* 칸이 스스로 좁아질 수 있어야 한다. minmax(0,1fr) 이 아니면 글자 길이가 폭을 밀어
+     페이지가 가로로 넘치고, 그러면 브라우저가 화면 전체를 축소해 버린다. */
+  .report__trend {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+    align-items: end;
+    min-height: 120px;
+  }
+
+  /* 막대 칸과 라벨 칸을 갈라 둔다. 한 상자에 담으면 막대의 100% 가 라벨 자리까지
+     달라고 하고, 못 받으면 스스로 깎여서 높은 달들이 전부 같은 높이로 그려진다. */
+  .report__trend-item {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: var(--report-trend-track) auto;
+    gap: 6px;
+    justify-items: center;
+  }
+
+  .report__trend-track {
+    width: 100%;
+    height: var(--report-trend-track);
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .report__trend-bar {
+    width: 100%;
+    min-height: 2px;
+    background: var(--color-sage-300);
+    border-radius: 4px 4px 0 0;
+  }
+
+  /* 보고 있는 달만 진하게. 어느 막대가 지금 화면인지 색으로 가른다. */
+  .report__trend-bar[data-current] {
+    background: var(--color-sage-700);
+  }
+
+  /* 환불이 지출보다 컸던 달. 높이로는 기록 없는 달과 못 가른다. */
+  .report__trend-bar[data-negative] {
+    min-height: 3px;
+    background: var(--color-amber-300);
+  }
+
+  .report__trend-label {
+    font-size: var(--text-11);
+    color: var(--color-muted);
+    text-align: center;
+  }
+}

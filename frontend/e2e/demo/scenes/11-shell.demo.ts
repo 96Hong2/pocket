@@ -31,12 +31,12 @@ test('17 하단 3탭으로 홈·리포트·관리를 오간다', async ({ prep, 
 
   await demo.step('리포트 탭을 누른다');
   await appShell.goToTab('리포트');
-  await appShell.expectScreen('리포트', '이번 달 지출이 어디로 갔는지 봐요');
+  await appShell.expectScreen('리포트', '지출이 어디로 갔는지 봐요');
   await appShell.expectCurrentTab('리포트');
   await demo.clearStep();
   await demo.beat(2);
 
-  await demo.step('아직 데이터가 안 붙은 자리표시자 화면이다');
+  await demo.step('그 달에 어디로 얼마나 갔는지 한 화면에서 본다');
   await demo.beat(2);
 
   await demo.step('관리 탭으로 옮긴다');

@@ -1,15 +1,24 @@
-import { Placeholder } from './Placeholder';
+import { useState } from 'react';
 
-/** 리포트 탭. 카테고리 도넛·기간 비교가 들어갈 자리다. */
+import { IdentityNotice } from '../app/IdentityNotice';
+import { MonthlyReport } from '../features/reports';
+import { toLedgerDate } from '../shared/lib/format';
+
+/** 리포트 탭. 그 달에 어디로 얼마나 갔는지 한 화면에서 본다. */
 export default function ReportPage() {
+  const thisMonth = toLedgerDate(new Date()).slice(0, 7);
+  const [month, setMonth] = useState(thisMonth);
+
   return (
     <div className="page">
       <h1 className="page__title">리포트</h1>
-      <p className="page__lead">이번 달 지출이 어디로 갔는지 봐요</p>
+      {/* 달을 옮겨 다니는 화면이라 리드가 특정 달을 가리키면 지난달에서 거짓이 된다. */}
+      <p className="page__lead">지출이 어디로 갔는지 봐요</p>
 
-      <Placeholder label="기간 선택">MonthStepper 하나만 쓴다.</Placeholder>
-      <Placeholder label="카테고리 도넛">도넛 램프 색으로 카테고리 비중을 그린다.</Placeholder>
-      <Placeholder label="카테고리 목록">카테고리별 지출과 게이지가 들어간다.</Placeholder>
+      {/* 식별키를 못 받으면 조회가 시작조차 안 해 로딩이 끝나지 않는다. 이 안내가 이유를 말한다. */}
+      <IdentityNotice />
+
+      <MonthlyReport month={month} onMonthChange={setMonth} />
     </div>
   );
 }

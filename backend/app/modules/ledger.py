@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -33,6 +34,7 @@ __all__ = [
     "last_transaction_date",
     "load_day_totals",
     "load_period_totals",
+    "load_range_totals",
     "local_date",
     "period_bounds",
     "period_for",
@@ -116,6 +118,26 @@ def load_period_totals(session: Session, user: User, period: BudgetPeriod) -> ag
     tz = user_tz(user)
     rows = period_transactions(session, user, period)
     return agg.aggregate_period([_to_domain(t, tz) for t in rows], period)
+
+
+def load_range_totals(
+    session: Session, user: User, periods: Sequence[BudgetPeriod]
+) -> list[agg.PeriodTotals]:
+    """여러 기간을 한 번 읽어 각각 접는다. 6개월 추이·기간 비교가 이걸 쓴다.
+
+    기간마다 조회하면 같은 행을 여러 번 읽고, 그 사이 저장이 끼면 기간끼리 어긋난다.
+    가장 이른 시작부터 가장 늦은 끝까지 한 번 읽고 같은 행 목록을 기간마다 다시 접는다.
+    `aggregate_period` 가 `period.contains` 로 스스로 거르므로 걸러 주지 않아도 된다.
+
+    **집계 규칙(이체 제외·환불 차감)을 SQL 로 옮겨 적지 않는다.** 두 번 적으면 두 구현이
+    각자 테스트를 통과하면서 서로 다른 숫자를 말한다.
+    """
+    if not periods:
+        return []
+    span = BudgetPeriod(min(p.start for p in periods), max(p.end for p in periods))
+    tz = user_tz(user)
+    rows = [_to_domain(t, tz) for t in period_transactions(session, user, span)]
+    return [agg.aggregate_period(rows, period) for period in periods]
 
 
 def load_day_totals(session: Session, user: User, period: BudgetPeriod) -> list[agg.DayTotals]:

@@ -192,7 +192,7 @@ def _build_batch(
     input_length: int,
     redacted_count: int,
 ) -> ImportBatch:
-    """추출 결과를 검토 단위로 옮긴다. 줄글과 캡처가 이 뒤로는 같은 길을 지난다."""
+    """추출 결과를 검토 단위로 옮긴다. 줄글·캡처·영수증이 이 뒤로는 같은 길을 지난다."""
     found = attach_source(extraction, source)
     candidates = found[:MAX_CANDIDATES]
     dropped = len(found) - len(candidates)
@@ -613,8 +613,8 @@ def _require_quota(session: Session, user: User, today: date, *, label: str) -> 
     상한은 넉넉하다. 습관이 붙기 전에 막으면 앱을 쓸 이유가 사라진다.
     막혀도 키패드 기록은 그대로 돌아간다.
 
-    줄글과 캡처가 같은 상한을 나눠 쓴다. label 은 사용자에게 무엇을 다 썼는지 말해 주는
-    문구일 뿐이고, 지금은 둘을 따로 세지 않는다.
+    줄글·캡처·영수증이 같은 상한을 나눠 쓴다. label 은 사용자에게 무엇을 다 썼는지 말해 주는
+    문구일 뿐이고, 지금은 셋을 따로 세지 않는다.
     """
     limit = get_settings().nl_parse_daily_limit
     start, _ = ledger.day_bounds(today, ledger.user_tz(user))

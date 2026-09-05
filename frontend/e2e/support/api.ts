@@ -16,6 +16,13 @@ export interface TransactionSeed {
   /** 며칠 전. 없으면 오늘이다. */
   daysAgo?: number;
   /**
+   * 날짜를 직접 못 박는다(`2026-08-03`). `daysAgo` 보다 우선한다.
+   *
+   * `daysAgo` 로 몇 달 전을 만들면 달마다 길이가 달라 귀속 달이 흔들린다.
+   * 월 경계를 재는 검사는 이걸 쓴다. 시각은 그 날 정오(KST)다.
+   */
+  on?: string;
+  /**
    * 같은 날 안에서의 순서. 목록이 시각 내림차순이라 값이 클수록 아래에 놓인다.
    *
    * 그 날 정오를 기준으로 뒤로 센다. "지금부터 뒤로" 가 아니다.
@@ -60,7 +67,8 @@ export class PrepApi {
 
   /** 거래 하나를 심는다. 종류·가맹점·예산 제외까지 정한다. */
   async addTransaction(seed: TransactionSeed): Promise<void> {
-    const occurredAt = seedTime(seed.daysAgo ?? 0, seed.minutesAgo ?? 0);
+    const occurredAt =
+      seed.on != null ? dayNoon(seed.on) : seedTime(seed.daysAgo ?? 0, seed.minutesAgo ?? 0);
 
     const response = await this.context.post('/api/v1/transactions', {
       data: {
@@ -184,6 +192,11 @@ function monthQuery(month?: string): string {
   return `?year=${Number(year)}&month=${Number(monthNumber)}`;
 }
 
+/** 그 날 정오(KST). 자정에 가까운 시각을 고르면 시간대 계산에서 하루가 밀린다. */
+function dayNoon(day: string): Date {
+  return new Date(`${day}T12:00:00+09:00`);
+}
+
 /**
  * 심을 시각. **가계부 시간대(Asia/Seoul)** 의 그 날 정오에서 분 단위로 뒤로 센다.
  *
@@ -198,8 +211,9 @@ function monthQuery(month?: string): string {
  */
 function seedTime(daysAgo: number, minutesAgo: number): Date {
   // 화면·서버가 쓰는 것과 같은 시간대 기준의 오늘. LEDGER_TIME_ZONE 이 Asia/Seoul 이다.
-  const noon = new Date(`${toLedgerDate(new Date())}T12:00:00+09:00`);
-  return new Date(noon.getTime() - daysAgo * 86_400_000 - minutesAgo * 60_000);
+  return new Date(
+    dayNoon(toLedgerDate(new Date())).getTime() - daysAgo * 86_400_000 - minutesAgo * 60_000,
+  );
 }
 
 function expectOk(status: number, body: string, what: string): void {

@@ -320,6 +320,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/monthly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Monthly */
+        get: operations["monthly_api_v1_reports_monthly_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -341,6 +358,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * BreakdownRowOut
+         * @description 도넛 조각 하나이자 목록 한 줄. 둘이 같은 목록을 써야 순서가 안 어긋난다.
+         */
+        BreakdownRowOut: {
+            /** Key */
+            key: string;
+            /** Category Id */
+            category_id: string | null;
+            /** Amount */
+            amount: string;
+            /** Share */
+            share: string | null;
+            /** Rolled Count */
+            rolled_count: number;
+        };
         /**
          * BudgetOut
          * @description 예산 조회·저장 응답. 홈이 첫 화면을 고르는 근거를 함께 준다.
@@ -689,6 +722,77 @@ export interface components {
             /** Applied Count */
             applied_count: number;
         };
+        /** MonthlyReportOut */
+        MonthlyReportOut: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Has Any Transaction */
+            has_any_transaction: boolean;
+            /** Month Expense */
+            month_expense: string;
+            /** Month Income */
+            month_income: string;
+            /** Monthly Delta */
+            monthly_delta: string;
+            budget: components["schemas"]["BudgetStateOut"];
+            /** Expense Breakdown */
+            expense_breakdown: components["schemas"]["BreakdownRowOut"][];
+            /** Income Breakdown */
+            income_breakdown: components["schemas"]["BreakdownRowOut"][];
+            /** Expense Breakdown Total */
+            expense_breakdown_total: string;
+            /** Income Breakdown Total */
+            income_breakdown_total: string;
+            /** Trend */
+            trend: components["schemas"]["TrendPointOut"][];
+            comparison: components["schemas"]["PeriodComparisonOut"] | null;
+            weeks: components["schemas"]["PeriodComparisonOut"] | null;
+        };
+        /**
+         * PeriodComparisonOut
+         * @description 지난 기간과의 비교.
+         *
+         *     **날짜 네 개를 함께 싣는다.** 숫자만 주면 서버가 달 전체를 세고 있어도 화면은
+         *     그럴듯해 보인다. 화면이 "8월 1~5일" 을 글자로 찍으면 창이 틀린 것이 눈에 보인다.
+         */
+        PeriodComparisonOut: {
+            /**
+             * Current Start
+             * Format: date
+             */
+            current_start: string;
+            /**
+             * Current End
+             * Format: date
+             */
+            current_end: string;
+            /**
+             * Previous Start
+             * Format: date
+             */
+            previous_start: string;
+            /**
+             * Previous End
+             * Format: date
+             */
+            previous_end: string;
+            /** Current Expense */
+            current_expense: string;
+            /** Previous Expense */
+            previous_expense: string;
+            /** Delta */
+            delta: string;
+            /** Delta Ratio */
+            delta_ratio: string | null;
+        };
         /** PeriodSummaryOut */
         PeriodSummaryOut: {
             /**
@@ -844,6 +948,26 @@ export interface components {
             transaction: components["schemas"]["TransactionOut"];
             feedback: components["schemas"]["FeedbackOut"];
             budget?: components["schemas"]["BudgetStateOut"] | null;
+        };
+        /**
+         * TrendPointOut
+         * @description 추이 막대 하나. 기록이 없는 달도 0 으로 들어온다.
+         */
+        TrendPointOut: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Expense */
+            expense: string;
+            /** Income */
+            income: string;
         };
     };
     responses: never;
@@ -2817,6 +2941,94 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    monthly_api_v1_reports_monthly_get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonthlyReportOut"];
+                };
             };
             /** @description 식별키가 없거나 검증에 실패 */
             401: {
