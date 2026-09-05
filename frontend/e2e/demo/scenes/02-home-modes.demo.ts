@@ -120,7 +120,8 @@ test('03 홈이 상황마다 다른 얼굴로 뜬다', async ({ page, home, reco
 
   await demo.step('며칠 비웠다. 빠진 날을 세는 대신 채운 날만 세어 보여준다');
   await expect(home.recovery.card).toBeVisible();
-  await expect(home.recovery.progressText).toHaveText(`최근 ${WINDOW_DAYS}일 중 1일 정리했어요`);
+  await expect(home.recovery.lead).toBeVisible();
+  await expect(home.recovery.progressText).toHaveText(`이번 주 1/${WINDOW_DAYS}일 정리했어요`);
   await expect(home.recovery.catchUpButton).toBeVisible();
   // 며칠 만인지, 연속이 끊겼는지는 화면 어디에도 적지 않는다.
   await expect(home.recovery.punishingText).toHaveCount(0);

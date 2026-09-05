@@ -1,0 +1,24 @@
+# 빌드 맥락에 넣지 않는 것.
+# 비밀값이 이미지 레이어에 한 번 들어가면 지워도 히스토리에 남는다.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+certs/
+secrets/
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# 운영 이미지에 검증 코드를 넣지 않는다.
+tests/

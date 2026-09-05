@@ -17,6 +17,33 @@ export function formatCurrency(value: number): string {
 }
 
 /**
+ * 큰 금액을 짧게. `2850000` → `285만`, `1000000000` → `10억`, `9000` → `9,000원`.
+ *
+ * 히어로의 `남은 예산 / 예산` 처럼 **곁들여 적는 자리**에만 쓴다. 주인공 숫자에는 쓰지 않는다.
+ * 시안이 그 자리를 `/ 285만` 으로 적어 둔 이유가 폭이다. 원 단위로 다 적으면
+ * 억대 예산에서 한 줄이 412px 화면을 밀어내고, 그러면 브라우저가 화면을 축소해
+ * 하단 탭바가 보이는 영역 밖으로 나간다.
+ *
+ * 만 단위 아래로는 줄일 것이 없어 그대로 적는다. 어중간하게 잘라 `1.2만` 으로 적으면
+ * 얼마인지 다시 계산해야 한다.
+ */
+export function formatCompactCurrency(value: number): string {
+  const won = Math.round(value);
+  const abs = Math.abs(won);
+  const sign = won < 0 ? '-' : '';
+
+  if (abs >= 100_000_000) return `${sign}${trimUnit(abs / 100_000_000)}억`;
+  if (abs >= 10_000) return `${sign}${trimUnit(abs / 10_000)}만`;
+  return formatCurrency(won);
+}
+
+/** `10` → `10`, `2.85` → `2.9`. 소수 한 자리까지만 남기고 `.0` 은 뗀다. */
+function trimUnit(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? formatNumber(rounded) : String(rounded);
+}
+
+/**
  * 부호를 앞에 붙인다. 500000 → `+500,000원`, -500 → `-500원`, 0 → `0원`.
  * 금액은 항상 양수로 저장하므로, 부호는 거래 종류를 아는 쪽에서 정해 넘긴다.
  */

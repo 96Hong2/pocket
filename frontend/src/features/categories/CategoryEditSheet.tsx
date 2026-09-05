@@ -123,7 +123,8 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
           className="cat-sheet__input"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="어디에 쓰는 돈인가요"
+          // 무엇을 적으면 되는지 예를 보여 준다. 물음만 던지면 무엇이 답인지 모른다.
+          placeholder="이름 (예: 반려동물, 데이트)"
           maxLength={40}
         />
       </label>

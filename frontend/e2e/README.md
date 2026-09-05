@@ -26,7 +26,9 @@ e2e/
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
     ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·categories·banner·settings 로 나눠 들고 있다
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
-  specs/       테스트. 무엇을 확인하는지만 읽히게 쓴다
+  specs/       테스트. 무엇을 확인하는지만 읽히게 쓴다. 매번 돌린다
+  edge/        엣지케이스. 경계값·실패 주입·심사 항목. 출시 전과 크게 고친 뒤에만 돌린다
+               (`npm run e2e:edge` · `make e2e-edge`). 규약·화면 객체·픽스처는 specs 와 같은 것을 쓴다
   demo/        화면 동작 영상을 찍는 자리. 판정이 아니라 산출물을 만든다
     support/     director(연출·영상 저장) · overlay(자막·클릭 물결)
     scenes/      장면 파일. 파일당 영상 한두 개

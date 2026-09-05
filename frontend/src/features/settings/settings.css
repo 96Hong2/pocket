@@ -73,6 +73,11 @@
     line-height: 1.55;
   }
 
+  /* 플랫폼 안내처럼 한 번 읽고 마는 줄. 본문보다 한 단 뒤로 물린다. */
+  .setting-note--muted {
+    color: var(--color-ad-label);
+  }
+
   /* ── 개인정보처리방침 화면 ──────────────────────── */
 
   .privacy {

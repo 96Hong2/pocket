@@ -10,7 +10,10 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from app.models.import_batch import ImportCandidate
 from app.modules import ledger
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
@@ -466,3 +469,50 @@ def test_보내기_전에_가린_문장이_모델에_넘어간다(
     assert seen, "모델을 부르지 않았다"
     assert "1234-5678-9012-3456" not in seen[0]
     assert "12000" in seen[0]
+
+
+# ── 지표 ────────────────────────────────────────────────
+
+
+def test_사람이_고친_줄만_고친_것으로_남는다(
+    client: TestClient, db: Session, default_categories
+) -> None:
+    """북극성('손 안 대고 저장된 비율')의 분자를 정하는 자리다.
+
+    저장하는 순간 남기지 않으면 나중에 어떤 방법으로도 되살릴 수 없어서, 값이 아니라
+    이 표시가 있는지를 본다. 무엇을 고쳤는지는 담지 않는다.
+    """
+    batch = _analyze(client, THREE_ITEMS)
+    edited, untouched = batch["candidates"][0], batch["candidates"][1]
+
+    response = client.patch(
+        f"/api/v1/imports/{batch['id']}/candidates/{edited['id']}",
+        json={"amount": "13000"},
+        headers=AUTH,
+    )
+    assert response.status_code == 200, response.text
+
+    rows = {str(row.id): row.was_edited for row in db.scalars(select(ImportCandidate)).all()}
+    assert rows[edited["id"]] is True
+    assert rows[untouched["id"]] is False
+
+
+def test_선택만_껐다_켠_것은_고친_것이_아니다(
+    client: TestClient, db: Session, default_categories
+) -> None:
+    """저장 대상에서 빼는 것은 값을 고치는 것이 아니다.
+
+    이것까지 세면 훑어보다 하나 끈 사람이 전부 '고친 사람' 이 되어 북극성이 낮게 나온다.
+    """
+    batch = _analyze(client, THREE_ITEMS)
+    candidate = batch["candidates"][0]
+
+    response = client.patch(
+        f"/api/v1/imports/{batch['id']}/candidates/{candidate['id']}",
+        json={"is_selected": False},
+        headers=AUTH,
+    )
+    assert response.status_code == 200, response.text
+
+    rows = {str(row.id): row.was_edited for row in db.scalars(select(ImportCandidate)).all()}
+    assert rows[candidate["id"]] is False

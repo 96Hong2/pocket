@@ -6,11 +6,15 @@ import { BudgetSection } from '../features/budgets';
 import { MerchantRuleList } from '../features/imports';
 import { Card } from '../shared/ui';
 
-/** 관리 탭 아래에 달린 화면들. 순서가 곧 화면에 보이는 순서다. */
+/**
+ * 관리 탭 아래에 달린 화면들. 순서가 곧 화면에 보이는 순서다.
+ *
+ * **자산·목표는 여기 없다.** 라우트는 있지만 화면은 아직 점선 자리표시자라, 입구를 두면
+ * 눌러 들어간 사람이 "P1 화면이에요" 만 보고 되돌아 나온다. 심사에서도 빈 화면은 사유가 된다.
+ * 알림 설정을 같은 이유로 이미 걷어 냈다. 세 화면이 실물이 되면 그때 함께 되돌린다.
+ */
 const SUB_SCREENS = [
   { to: ROUTES.categories, label: '카테고리 관리' },
-  { to: ROUTES.assets, label: '자산' },
-  { to: ROUTES.goal, label: '목표' },
   { to: ROUTES.settings, label: '앱 설정' },
 ] as const;
 

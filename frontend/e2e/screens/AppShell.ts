@@ -105,6 +105,17 @@ export class AppShell {
     return this.page.getByText(note);
   }
 
+  /**
+   * 앱이 스스로 그린 뒤로가기 후보.
+   *
+   * 상단바는 토스가 그린다. 우리가 하나 더 그리면 화면에 뒤로가기가 둘로 보여 심사에서 막힌다.
+   * 이름으로 좁혀 세므로 화면에 버튼이 아무리 많아도 여기 잡히는 것은 뒤로가기뿐이다.
+   * 시트 안의 닫기는 시트를 닫는 것이라 이름에서 뺐다.
+   */
+  get selfDrawnBackControls(): Locator {
+    return this.page.getByRole('button', { name: /뒤로|이전|←|‹/ });
+  }
+
   /** 플랫폼 상단바가 읽는 제목. 화면을 옮길 때마다 바뀐다. */
   async expectDocumentTitle(title: string): Promise<void> {
     await expect(this.page).toHaveTitle(title);

@@ -95,6 +95,11 @@ class ImportCandidate(Entity):
     is_selected: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
 
+    # 사람이 읽어 온 값을 고쳤나. 이 제품의 북극성이 '손 안 대고 저장된 비율' 이라
+    # 저장하는 순간 남기지 않으면 나중에 어떤 방법으로도 되살릴 수 없다.
+    # 무엇을 고쳤는지는 남기지 않는다. 고쳤다는 사실 하나면 그 비율이 나온다.
+    was_edited: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+
     # 저장을 마치면 만들어진 거래를 가리킨다.
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True

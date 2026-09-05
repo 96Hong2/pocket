@@ -41,6 +41,10 @@ test('사흘 넘게 비면 복구 카드가 뜨고, 벌주는 말이 없다', as
   await expect(home.recovery.card).toBeVisible();
   await expect(home.recovery.catchUpButton).toBeVisible();
 
+  // 있어야 할 말부터 못 박는다. 없어야 할 것만 세면 문구를 통째로 잃어도 초록이다.
+  await expect(home.recovery.lead).toBeVisible();
+  await expect(home.recovery.leadNext).toBeVisible();
+
   // 며칠 빠졌는지, 연속이 끊겼는지를 화면 어디에도 적지 않는다.
   await expect(home.recovery.punishingText).toHaveCount(0);
   // 돌아온 것은 경고할 일이 아니다. 카드 안에 경고 자리를 만들지 않는다.
@@ -117,7 +121,7 @@ test('복구 카드가 최근 이레 중 정리한 날을 세어 보여준다', 
   await home.open();
   await home.waitReady();
 
-  await expect(home.recovery.progressText).toHaveText(`최근 ${WINDOW_DAYS}일 중 2일 정리했어요`);
+  await expect(home.recovery.progressText).toHaveText(`이번 주 2/${WINDOW_DAYS}일 정리했어요`);
   // 서버가 준 2/7 = 0.2857 을 화면이 반올림한 값이다. 서버 계산과 화면 표시를 한 번에 되짚는다.
   expect(await home.recovery.gaugePercent()).toBe(29);
 });

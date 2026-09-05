@@ -76,15 +76,15 @@ export class ReportScreen {
     return this.root.getByTestId(TEST_IDS.reportBreakdownRow);
   }
 
-  row(name: string): Locator {
+  row(name: string | RegExp): Locator {
     return this.rows.filter({ hasText: name });
   }
 
-  amount(name: string): Locator {
+  amount(name: string | RegExp): Locator {
     return this.row(name).getByTestId(TEST_IDS.reportRowAmount);
   }
 
-  share(name: string): Locator {
+  share(name: string | RegExp): Locator {
     return this.row(name).getByTestId(TEST_IDS.reportRowShare);
   }
 
@@ -142,5 +142,20 @@ export class ReportScreen {
 
   get emptyNotice(): Locator {
     return this.root.getByText('이 달엔 기록이 없어요', { exact: true });
+  }
+
+  /**
+   * 그 달에 기록은 있는데 지금 보는 쪽(소비·수입)만 비었을 때.
+   *
+   * 빈 달 안내와 다른 자리다. 이 줄이 없으면 수입을 한 번도 안 적은 사람이
+   * 수입 탭에서 0 원과 빈 화면만 보고 화면이 고장 났다고 여긴다.
+   */
+  get emptyModeNotice(): Locator {
+    return this.root.getByText(/^이 달엔 (수입|소비) 기록이 없어요$/);
+  }
+
+  /** 조회가 실패했을 때 본문 자리를 대신하는 제목. */
+  get loadError(): Locator {
+    return this.root.getByText('리포트를 불러오지 못했어요', { exact: true });
   }
 }

@@ -41,13 +41,9 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await expect(manage.total.startButton).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('그 아래 네 줄이 하위 화면으로 들어가는 입구다');
-  await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText([
-    '카테고리 관리',
-    '자산',
-    '목표',
-    '앱 설정',
-  ]);
+  await demo.step('그 아래 두 줄이 하위 화면으로 들어가는 입구다');
+  // 자산·목표는 화면이 아직 점선 자리표시자라 입구를 두지 않았다. 실물이 되면 되돌린다.
+  await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText(['카테고리 관리', '앱 설정']);
   await demo.beat(2);
 
   await demo.step('먼저 카테고리 관리로 들어간다');
@@ -125,13 +121,13 @@ test('21 아직 입구가 없는 화면과 없는 주소', async ({ appShell, ho
   await appShell.open(ROUTES.goal);
   await demo.open('아직 문이 안 달린 화면들', '주소로만 열리는 화면 셋과, 없는 주소로 갔을 때');
 
-  await demo.step('목표. P1 이라 모델만 있고 화면은 자리만 잡아 뒀다');
+  await demo.step('목표. P1 이라 모델만 있고 화면은 자리만 잡아 뒀다. 관리 탭의 입구는 걷어 냈다');
   await appShell.expectScreen('목표', 'P1 화면이에요. 지금은 자리만 잡아 뒀어요');
   await expect(appShell.placeholderNote('모은 금액과 게이지가 들어간다.')).toBeVisible();
   await demo.beat(2);
 
   await appShell.open(ROUTES.assets);
-  await demo.step('자산도 같다. 순자산과 자산 목록, 두 자리만 있다');
+  await demo.step('자산도 같다. 순자산과 자산 목록, 두 자리만 있고 입구도 없다');
   await appShell.expectScreen('자산', 'P1 화면이에요. 지금은 자리만 잡아 뒀어요');
   await expect(appShell.placeholderNote('자산 합계에서 부채 합계를 뺀 값이다.')).toBeVisible();
   await expect(appShell.placeholderLabel('자산 목록')).toBeVisible();

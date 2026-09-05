@@ -56,11 +56,52 @@
   }
 
   /* 한 화면에 차트 하나. 도넛은 여기 하나뿐이다. */
+  .report__donut-wrap {
+    position: relative;
+    width: 160px;
+    margin: 0 auto 16px;
+  }
+
   .report__donut {
     display: block;
     width: 160px;
     height: 160px;
-    margin: 0 auto 16px;
+  }
+
+  /* 링 안쪽. 링 두께(26px)를 뺀 자리에 세 줄이 들어간다. */
+  .report__donut-center {
+    position: absolute;
+    inset: 34px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .report__donut-caption {
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .report__donut-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .report__donut-share {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+    font-variant-numeric: tabular-nums;
   }
 
   .report__list {
@@ -75,10 +116,27 @@
      같은 이유로 minmax(0, 1fr) 을 쓴다. */
   .report__row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 12px;
-    align-items: baseline;
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    gap: 8px;
+    align-items: center;
     font-size: var(--text-14);
+  }
+
+  /* 링의 조각과 같은 색. 조각에 못 들어간 줄(환불이 더 큰 분류)은 비워 둔다. */
+  .report__row-swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-pill);
+  }
+
+  .report__row-swatch.is-empty {
+    background: var(--color-dashed);
+  }
+
+  /* 아이콘이 없는 줄(분류 없음·그 밖 N개)도 같은 자리를 차지해 이름이 안 흔들린다. */
+  .report__row-noicon {
+    width: 20px;
+    height: 20px;
   }
 
   .report__row-name {

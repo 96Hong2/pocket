@@ -4,12 +4,10 @@ import {
   type CategoryBudgetOut,
   type CategoryOut,
 } from '../../shared/api';
+import { isCaution } from '../../shared/lib/budgetTone';
 import { formatCurrency } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import { Amount, CategoryAvatar, Chip, Gauge, toIconName } from '../../shared/ui';
-
-/** 이 비율을 넘으면 한 줄에 '주의' 를 붙인다. 넘긴 뒤가 아니라 넘기기 전에 보여야 한다. */
-const CAUTION_RATIO = 0.8;
 
 export interface CategoryBudgetListProps {
   rows: CategoryBudgetOut[];
@@ -90,9 +88,8 @@ function CategoryBudgetRow({ row, category, editable, onPick }: CategoryBudgetRo
       <div className="budget-cat__body">
         <div className="budget-cat__head">
           <span className="budget-cat__name">{name}</span>
-          {progress != null && progress >= CAUTION_RATIO ? (
-            <Chip variant="caution">주의</Chip>
-          ) : null}
+          {/* 넘긴 뒤가 아니라 넘기기 전에 붙는다. 기준값은 홈 히어로와 같은 것을 쓴다. */}
+          {isCaution(progress) ? <Chip variant="caution">주의</Chip> : null}
         </div>
         <Gauge
           size={8}

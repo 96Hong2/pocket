@@ -10,6 +10,19 @@
     gap: 22px;
   }
 
+  .cat-manage__add {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .cat-manage__hint {
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+  }
+
   /* ── 섹션 ───────────────────────────────────────── */
 
   .cat-group {

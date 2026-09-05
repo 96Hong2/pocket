@@ -21,14 +21,19 @@ import { TEST_IDS } from '../../shared/testIds';
 import {
   Amount,
   Card,
+  CategoryAvatar,
   ErrorState,
   LoadingState,
   MonthStepper,
   SegmentedControl,
+  toIconName,
   type SegmentedOption,
 } from '../../shared/ui';
 
+import { AdSlot } from '../ads';
+
 import { CategoryDonut } from './CategoryDonut';
+import { donutColors } from './donutColors';
 import { TrendBars } from './TrendBars';
 
 /** 분류를 못 정한 줄과 접은 줄. 서버는 코드값만 주고 한국어는 화면이 붙인다. */
@@ -103,6 +108,8 @@ export function MonthlyReport({
   const namesUnknown = categories.isError || categories.isPending;
   // 환불이 지출보다 큰 분류는 호를 못 그려 조각에서 빠진다. 그래서 조각 합이 위 금액과 다르다.
   const slicesDiffer = !income && sliceTotal !== headline;
+  // 도넛과 목록이 같은 표를 본다. 여기서 한 번 만들어 둘에 나눠 준다.
+  const colors = donutColors(rows);
 
   return (
     <div className="report">
@@ -139,7 +146,23 @@ export function MonthlyReport({
       {!data.has_any_transaction ? (
         <Card className="report__empty">
           <p>이 달엔 기록이 없어요</p>
-          <p className="report__empty-hint">기록이 없는 달도 괜찮아요</p>
+          {/* 아래에 아직 볼 것이 남았다고 말한다. 없으면 여기서 화면이 끝난 줄 알고 나간다. */}
+          <p className="report__empty-hint">
+            기록이 없는 달도 괜찮아요. 아래 6개월 흐름은 볼 수 있어요
+          </p>
+        </Card>
+      ) : null}
+
+      {/*
+        그 달에 기록은 있는데 지금 보는 쪽만 비었을 때.
+        0 원과 빈 자리만 두면 못 불러온 것인지 정말 없는 것인지 화면만 보고는 못 가른다.
+      */}
+      {data.has_any_transaction && rows.length === 0 ? (
+        <Card className="report__empty">
+          <p>이 달엔 {income ? '수입' : '소비'} 기록이 없어요</p>
+          <p className="report__empty-hint">
+            {income ? '번 돈을 적으면 여기에 모여요' : '쓴 돈을 적으면 여기에 모여요'}
+          </p>
         </Card>
       ) : null}
 
@@ -161,7 +184,7 @@ export function MonthlyReport({
               분류 이름을 불러오지 못해 이름 대신 '이름 확인 중' 으로 적었어요
             </p>
           ) : null}
-          <CategoryDonut rows={rows} />
+          <CategoryDonut rows={rows} center={donutCenter(rows, byId, namesUnknown, income)} />
           <ul className="report__list">
             {rows.map((row) => (
               <BreakdownItem
@@ -170,6 +193,7 @@ export function MonthlyReport({
                 category={byId.get(row.category_id ?? '')}
                 namesUnknown={namesUnknown}
                 income={income}
+                color={colors.get(row.key)}
               />
             ))}
           </ul>
@@ -180,8 +204,33 @@ export function MonthlyReport({
         <h2 className="report__section">6개월 흐름</h2>
         <TrendBars points={data.trend} mode={mode} currentMonth={month} />
       </Card>
+
+      {/* 스크롤하는 화면 맨 아래 한 자리. 채울 광고가 없으면 접혀서 자리를 안 남긴다. */}
+      <AdSlot />
     </div>
   );
+}
+
+/**
+ * 링 가운데에 적을 것. 가장 큰 조각 하나다.
+ *
+ * 조각이 없거나 비중을 모르면 아무것도 적지 않는다. 억지로 채우면 링과 다른 말이 된다.
+ */
+function donutCenter(
+  rows: BreakdownRowOut[],
+  byId: Map<string, CategoryOut>,
+  namesUnknown: boolean,
+  income: boolean,
+): { caption: string; name: string; share: string } | null {
+  const top = rows.find((row) => row.share != null);
+  if (top == null) return null;
+  const share = parseDecimal(top.share);
+  if (share == null) return null;
+  return {
+    caption: income ? '가장 큰 수입' : '가장 큰 지출',
+    name: labelOf(top, byId.get(top.category_id ?? ''), namesUnknown),
+    share: toPercent(share),
+  };
 }
 
 /**
@@ -244,16 +293,33 @@ function BreakdownItem({
   category,
   namesUnknown,
   income,
+  color,
 }: {
   row: BreakdownRowOut;
   category?: CategoryOut;
   namesUnknown: boolean;
   income: boolean;
+  /** 이 줄이 링의 어느 조각인지. 조각에 못 들어간 줄은 색이 없다. */
+  color?: string;
 }) {
   const amount = parseDecimalOr(row.amount, 0);
   const share = parseDecimal(row.share);
   return (
     <li className="report__row" data-testid={TEST_IDS.reportBreakdownRow}>
+      {/*
+        링의 조각과 이 줄을 잇는 표시. 세이지에서 앰버로 가는 한 계열이라 조각끼리
+        색 차이가 크지 않고, 순서만으로는 어느 조각이 어느 줄인지 짚기 어렵다.
+      */}
+      <span
+        className={color != null ? 'report__row-swatch' : 'report__row-swatch is-empty'}
+        style={color != null ? { background: color } : undefined}
+        aria-hidden="true"
+      />
+      {category != null ? (
+        <CategoryAvatar icon={toIconName(category.icon_key)} size={20} />
+      ) : (
+        <span className="report__row-noicon" aria-hidden="true" />
+      )}
       <span className="report__row-name">{labelOf(row, category, namesUnknown)}</span>
       <span className="report__row-amount" data-testid={TEST_IDS.reportRowAmount}>
         {/* 수입에만 부호를 붙인다. 헤드라인과 표기가 갈리면 같은 값이 달라 보인다. */}

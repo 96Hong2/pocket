@@ -268,6 +268,10 @@ def update_candidate(
     if _touches_content(data):
         # 사람이 직접 본 값이다. 점선 표시를 남겨 두면 고쳐도 계속 의심스러워 보인다.
         row.confidence = 1.0
+        # 이 제품의 북극성이 '손 안 대고 저장된 비율' 이다. 지금 남기지 않으면
+        # 나중에 어떤 방법으로도 되살릴 수 없다. 무엇을 고쳤는지는 담지 않는다.
+        # 선택만 껐다 켠 것은 고친 것이 아니라 `_touches_content` 가 걸러 낸다.
+        row.was_edited = True
         fingerprint = _fingerprint_of(row, user)
         row.fingerprint = fingerprint.value
         row.is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in (

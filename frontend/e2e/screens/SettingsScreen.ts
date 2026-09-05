@@ -65,6 +65,25 @@ export class SettingsScreen {
     return this.page.getByTestId(TEST_IDS.homeHeroPreview);
   }
 
+  /**
+   * 저장이 막혔을 때 그 자리에 뜨는 한 줄.
+   *
+   * 고른 자리가 원래대로 돌아가는데, 왜 돌아갔는지 말하지 않으면 눌리지 않은 것으로 보인다.
+   */
+  get saveNotice(): Locator {
+    return this.page.getByRole('alert');
+  }
+
+  /** 설정을 아예 못 받았을 때. 덩어리를 감추지 않고 이 줄로 바꿔 그린다. */
+  get loadFailure(): Locator {
+    return this.page.getByText('홈 표시 설정을 불러오지 못했어요', { exact: true });
+  }
+
+  /** 못 받은 자리의 다시 시도. 이 화면에서 다시 시도는 여기뿐이다. */
+  get retryButton(): Locator {
+    return this.page.getByRole('button', { name: '다시 시도' });
+  }
+
   /** 사진을 올리는 사람이 가장 먼저 묻는 것에 답하는 한 줄. */
   get captureNotice(): Locator {
     return this.page.getByText(/^캡처 원본은 /);
