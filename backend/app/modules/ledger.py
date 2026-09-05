@@ -153,14 +153,24 @@ def load_day_totals(session: Session, user: User, period: BudgetPeriod) -> list[
     return agg.aggregate_days([_to_domain(t, tz) for t in rows], period)
 
 
-def last_transaction_date(session: Session, user: User) -> date | None:
-    """마지막으로 기록한 날(사용자 시간대). 기록이 없으면 None."""
-    latest = session.scalar(
-        select(func.max(Transaction.occurred_at)).where(
-            Transaction.user_id == user.id,
-            Transaction.deleted_at.is_(None),
-        )
+def last_transaction_date(
+    session: Session, user: User, *, not_after: date | None = None
+) -> date | None:
+    """마지막으로 기록한 날(사용자 시간대). 기록이 없으면 None.
+
+    `not_after` 를 주면 그 날까지만 본다. 앞날짜로 적어 둔 기록을 빼고 세야 하는 자리가 있다.
+    """
+    stmt = select(func.max(Transaction.occurred_at)).where(
+        Transaction.user_id == user.id,
+        Transaction.deleted_at.is_(None),
     )
+    if not_after is not None:
+        # 그 날의 끝까지 포함한다. 사용자 시간대의 하루 경계를 UTC 시각으로 옮겨 자른다.
+        tz = user_tz(user)
+        end = datetime.combine(not_after + timedelta(days=1), time.min, tzinfo=tz)
+        stmt = stmt.where(Transaction.occurred_at < end)
+
+    latest = session.scalar(stmt)
     return local_date(latest, user_tz(user)) if latest is not None else None
 
 
@@ -168,7 +178,9 @@ def days_since(last: date | None, today: date) -> int | None:
     """이미 읽어 둔 마지막 기록일로 며칠 지났는지 센다. 기록이 없으면 None.
 
     마지막 기록일을 함께 쓰는 응답이 있어서, 같은 쿼리를 두 번 돌지 않게 계산만 떼어 뒀다.
-    앞날짜로 기록한 경우가 있어 음수가 되지 않게 0 으로 붙인다.
+    앞날짜가 들어오면 음수가 되므로 0 으로 붙이는데, **그 상태를 만들지 않는 것이 먼저다.**
+    앞날짜 한 건이 마지막 기록이 되면 오늘까지의 공백이 0 으로 보여 복구 화면이 영영 안 뜬다.
+    그래서 부르는 쪽이 `last_transaction_date(..., not_after=today)` 로 잘라서 넘긴다.
     """
     return max((today - last).days, 0) if last is not None else None
 

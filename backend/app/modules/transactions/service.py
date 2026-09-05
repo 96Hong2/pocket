@@ -234,8 +234,15 @@ def create_transaction(
 
     payload = _normalized(data)
     if target is not None:
-        # 환불의 예산 반영 여부와 분류는 되돌리는 지출이 정한다. 요청 본문 값을 믿지 않는다.
+        # 환불의 종류·예산 반영 여부·분류는 되돌리는 지출이 정한다. 요청 본문 값을 믿지 않는다.
         # 예산에서 뺀 지출을 환불하면서 예산 제외를 안 붙이면 그 돈이 예산으로 되돌아온다.
+        #
+        # 종류를 서버가 정하는 이유는 수정 경로가 이미 그 불변식을 지키기 때문이다.
+        # 대상만 걸고 종류가 지출인 행이 들어오면 집계는 그 돈을 더하고, 환불 가능액은
+        # 줄고, 그 행은 종류를 함께 보내지 않는 한 고칠 수도 없다.
+        # 반대(종류가 환불이면 대상이 있어야 한다)는 걸지 않는다. 줄글 분석이 대상 없이
+        # 환불만 뽑아 오므로 그것까지 막으면 줄글 저장이 통째로 막힌다.
+        payload["type"] = agg.TransactionType.REFUND
         payload["excluded_from_budget"] = target.excluded_from_budget
         payload["category_id"] = target.category_id
 

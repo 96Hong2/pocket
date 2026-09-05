@@ -32,10 +32,12 @@ def _create(client: TestClient, **over: object) -> dict:
     return r.json()
 
 
+def _summary(client: TestClient) -> dict:
+    return client.get("/api/v1/transactions/summary?year=2026&month=9", headers=AUTH).json()
+
+
 def _budget(client: TestClient) -> dict:
-    return client.get("/api/v1/transactions/summary?year=2026&month=9", headers=AUTH).json()[
-        "budget"
-    ]
+    return _summary(client)["budget"]
 
 
 # ── 환불 ────────────────────────────────────────────────
@@ -52,6 +54,32 @@ def test_환불은_되돌리는_지출보다_클_수_없다(client: TestClient) 
     )
     assert r.status_code == 422, r.text
     assert r.json()["error"]["code"] == "INVALID_REFUND_TARGET"
+
+
+def test_환불_대상을_걸면_종류를_서버가_환불로_정한다(client: TestClient) -> None:
+    """대상만 걸고 종류를 안 보내면 스키마 기본값이 지출이라 '환불 대상이 걸린 지출' 이 남는다.
+
+    그 행은 셋을 한꺼번에 망가뜨린다. 집계가 그 돈을 빼는 대신 더하고, 원래 지출의 환불
+    가능액이 줄어 진짜 환불이 422 로 막히고, 종류를 함께 보내지 않는 수정은 전부 거절된다.
+    """
+    spent = _create(client, amount="30000")["transaction"]["id"]
+
+    created = _create(client, amount="10000", refund_of_transaction_id=spent)
+    assert created["transaction"]["type"] == "refund"
+
+    # 되돌린 값이 실제로 빠졌나. 3만 원 쓰고 1만 원 돌려받았으면 그 달 지출은 2만 원이다.
+    # 종류가 지출로 남으면 여기가 4만 원이 된다(되돌린 것이 아니라 더해진다).
+    assert _summary(client)["month_expense"] == "20000"
+
+
+def test_대상_없는_환불은_그대로_받는다(client: TestClient) -> None:
+    """반대 방향(환불이면 대상이 있어야 한다)은 걸지 않는다.
+
+    줄글 분석이 '스타벅스 환불 3천원' 을 대상 없이 환불로만 뽑는다.
+    역방향까지 막으면 그 저장이 통째로 422 가 된다.
+    """
+    created = _create(client, amount="3000", type="refund")
+    assert created["transaction"]["type"] == "refund"
 
 
 def test_같은_지출을_두_번_넘겨_환불할_수_없다(client: TestClient) -> None:

@@ -71,6 +71,11 @@ export function HomeHeroSetting() {
     : OPTIONS;
 
   // 폴백 규칙을 여기서 다시 짜지 않는다. 홈이 쓰는 그 함수를 그대로 부른다.
+  //
+  // **예산을 아직 모르는 것과 예산이 없는 것을 가른다.** 조회가 도는 중이거나 실패했을 때
+  // `budget.data` 는 둘 다 undefined 라, 그대로 넘기면 예산을 정해 둔 사람에게
+  // "아직 예산을 안 정해서" 라고 말한다. 그 문장은 홈 화면과 다른 말이고,
+  // 실패로 굳으면 되돌아오지도 않는다.
   const amount = parseDecimal(budget.data?.budget.amount ?? null);
   const layout = resolveHeroLayout(hero, amount != null && amount > 0);
 
@@ -87,9 +92,18 @@ export function HomeHeroSetting() {
         onChange={(next) => save.mutate({ home_hero: next })}
       />
 
-      <p className="setting-block__hint" data-testid={TEST_IDS.homeHeroPreview}>
-        {PREVIEW[layout]}
-      </p>
+      {budget.isSuccess ? (
+        <p className="setting-block__hint" data-testid={TEST_IDS.homeHeroPreview}>
+          {PREVIEW[layout]}
+        </p>
+      ) : budget.isError ? (
+        <p className="setting-block__hint">
+          <span>예산 상태를 못 불러와서 홈에 어떻게 보일지 말할 수 없어요.</span>{' '}
+          <RetryButton variant="ghost" onRetry={() => void budget.refetch()} />
+        </p>
+      ) : (
+        <p className="setting-block__hint">홈에 어떻게 보일지 확인하는 중이에요.</p>
+      )}
 
       {/* 저장이 실패하면 고른 자리가 원래대로 돌아간다. 왜 돌아갔는지 여기서 말한다. */}
       {failure ? (

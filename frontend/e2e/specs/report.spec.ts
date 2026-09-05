@@ -135,8 +135,11 @@ test('예산을 정했으면 사용률 한 줄이 붙고, 안 정했으면 없�
   await report.open();
   await report.waitReady();
   // 비율만 적으면 위 헤드라인과 다른 지출을 세고 있어도 안 보인다. 근거 금액을 함께 적는다.
-  await expect(report.budgetLine).toContainText('25%');
-  await expect(report.budgetLine).toContainText(formatCurrency(25_000));
+  // **줄을 통째로 본다.** 부분일치로 보면 `125,000원(125%)` 안에서도 `25,000원`·`25%` 가
+  // 참이라, 사용률이 틀려도 초록이 된다.
+  await expect(report.budgetLine).toHaveText(
+    `예산 ${formatCurrency(100_000)} 중 ${formatCurrency(25_000)}(25%) 썼어요`,
+  );
 });
 
 test('예산에서 뺀 거래는 헤드라인에만 들어가고 사용률에는 안 들어간다', async ({
@@ -156,8 +159,12 @@ test('예산에서 뺀 거래는 헤드라인에만 들어가고 사용률에는
 
   // 두 숫자가 같은 카드에 나란히 있는데 기준이 다르다. 금액을 함께 적어야 산수가 맞아 보인다.
   await expect(report.total).toHaveText(formatCurrency(525_000));
-  await expect(report.budgetLine).toContainText(formatCurrency(25_000));
-  await expect(report.budgetLine).toContainText('25%');
+  // 이 테스트가 잡으려는 회귀는 하나다. 예산에서 뺀 50만 원이 사용률에 섞이는 것.
+  // 섞이면 이 줄이 `525,000원(525%)` 가 되는데, 부분일치로는 그 안에서도
+  // `25,000원`·`25%` 가 참이라 제외 로직을 통째로 지워도 초록이었다. 줄을 통째로 본다.
+  await expect(report.budgetLine).toHaveText(
+    `예산 ${formatCurrency(100_000)} 중 ${formatCurrency(25_000)}(25%) 썼어요`,
+  );
 });
 
 test('이번 주와 지난주를 같은 요일까지 견준다', async ({ prep, report }) => {
@@ -200,9 +207,14 @@ test('수입으로 바꾸면 번 돈과 그 분류를 보여준다', async ({ pr
     categoryId: await prep.categoryIdByName('수입'),
   });
 
+  // 예산을 심는다. 안 심으면 아래 '수입 화면에는 사용률이 없다' 가 지출 화면에서도 참이라
+  // 무엇도 지키지 못한다. 사라지는 것을 세려면 먼저 있어야 한다.
+  await prep.setBudget(100_000);
+
   await report.open();
   await report.waitReady();
   await expect(report.total).toHaveText(formatCurrency(20_000));
+  await expect(report.budgetLine).toBeVisible();
 
   await report.modeTab('수입').click();
 
