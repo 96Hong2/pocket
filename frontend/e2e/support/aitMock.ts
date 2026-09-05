@@ -58,3 +58,17 @@ export async function pressSystemBack(page: Page): Promise<void> {
     (window as unknown as { __ait?: AitManager }).__ait?.trigger?.('backEvent');
   });
 }
+
+/**
+ * 미니앱이 닫혔는지 지켜본다.
+ *
+ * 목의 `Screen.close()` 는 화면을 없애지 않고 콘솔에 한 줄을 적는다. 그래서 "시트가 아니라
+ * 미니앱이 닫혔다" 는 사고가 브라우저에서는 눈에 안 보인다. 그 한 줄을 보고 판정한다.
+ */
+export function watchAppClose(page: Page): () => boolean {
+  let closed = false;
+  page.on('console', (message) => {
+    if (message.text().includes('closeView called')) closed = true;
+  });
+  return () => closed;
+}

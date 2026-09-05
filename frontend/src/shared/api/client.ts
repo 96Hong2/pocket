@@ -49,6 +49,13 @@ export interface TransactionListParams extends Partial<MonthParams> {
   cursor?: string;
 }
 
+/**
+ * 캡처 분석에만 주는 제한 시간.
+ *
+ * 사진 한 장을 실어 보내고 모델이 읽을 때까지라 전역 10초로는 정상 응답도 끊긴다.
+ */
+const CAPTURE_TIMEOUT_MS = 30_000;
+
 /** 요청 하나에 붙이는 것. 지금은 취소 신호뿐이다. */
 export interface CallOptions {
   signal?: AbortSignal;
@@ -128,6 +135,13 @@ export interface ApiClient extends Transport {
   savePreferences(body: PreferencesPatch, options?: CallOptions): Promise<PreferencesOut>;
   /** 줄글 분석. 거래를 만들지 않고 검토 단위만 만든다. */
   analyzeText(text: string, options?: CallOptions): Promise<ImportBatchOut>;
+  /**
+   * 캡처 분석. 줄글과 같은 검토 단위를 돌려준다.
+   *
+   * `dataUri` 는 `data:image/png;base64,...` 통째로 보낸다. 멀티파트를 쓰지 않는 이유는
+   * 이 계층이 JSON 한 길만 알기 때문이다.
+   */
+  analyzeCapture(dataUri: string, options?: CallOptions): Promise<ImportBatchOut>;
   /** 후보 한 줄 고치기. 보낸 항목만 바뀌고, 응답은 묶음 전체다. */
   patchImportCandidate(
     batchId: string,
@@ -295,6 +309,16 @@ export function createApiClient(options: TransportOptions): ApiClient {
         path: `${PATHS.imports}/text`,
         body: { text },
         signal: call?.signal,
+      });
+    },
+
+    analyzeCapture(dataUri, call) {
+      return transport.request<ImportBatchOut>({
+        method: 'POST',
+        path: `${PATHS.imports}/capture`,
+        body: { image: dataUri },
+        signal: call?.signal,
+        timeoutMs: CAPTURE_TIMEOUT_MS,
       });
     },
 

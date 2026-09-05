@@ -18,7 +18,7 @@ import {
   type SegmentedOption,
 } from '../../shared/ui';
 
-import { NaturalLanguageTab } from '../imports';
+import { CaptureTab, NaturalLanguageTab } from '../imports';
 
 import { CategoryChips } from './CategoryChips';
 import { FeedbackPanel } from './FeedbackPanel';
@@ -29,11 +29,11 @@ import { undoDeadline } from './useUndoCountdown';
 
 type RecordTab = 'keypad' | 'nl' | 'capture' | 'receipt';
 
-/** 뒤 둘은 다음 마일스톤에서 열린다. 자리만 두어 어디로 가는지 보이게 한다. */
+/** 영수증은 다음 마일스톤에서 열린다. 자리만 두어 어디로 가는지 보이게 한다. */
 const TABS: SegmentedOption<RecordTab>[] = [
   { value: 'keypad', label: '키패드' },
   { value: 'nl', label: '줄글' },
-  { value: 'capture', label: '캡처', disabled: true },
+  { value: 'capture', label: '캡처' },
   { value: 'receipt', label: '영수증', disabled: true },
 ];
 
@@ -57,7 +57,8 @@ export function QuickRecordSheet({ open, onClose }: { open: boolean; onClose: ()
   const [saving, setSaving] = useState(false);
 
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 미니앱이 닫힌다.
-  useOverlayBackClose(open && !saving, onClose);
+  // 저장·분석 중에는 삼키기만 한다.
+  useOverlayBackClose(open, onClose, saving);
 
   return (
     <BottomSheet open={open} onClose={onClose} dismissible={!saving} ariaLabel="10초 기록">
@@ -184,6 +185,10 @@ function RecordBody({
       {/* 감추기만 하고 남겨 둔다. 언마운트하면 적어 둔 줄글과 검토 목록이 사라진다. */}
       <div hidden={tab !== 'nl'}>
         <NaturalLanguageTab onBusyChange={markBusy} onDone={onDone} />
+      </div>
+
+      <div hidden={tab !== 'capture'}>
+        <CaptureTab onBusyChange={markBusy} onDone={onDone} />
       </div>
 
       <div hidden={tab !== 'keypad'}>

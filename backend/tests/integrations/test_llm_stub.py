@@ -7,6 +7,7 @@ from datetime import date
 import pytest
 
 from app.integrations.llm.contracts import (
+    DEFAULT_CATEGORY_HINTS,
     TransactionExtraction,
     attach_source,
 )
@@ -97,15 +98,77 @@ async def test_type_keywords(client, text: str, expected: str) -> None:
     assert result.candidates[0].type == expected
 
 
-async def test_image_input_returns_nothing_because_stub_cannot_read_it(
-    client,
-) -> None:
+async def test_image_input_returns_a_fixed_sample_the_stub_did_not_read(client) -> None:
+    """스텁은 이미지를 읽지 않고 정해 둔 예시를 낸다.
+
+    빈 결과를 내면 캡처 화면이 늘 '0건 인식' 이라 검토·수정·저장을 한 번도 못 본다.
+    이 5건은 배관 확인용이고 인식 정확도의 근거가 아니다.
+    """
+    today = date(2026, 3, 10)
     result = await client.extract(
         prompt="p",
         schema=TransactionExtraction,
         image=LlmImage(media_type="image/png", data=b"\x89PNG"),
+        today=today,
     )
-    assert result.candidates == []
+
+    assert [item.merchant for item in result.candidates] == [
+        "스타벅스",
+        "GS25",
+        "김밥천국",
+        "카카오T",
+        "쿠팡",
+    ]
+    assert [item.amount for item in result.candidates] == [4500, 3200, 8000, 9800, 32900]
+    assert [item.occurred_at for item in result.candidates] == [
+        today,
+        today,
+        date(2026, 3, 9),
+        date(2026, 3, 9),
+        date(2026, 3, 8),
+    ]
+    # 카카오T 한 줄만 저신뢰다. 검토 화면의 '확인 필요' 분기가 여기서 켜진다.
+    assert [item.is_low_confidence for item in result.candidates] == [
+        False,
+        False,
+        False,
+        True,
+        False,
+    ]
+
+
+async def test_image_result_ignores_the_bytes(client) -> None:
+    """어떤 이미지를 넣어도 같은 결과다. 픽스처를 바꿔도 단언이 안 깨진다."""
+    today = date(2026, 3, 10)
+    first = await client.extract(
+        prompt="p",
+        schema=TransactionExtraction,
+        image=LlmImage(media_type="image/png", data=b"\x89PNG-one"),
+        today=today,
+    )
+    second = await client.extract(
+        prompt="p",
+        schema=TransactionExtraction,
+        image=LlmImage(media_type="image/jpeg", data=b"\xff\xd8\xff-two"),
+        today=today,
+    )
+
+    assert first.model_dump() == second.model_dump()
+
+
+async def test_image_categories_exist_in_the_default_set(client) -> None:
+    """없는 분류 이름을 지어내면 서버가 못 찾아 조용히 미분류가 된다."""
+    result = await client.extract(
+        prompt="p",
+        schema=TransactionExtraction,
+        image=LlmImage(media_type="image/png", data=b"\x89PNG"),
+        today=date(2026, 3, 10),
+    )
+
+    names = {item.category for item in result.candidates}
+    # 후보가 비면 검사할 이름이 없어 부분집합 비교가 진공으로 통과한다.
+    assert names
+    assert names <= set(DEFAULT_CATEGORY_HINTS)
 
 
 async def test_both_or_neither_input_is_rejected(client) -> None:

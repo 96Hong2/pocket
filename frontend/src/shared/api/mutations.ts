@@ -229,6 +229,20 @@ export function useAnalyzeText() {
   });
 }
 
+/**
+ * 캡처 분석.
+ *
+ * 줄글과 같은 이유로 캐시를 건드리지 않는다. 저장은 `useCommitImport` 가 하고,
+ * 두 탭이 그 훅 하나를 함께 쓴다.
+ */
+export function useAnalyzeCapture() {
+  const client = useApiClient();
+
+  return useMutation({
+    mutationFn: (dataUri: string): Promise<ImportBatchOut> => client.analyzeCapture(dataUri),
+  });
+}
+
 /** 검토 화면에서 후보 한 줄 고치기. 응답이 묶음 전체라 화면이 그대로 갈아 끼운다. */
 export function usePatchImportCandidate() {
   const client = useApiClient();

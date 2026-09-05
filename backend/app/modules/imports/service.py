@@ -25,6 +25,7 @@ from app.domain.redaction import redact
 from app.integrations.llm import (
     LOW_CONFIDENCE_THRESHOLD,
     LlmError,
+    LlmImage,
     LlmStructuredClient,
     TransactionCandidate,
     TransactionExtraction,
@@ -32,6 +33,7 @@ from app.integrations.llm import (
     TransactionType,
     attach_source,
     natural_language_prompt,
+    screenshot_prompt,
 )
 from app.models import (
     Category,
@@ -52,6 +54,7 @@ __all__ = [
     "commit_batch",
     "delete_batch",
     "get_batch",
+    "parse_image",
     "parse_text",
     "update_candidate",
 ]
@@ -61,12 +64,12 @@ MAX_CANDIDATES = 20
 
 
 class CommitResult:
-    """저장 결과. 마지막 한 건의 판정을 함께 들고 다닌다.
+    """저장 결과. 마지막 한 건의 판정과, 예산을 말할 기준 한 건을 함께 들고 다닌다.
 
     합계는 지출만 센다. 검토 화면의 저장 버튼과 같은 규칙이라야 두 화면이 같은 숫자를 말한다.
     """
 
-    __slots__ = ("batch", "created_count", "expense_total", "outcome")
+    __slots__ = ("batch", "budget_outcome", "created_count", "expense_total", "outcome")
 
     def __init__(
         self,
@@ -75,11 +78,14 @@ class CommitResult:
         created_count: int,
         expense_total: Decimal,
         outcome: transactions.SaveOutcome | None,
+        budget_outcome: transactions.SaveOutcome | None,
     ) -> None:
         self.batch = batch
         self.created_count = created_count
         self.expense_total = expense_total
         self.outcome = outcome
+        # 예산은 마지막 한 건이 아니라 저장한 것들 중 오늘이 속한 기간을 고른다.
+        self.budget_outcome = budget_outcome
 
 
 def parse_text(
@@ -92,18 +98,81 @@ def parse_text(
 ) -> ImportBatch:
     """줄글에서 거래 후보를 뽑아 검토 단위를 만든다."""
     day = today or ledger.today_for(user)
-    _require_quota(session, user, day)
+    _require_quota(session, user, day, label="줄글 분석")
 
     # 저장하지 않는 것만으로는 부족하다. 보내기 전에 가린다.
     cleaned = redact(text)
-    extraction = _extract(client, text=cleaned.text, today=day)
-    found = attach_source(extraction, TransactionSource.NL)
+    extraction = _extract(
+        client,
+        prompt=natural_language_prompt(day),
+        today=day,
+        subject="문장을",
+        text=cleaned.text,
+    )
+    return _build_batch(
+        session,
+        user,
+        source=TransactionSource.NL,
+        extraction=extraction,
+        day=day,
+        client=client,
+        input_length=len(text),
+        redacted_count=cleaned.count,
+    )
+
+
+def parse_image(
+    session: Session,
+    user: User,
+    *,
+    image: LlmImage,
+    client: LlmStructuredClient,
+    today: date | None = None,
+) -> ImportBatch:
+    """캡처 한 장에서 거래 후보를 뽑아 검토 단위를 만든다.
+
+    이미지는 어디에도 저장하지 않는다. 요청이 끝나면 파이썬 객체와 함께 사라진다.
+    """
+    day = today or ledger.today_for(user)
+    _require_quota(session, user, day, label="캡처 분석")
+
+    extraction = _extract(
+        client, prompt=screenshot_prompt(day), today=day, subject="캡처를", image=image
+    )
+    return _build_batch(
+        session,
+        user,
+        source=TransactionSource.SCREENSHOT,
+        extraction=extraction,
+        day=day,
+        client=client,
+        # 이미지에서는 글자 수가 없다. 바이트 수를 센다.
+        input_length=len(image.data),
+        # redact() 는 문자열만 가린다. 이미지 안의 카드번호는 가릴 수단이 없고,
+        # 0 이 그 사실을 표에 남긴 것이다.
+        redacted_count=0,
+    )
+
+
+def _build_batch(
+    session: Session,
+    user: User,
+    *,
+    source: TransactionSource,
+    extraction: TransactionExtraction,
+    day: date,
+    client: LlmStructuredClient,
+    input_length: int,
+    redacted_count: int,
+) -> ImportBatch:
+    """추출 결과를 검토 단위로 옮긴다. 줄글과 캡처가 이 뒤로는 같은 길을 지난다."""
+    found = attach_source(extraction, source)
     candidates = found[:MAX_CANDIDATES]
     dropped = len(found) - len(candidates)
 
     batch = ImportBatch(
         user_id=user.id,
-        source=TransactionSource.NL,
+        source=source,
         status=ImportBatchStatus.READY,
         detected_count=len(candidates),
         # 상한을 넘겨 버린 건수를 남긴다. 조용히 사라지면 사용자가 몇 건을 잃었는지 모른다.
@@ -124,8 +193,9 @@ def parse_text(
         session,
         user,
         client=client,
-        input_length=len(text),
-        redacted_count=cleaned.count,
+        source=source,
+        input_length=input_length,
+        redacted_count=redacted_count,
         candidate_count=len(candidates),
     )
     return batch
@@ -157,6 +227,8 @@ def update_candidate(
     # 재판정에 쓸 고치기 전 상태. setattr 로 값이 바뀌기 전에 떠 둔다.
     was_duplicate = row.is_duplicate
     was_refund = row.type == TransactionType.REFUND
+    # 서버가 스스로 꺼 둔 줄인지. 셋 중 아무 이유도 없이 꺼져 있으면 사람이 손으로 끈 것이다.
+    was_blocked = was_duplicate or was_refund or row.confidence < LOW_CONFIDENCE_THRESHOLD
 
     for field, value in data.items():
         if field == "occurred_at" and isinstance(value, datetime):
@@ -176,13 +248,15 @@ def update_candidate(
         )
         if "is_selected" not in data:
             now_refund = row.type == TransactionType.REFUND
-            if (row.is_duplicate and not was_duplicate) or (now_refund and not was_refund):
+            now_blocked = row.is_duplicate or now_refund
+            if now_blocked and not (was_duplicate or was_refund):
                 # 고쳐서 이제야 이미 있는 것과 같아졌거나 환불이 된 줄만 끈다.
                 # 안 끄면 켜진 채 남아 같은 거래가 두 번 저장된다.
                 row.is_selected = False
-            elif not row.is_duplicate and not now_refund:
+            elif not now_blocked and was_blocked:
+                # 꺼 둘 이유가 사라졌으니 되켠다.
+                # 사람이 손으로 끈 줄은 애초에 이유가 없어 여기 안 걸리고 꺼진 채 남는다.
                 row.is_selected = True
-            # 처음부터 중복이거나 환불이던 줄은 건드리지 않는다. 사람이 손으로 켠 선택이다.
 
     session.commit()
     session.refresh(batch)
@@ -216,6 +290,7 @@ def commit_batch(
 
     total = Decimal(0)
     outcome: transactions.SaveOutcome | None = None
+    outcomes: list[transactions.SaveOutcome] = []
     for row in chosen:
         spent = row.amount if row.type == TransactionType.EXPENSE else Decimal(0)
         if row.transaction_id is not None:
@@ -234,9 +309,12 @@ def commit_batch(
                 "source": batch.source,
                 "confidence": row.confidence,
                 "excluded_from_budget": False,
+                # 원본은 안 남으므로 이 거래가 어느 분석에서 나왔는지는 이 값이 유일한 실마리다.
+                "import_batch_id": batch.id,
             },
             today=day,
         )
+        outcomes.append(outcome)
         row.transaction_id = tx.id
         total += spent
         _learn_rule(session, user, row)
@@ -248,8 +326,32 @@ def commit_batch(
     session.commit()
     session.refresh(batch)
     return CommitResult(
-        batch=batch, created_count=len(chosen), expense_total=total, outcome=outcome
+        batch=batch,
+        created_count=len(chosen),
+        expense_total=total,
+        outcome=outcome,
+        budget_outcome=_budget_outcome(outcomes, ledger.period_for(user, day)),
     )
+
+
+def _budget_outcome(
+    outcomes: list[transactions.SaveOutcome], current: ledger.BudgetPeriod
+) -> transactions.SaveOutcome | None:
+    """저장한 것들 중 어느 기간의 예산을 말할지 고른다.
+
+    묶음은 여러 달에 걸칠 수 있다. 마지막 저장 건에 맡기면 정렬 순서가 곧 답이 되어,
+    캡처처럼 그저께 건이 마지막인 묶음은 달이 바뀐 직후 지난달 예산을 말한다.
+    지금 달이 섞여 있으면 그것을, 아니면 가장 늦은 기간을 고른다.
+    """
+    if not outcomes:
+        return None
+    # 뒤에서부터 찾는다. 판정은 저장한 그 시점의 스냅샷이라 앞엣것은 뒤에 저장한 건이 빠져 있다.
+    for item in reversed(outcomes):
+        if item.period == current:
+            return item
+    # reversed 를 지나게 한다. 같은 기간이 여럿이면 max 가 앞엣것을 고르는데,
+    # 앞 스냅샷에는 뒤에 저장한 건이 빠져 있어 남은 예산이 그만큼 많아 보인다.
+    return max(reversed(outcomes), key=lambda item: item.period.start)
 
 
 def delete_batch(session: Session, user: User, batch_id: uuid.UUID) -> None:
@@ -272,18 +374,31 @@ def _touches_content(data: dict[str, object]) -> bool:
     return any(field != "is_selected" for field in data)
 
 
-def _extract(client: LlmStructuredClient, *, text: str, today: date) -> TransactionExtraction:
+def _extract(
+    client: LlmStructuredClient,
+    *,
+    prompt: str,
+    today: date,
+    subject: str,
+    text: str | None = None,
+    image: LlmImage | None = None,
+) -> TransactionExtraction:
     """비동기 포트를 동기 서비스에서 부른다.
 
     이 앱의 핸들러는 전부 동기라 FastAPI 가 워커 스레드에서 돌린다.
     `anyio.from_thread.run` 이 그 스레드에서 본래 이벤트 루프로 코루틴을 넘긴다.
     핸들러를 async 로 바꾸면 동기 SQLAlchemy 가 루프를 막는다.
+
+    text 와 image 중 하나만 넣는다. 둘 다거나 둘 다 아니면 포트가 막는다.
+    subject 는 실패했을 때 사용자에게 무엇을 못 읽었는지 말하는 말이다. 사진을 넣었는데
+    '문장을 읽지 못했다' 고 하면 거짓말이 된다.
     """
     call = partial(
         client.extract,
-        prompt=natural_language_prompt(today),
+        prompt=prompt,
         schema=TransactionExtraction,
         text=text,
+        image=image,
         today=today,
     )
     try:
@@ -291,7 +406,7 @@ def _extract(client: LlmStructuredClient, *, text: str, today: date) -> Transact
     except LlmError as exc:
         raise ApiError(
             ErrorCode.PARSE_UNAVAILABLE,
-            "지금은 문장을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+            f"지금은 {subject} 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
             status_code=503,
         ) from exc
 
@@ -307,14 +422,17 @@ def _to_row(
     rules: dict[str, uuid.UUID],
 ) -> ImportCandidate:
     occurred_at = _occurred_at(candidate.occurred_at, user, today)
-    merchant_normalized = normalize_merchant(candidate.merchant) or None
+    # 돌아온 값도 가린다. 캡처는 입력을 가릴 수단이 없어(이미지다) 여기가 유일한 그물이고,
+    # 줄글도 모델이 지어낸 숫자가 섞일 수 있다. 여기서 막지 않으면 거래·기억한 분류에 영구히 남는다.
+    merchant = redact(candidate.merchant).text if candidate.merchant else None
+    merchant_normalized = normalize_merchant(merchant) or None
     category_id = _category_for(session, user, candidate, merchant_normalized, rules)
     amount = Decimal(candidate.amount)
     fingerprint = build_fingerprint(
         occurred_on=ledger.local_date(occurred_at, ledger.user_tz(user)),
         amount=Money(amount),
         type=candidate.type,
-        merchant=candidate.merchant,
+        merchant=merchant,
     )
     is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in known
     low = candidate.confidence < LOW_CONFIDENCE_THRESHOLD
@@ -325,7 +443,7 @@ def _to_row(
         occurred_at=occurred_at,
         amount=amount,
         type=candidate.type,
-        merchant=candidate.merchant,
+        merchant=merchant,
         merchant_normalized=merchant_normalized,
         category_id=category_id,
         confidence=candidate.confidence,
@@ -443,6 +561,7 @@ def _record_usage(
     user: User,
     *,
     client: LlmStructuredClient,
+    source: TransactionSource,
     input_length: int,
     redacted_count: int,
     candidate_count: int,
@@ -450,7 +569,7 @@ def _record_usage(
     session.add(
         ParseUsage(
             user_id=user.id,
-            source=TransactionSource.NL,
+            source=source,
             provider=client.provider,
             is_stub=client.is_stub,
             input_length=input_length,
@@ -461,11 +580,14 @@ def _record_usage(
     session.commit()
 
 
-def _require_quota(session: Session, user: User, today: date) -> None:
+def _require_quota(session: Session, user: User, today: date, *, label: str) -> None:
     """하루에 쓸 수 있는 만큼을 넘겼는지 본다.
 
     상한은 넉넉하다. 습관이 붙기 전에 막으면 앱을 쓸 이유가 사라진다.
     막혀도 키패드 기록은 그대로 돌아간다.
+
+    줄글과 캡처가 같은 상한을 나눠 쓴다. label 은 사용자에게 무엇을 다 썼는지 말해 주는
+    문구일 뿐이고, 지금은 둘을 따로 세지 않는다.
     """
     limit = get_settings().nl_parse_daily_limit
     start, _ = ledger.day_bounds(today, ledger.user_tz(user))
@@ -477,6 +599,6 @@ def _require_quota(session: Session, user: User, today: date) -> None:
     if (used or 0) >= limit:
         raise ApiError(
             ErrorCode.USAGE_LIMIT,
-            "오늘은 줄글 분석을 충분히 썼어요. 키패드로는 계속 기록할 수 있어요.",
+            f"오늘은 {label}을 충분히 썼어요. 키패드로는 계속 기록할 수 있어요.",
             status_code=429,
         )

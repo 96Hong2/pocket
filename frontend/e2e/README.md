@@ -12,11 +12,15 @@ e2e/
     anonKey.ts   테스트별 익명키 생성과 devtools 목에 주입하는 트랩.
                  보통은 fixtures 가 걸고, 이 장치 자체를 증명하는 spec 만 직접 부른다
     api.ts       사전 조건을 심는다. spec 은 `prep` 픽스처로 받는다
+    album.ts     devtools 목 앨범 다이얼. 사진 심기·권한 거부와 각각의 짝 확인 함수
+    aitMock.ts   그 밖의 devtools 목 다이얼. 광고 미채움·시스템 뒤로가기·미니앱 종료 감시
+    servers.ts   playwright.config 가 띄우는 dev 서버 정의
     fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다. spec 은 여기서 시작한다
+  fixtures/    테스트가 쓰는 파일. 지금은 캡처용 PNG 한 장(capture.png)
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
     HomeScreen       홈. 안쪽을 hero·today·budget·ads·recovery 로 나눠 들고 있다
-    RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글) 셋이다
+    RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글)·capture(캡처) 넷이다
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
     ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·categories·banner·settings 로 나눠 들고 있다
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
@@ -85,7 +89,7 @@ e2e/
 
 - 같은 절차를 **spec 2개**가 복붙하면 그때 `screens/` 의 메서드로 올린다. 1개면 spec 안에 둔다.
 - 화면 객체의 메서드가 **10개**를 넘으면 화면 안의 영역을 별도 객체로 쪼갠다.
-  실제로 두 번 쪼갰다. `RecordSheet` 는 저장 전후와 입력 방법이 달라 `input`·`feedback`·`nl` 로,
+  실제로 두 번 쪼갰다. `RecordSheet` 는 저장 전후와 입력 방법이 달라 `input`·`feedback`·`nl`·`capture` 로,
   `HomeScreen` 은 카드가 쌓인 화면이라 `hero`·`today`·`budget`·`ads`·`recovery` 로 나눴다.
   쪼갠 뒤에도 파일은 하나다. 한 화면을 여러 파일로 흩으면 어디를 봐야 할지 알 수 없어진다.
 - 하나의 절차가 **화면 3개**를 가로지르면 그때 `flows/` 를 새로 만든다. 지금은 없다. 미리 만들지 않는다.
@@ -118,6 +122,32 @@ devtools 를 올린 뒤 그 spec 이 깨지면 `support/anonKey.ts` 를 목 구�
 **`POCKET_DISABLE_AIT_DEVTOOLS=1` 로 우회하지 않는다.** 그 길로 가면 우리 MockMiniAppBridge 가 도는 탓에
 실기기 브릿지 코드가 e2e 에서 한 줄도 돌지 않고, 두 모드를 같이 띄우면 vite 의존성 캐시를 서로 덮어써 앱이 빈 화면이 된다.
 
+## 앨범 목
+
+캡처 탭은 `Device.getPhotos` 로 앨범을 연다. devtools 목이 그 자리를 대신하고, 분기는
+`deviceModes.photos` 가 정한다. 기본값 `mock` 은 `mockData.images` 에 있는 dataUri 를 그대로
+돌려주고 비어 있으면 캔버스로 만든 placeholder 3장을 준다. **파일 선택 다이얼로그가 아예 뜨지
+않는다.** `web` 모드는 취소를 예외로 던져 우리 계약(취소 = 빈 배열)과 어긋나고, `prompt` 모드는
+패널 입력을 30초 기다린다. 그래서 `mock` 모드를 두고 사진만 심는다.
+
+`support/album.ts` 는 익명키 트랩과 같은 모양이다. **다이얼마다 짝 확인 함수를 둔다.**
+
+| 거는 것                    | 확인하는 짝                   |
+| -------------------------- | ----------------------------- |
+| `seedAlbumPhotos(dataUri)` | `albumPhotosSeeded(page)`     |
+| `denyPhotoPermission()`    | `photoPermissionDenied(page)` |
+
+짝을 안 부르면 **다이얼이 안 걸린 채로 초록이 된다.** 목 내부 구조(슬라이스 이름)에 기대는
+코드라 devtools 를 올리면 여기가 먼저 조용히 깨진다. 심는 사진은 `fixtures/capture.png` 를
+base64 로 만든 data URL 이고, `addInitScript` 인자는 모든 문서마다 실리므로 작게 유지한다.
+서버 스텁이 이미지 바이트를 보지 않으므로 픽스처를 바꿔도 단언은 안 깨진다. 대신 **고른 바이트가
+서버까지 갔는지는 `page.route` 로 요청 본문을 들여다봐 따로 확인한다.** 그게 없으면 프론트가 빈
+값을 보내도 전 구간이 초록이다.
+
+권한 거부가 여기서 진짜로 도는 이유는 devtools unplugin 이 `@apps-in-toss/web-framework` 를
+목으로 alias 하기 때문이다. `tossBridge` 가 잡는 `PermissionError` 는 목이 정의한 바로 그
+클래스라 `instanceof` 분기가 실제로 지나간다.
+
 ## e2e 가 만든 데이터
 
 익명키가 테스트마다 다르므로 매 실행이 새 사용자를 만든다. 남의 데이터를 건드리지 않아 따로 지우지 않는다.
@@ -125,10 +155,20 @@ devtools 를 올린 뒤 그 spec 이 깨지면 `support/anonKey.ts` 를 목 구�
 
 ## e2e 로 확인할 수 없는 것
 
-- **미지원 토스 앱 버전 화면.** devtools 목은 `isSupported` 가 항상 true 다.
-  권한 거부·미지원 분기는 vitest 에서 `createBridge({ forceMock: true, scenario })` 로 본다.
+- **미지원 토스 앱 버전 화면.** devtools 목은 `isSupported` 가 항상 true 다. 앨범은 애초에
+  `Device.getPhotos` 에 버전 게이트가 없어 `supports('albumPick')` 이 늘 true 다.
+  미지원 분기는 vitest 에서 `createBridge({ forceMock: true, scenario })` 로 본다.
+- **앨범에서 아무것도 안 고르고 닫기(취소).** `mock` 모드에는 취소라는 개념이 없어 항상 사진이
+  온다. 취소도 vitest 에서 `scenario: { album: 'cancel' }` 로 본다. 그건 우리 목이 '취소 = 빈
+  배열' 이라고 가정한 것을 보는 것이라, **실기기가 예외를 던진다면 초록인 채로 틀린다.**
+  실기기에서 취소를 한 번 눌러 보기 전까지는 미검증이다.
 - **배너 실제 크기와 네이티브 권한 팝업.** 실기기에서만 보인다.
 - **광고 채움/미채움(NoFill)의 실제 응답.** 목이 주는 시나리오까지만이다.
+- **캡처 인식 정확도.** 서버 스텁이 이미지를 읽지 않고 정해 둔 5건을 낸다. 여기서 증명하는 것은
+  배관(고른 사진이 서버까지 가고 후보가 화면에 그려지고 저장된다)까지다.
+
+**사진 권한 거부는 목록에서 뺐다.** 예전에는 vitest 몫이었는데, devtools 가 프레임워크를 목으로
+alias 해서 `instanceof PermissionError` 분기가 e2e 에서 실제로 돈다. 위 「앨범 목」 참고.
 
 ## 도구 설정 메모
 

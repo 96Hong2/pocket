@@ -44,7 +44,7 @@ export function CategoryBudgetSheet({
   const [busy, setBusy] = useState(false);
 
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
-  useOverlayBackClose(target != null && !busy, onClose);
+  useOverlayBackClose(target != null, onClose, busy);
 
   const editing = target?.categoryId ?? null;
 
