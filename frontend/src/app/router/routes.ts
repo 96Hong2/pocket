@@ -8,6 +8,8 @@ export const ROUTES = {
   assets: '/assets',
   categories: '/manage/categories',
   settings: '/settings',
+  privacy: '/settings/privacy',
+  // 라우트는 남기고 진입점만 없앴다. 알림은 뒤 마일스톤 몫이다.
   notifications: '/settings/notifications',
 } as const;
 
@@ -30,6 +32,7 @@ export const PARENT_OF: Record<string, string> = {
   [ROUTES.assets]: ROUTES.manage,
   [ROUTES.categories]: ROUTES.manage,
   [ROUTES.settings]: ROUTES.manage,
+  [ROUTES.privacy]: ROUTES.settings,
   [ROUTES.notifications]: ROUTES.settings,
   [DEMO_PATH]: ROUTES.home,
 };
@@ -44,6 +47,7 @@ export const SCREEN_TITLES: Record<string, string> = {
   [ROUTES.assets]: '자산',
   [ROUTES.categories]: '카테고리 관리',
   [ROUTES.settings]: '앱 설정',
+  [ROUTES.privacy]: '개인정보처리방침',
   [ROUTES.notifications]: '알림 설정',
   [DEMO_PATH]: '공용 UI',
 };

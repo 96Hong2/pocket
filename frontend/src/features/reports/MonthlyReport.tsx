@@ -266,11 +266,16 @@ function BreakdownItem({
   );
 }
 
-function labelOf(row: BreakdownRowOut, category: CategoryOut | undefined, namesUnknown: boolean): string {
+function labelOf(
+  row: BreakdownRowOut,
+  category: CategoryOut | undefined,
+  namesUnknown: boolean,
+): string {
   if (row.key === ROLLED_UP) return `그 밖 ${row.rolled_count}개`;
   if (row.key === UNCATEGORIZED) return '분류 없음';
-  // 이름을 못 받은 것과 사용자가 분류를 안 정한 것은 다르다. 같은 말로 적으면 못 가른다.
-  return category?.name ?? (namesUnknown ? '이름 확인 중' : '분류 없음');
+  // 셋을 갈라 적는다. 이름을 못 받은 것, 사용자가 분류를 안 정한 것(위에서 걸렀다),
+  // 그리고 목록에 없는 분류를 가리키는 것. 마지막은 지운 분류라 '분류 없음' 과 다르다.
+  return category?.name ?? (namesUnknown ? '이름 확인 중' : '지운 분류');
 }
 
 /** `0.4211` → `42%`. 서버가 준 비율을 표시만 바꾼다. */

@@ -1,27 +1,19 @@
-import { Link } from 'react-router';
-
-import { ROUTES } from '../app/router/routes';
-
-import { Placeholder } from './Placeholder';
+import { IdentityNotice } from '../app/IdentityNotice';
+import { HomeHeroSetting, PrivacyNotice } from '../features/settings';
 
 /** 앱 설정. */
 export default function SettingsPage() {
   return (
     <div className="page">
       <h1 className="page__title">앱 설정</h1>
-      <p className="page__lead">예산 기간과 알림을 정해요</p>
+      <p className="page__lead">홈에 무엇을 먼저 보여줄지 정해요</p>
 
-      <Placeholder label="예산 기간">
-        기간은 달력 월로 고정이다. 자동 이어쓰기는 관리 탭 예산 아래에서 켜고 끈다.
-      </Placeholder>
+      {/* 식별키를 못 받으면 설정 조회가 시작조차 안 한다. 이 안내가 없으면 빈 화면만 남는다. */}
+      <IdentityNotice />
 
-      <nav aria-label="설정 하위 화면">
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          <li>
-            <Link to={ROUTES.notifications}>알림 설정</Link>
-          </li>
-        </ul>
-      </nav>
+      <HomeHeroSetting />
+
+      <PrivacyNotice />
     </div>
   );
 }

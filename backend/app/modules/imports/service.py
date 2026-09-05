@@ -529,8 +529,15 @@ def _category_id_by_name(session: Session, user: User, name: str) -> uuid.UUID |
 
 
 def _rules_by_merchant(session: Session, user: User) -> dict[str, uuid.UUID]:
-    stmt = select(MerchantRule).where(
-        MerchantRule.user_id == user.id, MerchantRule.deleted_at.is_(None)
+    # 지운 분류를 가리키는 규칙은 뺀다. 그 id 를 후보에 붙이면 저장이 묶음째 거절된다.
+    stmt = (
+        select(MerchantRule)
+        .join(Category, Category.id == MerchantRule.category_id)
+        .where(
+            MerchantRule.user_id == user.id,
+            MerchantRule.deleted_at.is_(None),
+            Category.deleted_at.is_(None),
+        )
     )
     return {row.merchant_normalized: row.category_id for row in session.scalars(stmt)}
 

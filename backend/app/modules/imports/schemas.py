@@ -17,6 +17,7 @@ from app.api.months import MAX_YEAR, MIN_YEAR
 from app.domain.aggregation import TransactionSource, TransactionType
 from app.integrations.llm import LOW_CONFIDENCE_THRESHOLD, LlmStructuredClient
 from app.models.import_batch import ImportBatch, ImportBatchStatus, ImportCandidate
+from app.modules import ledger
 from app.modules.budgets.schemas import BudgetStateOut
 from app.modules.transactions.schemas import FeedbackOut
 
@@ -63,7 +64,9 @@ class ImportMetaOut(BaseModel):
 
 class ImportCandidateOut(BaseModel):
     id: uuid.UUID
-    occurred_at: datetime
+    # 시간대를 반드시 달고 나간다. 빼고 보내면 받는 쪽이 자기 시간대로 읽어
+    # 한국에서 자정부터 아침 아홉 시 사이에 저장한 것이 하루 전으로 보인다.
+    occurred_at: AwareDatetime
     amount: Decimal
     type: TransactionType
     merchant: str | None = None
@@ -146,7 +149,7 @@ class ImportCommitOut(BaseModel):
 def to_candidate(row: ImportCandidate) -> ImportCandidateOut:
     return ImportCandidateOut(
         id=row.id,
-        occurred_at=row.occurred_at,
+        occurred_at=ledger.as_utc(row.occurred_at),
         amount=row.amount,
         type=row.type,
         merchant=row.merchant,

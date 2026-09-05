@@ -21,6 +21,8 @@ import type {
   BudgetOut,
   BudgetStateOut,
   BudgetUpsert,
+  CategoryCreate,
+  CategoryUpdate,
   PeriodSummaryOut,
   PreferencesOut,
   ImportBatchOut,
@@ -198,10 +200,63 @@ export function useDeleteCategoryBudget(params?: MonthParams) {
 }
 
 /**
+ * 카테고리 목록 무효화.
+ *
+ * `moneyQueryKeys` 에 카테고리가 **일부러** 빠져 있다. 거래를 저장해도 카테고리는 안 변한다.
+ * 그래서 카테고리를 직접 만든·고친·지운 이 자리에서만 무효화해 준다. 여기서 빠뜨리면
+ * `staleTime` 30분 동안 기록 시트 칩이 방금 만든 것을 모른다.
+ */
+function invalidateCategories(queryClient: QueryClient): Promise<void> {
+  return queryClient.invalidateQueries({ queryKey: queryKeys.categories() });
+}
+
+export function useCreateCategory() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: CategoryCreate) => client.createCategory(body),
+    onSuccess: () => invalidateCategories(queryClient),
+  });
+}
+
+export function useUpdateCategory() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: CategoryUpdate }) =>
+      client.updateCategory(id, body),
+    onSuccess: () => invalidateCategories(queryClient),
+  });
+}
+
+/**
+ * 카테고리 지우기.
+ *
+ * 서버가 그 카테고리에 딸린 한도와 기억한 분류까지 함께 지운다. 세 캐시가 같이 낡으므로
+ * 셋 다 무효화한다. 기억한 분류를 빼먹으면 관리 탭에 이미 없는 규칙 줄이 남고,
+ * 그 줄의 지우기가 서버에 없는 것을 지우려 든다.
+ */
+export function useDeleteCategory() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => client.deleteCategory(id),
+    onSuccess: async () => {
+      await invalidateCategories(queryClient);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.budgets() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.merchantRules() });
+    },
+  });
+}
+
+/**
  * 앱 설정 저장.
  *
- * 이어쓰기를 끄고 켜는 것이 다음 기간에 예산이 생기는지를 바꾼다. 그래서 설정만이 아니라
- * 예산 캐시도 함께 무효화한다. 돈 숫자는 그대로라 나머지는 건드리지 않는다.
+ * 이어쓰기를 끄고 켜는 것이 다음 기간에 예산이 생기는지를 바꾼다. 그래서 그 값을 보냈을 때만
+ * 예산 캐시를 함께 무효화한다. 홈 표시 방식만 바꿨는데 예산을 다시 받을 이유가 없다.
  */
 export function useSavePreferences() {
   const client = useApiClient();
@@ -209,8 +264,9 @@ export function useSavePreferences() {
 
   return useMutation({
     mutationFn: (body: PreferencesPatch) => client.savePreferences(body),
-    onSuccess: (preferences) => {
+    onSuccess: (preferences, body) => {
       queryClient.setQueryData<PreferencesOut>(queryKeys.preferences(), preferences);
+      if (body.budget_auto_carryover == null) return;
       return queryClient.invalidateQueries({ queryKey: queryKeys.budgets() });
     },
   });

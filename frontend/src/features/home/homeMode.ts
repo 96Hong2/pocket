@@ -5,7 +5,7 @@
  * 판정에 쓰는 값은 전부 서버가 준 것이고, 화면이 날짜를 다시 세거나 금액을 더하지 않는다.
  */
 
-import { parseDecimal, type BudgetOut } from '../../shared/api';
+import { parseDecimal, type BudgetOut, type HomeHero } from '../../shared/api';
 
 /**
  * - firstUse  예산이 없다. '이번 달 쓴 돈' 만 보여주고 예산을 묻지 않는다.
@@ -68,4 +68,33 @@ export function toHomeViewInput(budget: BudgetOut): HomeViewInput {
     daysSinceLastTransaction: budget.days_since_last_transaction,
     budgetAmount: budget.budget.amount ?? null,
   };
+}
+
+/**
+ * 히어로가 무엇을 크게 보여줄지.
+ *
+ * - remainingBudget  남은 예산과 예산 총액. 게이지와 하루 가용액이 함께 붙는다.
+ * - monthSpent       이번 달 쓴 돈 하나. 예산을 정하기 전 화면이다.
+ * - incomeAndSpent   이번 달 차액. 번 돈과 쓴 돈을 아래에 나란히 둔다.
+ * - incomeAndBudget  남은 예산에 번 돈을 곁들인다.
+ */
+export type HeroLayout = 'remainingBudget' | 'monthSpent' | 'incomeAndSpent' | 'incomeAndBudget';
+
+/**
+ * 설정과 예산 유무로 히어로 모양을 정한다.
+ *
+ * 예산이 없을 때 무엇으로 떨어질지를 여기 한 곳에서만 정한다. 화면이 다시 판단하면
+ * 같은 설정인데 자리마다 다른 값이 뜬다.
+ */
+export function resolveHeroLayout(hero: HomeHero | undefined, hasBudget: boolean): HeroLayout {
+  switch (hero) {
+    case 'income_expense':
+      return 'incomeAndSpent';
+    case 'income_and_budget':
+      return hasBudget ? 'incomeAndBudget' : 'incomeAndSpent';
+    default:
+      // 아직 못 받은 경우도 여기로 온다. 설정 행이 없는 사람에게 서버가 주는 값이 이것이라
+      // 임의 기본값을 고르는 것이 아니다.
+      return hasBudget ? 'remainingBudget' : 'monthSpent';
+  }
 }

@@ -69,15 +69,22 @@
     gap: 10px;
   }
 
+  /* 이름 칸이 스스로 좁아질 수 있어야 한다. `1fr` 은 최소 폭이 min-content 라
+     공백 없는 긴 이름 하나가 줄을 카드 밖으로 밀고, 그러면 페이지가 가로로 넘쳐
+     브라우저가 화면을 축소하고 탭바가 보이는 영역 밖으로 나간다. 아래 .report__trend 가
+     같은 이유로 minmax(0, 1fr) 을 쓴다. */
   .report__row {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 12px;
     align-items: baseline;
     font-size: var(--text-14);
   }
 
   .report__row-name {
+    min-width: 0;
+    /* 띄어쓸 자리가 없는 이름은 글자 사이에서라도 끊는다. */
+    overflow-wrap: anywhere;
     color: var(--color-ink);
   }
 

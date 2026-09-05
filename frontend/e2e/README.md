@@ -73,8 +73,8 @@ e2e/
 - **`waitForTimeout` 을 쓰지 않는다.** 기다릴 것이 있으면 `expect(...).toHaveText` 나 `expect.poll` 로 상태를 기다린다.
 - **`.tsx` 와 `.css` 를 e2e 에서 import 하지 않는다.** e2e 는 브라우저 밖 Node 에서 돈다.
   `src/` 에서 가져와도 되는 것은 부수효과 없는 상수·순수 함수 모듈뿐이다.
-  지금 쓰는 것은 넷이다: `shared/testIds.ts`, `app/router/routes.ts`, `shared/lib/format.ts`,
-  `features/transactions/ledgerView.ts`(한 페이지 줄 수·달력 칸 계산).
+  지금 쓰는 것은 다섯이다: `shared/testIds.ts`, `app/router/routes.ts`, `shared/lib/format.ts`,
+  `shared/api/types.ts`(거래 종류 같은 타입), `features/transactions/ledgerView.ts`(한 페이지 줄 수·달력 칸 계산).
   **배럴(`features/*/index.ts`)로 가져오지 않는다.** 배럴은 `.tsx` 를 함께 내보내서,
   상수 하나만 쓰려 해도 화면 컴포넌트가 Node 로 끌려온다. 순수 모듈을 경로로 직접 가져온다.
   목록에 없는 것을 가져오려면 `tsconfig.test.json` 을 먼저 본다. e2e·tests 프로그램이 그 모듈까지 타입 검사한다.

@@ -75,6 +75,49 @@
     color: var(--color-ink);
   }
 
+  /* 번 돈·쓴 돈처럼 큰 숫자 아래 나란히 두는 두 칸. */
+  .home-hero__pair {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+  }
+
+  .home-hero__pair-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .home-hero__pair-label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  /* 차액은 부호가 붙어 Amount 를 쓰지 않는다. 크기는 다른 히어로 숫자와 맞춘다. */
+  .home-hero__value--delta {
+    font-size: 34px;
+    font-weight: var(--font-weight-extrabold);
+    color: var(--color-ink);
+    white-space: nowrap;
+  }
+
+  .home-hero__notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .home-hero__notice-text {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.45;
+    color: var(--color-muted);
+  }
+
   /* ── 기록 버튼 ──────────────────────────────────── */
 
   .home-cta {
@@ -114,6 +157,28 @@
   .home-card__text strong {
     color: var(--color-sage-700);
     font-weight: var(--font-weight-bold);
+  }
+
+  /* 복구 카드의 정리 진행 줄. 얼마나 채웠는지만 말하고 빠진 날은 세지 않는다. */
+  .home-card__progress {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .home-card__progress-text {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-sage-700);
+  }
+
+  /* 세이지 카드 위라 예산 게이지 그대로는 묻힌다. 트랙을 밝히고 채움을 진하게 둔다. */
+  .home-card__gauge {
+    background: var(--color-surface);
+  }
+
+  .home-card__gauge .pk-gauge__fill {
+    background: var(--color-sage-700);
   }
 
   .home-card__error {

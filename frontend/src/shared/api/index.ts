@@ -29,8 +29,10 @@ export {
   useAnalyzeImage,
   useAnalyzeText,
   useCommitImport,
+  useCreateCategory,
   useCreateTransaction,
   useDeleteBudget,
+  useDeleteCategory,
   useDeleteCategoryBudget,
   useDeleteImport,
   useDeleteMerchantRule,
@@ -40,6 +42,7 @@ export {
   useSaveCategoryBudget,
   useSavePreferences,
   useUndoTransaction,
+  useUpdateCategory,
   useUpdateTransaction,
 } from './mutations';
 export { createTransport } from './transport';

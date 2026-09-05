@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -97,6 +97,42 @@ def test_기록하면_홈이_고를_근거가_바뀐다(client: TestClient) -> N
     body = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()
     assert body["has_any_transaction"] is True
     assert body["days_since_last_transaction"] is not None
+
+
+def test_앞날짜로_적어_둔_기록은_공백을_메우지_않는다(client: TestClient) -> None:
+    """카드값을 미리 적어 두는 사람이 있다.
+
+    그 한 건이 '마지막 기록' 이 되면 오늘까지의 공백이 0 으로 보여 복구 화면이 영영 안 뜬다.
+    기록이 있다는 사실(has_any_transaction)은 앞날짜도 기록이므로 그대로 참이다.
+    """
+    away = TODAY - timedelta(days=5)
+    ahead = TODAY + timedelta(days=7)
+    client.post(
+        "/api/v1/transactions",
+        json=_expense(occurred_at=f"{away.isoformat()}T12:30:00+09:00"),
+        headers=AUTH,
+    )
+    client.post(
+        "/api/v1/transactions",
+        json=_expense(occurred_at=f"{ahead.isoformat()}T12:30:00+09:00", merchant="다음달카드값"),
+        headers=AUTH,
+    )
+
+    body = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()
+    assert body["has_any_transaction"] is True
+    assert body["days_since_last_transaction"] == 5
+
+
+def test_최근_7일_정리_진행이_늘_실린다(client: TestClient) -> None:
+    """복구 카드는 빠진 날이 아니라 정리한 날을 센다. 기록이 없어도 필드는 온다."""
+    body = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()
+    assert body["recovery"] == {"window_days": 7, "recorded_days": 0, "progress": "0.0000"}
+
+    client.post("/api/v1/transactions", json=_expense(), headers=AUTH)
+    client.post("/api/v1/transactions", json=_expense(amount="3000"), headers=AUTH)
+    body = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()
+    assert body["recovery"]["recorded_days"] == 1
+    assert body["recovery"]["progress"] == "0.1429"
 
 
 # ── 저장 ────────────────────────────────────────────────

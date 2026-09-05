@@ -19,6 +19,14 @@ export const TEST_IDS = {
   budgetGauge: 'budget-gauge',
   /** 홈의 남은 일수. 하루 가용액이 이 값으로 나눈 결과인지 되짚는다. */
   remainingDays: 'remaining-days',
+  /** 홈의 이번 달 번 돈. 수입을 함께 그리는 히어로에만 있다. */
+  heroIncome: 'hero-income',
+  /** 홈의 이번 달 차액. 수입 - 지출이고 남은 예산과 다른 개념이다. */
+  heroDelta: 'hero-delta',
+  /** 복구 카드의 주간 정리 게이지. 예산 게이지와 색이 달라야 한다. */
+  recoveryGauge: 'recovery-gauge',
+  /** 앱 설정에서 고른 것이 홈을 어떻게 바꾸는지 되짚는 한 줄. */
+  homeHeroPreview: 'home-hero-preview',
   /** 홈의 광고 자리. 채울 광고가 없으면 높이가 0 이어야 한다. */
   adSlot: 'ad-slot',
   /** 기록 시트에서 지금 눌러 둔 금액 */

@@ -116,11 +116,30 @@ export interface paths {
         /** Index */
         get: operations["index_api_v1_categories_get"];
         put?: never;
-        post?: never;
+        /** Create */
+        post: operations["create_api_v1_categories_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Destroy */
+        delete: operations["destroy_api_v1_categories__category_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update */
+        patch: operations["update_api_v1_categories__category_id__patch"];
         trace?: never;
     };
     "/api/v1/budgets": {
@@ -392,6 +411,7 @@ export interface components {
             has_any_transaction: boolean;
             /** Days Since Last Transaction */
             days_since_last_transaction: number | null;
+            recovery: components["schemas"]["RecoveryProgressOut"];
         };
         /**
          * BudgetStateOut
@@ -501,6 +521,13 @@ export interface components {
             /** Is Over Budget */
             is_over_budget: boolean;
         };
+        /** CategoryCreate */
+        CategoryCreate: {
+            /** Name */
+            name: string;
+            /** Icon Key */
+            icon_key: string;
+        };
         /**
          * CategoryKind
          * @enum {string}
@@ -528,6 +555,16 @@ export interface components {
             /** Is Default */
             is_default: boolean;
         };
+        /**
+         * CategoryUpdate
+         * @description 보낸 필드만 바꾼다. 종류와 순서는 서버가 정한 값을 그대로 둔다.
+         */
+        CategoryUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Icon Key */
+            icon_key?: string | null;
+        };
         /** ErrorBody */
         ErrorBody: {
             code: components["schemas"]["ErrorCode"];
@@ -539,7 +576,7 @@ export interface components {
          * @description 오류 code 의 유일한 정의. docs/API_CONTRACT.md 의 표가 이 값을 설명한다.
          * @enum {string}
          */
-        ErrorCode: "UNAUTHORIZED" | "VERIFY_UNAVAILABLE" | "NOT_FOUND" | "UNDO_EXPIRED" | "CONFLICT" | "INVALID_REQUEST" | "INVALID_CATEGORY" | "INVALID_REFUND_TARGET" | "PERIOD_CLOSED" | "USAGE_LIMIT" | "PARSE_UNAVAILABLE" | "HTTP_ERROR" | "INTERNAL_ERROR";
+        ErrorCode: "UNAUTHORIZED" | "VERIFY_UNAVAILABLE" | "NOT_FOUND" | "UNDO_EXPIRED" | "CONFLICT" | "DUPLICATE_CATEGORY" | "INVALID_REQUEST" | "INVALID_CATEGORY" | "INVALID_REFUND_TARGET" | "PERIOD_CLOSED" | "USAGE_LIMIT" | "PARSE_UNAVAILABLE" | "HTTP_ERROR" | "INTERNAL_ERROR";
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
@@ -582,6 +619,11 @@ export interface components {
             /** Large Expense Threshold */
             large_expense_threshold?: string | null;
         };
+        /**
+         * HomeHero
+         * @enum {string}
+         */
+        HomeHero: "remaining_budget" | "income_expense" | "income_and_budget";
         /** ImportBatchOut */
         ImportBatchOut: {
             /**
@@ -817,6 +859,7 @@ export interface components {
         PreferencesOut: {
             /** Budget Auto Carryover */
             budget_auto_carryover: boolean;
+            home_hero: components["schemas"]["HomeHero"];
         };
         /**
          * PreferencesPatch
@@ -829,6 +872,21 @@ export interface components {
         PreferencesPatch: {
             /** Budget Auto Carryover */
             budget_auto_carryover?: boolean | null;
+            home_hero?: components["schemas"]["HomeHero"] | null;
+        };
+        /**
+         * RecoveryProgressOut
+         * @description 최근 며칠 중 며칠 기록했나. 며칠 만에 돌아온 사람에게 보여줄 복구 카드가 쓴다.
+         *
+         *     빠진 날 수는 싣지 않는다. 화면이 뺄셈으로 만들어 쓰지 못하게 진행만 준다.
+         */
+        RecoveryProgressOut: {
+            /** Window Days */
+            window_days: number;
+            /** Recorded Days */
+            recorded_days: number;
+            /** Progress */
+            progress: string;
         };
         /**
          * TransactionCreate
@@ -1026,7 +1084,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1115,7 +1173,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1200,7 +1258,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1291,7 +1349,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1379,7 +1437,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1467,7 +1525,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1552,7 +1610,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1637,7 +1695,272 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_api_v1_categories_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    destroy_api_v1_categories__category_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    update_api_v1_categories__category_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1725,7 +2048,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1817,7 +2140,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1903,7 +2226,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1997,7 +2320,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2085,7 +2408,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2170,7 +2493,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2259,7 +2582,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2348,7 +2671,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2437,7 +2760,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2526,7 +2849,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2618,7 +2941,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2705,7 +3028,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2790,7 +3113,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2875,7 +3198,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2960,7 +3283,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3048,7 +3371,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description 되돌리기 만료·동시 저장 */
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
             409: {
                 headers: {
                     [name: string]: unknown;

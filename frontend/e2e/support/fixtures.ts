@@ -2,10 +2,12 @@ import { test as base, expect } from '@playwright/test';
 
 import { AppShell } from '../screens/AppShell';
 import { CalendarScreen } from '../screens/CalendarScreen';
+import { CategoriesScreen } from '../screens/CategoriesScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ManageScreen } from '../screens/ManageScreen';
 import { ReportScreen } from '../screens/ReportScreen';
 import { RecordSheet } from '../screens/RecordSheet';
+import { SettingsScreen } from '../screens/SettingsScreen';
 
 import { anonKeyFor, installAnonKeyTrap, probeAnonKey } from './anonKey';
 import { PrepApi } from './api';
@@ -30,6 +32,10 @@ interface PocketFixtures {
   manage: ManageScreen;
   /** 리포트 탭. 총액·도넛·조각 목록·6개월 흐름을 한 화면이 가진다. */
   report: ReportScreen;
+  /** 카테고리 관리. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
+  categories: CategoriesScreen;
+  /** 앱 설정. 홈 표시 방식과 개인정보 안내를 한 화면이 가진다. */
+  settings: SettingsScreen;
   /** 확인하려는 동작의 배경 상태를 심는다. 브라우저와 같은 익명키를 쓴다. */
   prep: PrepApi;
 }
@@ -65,6 +71,14 @@ export const test = base.extend<PocketFixtures>({
 
   report: async ({ page }, use) => {
     await use(new ReportScreen(page));
+  },
+
+  categories: async ({ page }, use) => {
+    await use(new CategoriesScreen(page));
+  },
+
+  settings: async ({ page }, use) => {
+    await use(new SettingsScreen(page));
   },
 
   prep: async ({ anonKey }, use) => {

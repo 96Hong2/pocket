@@ -28,7 +28,8 @@ import { AmountDisplay, Keypad } from './Keypad';
 import { readLastRecord, writeLastRecord, type LastRecord } from './lastRecord';
 import { undoDeadline } from './useUndoCountdown';
 
-type RecordTab = 'keypad' | 'nl' | 'capture' | 'receipt';
+/** 시트를 여는 쪽이 어느 탭으로 열지 고를 수 있게 밖으로 낸다. */
+export type RecordTab = 'keypad' | 'nl' | 'capture' | 'receipt';
 
 const TABS: SegmentedOption<RecordTab>[] = [
   { value: 'keypad', label: '키패드' },
@@ -50,7 +51,16 @@ interface SavedState {
  * 저장해도 시트를 닫지 않고 안쪽 내용만 입력 → 피드백으로 바꾼다.
  * 시트를 두 개 겹치면 포커스가 어디로 돌아갈지 흔들리고, 화면에 dialog 가 둘이 된다.
  */
-export function QuickRecordSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function QuickRecordSheet({
+  open,
+  initialTab,
+  onClose,
+}: {
+  open: boolean;
+  /** 열 때 켜 둘 탭. 안 주면 키패드로 연다. */
+  initialTab?: RecordTab;
+  onClose: () => void;
+}) {
   // 저장 응답을 기다리는 동안에는 닫히지 않는다.
   // 닫히면 컴포넌트가 사라져 응답이 갈 곳이 없어지고, 피드백과 되돌리기가 영구히 사라진다.
   // 저장 자체는 서버에 남으므로 사용자는 되돌릴 방법 없이 기록만 남게 된다.
@@ -62,16 +72,21 @@ export function QuickRecordSheet({ open, onClose }: { open: boolean; onClose: ()
 
   return (
     <BottomSheet open={open} onClose={onClose} dismissible={!saving} ariaLabel="10초 기록">
-      <RecordBody onDone={onClose} onSavingChange={setSaving} />
+      <RecordBody initialTab={initialTab} onDone={onClose} onSavingChange={setSaving} />
     </BottomSheet>
   );
 }
 
-/** 시트가 열릴 때 새로 마운트된다. 그래서 지난번 금액이 남아 있지 않다. */
+/**
+ * 시트가 열릴 때 새로 마운트된다. 그래서 지난번 금액도, 지난번 탭도 남아 있지 않다.
+ * 닫히면 BottomSheet 가 null 을 돌려 이 몸통이 통째로 사라진다.
+ */
 function RecordBody({
+  initialTab,
   onDone,
   onSavingChange,
 }: {
+  initialTab?: RecordTab;
   onDone: () => void;
   onSavingChange: (saving: boolean) => void;
 }) {
@@ -79,7 +94,7 @@ function RecordBody({
   const categories = useCategories();
   const create = useCreateTransaction();
 
-  const [tab, setTab] = useState<RecordTab>('keypad');
+  const [tab, setTab] = useState<RecordTab>(initialTab ?? 'keypad');
   // 무언가 도는 중에는 탭을 옮기지 못한다. 옮기면 응답이 돌아올 자리가 사라진다.
   const [busy, setBusy] = useState(false);
   const [digits, setDigits] = useState('');

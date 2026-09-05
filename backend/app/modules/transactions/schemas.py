@@ -21,6 +21,7 @@ from app.api.months import MAX_YEAR, MIN_YEAR
 from app.domain.aggregation import TransactionSource, TransactionType
 from app.domain.feedback import FeedbackKind, FeedbackResult
 from app.domain.money import Money
+from app.modules import ledger
 from app.modules.budgets.schemas import BudgetStateOut
 
 __all__ = [
@@ -36,6 +37,15 @@ __all__ = [
     "TransactionUpdated",
     "to_feedback",
 ]
+
+
+def _as_utc(value: datetime) -> datetime:
+    """돌려주는 시각에 시간대를 붙인다.
+
+    PostgreSQL 은 붙여서 주고 SQLite 는 잃어버리고 준다. 검증 하네스만 SQLite 라
+    시간대 없는 값이 응답으로 새어 나가고, 받는 쪽이 자기 시간대로 읽어 하루가 밀린다.
+    """
+    return ledger.as_utc(value) if isinstance(value, datetime) else value
 
 
 def _in_range(value: datetime | None) -> datetime | None:
@@ -113,7 +123,9 @@ class TransactionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    occurred_at: datetime
+    # 시간대를 반드시 달고 나간다. SQLite 는 저장한 시간대를 잃어버리고 돌려주는데,
+    # 그대로 실어 보내면 받는 쪽이 자기 시간대로 읽어 하루가 밀린다.
+    occurred_at: AwareDatetime
     amount: Decimal
     type: TransactionType
     merchant: str | None
@@ -121,6 +133,8 @@ class TransactionOut(BaseModel):
     source: TransactionSource
     confidence: float
     excluded_from_budget: bool
+
+    _stamp_occurred_at = field_validator("occurred_at", mode="before")(_as_utc)
 
 
 class TransactionListOut(BaseModel):

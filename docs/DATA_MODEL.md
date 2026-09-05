@@ -116,7 +116,7 @@ erDiagram
 | `occurred_at` | `timestamptz` | 결제 시각. 기록한 시각이 아니다 |
 | `merchant` | `varchar(120)?` | 화면에 보여주는 상호명 |
 | `merchant_normalized` | `varchar(120)?` | 중복 판정과 자동 분류가 맞춰 보는 정규화 값 |
-| `category_id` | `uuid?` | 카테고리를 지워도 거래는 남는다(`SET NULL`) |
+| `category_id` | `uuid?` | 분류를 지우면 이 칸만 비고 거래는 남는다. FK 가 `SET NULL` 이지만 실제로는 소프트 삭제라 행이 안 지워지고, 서비스가 분류를 떼어 낸다 |
 | `source` | `keypad` \| `nl` \| `screenshot` \| `receipt` \| `asset_screenshot` \| `no_spend` | 어떤 경로로 들어왔는지 |
 | `confidence` | `float` = 1.0 | 0~1. 사용자가 직접 넣은 값은 1.0 |
 | `excluded_from_budget` | `bool` = false | **거래목록·리포트에는 남고 예산 계산에서만 빠진다** |
@@ -198,7 +198,9 @@ pref.budget_auto_carryover = false         → 복사 안 함
 
 ## merchant_rules
 
-줄글로 저장할 때 상호와 분류를 기억한다. 전역 사전보다 이 규칙이 우선한다.
+검토 목록을 저장할 때 상호와 분류를 기억한다. **줄글·캡처·영수증 셋 다 쌓는다.**
+저장하는 코드가 한 곳(`imports/service.commit_batch`)이라 입구로 갈리지 않는다.
+전역 사전보다 이 규칙이 우선한다.
 소프트 삭제라 지웠다가 같은 상호를 다시 저장하면 그 행을 되살린다.
 
 | 필드 | 설명 |

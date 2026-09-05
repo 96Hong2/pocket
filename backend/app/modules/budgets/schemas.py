@@ -21,14 +21,17 @@ from app.api.amounts import MAX_AMOUNT, integral_won, ratio_out
 from app.domain.budget import BudgetStatus
 from app.domain.money import Money, ratio
 from app.domain.period import BudgetPeriod
+from app.domain.recovery import RecoveryProgress
 
 __all__ = [
     "BudgetOut",
     "BudgetStateOut",
     "BudgetUpsert",
     "CategoryBudgetOut",
+    "RecoveryProgressOut",
     "to_budget_state",
     "to_category_budget",
+    "to_recovery",
 ]
 
 
@@ -82,6 +85,18 @@ class CategoryBudgetOut(BaseModel):
     is_over_budget: bool
 
 
+class RecoveryProgressOut(BaseModel):
+    """최근 며칠 중 며칠 기록했나. 며칠 만에 돌아온 사람에게 보여줄 복구 카드가 쓴다.
+
+    빠진 날 수는 싣지 않는다. 화면이 뺄셈으로 만들어 쓰지 못하게 진행만 준다.
+    """
+
+    window_days: int
+    recorded_days: int
+    # 게이지 너비. recorded_days / window_days 다.
+    progress: str
+
+
 class BudgetOut(BaseModel):
     """예산 조회·저장 응답. 홈이 첫 화면을 고르는 근거를 함께 준다."""
 
@@ -96,6 +111,8 @@ class BudgetOut(BaseModel):
     has_any_transaction: bool
     # 마지막 기록 이후 며칠. 오늘 기록했으면 0, 기록이 없으면 null.
     days_since_last_transaction: int | None
+    # 최근 7일 정리 진행. 기록이 하나도 없어도 0 으로 늘 실린다.
+    recovery: RecoveryProgressOut
 
 
 def _amount(value: Money | None) -> Decimal | None:
@@ -127,6 +144,15 @@ def to_budget_state(
         is_over_budget=status.is_over_budget,
         is_auto_carried=is_auto_carried,
         is_editable=period.end >= today,
+    )
+
+
+def to_recovery(progress: RecoveryProgress) -> RecoveryProgressOut:
+    """도메인이 센 결과를 응답 형태로 옮긴다. 여기서 숫자를 새로 만들지 않는다."""
+    return RecoveryProgressOut(
+        window_days=progress.window_days,
+        recorded_days=progress.recorded_days,
+        progress=str(progress.progress),
     )
 
 

@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
-from app.models import MerchantRule, User
+from app.models import Category, MerchantRule, User
 
 __all__ = ["delete_rule", "list_rules"]
 
@@ -21,7 +21,13 @@ __all__ = ["delete_rule", "list_rules"]
 def list_rules(session: Session, user: User) -> list[MerchantRule]:
     stmt = (
         select(MerchantRule)
-        .where(MerchantRule.user_id == user.id, MerchantRule.deleted_at.is_(None))
+        # 지운 분류를 가리키는 규칙은 뺀다. 이름을 못 그리고, 저장에 붙으면 통째로 거절된다.
+        .join(Category, Category.id == MerchantRule.category_id)
+        .where(
+            MerchantRule.user_id == user.id,
+            MerchantRule.deleted_at.is_(None),
+            Category.deleted_at.is_(None),
+        )
         # 자주 맞은 것이 위로 온다. 같으면 이름 순이라 순서가 흔들리지 않는다.
         .order_by(MerchantRule.applied_count.desc(), MerchantRule.merchant_normalized)
     )

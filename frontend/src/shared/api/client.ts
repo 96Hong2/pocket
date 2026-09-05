@@ -14,7 +14,10 @@ import type {
   BudgetOut,
   BudgetUpsert,
   CalendarMonthOut,
+  CategoryCreate,
   CategoryListOut,
+  CategoryOut,
+  CategoryUpdate,
   ImportBatchOut,
   ImportCandidatePatch,
   ImportCommitOut,
@@ -79,6 +82,10 @@ function transactionPath(id: string): string {
   return `${PATHS.transactions}/${encodeURIComponent(id)}`;
 }
 
+function categoryPath(id: string): string {
+  return `${PATHS.categories}/${encodeURIComponent(id)}`;
+}
+
 function categoryBudgetPath(categoryId: string): string {
   return `${PATHS.categoryBudgets}/${encodeURIComponent(categoryId)}`;
 }
@@ -117,6 +124,12 @@ export interface ApiClient extends Transport {
   /** 달력 격자용 날짜별 합계. 기록이 있는 날만 온다. */
   getCalendar(params?: MonthParams, options?: CallOptions): Promise<CalendarMonthOut>;
   listCategories(options?: CallOptions): Promise<CategoryListOut>;
+  /** 내 카테고리 만들기. 이름이 겹치면 409 로 막힌다. */
+  createCategory(body: CategoryCreate, options?: CallOptions): Promise<CategoryOut>;
+  /** 내 카테고리 고치기. 보낸 필드만 바뀐다. 기본 카테고리는 422 다. */
+  updateCategory(id: string, body: CategoryUpdate, options?: CallOptions): Promise<CategoryOut>;
+  /** 내 카테고리 지우기. 그 카테고리를 쓰던 거래는 남는다. 두 번 눌러도 204 다. */
+  deleteCategory(id: string, options?: CallOptions): Promise<void>;
   getBudget(params?: MonthParams, options?: CallOptions): Promise<BudgetOut>;
   /** 예산 저장. 같은 기간에 몇 번을 보내도 결과가 같다. */
   saveBudget(body: BudgetUpsert, params?: MonthParams, options?: CallOptions): Promise<BudgetOut>;
@@ -252,6 +265,32 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<CategoryListOut>({
         method: 'GET',
         path: PATHS.categories,
+        signal: call?.signal,
+      });
+    },
+
+    createCategory(body, call) {
+      return transport.request<CategoryOut>({
+        method: 'POST',
+        path: PATHS.categories,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    updateCategory(id, body, call) {
+      return transport.request<CategoryOut>({
+        method: 'PATCH',
+        path: categoryPath(id),
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    deleteCategory(id, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: categoryPath(id),
         signal: call?.signal,
       });
     },

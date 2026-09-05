@@ -17,9 +17,8 @@ const GoalPage = lazy(() => import('../../pages/GoalPage'));
 const AssetsPage = lazy(() => import('../../pages/AssetsPage'));
 const CategoriesPage = lazy(() => import('../../pages/CategoriesPage'));
 const SettingsPage = lazy(() => import('../../pages/SettingsPage'));
-const NotificationSettingsPage = lazy(
-  () => import('../../pages/NotificationSettingsPage'),
-);
+const PrivacyPage = lazy(() => import('../../pages/PrivacyPage'));
+const NotificationSettingsPage = lazy(() => import('../../pages/NotificationSettingsPage'));
 
 export function AppRouter() {
   return (
@@ -35,6 +34,7 @@ export function AppRouter() {
           <Route path={ROUTES.goal} element={<GoalPage />} />
           <Route path={ROUTES.assets} element={<AssetsPage />} />
           <Route path={ROUTES.settings} element={<SettingsPage />} />
+          <Route path={ROUTES.privacy} element={<PrivacyPage />} />
           <Route path={ROUTES.notifications} element={<NotificationSettingsPage />} />
           {DemoGallery != null && <Route path={DEMO_PATH} element={<DemoGallery />} />}
           <Route path="*" element={<NotFoundPage />} />

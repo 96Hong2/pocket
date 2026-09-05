@@ -66,7 +66,7 @@ test('18 시스템 뒤로가기는 한 단씩 부모 화면으로 올라간다',
   await demo.step('관리 탭에서 카테고리 관리로 들어간다');
   await appShell.goToTab('관리');
   await appShell.followLink('카테고리 관리');
-  await appShell.expectScreen('카테고리 관리', '쓰는 분류만 남겨요');
+  await appShell.expectScreen('카테고리 관리', '내가 쓰는 카테고리만 남겨요');
   // 하위 화면에는 탭바가 없다. 지금 어디에 있는지가 화면에 드러난다.
   await appShell.expectTabsHidden();
   await demo.beat(2);
@@ -79,18 +79,18 @@ test('18 시스템 뒤로가기는 한 단씩 부모 화면으로 올라간다',
   await demo.clearStep();
   await demo.beat(2);
 
-  await demo.step('이번에는 두 단 깊이로 들어간다. 앱 설정에서 알림 설정까지');
+  await demo.step('이번에는 두 단 깊이로 들어간다. 앱 설정에서 개인정보처리방침까지');
   await appShell.followLink('앱 설정');
-  await appShell.expectScreen('앱 설정', '예산 기간과 알림을 정해요');
-  await appShell.followLink('알림 설정');
-  await appShell.expectScreen('알림 설정', 'P1 화면이에요. 지금은 자리만 잡아 뒀어요');
+  await appShell.expectScreen('앱 설정', '홈에 무엇을 먼저 보여줄지 정해요');
+  await appShell.followLink('개인정보처리방침');
+  await appShell.expectScreen('개인정보처리방침', '무엇을 저장하고 무엇을 안 남기는지 적어 뒀어요');
   await appShell.expectTabsHidden();
   await demo.beat(2);
 
   await demo.step('뒤로가기 한 번이면 앱 설정까지만 올라온다');
   await appShell.pressBack();
   await expect.poll(() => appShell.pathname).toBe(ROUTES.settings);
-  await appShell.expectScreen('앱 설정', '예산 기간과 알림을 정해요');
+  await appShell.expectScreen('앱 설정', '홈에 무엇을 먼저 보여줄지 정해요');
   await demo.beat(2);
 
   await demo.step('한 번 더 누르면 관리로 나오고 탭바가 다시 뜬다');
