@@ -1,4 +1,4 @@
-import type { BreakdownRowOut } from '../../shared/api';
+import { parseDecimalOr, type BreakdownRowOut } from '../../shared/api';
 import { TEST_IDS } from '../../shared/testIds';
 
 /**
@@ -32,7 +32,7 @@ export function CategoryDonut({ rows }: { rows: BreakdownRowOut[] }) {
       data-testid={TEST_IDS.reportDonut}
     >
       {slices.map((row, index) => {
-        const share = Number(row.share);
+        const share = parseDecimalOr(row.share, 0);
         const length = CIRCUMFERENCE * share;
         const dash = `${length} ${CIRCUMFERENCE - length}`;
         // 앞 조각들이 먹은 만큼 뒤로 민다. 마지막 조각이 남은 각도를 채워 링이 닫힌다.

@@ -71,8 +71,8 @@ class PeriodComparisonOut(BaseModel):
 class MonthlyReportOut(BaseModel):
     period_start: date
     period_end: date
-    # 이 달에 집계에 잡히는 거래가 하나라도 있나. 없으면 화면이 빈 달 안내를 그린다.
-    # 예산이 있는지와 다른 값이다.
+    # 이 달에 거래가 한 건이라도 있나. **이체도 센다.** 합계가 0 인 것과 기록이 없는 것은
+    # 다르다는 뜻이라, 집계에서 빠지는 이체만 있어도 빈 달 안내를 띄우지 않는다.
     has_any_transaction: bool
 
     month_expense: Decimal
@@ -91,9 +91,10 @@ class MonthlyReportOut(BaseModel):
     # 빈 달을 빼면 막대가 밀려 다른 달로 읽힌다.
     trend: list[TrendPointOut]
 
-    # 지난달 같은 날짜까지. 지난 기간에 견줄 것이 없으면 null.
+    # 지난달 같은 날짜까지. 아직 오지 않은 달이거나 양쪽 창이 다 0 원이면 null.
     comparison: PeriodComparisonOut | None
-    # 이번 주 대 지난주. 조회한 달이 오늘이 속한 달이 아니면 null.
+    # 이번 주 대 지난주 같은 요일까지. 조회한 달이 오늘이 속한 달이 아니거나
+    # 양쪽 창이 다 0 원이면 null.
     weeks: PeriodComparisonOut | None
 
 

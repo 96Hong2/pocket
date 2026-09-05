@@ -182,9 +182,31 @@ def test_이번_주에_쓴_것이_주간_비교에_잡힌다(client: TestClient,
 
 
 def test_지난_달을_보면_주간_비교를_주지_않는다(client: TestClient, default_categories) -> None:
+    _add(client, amount="5000", when=_at(10, LAST_MONTH))
+
     body = _report(client, LAST_MONTH)
 
     # "이번 주" 는 지난달 화면과 상관없다. 0 으로 채워 보내면 사용자가 그 달 것으로 읽는다.
     assert body["weeks"] is None
     # 끝난 달끼리는 통째로 견준다. 자를 이유가 없다.
     assert body["comparison"]["previous_end"] == LAST_MONTH.previous_period().end.isoformat()
+
+
+def test_한_번도_안_쓴_사람에게는_비교가_없다(client: TestClient, default_categories) -> None:
+    """양쪽 창이 다 0 원이면 견줄 것이 없다.
+
+    「0원보다 그대로예요」 는 바로 아래 「이 달엔 기록이 없어요」 와 같은 화면에서 어긋난다.
+    """
+    body = _report(client)
+
+    assert body["comparison"] is None
+    assert body["weeks"] is None
+
+
+def test_아직_오지_않은_달은_비교하지_않는다(client: TestClient, default_categories) -> None:
+    """그 달의 「지난달」 은 아직 안 끝난 이번 달이다. 말일까지의 창으로 견주면 거짓이 된다."""
+    _add(client, amount="7000", when=_at(1, THIS_MONTH))
+
+    body = _report(client, THIS_MONTH.next_period())
+
+    assert body["comparison"] is None

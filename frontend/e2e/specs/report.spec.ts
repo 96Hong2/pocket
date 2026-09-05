@@ -46,6 +46,27 @@ function shiftDay(isoDay: string, delta: number): string {
   return at.toISOString().slice(0, 10);
 }
 
+/**
+ * 금액 하나를 **딱 그 금액으로** 찾는다.
+ *
+ * `toContainText('10,000원')` 은 `910,000원` 안에서도 참이다. 창이 벌어져 90만 원이
+ * 새어 들어와도 통과한다는 뜻이라, 이 검사가 지키려던 것을 하나도 안 지킨다.
+ * 앞에 숫자나 쉼표가 붙지 않은 자리만 센다.
+ */
+function onlyAmount(value: number): RegExp {
+  const text = formatCurrency(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\d,])${text}`);
+}
+
+/**
+ * 창 하나를 괄호까지 묶어 찾는다.
+ *
+ * `8.3` 은 `8.31` 안에 들어 있다. 시작~끝을 괄호와 함께 봐야 달 전체 창과 갈린다.
+ */
+function windowText(start: string, end: string): string {
+  return `(${formatShortDate(start)}~${formatShortDate(end)})`;
+}
+
 test('그 달 지출을 총액·조각·6개월 흐름으로 보여준다', async ({ prep, report }) => {
   const food = await prep.categoryIdByName('식비');
   const cafe = await prep.categoryIdByName('카페·간식');
@@ -89,13 +110,16 @@ test('지난달과 견줄 때 같은 날짜까지만 센다', async ({ prep, rep
   // 무엇과 견줬는지 날짜가 글자로 있다. 이게 없으면 서버가 달 전체를 세도 그럴듯해 보인다.
   // 지난달에 오늘과 같은 날짜가 없으면 말일로 붙는다. 서버 규칙과 같게 만든다.
   const windowEnd = `${LAST_MONTH}-${String(Math.min(TODAY_DAY, daysIn(LAST_MONTH))).padStart(2, '0')}`;
-  await expect(report.comparison).toContainText(formatShortDate(`${LAST_MONTH}-01`));
-  await expect(report.comparison).toContainText(formatShortDate(windowEnd));
+  // 괄호까지 묶어 본다. 달 전체 창이면 `(8.1~8.31)` 이라 여기서 갈린다.
+  await expect(report.comparison).toContainText(windowText(`${LAST_MONTH}-01`, windowEnd));
+  // 이쪽 창도 적는다. 저쪽만 적으면 이쪽이 그 달을 넘어가도 사용자가 알 방법이 없다.
+  await expect(report.comparison).toContainText(windowText(`${THIS_MONTH}-01`, TODAY));
 
-  // 오늘이 지난달 말일보다 앞이면 90만 원은 창 밖이다. 말일이면 이 검사를 건너뛴다.
+  // 오늘이 지난달 말일보다 앞이면 90만 원은 창 밖이다. 말일이면 그 날이 창에 들어온다.
   if (TODAY_DAY < daysIn(LAST_MONTH)) {
-    await expect(report.comparison).toContainText(formatCurrency(10_000));
-    await expect(report.comparison).not.toContainText(formatCurrency(900_000));
+    // 달 전체를 세면 91만 원이 되는데, 그 안에 `10,000원` 이 들어 있어 부분일치로는 못 잡는다.
+    await expect(report.comparison).toHaveText(onlyAmount(10_000));
+    await expect(report.comparison).not.toContainText(formatCurrency(910_000));
   }
 });
 
@@ -110,6 +134,29 @@ test('예산을 정했으면 사용률 한 줄이 붙고, 안 정했으면 없�
   await prep.setBudget(100_000);
   await report.open();
   await report.waitReady();
+  // 비율만 적으면 위 헤드라인과 다른 지출을 세고 있어도 안 보인다. 근거 금액을 함께 적는다.
+  await expect(report.budgetLine).toContainText('25%');
+  await expect(report.budgetLine).toContainText(formatCurrency(25_000));
+});
+
+test('예산에서 뺀 거래는 헤드라인에만 들어가고 사용률에는 안 들어간다', async ({
+  prep,
+  report,
+}) => {
+  await prep.addTransaction({ amount: 25_000, on: day(THIS_MONTH, EARLY) });
+  await prep.addTransaction({
+    amount: 500_000,
+    on: day(THIS_MONTH, EARLY),
+    excludedFromBudget: true,
+  });
+  await prep.setBudget(100_000);
+
+  await report.open();
+  await report.waitReady();
+
+  // 두 숫자가 같은 카드에 나란히 있는데 기준이 다르다. 금액을 함께 적어야 산수가 맞아 보인다.
+  await expect(report.total).toHaveText(formatCurrency(525_000));
+  await expect(report.budgetLine).toContainText(formatCurrency(25_000));
   await expect(report.budgetLine).toContainText('25%');
 });
 
@@ -123,13 +170,15 @@ test('이번 주와 지난주를 같은 요일까지 견준다', async ({ prep, 
   await report.waitReady();
 
   // 무엇과 견줬는지 날짜가 글자로 있다. 이번 주가 사흘인데 지난주를 이레 잡으면 여기서 보인다.
-  await expect(report.weeks).toContainText(formatShortDate(shiftDay(monday, -7)));
-  await expect(report.weeks).toContainText(formatShortDate(shiftDay(TODAY, -7)));
+  // 괄호로 묶어야 이레짜리 창과 갈린다. 오늘이 월요일이면 시작·끝이 같은 날이라 더욱 그렇다.
+  await expect(report.weeks).toContainText(windowText(shiftDay(monday, -7), shiftDay(TODAY, -7)));
+  await expect(report.weeks).toContainText(windowText(monday, TODAY));
 
   const isSunday = new Date(`${TODAY}T12:00:00+09:00`).getUTCDay() === 0;
   if (!isSunday) {
-    await expect(report.weeks).toContainText(formatCurrency(4_000));
-    await expect(report.weeks).not.toContainText(formatCurrency(800_000));
+    // 이레를 통째로 세면 804,000원 이 되는데 그 안에 `4,000원` 이 들어 있다. 정확일치로 본다.
+    await expect(report.weeks).toHaveText(onlyAmount(4_000));
+    await expect(report.weeks).not.toContainText(formatCurrency(804_000));
   }
 });
 
@@ -148,6 +197,7 @@ test('수입으로 바꾸면 번 돈과 그 분류를 보여준다', async ({ pr
     on: day(THIS_MONTH, EARLY),
     type: 'income',
     merchant: '월급',
+    categoryId: await prep.categoryIdByName('수입'),
   });
 
   await report.open();
@@ -158,10 +208,71 @@ test('수입으로 바꾸면 번 돈과 그 분류를 보여준다', async ({ pr
 
   // 수입만 `+` 를 붙인다. 지출과 한 화면에서 헷갈리지 않게 하는 공용 규칙이다.
   await expect(report.total).toHaveText(formatSignedCurrency(2_000_000));
+  // 목록과 도넛도 수입 쪽으로 바뀐다. 헤드라인만 보면 조각이 지출인 채로 남아도 통과한다.
+  await expect(report.rows).toHaveCount(1);
+  await expect(report.amount('수입')).toHaveText(formatSignedCurrency(2_000_000));
+  await expect(report.share('수입')).toHaveText('100%');
+  // 조각이 하나면 100% 링이라 도넛을 안 그린다. 지출 조각이 남아 있으면 여기서 드러난다.
+  await expect(report.donut).toHaveCount(0);
   // 지난달 비교·예산 사용률·주간 비교는 소비 이야기다. 수입 화면에 남으면 무엇의 비교인지 헷갈린다.
   await expect(report.comparison).toHaveCount(0);
   await expect(report.weeks).toHaveCount(0);
   await expect(report.budgetLine).toHaveCount(0);
+});
+
+test('환불이 지출보다 큰 달도 이유를 말한다', async ({ prep, report }) => {
+  // 그 달에 환불만 남으면 분류 합이 음수라 조각을 못 그린다. 그때 화면이 조용하면
+  // 헤드라인만 음수로 떠 있고 아무 설명이 없는 달이 된다.
+  const food = await prep.categoryIdByName('식비');
+  await prep.addTransaction({
+    amount: 5_000,
+    on: day(THIS_MONTH, EARLY),
+    type: 'refund',
+    categoryId: food,
+  });
+
+  await report.open();
+  await report.waitReady();
+
+  await expect(report.total).toHaveText(formatCurrency(-5_000));
+  // 기록은 있으므로 빈 달 안내가 아니라 이유를 적는다.
+  await expect(report.emptyNotice).toHaveCount(0);
+  await expect(report.sliceNote).toBeVisible();
+  await expect(report.sliceNote).toContainText(formatCurrency(0));
+  // 음수인 달은 막대가 바닥에 붙되 기록 없는 달과는 다르게 표시된다.
+  await expect(report.trendBar(THIS_MONTH)).toHaveAttribute('data-negative', '');
+});
+
+test('분류가 아홉을 넘으면 나머지를 한 줄로 접는다', async ({ prep, report }) => {
+  // 기본 지출 분류가 아홉이라 자기 분류를 하나도 안 만들어도 접은 줄에 닿는다.
+  const names = [
+    '식비',
+    '카페·간식',
+    '교통',
+    '쇼핑',
+    '생활',
+    '주거·고정비',
+    '여가·취미',
+    '건강·미용',
+    '기타',
+  ];
+  for (const [index, name] of names.entries()) {
+    await prep.addTransaction({
+      amount: (names.length - index) * 10_000,
+      on: day(THIS_MONTH, EARLY),
+      categoryId: await prep.categoryIdByName(name),
+    });
+  }
+
+  await report.open();
+  await report.waitReady();
+
+  // 여덟 줄 + 접은 한 줄. 색 램프가 아홉 색이라 도넛도 아홉을 안 넘는다.
+  await expect(report.rows).toHaveCount(9);
+  await expect(report.donutSlices).toHaveCount(9);
+  await expect(report.row('그 밖 1개')).toHaveCount(1);
+  // 접은 줄이 대신하는 금액은 가장 작은 분류 하나다.
+  await expect(report.amount('그 밖 1개')).toHaveText(formatCurrency(10_000));
 });
 
 test('기록이 없는 달로 옮겨도 6개월 흐름은 그대로 보여준다', async ({ prep, report }) => {

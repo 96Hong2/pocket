@@ -44,7 +44,7 @@ erDiagram
   users ||--o{ budgets : "세운다"
   users ||--o{ categories : "직접 만든 것만"
   users ||--o{ merchant_rules : "수정을 기억한다"
-  users ||--o{ import_batches : "캡처를 올린다"
+  users ||--o{ import_batches : "줄글·사진을 올린다"
   users ||--o{ asset_snapshots : "자산을 적는다"
   users ||--o{ goals : "목표를 세운다"
   users ||--|| user_preferences : ""
@@ -122,7 +122,7 @@ erDiagram
 | `excluded_from_budget` | `bool` = false | **거래목록·리포트에는 남고 예산 계산에서만 빠진다** |
 | `fingerprint` | `varchar(64)?` | 중복 후보를 찾는 sha256 해시 |
 | `refund_of_transaction_id` | `uuid?` | 어떤 지출의 환불인지 |
-| `import_batch_id` | `uuid?` | 줄글·캡처 분석에서 저장했으면 그 묶음. `imports.commit_batch` 가 채운다 |
+| `import_batch_id` | `uuid?` | 줄글·캡처·영수증 분석에서 저장했으면 그 묶음. `imports.commit_batch` 가 채운다 |
 
 제약:
 
@@ -235,29 +235,29 @@ pref.budget_auto_carryover = false         → 복사 안 함
 비동기 분석을 여는 날 되살린다. 지금 실패는 묶음을 만들지 않고 그대로 4xx·503 으로 나간다.
 
 **원본 이미지, OCR 텍스트, LLM 응답 원문은 이 표에 없다.** 구조화된 후보만 남긴다.
-캡처는 파일로도 임시 디렉터리에도 쓰지 않는다. **요청 처리가 끝나 파이썬 객체가 회수되는 것이
-삭제다**(ADR-0010). 그래서 오인식을 나중에 다시 볼 원본이 없고, 거래의 `import_batch_id` 와
+사진(캡처·영수증)은 파일로도 임시 디렉터리에도 쓰지 않는다. **요청 처리가 끝나 파이썬 객체가
+회수되는 것이 삭제다**(ADR-0010). 그래서 오인식을 나중에 다시 볼 원본이 없고, 거래의 `import_batch_id` 와
 `parse_usages` 한 줄이 남는 실마리의 전부다.
 
 ## parse_usages
 
-줄글·캡처 분석을 몇 번 불렀는지 센다. 비용을 재고 나서 상한을 정하려고 만든 표다.
+줄글·캡처·영수증 분석을 몇 번 불렀는지 센다. 비용을 재고 나서 상한을 정하려고 만든 표다.
 
 | 필드 | 설명 |
 |---|---|
 | `source` | `transactions.source` 와 같은 enum |
 | `provider` / `is_stub` | 스텁으로 잰 수치를 실제 모델 성능으로 오해하지 않게 함께 남긴다 |
-| `input_length` | 크기만. 줄글은 글자 수, **캡처는 디코드한 이미지 바이트 수**다. 무엇을 적었는지·무엇이 찍혔는지는 남기지 않는다 |
+| `input_length` | 크기만. 줄글은 글자 수, **사진(캡처·영수증)은 디코드한 이미지 바이트 수**다. 무엇을 적었는지·무엇이 찍혔는지는 남기지 않는다 |
 | `redacted_count` | 보내기 전에 가린 숫자 뭉치 개수. 가리는 규칙이 실제로 도는지 확인한다 |
 | `candidate_count` | 뽑은 후보 건수 |
 
 인덱스는 `(user_id, created_at)`. 하루치를 세는 질의가 이걸 때린다.
 상한은 `NL_PARSE_DAILY_LIMIT`(기본 300)이고, 넘으면 429 `USAGE_LIMIT` 이다.
-**줄글과 캡처가 이 상한을 함께 쓴다.** 429 문구만 갈리고 세는 것은 하나다. 나중에 갈라야 하면
-`source` 로 조회 조건을 좁히면 되도록, 지금부터 `screenshot` 을 남긴다.
+**줄글·캡처·영수증이 이 상한을 함께 쓴다.** 429 문구만 갈리고 세는 것은 하나다. 나중에 갈라야
+하면 `source` 로 조회 조건을 좁히면 되도록, 지금부터 `screenshot`·`receipt` 를 갈라 남긴다.
 
-**`redacted_count` 는 캡처에서 늘 0 이다.** `app/domain/redaction.py` 의 `redact()` 가 문자열
-전용이라 이미지 안의 카드번호·계좌·잔액을 가릴 수단이 없다. 0 은 "가릴 것이 없었다" 가 아니라
+**`redacted_count` 는 사진(캡처·영수증)에서 늘 0 이다.** `app/domain/redaction.py` 의
+`redact()` 가 문자열 전용이라 이미지 안의 카드번호·계좌·잔액을 가릴 수단이 없다. 0 은 "가릴 것이 없었다" 가 아니라
 **"가리지 못했다" 는 사실이 표에 남은 것**이다(ADR-0010).
 
 **이 표만 봐서는 무엇을 적었는지 알 수 없다.** 그것이 이 표의 설계 조건이다.

@@ -192,6 +192,11 @@ function monthQuery(month?: string): string {
   return `?year=${Number(year)}&month=${Number(monthNumber)}`;
 }
 
+/** 그 날 정오(KST). 자정에 가까운 시각을 고르면 시간대 계산에서 하루가 밀린다. */
+function dayNoon(day: string): Date {
+  return new Date(`${day}T12:00:00+09:00`);
+}
+
 /**
  * 심을 시각. **가계부 시간대(Asia/Seoul)** 의 그 날 정오에서 분 단위로 뒤로 센다.
  *
@@ -204,15 +209,11 @@ function monthQuery(month?: string): string {
  *
  * KST 는 서머타임이 없어서 24시간을 빼면 날짜가 정확히 하루 물러난다.
  */
-/** 그 날 정오(KST). 자정에 가까운 시각을 고르면 시간대 계산에서 하루가 밀린다. */
-function dayNoon(day: string): Date {
-  return new Date(`${day}T12:00:00+09:00`);
-}
-
 function seedTime(daysAgo: number, minutesAgo: number): Date {
   // 화면·서버가 쓰는 것과 같은 시간대 기준의 오늘. LEDGER_TIME_ZONE 이 Asia/Seoul 이다.
-  const noon = new Date(`${toLedgerDate(new Date())}T12:00:00+09:00`);
-  return new Date(noon.getTime() - daysAgo * 86_400_000 - minutesAgo * 60_000);
+  return new Date(
+    dayNoon(toLedgerDate(new Date())).getTime() - daysAgo * 86_400_000 - minutesAgo * 60_000,
+  );
 }
 
 function expectOk(status: number, body: string, what: string): void {

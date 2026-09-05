@@ -96,9 +96,14 @@ def _compare_months(
     """지난달 **같은 날짜까지**와 견준다.
 
     달 전체와 견주면 이번 달은 아직 다 안 지나서 늘 줄어든 것처럼 보인다.
-    지난 달을 보고 있으면(오늘이 그 달 밖) 두 달을 통째로 견준다. 둘 다 이미 끝난 달이라
-    자를 이유가 없다.
+    이미 끝난 달끼리는 통째로 견준다. 자를 이유가 없다.
+
+    **아직 오지 않은 달은 견주지 않는다.** 그 달의 "지난달" 은 아직 안 끝난 이번 달인데
+    말일까지의 창으로 실려 나가, 자르기를 만든 이유가 그 자리에서 무너진다.
     """
+    if today < period.start:
+        return None
+
     previous = period.previous_period()
     if period.contains(today):
         current_window = same_day_window(period, today)
@@ -107,7 +112,7 @@ def _compare_months(
         current_window, previous_window = period, previous
 
     totals = ledger.load_range_totals(session, user, [current_window, previous_window])
-    return (
+    return _pair_or_none(
         Window(current_window, totals[0].month_expense),
         Window(previous_window, totals[1].month_expense),
     )
@@ -128,7 +133,22 @@ def _compare_weeks(
     this_week = week_to_date(today)
     last_week = week_to_date(today - _ONE_WEEK)
     totals = ledger.load_range_totals(session, user, [this_week, last_week])
-    return (Window(this_week, totals[0].month_expense), Window(last_week, totals[1].month_expense))
+    return _pair_or_none(
+        Window(this_week, totals[0].month_expense),
+        Window(last_week, totals[1].month_expense),
+    )
+
+
+def _pair_or_none(current: Window, previous: Window) -> tuple[Window, Window] | None:
+    """양쪽 다 0 원이면 견줄 것이 없다.
+
+    `0원보다 그대로예요` 는 한 번도 안 써 본 사람에게 나가는 말이라, 바로 아래
+    「이 달엔 기록이 없어요」 와 같은 화면에서 서로 어긋난다. 그래서 창을 안 만든다.
+    한쪽만 0 인 것은 견줄 만하다. "지난달 같은 기간 0원보다 5만 원 더 썼어요" 는 참이다.
+    """
+    if not current.expense.amount and not previous.expense.amount:
+        return None
+    return (current, previous)
 
 
 def _has_any(session: Session, user: User, period: BudgetPeriod) -> bool:

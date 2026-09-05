@@ -83,6 +83,8 @@ export const TEST_IDS = {
   reportWeeks: 'report-weeks',
   /** 예산 사용률 한 줄. 예산이 있을 때만 있다. */
   reportBudgetLine: 'report-budget-line',
+  /** 조각 합이 그 달 금액과 다른 이유를 적는 줄. 환불이 더 큰 분류가 있을 때만 있다. */
+  reportSliceNote: 'report-slice-note',
   /** 줄글 검토 목록의 후보 한 줄 */
   nlCandidateRow: 'nl-candidate-row',
   /** 후보 한 줄의 금액 */

@@ -118,6 +118,16 @@ export class ReportScreen {
   }
 
   /**
+   * 조각 합이 그 달 금액과 다른 이유를 적는 줄.
+   *
+   * 조각 카드 밖에 있다. 안에 두면 환불이 지출보다 큰 달에는 카드 자체가 없어
+   * 가장 설명이 필요한 달에 아무 말도 못 한다.
+   */
+  get sliceNote(): Locator {
+    return this.root.getByTestId(TEST_IDS.reportSliceNote);
+  }
+
+  /**
    * 본문이 실제로 차지한 가로 폭과 화면에 보이는 폭.
    *
    * `innerWidth` 와 견주면 안 된다. 본문이 넘치면 브라우저가 축소하면서 `innerWidth` 도
