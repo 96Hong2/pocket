@@ -1,6 +1,7 @@
-"""줄글 입력 엔드포인트.
+"""줄글·캡처 입력 엔드포인트.
 
 분석은 거래를 만들지 않는다. 저장은 commit 한 번이다.
+입구만 둘이고, 검토·수정·저장 라우터는 묶음 단위라 둘이 그대로 나눠 쓴다.
 """
 
 from __future__ import annotations
@@ -11,12 +12,14 @@ from fastapi import APIRouter, Response, status
 
 from app.api.deps import CurrentUser, DbSession, LlmClient
 from app.api.errors import ERROR_RESPONSES
+from app.api.images import decode_data_url
 from app.modules.budgets.schemas import to_budget_state
 from app.modules.imports import service
 from app.modules.imports.schemas import (
     ImportBatchOut,
     ImportCandidatePatch,
     ImportCommitOut,
+    ImportImageIn,
     ImportTextIn,
     to_batch,
 )
@@ -30,6 +33,16 @@ def analyze_text(
     body: ImportTextIn, session: DbSession, user: CurrentUser, client: LlmClient
 ) -> ImportBatchOut:
     batch = service.parse_text(session, user, text=body.text, client=client)
+    return to_batch(batch, client=client)
+
+
+@router.post("/capture", response_model=ImportBatchOut, status_code=status.HTTP_201_CREATED)
+def analyze_capture(
+    body: ImportImageIn, session: DbSession, user: CurrentUser, client: LlmClient
+) -> ImportBatchOut:
+    # async 로 바꾸지 않는다. service._extract 의 anyio.from_thread.run 이 워커 스레드를 전제한다.
+    image = decode_data_url(body.image)
+    batch = service.parse_image(session, user, image=image, client=client)
     return to_batch(batch, client=client)
 
 

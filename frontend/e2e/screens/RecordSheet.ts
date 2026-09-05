@@ -19,6 +19,8 @@ export class RecordSheet {
   readonly feedback: RecordFeedback;
   /** 줄글 탭. 적기·검토·저장이 한 자리에서 이어진다. */
   readonly nl: RecordNaturalLanguage;
+  /** 캡처 탭. 앨범에서 한 장 골라 읽고, 그 뒤로는 줄글과 같은 검토 화면이다. */
+  readonly capture: RecordCapture;
 
   constructor(page: Page) {
     this.page = page;
@@ -26,6 +28,7 @@ export class RecordSheet {
     this.input = new RecordInput(this.root);
     this.feedback = new RecordFeedback(this.root);
     this.nl = new RecordNaturalLanguage(this.root);
+    this.capture = new RecordCapture(this.root);
   }
 
   get isVisible(): Promise<boolean> {
@@ -46,7 +49,7 @@ export class RecordSheet {
   }
 
   /**
-   * 기록 방법 탭. 키패드와 줄글이 열려 있고 캡처·영수증은 다음 마일스톤 자리다.
+   * 기록 방법 탭. 키패드·줄글·캡처가 열려 있고 영수증은 다음 마일스톤 자리다.
    *
    * SegmentedControl 이 `role="radio"` 를 붙인다. button 으로 잡으면 하나도 안 걸린다.
    */
@@ -248,7 +251,8 @@ class RecordNaturalLanguage {
   private readonly root: Locator;
 
   constructor(root: Locator) {
-    this.root = root;
+    // 안 보이는 탭도 hidden 으로 DOM 에 남는다. 패널 안으로 좁히지 않으면 캡처 탭의 후보 줄까지 잡힌다.
+    this.root = root.getByTestId(TEST_IDS.nlPanel);
   }
 
   get textarea(): Locator {
@@ -419,4 +423,116 @@ export function keyStrokesFor(amount: number): string[] {
     }
   }
   return keys;
+}
+
+/**
+ * 캡처 탭.
+ *
+ * 앨범에서 한 장 고르면 서버가 읽고, 그 뒤로는 줄글과 같은 검토 화면이다.
+ * 그래서 후보 줄·저장 버튼 셀렉터가 줄글 것과 같고, 패널 안으로 좁혀야 서로 안 섞인다.
+ */
+class RecordCapture {
+  private readonly root: Locator;
+
+  constructor(root: Locator) {
+    this.root = root.getByTestId(TEST_IDS.capturePanel);
+  }
+
+  get guide(): Locator {
+    return this.root.getByText('거래내역 캡처를 골라주세요', { exact: false });
+  }
+
+  /** 앨범을 열지 못한 뒤에는 같은 버튼이 `다시 시도` 로 바뀐다. */
+  get pickButton(): Locator {
+    return this.root.getByRole('button', { name: /^(캡처 고르기|다시 시도)$/ });
+  }
+
+  /** 분석 응답을 기다리는 동안 도는 스피너. 줄글 쪽 문구와 다르다. */
+  get analyzing(): Locator {
+    return this.root.getByRole('status', { name: '캡처를 읽는 중이에요' });
+  }
+
+  /** 스텁이 지어낸 결과라는 안내. provider 가 붙으면 사라진다. */
+  get stubNotice(): Locator {
+    return this.root.getByText('아직 예시 결과예요', { exact: false });
+  }
+
+  /** 사진 접근이 꺼져 있을 때 뜨는 화면의 제목. */
+  get permissionDenied(): Locator {
+    return this.root.getByText('사진 접근이 꺼져 있어요', { exact: true });
+  }
+
+  /** 앨범을 아예 열지 못했을 때의 한 줄. 권한 거부와 다른 자리다. */
+  get pickAlert(): Locator {
+    return this.root.getByRole('alert');
+  }
+
+  /** 캡처에서 한 건도 못 읽었을 때의 안내. */
+  get emptyNotice(): Locator {
+    return this.root.getByText('캡처에서 거래를 찾지 못했어요', { exact: false });
+  }
+
+  /** 검토 단계에 들어섰다는 표시. 후보가 없어도 이 줄은 있다. */
+  get readLine(): Locator {
+    return this.root.getByText('이렇게 이해했어요', { exact: false });
+  }
+
+  get restartButton(): Locator {
+    return this.root.getByRole('button', { name: '다시 고르기' });
+  }
+
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: /^\d+건 저장/ });
+  }
+
+  get confirmButton(): Locator {
+    return this.root.getByRole('button', { name: '확인' });
+  }
+
+  /** 저장을 마친 뒤의 한 줄. `3건 저장했어요 · 44,100원` */
+  get savedTitle(): Locator {
+    return this.root.getByText(/건 저장했어요/);
+  }
+
+  get rows(): Locator {
+    return this.root.getByTestId(TEST_IDS.nlCandidateRow);
+  }
+
+  row(name: string): Locator {
+    return this.rows.filter({ has: this.root.page().getByRole('checkbox', { name, exact: true }) });
+  }
+
+  checkbox(name: string): Locator {
+    return this.root.getByRole('checkbox', { name, exact: true });
+  }
+
+  amount(name: string): Locator {
+    return this.row(name).getByTestId(TEST_IDS.nlCandidateAmount);
+  }
+
+  day(name: string): Locator {
+    return this.row(name).getByTestId(TEST_IDS.nlCandidateDate);
+  }
+
+  /** `이미 있어요`·`확인 필요` 같은 칩. 없으면 개수 0 이다. */
+  chip(name: string, label: string): Locator {
+    return this.row(name).getByText(label, { exact: true });
+  }
+
+  /** 앨범에서 고르고 검토 화면에 닿을 때까지. */
+  async pick(): Promise<void> {
+    await this.pickButton.click();
+    await expect(this.readLine).toBeVisible();
+  }
+
+  async toggle(name: string, selected: boolean): Promise<void> {
+    const box = this.checkbox(name);
+    await box.click();
+    await expect(box).toBeChecked({ checked: selected });
+  }
+
+  async save(): Promise<void> {
+    await this.saveButton.click();
+    await expect(this.savedTitle).toBeVisible();
+  }
 }

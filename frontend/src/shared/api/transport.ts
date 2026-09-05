@@ -44,6 +44,8 @@ export interface RequestSpec {
   body?: unknown;
   /** 화면이 떠나면 요청을 끊는다. TanStack Query 가 넘겨 준다. */
   signal?: AbortSignal;
+  /** 이 요청만 다른 제한 시간을 쓴다. 없으면 전역값. */
+  timeoutMs?: number;
 }
 
 export interface Transport {
@@ -110,7 +112,7 @@ export function createTransport(options: TransportOptions): Transport {
     const timer = setTimeout(() => {
       timedOut = true;
       controller.abort();
-    }, timeoutMs);
+    }, spec.timeoutMs ?? timeoutMs);
 
     const caller = spec.signal;
     const forwardAbort = () => controller.abort();

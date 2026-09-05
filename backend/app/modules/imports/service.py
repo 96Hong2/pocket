@@ -25,6 +25,7 @@ from app.domain.redaction import redact
 from app.integrations.llm import (
     LOW_CONFIDENCE_THRESHOLD,
     LlmError,
+    LlmImage,
     LlmStructuredClient,
     TransactionCandidate,
     TransactionExtraction,
@@ -32,6 +33,7 @@ from app.integrations.llm import (
     TransactionType,
     attach_source,
     natural_language_prompt,
+    screenshot_prompt,
 )
 from app.models import (
     Category,
@@ -52,6 +54,7 @@ __all__ = [
     "commit_batch",
     "delete_batch",
     "get_batch",
+    "parse_image",
     "parse_text",
     "update_candidate",
 ]
@@ -92,18 +95,73 @@ def parse_text(
 ) -> ImportBatch:
     """줄글에서 거래 후보를 뽑아 검토 단위를 만든다."""
     day = today or ledger.today_for(user)
-    _require_quota(session, user, day)
+    _require_quota(session, user, day, label="줄글 분석")
 
     # 저장하지 않는 것만으로는 부족하다. 보내기 전에 가린다.
     cleaned = redact(text)
-    extraction = _extract(client, text=cleaned.text, today=day)
-    found = attach_source(extraction, TransactionSource.NL)
+    extraction = _extract(client, prompt=natural_language_prompt(day), today=day, text=cleaned.text)
+    return _build_batch(
+        session,
+        user,
+        source=TransactionSource.NL,
+        extraction=extraction,
+        day=day,
+        client=client,
+        input_length=len(text),
+        redacted_count=cleaned.count,
+    )
+
+
+def parse_image(
+    session: Session,
+    user: User,
+    *,
+    image: LlmImage,
+    client: LlmStructuredClient,
+    today: date | None = None,
+) -> ImportBatch:
+    """캡처 한 장에서 거래 후보를 뽑아 검토 단위를 만든다.
+
+    이미지는 어디에도 저장하지 않는다. 요청이 끝나면 파이썬 객체와 함께 사라진다.
+    """
+    day = today or ledger.today_for(user)
+    _require_quota(session, user, day, label="캡처 분석")
+
+    extraction = _extract(client, prompt=screenshot_prompt(day), today=day, image=image)
+    return _build_batch(
+        session,
+        user,
+        source=TransactionSource.SCREENSHOT,
+        extraction=extraction,
+        day=day,
+        client=client,
+        # 이미지에서는 글자 수가 없다. 바이트 수를 센다.
+        input_length=len(image.data),
+        # redact() 는 문자열만 가린다. 이미지 안의 카드번호는 가릴 수단이 없고,
+        # 0 이 그 사실을 표에 남긴 것이다.
+        redacted_count=0,
+    )
+
+
+def _build_batch(
+    session: Session,
+    user: User,
+    *,
+    source: TransactionSource,
+    extraction: TransactionExtraction,
+    day: date,
+    client: LlmStructuredClient,
+    input_length: int,
+    redacted_count: int,
+) -> ImportBatch:
+    """추출 결과를 검토 단위로 옮긴다. 줄글과 캡처가 이 뒤로는 같은 길을 지난다."""
+    found = attach_source(extraction, source)
     candidates = found[:MAX_CANDIDATES]
     dropped = len(found) - len(candidates)
 
     batch = ImportBatch(
         user_id=user.id,
-        source=TransactionSource.NL,
+        source=source,
         status=ImportBatchStatus.READY,
         detected_count=len(candidates),
         # 상한을 넘겨 버린 건수를 남긴다. 조용히 사라지면 사용자가 몇 건을 잃었는지 모른다.
@@ -124,8 +182,9 @@ def parse_text(
         session,
         user,
         client=client,
-        input_length=len(text),
-        redacted_count=cleaned.count,
+        source=source,
+        input_length=input_length,
+        redacted_count=redacted_count,
         candidate_count=len(candidates),
     )
     return batch
@@ -234,6 +293,8 @@ def commit_batch(
                 "source": batch.source,
                 "confidence": row.confidence,
                 "excluded_from_budget": False,
+                # 원본은 안 남으므로 이 거래가 어느 분석에서 나왔는지는 이 값이 유일한 실마리다.
+                "import_batch_id": batch.id,
             },
             today=day,
         )
@@ -272,18 +333,28 @@ def _touches_content(data: dict[str, object]) -> bool:
     return any(field != "is_selected" for field in data)
 
 
-def _extract(client: LlmStructuredClient, *, text: str, today: date) -> TransactionExtraction:
+def _extract(
+    client: LlmStructuredClient,
+    *,
+    prompt: str,
+    today: date,
+    text: str | None = None,
+    image: LlmImage | None = None,
+) -> TransactionExtraction:
     """비동기 포트를 동기 서비스에서 부른다.
 
     이 앱의 핸들러는 전부 동기라 FastAPI 가 워커 스레드에서 돌린다.
     `anyio.from_thread.run` 이 그 스레드에서 본래 이벤트 루프로 코루틴을 넘긴다.
     핸들러를 async 로 바꾸면 동기 SQLAlchemy 가 루프를 막는다.
+
+    text 와 image 중 하나만 넣는다. 둘 다거나 둘 다 아니면 포트가 막는다.
     """
     call = partial(
         client.extract,
-        prompt=natural_language_prompt(today),
+        prompt=prompt,
         schema=TransactionExtraction,
         text=text,
+        image=image,
         today=today,
     )
     try:
@@ -443,6 +514,7 @@ def _record_usage(
     user: User,
     *,
     client: LlmStructuredClient,
+    source: TransactionSource,
     input_length: int,
     redacted_count: int,
     candidate_count: int,
@@ -450,7 +522,7 @@ def _record_usage(
     session.add(
         ParseUsage(
             user_id=user.id,
-            source=TransactionSource.NL,
+            source=source,
             provider=client.provider,
             is_stub=client.is_stub,
             input_length=input_length,
@@ -461,11 +533,14 @@ def _record_usage(
     session.commit()
 
 
-def _require_quota(session: Session, user: User, today: date) -> None:
+def _require_quota(session: Session, user: User, today: date, *, label: str) -> None:
     """하루에 쓸 수 있는 만큼을 넘겼는지 본다.
 
     상한은 넉넉하다. 습관이 붙기 전에 막으면 앱을 쓸 이유가 사라진다.
     막혀도 키패드 기록은 그대로 돌아간다.
+
+    줄글과 캡처가 같은 상한을 나눠 쓴다. label 은 사용자에게 무엇을 다 썼는지 말해 주는
+    문구일 뿐이고, 지금은 둘을 따로 세지 않는다.
     """
     limit = get_settings().nl_parse_daily_limit
     start, _ = ledger.day_bounds(today, ledger.user_tz(user))
@@ -477,6 +552,6 @@ def _require_quota(session: Session, user: User, today: date) -> None:
     if (used or 0) >= limit:
         raise ApiError(
             ErrorCode.USAGE_LIMIT,
-            "오늘은 줄글 분석을 충분히 썼어요. 키패드로는 계속 기록할 수 있어요.",
+            f"오늘은 {label}을 충분히 썼어요. 키패드로는 계속 기록할 수 있어요.",
             status_code=429,
         )

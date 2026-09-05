@@ -51,6 +51,15 @@ export const TEST_IDS = {
   categoryBudgetCap: 'category-budget-cap',
   /** 카테고리 예산 합이 전체 예산보다 클 때 뜨는 안내 한 줄 */
   categoryBudgetSum: 'category-budget-sum',
+  /**
+   * 줄글 탭 패널.
+   *
+   * 컨테이너라 위 기준의 예외다. 탭이 SegmentedControl 이라 붙일 role=tabpanel 짝이 없고,
+   * 안 보이는 탭도 hidden 으로 DOM 에 남아 두 탭의 후보 줄이 한꺼번에 잡힌다.
+   */
+  nlPanel: 'nl-panel',
+  /** 캡처 탭 패널. 같은 이유로 둔다. */
+  capturePanel: 'capture-panel',
   /** 줄글 검토 목록의 후보 한 줄 */
   nlCandidateRow: 'nl-candidate-row',
   /** 후보 한 줄의 금액 */

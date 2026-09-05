@@ -58,6 +58,8 @@ docs/design/
 # 화면을 찍은 png 가 저장소에 쌓이지 않게 한다. 아이콘 자산만 예외다.
 *.png
 !frontend/public/icons/**/*.png
+# e2e 가 앨범에서 고른 척 넣는 고정 입력. 화면을 찍은 것이 아니라 테스트 재료다.
+!frontend/e2e/fixtures/*.png
 
 # 화면 동작 영상. 용량이 크고 레포에 둘 것이 아니다.
 # 만드는 방법은 frontend/e2e/README.md 「데모 녹화」 절에 있다.

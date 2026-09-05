@@ -21,11 +21,13 @@ from app.modules.budgets.schemas import BudgetStateOut
 from app.modules.transactions.schemas import FeedbackOut
 
 __all__ = [
+    "MAX_IMAGE_DATA_URL_LENGTH",
     "MAX_TEXT_LENGTH",
     "ImportBatchOut",
     "ImportCandidateOut",
     "ImportCandidatePatch",
     "ImportCommitOut",
+    "ImportImageIn",
     "ImportMetaOut",
     "ImportTextIn",
 ]
@@ -33,11 +35,22 @@ __all__ = [
 # 한 번에 받아 주는 줄글 길이. 캡처 붙여넣기까지 생각해도 넉넉하다.
 MAX_TEXT_LENGTH = 1000
 
+# 받아 주는 data URL 문자열 길이. 약 4.5MB 페이로드다.
+# 본문이 통째로 메모리에 들어오기 전에 거는 한 겹일 뿐이고,
+# 진짜 바이트 상한은 app/api/images.py 가 디코드한 뒤에 본다.
+MAX_IMAGE_DATA_URL_LENGTH = 6_000_000
+
 
 class ImportTextIn(BaseModel):
     """줄글 한 덩어리. 여러 건이 들어 있을 수 있다."""
 
     text: str = Field(min_length=1, max_length=MAX_TEXT_LENGTH)
+
+
+class ImportImageIn(BaseModel):
+    """캡처 한 장. `data:image/png;base64,...` 형태의 문자열로 받는다."""
+
+    image: str = Field(min_length=32, max_length=MAX_IMAGE_DATA_URL_LENGTH)
 
 
 class ImportMetaOut(BaseModel):
@@ -157,6 +170,19 @@ def to_batch(batch: ImportBatch, *, client: LlmStructuredClient) -> ImportBatchO
         error_code=batch.error_code,
         selected_count=len(chosen),
         selected_expense_total=sum(spent, Decimal(0)),
-        meta=ImportMetaOut(provider=client.provider, is_stub=client.is_stub),
+        meta=ImportMetaOut(
+            provider=client.provider, is_stub=client.is_stub, notes=_notes(batch, client=client)
+        ),
         candidates=candidates,
     )
+
+
+def _notes(batch: ImportBatch, *, client: LlmStructuredClient) -> list[str]:
+    """화면이 읽는 코드값. 서버는 한국어 문구를 만들지 않는다.
+
+    스텁은 이미지를 읽지 않고 정해 둔 예시를 낸다. 그 예시가 실제 인식으로 보이지 않게
+    캡처 경로에만 표시를 붙인다. provider 가 붙어 is_stub 이 꺼지면 저절로 사라진다.
+    """
+    if client.is_stub and batch.source != TransactionSource.NL:
+        return ["stub_image"]
+    return []

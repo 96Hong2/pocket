@@ -7,6 +7,8 @@ API 키 없이 개발·테스트가 돌아가게 한다. 같은 입력이면 항
 못 읽으면 후보를 만들지 않거나 confidence 를 낮게 준다.
 스텁이 쓰였다는 사실은 ParseMeta.is_stub 으로 드러난다.
 
+캡처는 읽지 않는다. 이미지가 오면 바이트를 한 번도 보지 않고 정해 둔 예시를 낸다.
+
 계산은 하지 않는다. 금액을 읽어 옮길 뿐 더하거나 빼지 않는다.
 """
 
@@ -14,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import date
+from datetime import date, timedelta
 
 from app.domain.nl_text import find_amounts, read_date, split_entries
 from app.integrations.llm.contracts import (
@@ -49,6 +51,19 @@ _CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("주거·고정비", ("월세", "관리비", "전기세", "통신비", "보험")),
     ("여가·취미", ("영화", "게임", "공연", "책", "여행")),
     ("건강·미용", ("병원", "약국", "미용실", "헬스", "화장품", "올리브영")),
+)
+
+# 캡처가 오면 그대로 내는 예시. 이미지를 읽지 않는다. 배관이 도는지 보려고 정해 둔 값이라
+# 이 결과로 인식 정확도를 재면 안 된다.
+# 분류 이름은 app/domain/categories.py 에 실제로 있는 것만 쓴다. 없는 이름은 조용히 미분류가 된다.
+# 날짜는 오늘 기준 상대다. 절대 날짜를 박으면 달력을 따라 흔들리고 CI 에서 하루가 어긋난다.
+_IMAGE_SAMPLE: tuple[tuple[str, int, str, float, int], ...] = (
+    ("스타벅스", 4500, "카페·간식", 0.92, 0),
+    ("GS25", 3200, "생활", 0.88, 0),
+    ("김밥천국", 8000, "식비", 0.90, 1),
+    # 0.5 아래라 검토 화면이 스스로 켜지 않는다. 저신뢰 분기를 화면에서 볼 수 있게 한 줄 둔다.
+    ("카카오T", 9800, "교통", 0.40, 1),
+    ("쿠팡", 32900, "쇼핑", 0.86, 2),
 )
 
 _BASE_CONFIDENCE = 0.35
@@ -87,11 +102,29 @@ class StubLlmStructuredClient:
         if schema is not TransactionExtraction:
             raise LlmSchemaError(f"스텁은 {TransactionExtraction.__name__} 만 만들 수 있다")
         if image is not None:
-            # 스텁은 이미지 인식을 하지 않는다. 캡처 경로는 실제 provider 가 필요하다.
-            return schema.model_validate(TransactionExtraction().model_dump())
+            # 이미지를 읽지 않는다. 배관이 도는지 보려고 정해 둔 예시다.
+            # 이 결과로 인식 정확도를 재면 안 된다. 실제 인식은 vision provider 가 붙어야 한다.
+            return schema.model_validate(sample_image_extraction(today).model_dump())
         assert text is not None
         extraction = parse_text(text, today=today)
         return schema.model_validate(extraction.model_dump())
+
+
+def sample_image_extraction(today: date | None = None) -> TransactionExtraction:
+    """캡처에 대해 늘 같은 5건. 어떤 이미지를 넣어도 결과가 같다."""
+    return TransactionExtraction(
+        candidates=[
+            ExtractedTransaction(
+                occurred_at=today - timedelta(days=days_back) if today else None,
+                amount=amount,
+                type=TransactionType.EXPENSE,
+                merchant=merchant,
+                category=category,
+                confidence=confidence,
+            )
+            for merchant, amount, category, confidence, days_back in _IMAGE_SAMPLE
+        ]
+    )
 
 
 def parse_text(text: str, *, today: date | None = None) -> TransactionExtraction:

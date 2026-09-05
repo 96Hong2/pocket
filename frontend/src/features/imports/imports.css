@@ -1,5 +1,5 @@
 /*
- * 줄글 입력과 기억한 분류.
+ * 줄글·캡처 입력과 기억한 분류.
  *
  * 색·반경·글자는 전부 index.css 의 토큰에서 읽는다. 공용 프리미티브는 shared/ui 가 그리고,
  * 여기에는 이 화면에만 있는 배치만 둔다.
@@ -235,6 +235,34 @@
 
   .nl__saved-detail {
     font-size: var(--text-14);
+    color: var(--color-muted);
+  }
+
+  /* ── 캡처 고르기 ──────────────────────── */
+  .capture {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .capture__guide {
+    font-size: var(--text-14);
+    line-height: 1.6;
+    color: var(--color-muted);
+  }
+
+  .capture__alert {
+    font-size: var(--text-13);
+    color: var(--color-expense);
+  }
+
+  /* 결과를 지어냈다는 사실을 알리는 줄. 오류가 아니라서 붉게 쓰지 않는다. */
+  .capture__stub {
+    padding: 10px 12px;
+    border-radius: var(--radius-inset);
+    background: var(--color-surface-sunken);
+    font-size: var(--text-13);
+    line-height: 1.5;
     color: var(--color-muted);
   }
 

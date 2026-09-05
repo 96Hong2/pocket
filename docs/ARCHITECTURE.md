@@ -62,7 +62,11 @@ flowchart LR
 
 `createBridge()` 가 실행 환경을 보고 둘 중 하나를 고른다.
 이 경계가 있어서 SDK 버전이 바뀌어도 고칠 자리가 한 폴더이고, 권한 거부·미지원 같은 엣지 상태를 브라우저에서 재현할 수 있다.
-SDK 는 최소 토스 앱 버전 요구가 잦다(익명키 5.232.0, 광고 5.241.0, 앨범 5.261.0). 그 분기를 화면마다 흩어놓지 않으려면 한 곳이어야 한다.
+SDK 는 최소 토스 앱 버전 요구가 잦다(익명키 5.232.0, 광고 5.241.0). 그 분기를 화면마다 흩어놓지 않으려면 한 곳이어야 한다.
+
+앨범에 붙은 5.261.0 은 `Device.getAlbumItems` 쪽 숫자다. **우리가 쓰는 `Device.getPhotos` 에는
+버전 게이트가 없어서 `supports('albumPick')` 은 늘 true 다.** 그래서 캡처 탭의 미지원 화면 분기는
+코드에 두되 실제로는 도달하지 않고, vitest 로만 본다.
 
 ### 3. Toss 서버 API 는 `backend/app/integrations/apps_in_toss` 만 부른다
 
@@ -80,6 +84,11 @@ SDK 는 최소 토스 앱 버전 요구가 잦다(익명키 5.232.0, 광고 5.24
 AI 가 하는 일은 자연어 문장과 캡처 이미지를 구조화하는 것뿐이다. 금액 합계·예산 잔액·증감은 AI 가 만들지 않는다.
 LLM 호출을 한 모듈에 가두면 (1) 프롬프트와 스키마 검증을 한 자리에서 보고, (2) 원문을 저장·로깅하지 않는 규칙을 한 곳에서 강제하고, (3) provider 를 바꿀 때 고칠 자리가 한 곳이다.
 
+**캡처 바이트가 만들어지는 자리도 하나다.** data URL 을 푸는 것은 `app/api/images.py` 뿐이고,
+형식·mime·크기·매직바이트 검사가 거기 모여 있다. 이미지는 파일로 쓰지 않아서 "요청이 끝나면
+사라진다" 가 곧 삭제다. 그래서 "이미지가 어디까지 갔다 사라지나" 를 한 파일만 보면 답할 수
+있다(ADR-0010).
+
 ## 입력 네 경로가 하나로 모인다
 
 기록 방법은 넷이지만, 저장 직전 형태는 `NormalizedTransaction` 하나다.
@@ -88,8 +97,8 @@ LLM 호출을 한 모듈에 가두면 (1) 프롬프트와 스키마 검증을 �
 flowchart TD
   K["키패드<br/>금액 + 카테고리"] --> N
   NL["한 줄 자연어<br/>'점심 9000'"] --> P1["LLM 파싱<br/>structured output"] --> N
-  SS["결제 알림 캡처<br/>여러 장"] --> P2["OCR + LLM 구조화"] --> N
-  RC["영수증 촬영"] --> P3["OCR + LLM 구조화"] --> N
+  SS["결제 알림 캡처<br/>한 장"] --> P2["LLM 구조화<br/>vision"] --> N
+  RC["영수증 촬영<br/>아직 없다"] --> P3["LLM 구조화<br/>vision"] --> N
 
   N["NormalizedTransaction<br/>occurredAt · amount(양수) · type<br/>merchant · category · source · confidence"]
 
@@ -108,6 +117,18 @@ flowchart TD
 그 뒤 중복 판정, 저장, 집계, 피드백은 완전히 같은 코드를 지난다.
 새 입력 방법이 생겨도 정규화 함수 하나만 추가하면 되고, 집계 규칙을 다시 쓸 일이 없다.
 
+그림에서 읽어야 할 것 셋(ADR-0010).
+
+- **OCR 단계를 따로 두지 않는다.** vision 모델이 이미지를 직접 읽어 구조화한다.
+  중간에 원문 텍스트를 만들면 남기지 않기로 한 것이 하나 더 생긴다.
+- **캡처는 한 번에 한 장이다.** PRD F4 는 여러 장을 적었지만 포트 `LlmStructuredClient.extract`
+  가 이미지를 한 장만 받는다. 여러 장은 포트 계약을 넓히는 별건이다.
+- **영수증(카메라) 경로는 아직 없다.** 캡처와 같은 배관을 타므로 탭 하나를 더 여는 일이다.
+  실기기에서 앨범 한 갈래가 도는 것을 본 뒤에 연다.
+
+지금 실제로 도는 이미지 경로는 캡처 하나이고, 그마저 vision provider 가 없어 스텁이 정해 둔
+5건을 낸다. **인식 정확도는 아직 아무것도 증명되지 않았다.**
+
 ## 프론트 폴더
 
 ```
@@ -117,13 +138,16 @@ src/
   shared/     ui · toss · tokens · lib                     ← 있다
   shared/api  HTTP 클라이언트 · 생성 타입 · 쿼리 훅        ← 있다
   features/   home · quick-record · ads
-              transactions · budgets                       ← 있다
-              imports · reports · assets · goals
+              transactions · budgets · imports             ← 있다
+              reports · assets · goals
               recovery · settings                          ← 폴더만 있고 비어 있다
 ```
 
-**`features/` 에는 지금 화면 다섯이 있다.** 홈(`home`), 기록 시트(`quick-record`),
-배너 슬롯(`ads`), 내역·달력·수정(`transactions`), 관리 탭 예산 섹션(`budgets`) 이다.
+**`features/` 에는 지금 화면 여섯이 있다.** 홈(`home`), 기록 시트(`quick-record`),
+배너 슬롯(`ads`), 내역·달력·수정(`transactions`), 관리 탭 예산 섹션(`budgets`),
+줄글·캡처 검토(`imports`) 다.
+`imports` 의 후보 검토 화면(`ImportReview`)은 줄글 탭과 캡처 탭이 **같은 컴포넌트를 쓴다.**
+복제해 두면 후보 줄 하나를 고칠 때마다 두 곳을 고쳐야 한다.
 나머지 화면은 아직 `pages/` 의 자리표시자다. feature 하나는 컴포넌트와 판정 함수, 그리고
 화면 스펙 CSS 파일 하나(`<feature>.css`, `index.css` 가 불러온다)를 함께 가진다.
 
@@ -175,6 +199,7 @@ app/
   models/            SQLAlchemy ORM
   domain/            순수 계산 (예산 · 페이스 · 피드백 · 중복 fingerprint · 기본 카테고리)
   api/               의존성 · 예외 변환 · 라우터 조립
+    images.py        캡처 data URL 을 바이트로 푸는 유일한 자리 (ADR-0010)
   modules/           transactions · budgets · categories · reports
                      assets · goals · imports · settings
     ledger.py        사용자 시간대 기준 기간·합계. 거래와 예산이 함께 읽는다

@@ -1,7 +1,7 @@
 # 데이터 모델
 
 `backend/app/models/` 를 읽고 쓴 문서다. 코드가 정본이고 이 문서는 안내다.
-모델을 고쳤으면 여기도 같이 고친다. 확인 시점: 2026-09-03.
+모델을 고쳤으면 여기도 같이 고친다. 확인 시점: 2026-09-05.
 
 ## 공통 규칙
 
@@ -122,7 +122,7 @@ erDiagram
 | `excluded_from_budget` | `bool` = false | **거래목록·리포트에는 남고 예산 계산에서만 빠진다** |
 | `fingerprint` | `varchar(64)?` | 중복 후보를 찾는 sha256 해시 |
 | `refund_of_transaction_id` | `uuid?` | 어떤 지출의 환불인지 |
-| `import_batch_id` | `uuid?` | 캡처로 들어왔으면 그 배치 |
+| `import_batch_id` | `uuid?` | 줄글·캡처 분석에서 저장했으면 그 묶음. `imports.commit_batch` 가 채운다 |
 
 제약:
 
@@ -214,7 +214,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 
 | import_batches | 설명 |
 |---|---|
-| `source` | `transactions.source` 와 같은 enum |
+| `source` | `transactions.source` 와 같은 enum. 지금 실제로 들어오는 값은 `nl` 과 `screenshot` 둘이다 |
 | `status` | `pending` → `analyzing` → `ready` → `committed`, 실패는 `failed` |
 | `detected_count` / `committed_count` | "N건 인식, M건 저장" 문구의 근거 |
 | `error_code` | 재시도 화면에서 무엇이 실패했는지 구분하는 코드. **원문은 담지 않는다** |
@@ -230,7 +230,14 @@ pref.budget_auto_carryover = false         → 복사 안 함
 
 제약은 `amount > 0`, `confidence` 0~1. 배치를 지우면 후보도 지워진다.
 
+**`status` 중 지금 쓰는 것은 `ready` 와 `committed` 둘뿐이다.** 분석이 요청 안에서 동기로 끝나
+묶음이 만들어질 때부터 `ready` 다. `pending`·`analyzing`·`failed` 는 비동기 분석을 여는 날
+되살린다. 지금 실패는 묶음을 만들지 않고 그대로 4xx·503 으로 나간다.
+
 **원본 이미지, OCR 텍스트, LLM 응답 원문은 이 표에 없다.** 구조화된 후보만 남긴다.
+캡처는 파일로도 임시 디렉터리에도 쓰지 않는다. **요청 처리가 끝나 파이썬 객체가 회수되는 것이
+삭제다**(ADR-0010). 그래서 오인식을 나중에 다시 볼 원본이 없고, 거래의 `import_batch_id` 와
+`parse_usages` 한 줄이 남는 실마리의 전부다.
 
 ## parse_usages
 
@@ -240,12 +247,18 @@ pref.budget_auto_carryover = false         → 복사 안 함
 |---|---|
 | `source` | `transactions.source` 와 같은 enum |
 | `provider` / `is_stub` | 스텁으로 잰 수치를 실제 모델 성능으로 오해하지 않게 함께 남긴다 |
-| `input_length` | 글자 수만. **무엇을 적었는지는 남기지 않는다** |
+| `input_length` | 크기만. 줄글은 글자 수, **캡처는 디코드한 이미지 바이트 수**다. 무엇을 적었는지·무엇이 찍혔는지는 남기지 않는다 |
 | `redacted_count` | 보내기 전에 가린 숫자 뭉치 개수. 가리는 규칙이 실제로 도는지 확인한다 |
 | `candidate_count` | 뽑은 후보 건수 |
 
 인덱스는 `(user_id, created_at)`. 하루치를 세는 질의가 이걸 때린다.
 상한은 `NL_PARSE_DAILY_LIMIT`(기본 300)이고, 넘으면 429 `USAGE_LIMIT` 이다.
+**줄글과 캡처가 이 상한을 함께 쓴다.** 429 문구만 갈리고 세는 것은 하나다. 나중에 갈라야 하면
+`source` 로 조회 조건을 좁히면 되도록, 지금부터 `screenshot` 을 남긴다.
+
+**`redacted_count` 는 캡처에서 늘 0 이다.** `app/domain/redaction.py` 의 `redact()` 가 문자열
+전용이라 이미지 안의 카드번호·계좌·잔액을 가릴 수단이 없다. 0 은 "가릴 것이 없었다" 가 아니라
+**"가리지 못했다" 는 사실이 표에 남은 것**이다(ADR-0010).
 
 **이 표만 봐서는 무엇을 적었는지 알 수 없다.** 그것이 이 표의 설계 조건이다.
 
@@ -320,9 +333,14 @@ DB 는 물론이고 **analytics 와 error log 에도 남기지 않는다.**
 |---|---|
 | OCR 로 읽은 원문 텍스트 | 결제 알림에는 카드번호 뒷자리, 잔액, 다른 사람 이름이 섞여 들어온다 |
 | LLM 요청·응답 원문 | 위와 같다. 프롬프트에 원문이 들어가고 로그에 남으면 결국 같은 유출이다 |
-| 원본 캡처·영수증 이미지 | 구조화된 후보만 남기면 충분하다 |
+| 원본 캡처·영수증 이미지 | 구조화된 후보만 남기면 충분하다. 파일로 쓰지 않으므로 지울 단계도 없다 |
 | 계좌번호, 카드번호(뒷자리 포함) | 있으면 언젠가 새어 나간다. 처음부터 안 갖는다 |
 | 이름·이메일·전화번호 | 익명 식별키로 충분하다 |
 
 에러를 추적해야 하면 `import_batches.error_code` 처럼 **원문이 아닌 코드**를 남긴다.
 로그에 사용자 입력을 통째로 찍는 코드를 넣지 않는다. `app/core/logging.py` 의 구조화 로거를 쓰고 필드를 골라 넣는다.
+
+⚠ **저장하지 않는 것과 보내지 않는 것은 다르다.** 위 표는 우리가 남기지 않는 것의 목록이지,
+provider 에 가지 않는 것의 목록이 아니다. 줄글은 보내기 전에 `redact()` 로 가리지만
+**캡처 이미지는 가릴 수단이 없어 찍힌 그대로 나간다.** 근거와 대응은 ADR-0010 과
+`SECRETS.md` §4 에 있다.

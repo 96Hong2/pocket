@@ -25,6 +25,7 @@ export {
   useTransactions,
 } from './queries';
 export {
+  useAnalyzeCapture,
   useAnalyzeText,
   useCommitImport,
   useCreateTransaction,

@@ -2179,6 +2179,125 @@
         }
       }
     },
+    "/api/v1/imports/capture": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Analyze Capture",
+        "operationId": "analyze_capture_api_v1_imports_capture_post",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportImageIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/imports/{batch_id}/candidates/{candidate_id}": {
       "patch": {
         "tags": [
@@ -3666,6 +3785,22 @@
         ],
         "title": "ImportCommitOut",
         "description": "저장 결과. 마지막 한 건 기준으로 지금 돈 상태를 함께 준다."
+      },
+      "ImportImageIn": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "maxLength": 6000000,
+            "minLength": 32,
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "ImportImageIn",
+        "description": "캡처 한 장. `data:image/png;base64,...` 형태의 문자열로 받는다."
       },
       "ImportMetaOut": {
         "properties": {
