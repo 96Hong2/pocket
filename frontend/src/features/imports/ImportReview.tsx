@@ -84,7 +84,10 @@ export function ImportReview({
     <div className="nl" data-testid={testId}>
       {notice}
 
-      <p className="nl__read">이렇게 이해했어요. 눌러서 고칠 수 있어요</p>
+      {/* 한 건도 못 읽었으면 안 띄운다. 이해한 것이 없는데 이해했다고 하면 실패 안내와 모순된다. */}
+      {candidates.length > 0 ? (
+        <p className="nl__read">이렇게 이해했어요. 눌러서 고칠 수 있어요</p>
+      ) : null}
 
       {dropped > 0 ? (
         <p className="nl__notice" role="status">

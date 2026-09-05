@@ -171,6 +171,7 @@ test.describe('일부러 실패시켰을 때', () => {
     await expect(recordSheet.capture.emptyNotice).toBeVisible();
     // 저장할 것이 없으면 저장 버튼도 없어야 한다. 눌러도 아무 일이 없으면 더 헷갈린다.
     await expect(recordSheet.capture.saveButton).toHaveCount(0);
+    await expect(recordSheet.capture.readLine).toHaveCount(0);
 
     await recordSheet.capture.restartButton.click();
     await expect(recordSheet.capture.guide).toBeVisible();

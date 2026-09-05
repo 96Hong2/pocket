@@ -364,7 +364,8 @@ class RecordNaturalLanguage {
   async analyze(text: string): Promise<void> {
     await this.textarea.fill(text);
     await this.analyzeButton.click();
-    await expect(this.readLine).toBeVisible();
+    // 되돌리는 버튼으로 기다린다. 한 건도 못 읽으면 `이렇게 이해했어요` 가 안 뜬다.
+    await expect(this.rewriteButton).toBeVisible();
   }
 
   async toggle(name: string, selected: boolean): Promise<void> {
@@ -587,7 +588,8 @@ class RecordImageImport {
   /** 사진을 가져와 검토 화면에 닿을 때까지. */
   async pick(): Promise<void> {
     await this.pickButton.click();
-    await expect(this.readLine).toBeVisible();
+    // 되돌리는 버튼으로 기다린다. 한 건도 못 읽으면 `이렇게 이해했어요` 가 안 뜬다.
+    await expect(this.restartButton).toBeVisible();
   }
 
   async toggle(name: string, selected: boolean): Promise<void> {

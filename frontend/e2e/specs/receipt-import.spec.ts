@@ -7,6 +7,7 @@ import {
   denyCameraPermission,
   denyPhotoPermission,
   mockImagesSeeded,
+  photoPermissionDenied,
   seedMockImages,
 } from '../support/deviceMock';
 import { expect, test } from '../support/fixtures';
@@ -115,6 +116,8 @@ test('사진 접근이 꺼져 있어도 영수증은 그대로 돈다', async ({
   await home.open();
   await home.waitReady();
   expect(await mockImagesSeeded(page)).toBe(true);
+  // 다이얼마다 짝을 확인한다. 이게 없으면 사진 권한이 안 꺼진 채로 통과해 아무것도 안 가른다.
+  expect(await photoPermissionDenied(page)).toBe(true);
 
   await home.recordButton.click();
   await recordSheet.methodTab('영수증').click();
@@ -244,6 +247,8 @@ test('한 건도 못 읽으면 왜인지 짚어 주고 그 자리에서 키패�
   // 무엇을 고치면 되는지 말해 주지 않으면 같은 사진을 또 찍는다.
   await expect(recordSheet.receipt.emptyReason).toBeVisible();
   await expect(recordSheet.receipt.saveButton).toHaveCount(0);
+  // 이해한 것이 없는데 `이렇게 이해했어요` 가 남아 있으면 실패 안내와 앞뒤가 안 맞는다.
+  await expect(recordSheet.receipt.readLine).toHaveCount(0);
 
   // 여기서 막히면 기록을 포기한다. 손으로 찍는 길이 바로 옆에 있어야 한다.
   await recordSheet.receipt.keypadFallbackButton.click();

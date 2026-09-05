@@ -3,10 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { createApiClient } from './client';
 
 /**
- * 캡처 분석만 제한 시간이 다르다.
+ * 사진을 읽는 요청만 제한 시간이 다르다. 캡처와 영수증 둘이다.
  *
  * 사진 한 장을 모델이 읽는 데는 줄글보다 오래 걸린다. 전역 10초로 끊으면 실제 provider 가
  * 붙는 날 정상 응답이 타임아웃으로 죽는다. 스텁은 즉시 답하므로 e2e 로는 이 차이가 안 보인다.
+ *
+ * 두 메서드가 `timeoutMs` 를 각자 적는 별개 본문이라 한쪽만 빠질 수 있다. 그래서 둘 다 본다.
  */
 
 /** 응답이 영영 안 오는 fetch. 누가 언제 끊는지만 본다. */
@@ -17,6 +19,8 @@ function neverResolving(): typeof fetch {
     })) as unknown as typeof fetch;
 }
 
+const DATA_URI = 'data:image/png;base64,AAAA';
+
 function makeClient() {
   return createApiClient({
     getAnonKey: () => ({ status: 'ready', key: 'test-key' }),
@@ -25,11 +29,16 @@ function makeClient() {
   });
 }
 
+const IMAGE_CALLS = [
+  { label: '캡처', run: (client: ReturnType<typeof makeClient>) => client.analyzeCapture(DATA_URI) },
+  { label: '영수증', run: (client: ReturnType<typeof makeClient>) => client.analyzeReceipt(DATA_URI) },
+];
+
 describe('요청별 제한 시간', () => {
-  it('캡처 분석은 전역 10초에 안 걸리고 30초까지 기다린다', async () => {
+  it.each(IMAGE_CALLS)('$label 분석은 전역 10초에 안 걸리고 30초까지 기다린다', async ({ run }) => {
     vi.useFakeTimers();
     const settled = vi.fn();
-    const call = makeClient().analyzeCapture('data:image/png;base64,AAAA').catch(settled);
+    const call = run(makeClient()).catch(settled);
 
     await vi.advanceTimersByTimeAsync(10_500);
     // 여기서 끊기면 사진을 읽던 요청이 전역 10초에 죽은 것이다.
