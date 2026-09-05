@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
 
 from app.domain.money import Money
-from app.domain.period import BudgetPeriod, same_day_window, week_of
+from app.domain.period import BudgetPeriod, same_day_window, week_to_date
 from app.domain.report import ROLLED_UP, UNCATEGORIZED, rank_breakdown
 
 
@@ -82,10 +82,30 @@ def test_같은_날짜까지_창(month: tuple[int, int], today: date, expected_e
     assert window.end == expected_end
 
 
-def test_주는_월요일에_시작해_일요일에_끝난다() -> None:
-    # 2026-09-05 는 토요일이다.
-    week = week_of(date(2026, 9, 5))
+@pytest.mark.parametrize(
+    ("day", "start", "days"),
+    [
+        # 2026-09-05 는 토요일. 월요일부터 오늘까지 엿새다. 일요일은 아직 안 왔다.
+        (date(2026, 9, 5), date(2026, 8, 31), 6),
+        # 월요일이면 하루짜리 창이다.
+        (date(2026, 8, 31), date(2026, 8, 31), 1),
+        # 일요일이면 비로소 이레다.
+        (date(2026, 9, 6), date(2026, 8, 31), 7),
+    ],
+)
+def test_주는_월요일부터_그_날까지다(day: date, start: date, days: int) -> None:
+    week = week_to_date(day)
 
-    assert week.start == date(2026, 8, 31)
-    assert week.end == date(2026, 9, 6)
-    assert week.total_days == 7
+    assert week.start == start
+    assert week.end == day
+    assert week.total_days == days
+
+
+def test_지난주는_이번_주와_요일_수가_같다() -> None:
+    # 이레 통째로 견주면 이번 주가 늘 줄어든 것처럼 보인다.
+    today = date(2026, 9, 5)
+    this_week = week_to_date(today)
+    last_week = week_to_date(today - timedelta(days=7))
+
+    assert this_week.total_days == last_week.total_days
+    assert last_week.end == date(2026, 8, 29)

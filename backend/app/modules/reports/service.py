@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.domain import aggregation as agg
 from app.domain.money import Money
-from app.domain.period import BudgetPeriod, same_day_window, week_of
+from app.domain.period import BudgetPeriod, same_day_window, week_to_date
 from app.domain.report import BreakdownRow, rank_breakdown
 from app.models import Transaction, User
 from app.modules import ledger
@@ -24,7 +24,7 @@ __all__ = ["MonthlyReport", "build_monthly"]
 # 추이 막대 개수. 조회한 달을 포함해 뒤로 여섯 달이다.
 TREND_MONTHS = 6
 
-_ONE_DAY = timedelta(days=1)
+_ONE_WEEK = timedelta(days=7)
 
 
 @dataclass(frozen=True)
@@ -116,11 +116,17 @@ def _compare_months(
 def _compare_weeks(
     session: Session, user: User, period: BudgetPeriod, today: date
 ) -> tuple[Window, Window] | None:
-    """이번 주와 지난주. 지난 달을 보고 있으면 "이번 주" 가 그 화면과 상관없어 안 만든다."""
+    """이번 주와 지난주를 **같은 요일까지** 견준다.
+
+    달 비교와 같은 이유로 자른다. 이번 주는 오늘까지밖에 안 지났는데 지난주를 이레 통째로
+    잡으면 늘 줄어든 것처럼 보인다. 두 창의 요일 수를 맞춘다.
+
+    조회한 달이 오늘이 속한 달이 아니면 "이번 주" 가 그 화면과 상관없어 안 만든다.
+    """
     if not period.contains(today):
         return None
-    this_week = week_of(today)
-    last_week = week_of(this_week.start - _ONE_DAY)
+    this_week = week_to_date(today)
+    last_week = week_to_date(today - _ONE_WEEK)
     totals = ledger.load_range_totals(session, user, [this_week, last_week])
     return (Window(this_week, totals[0].month_expense), Window(last_week, totals[1].month_expense))
 

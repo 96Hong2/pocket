@@ -8,6 +8,17 @@ import { TEST_IDS } from '../../shared/testIds';
  * 기록이 없는 달도 0 짜리 막대로 남는다. 빼면 막대가 밀려 다른 달로 읽힌다.
  * 그래서 서버가 늘 여섯 개를 보낸다.
  */
+/**
+ * 막대 높이(%).
+ *
+ * 음수를 그대로 넣으면 `height: -12%` 가 되어 브라우저가 통째로 무시한다. 그러면 그 달이
+ * 기록 없는 달과 똑같이 보인다. 0 으로 눕히되 음수라는 사실은 표시로 남긴다.
+ */
+function barPercent(value: number, peak: number): number {
+  if (peak <= 0 || value <= 0) return 0;
+  return Math.round((value / peak) * 100);
+}
+
 /** `2026-09` → `9월`. 여섯 칸에 들어가야 해서 연도를 뺀다. */
 function shortLabel(month: string): string {
   return `${Number(month.slice(5, 7))}월`;
@@ -44,7 +55,9 @@ export function TrendBars({
               data-month={month}
               data-current={month === currentMonth ? '' : undefined}
               // 가장 큰 달을 100% 로 둔다. 전부 0 이면 전부 바닥에 붙는다.
-              style={{ height: peak > 0 ? `${Math.round((value / peak) * 100)}%` : '0%' }}
+              style={{ height: `${barPercent(value, peak)}%` }}
+              // 환불이 지출보다 커서 음수인 달. 바닥에 붙지만 기록이 없는 달과는 다르다.
+              data-negative={value < 0 ? '' : undefined}
               aria-hidden
             />
             <span className="report__trend-label">{shortLabel(month)}</span>

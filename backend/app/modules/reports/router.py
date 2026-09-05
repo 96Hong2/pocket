@@ -12,6 +12,7 @@ from app.api.deps import CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES
 from app.api.months import MonthQuery
 from app.modules import ledger
+from app.modules.budgets import service as budgets
 from app.modules.budgets.schemas import to_budget_state
 from app.modules.reports import service
 from app.modules.reports.schemas import (
@@ -41,7 +42,9 @@ def monthly(session: DbSession, user: CurrentUser, period: MonthQuery) -> Monthl
         budget=to_budget_state(
             month,
             report.budget_status,
-            is_auto_carried=False,
+            # 상수로 박지 않는다. 리포트 조회 자체가 이어쓰기를 만들 수 있어
+            # 방금 만든 것을 아니라고 답하게 된다.
+            is_auto_carried=budgets.is_carried(session, user, month),
             today=today,
         ),
         expense_breakdown=to_breakdown(report.expense_rows),

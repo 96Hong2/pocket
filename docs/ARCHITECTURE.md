@@ -140,14 +140,14 @@ src/
   shared/     ui · toss · tokens · lib                     ← 있다
   shared/api  HTTP 클라이언트 · 생성 타입 · 쿼리 훅        ← 있다
   features/   home · quick-record · ads
-              transactions · budgets · imports             ← 있다
-              reports · assets · goals
+              transactions · budgets · imports · reports    ← 있다
+              assets · goals
               recovery · settings                          ← 폴더만 있고 비어 있다
 ```
 
-**`features/` 에는 지금 화면 여섯이 있다.** 홈(`home`), 기록 시트(`quick-record`),
+**`features/` 에는 지금 화면 일곱이 있다.** 홈(`home`), 기록 시트(`quick-record`),
 배너 슬롯(`ads`), 내역·달력·수정(`transactions`), 관리 탭 예산 섹션(`budgets`),
-줄글·캡처 검토(`imports`) 다.
+줄글·캡처·영수증 검토(`imports`), 월 리포트(`reports`) 다.
 `imports` 의 후보 검토 화면(`ImportReview`)은 줄글 탭과 캡처 탭이 **같은 컴포넌트를 쓴다.**
 복제해 두면 후보 줄 하나를 고칠 때마다 두 곳을 고쳐야 한다.
 나머지 화면은 아직 `pages/` 의 자리표시자다. feature 하나는 컴포넌트와 판정 함수, 그리고

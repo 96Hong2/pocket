@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
-__all__ = ["BudgetPeriod", "PeriodProgress", "same_day_window", "week_of"]
+__all__ = ["BudgetPeriod", "PeriodProgress", "same_day_window", "week_to_date"]
 
 
 @dataclass(frozen=True)
@@ -103,7 +103,12 @@ def same_day_window(period: BudgetPeriod, day: date) -> BudgetPeriod:
     )
 
 
-def week_of(day: date) -> BudgetPeriod:
-    """그 날이 속한 주. 월요일에 시작해 일요일에 끝난다."""
-    monday = day - timedelta(days=day.weekday())
-    return BudgetPeriod(monday, monday + timedelta(days=6))
+def week_to_date(day: date) -> BudgetPeriod:
+    """그 주 월요일부터 `day` 까지. 아직 안 지난 날은 안 센다.
+
+    주를 통째로(월~일) 잡으면 안 된다. 수요일에 보는 사람의 "이번 주" 는 사흘이고
+    "지난주" 는 이레라, 견주면 늘 줄어든 것처럼 보인다. `same_day_window` 와 같은 이유다.
+
+    지난주는 `week_to_date(day - 7일)` 로 만든다. 그러면 두 창의 요일 수가 같아진다.
+    """
+    return BudgetPeriod(day - timedelta(days=day.weekday()), day)

@@ -7,9 +7,10 @@ import {
   type CategoryOut,
   type PeriodComparisonOut,
 } from '../../shared/api';
-import { formatCurrency, formatShortDate } from '../../shared/lib/format';
+import { formatCurrency, formatMonthLabel, formatShortDate, toLedgerDate } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import {
+  Amount,
   Card,
   ErrorState,
   LoadingState,
@@ -32,20 +33,38 @@ const MODES: SegmentedOption<Mode>[] = [
   { value: 'income', label: '수입' },
 ];
 
-export function MonthlyReport({ month, onMonthChange }: { month: string; onMonthChange: (next: string) => void }) {
+export function MonthlyReport({
+  month,
+  onMonthChange,
+}: {
+  month: string;
+  onMonthChange: (next: string) => void;
+}) {
+  // 아직 오지 않은 달은 볼 수 없다. 가면 안 끝난 이번 달을 "지난달 전체" 로 견주는 거짓말이 나온다.
+  const thisMonth = toLedgerDate(new Date()).slice(0, 7);
   const [year, monthNumber] = month.split('-').map(Number);
   const report = useMonthlyReport({ year, month: monthNumber });
   const categories = useCategories();
   // 저장하는 취향이 아니라 그 화면에서 한 번 눌러 곁눈질하는 동작이다.
   const [mode, setMode] = useState<Mode>('expense');
 
-  if (report.isPending) return <LoadingState label="리포트를 불러오는 중이에요" />;
+  // 월 선택기는 어떤 상태에서도 남긴다. 지우면 오류 난 달에 갇혀 다른 달로 갈 수 없다.
+  const stepper = <MonthStepper value={month} onChange={onMonthChange} maxMonth={thisMonth} />;
+
+  if (report.isPending) {
+    return (
+      <div className="report">
+        {stepper}
+        <LoadingState label="리포트를 불러오는 중이에요" />
+      </div>
+    );
+  }
   if (report.isError || report.data == null) {
     return (
-      <ErrorState
-        title="리포트를 불러오지 못했어요"
-        onRetry={() => void report.refetch()}
-      />
+      <div className="report">
+        {stepper}
+        <ErrorState title="리포트를 불러오지 못했어요" onRetry={() => void report.refetch()} />
+      </div>
     );
   }
 
@@ -55,10 +74,12 @@ export function MonthlyReport({ month, onMonthChange }: { month: string; onMonth
   const sliceTotal = Number(income ? data.income_breakdown_total : data.expense_breakdown_total);
   const headline = Number(income ? data.month_income : data.month_expense);
   const byId = new Map((categories.data?.items ?? []).map((item) => [item.id, item]));
+  // 분류 목록을 못 받으면 모든 줄이 '분류 없음' 이 된다. 조용히 그러면 진짜 미분류와 못 가른다.
+  const namesUnknown = categories.isError;
 
   return (
     <div className="report">
-      <MonthStepper value={month} onChange={onMonthChange} />
+      {stepper}
 
       <SegmentedControl
         className="report__modes"
@@ -69,10 +90,16 @@ export function MonthlyReport({ month, onMonthChange }: { month: string; onMonth
       />
 
       <Card className="report__headline">
-        <p className="report__headline-label">{income ? '이번 달 번 돈' : '이번 달 쓴 돈'}</p>
-        <p className="report__headline-value" data-testid={TEST_IDS.reportTotal}>
-          {formatCurrency(headline)}
+        <p className="report__headline-label" data-testid={TEST_IDS.reportHeadlineLabel}>
+          {formatMonthLabel(month)}에 {income ? '번 돈' : '쓴 돈'}
         </p>
+        <Amount
+          className="report__headline-value"
+          value={headline}
+          tone={income ? 'income' : 'neutral'}
+          size={34}
+          data-testid={TEST_IDS.reportTotal}
+        />
         {!income ? <BudgetLine budget={data.budget} /> : null}
         {!income ? <ComparisonLine comparison={data.comparison} testId={TEST_IDS.reportComparison} /> : null}
         {!income ? <ComparisonLine comparison={data.weeks} testId={TEST_IDS.reportWeeks} weekly /> : null}
@@ -87,11 +114,18 @@ export function MonthlyReport({ month, onMonthChange }: { month: string; onMonth
 
       {rows.length > 0 ? (
         <Card>
+          {namesUnknown ? (
+            <p className="report__note" role="status">
+              분류 이름을 불러오지 못해 이름 자리가 비어 있어요
+            </p>
+          ) : null}
           <CategoryDonut rows={rows} />
-          {/* 조각 합이 총액과 다를 수 있다. 환불이 지출보다 큰 분류를 뺀 값이라서다. */}
+          {/* 환불이 지출보다 큰 분류는 합계가 음수라 호를 그릴 수 없어 목록에서 빠진다.
+              그래서 조각 합이 위 금액보다 크다. 이유를 안 적으면 둘 중 하나가 틀린 것처럼 보인다. */}
           {!income && sliceTotal !== headline ? (
             <p className="report__note">
-              환불을 빼기 전 기준이라 아래 합({formatCurrency(sliceTotal)})은 위 금액과 달라요
+              환불이 더 큰 분류는 목록에서 빠져요. 그래서 아래 합({formatCurrency(sliceTotal)})이 위
+              금액과 달라요
             </p>
           ) : null}
           <ul className="report__list">

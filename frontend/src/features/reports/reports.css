@@ -20,10 +20,9 @@
     color: var(--color-muted);
   }
 
+  /* 크기·굵기는 공용 Amount 가 정한다. 여기서는 자리만 잡는다. */
   .report__headline-value {
-    font-size: var(--text-28);
-    font-weight: 700;
-    color: var(--color-ink);
+    letter-spacing: -0.5px;
   }
 
   .report__meta {
@@ -123,6 +122,12 @@
   /* 보고 있는 달만 진하게. 어느 막대가 지금 화면인지 색으로 가른다. */
   .report__trend-bar[data-current] {
     background: var(--color-sage-700);
+  }
+
+  /* 환불이 지출보다 컸던 달. 높이로는 기록 없는 달과 못 가른다. */
+  .report__trend-bar[data-negative] {
+    min-height: 3px;
+    background: var(--color-amber-300);
   }
 
   .report__trend-label {

@@ -63,7 +63,9 @@ export const TEST_IDS = {
   /** 영수증 탭 패널. 같은 이유로 둔다. */
   receiptPanel: 'receipt-panel',
 
-  /** 리포트의 이번 달 총액 */
+  /** 리포트 헤드라인 라벨. 어느 달을 보고 있는지 여기에 적힌다. */
+  reportHeadlineLabel: 'report-headline-label',
+  /** 리포트의 그 달 총액 */
   reportTotal: 'report-total',
   /** 리포트 도넛. 조각 수를 세고 비어 있는지 본다. */
   reportDonut: 'report-donut',

@@ -38,10 +38,26 @@ export class ReportScreen {
   }
 
   async goPreviousMonth(): Promise<void> {
-    await this.root.getByRole('button', { name: /로 이동$/ }).first().click();
+    await this.monthButton('previous').click();
   }
 
-  /** 이번 달 쓴 돈(또는 번 돈). */
+  /** 다음 달 버튼. 이번 달에서는 눌리지 않아야 한다(아직 오지 않은 달이다). */
+  monthButton(direction: 'previous' | 'next'): Locator {
+    const buttons = this.root.getByRole('button', { name: /로 이동$/ });
+    return direction === 'previous' ? buttons.first() : buttons.last();
+  }
+
+  /** 월 선택기가 화면에 있나. 로딩·오류 중에도 남아야 다른 달로 갈 수 있다. */
+  get monthStepper(): Locator {
+    return this.root.getByRole('button', { name: /로 이동$/ });
+  }
+
+  /** 어느 달의 무엇인지 적는 줄. 지난달을 보면서 "이번 달" 이라고 하면 거짓이다. */
+  get headlineLabel(): Locator {
+    return this.root.getByTestId(TEST_IDS.reportHeadlineLabel);
+  }
+
+  /** 그 달 쓴 돈(또는 번 돈). */
   get total(): Locator {
     return this.root.getByTestId(TEST_IDS.reportTotal);
   }
