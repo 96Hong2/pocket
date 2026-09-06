@@ -258,4 +258,24 @@ test('저장 직후 금액을 고치면 홈 숫자가 함께 바뀐다', async (
     await expect(home.today.amount(formatCurrency(FIXED_AMOUNT))).toBeVisible();
     await expect(home.today.amount(formatCurrency(AMOUNT))).toHaveCount(0);
   });
+
+  await test.step("'한 번 더' 칩도 고친 금액을 들고 있다", async () => {
+    // 칩이 저장 시점 값을 들고 있으면, 고쳐 놓고도 다음번에 틀린 금액으로 다시 저장된다.
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await expect(recordSheet.input.repeatChip).toHaveText(
+      `한 번 더 · ${CATEGORY} ${formatCurrency(FIXED_AMOUNT)}`,
+    );
+
+    await recordSheet.input.repeatChip.click();
+    await recordSheet.feedback.waitSaved();
+    await recordSheet.feedback.confirmButton.click();
+    await recordSheet.waitClosed();
+
+    // 두 건 다 고친 금액이라야 한다. 남은 예산이 그 두 배만큼 줄어 있으면 맞다.
+    await expect(home.hero.remainingBudget).toHaveText(
+      formatCurrency(BUDGET - FIXED_AMOUNT * 2),
+    );
+    await expect(home.today.amount(formatCurrency(FIXED_AMOUNT))).toHaveCount(2);
+  });
 });
