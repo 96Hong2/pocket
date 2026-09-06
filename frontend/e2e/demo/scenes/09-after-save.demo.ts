@@ -58,26 +58,27 @@ test('14 저장한 뒤 카테고리 고치고 한 번 더로 반복하기', asyn
   await demo.step('다시 열면 한 번 더 칩이 떠 있다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  // 칩이 읽는 것은 저장 시점의 기록이다. 저장한 뒤 분류를 바꾼 것은 여기 반영되지 않아
-  // 칩에는 처음 고른 식비가 그대로 적힌다.
+  // 칩이 읽는 것은 고친 뒤의 기록이다. 방금 카페·간식으로 옮겼으니 칩도 그렇게 적힌다.
+  // 저장 시점 값을 들고 있으면, 고쳐 놓고도 다음번에 다시 틀린 분류로 저장된다.
   await expect(recordSheet.input.repeatChip).toHaveText(
-    `한 번 더 · ${FIRST_CATEGORY} ${formatCurrency(AMOUNT)}`,
+    `한 번 더 · ${MOVED_CATEGORY} ${formatCurrency(AMOUNT)}`,
   );
   await demo.beat(2);
 
   await demo.step('칩 하나로 금액·분류·저장이 한꺼번에 끝난다');
   await recordSheet.input.repeatChip.click();
   await recordSheet.feedback.waitSaved();
-  await expect(recordSheet.feedback.rowTitle(FIRST_CATEGORY)).toBeVisible();
+  await expect(recordSheet.feedback.rowTitle(MOVED_CATEGORY)).toBeVisible();
   // 키패드를 한 번도 누르지 않았는데 이번 달 지출이 한 건만큼 더 늘었다.
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(AMOUNT * 2));
   await demo.beat(2);
 
-  await demo.step('확인으로 닫으면 오늘 목록에 두 줄이 남는다');
+  await demo.step('확인으로 닫으면 오늘 목록에 카페·간식 두 줄이 남는다');
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
-  await expect(home.today.row(FIRST_CATEGORY)).toBeVisible();
-  await expect(home.today.row(MOVED_CATEGORY)).toBeVisible();
+  // 고친 분류가 칩까지 따라왔으므로 두 줄 다 카페·간식이고 식비는 한 줄도 안 남는다.
+  await expect(home.today.row(MOVED_CATEGORY)).toHaveCount(2);
+  await expect(home.today.row(FIRST_CATEGORY)).toHaveCount(0);
   await demo.clearStep();
   await demo.beat(3);
 });
