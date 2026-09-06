@@ -12,7 +12,10 @@ from app.domain.feedback import (
     ensure_no_forbidden_words,
     evaluate_feedback,
     find_forbidden_words,
+    first_projection_within_budget,
     large_expense_threshold,
+    no_spend_streak_evidence,
+    weekly_decrease_evidence,
 )
 from app.domain.money import won
 from app.domain.period import BudgetPeriod
@@ -140,6 +143,73 @@ def test_큰_지출_기준은_3만원_중앙값_3배_예산_10프로_중_가장_
     assert large_expense_threshold(
         budget_amount=won(600_000), category_median_90d=won(40_000)
     ) == won(120_000)
+
+    # 셋 다 있을 때 어느 하나가 가장 크든 그것이 골라진다
+    assert large_expense_threshold(
+        budget_amount=won(200_000), category_median_90d=won(5_000)
+    ) == won(30_000)
+    assert large_expense_threshold(
+        budget_amount=won(3_000_000), category_median_90d=won(40_000)
+    ) == won(300_000)
+
+
+def test_지난주보다_줄었을_때만_주간_감소_성취다():
+    evidence = weekly_decrease_evidence(this_week=won(15_000), last_week=won(50_000))
+    assert evidence is not None
+    assert evidence.kind is AchievementKind.WEEKLY_DECREASE
+    assert evidence.decreased_amount == won(35_000)
+
+    # 늘었거나 그대로면 성취가 아니다
+    assert weekly_decrease_evidence(this_week=won(50_000), last_week=won(15_000)) is None
+    assert weekly_decrease_evidence(this_week=won(15_000), last_week=won(15_000)) is None
+    # 지난주가 0원이면 견줄 것이 없다
+    assert weekly_decrease_evidence(this_week=won(0), last_week=won(0)) is None
+    # 카테고리가 없는 거래는 주간 비교 자체를 못 한다
+    assert weekly_decrease_evidence(this_week=None, last_week=None) is None
+
+
+def test_무지출일이_이틀_이어져야_성취다():
+    assert no_spend_streak_evidence(1) is None
+    evidence = no_spend_streak_evidence(2)
+    assert evidence is not None
+    assert evidence.kind is AchievementKind.NO_SPEND_STREAK
+    assert evidence.no_spend_days == 2
+    assert no_spend_streak_evidence(5).no_spend_days == 5
+
+
+def test_월말_예상이_예산_아래인_날이_앞에_있으면_처음이_아니다():
+    budget = won(300_000)
+    evidence = first_projection_within_budget(
+        today_projected=won(297_000),
+        budget_amount=budget,
+        earlier_projected=[won(950_000), won(316_667)],
+    )
+    assert evidence is not None
+    assert evidence.kind is AchievementKind.PROJECTED_WITHIN_BUDGET
+
+    # 지난 날 중 하나가 이미 예산 이하였으면 오늘이 처음이 아니다
+    assert (
+        first_projection_within_budget(
+            today_projected=won(297_000),
+            budget_amount=budget,
+            earlier_projected=[won(950_000), won(280_000)],
+        )
+        is None
+    )
+    # 오늘이 예산을 넘으면 내려온 것이 아니다
+    assert (
+        first_projection_within_budget(
+            today_projected=won(320_000), budget_amount=budget, earlier_projected=[]
+        )
+        is None
+    )
+    # 예산이 없으면 견줄 기준이 없다
+    assert (
+        first_projection_within_budget(
+            today_projected=won(297_000), budget_amount=None, earlier_projected=[]
+        )
+        is None
+    )
 
 
 def test_지출이_아니면_큰_지출로_보지_않는다():

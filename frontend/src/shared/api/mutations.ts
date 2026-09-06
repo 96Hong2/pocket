@@ -99,7 +99,10 @@ export function useUpdateTransaction(params?: MonthParams) {
       client.updateTransaction(input.id, input.body),
     onSuccess: (updated) => {
       writeBudgetState(queryClient, updated.budget, params);
-      return invalidateMoney(queryClient);
+      // 저장 경로와 같다. 무효화를 기다리면 그동안 버튼이 잠기고 옛 금액이 남아,
+      // 그 왕복이 8초 되돌리기 창을 그대로 갉아먹는다.
+      // 패널이 보여주는 금액·판정·예산은 수정 응답과 바로 위 캐시 쓰기에서 온다.
+      void invalidateMoney(queryClient);
     },
   });
 }
@@ -235,7 +238,7 @@ export function useUpdateCategory() {
  * 카테고리 지우기.
  *
  * 서버가 그 카테고리에 딸린 한도와 기억한 분류까지 함께 지운다. 세 캐시가 같이 낡으므로
- * 셋 다 무효화한다. 기억한 분류를 빼먹으면 관리 탭에 이미 없는 규칙 줄이 남고,
+ * 셋 다 무효화한다. 기억한 분류를 빼먹으면 카테고리 관리에 이미 없는 규칙 줄이 남고,
  * 그 줄의 지우기가 서버에 없는 것을 지우려 든다.
  */
 export function useDeleteCategory() {

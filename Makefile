@@ -5,8 +5,9 @@
 DEV_DATABASE_URL ?= postgresql+psycopg://pocket:pocket@localhost:5434/pocket
 E2E_DATABASE_URL ?= postgresql+psycopg://pocket:pocket@localhost:5434/pocket_e2e
 
-.PHONY: dev-front dev-back test lint check e2e \
-        docker-check db-up db-down db-reset db-psql migrate-dev migrate-e2e migrate
+.PHONY: dev-front dev-back test lint check e2e e2e-edge \
+        docker-check db-up db-down db-reset db-psql migrate-dev migrate-e2e migrate \
+        image image-run ait serve-public
 
 ## ── 개발 서버 ───────────────────────────────────
 
@@ -70,3 +71,36 @@ check: lint test
 # e2e 는 자기 포트와 pocket_e2e DB 를 쓴다. 개발 스택(5173·8000·pocket)과 겹치지 않는다.
 e2e: migrate-e2e
 	cd frontend && npm run e2e
+
+# 엣지케이스는 기본 검증에 안 섞는다. 출시 전과 크게 고친 뒤에만 돌린다.
+# 같은 포트를 쓰므로 위 e2e 와 동시에 돌릴 수 없다.
+e2e-edge: migrate-e2e
+	cd frontend && npm run e2e:edge
+
+## ── 운영 이미지 ─────────────────────────────────
+
+# 빌드 맥락은 backend/ 다. Dockerfile 은 그 밖에 있어 -f 로 가리킨다.
+image: docker-check
+	docker build -f docker/backend/Dockerfile -t pocket-backend:local backend
+
+# 만든 이미지를 로컬 DB 에 붙여 한 번 띄워 본다. Cloud Run 에 올리기 전 마지막 확인이다.
+# host.docker.internal 은 컨테이너 안에서 이 맥을 가리킨다.
+image-run: image db-up
+	docker run --rm -p 8080:8080 \
+		-e ENVIRONMENT=local \
+		-e ALLOW_UNVERIFIED_ANON_KEY=true \
+		-e DATABASE_URL='postgresql+psycopg://pocket:pocket@host.docker.internal:5434/pocket' \
+		pocket-backend:local
+
+## ── 실기기 테스트 ───────────────────────────────
+
+# 콘솔에 올릴 번들. API_BASE_URL 을 안 주면 빌드는 되지만 실기기에서 아무것도 못 부른다.
+# 운영 번들은 https 만 받는다(frontend/src/shared/api/baseUrl.ts).
+ait:
+	@test -n "$(API_BASE_URL)" || { echo "API_BASE_URL 이 필요하다. 예: make ait API_BASE_URL=https://..."; exit 1; }
+	cd frontend && VITE_API_BASE_URL='$(API_BASE_URL)' npm run build
+	@echo "frontend/pocket.ait 를 콘솔에 올린다."
+
+# 운영 서버가 서기 전까지 쓰는 임시 공개 주소. 자세한 것은 스크립트 맨 위 주석.
+serve-public:
+	./scripts/serve-public.sh

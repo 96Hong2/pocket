@@ -378,6 +378,11 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AchievementKind
+         * @enum {string}
+         */
+        AchievementKind: "weekly_decrease" | "no_spend_streak" | "projected_within_budget";
+        /**
          * BreakdownRowOut
          * @description 도넛 조각 하나이자 목록 한 줄. 둘이 같은 목록을 써야 순서가 안 어긋난다.
          */
@@ -618,6 +623,11 @@ export interface components {
             category_budget_amount?: string | null;
             /** Large Expense Threshold */
             large_expense_threshold?: string | null;
+            achievement_kind?: components["schemas"]["AchievementKind"] | null;
+            /** Achievement Decreased Amount */
+            achievement_decreased_amount?: string | null;
+            /** Achievement No Spend Days */
+            achievement_no_spend_days?: number | null;
         };
         /**
          * HomeHero
@@ -860,6 +870,7 @@ export interface components {
             /** Budget Auto Carryover */
             budget_auto_carryover: boolean;
             home_hero: components["schemas"]["HomeHero"];
+            last_record_method: components["schemas"]["RecordMethod"] | null;
         };
         /**
          * PreferencesPatch
@@ -874,6 +885,11 @@ export interface components {
             budget_auto_carryover?: boolean | null;
             home_hero?: components["schemas"]["HomeHero"] | null;
         };
+        /**
+         * RecordMethod
+         * @enum {string}
+         */
+        RecordMethod: "keypad" | "nl" | "screenshot" | "receipt";
         /**
          * RecoveryProgressOut
          * @description 최근 며칠 중 며칠 기록했나. 며칠 만에 돌아온 사람에게 보여줄 복구 카드가 쓴다.

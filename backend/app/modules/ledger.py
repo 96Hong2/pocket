@@ -12,27 +12,39 @@
 from __future__ import annotations
 
 import logging
+import statistics
+import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.domain import aggregation as agg, recovery
+from app.domain.feedback import (
+    LARGE_EXPENSE_MEDIAN_WINDOW_DAYS,
+    NO_SPEND_STREAK_WINDOW_DAYS,
+)
 from app.domain.money import Money
-from app.domain.period import BudgetPeriod
+from app.domain.period import BudgetPeriod, week_to_date
 from app.models import Transaction, User
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
     "DEFAULT_TIMEZONE",
+    "AchievementFacts",
     "as_utc",
     "day_bounds",
     "days_since",
     "days_since_last_transaction",
     "last_transaction_date",
+    "load_achievement_facts",
+    "load_category_expense_median",
+    "load_daily_budgeted_spend",
     "load_day_totals",
     "load_period_totals",
     "load_range_totals",
@@ -46,6 +58,7 @@ __all__ = [
 ]
 
 DEFAULT_TIMEZONE = "Asia/Seoul"
+_ONE_WEEK = timedelta(days=7)
 
 
 def user_tz(user: User) -> ZoneInfo:
@@ -203,3 +216,135 @@ def load_recovery_progress(session: Session, user: User, today: date) -> recover
     window = recovery.recovery_window(today)
     rows = period_transactions(session, user, window)
     return recovery.build_progress([_to_domain(t, tz) for t in rows], window)
+
+
+def load_category_expense_median(
+    session: Session,
+    user: User,
+    *,
+    category_id: uuid.UUID,
+    today: date,
+    exclude_transaction_id: uuid.UUID | None = None,
+) -> Money | None:
+    """그 카테고리에서 평소 한 번에 얼마 쓰는지. 최근 90일 지출 금액의 중앙값.
+
+    평균이 아니라 중앙값인 이유는 한 번의 큰 결제에 끌려가지 않기 위해서다.
+    환불은 되돌린 지출에서 빼서 실제로 나간 돈만 표본에 남기고, 이체와 수입은 지출이 아니라
+    세지 않는다. 예산에서 뺀 지출은 센다. 여기서 재는 것은 예산이 아니라 씀씀이다.
+
+    지금 판정하는 거래는 표본에서 뺀다. 그것까지 넣으면 그 카테고리 첫 지출이 스스로를
+    기준으로 삼아 어떤 금액도 큰 지출이 되지 않는다.
+    """
+    window = BudgetPeriod(today - timedelta(days=LARGE_EXPENSE_MEDIAN_WINDOW_DAYS - 1), today)
+    start, end = period_bounds(window, user_tz(user))
+    stmt = select(
+        Transaction.id,
+        Transaction.amount,
+        Transaction.type,
+        Transaction.refund_of_transaction_id,
+    ).where(
+        Transaction.user_id == user.id,
+        Transaction.category_id == category_id,
+        Transaction.deleted_at.is_(None),
+        Transaction.occurred_at >= start,
+        Transaction.occurred_at < end,
+    )
+    if exclude_transaction_id is not None:
+        stmt = stmt.where(Transaction.id != exclude_transaction_id)
+
+    paid: dict[uuid.UUID, Decimal] = {}
+    refunds: list[tuple[uuid.UUID | None, Decimal]] = []
+    for row in session.execute(stmt):
+        if row.type is agg.TransactionType.EXPENSE:
+            paid[row.id] = row.amount
+        elif row.type is agg.TransactionType.REFUND:
+            refunds.append((row.refund_of_transaction_id, row.amount))
+    for target_id, amount in refunds:
+        if target_id in paid:
+            paid[target_id] -= amount
+
+    # 통째로 되돌린 지출은 나간 돈이 없으니 표본이 아니다.
+    sample = [value for value in paid.values() if value > 0]
+    return Money(statistics.median(sample)) if sample else None
+
+
+@dataclass(frozen=True)
+class AchievementFacts:
+    """성취 근거를 판정할 재료. 판정은 `app.domain.feedback` 이 한다.
+
+    카테고리가 없는 거래는 주간 비교를 할 수 없어 두 주간 값이 None 이다.
+    """
+
+    this_week_category_spend: Money | None
+    last_week_category_spend: Money | None
+    no_spend_streak_days: int
+
+
+def load_achievement_facts(
+    session: Session, user: User, today: date, *, category_id: uuid.UUID | None
+) -> AchievementFacts:
+    """주간 비교와 무지출 연속을 한 번의 조회로 읽는다.
+
+    저장 응답에 붙는 조회라 왕복을 늘리지 않는다. 두 창을 합친 구간을 한 번 읽고 각각 접는다.
+    주 비교는 `week_to_date` 로 같은 요일까지만 견준다. 지난주를 이레 통째로 잡으면
+    이번 주가 아직 안 지나서 늘 줄어든 것처럼 보인다.
+    """
+    tz = user_tz(user)
+    this_week = week_to_date(today)
+    last_week = week_to_date(today - _ONE_WEEK)
+    streak_window = BudgetPeriod(today - timedelta(days=NO_SPEND_STREAK_WINDOW_DAYS - 1), today)
+    start = streak_window.start
+    if category_id is not None:
+        start = min(start, last_week.start)
+
+    rows = [
+        _to_domain(t, tz) for t in period_transactions(session, user, BudgetPeriod(start, today))
+    ]
+
+    this_spend = last_spend = None
+    if category_id is not None:
+        key = str(category_id)
+        this_spend = agg.aggregate_period(rows, this_week).category_spend.get(key, Money.zero())
+        last_spend = agg.aggregate_period(rows, last_week).category_spend.get(key, Money.zero())
+
+    return AchievementFacts(
+        this_week_category_spend=this_spend,
+        last_week_category_spend=last_spend,
+        no_spend_streak_days=_no_spend_streak(rows, streak_window, today),
+    )
+
+
+def _no_spend_streak(
+    rows: Sequence[agg.TransactionInput], window: BudgetPeriod, today: date
+) -> int:
+    """오늘부터 거슬러 올라간 연속 무지출일 수.
+
+    무지출일은 그 날 기록이 있는데 지출이 없는 날이다. 기록이 아예 없는 날은 세지 않는다.
+    안 쓴 것과 안 적은 것은 다르고, 안 적은 날을 칭찬하면 근거 없는 칭찬이 된다.
+    오늘이 무지출일이 아니면 0 이다. 방금 쓴 것을 적은 사람에게 이어졌다고 말하지 않는다.
+    """
+    spend = {total.day: total.expense for total in agg.aggregate_days(rows, window)}
+    recorded = {r.occurred_on for r in rows if not r.is_deleted and window.contains(r.occurred_on)}
+
+    streak = 0
+    day = today
+    while day in recorded and not spend.get(day, Money.zero()).is_positive:
+        streak += 1
+        day -= timedelta(days=1)
+    return streak
+
+
+def load_daily_budgeted_spend(
+    session: Session, user: User, period: BudgetPeriod, through: date
+) -> list[tuple[date, Money]]:
+    """기간 시작부터 하루씩 늘려 가며 접은 예산 반영 지출.
+
+    지난 날의 월말 예상을 다시 세우려면 그 날까지의 누적이 필요하다.
+    조회는 한 번만 하고 접는 일만 날짜 수만큼 한다.
+    """
+    last = min(through, period.end)
+    if last < period.start:
+        return []
+    days = [period.start + timedelta(days=i) for i in range((last - period.start).days + 1)]
+    totals = load_range_totals(session, user, [BudgetPeriod(period.start, day) for day in days])
+    return [(day, total.budgeted_spend) for day, total in zip(days, totals, strict=True)]

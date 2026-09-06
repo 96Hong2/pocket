@@ -77,7 +77,10 @@ make dev-back                      # http://localhost:8000, DB 는 pocket
 make check     # 린트 · 타입 · 테스트 · 빌드 전부
 make test      # 테스트만
 make e2e       # 브라우저. DB 스키마를 올리고 자기 포트로 서버를 띄운다
+make e2e-edge  # 가장자리만. 경계값·실패 주입·심사 항목. 출시 전과 크게 고친 뒤에만
 ```
+
+`make e2e-edge` 는 매번 돌리지 않는다. `make e2e` 와 같은 포트를 쓰므로 **함께 돌릴 수 없다.**
 
 `make e2e` 는 서버를 직접 띄운다. 이미 5183·8100 이 물려 있으면 남의 서버를 주워 쓰지 않고 그 자리에서 실패한다.
 그때는 그 포트를 먼저 비운다. e2e 규약과 새 spec 을 만드는 순서는 [frontend/e2e/README.md](frontend/e2e/README.md) 에 있다.
@@ -110,6 +113,18 @@ make e2e       # 브라우저. DB 스키마를 올리고 자기 포트로 서버
 
 셋 다 어댑터와 설정 자리는 있다. [docs/SECRETS.md](docs/SECRETS.md) 참고.
 
-## 아직 만들지 않은 것
+## 배포
 
-- 백엔드 컨테이너와 Cloud Run 배포 설정 (`compose.yaml` 은 로컬 DB 전용이라 배포와 무관하다)
+운영 이미지는 `docker/backend/Dockerfile` 이고 순서는 [docs/DEPLOY.md](docs/DEPLOY.md) 에 있다.
+`compose.yaml` 은 로컬 DB 전용이라 배포와 무관하다.
+
+운영 서버가 서기 전까지 실기기 테스트는 임시 공개 주소로 한다.
+⚠ **그 서버는 익명 식별키를 검증하지 않는다**(인증서가 아직 없다). 주소를 아는 사람은
+아무 키나 보내 남의 기록을 볼 수 있다. **테스트가 끝나면 끈다.** 자세한 것은 `docs/SECRETS.md` §3.
+
+```bash
+make serve-public                       # 백엔드를 잠깐 공개 주소로 연다
+make ait API_BASE_URL=https://...       # 그 주소를 넣어 pocket.ait 를 만든다
+```
+
+콘솔에 올릴 것(로고·스크린샷·문안)은 [docs/store/](docs/store/) 에 있다.

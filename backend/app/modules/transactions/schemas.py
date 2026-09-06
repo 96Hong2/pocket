@@ -19,7 +19,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 from app.api.amounts import MAX_AMOUNT, integral_won, ratio_out
 from app.api.months import MAX_YEAR, MIN_YEAR
 from app.domain.aggregation import TransactionSource, TransactionType
-from app.domain.feedback import FeedbackKind, FeedbackResult
+from app.domain.feedback import AchievementKind, FeedbackKind, FeedbackResult
 from app.domain.money import Money
 from app.modules import ledger
 from app.modules.budgets.schemas import BudgetStateOut
@@ -179,6 +179,11 @@ class FeedbackOut(BaseModel):
     category_spend: Decimal | None = None
     category_budget_amount: Decimal | None = None
     large_expense_threshold: Decimal | None = None
+    # 성취일 때 무엇을 보고 그렇게 판정했는지. 셋이 다른 사실이라 문장도 달라야 한다.
+    # 종류를 안 주면 화면이 셋에 같은 말을 쓰고, 그러면 근거 없는 칭찬과 구분되지 않는다.
+    achievement_kind: AchievementKind | None = None
+    achievement_decreased_amount: Decimal | None = None
+    achievement_no_spend_days: int | None = None
 
 
 class TransactionCreated(BaseModel):
@@ -233,4 +238,11 @@ def to_feedback(result: FeedbackResult) -> FeedbackOut:
         category_spend=_amount(result.category_spend),
         category_budget_amount=_amount(result.category_budget_amount),
         large_expense_threshold=_amount(result.large_expense_threshold),
+        achievement_kind=result.achievement.kind if result.achievement else None,
+        achievement_decreased_amount=(
+            _amount(result.achievement.decreased_amount) if result.achievement else None
+        ),
+        achievement_no_spend_days=(
+            result.achievement.no_spend_days if result.achievement else None
+        ),
     )

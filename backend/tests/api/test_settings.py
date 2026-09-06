@@ -68,3 +68,55 @@ def test_홈_표시_방식에_null_을_보내면_지금_값을_그대로_둔다(
 
     assert kept.status_code == 200, kept.text
     assert kept.json()["home_hero"] == "income_expense"
+
+
+def _save(client: TestClient, source: str, *, amount: str = "12000") -> None:
+    body = {
+        "occurred_at": "2026-09-15T12:30:00+09:00",
+        "amount": amount,
+        "type": "expense",
+        "merchant": "테스트 가게",
+        "source": source,
+    }
+    if source == "no_spend":
+        body |= {"amount": "0", "merchant": None}
+    res = client.post("/api/v1/transactions", json=body, headers=AUTH)
+    assert res.status_code == 201, res.text
+
+
+def _method(client: TestClient) -> str | None:
+    return client.get(PREFERENCES, headers=AUTH).json()["last_record_method"]
+
+
+def test_한_번도_안_적었으면_마지막_방식이_없다(client: TestClient) -> None:
+    """없으면 화면이 키패드로 연다. 기본값을 서버가 정하면 그 판단이 두 곳으로 갈린다."""
+    assert _method(client) is None
+
+
+def test_저장한_방식이_그대로_남는다(client: TestClient) -> None:
+    for source in ("nl", "screenshot", "receipt", "keypad"):
+        _save(client, source)
+        assert _method(client) == source
+
+
+def test_시트에_탭이_없는_방식은_기억하지_않는다(client: TestClient) -> None:
+    """자산 캡처와 무지출일은 기록 시트에서 오지 않는다.
+
+    기억해 두면 다음번에 열 수 없는 탭을 가리켜 시트가 빈 채로 열린다.
+    """
+    _save(client, "nl")
+    _save(client, "no_spend")
+
+    assert _method(client) == "nl"
+
+
+def test_마지막_방식은_화면이_고칠_수_없다(client: TestClient) -> None:
+    """사용자가 고르는 값이 아니라 저장할 때 서버가 남기는 흔적이다.
+
+    화면이 쓸 수 있으면 실제로 쓴 방식과 어긋난 값이 들어올 자리가 생긴다.
+    """
+    _save(client, "nl")
+    res = client.patch(PREFERENCES, json={"last_record_method": "receipt"}, headers=AUTH)
+
+    assert res.status_code == 200, res.text
+    assert _method(client) == "nl"

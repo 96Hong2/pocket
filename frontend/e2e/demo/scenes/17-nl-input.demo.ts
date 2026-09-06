@@ -155,7 +155,7 @@ test('38 고른 것만 한 번에 저장한다', async ({ calendar, demo, home, 
   await demo.beat(2);
 });
 
-test('39 한 번 고친 분류를 기억한다', async ({ demo, home, manage, recordSheet }) => {
+test('39 한 번 고친 분류를 기억한다', async ({ categories, demo, home, recordSheet }) => {
   await home.open();
   await home.waitReady();
   await demo.open('기억한 분류', '한 번 고치면 다음부터 그 분류가 먼저다');
@@ -183,17 +183,17 @@ test('39 한 번 고친 분류를 기억한다', async ({ demo, home, manage, re
   await expect(recordSheet.nl.row('올리브영')).toContainText('생활');
   await demo.beat(3);
 
-  await demo.step('관리 탭에 기억한 분류가 쌓인다');
+  await demo.step('카테고리 관리에 기억한 분류가 쌓인다');
   await recordSheet.closeButton.click();
   await recordSheet.waitClosed();
-  await manage.open();
-  await manage.waitReady();
-  await expect(manage.rules.row('올리브영')).toContainText('생활');
+  await categories.open();
+  await categories.waitReady();
+  await expect(categories.rules.row('올리브영')).toContainText('생활');
   await demo.beat(3);
 
   await demo.step('지우면 다시 처음부터 판단한다');
-  await manage.rules.remove('올리브영');
-  await expect(manage.rules.emptyTitle).toBeVisible();
+  await categories.rules.remove('올리브영');
+  await expect(categories.rules.emptyTitle).toBeVisible();
   await demo.beat(3);
 
   await demo.clearStep();

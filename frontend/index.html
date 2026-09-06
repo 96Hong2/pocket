@@ -3,8 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/icons/sm/32_piggybank.png" />
-    <!-- viewport-fit=cover 가 있어야 iOS 웹뷰가 env(safe-area-inset-*) 에 실제 값을 준다. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--
+      viewport-fit=cover 가 있어야 iOS 웹뷰가 env(safe-area-inset-*) 에 실제 값을 준다.
+      두 손가락 확대는 끈다. 지도처럼 확대가 꼭 필요한 화면이 없는데 켜 두면
+      탭바와 시트가 밀려 나가고, 앱인토스 출시 점검표가 비활성화를 요구한다.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <title>10초 가계부</title>
   </head>
   <body>

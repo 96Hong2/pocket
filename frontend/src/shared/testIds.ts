@@ -29,7 +29,12 @@ export const TEST_IDS = {
   homeHeroPreview: 'home-hero-preview',
   /** 홈의 광고 자리. 채울 광고가 없으면 높이가 0 이어야 한다. */
   adSlot: 'ad-slot',
-  /** 기록 시트에서 지금 눌러 둔 금액 */
+  /**
+   * 기록 시트에서 지금 눌러 둔 금액.
+   *
+   * 저장 전 키패드와 저장 뒤 금액 고치기가 같은 자리를 쓴다. 두 얼굴은 함께 그려지지 않아
+   * 한 화면에 하나뿐이다.
+   */
   recordAmount: 'record-amount',
   /** 금액 아래에서 다음에 무엇을 하면 되는지 알려 주는 한 줄 */
   recordHint: 'record-hint',
@@ -99,7 +104,7 @@ export const TEST_IDS = {
   nlCandidateAmount: 'nl-candidate-amount',
   /** 후보 한 줄의 날짜 */
   nlCandidateDate: 'nl-candidate-date',
-  /** 관리 탭에서 기억한 분류 한 줄 */
+  /** 카테고리 관리에서 기억한 분류 한 줄 */
   merchantRuleRow: 'merchant-rule-row',
   /** 저장 직후 피드백 한 줄 */
   feedbackHeadline: 'feedback-headline',

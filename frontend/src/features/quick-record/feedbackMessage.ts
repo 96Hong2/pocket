@@ -107,6 +107,29 @@ function largeExpense(feedback: FeedbackOut): FeedbackMessage {
   };
 }
 
+/**
+ * 성취 한 줄.
+ *
+ * 서버가 **무엇을 보고 성취라고 했는지**를 함께 준다. 셋이 서로 다른 사실이라
+ * 같은 문장을 쓰면 근거 없는 칭찬과 구분되지 않는다. 근거를 안 주면 아무 말도 안 한다.
+ */
+function achievementHeadline(feedback: FeedbackOut): string | null {
+  switch (feedback.achievement_kind) {
+    case 'weekly_decrease': {
+      const less = won(feedback.achievement_decreased_amount);
+      return less ? `지난주 같은 기간보다 ${less} 덜 썼어요.` : '지난주 같은 기간보다 덜 썼어요.';
+    }
+    case 'no_spend_streak': {
+      const days = feedback.achievement_no_spend_days;
+      return days != null && days > 0 ? `${days}일 연속 안 쓴 날이에요.` : null;
+    }
+    case 'projected_within_budget':
+      return '이 속도면 이번 달 예산 안에서 끝나요.';
+    default:
+      return null;
+  }
+}
+
 function achievement(feedback: FeedbackOut): FeedbackMessage {
   const remaining = won(feedback.remaining_budget);
   const month = won(feedback.month_expense);
@@ -115,12 +138,11 @@ function achievement(feedback: FeedbackOut): FeedbackMessage {
   if (remaining) detail = `이번 달 남은 예산은 ${remaining}이에요.`;
   else if (month) detail = `이번 달 쓴 돈은 ${month}이에요.`;
 
-  return {
-    badge: '잘 하고 있어요',
-    tone: 'calm',
-    headline: '계획대로 잘 가고 있어요.',
-    detail,
-  };
+  // 근거가 안 실려 오면 성취라고 말하지 않는다. 그때는 사실만 남긴다.
+  const headline = achievementHeadline(feedback);
+  if (headline == null) return { tone: 'calm', headline: detail ?? '저장했어요.' };
+
+  return { badge: '잘 하고 있어요', tone: 'calm', headline, detail };
 }
 
 function onTrack(feedback: FeedbackOut): FeedbackMessage {

@@ -29,5 +29,7 @@ dist-ssr
 # 테스트 산출물
 coverage
 playwright-report
+# 엣지케이스 스위트는 보고서를 따로 낸다(playwright.edge.config.ts).
+playwright-report-edge
 test-results
 .ait

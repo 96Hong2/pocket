@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
@@ -21,6 +22,9 @@ __all__ = [
     "LARGE_EXPENSE_BUDGET_RATE",
     "LARGE_EXPENSE_FLOOR",
     "LARGE_EXPENSE_MEDIAN_MULTIPLIER",
+    "LARGE_EXPENSE_MEDIAN_WINDOW_DAYS",
+    "NO_SPEND_STREAK_DAYS",
+    "NO_SPEND_STREAK_WINDOW_DAYS",
     "PACE_WARNING_RATIO",
     "AchievementEvidence",
     "AchievementKind",
@@ -31,7 +35,10 @@ __all__ = [
     "ensure_no_forbidden_words",
     "evaluate_feedback",
     "find_forbidden_words",
+    "first_projection_within_budget",
     "large_expense_threshold",
+    "no_spend_streak_evidence",
+    "weekly_decrease_evidence",
 ]
 
 PACE_WARNING_RATIO = Decimal("1.2")
@@ -39,6 +46,13 @@ MIN_PACE_ELAPSED_DAYS = 3
 LARGE_EXPENSE_FLOOR = 30_000
 LARGE_EXPENSE_MEDIAN_MULTIPLIER = 3
 LARGE_EXPENSE_BUDGET_RATE = Decimal("0.10")
+# 평소 씀씀이를 재는 창. 짧으면 표본이 모자라고 길면 계절이 섞인다.
+LARGE_EXPENSE_MEDIAN_WINDOW_DAYS = 90
+
+# 무지출일이 이 일수만큼 이어지면 성취로 본다.
+NO_SPEND_STREAK_DAYS = 2
+# 연속을 거슬러 세는 상한. 저장 응답에 붙는 조회라 무한정 거슬러 올라가지 않는다.
+NO_SPEND_STREAK_WINDOW_DAYS = 7
 
 # 사용자를 탓하는 말은 쓰지 않는다.
 FORBIDDEN_WORDS: tuple[str, ...] = ("과소비", "낭비", "실패", "벌써", "또", "망함")
@@ -118,6 +132,47 @@ def large_expense_threshold(
     if budget_amount is not None and budget_amount.is_positive:
         candidates.append(budget_amount.scale(LARGE_EXPENSE_BUDGET_RATE))
     return max(candidates)
+
+
+def weekly_decrease_evidence(
+    *, this_week: Money | None, last_week: Money | None
+) -> AchievementEvidence | None:
+    """이번 주 그 카테고리 지출이 지난주 같은 요일까지보다 줄었나.
+
+    지난주가 0원이면 견줄 것이 없다. "0원보다 줄었다" 는 말이 안 되고, 그 카테고리를
+    처음 쓰는 사람에게 줄었다고 말하게 된다.
+    """
+    if this_week is None or last_week is None or not last_week.is_positive:
+        return None
+    decreased = last_week - this_week
+    if not decreased.is_positive:
+        return None
+    return AchievementEvidence(kind=AchievementKind.WEEKLY_DECREASE, decreased_amount=decreased)
+
+
+def no_spend_streak_evidence(streak_days: int) -> AchievementEvidence | None:
+    """무지출일이 이틀 이상 이어졌나."""
+    if streak_days < NO_SPEND_STREAK_DAYS:
+        return None
+    return AchievementEvidence(kind=AchievementKind.NO_SPEND_STREAK, no_spend_days=streak_days)
+
+
+def first_projection_within_budget(
+    *,
+    today_projected: Money,
+    budget_amount: Money | None,
+    earlier_projected: Sequence[Money],
+) -> AchievementEvidence | None:
+    """월말 예상이 이번 달 들어 처음으로 예산 이하로 내려왔나.
+
+    `earlier_projected` 는 이번 달 지난 날들의 월말 예상이다. 그중 하나라도 예산 이하였으면
+    오늘이 처음이 아니다. 같은 말을 달마다 여러 번 하면 근거 없는 칭찬과 다르지 않게 된다.
+    """
+    if budget_amount is None or today_projected > budget_amount:
+        return None
+    if any(projected <= budget_amount for projected in earlier_projected):
+        return None
+    return AchievementEvidence(kind=AchievementKind.PROJECTED_WITHIN_BUDGET)
 
 
 def evaluate_feedback(data: FeedbackInput) -> FeedbackResult:

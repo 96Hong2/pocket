@@ -14,7 +14,8 @@ import { E2E_SERVERS } from './e2e/support/servers';
 export default defineConfig({
   testDir: './e2e',
   // 데모 녹화는 검증이 아니라 산출물 만들기다. 여기서 같이 돌면 CI 가 영상까지 찍는다.
-  testIgnore: '**/demo/**',
+  // 엣지케이스 스위트는 매번 돌리지 않는다. 언제 돌리는지는 playwright.edge.config.ts 에 적혀 있다.
+  testIgnore: ['**/demo/**', '**/edge/**'],
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI
@@ -36,7 +37,9 @@ export default defineConfig({
     {
       name: 'mobile-chromium',
       use: { ...devices['Pixel 8'] },
-      testIgnore: '**/save-speed.spec.ts',
+      // 프로젝트의 testIgnore 는 위 설정의 것을 **대체한다.** 여기 다시 적지 않으면
+      // 엣지케이스가 기본 검증에 섞여 매번 돌아간다.
+      testIgnore: ['**/save-speed.spec.ts', '**/edge/**'],
     },
     {
       name: 'perf',

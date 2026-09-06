@@ -26,6 +26,21 @@
     margin-top: 6px;
   }
 
+  /* 큰 숫자 오른쪽 끝. 숫자가 길어져도 자리를 뺏기지 않게 남는 자리를 다 민다. */
+  .home-hero__calendar {
+    margin-left: auto;
+    align-self: center;
+    flex: none;
+    display: flex;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    color: var(--color-sage-700);
+  }
+
+  .home-hero__calendar:active {
+    background: var(--color-sage-50);
+  }
+
   .home-hero__value {
     letter-spacing: -0.5px;
   }
@@ -54,6 +69,14 @@
     justify-content: space-between;
     gap: 10px;
     margin-top: 8px;
+  }
+
+  /* 퍼센트와 '주의' 칩을 한 덩어리로 묶는다. 칩이 붙어도 오른쪽 하루 가용액이 안 밀린다. */
+  .home-hero__tone {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
   }
 
   .home-hero__percent {

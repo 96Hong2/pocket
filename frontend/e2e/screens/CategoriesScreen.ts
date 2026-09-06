@@ -1,12 +1,13 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 import { ROUTES } from '../../src/app/router/routes';
+import { TEST_IDS } from '../../src/shared/testIds';
 
 /**
  * 카테고리 관리 화면.
  *
  * 관리 탭과 URL 이 달라 별도 화면 객체다. 한 화면이 구획 둘(기본 · 내가 만든 것)과
- * 시트 하나를 데리고 있어 시트만 안쪽 객체로 나눠 뒀다.
+ * 기억한 분류 목록, 시트 하나를 데리고 있어 목록과 시트를 안쪽 객체로 나눠 뒀다.
  *
  * 셀렉터는 이 파일 안에만 둔다. 단언은 spec 이 한다.
  */
@@ -16,9 +17,13 @@ export class CategoriesScreen {
   /** 만들기와 고치기가 같은 시트다. 제목만 다르다. */
   readonly sheet: CategorySheet;
 
+  /** 상호마다 기억해 둔 분류. 카테고리 구획 밖이라 페이지에서 잡는다. */
+  readonly rules: MerchantRuleArea;
+
   constructor(page: Page) {
     this.page = page;
     this.sheet = new CategorySheet(page);
+    this.rules = new MerchantRuleArea(page);
   }
 
   async open(): Promise<void> {
@@ -123,10 +128,12 @@ export class CategoriesScreen {
   /**
    * 두 구획의 줄 전부. 화면에 놓인 순서 그대로다.
    *
-   * 이 화면에서 목록은 두 구획이 전부다. 다른 자리에는 목록이 없어 구획 안으로만 좁힌다.
+   * 같은 화면의 기억한 분류도 목록이라, 구획 이름으로 카테고리 쪽만 남긴다.
    */
   private get allRows(): Locator {
-    return this.page.getByRole('region').getByRole('listitem');
+    return this.page
+      .getByRole('region', { name: /^(기본|내가 만든) 카테고리$/ })
+      .getByRole('listitem');
   }
 }
 
@@ -235,5 +242,31 @@ class CategorySheet {
     await this.deleteButton.click();
     await this.confirmDeleteButton.click();
     await this.waitClosed();
+  }
+}
+
+/** 상호마다 기억해 둔 분류. 줄글·캡처로 고쳐 저장할 때 늘어난다. */
+class MerchantRuleArea {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('region', { name: '기억한 분류', exact: true });
+  }
+
+  get rows(): Locator {
+    return this.root.getByTestId(TEST_IDS.merchantRuleRow);
+  }
+
+  get emptyTitle(): Locator {
+    return this.root.getByText('아직 기억한 분류가 없어요');
+  }
+
+  row(merchant: string): Locator {
+    return this.rows.filter({ hasText: merchant });
+  }
+
+  async remove(merchant: string): Promise<void> {
+    await this.row(merchant).getByRole('button', { name: '지우기' }).click();
+    await expect(this.row(merchant)).toHaveCount(0);
   }
 }

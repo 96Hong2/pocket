@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import aitDevtools from '@apps-in-toss/devtools/unplugin';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
@@ -11,8 +13,13 @@ import { defineConfig } from 'vitest/config';
 const disableDevtools =
   process.env.VITEST === 'true' || process.env.POCKET_DISABLE_AIT_DEVTOOLS === '1';
 
+// 설정 화면의 '버전' 줄이 읽는 값. package.json 하나를 정본으로 두고 빌드 때 박아 넣는다.
+// 화면에 숫자를 손으로 적어 두면 올릴 때 잊는다.
+const appVersion = JSON.parse(readFileSync('./package.json', 'utf8')).version as string;
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(appVersion) },
   plugins: [...(disableDevtools ? [] : [aitDevtools.vite()]), react(), tailwindcss()],
   // 포트가 밀리면 백엔드 CORS 허용 목록(localhost:5173)에서 벗어나 API 가 전부 막힌다.
   // 조용히 다른 포트로 가는 대신 즉시 실패하게 둔다.

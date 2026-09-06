@@ -45,9 +45,16 @@ export function CategoryManageList() {
 
   return (
     <div className="cat-manage">
-      <Button fullWidth variant="outline" onClick={() => setTarget({ category: null })}>
-        카테고리 만들기
-      </Button>
+      <div className="cat-manage__add">
+        <Button fullWidth variant="outline" onClick={() => setTarget({ category: null })}>
+          카테고리 만들기
+        </Button>
+        {/*
+          만든 것이 어디에 나타나는지 여기서 말한다. 빈 상태 안내는 하나라도 만들면 사라지는데,
+          둘째·셋째를 만드는 사람은 그때 처음으로 "이게 어디에 쓰이나" 를 묻는다.
+        */}
+        <p className="cat-manage__hint">추가하면 기록 시트의 카테고리 칩에 바로 나타나요.</p>
+      </div>
 
       {defaults.length > 0 ? (
         <section className="cat-group" aria-label="기본 카테고리">

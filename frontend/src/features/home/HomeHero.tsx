@@ -1,7 +1,15 @@
+import { Link } from 'react-router';
+
+import { ROUTES } from '../../app/router/routes';
 import { parseDecimal, parseDecimalOr, type BudgetOut } from '../../shared/api';
-import { formatCurrency, formatPercent, formatSignedCurrency } from '../../shared/lib/format';
+import { isCaution } from '../../shared/lib/budgetTone';
+import {
+  formatCompactCurrency,
+  formatPercent,
+  formatSignedCurrency,
+} from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
-import { Amount, Gauge, RetryButton } from '../../shared/ui';
+import { Amount, Chip, Gauge, RetryButton } from '../../shared/ui';
 
 import type { HeroLayout, HomeView } from './homeMode';
 
@@ -55,6 +63,14 @@ export function HomeHero({
 
       <div className="home-hero__row">
         <HeroValue layout={layout} budget={budget} />
+        {/*
+          달력으로 가는 두 번째 입구. 시안이 큰 숫자 옆에 둔다.
+          '오늘 말고 그 전' 을 보고 싶어지는 자리가 여기라, 목록 끝까지 내려가야만
+          갈 수 있게 두면 그 사이에 마음이 식는다.
+        */}
+        <Link className="home-hero__calendar" to={ROUTES.calendar} aria-label="월간 달력 보기">
+          <CalendarGlyph />
+        </Link>
       </div>
 
       {withIncome ? (
@@ -97,15 +113,24 @@ export function HomeHero({
             label="이번 달 예산 사용률"
           />
           <div className="home-hero__meta">
-            <span
-              className={
-                state.is_over_budget
-                  ? 'home-hero__percent home-hero__percent--over'
-                  : 'home-hero__percent'
-              }
-              data-numeric=""
-            >
-              {formatPercent(progress)} 썼어요
+            <span className="home-hero__tone">
+              <span
+                className={
+                  state.is_over_budget
+                    ? 'home-hero__percent home-hero__percent--over'
+                    : 'home-hero__percent'
+                }
+                data-numeric=""
+              >
+                {formatPercent(progress)} 썼어요
+              </span>
+              {/*
+                넘기기 전에 한 번 눈에 띄는 자리. 넘긴 뒤에는 붙이지 않는다.
+                넘김은 퍼센트 색이 따로 말하고 있어, 둘을 겹치면 무엇이 더 나쁜지 안 읽힌다.
+              */}
+              {!state.is_over_budget && isCaution(progress) ? (
+                <Chip variant="caution">주의</Chip>
+              ) : null}
             </span>
             <span className="home-hero__daily" data-numeric="">
               남은 <span data-testid={TEST_IDS.remainingDays}>{state.remaining_days}</span>일 · 하루{' '}
@@ -176,9 +201,55 @@ function HeroValue({ layout, budget }: { layout: HeroLayout; budget: BudgetOut }
       />
       {layout === 'remainingBudget' ? (
         <span className="home-hero__total" data-numeric="">
-          / {formatCurrency(parseDecimalOr(state.amount, 0))}
+          {/* 곁들여 적는 자리라 짧게 적는다. 원 단위로 다 적으면 억대 예산에서 줄이 화면을 민다. */}
+          / {formatCompactCurrency(parseDecimalOr(state.amount, 0))}
         </span>
       ) : null}
     </>
+  );
+}
+
+/**
+ * 히어로의 달력 아이콘.
+ *
+ * 아이콘 자산(png)이 아니라 선으로 그린다. 이 자리는 글자 크기에 맞춰 작게 놓이는데
+ * png 를 줄이면 흐려지고, 색도 토큰을 따라가지 못한다.
+ */
+function CalendarGlyph() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <rect
+        x="2"
+        y="4"
+        width="16"
+        height="14"
+        rx="3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <line x1="2" y1="8.5" x2="18" y2="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <line
+        x1="6.5"
+        y1="2"
+        x2="6.5"
+        y2="5.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <line
+        x1="13.5"
+        y1="2"
+        x2="13.5"
+        y2="5.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <circle cx="7" cy="12.5" r="1.3" fill="currentColor" />
+      <circle cx="11" cy="12.5" r="1.3" fill="currentColor" opacity="0.45" />
+      <circle cx="15" cy="12.5" r="1.3" fill="currentColor" opacity="0.45" />
+    </svg>
   );
 }

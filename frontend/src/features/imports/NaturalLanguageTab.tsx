@@ -12,6 +12,8 @@ export interface NaturalLanguageTabProps {
   /** 요청이 도는 동안 시트가 닫히거나 탭이 옮겨지지 않게 껍데기에 알린다. */
   onBusyChange: (busy: boolean) => void;
   onDone: () => void;
+  /** 저장이 성공한 순간. 닫기보다 앞선다. */
+  onSaved?: () => void;
 }
 
 /**
@@ -19,7 +21,7 @@ export interface NaturalLanguageTabProps {
  *
  * 분석은 거래를 만들지 않는다. 읽어 온 뒤부터는 캡처 탭과 같은 검토 화면을 쓴다.
  */
-export function NaturalLanguageTab({ onBusyChange, onDone }: NaturalLanguageTabProps) {
+export function NaturalLanguageTab({ onBusyChange, onDone, onSaved }: NaturalLanguageTabProps) {
   const analyze = useAnalyzeText();
 
   const [text, setText] = useState('');
@@ -33,6 +35,7 @@ export function NaturalLanguageTab({ onBusyChange, onDone }: NaturalLanguageTabP
         onBusyChange={onBusyChange}
         onRestart={() => setBatch(null)}
         onDone={onDone}
+        onSaved={onSaved}
         testId={TEST_IDS.nlPanel}
         restartLabel="다시 쓰기"
         emptyMessage="문장에서 금액을 찾지 못했어요. `점심 12000` 처럼 금액을 함께 적어 주세요"

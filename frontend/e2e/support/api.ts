@@ -160,6 +160,29 @@ export class PrepApi {
     expectOk(response.status(), await response.text(), '이어쓰기 설정을 바꾸지 못했다');
   }
 
+  /**
+   * 카테고리 하나를 만든다. 만들어진 id 를 돌려준다.
+   *
+   * 만들기 자체를 확인하는 테스트는 화면으로 한다. 여기는 "이미 여럿 있는 상태" 처럼
+   * 배경으로만 필요할 때 쓴다. 스무 개를 화면으로 만들면 그 테스트가 무엇을 보는지 흐려진다.
+   */
+  async addCategory(name: string, iconKey = '16_paw'): Promise<string> {
+    const response = await this.context.post('/api/v1/categories', {
+      data: { name, icon_key: iconKey },
+    });
+    expectOk(response.status(), await response.text(), `카테고리 '${name}' 을 만들지 못했다`);
+    const body = (await response.json()) as { id: string };
+    return body.id;
+  }
+
+  /** 홈 맨 위에 무엇을 보여줄지. 설정 화면을 거치지 않고 그 상태를 만든다. */
+  async setHomeHero(hero: 'remaining_budget' | 'income_expense' | 'income_and_budget'): Promise<void> {
+    const response = await this.context.patch('/api/v1/preferences', {
+      data: { home_hero: hero },
+    });
+    expectOk(response.status(), await response.text(), '홈 표시 설정을 바꾸지 못했다');
+  }
+
   /** 기본 카테고리 목록. 이름으로 id 를 찾을 때 쓴다. */
   async categoryIdByName(name: string): Promise<string> {
     const response = await this.context.get('/api/v1/categories');

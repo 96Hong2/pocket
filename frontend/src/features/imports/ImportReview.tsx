@@ -25,6 +25,11 @@ export interface ImportReviewProps {
   /** 묶음을 버리고 입력 화면으로 되돌린다. */
   onRestart: () => void;
   onDone: () => void;
+  /**
+   * 저장이 실제로 성공한 순간. 닫기와 갈라 둔다.
+   * 저장하고 나서 확인을 안 누르고 X·딤·Esc 로 닫으면 닫기 신호만으로는 늦는다.
+   */
+  onSaved?: () => void;
   /** 어느 탭의 검토 화면인지 e2e 가 가른다. 두 탭이 hidden 으로 함께 남는다. */
   testId: string;
   /** 되돌리는 버튼 문구. 줄글은 다시 쓰기, 캡처는 다시 고르기다. */
@@ -49,6 +54,7 @@ export function ImportReview({
   onBusyChange,
   onRestart,
   onDone,
+  onSaved,
   testId,
   restartLabel,
   emptyMessage,
@@ -165,7 +171,10 @@ export function ImportReview({
               onBusyChange(true);
               commit.mutate(batch.id, {
                 onSettled: () => onBusyChange(false),
-                onSuccess: setSaved,
+                onSuccess: (result) => {
+                  setSaved(result);
+                  onSaved?.();
+                },
               });
             }}
           >

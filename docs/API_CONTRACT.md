@@ -200,9 +200,17 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 `achievement`(성취) → `on_track`(적정). 예산이 없으면 `month_fact`(이번 달 지출 사실만) 다.
 한 번에 하나만 온다. 값 목록의 정본은 `docs/openapi.json` 의 `FeedbackKind` enum 이다.
 
-⚠ **아직 배선되지 않은 입력이 둘 있다.** 저장 경로가 `category_median_90d` 와 `achievement` 를
-넘기지 않아서, 큰 지출 임계값은 `max(30,000원, 예산의 10%)` 로만 계산되고 `achievement` 는
-나오지 않는다. 90일 중앙값 조회와 성취 근거 조회는 다음 slice 몫이다(ADR-0006 이 정본).
+`large_expense_threshold` 는 `max(30,000원, 그 카테고리 최근 90일 지출 중앙값 × 3, 예산의 10%)`
+다. 중앙값은 저장 경로가 그 카테고리의 지난 90일을 읽어 넣는다. 카테고리가 없거나 앞의 두 값만으로
+이미 기준에 못 미치는 금액이면 중앙값을 읽지 않는다. 중앙값이 기준을 올리기만 해서 결과가 안 바뀐다.
+
+`achievement` 는 실제 데이터로 확인될 때만 나온다. 주간 지출 감소, 무지출일 이틀 연속, 월말 예상이
+이번 달 처음으로 예산 이하가 된 것 셋이고, 셋 다 아니면 성취를 말하지 않는다. 판정식의 정본은
+ADR-0006 이다.
+
+어떤 근거로 성취인지도 함께 온다. `achievement_kind` 와 그에 딸린 값
+(`achievement_decreased_amount` · `achievement_no_spend_days`) 을 보고 화면이 문장을 고른다.
+**근거가 안 실려 오면 화면은 성취라고 말하지 않는다.** 배지를 붙이면 억지 칭찬이 된다.
 
 ### 카테고리
 
@@ -429,11 +437,26 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 | PATCH | `/preferences` | 보낸 필드만 고친다. 응답은 GET 과 같은 모양 |
 
 ```json
-{ "budget_auto_carryover": true, "home_hero": "remaining_budget" }
+{ "budget_auto_carryover": true, "home_hero": "remaining_budget", "last_record_method": "nl" }
 ```
 
-**지금 여는 값은 둘이다.** `budget_auto_carryover` 는 예산 화면의 이어쓰기 토글이 읽고 쓴다.
+**지금 여는 값은 셋이다.** `budget_auto_carryover` 는 예산 화면의 이어쓰기 토글이 읽고 쓴다.
 `home_hero` 는 앱 설정 화면이 쓰고 홈 히어로가 읽는다. 알림처럼 아직 화면이 없는 설정은 열지 않는다.
+
+`last_record_method` 는 **읽기만 열려 있다.** `PATCH` 로 보내면 무시한다. 사용자가 고르는 값이
+아니라 거래를 저장할 때 서버가 그 거래의 `source` 로 남기는 흔적이라, 화면이 쓸 수 있으면
+실제로 쓴 방식과 어긋난 값이 들어올 자리가 생긴다. 홈이 이 값을 읽어 기록 시트를 그 탭으로 연다.
+
+| 값 | 기록 시트 탭 | 남는 때 |
+| --- | --- | --- |
+| `keypad` | 키패드 | 키패드로 한 건 저장 |
+| `nl` | 줄글 | 줄글 검토 목록 저장 |
+| `screenshot` | 캡처 | 캡처 검토 목록 저장 |
+| `receipt` | 영수증 | 영수증 검토 목록 저장 |
+| `null` | 키패드 | 아직 한 건도 저장하지 않음 |
+
+자산 캡처(`asset_screenshot`)와 무지출일(`no_spend`)은 기록 시트에서 오지 않아 이 값을 바꾸지
+않는다. 화면이 모르는 값을 만나면 키패드로 연다.
 
 `home_hero` 는 셋 중 하나다. 값 목록의 정본은 `app/models/preference.py` 의 `HomeHero` 이고,
 그 enum 이 그대로 `openapi.json` 에 실린다.

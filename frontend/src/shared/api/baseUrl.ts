@@ -30,6 +30,14 @@ function configured(): string {
  */
 export function resolveApiBaseUrl(): string | null {
   const value = configured();
-  if (value !== '') return value.replace(/\/+$/, '');
-  return import.meta.env.DEV ? DEV_FALLBACK : null;
+  if (value === '') return import.meta.env.DEV ? DEV_FALLBACK : null;
+
+  const url = value.replace(/\/+$/, '');
+
+  // 운영 번들은 https 만 부른다. 토스 앱이 http 요청을 차단하므로 http 주소로 빌드하면
+  // 실기기에서 모든 조회가 조용히 실패한다. 여기서 null 로 만들어 설정 오류 화면이 뜨게 한다.
+  // 개발은 localhost 백엔드를 http 로 쓰므로 열어 둔다.
+  if (!import.meta.env.DEV && !url.startsWith('https://')) return null;
+
+  return url;
 }

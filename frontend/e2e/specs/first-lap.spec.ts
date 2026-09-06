@@ -16,6 +16,16 @@ const AMOUNT = 12_000;
 const CATEGORY = '식비';
 const BUDGET = 500_000;
 
+/** 저장한 뒤 피드백에서 고쳐 넣을 금액. 처음 누른 값과 자릿수가 달라 목록에서 헷갈리지 않는다. */
+const FIXED_AMOUNT = 30_000;
+
+/**
+ * 되돌리기 시계가 이 초 아래로 내려간 뒤에 금액을 고친다.
+ *
+ * 고치고 나서도 이 값 아래여야 한다. 8초로 되돌아가 있으면 마감 시각을 다시 잡은 것이다.
+ */
+const COUNTED_DOWN_TO = 6;
+
 /** 홈 CTA · 금액 · 카테고리. 금액은 몇 번을 누르든 한 단계로 센다. */
 const EXPECTED_STEPS = 3;
 
@@ -191,4 +201,61 @@ test('되돌리기 버튼이 남은 초를 세어 보여준다', async ({ home, 
   await expect
     .poll(() => recordSheet.feedback.undoSecondsLeft(), { timeout: 5_000 })
     .toBeLessThan(started as number);
+});
+
+test('저장 직후 금액을 고치면 홈 숫자가 함께 바뀐다', async ({ home, recordSheet, prep }) => {
+  // 확인하려는 것은 고치기다. 남은 예산이 그려지도록 예산은 심어 두고 시작한다.
+  await prep.setBudget(BUDGET);
+
+  await test.step('12,000원을 저장하면 남은 예산이 그만큼 줄어 있다', async () => {
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.input.enterAmount(AMOUNT);
+    await recordSheet.input.pickCategory(CATEGORY);
+    await recordSheet.feedback.waitSaved();
+
+    await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - AMOUNT));
+  });
+
+  await test.step('금액 바꾸기를 누르면 방금 누른 금액이 그대로 펼쳐진다', async () => {
+    await recordSheet.feedback.changeAmountButton.click();
+    await expect(recordSheet.feedback.changeAmountTitle).toBeVisible();
+    await expect(recordSheet.feedback.amountText).toHaveText(formatCurrency(AMOUNT));
+  });
+
+  await test.step('고치는 동안에도 되돌리기 시계가 흐른다', async () => {
+    // 8초는 서버가 준 마감 시각이다. 키패드를 펴 두었다고 멈추면 안 된다.
+    await expect
+      .poll(() => recordSheet.feedback.undoSecondsLeft(), {
+        message: '금액을 고치는 동안 되돌리기 시계가 멈췄다',
+        timeout: 8_000,
+      })
+      .toBeLessThanOrEqual(COUNTED_DOWN_TO);
+  });
+
+  await test.step('고친 금액이 그 줄과 남은 예산에 함께 반영된다', async () => {
+    await recordSheet.feedback.enterAmount(FIXED_AMOUNT);
+    await recordSheet.feedback.applyAmountButton.click();
+
+    // 고치고 나면 키패드가 접히고 저장한 줄이 새 금액으로 바뀐다.
+    await expect(recordSheet.feedback.changeAmountTitle).toBeHidden();
+    await expect(recordSheet.feedback.savedAmount).toHaveText(formatCurrency(FIXED_AMOUNT));
+    // 새로고침 없이 홈이 따라와야 한다. 다시 부르면 이 단언은 배선이 빠져도 통과한다.
+    await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - FIXED_AMOUNT));
+
+    const left = await recordSheet.feedback.undoSecondsLeft();
+    expect(left, '금액을 고치자 되돌리기 시계가 처음부터 다시 셌다').toBeLessThanOrEqual(
+      COUNTED_DOWN_TO,
+    );
+  });
+
+  await test.step('확인하고 나가면 오늘 목록도 고친 금액이다', async () => {
+    await recordSheet.feedback.confirmButton.click();
+    await recordSheet.waitClosed();
+
+    await expect(home.today.amount(formatCurrency(FIXED_AMOUNT))).toBeVisible();
+    await expect(home.today.amount(formatCurrency(AMOUNT))).toHaveCount(0);
+  });
 });

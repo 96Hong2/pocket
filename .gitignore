@@ -60,6 +60,9 @@ docs/design/
 !frontend/public/icons/**/*.png
 # e2e 가 앨범에서 고른 척 넣는 고정 입력. 화면을 찍은 것이 아니라 테스트 재료다.
 !frontend/e2e/fixtures/*.png
+# 콘솔에 올리는 출시 자산. 검증 캡처가 아니라 제품의 일부라서 저장소에 둔다.
+# 여기 것이 곧 스토어에 보이는 것이라, 화면 문구가 바뀌면 다시 찍어야 한다.
+!docs/store/*.png
 
 # 화면 동작 영상. 용량이 크고 레포에 둘 것이 아니다.
 # 만드는 방법은 frontend/e2e/README.md 「데모 녹화」 절에 있다.

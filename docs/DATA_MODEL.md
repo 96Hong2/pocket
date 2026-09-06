@@ -185,7 +185,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 |---|---|---|
 | `budget_auto_carryover` | true | 새 기간 예산 자동 복사 여부 |
 | `home_hero` | `remaining_budget` | `remaining_budget` \| `income_expense` \| `income_and_budget` |
-| `last_record_method` | NULL | 기록 시트를 마지막에 쓴 방식으로 열어 준다 |
+| `last_record_method` | NULL | 기록 시트를 마지막에 쓴 방식으로 열어 준다. 거래를 저장할 때 서버가 그 거래의 `source` 로 남긴다. 화면은 읽기만 한다 |
 | `report_include_income` | false | 리포트 기본은 소비만 |
 | `happy_spend_category_id` | NULL | 사용자가 지키기로 한 소비. 감축 1순위로 추천하지 않는다 |
 
