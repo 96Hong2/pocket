@@ -150,7 +150,7 @@ export function useCalendar(params?: MonthParams) {
 /**
  * 기억한 분류 규칙.
  *
- * 줄글로 저장할 때마다 늘어나므로 오래 붙들지 않는다. 관리 탭에서만 본다.
+ * 줄글로 저장할 때마다 늘어나므로 오래 붙들지 않는다. 카테고리 관리에서만 본다.
  */
 export function useMerchantRules() {
   const client = useApiClient();

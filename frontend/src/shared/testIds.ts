@@ -104,7 +104,7 @@ export const TEST_IDS = {
   nlCandidateAmount: 'nl-candidate-amount',
   /** 후보 한 줄의 날짜 */
   nlCandidateDate: 'nl-candidate-date',
-  /** 관리 탭에서 기억한 분류 한 줄 */
+  /** 카테고리 관리에서 기억한 분류 한 줄 */
   merchantRuleRow: 'merchant-rule-row',
   /** 저장 직후 피드백 한 줄 */
   feedbackHeadline: 'feedback-headline',

@@ -65,6 +65,15 @@ ENVIRONMENT != local 이고 ALLOW_UNVERIFIED_ANON_KEY=true → 기동 실패
 인증서 없고 ALLOW_UNVERIFIED_ANON_KEY=true (local)        → TrustingAnonKeyVerifier + 경고 로그
 ```
 
+> ⚠ **`local` 이라고 해서 이 맥 안에만 있다는 뜻이 아니다.**
+> `scripts/serve-public.sh` 는 실기기 테스트를 하려고 그 로컬 백엔드를 **공개 https 주소로 연다**
+> (`docs/DEPLOY.md` §9). 그때 검증기는 여전히 `TrustingAnonKeyVerifier` 라서,
+> **주소를 아는 사람은 아무 익명키나 보내 남의 기록을 읽고 쓸 수 있다.**
+>
+> 지금 이걸 받아들이는 이유는 셋이다. 주소가 실행할 때마다 바뀌고, 오래 켜 두지 않으며,
+> 그 안에 든 것이 테스트 기록뿐이다. **셋 중 하나라도 깨지면 열면 안 된다.**
+> 인증서가 나오면 이 예외 자체가 없어진다.
+
 ### 3.1 `ALLOW_PAST_PERIOD_BUDGET_WRITE`
 
 끝난 기간의 예산은 바꿀 수 없다. 이미 보여 준 지난달 게이지와 리포트가 나중에 달라지면

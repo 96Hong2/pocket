@@ -208,8 +208,9 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 이번 달 처음으로 예산 이하가 된 것 셋이고, 셋 다 아니면 성취를 말하지 않는다. 판정식의 정본은
 ADR-0006 이다.
 
-⚠ **어떤 근거로 성취인지는 아직 응답에 없다.** `kind` 만 `achievement` 로 오고 근거 종류와
-줄어든 금액은 `FeedbackOut` 에 없어서, 화면은 세 근거에 같은 문장을 쓴다.
+어떤 근거로 성취인지도 함께 온다. `achievement_kind` 와 그에 딸린 값
+(`achievement_decreased_amount` · `achievement_no_spend_days`) 을 보고 화면이 문장을 고른다.
+**근거가 안 실려 오면 화면은 성취라고 말하지 않는다.** 배지를 붙이면 억지 칭찬이 된다.
 
 ### 카테고리
 
