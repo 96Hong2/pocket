@@ -15,6 +15,11 @@ PRD 14장이 정한 숫자를 **지금 데이터베이스에서 실제로 셀 �
 - 유료 전환: 결제가 아직 없다
 
 못 재는 것을 재는 척하지 않는다. 그래서 여기에는 아홉 개만 있다.
+
+## 복귀율을 세는 법
+
+비우고 끝내 안 돌아온 사람도 분모에 넣는다. 마지막 기록일 뒤의 공백을 오늘까지로 채워서 센다.
+대신 복귀 창이 아직 안 끝난 최근 공백은 결과가 정해지지 않았으니 아직 안 센다.
 """
 
 from __future__ import annotations
@@ -238,6 +243,11 @@ def recovery_rate(conn: Connection) -> Metric:
     """사흘 넘게 비운 뒤 이레 안에 돌아온 비율.
 
     기록한 **날짜** 사이의 간격으로 센다. 같은 날 여러 건 적은 것이 공백을 메우지 않게 한다.
+
+    마지막 기록일 뒤의 공백은 오늘까지로 채운다. 비우고 끝내 안 돌아온 사람이 분모에 남아야
+    복귀율이지, 안 그러면 "돌아온 사람 중 빨리 돌아온 비율" 이 된다. 대신 복귀 창이 아직
+    안 끝난 최근 공백은 결과가 정해지지 않았으니 분모에서 뺀다. 어제 비운 사람을 곧바로
+    실패로 잡으면 반대로 값이 낮아진다.
     """
     row = conn.execute(
         text(
@@ -247,14 +257,29 @@ def recovery_rate(conn: Connection) -> Metric:
                 FROM transactions
                 WHERE deleted_at IS NULL
             ), gaps AS (
-                SELECT user_id, d, lead(d) OVER (PARTITION BY user_id ORDER BY d) - d AS gap
+                SELECT user_id,
+                       d,
+                       coalesce(
+                           lead(d) OVER w,
+                           (now() AT TIME ZONE 'Asia/Seoul')::date
+                       ) - d AS gap,
+                       lead(d) OVER w IS NOT NULL AS came_back
                 FROM days
+                WINDOW w AS (PARTITION BY user_id ORDER BY d)
+            ), judged AS (
+                -- 결과가 이미 정해진 공백만 남긴다. 돌아왔거나, 복귀 창이 다 지났거나.
+                -- 아직 안 돌아온 공백의 gap 은 오늘까지라, gap >= :away + :ret 은
+                -- 마지막 기록일이 오늘 - (:away + :ret) 이전이라는 뜻이다.
+                SELECT user_id, gap, came_back
+                FROM gaps
+                WHERE gap >= :away
+                  AND (came_back OR gap >= :away + :ret)
             )
-            SELECT count(DISTINCT user_id) FILTER (WHERE gap >= :away) AS lapsed,
+            SELECT count(DISTINCT user_id) AS lapsed,
                    count(DISTINCT user_id) FILTER (
-                       WHERE gap >= :away AND gap <= :away + :ret
+                       WHERE came_back AND gap <= :away + :ret
                    ) AS returned
-            FROM gaps
+            FROM judged
             """
         ),
         {"away": AWAY_DAYS, "ret": RETURN_DAYS},
@@ -263,7 +288,8 @@ def recovery_rate(conn: Connection) -> Metric:
         f"{AWAY_DAYS}일+ 비운 뒤 {RETURN_DAYS}일 안에 복귀",
         _ratio(row.returned, row.lapsed),
         "25% → 35%",
-        "기록한 날짜 사이 간격으로 센다. 복구 카드가 실제로 사람을 데려오는지 여기서 본다",
+        "기록한 날짜 사이 간격으로 센다. 돌아오지 않은 사람까지 분모에 넣고, "
+        "복귀 창이 안 끝난 공백은 아직 안 센다",
     )
 
 

@@ -99,7 +99,10 @@ export function useUpdateTransaction(params?: MonthParams) {
       client.updateTransaction(input.id, input.body),
     onSuccess: (updated) => {
       writeBudgetState(queryClient, updated.budget, params);
-      return invalidateMoney(queryClient);
+      // 저장 경로와 같다. 무효화를 기다리면 그동안 버튼이 잠기고 옛 금액이 남아,
+      // 그 왕복이 8초 되돌리기 창을 그대로 갉아먹는다.
+      // 패널이 보여주는 금액·판정·예산은 수정 응답과 바로 위 캐시 쓰기에서 온다.
+      void invalidateMoney(queryClient);
     },
   });
 }

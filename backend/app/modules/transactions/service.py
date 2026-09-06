@@ -345,7 +345,14 @@ def create_transaction(
     # 다음번에 기록 시트를 이 방식으로 열어 준다. 여기 한 곳이면 네 입구가 다 걸린다.
     # 줄글·캡처·영수증은 검토 목록을 저장할 때 건마다 이 함수를 지난다.
     # 거래를 커밋한 뒤에 부른다. 앞에 두면 아직 검증 중인 거래까지 함께 커밋된다.
-    settings.remember_record_method(session, user, tx.source)
+    try:
+        settings.remember_record_method(session, user, tx.source)
+    except Exception:
+        # 커밋 뒤라 여기서 예외가 새면 '행은 남았는데 500' 이 되고, 재시도가 같은 거래를
+        # 두 번 저장한다. 탭 기억은 다음에 한 번 더 누르면 되니 흡수한다.
+        # 뒤따르는 판정 조회가 깨진 세션을 쓰지 않게 롤백을 먼저 한다.
+        session.rollback()
+        logger.exception("기록 방식 기억에 실패했다. 저장은 유지한다 transaction_id=%s", tx.id)
 
     return tx, evaluate(session, user, tx, today or ledger.today_for(user))
 

@@ -1,4 +1,9 @@
 import { ROUTES } from '../../src/app/router/routes';
+import { formatCurrency } from '../../src/shared/lib/format';
+import type { TabLabel } from '../screens/AppShell';
+import type { HomeScreen } from '../screens/HomeScreen';
+import type { ManageScreen } from '../screens/ManageScreen';
+import type { ReportScreen } from '../screens/ReportScreen';
 import { forceAdNoFill, watchAppClose } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
 
@@ -22,11 +27,46 @@ import { expect, test } from '../support/fixtures';
  * "devtools 상태가 없다" 고 잡거나, 다음 이동과 부딪혀 이유 없는 실패가 된다.
  */
 
+/** 폭 검사에 심는 금액. 긴 가맹점명과 함께 있을 때 화면이 가장 넓어진다. */
+const WIDE_AMOUNT = 98_765_432;
+
+/** 탭 본문이 그려졌는지 아는 방법은 화면마다 다르다. 그 화면 객체를 받아서 쓴다. */
+interface TabScreens {
+  home: HomeScreen;
+  report: ReportScreen;
+  manage: ManageScreen;
+}
+
+interface TabRoot {
+  label: TabLabel;
+  path: string;
+  /** 조회가 끝나 본문이 실제로 그려질 때까지. 탭바만 보고 재면 빈 화면을 재게 된다. */
+  waitReady: (screens: TabScreens) => Promise<void>;
+  /** 심어 둔 금액이 그 화면에 찍혔는지. 관리 탭에는 이 금액이 나오는 자리가 없어 없다. */
+  waitAmountShown?: (screens: TabScreens) => Promise<void>;
+}
+
 /** 탭 루트 셋. 여기서 뒤로가기를 누르면 미니앱이 닫혀야 한다. */
-const TAB_ROOTS = [
-  { label: '홈' as const, path: ROUTES.home },
-  { label: '리포트' as const, path: ROUTES.report },
-  { label: '관리' as const, path: ROUTES.manage },
+const TAB_ROOTS: TabRoot[] = [
+  {
+    label: '홈',
+    path: ROUTES.home,
+    waitReady: ({ home }) => home.waitReady(),
+    // 부분일치로 잡으면 더 긴 숫자 안에 들어 있어도 통과한다. 정확 일치로 본다.
+    waitAmountShown: ({ home }) =>
+      expect(home.today.amount(formatCurrency(WIDE_AMOUNT))).toBeVisible(),
+  },
+  {
+    label: '리포트',
+    path: ROUTES.report,
+    waitReady: ({ report }) => report.waitReady(),
+    waitAmountShown: ({ report }) => expect(report.total).toHaveText(formatCurrency(WIDE_AMOUNT)),
+  },
+  {
+    label: '관리',
+    path: ROUTES.manage,
+    waitReady: ({ manage }) => manage.waitReady(),
+  },
 ];
 
 test('첫 화면에서 뒤로가기를 누르면 미니앱이 닫힌다', async ({ appShell, home, page }) => {
@@ -91,7 +131,13 @@ test('하위 화면에서는 뒤로가기가 앱을 닫지 않고 부모로 간�
   expect(closed(), '하위 화면에서 뒤로가기가 미니앱을 닫아 버렸다').toBe(false);
 });
 
-test('진입하자마자 저절로 뜨는 바텀시트가 없다', async ({ appShell, home, settings }) => {
+test('진입하자마자 저절로 뜨는 바텀시트가 없다', async ({
+  appShell,
+  home,
+  manage,
+  report,
+  settings,
+}) => {
   await appShell.open();
   await home.waitReady();
 
@@ -99,10 +145,14 @@ test('진입하자마자 저절로 뜨는 바텀시트가 없다', async ({ appS
   // 제품 원칙과도 같은 자리다.
   await expect(settings.anyDialog).toHaveCount(0);
 
+  // 탭 이동은 주소만 바꾼다. 본문이 그려지기 전에 세면 아직 아무것도 없어서 늘 0 이다.
+  // 시트는 화면이 그려질 때 뜨므로, 그려진 뒤에 세야 없다는 말이 무게를 갖는다.
   await appShell.goToTab('리포트');
+  await report.waitReady();
   await expect(settings.anyDialog).toHaveCount(0);
 
   await appShell.goToTab('관리');
+  await manage.waitReady();
   await expect(settings.anyDialog).toHaveCount(0);
 });
 
@@ -134,13 +184,26 @@ test('채울 광고가 없으면 빈 자리를 남기지 않는다', async ({ ap
 });
 
 for (const root of TAB_ROOTS) {
-  test(`${root.label} 화면이 가로로 넘치지 않는다`, async ({ appShell, page, prep }) => {
+  test(`${root.label} 화면이 가로로 넘치지 않는다`, async ({
+    appShell,
+    home,
+    manage,
+    page,
+    prep,
+    report,
+  }) => {
     // 긴 이름과 큰 금액이 함께 있을 때가 가장 넓다. 그 상태로 잰다.
     await prep.setBudget(3_000_000);
-    await prep.addTransaction({ amount: 98_765_432, merchant: '아주아주기다란가게이름주식회사' });
+    await prep.addTransaction({ amount: WIDE_AMOUNT, merchant: '아주아주기다란가게이름주식회사' });
 
     await appShell.open(root.path);
     await appShell.expectTabsVisible();
+
+    // 탭바는 본문보다 먼저 그려진다. 조회 중인 빈 본문은 넘칠 수가 없어서, 여기서 안 기다리면
+    // 무엇을 심어도 통과하는 검사가 된다. 심은 금액이 화면에 찍힌 것까지 보고 잰다.
+    const screens = { home, manage, report };
+    await root.waitReady(screens);
+    await root.waitAmountShown?.(screens);
 
     // innerWidth 와 견주면 항진 명제다. 넘치면 브라우저가 화면을 축소해 둘이 함께 커진다.
     // 실제로 보이는 폭은 visualViewport 가 안다.

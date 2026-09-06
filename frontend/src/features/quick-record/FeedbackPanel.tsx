@@ -92,14 +92,25 @@ export function FeedbackPanel({
     );
   }
 
+  /**
+   * 펼친 것을 바꾸거나 접는다.
+   *
+   * 여기서 지난 오류를 지운다. 금액 고치기가 실패한 뒤 카테고리를 펴면 아무것도 안 했는데
+   * 그 문구가 그대로 따라붙기 때문이다. 두 토글이 같은 일을 하니 한 자리에서 지운다.
+   */
+  function toggleEditing(target: Exclude<Editing, null>): void {
+    update.reset();
+    setEditing((current) => (current === target ? null : target));
+  }
+
   function toggleAmount(): void {
     // 펼칠 때마다 지금 저장된 금액에서 시작한다. 지우다 만 숫자가 남아 있으면 안 된다.
     setDigits(String(savedAmount));
-    setEditing((current) => (current === 'amount' ? null : 'amount'));
+    toggleEditing('amount');
   }
 
   function toggleCategory(): void {
-    setEditing((current) => (current === 'category' ? null : 'category'));
+    toggleEditing('category');
   }
 
   return (

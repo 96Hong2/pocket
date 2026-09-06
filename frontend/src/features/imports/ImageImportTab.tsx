@@ -89,6 +89,8 @@ export interface ImageImportTabProps {
   /** 요청이 도는 동안 시트가 닫히거나 탭이 옮겨지지 않게 껍데기에 알린다. */
   onBusyChange: (busy: boolean) => void;
   onDone: () => void;
+  /** 저장이 성공한 순간. 닫기보다 앞선다. */
+  onSaved?: () => void;
   /** 사진으로는 안 될 때 갈 다른 길. 실패 화면과 권한 화면 두 자리에 함께 놓인다. */
   fallbackAction?: ReactNode;
 }
@@ -104,6 +106,7 @@ export function ImageImportTab({
   kind,
   onBusyChange,
   onDone,
+  onSaved,
   fallbackAction,
 }: ImageImportTabProps) {
   const mode = MODES[kind];
@@ -121,6 +124,7 @@ export function ImageImportTab({
         onBusyChange={onBusyChange}
         onRestart={() => setBatch(null)}
         onDone={onDone}
+        onSaved={onSaved}
         testId={mode.panelTestId}
         restartLabel={mode.restartLabel}
         emptyMessage={mode.emptyMessage}

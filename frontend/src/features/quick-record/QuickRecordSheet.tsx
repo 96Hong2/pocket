@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useBridge, useOverlayBackClose } from '../../app/providers';
 import {
   ApiError,
+  parseDecimalOr,
   queryKeys,
   useCategories,
   useCreateTransaction,
@@ -127,19 +128,50 @@ function RecordBody({
   }
 
   /**
-   * 한 건을 저장하고 시트를 닫는다. 저장을 마친 얼굴에서만 여기로 온다.
+   * 방금 쓴 방식을 설정 캐시에 심는다.
    *
    * 서버는 저장할 때 이 방식을 기억해 뒀다. 설정은 오래 들고 있어서 여기서 캐시를 맞춰 두지
    * 않으면, 시트를 다시 열 때 앱을 켤 당시의 옛 값으로 열린다. 다시 불러오는 대신 값을
    * 직접 넣는 이유는, 응답을 기다리는 사이에 시트가 다시 열리면 여전히 지난 탭이기 때문이다.
    *
+   * 부르는 자리는 닫기가 아니라 저장 성공이다. 닫기에만 두면 피드백에서 확인을 안 누르고
+   * X·딤·Esc·뒤로가기로 닫았을 때 서버 값과 캐시가 어긋나 다음에 옛 탭으로 열린다.
+   *
    * 되돌린 뒤에도 남긴다. 되돌리기가 지우는 것은 거래지 방금 무엇으로 적었나가 아니다.
    */
-  function finish(): void {
+  function rememberMethod(): void {
     queryClient.setQueryData<PreferencesOut>(queryKeys.preferences(), (prev) =>
       prev == null ? prev : { ...prev, last_record_method: recordMethodOf(tab) },
     );
+  }
+
+  /**
+   * 시트를 닫는다.
+   *
+   * 방식은 저장 성공 때 이미 심었지만 여기서도 부른다. 아무것도 저장하지 않고 탭만 옮긴 뒤
+   * 확인으로 닫는 길이 남아 있다. 두 번 불려도 같은 값이라 문제없다.
+   */
+  function finish(): void {
+    rememberMethod();
     onDone();
+  }
+
+  /**
+   * '한 번 더' 칩이 다음에 읽을 한 건을 남긴다.
+   *
+   * 금액이 0 이하거나 카테고리를 목록에서 못 찾으면 지난 값을 그대로 둔다.
+   * 칩은 편의 기능이라, 미덥지 않은 값으로 덮어쓰느니 안 바뀌는 편이 낫다.
+   */
+  function rememberLastRecord(transaction: TransactionOut): void {
+    const amount = parseDecimalOr(transaction.amount, 0);
+    const category = expenseCategories.find((item) => item.id === transaction.category_id);
+    if (amount <= 0 || category == null) return;
+
+    void writeLastRecord(bridge.storage, {
+      amount,
+      categoryId: category.id,
+      categoryName: category.name,
+    });
   }
 
   function save(category: CategoryOut, amount: number): void {
@@ -160,6 +192,7 @@ function RecordBody({
       {
         onSettled: () => markBusy(false),
         onSuccess: (created) => {
+          rememberMethod();
           setSaved({
             transaction: created.transaction,
             feedback: created.feedback,
@@ -183,14 +216,16 @@ function RecordBody({
         categories={expenseCategories}
         deadline={saved.deadline}
         onUndone={finish}
-        onUpdated={(updated) =>
+        onUpdated={(updated) => {
           setSaved({
             transaction: updated.transaction,
             feedback: updated.feedback,
             // 되돌리기 창은 저장 시각부터 흐른다. 카테고리를 바꿔도 다시 늘어나지 않는다.
             deadline: saved.deadline,
-          })
-        }
+          });
+          // 고친 값이 곧 마지막 기록이다. 저장 때 남긴 값만 두면 칩이 고치기 전 금액으로 저장한다.
+          rememberLastRecord(updated.transaction);
+        }}
         onConfirm={finish}
       />
     );
@@ -220,11 +255,16 @@ function RecordBody({
 
       {/* 감추기만 하고 남겨 둔다. 언마운트하면 적어 둔 줄글과 검토 목록이 사라진다. */}
       <div hidden={tab !== 'nl'}>
-        <NaturalLanguageTab onBusyChange={markBusy} onDone={finish} />
+        <NaturalLanguageTab onBusyChange={markBusy} onDone={finish} onSaved={rememberMethod} />
       </div>
 
       <div hidden={tab !== 'capture'}>
-        <ImageImportTab kind="capture" onBusyChange={markBusy} onDone={finish} />
+        <ImageImportTab
+          kind="capture"
+          onBusyChange={markBusy}
+          onDone={finish}
+          onSaved={rememberMethod}
+        />
       </div>
 
       <div hidden={tab !== 'receipt'}>
@@ -232,6 +272,7 @@ function RecordBody({
           kind="receipt"
           onBusyChange={markBusy}
           onDone={finish}
+          onSaved={rememberMethod}
           // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
           fallbackAction={
             <Button variant="ghost" onClick={() => setTab('keypad')}>

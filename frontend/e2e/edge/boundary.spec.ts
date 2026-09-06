@@ -26,6 +26,16 @@ function firstDayOfThisMonth(): string {
   return `${thisMonth()}-01`;
 }
 
+/**
+ * 가계부 시간대(KST)로 그 시각의 날짜. `sv-SE` 로케일이 `YYYY-MM-DD` 를 준다.
+ *
+ * 시간대를 여기서 직접 못 박는다. 기대값을 `format.ts` 로 만들면 좌우가 같은 경로를 타서
+ * 그쪽에서 시간대 옵션이 빠져도 늘 참이 된다.
+ */
+function seoulDay(instant: Date): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(instant);
+}
+
 test('지난달 마지막 날 기록은 이번 달 예산에 안 섞인다', async ({ home, prep }) => {
   await prep.setBudget(300_000);
   await prep.addTransaction({ amount: 250_000, on: lastDayOfLastMonth(), merchant: '지난달막차' });
@@ -98,8 +108,10 @@ test('오늘 날짜는 기기 시간대가 아니라 가계부 시간대로 정�
   await expect(home.today.row('오늘것')).toBeVisible();
   await expect(home.today.row('어제것')).toHaveCount(0);
 
-  // 화면이 보는 '오늘' 과 우리가 계산한 '오늘' 이 같은지 되짚는다.
-  expect(toLedgerDate(new Date()).slice(0, 7)).toBe(thisMonth());
+  // UTC 로는 아직 1월 31일이고 서울로는 2월 1일인 시각. 날짜를 기기 시간대로 만들면
+  // UTC 러너에서 여기가 하루 밀려 빨개진다. 목록 단언과 달리 시각에 기대지 않아 항상 무게가 있다.
+  const acrossMidnight = new Date('2026-01-31T16:30:00Z');
+  expect(toLedgerDate(acrossMidnight)).toBe(seoulDay(acrossMidnight));
 });
 
 /** `2026-08` → 화면에 찍히는 `2026년 8월`. 화면 출력에서 베끼지 않고 여기서 만든다. */
