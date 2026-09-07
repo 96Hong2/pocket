@@ -13,7 +13,8 @@ e2e/
                  보통은 fixtures 가 걸고, 이 장치 자체를 증명하는 spec 만 직접 부른다
     api.ts       사전 조건을 심는다. spec 은 `prep` 픽스처로 받는다
     deviceMock.ts devtools 목 앨범·카메라 다이얼. 사진 심기·권한 거부와 각각의 짝 확인 함수
-    aitMock.ts   그 밖의 devtools 목 다이얼. 광고 미채움·시스템 뒤로가기·미니앱 종료 감시
+    aitMock.ts   그 밖의 devtools 목 다이얼. 광고 미채움·시스템 뒤로가기·미니앱 종료 감시·
+                 알림 동의 결과와 그 요청 횟수 세기
     servers.ts   playwright.config 가 띄우는 dev 서버 정의
     fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다. spec 은 여기서 시작한다
   fixtures/    테스트가 쓰는 파일. 지금은 사진용 PNG 한 장(capture.png). 캡처와 영수증이 함께 쓴다
@@ -33,6 +34,7 @@ e2e/
                      있을 때만 떠서 없는 것을 단언하는 자리가 여럿이다
     CategoriesScreen 카테고리 관리 화면. 기본·내 것 두 구획과 기억한 분류 목록을 함께 들고 있다
     SettingsScreen   앱 설정 화면. 홈 표시 방식과 개인정보 안내
+    NotificationsScreen 알림 설정 화면. 켜기와 시각 둘뿐이라 안을 더 쪼개지 않았다
     AssetsScreen     자산 화면. 순자산 카드·그룹 구획 넷·항목 시트를 한 화면이 들고 있다
     GoalScreen       목표 화면. 목표 카드·모은 돈 목록·시트 둘(목표·기여)을 한 화면이 들고 있다
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
@@ -170,11 +172,20 @@ placeholder 3장으로 바꿔친다. **파일 선택 다이얼로그가 아예 �
 
 `support/deviceMock.ts` 는 익명키 트랩과 같은 모양이다. **다이얼마다 짝 확인 함수를 둔다.**
 
-| 거는 것                   | 확인하는 짝                    |
-| ------------------------- | ------------------------------ |
-| `seedMockImages(dataUri)` | `mockImagesSeeded(page)`       |
-| `denyPhotoPermission()`   | `photoPermissionDenied(page)`  |
-| `denyCameraPermission()`  | `cameraPermissionDenied(page)` |
+| 거는 것                          | 확인하는 짝                          |
+| -------------------------------- | ------------------------------------ |
+| `seedMockImages(dataUri)`        | `mockImagesSeeded(page)`             |
+| `denyPhotoPermission()`          | `photoPermissionDenied(page)`        |
+| `denyCameraPermission()`         | `cameraPermissionDenied(page)`       |
+| `forceAgreementResult(result)`   | `agreementResultForced(page, result)` |
+
+마지막 줄은 `support/aitMock.ts` 에 있고 알림 동의 결과를 정한다. 목의 기본값이
+`newAgreement` 라 **거절을 보려면 반드시 이 다이얼을 돌려야 한다.** 동의 화면을 몇 번
+띄웠는지는 `watchAgreementRequests(page)` 로 센다(목이 콘솔에 남기는 줄을 읽는다).
+화면에는 흔적이 남지 않아서, "켜는 그 순간에만 묻는다" 는 이 숫자로만 확인할 수 있다.
+
+알림 설정을 심는 `PrepApi` 헬퍼는 두지 않았다. 켜기도 시각 고르기도 화면으로 할 수 있고,
+확인하려는 동작이 바로 그 둘이다.
 
 짝을 안 부르면 **다이얼이 안 걸린 채로 초록이 된다.** 목 내부 구조(슬라이스 이름)에 기대는
 코드라 devtools 를 올리면 여기가 먼저 조용히 깨진다. 심는 사진은 `fixtures/capture.png` 를
@@ -196,7 +207,8 @@ base64 로 만든 data URL 이고, `addInitScript` 인자는 모든 문서마다
 
 - **미지원 토스 앱 버전 화면.** devtools 목은 `isSupported` 가 항상 true 다. 앨범도 카메라도
   버전 게이트가 없어 `supports('albumPick')`·`supports('camera')` 가 늘 true 다.
-  미지원 분기는 vitest 에서 `createBridge({ forceMock: true, scenario })` 로 본다.
+  **알림 동의도 같다**(실기기는 토스 5.255.0 부터다). 미지원 분기는 vitest 에서
+  `createBridge({ forceMock: true, scenario })` 로 본다.
 - **앨범에서 아무것도 안 고르고 닫기(취소).** `mock` 모드의 앨범은 배열을 돌려주므로 빈 배열을
   만들 수 없다. 앨범 취소는 vitest 에서 `scenario: { album: 'cancel' }` 로 본다.
   (**촬영 취소는 e2e 에서 본다.** 빈 dataUri 한 개로 만든다. 위 「앨범·카메라 목」 참고)

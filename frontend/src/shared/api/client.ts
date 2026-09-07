@@ -31,6 +31,8 @@ import type {
   ImportCommitOut,
   MerchantRuleListOut,
   MonthlyReportOut,
+  NotificationSettingsOut,
+  NotificationSettingsPatch,
   PeriodSummaryOut,
   PreferencesOut,
   PreferencesPatch,
@@ -95,6 +97,7 @@ const PATHS = {
   budgetSuggestion: '/api/v1/budgets/suggestion',
   categoryBudgets: '/api/v1/budgets/categories',
   preferences: '/api/v1/preferences',
+  notificationSettings: '/api/v1/notifications/settings',
   imports: '/api/v1/imports',
   merchantRules: '/api/v1/merchant-rules',
   assets: '/api/v1/assets',
@@ -198,6 +201,18 @@ export interface ApiClient extends Transport {
   getPreferences(options?: CallOptions): Promise<PreferencesOut>;
   /** 보낸 필드만 고친다. 응답은 고친 뒤 전체 설정이다. */
   savePreferences(body: PreferencesPatch, options?: CallOptions): Promise<PreferencesOut>;
+  /** 기록 알림 설정. 행이 없으면 서버가 꺼진 기본값으로 만들어 준다. */
+  getNotificationSettings(options?: CallOptions): Promise<NotificationSettingsOut>;
+  /**
+   * 알림 설정 고치기. 보낸 필드만 바뀐다.
+   *
+   * `remind_at: null` 을 보내면 정해 둔 시각이 지워진다. 필드를 빼는 것과 다르다.
+   * 켜면서 시각을 안 주면 서버가 기본 시각을 넣어 준다.
+   */
+  saveNotificationSettings(
+    body: NotificationSettingsPatch,
+    options?: CallOptions,
+  ): Promise<NotificationSettingsOut>;
   /** 줄글 분석. 거래를 만들지 않고 검토 단위만 만든다. */
   analyzeText(text: string, options?: CallOptions): Promise<ImportBatchOut>;
   /**
@@ -458,6 +473,23 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<PreferencesOut>({
         method: 'PATCH',
         path: PATHS.preferences,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    getNotificationSettings(call) {
+      return transport.request<NotificationSettingsOut>({
+        method: 'GET',
+        path: PATHS.notificationSettings,
+        signal: call?.signal,
+      });
+    },
+
+    saveNotificationSettings(body, call) {
+      return transport.request<NotificationSettingsOut>({
+        method: 'PATCH',
+        path: PATHS.notificationSettings,
         body,
         signal: call?.signal,
       });

@@ -7,6 +7,7 @@ import { CategoriesScreen } from '../screens/CategoriesScreen';
 import { GoalScreen } from '../screens/GoalScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ManageScreen } from '../screens/ManageScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ReportScreen } from '../screens/ReportScreen';
 import { RecordSheet } from '../screens/RecordSheet';
 import { SettingsScreen } from '../screens/SettingsScreen';
@@ -38,6 +39,8 @@ interface PocketFixtures {
   categories: CategoriesScreen;
   /** 앱 설정. 홈 표시 방식과 개인정보 안내를 한 화면이 가진다. */
   settings: SettingsScreen;
+  /** 알림 설정. 앱 설정 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
+  notifications: NotificationsScreen;
   /** 자산. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
   assets: AssetsScreen;
   /** 목표. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
@@ -85,6 +88,10 @@ export const test = base.extend<PocketFixtures>({
 
   settings: async ({ page }, use) => {
     await use(new SettingsScreen(page));
+  },
+
+  notifications: async ({ page }, use) => {
+    await use(new NotificationsScreen(page));
   },
 
   assets: async ({ page }, use) => {

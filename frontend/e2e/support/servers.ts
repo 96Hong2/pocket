@@ -39,8 +39,13 @@ export const E2E_SERVERS: PlaywrightTestConfig['webServer'] = [
     // vite.config.ts 의 strictPort 는 살아 있다. CLI 인자가 설정 포트를 덮는다.
     command: `npm run dev -- --port ${E2E_WEB_PORT}`,
     url: E2E_WEB_URL,
-    // 이 줄이 없으면 프론트가 개발 백엔드(8000)를 찌르고 fixtures 의 개발 스택 가드가 잡는다.
-    env: { VITE_API_BASE_URL: E2E_API_URL },
+    env: {
+      // 이 줄이 없으면 프론트가 개발 백엔드(8000)를 찌르고 fixtures 의 개발 스택 가드가 잡는다.
+      VITE_API_BASE_URL: E2E_API_URL,
+      // 템플릿 코드가 비면 브릿지가 SDK 를 부르지 않고 개발용으로 통과시킨다. 그러면
+      // devtools 목의 동의 결과 다이얼이 한 번도 안 돌아, 거절 분기를 e2e 로 볼 수 없다.
+      VITE_NOTIFICATION_TEMPLATE_CODE: 'e2e-reminder',
+    },
     stdout: 'pipe',
     stderr: 'pipe',
     reuseExistingServer: false,

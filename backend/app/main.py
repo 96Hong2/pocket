@@ -18,6 +18,7 @@ from app.modules.categories import router as categories_router
 from app.modules.goals import router as goals_router
 from app.modules.imports import router as imports_router
 from app.modules.merchant_rules import router as merchant_rules_router
+from app.modules.notifications import router as notifications_router
 from app.modules.reports import router as reports_router
 from app.modules.settings import router as settings_router
 from app.modules.transactions import router as transactions_router
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(reports_router, prefix="/api/v1")
     app.include_router(assets_router, prefix="/api/v1")
     app.include_router(goals_router, prefix="/api/v1")
+    app.include_router(notifications_router, prefix="/api/v1")
 
     @app.get("/health", tags=["meta"])
     def health() -> dict[str, str]:

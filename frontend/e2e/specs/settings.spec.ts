@@ -7,8 +7,8 @@ import { expect, test } from '../support/fixtures';
  * 설정 화면에서 확인할 것은 "고른 것이 홈에 그대로 나타나는가" 다. 그래서 고르는 것도
  * 결과를 보는 것도 화면으로 하고, 금액이 될 배경만 API 로 심는다.
  *
- * 없어진 것(예산 기간·알림 진입점)은 세어서 못 박는다. 있는 것만 확인하면 입구가 슬쩍
- * 되살아나도 아무 검사가 깨지지 않는다.
+ * 없어진 것(예산 기간)과 하위 화면 목록은 세어서 못 박는다. 있는 것만 확인하면 입구가
+ * 슬쩍 늘거나 줄어도 아무 검사가 깨지지 않는다.
  */
 
 /** 히어로 라벨 앞에 붙는 달. 기기 시간대가 아니라 가계부 시간대로 얻는다. */
@@ -157,7 +157,7 @@ test('개인정보처리방침 링크가 실제로 도착한다', async ({ appSh
   await settings.waitReady();
 });
 
-test('예산 시작일과 알림 진입점이 없다', async ({ appShell, settings }) => {
+test('예산 시작일 자리가 없고, 하위 화면은 둘뿐이다', async ({ appShell, settings }) => {
   await settings.open();
   await settings.waitReady();
 
@@ -166,6 +166,10 @@ test('예산 시작일과 알림 진입점이 없다', async ({ appShell, settin
   // 예산 기간은 달력 월로 고정이라 고를 자리를 두지 않는다.
   await expect(settings.text(/예산 시작일|예산 기간/)).toHaveCount(0);
 
-  // 하위 화면은 개인정보처리방침 하나뿐이다. 알림 설정 입구가 되살아나면 이 줄이 먼저 깨진다.
-  await expect(appShell.subScreenLinks('설정 하위 화면')).toHaveText(['개인정보처리방침']);
+  // 목록을 통째로 못 박는다. 입구가 하나 늘거나 순서가 바뀌면 이 줄이 먼저 깨진다.
+  // 알림 설정 화면 자체는 specs/notifications.spec.ts 가 본다.
+  await expect(appShell.subScreenLinks('설정 하위 화면')).toHaveText([
+    '알림 설정',
+    '개인정보처리방침',
+  ]);
 });

@@ -19,6 +19,7 @@
 @import './features/settings/settings.css';
 @import './features/assets/assets.css';
 @import './features/goals/goals.css';
+@import './features/notifications/notifications.css';
 
 /*
   디자인 토큰. 이 블록이 CSS 쪽 정본이고, 같은 값이 shared/tokens/index.ts 에 있다.

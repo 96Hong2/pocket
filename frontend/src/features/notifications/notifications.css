@@ -1,0 +1,105 @@
+/*
+  알림 설정 화면 스펙. 색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
+  토글은 shared/ui 가 그리고, 여기에는 이 화면의 배치와 시각 입력 모양만 둔다.
+*/
+
+@layer components {
+  .notify {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+    background: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .notify__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .notify__text {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .notify__title {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .notify__desc {
+    font-size: var(--text-13);
+    color: var(--color-muted);
+    line-height: 1.5;
+  }
+
+  /* 켜져 있을 때만 손댈 수 있는 줄. 꺼져 있으면 흐리게 두되 자리는 남긴다. */
+  .notify__time {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .notify__time-label {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .notify__time-input {
+    min-height: 40px;
+    padding: 6px 12px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-inset);
+    background: var(--color-surface-sunken);
+    font-family: inherit;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-ink);
+  }
+
+  .notify__time-input:disabled {
+    color: var(--color-placeholder);
+  }
+
+  .notify__notice {
+    margin: 0;
+    padding: 10px 14px;
+    background: var(--color-surface-sunken);
+    border-radius: var(--radius-md);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+    line-height: 1.5;
+  }
+
+  /* 설정을 아예 못 받았을 때. 카드를 감추면 이런 설정이 있다는 것조차 알 수 없다. */
+  .notify-fail {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 8px 8px 16px;
+    background: var(--color-surface);
+    border-radius: var(--radius-inset);
+    box-shadow: var(--shadow-card);
+  }
+
+  .notify-fail__text {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+}

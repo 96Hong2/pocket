@@ -1,6 +1,7 @@
 import {
   Device,
   Environment,
+  Notification,
   PermissionError,
   SafeArea,
   Screen,
@@ -26,6 +27,7 @@ import {
   type MiniAppBridge,
   type NavigationAccessory,
   type NetworkStatus,
+  type NotificationAgreementResult,
   type PickPhotosOptions,
   type PickedImage,
   type SafeAreaInsets,
@@ -149,6 +151,8 @@ export class TossMiniAppBridge implements MiniAppBridge {
         return true;
       case 'ads':
         return TossAds.attachBanner.isSupported();
+      case 'notification':
+        return Notification.requestAgreement.isSupported();
     }
   }
 
@@ -185,6 +189,53 @@ export class TossMiniAppBridge implements MiniAppBridge {
     } catch (error) {
       throw toBridgeError(error, '카메라를 열지 못했어요.');
     }
+  }
+
+  /**
+   * 알림 동의 화면을 띄우고 결과를 기다린다.
+   *
+   * SDK 가 콜백 방식이라 여기서 한 번만 Promise 로 바꾼다. 화면은 await 만 한다.
+   *
+   * **정리 함수는 함수일 때만 부른다.** 타입 선언은 함수를 돌려준다고 하는데 실기기와
+   * devtools 목이 객체를 돌려준 기록이 있다. 그대로 부르면 동의를 받고도 TypeError 로
+   * 끝나, 켜지지 않은 것처럼 보인다.
+   */
+  requestNotificationAgreement(templateCode: string): Promise<NotificationAgreementResult> {
+    if (!Notification.requestAgreement.isSupported()) {
+      return Promise.reject(
+        new BridgeError('UNSUPPORTED', '이 토스 앱 버전에서는 알림을 켤 수 없어요.'),
+      );
+    }
+    // 템플릿 코드가 없으면 실기기에서 동의 화면 자체가 뜨지 않는다. 개발 중에는 화면을
+    // 끝까지 눌러 볼 수 있게 통과시키고, 그 밖에서는 못 쓰는 기능으로 다룬다.
+    if (templateCode.trim() === '') {
+      if (!import.meta.env.DEV) {
+        return Promise.reject(
+          new BridgeError('UNSUPPORTED', '알림 템플릿이 설정되지 않아 알림을 켤 수 없어요.'),
+        );
+      }
+      return Promise.resolve('alreadyAgreed');
+    }
+
+    return new Promise<NotificationAgreementResult>((resolve, reject) => {
+      // 콜백이 먼저 도착해도 안전하게 미리 선언해 둔다.
+      let cleanup: unknown;
+      const release = () => {
+        if (typeof cleanup === 'function') (cleanup as () => void)();
+      };
+
+      cleanup = Notification.requestAgreement({
+        options: { templateCode },
+        onEvent: ({ type }) => {
+          resolve(type);
+          release();
+        },
+        onError: (error) => {
+          reject(toBridgeError(error, '알림 동의를 받지 못했어요.'));
+          release();
+        },
+      });
+    });
   }
 
   getSafeAreaInsets(): SafeAreaInsets {

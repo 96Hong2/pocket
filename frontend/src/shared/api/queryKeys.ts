@@ -36,6 +36,15 @@ export const queryKeys = {
   preferences: () => [ROOT, 'preferences'] as const,
 
   /**
+   * 기록 알림 설정. 달과 무관하다.
+   *
+   * `moneyQueryKeys` 에 넣지 않는다. 거래를 저장해도 알림 시각은 달라지지 않는다.
+   * 앱 설정과 따로 두는 이유는 알림 화면 하나만 이 값을 읽기 때문이다. 함께 묶으면
+   * 홈이 설정을 받을 때마다 안 쓸 알림 값까지 받는다.
+   */
+  notificationSettings: () => [ROOT, 'notification-settings'] as const,
+
+  /**
    * 자산 목록과 순자산. 달과 무관하다.
    *
    * `moneyQueryKeys` 에 **일부러** 넣지 않는다. 거래를 저장해도 자산은 달라지지 않고,

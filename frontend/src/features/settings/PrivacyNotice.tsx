@@ -7,7 +7,8 @@ import { Card, CategoryAvatar } from '../../shared/ui';
  * 설정 화면 아래쪽 한 덩어리.
  *
  * 사진을 올리는 사람이 가장 먼저 묻는 것에 한 문단으로 답하고, 더 볼 사람만 방침 화면으로
- * 들어가게 한다. 그 아래에 앱 자체 정보(내보내기·버전)를 같은 줄 모양으로 둔다.
+ * 들어가게 한다. 그 아래에 하위 화면 입구(알림 설정)와 앱 자체 정보(내보내기·버전)를
+ * 같은 줄 모양으로 둔다.
  *
  * **"계좌번호나 카드번호는 아예 읽지 않아요" 는 쓰지 않는다.** 시안에는 그 문장이 있지만
  * 캡처는 vision 모델이 이미지를 직접 읽으므로 사실과 다르다(`docs/ADR/0010`).
@@ -32,6 +33,12 @@ export function PrivacyNotice() {
                 <span className="link-row__label">CSV 내보내기</span>
                 <span className="link-row__value">준비 중</span>
               </div>
+            </li>
+            <li>
+              <Link className="link-row" to={ROUTES.notifications}>
+                <CategoryAvatar icon="30_bell" size={24} />
+                <span className="link-row__label">알림 설정</span>
+              </Link>
             </li>
             <li>
               <Link className="link-row" to={ROUTES.privacy}>

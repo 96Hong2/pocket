@@ -197,9 +197,14 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | notification_settings | 기본값 | 설명 |
 |---|---|---|
 | `is_enabled` | **false** | 옵트인. 진입 즉시 동의 시트를 띄우지 않는다 |
-| `remind_at` | NULL | |
-| `frequency` | `weekly_twice` | `weekly_twice` \| `daily` |
-| `timezone` | `Asia/Seoul` | |
+| `remind_at` | NULL | `HH:MM`. 켜면서 안 주면 서버가 21:30 을 넣는다 |
+| `frequency` | `weekly_twice` | `weekly_twice` \| `daily`. 화면에 고르는 자리는 없고 켤 때 `daily` 로 온다 |
+| `timezone` | `Asia/Seoul` | **읽지 않는다.** 아래 참고 |
+| `last_reminded_on` | NULL | 마지막으로 보낸 현지 날짜. 같은 날 두 번 보내지 않는 기준이다 |
+
+**알림 시각의 시간대 정본은 `users.timezone` 이다.** `notification_settings.timezone` 은 초기
+스키마에 있지만 아무도 읽지 않는다. 두 곳을 보면 달 경계와 알림 시각이 서로 다른 시간대로
+갈려서, 한 사람의 '오늘' 이 화면과 알림에서 달라진다. 판정과 발송 구조는 ADR-0013 에 있다.
 
 ## merchant_rules
 

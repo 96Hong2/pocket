@@ -504,6 +504,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Show */
+        get: operations["show_api_v1_notifications_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update */
+        patch: operations["update_api_v1_notifications_settings_patch"];
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1326,6 +1344,37 @@ export interface components {
          * @enum {string}
          */
         NextStepKind: "category_cap";
+        /**
+         * NotificationFrequency
+         * @enum {string}
+         */
+        NotificationFrequency: "weekly_twice" | "daily";
+        /** NotificationSettingsOut */
+        NotificationSettingsOut: {
+            /** Is Enabled */
+            is_enabled: boolean;
+            /** Remind At */
+            remind_at?: string | null;
+            frequency: components["schemas"]["NotificationFrequency"];
+        };
+        /**
+         * NotificationSettingsPatch
+         * @description 보낸 필드만 고친다.
+         *
+         *     **`remind_at` 은 필드를 빼는 것과 `null` 을 보내는 것이 다르다.** 빼면 그대로 두고,
+         *     `null` 을 보내면 정해 둔 시각을 지운다. 시각은 '값 없음' 이 정상 상태인 유일한 값이라
+         *     다른 설정(`/preferences`)과 규칙이 반대다.
+         *
+         *     `is_enabled` 와 `frequency` 는 `null` 이 뜻을 갖지 않아 그대로 둔다. 기본값이 있는
+         *     컬럼이라 비워 둘 자리가 없다.
+         */
+        NotificationSettingsPatch: {
+            /** Is Enabled */
+            is_enabled?: boolean | null;
+            /** Remind At */
+            remind_at?: string | null;
+            frequency?: components["schemas"]["NotificationFrequency"] | null;
+        };
         /**
          * PeriodComparisonOut
          * @description 지난 기간과의 비교.
@@ -4790,6 +4839,180 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    show_api_v1_notifications_settings_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    update_api_v1_notifications_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsOut"];
+                };
             };
             /** @description 식별키가 없거나 검증에 실패 */
             401: {

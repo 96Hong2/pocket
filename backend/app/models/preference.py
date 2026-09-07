@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import time
+from datetime import date, time
 from enum import StrEnum
 
-from sqlalchemy import Boolean, ForeignKey, String, Time, text
+from sqlalchemy import Boolean, Date, ForeignKey, String, Time, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Entity, str_enum_type
@@ -73,4 +73,7 @@ class NotificationSetting(Entity):
         nullable=False,
         server_default=NotificationFrequency.WEEKLY_TWICE.value,
     )
+    # 시간대 정본은 users.timezone 이다. 이 컬럼은 초기 스키마에 남아 있지만 아무도 읽지 않는다.
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, server_default="Asia/Seoul")
+    # 마지막으로 알림을 보낸 현지 날짜. 같은 날 두 번 보내지 않으려고 남긴다.
+    last_reminded_on: Mapped[date | None] = mapped_column(Date, nullable=True)

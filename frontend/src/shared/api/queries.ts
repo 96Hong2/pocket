@@ -50,6 +50,24 @@ export function usePreferences() {
 }
 
 /**
+ * 기록 알림 설정.
+ *
+ * 알림 화면 하나만 쓴다. 켜기와 시각 둘뿐이고, 행이 없는 사용자에게는 서버가 꺼진
+ * 기본값으로 만들어 주므로 '설정이 없는 상태' 를 화면이 따로 다루지 않는다.
+ */
+export function useNotificationSettings() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.notificationSettings(),
+    queryFn: ({ signal }) => client.getNotificationSettings({ signal }),
+    enabled: isReady,
+    staleTime: 30 * 60_000,
+  });
+}
+
+/**
  * 예산 상태와 이번 달 사실.
  *
  * 홈이 첫 화면을 고르는 근거(`has_any_transaction`)까지 여기서 온다.

@@ -29,6 +29,8 @@ import type {
   GoalCreate,
   GoalPatch,
   GoalStateOut,
+  NotificationSettingsOut,
+  NotificationSettingsPatch,
   PeriodSummaryOut,
   PreferencesOut,
   ImportBatchOut,
@@ -277,6 +279,24 @@ export function useSavePreferences() {
       queryClient.setQueryData<PreferencesOut>(queryKeys.preferences(), preferences);
       if (body.budget_auto_carryover == null) return;
       return queryClient.invalidateQueries({ queryKey: queryKeys.budgets() });
+    },
+  });
+}
+
+/**
+ * 알림 설정 저장.
+ *
+ * 응답이 고친 뒤 전체 설정이라 그대로 캐시에 넣는다. 무효화하지 않는다. 돈에 얽힌 값이
+ * 아니라서 다른 화면이 이 값을 보고 있지 않다.
+ */
+export function useSaveNotificationSettings() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: NotificationSettingsPatch) => client.saveNotificationSettings(body),
+    onSuccess: (settings) => {
+      queryClient.setQueryData<NotificationSettingsOut>(queryKeys.notificationSettings(), settings);
     },
   });
 }

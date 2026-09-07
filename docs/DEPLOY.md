@@ -126,6 +126,25 @@ gcloud run deploy pocket-backend \
 
 `backend/tests/api/test_boot_guards.py` 가 이 셋을 지킨다.
 
+### 기록 알림 잡
+
+알림은 웹 서비스가 아니라 **1분마다 도는 잡**이 보낸다. 판정이 '정한 시각과 같은 분' 이라
+더 뜸하게 부르면 그 사이에 든 시각은 그 날 아예 안 간다(ADR-0013).
+
+```bash
+gcloud run jobs create pocket-reminders \
+  --image=<이미지> \
+  --command=python --args=scripts/send_reminders.py \
+  --set-secrets=DATABASE_URL=pocket-database-url:latest \
+  --set-cloudsql-instances=<연결이름> \
+  --set-env-vars=ENVIRONMENT=prod
+# Cloud Scheduler 가 1분마다 이 잡을 실행하게 건다
+```
+
+- **아직 실제로 알림을 쏘지 않는다.** 붙어 있는 발송기가 로그 스텁이라, 지금 이 잡을 걸면
+  '누구에게 보낼 차례였다' 는 줄만 남는다. 토스 발송 API 가 열리면 어댑터 하나를 더 만든다
+- 대상만 세어 보려면 `--args=scripts/send_reminders.py,--dry-run` 으로 한 번 돌린다
+
 ---
 
 ## 6. 배포 뒤 연기 검사

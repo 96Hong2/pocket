@@ -4783,6 +4783,232 @@
         }
       }
     },
+    "/api/v1/notifications/settings": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Show",
+        "operationId": "show_api_v1_notifications_settings_get",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Update",
+        "operationId": "update_api_v1_notifications_settings_patch",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -6965,6 +7191,83 @@
         ],
         "title": "NextStepKind",
         "description": "다음 달에 해 볼 것 하나. 지금은 분류 한도 하나뿐이다."
+      },
+      "NotificationFrequency": {
+        "type": "string",
+        "enum": [
+          "weekly_twice",
+          "daily"
+        ],
+        "title": "NotificationFrequency"
+      },
+      "NotificationSettingsOut": {
+        "properties": {
+          "is_enabled": {
+            "type": "boolean",
+            "title": "Is Enabled"
+          },
+          "remind_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remind At"
+          },
+          "frequency": {
+            "$ref": "#/components/schemas/NotificationFrequency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_enabled",
+          "frequency"
+        ],
+        "title": "NotificationSettingsOut"
+      },
+      "NotificationSettingsPatch": {
+        "properties": {
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "remind_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remind At"
+          },
+          "frequency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotificationFrequency"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "NotificationSettingsPatch",
+        "description": "보낸 필드만 고친다.\n\n**`remind_at` 은 필드를 빼는 것과 `null` 을 보내는 것이 다르다.** 빼면 그대로 두고,\n`null` 을 보내면 정해 둔 시각을 지운다. 시각은 '값 없음' 이 정상 상태인 유일한 값이라\n다른 설정(`/preferences`)과 규칙이 반대다.\n\n`is_enabled` 와 `frequency` 는 `null` 이 뜻을 갖지 않아 그대로 둔다. 기본값이 있는\n컬럼이라 비워 둘 자리가 없다."
       },
       "PeriodComparisonOut": {
         "properties": {

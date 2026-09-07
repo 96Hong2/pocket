@@ -11,10 +11,16 @@ import type { Page } from '@playwright/test';
  */
 
 interface AitManager {
-  state?: { ads?: { forceNoFill?: boolean } };
+  state?: {
+    ads?: { forceNoFill?: boolean };
+    notification?: { nextResult?: string };
+  };
   patch?: (slice: string, partial: Record<string, unknown>) => void;
   trigger?: (event: string) => void;
 }
+
+/** 목이 알림 동의 요청에 돌려줄 결과. 거절도 오류가 아니라 결과의 한 종류다. */
+export type AgreementResult = 'newAgreement' | 'alreadyAgreed' | 'agreementRejected';
 
 /**
  * 광고 다이얼을 미채움으로 돌린다. `page.addInitScript` 로 심는다.
@@ -71,4 +77,55 @@ export function watchAppClose(page: Page): () => boolean {
     if (message.text().includes('closeView called')) closed = true;
   });
   return () => closed;
+}
+
+/**
+ * 알림 동의 요청의 결과를 정한다. `page.addInitScript` 로 넘긴다.
+ *
+ * 본문은 브라우저에서 돈다. 바깥 스코프를 참조하면 안 된다.
+ * 목의 기본값은 `newAgreement` 라, 거절을 보려면 반드시 이 다이얼을 돌려야 한다.
+ */
+export function forceAgreementResult(result: AgreementResult): (page: Page) => Promise<void> {
+  return async (page) => {
+    await page.addInitScript((next: string) => {
+      interface Manager {
+        state?: { notification?: { nextResult?: string } };
+        patch?: (slice: string, partial: Record<string, unknown>) => void;
+      }
+
+      const deadline = Date.now() + 10_000;
+      const timer = setInterval(() => {
+        const manager = (window as unknown as { __ait?: Manager }).__ait;
+        if (manager?.state?.notification?.nextResult === next || Date.now() > deadline) {
+          clearInterval(timer);
+          return;
+        }
+        manager?.patch?.('notification', { nextResult: next });
+      }, 1);
+    }, result);
+  };
+}
+
+/** 다이얼이 실제로 켜졌는지. 안 켜졌으면 목의 기본 결과를 보고 있는 것이다. */
+export async function agreementResultForced(page: Page, result: AgreementResult): Promise<boolean> {
+  return page.evaluate(
+    (expected) =>
+      (window as unknown as { __ait?: AitManager }).__ait?.state?.notification?.nextResult ===
+      expected,
+    result,
+  );
+}
+
+/**
+ * 알림 동의 화면을 몇 번 띄웠는지 센다.
+ *
+ * 목이 요청을 받을 때마다 콘솔에 한 줄을 적는다. 화면에는 아무 흔적이 안 남아서,
+ * "켜는 그 순간에만 묻는다" 는 것을 이 줄 수로만 확인할 수 있다.
+ */
+export function watchAgreementRequests(page: Page): () => number {
+  let count = 0;
+  page.on('console', (message) => {
+    if (message.text().includes('requestNotificationAgreement:')) count += 1;
+  });
+  return () => count;
 }
