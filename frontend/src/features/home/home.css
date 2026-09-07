@@ -63,6 +63,46 @@
     margin-top: 14px;
   }
 
+  /* 큰 숫자와 게이지 둘 다 관리 탭의 예산으로 가는 입구다. 링크 티는 내지 않는다. */
+  .home-hero__value-link,
+  .home-hero__budget {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* 큰 숫자와 '/ 150만' 은 원래 히어로 줄이 gap 으로 띄우고 있었다.
+     둘을 링크로 묶으면 그 gap 이 링크 하나에 걸리므로 여기서 다시 띄운다. */
+  .home-hero__value-link {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .home-hero__budget {
+    display: block;
+  }
+
+  .home-hero__value-link:active,
+  .home-hero__budget:active {
+    opacity: 0.6;
+  }
+
+  /* 눈에는 안 보이고 스크린리더만 읽는 꼬리말.
+     링크 이름을 aria-label 로 덮으면 안쪽 금액이 통째로 안 읽혀, 이 자리로 목적지만 덧붙인다.
+     display:none 이나 visibility:hidden 은 접근성 트리에서도 빠지므로 쓰지 않는다. */
+  .home-hero__sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   .home-hero__meta {
     display: flex;
     align-items: center;

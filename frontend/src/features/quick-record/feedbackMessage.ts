@@ -58,36 +58,21 @@ function overBudget(feedback: FeedbackOut, options: FeedbackMessageOptions): Fee
   else if (name) headline = `${name}에서 예산을 넘었어요.`;
   else if (over) headline = `이번 달 예산을 ${over} 넘었어요.`;
 
-  return {
-    badge: '예산 초과',
-    tone: 'caution',
-    headline,
-    detail:
-      feedback.remaining_days != null
-        ? `남은 ${feedback.remaining_days}일은 조금 천천히 가도 괜찮아요.`
-        : undefined,
-  };
+  return { badge: '예산 초과', tone: 'caution', headline };
 }
 
+/**
+ * 속도가 예산보다 빠를 때.
+ *
+ * 달 말 예상액도, 남은 날 수도 앞세우지 않는다. 예상액은 며칠치로 남은 달 전체를 늘린
+ * 값이라 초반일수록 크게 튀고, 남은 날 수는 적을 때마다 시간을 세게 만든다.
+ * 지금 얼마 남았는지 한 줄이면 된다. 판정 자체는 서버가 그대로 하고 홈이 쓴다.
+ */
 function paceWarning(feedback: FeedbackOut): FeedbackMessage {
-  const projected = won(feedback.projected_month_end);
-  const daily = won(feedback.daily_allowance);
   const remaining = won(feedback.remaining_budget);
-
-  let detail: string | undefined;
-  if (feedback.remaining_days != null && daily) {
-    detail = `남은 ${feedback.remaining_days}일 하루 ${daily}이면 예산 안에서 지낼 수 있어요.`;
-  } else if (remaining) {
-    detail = `남은 예산은 ${remaining}이에요.`;
-  }
-
   return {
-    badge: '주의',
-    tone: 'caution',
-    headline: projected
-      ? `지금 속도면 이번 달 ${projected}쯤 쓰게 돼요.`
-      : '지금 속도가 예산보다 조금 빨라요.',
-    detail,
+    tone: 'calm',
+    headline: remaining ? `남은 예산은 ${remaining}이에요.` : '잘 기록했어요.',
   };
 }
 
@@ -145,17 +130,12 @@ function achievement(feedback: FeedbackOut): FeedbackMessage {
   return { badge: '잘 하고 있어요', tone: 'calm', headline, detail };
 }
 
+/** 저장 직후 카드는 한 줄이다. 남은 날 수와 하루 가용액은 홈이 늘 보여 준다. */
 function onTrack(feedback: FeedbackOut): FeedbackMessage {
   const remaining = won(feedback.remaining_budget);
-  const daily = won(feedback.daily_allowance);
-
   return {
     tone: 'calm',
     headline: remaining ? `남은 예산은 ${remaining}이에요.` : '잘 기록했어요.',
-    detail:
-      feedback.remaining_days != null && daily
-        ? `남은 ${feedback.remaining_days}일 동안 하루 ${daily}씩 쓸 수 있어요.`
-        : undefined,
   };
 }
 

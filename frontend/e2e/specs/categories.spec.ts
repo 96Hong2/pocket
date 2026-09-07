@@ -25,7 +25,9 @@ const BASIC_CATEGORIES = [
   '여가·취미',
   '건강·미용',
   '기타',
-  '수입',
+  '월급',
+  '용돈',
+  '기타 수입',
   '이체',
 ];
 
@@ -48,7 +50,7 @@ test('기본 카테고리와 내가 만든 것이 다른 자리에 놓인다', a
   await expect(categories.basicRow('카페·간식')).toBeVisible();
 
   // 개수를 박아 둔다. 기본 목록이 늘거나 줄면 화면보다 여기가 먼저 걸린다.
-  await expect(categories.basicRows).toHaveCount(11);
+  await expect(categories.basicRows).toHaveCount(13);
 
   // 내 구획은 비어 있어도 자리를 지킨다. 없는 것을 감추면 만들 수 있다는 것도 안 보인다.
   await expect(categories.mineSection).toBeVisible();

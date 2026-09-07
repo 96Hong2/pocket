@@ -15,9 +15,20 @@ test('0원은 저장으로 넘어가지 않는다', async ({ home, recordSheet }
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  // 아무것도 안 누른 처음 상태가 0 원이다. 여기서 분류를 고를 수 있으면 0 원이 저장된다.
+  // 아무것도 안 누른 처음 상태가 0 원이다.
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));
-  await expect(recordSheet.input.categoryChip('식비')).toBeDisabled();
+
+  // 0 원에서 분류를 눌러도 저장으로 넘어가지 않는다. 고르기만 하고 목록이 접힌다.
+  await recordSheet.input.pickCategory('식비');
+  await expect(recordSheet.feedback.savedLabel).toHaveCount(0);
+  await expect(recordSheet.input.pickedCategory).toContainText('식비');
+  await expect(recordSheet.input.saveButton).toBeDisabled();
+
+  // 화면만 안 넘어간 게 아니라 기록도 없어야 한다. 시트를 닫고 홈 목록까지 본다.
+  await recordSheet.closeButton.click();
+  await recordSheet.waitClosed();
+  await expect(home.today.empty).toBeVisible();
+  await expect(home.hero.monthSpent).toHaveText(formatCurrency(0));
 });
 
 test('저장한 뒤에도 0원으로는 고칠 수 없다', async ({ home, recordSheet }) => {

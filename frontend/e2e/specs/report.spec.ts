@@ -63,8 +63,9 @@ function onlyAmount(value: number): RegExp {
  *
  * `8.3` 은 `8.31` 안에 들어 있다. 시작~끝을 괄호와 함께 봐야 달 전체 창과 갈린다.
  */
+/** 견준 창은 값 아래 작은 줄로 내려갔다. 괄호 없이 `9.1~9.7` 로 적힌다. */
 function windowText(start: string, end: string): string {
-  return `(${formatShortDate(start)}~${formatShortDate(end)})`;
+  return `${formatShortDate(start)}~${formatShortDate(end)}`;
 }
 
 test('그 달 지출을 총액·조각·6개월 흐름으로 보여준다', async ({ prep, report }) => {
@@ -132,8 +133,10 @@ test('지난달과 견줄 때 같은 날짜까지만 센다', async ({ prep, rep
 
   // 오늘이 지난달 말일보다 앞이면 90만 원은 창 밖이다. 말일이면 그 날이 창에 들어온다.
   if (TODAY_DAY < daysIn(LAST_MONTH)) {
-    // 달 전체를 세면 91만 원이 되는데, 그 안에 `10,000원` 이 들어 있어 부분일치로는 못 잡는다.
-    await expect(report.comparison).toHaveText(onlyAmount(10_000));
+    // 화면에는 이제 지난 기간 금액이 아니라 차액이 적힌다. 차액도 창이 잘못되면 함께 틀린다.
+    // 달 전체(91만)를 셌다면 -905,000원이 되므로 이 값으로 갈린다.
+    await expect(report.comparison).toHaveText(onlyAmount(5_000));
+    await expect(report.comparison).not.toContainText(formatCurrency(905_000));
     await expect(report.comparison).not.toContainText(formatCurrency(910_000));
   }
 });
@@ -149,12 +152,9 @@ test('예산을 정했으면 사용률 한 줄이 붙고, 안 정했으면 없�
   await prep.setBudget(100_000);
   await report.open();
   await report.waitReady();
-  // 비율만 적으면 위 헤드라인과 다른 지출을 세고 있어도 안 보인다. 근거 금액을 함께 적는다.
   // **줄을 통째로 본다.** 부분일치로 보면 `125,000원(125%)` 안에서도 `25,000원`·`25%` 가
   // 참이라, 사용률이 틀려도 초록이 된다.
-  await expect(report.budgetLine).toHaveText(
-    `예산 ${formatCurrency(100_000)} 중 ${formatCurrency(25_000)}(25%) 썼어요`,
-  );
+  await expect(report.budgetLine).toHaveText(`예산 ${formatCurrency(100_000)} 중 25%`);
 });
 
 test('예산에서 뺀 거래는 헤드라인에만 들어가고 사용률에는 안 들어간다', async ({
@@ -172,14 +172,13 @@ test('예산에서 뺀 거래는 헤드라인에만 들어가고 사용률에는
   await report.open();
   await report.waitReady();
 
-  // 두 숫자가 같은 카드에 나란히 있는데 기준이 다르다. 금액을 함께 적어야 산수가 맞아 보인다.
+  // 두 숫자가 같은 카드에 나란히 있는데 기준이 다르다. 헤드라인은 뺀 거래까지 세므로
+  // 여기서 함께 본다. 한쪽만 보면 기준이 뒤바뀌어도 통과한다.
   await expect(report.total).toHaveText(formatCurrency(525_000));
   // 이 테스트가 잡으려는 회귀는 하나다. 예산에서 뺀 50만 원이 사용률에 섞이는 것.
   // 섞이면 이 줄이 `525,000원(525%)` 가 되는데, 부분일치로는 그 안에서도
   // `25,000원`·`25%` 가 참이라 제외 로직을 통째로 지워도 초록이었다. 줄을 통째로 본다.
-  await expect(report.budgetLine).toHaveText(
-    `예산 ${formatCurrency(100_000)} 중 ${formatCurrency(25_000)}(25%) 썼어요`,
-  );
+  await expect(report.budgetLine).toHaveText(`예산 ${formatCurrency(100_000)} 중 25%`);
 });
 
 test('이번 주와 지난주를 같은 요일까지 견준다', async ({ prep, report }) => {
@@ -219,7 +218,7 @@ test('수입으로 바꾸면 번 돈과 그 분류를 보여준다', async ({ pr
     on: day(THIS_MONTH, EARLY),
     type: 'income',
     merchant: '월급',
-    categoryId: await prep.categoryIdByName('수입'),
+    categoryId: await prep.categoryIdByName('월급'),
   });
 
   // 예산을 심는다. 안 심으면 아래 '수입 화면에는 사용률이 없다' 가 지출 화면에서도 참이라
@@ -237,8 +236,8 @@ test('수입으로 바꾸면 번 돈과 그 분류를 보여준다', async ({ pr
   await expect(report.total).toHaveText(formatSignedCurrency(2_000_000));
   // 목록과 도넛도 수입 쪽으로 바뀐다. 헤드라인만 보면 조각이 지출인 채로 남아도 통과한다.
   await expect(report.rows).toHaveCount(1);
-  await expect(report.amount('수입')).toHaveText(formatSignedCurrency(2_000_000));
-  await expect(report.share('수입')).toHaveText('100%');
+  await expect(report.amount('월급')).toHaveText(formatSignedCurrency(2_000_000));
+  await expect(report.share('월급')).toHaveText('100%');
   // 조각이 하나면 100% 링이라 도넛을 안 그린다. 지출 조각이 남아 있으면 여기서 드러난다.
   await expect(report.donut).toHaveCount(0);
   // 지난달 비교·예산 사용률·주간 비교는 소비 이야기다. 수입 화면에 남으면 무엇의 비교인지 헷갈린다.

@@ -230,6 +230,27 @@ class CategorySheet {
     await expect(this.root).toHaveCount(0);
   }
 
+  /**
+   * 아이콘 격자의 실측값.
+   *
+   * 칸 높이가 행 간격보다 크면 아래 칸이 위 칸 바닥을 덮어 고른 칸의 테두리가 잘린다.
+   * 색이나 그림자를 재는 것으로는 안 잡힌다. 겹치는 것 자체를 숫자로 본다.
+   */
+  async iconGridMetrics(): Promise<{ cellHeight: number; rowPitch: number; iconSize: number }> {
+    return this.root.evaluate(() => {
+      const cells = [...document.querySelectorAll<HTMLElement>('.icon-picker__cell')];
+      const columns = 6;
+      const first = cells[0].getBoundingClientRect();
+      const nextRow = cells[columns].getBoundingClientRect();
+      const img = document.querySelector<HTMLElement>('.icon-picker__img');
+      return {
+        cellHeight: first.height,
+        rowPitch: nextRow.top - first.top,
+        iconSize: img ? img.getBoundingClientRect().width : 0,
+      };
+    });
+  }
+
   /** 아이콘 하나를 고른다. 고른 칸만 눌린 상태가 된다. */
   async pickIcon(label: string): Promise<void> {
     const cell = this.iconCell(label);

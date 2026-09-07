@@ -71,6 +71,21 @@ make dev-back                      # http://localhost:8000, DB 는 pocket
 익명 식별키를 검증할 mTLS 인증서가 아직 없어서, 검증을 건너뛰겠다고 명시해야 뜨도록 막아 뒀다.
 이 값은 `ENVIRONMENT=local` 에서만 켤 수 있다. dev 서버도 여러 사람이 붙는 공용 서버라 막아 뒀다.
 
+### 손으로 만져 볼 데이터
+
+빈 화면으로는 달력·리포트·예산 게이지를 볼 수 없다. 개발 스택에 한 번 심어 둔다.
+
+```bash
+python3 scripts/seed-dev.py            # 6개월치 268건 + 예산 + 내 분류
+python3 scripts/seed-dev.py --wipe     # 있던 거래를 지우고 다시
+python3 scripts/seed-dev.py --recovery # 최근 나흘을 비운다. 복구 카드가 뜬다
+```
+
+개발 도구의 목 익명키가 고정값이라 그 키로 넣는다. 브라우저를 새로고침하면 바로 보인다.
+지출·수입·이체·환불·예산 제외·무지출일과 990원부터 백만원대까지를 섞어 둔다.
+
+⚠ 개발용 DB(`pocket`)에만 넣는다. `make e2e` 가 쓰는 `pocket_e2e` 와 섞이지 않는다.
+
 ## 검사
 
 ```bash

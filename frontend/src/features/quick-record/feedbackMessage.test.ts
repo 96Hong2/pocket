@@ -69,6 +69,26 @@ describe('buildFeedbackMessage', () => {
     }
   });
 
+  it('속도가 빨라도 달 말 예상액이나 남은 날로 겁주지 않는다', () => {
+    // 예상액은 며칠치로 남은 달 전체를 늘린 값이라 초반일수록 크게 튀고,
+    // 남은 날 수는 적을 때마다 시간을 세게 만든다. 카드는 남은 돈 한 줄이면 된다.
+    const message = buildFeedbackMessage(
+      feedback('pace_warning', {
+        projected_month_end: '3836571',
+        daily_allowance: '25200',
+        remaining_days: 24,
+        remaining_budget: '604800',
+      }),
+    );
+
+    const text = `${message.headline}${message.detail ?? ''}`;
+    expect(message.headline).toBe('남은 예산은 604,800원이에요.');
+    expect(message.tone).toBe('calm');
+    expect(message.badge).toBeUndefined();
+    expect(text).not.toContain('3,836,571');
+    expect(text).not.toContain('24일');
+  });
+
   describe('성취는 근거마다 다른 말을 한다', () => {
     // 셋에 같은 문장을 쓰면 근거 없는 칭찬과 구분되지 않는다.
     it('지난주보다 덜 쓴 것', () => {
@@ -119,7 +139,7 @@ describe('buildFeedbackMessage', () => {
     });
   });
 
-  it('서버가 준 숫자를 그대로 문장에 넣는다', () => {
+  it('서버가 준 남은 예산을 그대로 문장에 넣고, 날 수는 세지 않는다', () => {
     const text = fullText('on_track', {
       remaining_budget: '340000',
       daily_allowance: '48000',
@@ -127,8 +147,18 @@ describe('buildFeedbackMessage', () => {
     });
 
     expect(text).toContain('340,000원');
-    expect(text).toContain('48,000원');
-    expect(text).toContain('남은 7일');
+    // 저장 카드는 한 줄이다. 남은 날과 하루 가용액은 홈이 늘 들고 있다.
+    expect(text).not.toContain('7일');
+    expect(text).not.toContain('48,000원');
+  });
+
+  it('예산을 넘겨도 남은 날을 세지 않는다', () => {
+    const message = buildFeedbackMessage(
+      feedback('over_budget', { over_amount: '18400', remaining_days: 12 }),
+    );
+
+    expect(message.headline).toContain('18,400원');
+    expect(`${message.headline}${message.detail ?? ''}`).not.toContain('12일');
   });
 
   it('카테고리 이름을 알면 어디서 넘었는지까지 말한다', () => {

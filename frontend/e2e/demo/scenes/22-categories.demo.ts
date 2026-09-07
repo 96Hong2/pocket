@@ -30,7 +30,7 @@ test('46 내 분류를 만들고 아이콘을 고른다', async ({
   await appShell.goToTab('관리');
   await appShell.followLink('카테고리 관리');
   await categories.waitReady();
-  await expect(categories.basicRows).toHaveCount(11);
+  await expect(categories.basicRows).toHaveCount(13);
   await demo.beat(3);
 
   await demo.step('기본 분류는 처음부터 있고, 내가 만든 칸은 비어 있다');

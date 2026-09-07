@@ -117,7 +117,7 @@ test('44 달을 옮기고 수입으로 바꿔 본다', async ({ appShell, demo, 
     daysAgo: 0,
     type: 'income',
     merchant: '월급',
-    categoryId: await prep.categoryIdByName('수입'),
+    categoryId: await prep.categoryIdByName('월급'),
   });
   await home.open();
   await home.waitReady();
@@ -152,7 +152,7 @@ test('44 달을 옮기고 수입으로 바꿔 본다', async ({ appShell, demo, 
 
   await demo.step('목록도 번 돈 쪽으로 갈아탄다');
   await expect(report.rows).toHaveCount(1);
-  await expect(report.amount('수입')).toHaveText(formatSignedCurrency(2_000_000));
+  await expect(report.amount('월급')).toHaveText(formatSignedCurrency(2_000_000));
   await demo.beat(3);
 
   await demo.step('조각이 하나뿐이면 100% 링이라 도넛을 그리지 않는다');

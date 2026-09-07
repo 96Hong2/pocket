@@ -15,9 +15,16 @@ import {
   toHomeViewInput,
 } from '../features/home';
 import { QuickRecordSheet, type RecordTab } from '../features/quick-record';
+import { EditSheet } from '../features/transactions';
 // 방식 → 탭 환산은 시트 옆에 있다. 배럴에는 시트만 나와 있어 파일을 곧장 가리킨다.
 import { DEFAULT_RECORD_TAB, resolveRecordTab } from '../features/quick-record/recordTab';
-import { useBudget, useCategories, usePreferences, useTransactions } from '../shared/api';
+import {
+  useBudget,
+  useCategories,
+  usePreferences,
+  useTransactions,
+  type TransactionOut,
+} from '../shared/api';
 import { Button, ErrorState, LoadingState, iconUrl } from '../shared/ui';
 
 function RecordButton({ onClick }: { onClick: () => void }) {
@@ -37,6 +44,8 @@ function RecordButton({ onClick }: { onClick: () => void }) {
 
 function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
   const { state } = useIdentity();
+  // 홈에서 바로 고친다. 여기서 못 고치면 달력까지 들어가야 해서 아무도 안 고친다.
+  const [editing, setEditing] = useState<TransactionOut | null>(null);
   const budget = useBudget();
   const categories = useCategories();
   const transactions = useTransactions();
@@ -98,12 +107,24 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
           if (transactions.isError) void transactions.refetch();
           if (categories.isError) void categories.refetch();
         }}
+        onPick={setEditing}
       />
 
       {/* 달력 화면으로 가는 유일한 입구다. 오늘 아래에 두어 "오늘 말고 그 전" 으로 읽히게 한다. */}
       <Link className="home-more" to={ROUTES.calendar}>
         전체 내역 보기
       </Link>
+
+      {/*
+        달력과 같은 시트를 쓴다. 고치는 자리가 둘이 되면 규칙도 둘이 된다.
+        달은 넘기지 않는다. 홈의 조회도 달 없이 부르니, 수정 응답이 캐시에 쓰는 키를
+        홈이 읽는 키와 맞춰야 히어로 숫자가 왕복 없이 바뀐다.
+      */}
+      <EditSheet
+        transaction={editing}
+        categories={categories.data?.items ?? []}
+        onClose={() => setEditing(null)}
+      />
     </>
   );
 }

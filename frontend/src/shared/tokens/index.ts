@@ -31,9 +31,9 @@ export const colors = {
   divider: '#F4F1EA',
   dashed: '#DCD8CE',
 
-  /** 내역 부호·달력·차트 전용. 일반 UI 에 쓰지 않는다. */
-  income: '#3D6FB8',
-  expense: '#C25B4E',
+  /** 내역 부호·달력·차트 전용. 일반 UI 에 쓰지 않는다. 대비 수치는 index.css 에 적어 뒀다. */
+  income: '#3C6EB6',
+  expense: '#B74C3F',
 
   dim: 'rgba(38, 41, 43, 0.35)',
 } as const;

@@ -410,8 +410,9 @@
   }
 
   .pk-avatar__img {
-    width: 62%;
-    height: 62%;
+    /* 동그라미 안에서 그림이 너무 작아 무엇인지 알아보기 어려웠다. 목록·칩이 다 이 값을 쓴다. */
+    width: 70%;
+    height: 70%;
     object-fit: contain;
   }
 
@@ -427,6 +428,10 @@
   }
   .pk-amount--income {
     color: var(--color-income);
+  }
+
+  .pk-amount--expense {
+    color: var(--color-expense);
   }
   .pk-amount--muted {
     color: var(--color-muted);

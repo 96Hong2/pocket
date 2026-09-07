@@ -18,9 +18,11 @@ import { formatCurrency } from '../../shared/lib/format';
 import {
   BottomSheet,
   Button,
+  CategoryAvatar,
   ErrorState,
   LoadingState,
   SegmentedControl,
+  toIconName,
   type SegmentedOption,
 } from '../../shared/ui';
 
@@ -106,6 +108,10 @@ function RecordBody({
   const [digits, setDigits] = useState('');
   const [saved, setSaved] = useState<SavedState | null>(null);
   const [repeat, setRepeat] = useState<LastRecord | null>(null);
+  // 금액보다 먼저 고른 카테고리. 화면에서 카테고리가 위에 있어 손이 먼저 그리로 간다.
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  // 고르고 나면 목록을 접는다. 분류가 늘수록 목록이 화면을 다 먹는다.
+  const [listOpen, setListOpen] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -237,9 +243,32 @@ function RecordBody({
     ? expenseCategories.find((category) => category.id === repeat.categoryId)
     : undefined;
 
+  const picked = expenseCategories.find((category) => category.id === pickedId) ?? null;
+
+  /**
+   * 카테고리를 눌렀을 때.
+   *
+   * 금액이 이미 있으면 누르는 것이 곧 저장이다(가장 짧은 길이라 그대로 둔다).
+   * 금액이 아직 없으면 고르기만 하고 목록을 접는다. 금액을 다 누른 뒤 저장을 누른다.
+   */
+  function pickCategory(category: CategoryOut): void {
+    if (amount > 0) {
+      save(category, amount);
+      return;
+    }
+    setPickedId(category.id);
+    setListOpen(false);
+  }
+
+  // 저장 버튼은 카테고리를 골라 목록을 접었을 때만 나온다. 목록을 다시 펴면 칩을 누르는
+  // 것이 곧 저장이라 버튼이 없다. 힌트가 같은 값을 봐야 없는 버튼을 가리키지 않는다.
+  const saveTarget = listOpen ? null : picked;
+
   let hint = '금액을 누르고 카테고리를 고르면 바로 저장돼요';
   if (create.isPending) hint = '저장하는 중이에요';
+  else if (saveTarget != null && amount > 0) hint = '저장을 누르면 기록돼요';
   else if (amount > 0) hint = '카테고리를 고르면 저장돼요';
+  else if (picked) hint = '금액을 누르면 저장할 수 있어요';
 
   return (
     <div className="record">
@@ -316,11 +345,35 @@ function RecordBody({
           />
         ) : null}
 
-        <CategoryChips
-          categories={expenseCategories}
-          disabled={amount <= 0 || create.isPending}
-          onPick={(category) => save(category, amount)}
-        />
+        {listOpen || picked == null ? (
+          <CategoryChips
+            categories={expenseCategories}
+            disabled={create.isPending}
+            onPick={pickCategory}
+            selectedId={pickedId}
+          />
+        ) : (
+          <button
+            type="button"
+            className="record__picked"
+            disabled={create.isPending}
+            onClick={() => setListOpen(true)}
+          >
+            <CategoryAvatar icon={toIconName(picked.icon_key)} size={26} />
+            <span className="record__picked-name">{picked.name}</span>
+            <span className="record__picked-more">다시 고르기</span>
+          </button>
+        )}
+
+        {saveTarget != null ? (
+          <Button
+            className="record__save"
+            disabled={amount <= 0 || create.isPending}
+            onClick={() => save(saveTarget, amount)}
+          >
+            저장
+          </Button>
+        ) : null}
 
         <Keypad digits={digits} onChange={setDigits} />
       </div>

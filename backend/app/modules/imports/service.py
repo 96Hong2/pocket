@@ -40,6 +40,7 @@ from app.integrations.llm import (
 )
 from app.models import (
     Category,
+    CategoryKind,
     ImportBatch,
     ImportBatchStatus,
     ImportCandidate,
@@ -83,6 +84,23 @@ _IMAGE_KINDS: dict[TransactionSource, _ImageKind] = {
     TransactionSource.SCREENSHOT: _ImageKind(screenshot_prompt, "캡처를", "캡처 분석"),
     TransactionSource.RECEIPT: _ImageKind(receipt_prompt, "영수증을", "영수증 분석"),
 }
+
+# 후보의 종류와 짝이 맞는 분류 종류. 환불은 되돌릴 지출의 분류를 따라가므로 짝이 없다.
+_KIND_FOR_TYPE: dict[TransactionType, CategoryKind] = {
+    TransactionType.EXPENSE: CategoryKind.EXPENSE,
+    TransactionType.INCOME: CategoryKind.INCOME,
+    TransactionType.TRANSFER: CategoryKind.TRANSFER,
+}
+
+
+class _LearnedRule(NamedTuple):
+    """기억한 규칙 하나. 분류의 종류를 함께 들고 다닌다.
+
+    종류를 모르면 지출로 기억한 규칙이 '+' 를 붙여 수입이 된 후보에도 붙는다.
+    """
+
+    category_id: uuid.UUID
+    kind: CategoryKind
 
 
 class CommitResult:
@@ -450,7 +468,7 @@ def _to_row(
     order: int,
     today: date,
     known: set[str],
-    rules: dict[str, uuid.UUID],
+    rules: dict[str, _LearnedRule],
 ) -> ImportCandidate:
     occurred_at = _occurred_at(candidate.occurred_at, user, today)
     # 돌아온 값도 가린다. 캡처는 입력을 가릴 수단이 없어(이미지다) 여기가 유일한 그물이고,
@@ -503,14 +521,19 @@ def _category_for(
     user: User,
     candidate: TransactionCandidate,
     merchant_normalized: str | None,
-    rules: dict[str, uuid.UUID],
+    rules: dict[str, _LearnedRule],
 ) -> uuid.UUID | None:
     """분류 우선순위: 내 규칙 → 모델이 고른 이름 → 사용자 확인.
 
+    규칙은 분류의 종류가 후보의 종류와 맞을 때만 붙인다. 같은 상호로 지출과 수입을 둘 다
+    적는 일이 있어서(`알바비 12000` 과 `알바비 +150000`), 종류를 안 보면 기억한 지출 분류가
+    수입 후보에 붙는다. 환불은 되돌릴 지출의 분류를 따라가므로 어느 규칙도 붙지 않는다.
+
     공용 상호 사전은 아직 없다. 없는 단계를 있는 척 끼워 넣지 않는다.
     """
-    if merchant_normalized and merchant_normalized in rules:
-        return rules[merchant_normalized]
+    rule = rules.get(merchant_normalized) if merchant_normalized else None
+    if rule is not None and rule.kind is _KIND_FOR_TYPE.get(candidate.type):
+        return rule.category_id
     if candidate.category is None:
         return None
     return _category_id_by_name(session, user, candidate.category)
@@ -532,10 +555,11 @@ def _category_id_by_name(session: Session, user: User, name: str) -> uuid.UUID |
     return session.scalars(stmt).first()
 
 
-def _rules_by_merchant(session: Session, user: User) -> dict[str, uuid.UUID]:
+def _rules_by_merchant(session: Session, user: User) -> dict[str, _LearnedRule]:
     # 지운 분류를 가리키는 규칙은 뺀다. 그 id 를 후보에 붙이면 저장이 묶음째 거절된다.
+    # 분류의 종류도 같이 읽는다. 붙일 때 후보의 종류와 맞는지 봐야 한다.
     stmt = (
-        select(MerchantRule)
+        select(MerchantRule.merchant_normalized, MerchantRule.category_id, Category.kind)
         .join(Category, Category.id == MerchantRule.category_id)
         .where(
             MerchantRule.user_id == user.id,
@@ -543,7 +567,10 @@ def _rules_by_merchant(session: Session, user: User) -> dict[str, uuid.UUID]:
             Category.deleted_at.is_(None),
         )
     )
-    return {row.merchant_normalized: row.category_id for row in session.scalars(stmt)}
+    return {
+        merchant: _LearnedRule(category_id=category_id, kind=kind)
+        for merchant, category_id, kind in session.execute(stmt)
+    }
 
 
 def _known_fingerprints(session: Session, user: User) -> set[str]:
@@ -565,11 +592,17 @@ def _fingerprint_of(row: ImportCandidate, user: User) -> Fingerprint:
 
 
 def _learn_rule(session: Session, user: User, row: ImportCandidate) -> None:
-    """저장한 상호와 분류를 기억한다. 다음 분석에서 이 규칙이 모델보다 앞선다."""
+    """저장한 상호와 분류를 기억한다. 다음 분석에서 이 규칙이 모델보다 앞선다.
+
+    지출과 수입만 기억한다. 수입도 월급·용돈·기타 수입으로 갈리므로 고른 것을 기억할 값이 있다.
+    이체는 분류가 하나뿐이고, 환불은 되돌릴 지출의 분류를 따라가서 기억할 것이 없다.
+
+    상호 하나에 규칙은 하나다. 같은 상호를 지출로도 수입으로도 적으면 나중에 저장한 쪽이
+    앞의 것을 덮는다. 덮인 종류의 후보에는 이 규칙이 붙지 않고 모델이 고른 이름으로 돌아간다.
+    """
     if not row.merchant_normalized or row.category_id is None:
         return
-    if row.type != TransactionType.EXPENSE:
-        # 이체·수입에는 분류가 하나뿐이라 기억할 것이 없다.
+    if row.type not in (TransactionType.EXPENSE, TransactionType.INCOME):
         return
     existing = session.scalars(
         select(MerchantRule).where(

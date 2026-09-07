@@ -62,7 +62,24 @@ export function HomeHero({
       <span className="home-hero__label">{label}</span>
 
       <div className="home-hero__row">
-        <HeroValue layout={layout} budget={budget} />
+        {/*
+          예산이 걸린 화면에서는 큰 숫자 자체가 관리 탭의 예산으로 가는 입구다.
+          숫자를 보고 "고쳐야겠다" 고 생각하는 자리가 여기인데, 그때 갈 길이
+          탭바를 눌러 관리로 가서 다시 찾는 것뿐이면 대부분 그냥 지나간다.
+        */}
+        {withBudget ? (
+          <Link
+            className="home-hero__value-link"
+            to={ROUTES.manage}
+            data-testid={TEST_IDS.heroBudgetLink}
+          >
+            <HeroValue layout={layout} budget={budget} />
+            {/* 링크 이름은 안쪽 금액이 만든다. 갈 곳은 이름 끝에 덧붙여 읽어 준다. */}
+            <span className="home-hero__sr">, 예산 고치기</span>
+          </Link>
+        ) : (
+          <HeroValue layout={layout} budget={budget} />
+        )}
         {/*
           달력으로 가는 두 번째 입구. 시안이 큰 숫자 옆에 둔다.
           '오늘 말고 그 전' 을 보고 싶어지는 자리가 여기라, 목록 끝까지 내려가야만
@@ -105,7 +122,7 @@ export function HomeHero({
       ) : null}
 
       {withBudget && progress != null ? (
-        <div className="home-hero__budget">
+        <Link className="home-hero__budget" to={ROUTES.manage}>
           <Gauge
             data-testid={TEST_IDS.budgetGauge}
             ratio={progress}
@@ -142,7 +159,8 @@ export function HomeHero({
               />
             </span>
           </div>
-        </div>
+          <span className="home-hero__sr">, 예산 고치기</span>
+        </Link>
       ) : null}
 
       {/*

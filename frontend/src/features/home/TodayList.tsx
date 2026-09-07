@@ -11,6 +11,8 @@ interface TodayListProps {
   /** 조회가 실패했나. 실패를 "비어 있어요" 로 덮지 않으려고 받는다. */
   loadFailed?: boolean;
   onRetry?: () => void;
+  /** 한 줄을 누르면 고치기로 간다. 안 넘기면 줄이 눌리지 않는다. */
+  onPick?: (transaction: TransactionOut) => void;
 }
 
 /**
@@ -30,6 +32,7 @@ export function TodayList({
   loading = false,
   loadFailed = false,
   onRetry,
+  onPick,
 }: TodayListProps) {
   const today = toLedgerDate(new Date());
   const rows = transactions.filter((tx) => isToday(tx.occurred_at, today));
@@ -47,6 +50,7 @@ export function TodayList({
               avatarSize={54}
               density="compact"
               hideDivider={index === rows.length - 1}
+              onClick={onPick ? () => onPick(tx) : undefined}
             />
           ))}
         </Card>

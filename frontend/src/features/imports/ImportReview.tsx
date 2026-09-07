@@ -69,8 +69,9 @@ export function ImportReview({
   const [editing, setEditing] = useState<string | null>(null);
   const [saved, setSaved] = useState<ImportCommitOut | null>(null);
 
-  const expenseCategories = (categories.data?.items ?? []).filter(
-    (category) => category.kind === 'expense',
+  // 종류에 따라 고를 수 있는 분류가 다르다. 거르는 일은 후보 줄이 한다.
+  const pickable = (categories.data?.items ?? []).filter(
+    (category) => category.kind === 'expense' || category.kind === 'income',
   );
 
   const busy = patch.isPending || commit.isPending;
@@ -124,7 +125,7 @@ export function ImportReview({
             <CandidateRow
               key={candidate.id}
               candidate={candidate}
-              categories={expenseCategories}
+              categories={pickable}
               editing={editing === candidate.id}
               disabled={busy}
               onToggle={(selected) => {

@@ -7,14 +7,10 @@ import {
   type TransactionType,
   parseDecimalOr,
 } from '../../shared/api';
-import {
-  formatCurrency,
-  formatDayLabel,
-  toLedgerDate,
-  toLedgerNoonIso,
-} from '../../shared/lib/format';
+import { formatDayLabel, toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import {
+  Amount,
   AmountField,
   Button,
   CategoryAvatar,
@@ -81,16 +77,17 @@ export function CandidateRow({
           <span className="nl-item__name">{name}</span>
         </label>
 
-        <span
-          className={
-            candidate.is_low_confidence
-              ? 'nl-item__amount nl-item__amount--unsure'
-              : 'nl-item__amount'
-          }
+        {/*
+          종류를 숫자로 드러낸다. 수입은 앞에 + 가 붙고 색이 갈린다.
+          아래 메타 줄의 분류만으로는 이게 들어온 돈인지 나간 돈인지 알 수 없었다.
+        */}
+        <Amount
+          className={candidate.is_low_confidence ? 'nl-item__amount--unsure' : undefined}
+          value={amount}
+          tone={candidate.type}
+          size={17}
           data-testid={TEST_IDS.nlCandidateAmount}
-        >
-          {formatCurrency(amount)}
-        </span>
+        />
       </div>
 
       <div className="nl-item__meta">
@@ -132,6 +129,14 @@ interface CandidateFormProps {
   categories: CategoryOut[];
   disabled: boolean;
   onSave: (body: ImportCandidatePatch) => void;
+}
+
+/** 그 종류로 고를 수 있는 분류. 이체는 집계에서 빠지므로 분류를 두지 않는다. */
+function pickableFor(type: TransactionType, categories: CategoryOut[]): CategoryOut[] {
+  if (type === 'expense' || type === 'income') {
+    return categories.filter((item) => item.kind === type);
+  }
+  return [];
 }
 
 function CandidateForm({ candidate, categories, disabled, onSave }: CandidateFormProps) {
@@ -191,15 +196,19 @@ function CandidateForm({ candidate, categories, disabled, onSave }: CandidateFor
         value={type}
         onChange={(next) => {
           setType(next);
-          // 지출 분류는 지출에만 붙는다. 남겨 두면 수입이 '식비' 로 저장된다.
-          if (next !== 'expense') setCategoryId(null);
+          // 종류가 바뀌면 고른 분류가 그 종류의 것이 아닐 수 있다. 남겨 두면 수입이
+          // '식비' 로 저장된다. 이체는 집계 밖이라 분류를 아예 두지 않는다.
+          setCategoryId((current) =>
+            pickableFor(next, categories).some((item) => item.id === current) ? current : null,
+          );
         }}
         ariaLabel="종류"
       />
 
-      {type === 'expense' ? (
+      {/* 수입도 어디서 온 돈인지 고를 수 있어야 한다. 이체만 분류가 없다. */}
+      {type === 'expense' || type === 'income' ? (
         <div className="nl-form__cats" role="group" aria-label="분류">
-          {categories.map((item) => (
+          {pickableFor(type, categories).map((item) => (
             <button
               key={item.id}
               type="button"

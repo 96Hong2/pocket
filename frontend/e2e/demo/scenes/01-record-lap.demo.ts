@@ -35,8 +35,8 @@ test('01 처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ dem
   await recordSheet.waitOpen();
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));
   await expect(recordSheet.input.hint).toHaveText('금액을 누르고 카테고리를 고르면 바로 저장돼요');
-  // 금액을 찍기 전에는 카테고리를 못 고른다. 순서가 화면에 박혀 있다.
-  await expect(recordSheet.input.categoryChip(CATEGORY)).toBeDisabled();
+  // 순서를 강요하지 않는다. 금액이 아직 0원이어도 카테고리는 열려 있다.
+  await expect(recordSheet.input.categoryChip(CATEGORY)).toBeEnabled();
   await demo.beat(2);
 
   await demo.step('2단계 · 키패드로 금액만 찍어요');

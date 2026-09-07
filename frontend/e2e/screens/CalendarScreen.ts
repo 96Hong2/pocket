@@ -207,8 +207,10 @@ class SearchArea {
   }
 }
 
-/** 수정 시트. 상호·금액·카테고리·예산 제외를 한 화면에서 고친다. */
-class EditSheetArea {
+/** 수정 시트. 상호·금액·카테고리·예산 제외를 한 화면에서 고친다.
+ *
+ * 달력과 홈이 같은 시트를 쓴다. 화면마다 사본을 만들면 규칙도 둘이 된다. */
+export class EditSheetArea {
   private readonly root: Locator;
 
   constructor(page: Page) {

@@ -169,9 +169,19 @@ class RecordInput {
     }
   }
 
-  /** 카테고리를 누르는 것이 곧 저장이다. 저장 버튼이 따로 없다. */
+  /** 금액이 이미 있으면 카테고리를 누르는 것이 곧 저장이다. */
   async pickCategory(name: string): Promise<void> {
     await this.categoryChip(name).click();
+  }
+
+  /** 금액보다 먼저 고른 뒤 접혀 있는 한 줄. 누르면 목록이 다시 펴진다. */
+  get pickedCategory(): Locator {
+    return this.root.getByRole('button', { name: /다시 고르기$/ });
+  }
+
+  /** 카테고리를 먼저 고른 다음에만 나오는 저장 버튼. */
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: '저장', exact: true });
   }
 }
 
@@ -235,6 +245,21 @@ class RecordFeedback {
   /** 눌러 둔 금액으로 실제로 고치는 버튼. 0 원이면 눌리지 않는다. */
   get applyAmountButton(): Locator {
     return this.root.getByRole('button', { name: '이 금액으로 고치기' });
+  }
+
+  /** 내용을 적는 칸. 버튼 뒤에 숨지 않고 저장 직후부터 늘 떠 있다. */
+  get merchantField(): Locator {
+    return this.root.getByTestId(TEST_IDS.feedbackMerchantField);
+  }
+
+  /**
+   * 내용을 적고 칸에서 빠져나온다.
+   *
+   * 저장 버튼이 따로 없다. 칸을 벗어날 때 보내므로 blur 까지 해야 실제로 저장된다.
+   */
+  async writeMerchant(name: string): Promise<void> {
+    await this.merchantField.fill(name);
+    await this.merchantField.blur();
   }
 
   get backspaceKey(): Locator {
@@ -418,6 +443,11 @@ class RecordNaturalLanguage {
 
   amount(name: string): Locator {
     return this.row(name).getByTestId(TEST_IDS.nlCandidateAmount);
+  }
+
+  /** 후보 줄 금액의 글자색. 수입과 지출이 색으로 갈리는지 본다. */
+  async amountColor(name: string): Promise<string> {
+    return this.amount(name).evaluate((el) => getComputedStyle(el).color);
   }
 
   day(name: string): Locator {
@@ -642,6 +672,11 @@ class RecordImageImport {
 
   amount(name: string): Locator {
     return this.row(name).getByTestId(TEST_IDS.nlCandidateAmount);
+  }
+
+  /** 후보 줄 금액의 글자색. 수입과 지출이 색으로 갈리는지 본다. */
+  async amountColor(name: string): Promise<string> {
+    return this.amount(name).evaluate((el) => getComputedStyle(el).color);
   }
 
   day(name: string): Locator {
