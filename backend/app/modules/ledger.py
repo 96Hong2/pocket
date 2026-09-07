@@ -126,6 +126,7 @@ def _to_domain(tx: Transaction, tz: ZoneInfo) -> agg.TransactionInput:
         category_id=str(tx.category_id) if tx.category_id else None,
         excluded_from_budget=tx.excluded_from_budget,
         is_deleted=tx.deleted_at is not None,
+        source=tx.source,
     )
 
 

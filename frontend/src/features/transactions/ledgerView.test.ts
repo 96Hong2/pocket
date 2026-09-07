@@ -37,25 +37,34 @@ describe('dayIso', () => {
 describe('dayCellLabel', () => {
   it('기록이 없으면 없다고 말한다', () => {
     expect(dayCellLabel('2026-09-04')).toBe('9월 4일, 기록 없음');
-    expect(dayCellLabel('2026-09-04', { expense: 0, income: 0 })).toBe('9월 4일, 기록 없음');
+    expect(dayCellLabel('2026-09-04', { expense: 0, income: 0, isNoSpend: false })).toBe(
+      '9월 4일, 기록 없음',
+    );
   });
 
   it('있는 것만 읽는다', () => {
-    expect(dayCellLabel('2026-09-04', { expense: 5000, income: 0 })).toBe(
+    expect(dayCellLabel('2026-09-04', { expense: 5000, income: 0, isNoSpend: false })).toBe(
       '9월 4일, 지출 5,000원',
     );
-    expect(dayCellLabel('2026-09-04', { expense: 0, income: 500000 })).toBe(
+    expect(dayCellLabel('2026-09-04', { expense: 0, income: 500000, isNoSpend: false })).toBe(
       '9월 4일, 수입 500,000원',
     );
-    expect(dayCellLabel('2026-09-04', { expense: 5000, income: 500000 })).toBe(
+    expect(dayCellLabel('2026-09-04', { expense: 5000, income: 500000, isNoSpend: false })).toBe(
       '9월 4일, 지출 5,000원, 수입 500,000원',
     );
   });
 
   it('환불이 더 많은 날은 음수로 읽는다', () => {
     // 0 으로 눌러 버리면 그날 무슨 일이 있었는지가 사라진다.
-    expect(dayCellLabel('2026-09-04', { expense: -2000, income: 0 })).toBe(
+    expect(dayCellLabel('2026-09-04', { expense: -2000, income: 0, isNoSpend: false })).toBe(
       '9월 4일, 지출 -2,000원',
+    );
+  });
+
+  it('안 쓴 날로 적어 둔 날은 기록 없는 날과 다르게 읽는다', () => {
+    // 둘 다 0원이다. 여기서 안 가르면 안 썼다고 적어 둔 것이 화면에서 사라진다.
+    expect(dayCellLabel('2026-09-04', { expense: 0, income: 0, isNoSpend: true })).toBe(
+      '9월 4일, 무지출',
     );
   });
 });

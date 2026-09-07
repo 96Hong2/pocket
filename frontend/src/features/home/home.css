@@ -138,6 +138,21 @@
     color: var(--color-ink);
   }
 
+  /* 하루치 줄 아래 한 줄. 라벨은 왼쪽, 금액은 오른쪽 끝에 붙어 위 줄과 세로로 맞는다. */
+  .home-hero__week {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .home-hero__week-label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
   /* 번 돈·쓴 돈처럼 큰 숫자 아래 나란히 두는 두 칸. */
   .home-hero__pair {
     display: flex;
@@ -262,6 +277,14 @@
     font-size: var(--text-15);
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
+  }
+
+  /* 안 쓴 날 표시를 저장·취소하지 못했을 때 그 자리에 남기는 한 줄. */
+  .home-today__notice {
+    margin: 10px 0 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
   }
 
   /* 화면 맨 아래가 탭바에 눌리지 않게 한 뼘 남긴다. */

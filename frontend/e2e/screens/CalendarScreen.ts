@@ -108,10 +108,18 @@ class CalendarGridArea {
    *
    * 문구는 화면이 쓰는 함수를 그대로 부른다. 베껴 적으면 화면만 바뀌어도 눈치채지 못한다.
    * 안 적은 쪽은 0원이다. 환불이 그날 지출을 깎으므로 expense 는 음수로 들어올 수 있다.
+   * `isNoSpend` 는 안 쓴 날로 적어 둔 날이다. 금액이 0 이라 그 표시로만 가려진다.
    */
-  cellName(iso: string, totals?: { expense?: number; income?: number }): string {
+  cellName(
+    iso: string,
+    totals?: { expense?: number; income?: number; isNoSpend?: boolean },
+  ): string {
     if (totals == null) return dayCellLabel(iso);
-    return dayCellLabel(iso, { expense: totals.expense ?? 0, income: totals.income ?? 0 });
+    return dayCellLabel(iso, {
+      expense: totals.expense ?? 0,
+      income: totals.income ?? 0,
+      isNoSpend: totals.isNoSpend ?? false,
+    });
   }
 }
 

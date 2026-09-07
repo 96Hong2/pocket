@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
-__all__ = ["BudgetPeriod", "PeriodProgress", "same_day_window", "week_to_date"]
+__all__ = [
+    "BudgetPeriod",
+    "PeriodProgress",
+    "same_day_window",
+    "week_containing",
+    "week_to_date",
+]
 
 
 @dataclass(frozen=True)
@@ -101,6 +107,16 @@ def same_day_window(period: BudgetPeriod, day: date) -> BudgetPeriod:
     return BudgetPeriod(
         period.start, date(period.start.year, period.start.month, min(day.day, last_day))
     )
+
+
+def week_containing(day: date) -> BudgetPeriod:
+    """그 날이 속한 한 주 전체(월요일~일요일).
+
+    `week_to_date` 와 쓰임이 다르다. 저건 지난주와 견주려고 아직 안 지난 날을 빼고,
+    이건 이번 주에 며칠 남았는지 세려고 주를 통째로 잡는다.
+    """
+    start = day - timedelta(days=day.weekday())
+    return BudgetPeriod(start, start + timedelta(days=6))
 
 
 def week_to_date(day: date) -> BudgetPeriod:

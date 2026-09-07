@@ -86,6 +86,31 @@ export class PrepApi {
   }
 
   /**
+   * 안 쓴 날 표시를 API 로 직접 남긴다. 성공을 단언하지 않고 결과를 그대로 돌려준다.
+   *
+   * 화면은 오늘 기록이 하나도 없을 때만 그 버튼을 보여주므로, **같은 날 두 번 보내는 것을
+   * 화면으로는 만들 수 없다.** 서버가 두 번째를 막는지는 여기로 확인한다.
+   * 날을 안 주면 가계부 시간대의 오늘이다.
+   */
+  async saveNoSpend(day?: string): Promise<{ status: number; code: string | null }> {
+    const on = day ?? toLedgerDate(new Date());
+    const response = await this.context.post('/api/v1/transactions', {
+      data: {
+        occurred_at: dayNoon(on).toISOString(),
+        amount: '0',
+        type: 'expense',
+        merchant: null,
+        source: 'no_spend',
+        confidence: 1,
+        excluded_from_budget: false,
+        category_id: null,
+      },
+    });
+    const body = (await response.json()) as { error?: { code?: string } };
+    return { status: response.status(), code: body.error?.code ?? null };
+  }
+
+  /**
    * 같은 모양의 거래를 여러 건 심는다. 페이지 경계를 화면으로 증명할 때 쓴다.
    *
    * 한 건씩 기다리면 31건에 몇 초가 든다. 서로 의존이 없어 한꺼번에 보낸다.
@@ -176,7 +201,9 @@ export class PrepApi {
   }
 
   /** 홈 맨 위에 무엇을 보여줄지. 설정 화면을 거치지 않고 그 상태를 만든다. */
-  async setHomeHero(hero: 'remaining_budget' | 'income_expense' | 'income_and_budget'): Promise<void> {
+  async setHomeHero(
+    hero: 'remaining_budget' | 'income_expense' | 'income_and_budget',
+  ): Promise<void> {
     const response = await this.context.patch('/api/v1/preferences', {
       data: { home_hero: hero },
     });

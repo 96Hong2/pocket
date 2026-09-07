@@ -56,9 +56,16 @@ class BudgetStateOut(BaseModel):
     budgeted_spend: Decimal
     remaining_budget: Decimal | None
     daily_allowance: Decimal | None
+    # 하루치 × 이번 주에 남은 날 수. 예산이 없으면 null 이다.
+    weekly_allowance: Decimal | None
     total_days: int
     elapsed_days: int
     remaining_days: int
+    # 오늘이 속한 주(월~일). 화면이 요일을 다시 세지 않게 창을 함께 준다.
+    week_start: date
+    week_end: date
+    # 오늘 포함 이번 주에 남은 날 중 이 달 안에 있는 날 수. 달 마지막 주에는 잘린다.
+    week_days_left: int
     # 게이지 비율. budgeted_spend / amount 다.
     spend_progress: Decimal | None
     pace_ratio: Decimal | None
@@ -134,9 +141,13 @@ def to_budget_state(
         budgeted_spend=status.budgeted_spend.amount,
         remaining_budget=_amount(status.remaining_budget),
         daily_allowance=_amount(status.daily_allowance),
+        weekly_allowance=_amount(status.weekly_allowance),
         total_days=status.total_days,
         elapsed_days=status.elapsed_days,
         remaining_days=status.remaining_days,
+        week_start=status.week_start,
+        week_end=status.week_end,
+        week_days_left=status.week_days_left,
         spend_progress=ratio_out(status.spend_progress),
         pace_ratio=ratio_out(status.pace_ratio),
         projected_month_end=status.projected_month_end.amount,

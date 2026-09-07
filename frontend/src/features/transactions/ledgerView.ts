@@ -18,6 +18,8 @@ export const LEDGER_PAGE_SIZE = 30;
 export interface DayNumbers {
   expense: number;
   income: number;
+  /** 안 쓴 날로 적어 둔 날. 금액만으로는 안 적은 날과 구분되지 않는다. */
+  isNoSpend: boolean;
 }
 
 export interface MonthGrid {
@@ -48,6 +50,7 @@ export function dayIso(month: string, day: number): string {
  *
  * 칸에는 숫자만 그려서, 이름이 없으면 어느 날인지도 얼마인지도 알 수 없다.
  * 0원인 항목은 넣지 않는다. '지출 0원' 은 안 쓴 날과 기록 없는 날을 헷갈리게 만든다.
+ * 대신 안 쓴 날로 적어 둔 날은 '무지출' 이라고 말한다. 서버가 그 표시를 함께 준다.
  */
 export function dayCellLabel(iso: string, numbers?: DayNumbers): string {
   const parts: string[] = [];
@@ -57,5 +60,6 @@ export function dayCellLabel(iso: string, numbers?: DayNumbers): string {
   if (numbers != null && numbers.income !== 0) {
     parts.push(`수입 ${formatCurrency(numbers.income)}`);
   }
-  return `${formatDayLabel(iso)}, ${parts.length > 0 ? parts.join(', ') : '기록 없음'}`;
+  if (parts.length > 0) return `${formatDayLabel(iso)}, ${parts.join(', ')}`;
+  return `${formatDayLabel(iso)}, ${numbers?.isNoSpend ? '무지출' : '기록 없음'}`;
 }

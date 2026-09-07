@@ -166,6 +166,34 @@ def _require_refund_consistency(session: Session, tx: Transaction, payload: dict
         )
 
 
+def _require_no_spend_once(session: Session, user: User, data: dict) -> None:
+    """같은 날에 무지출일 표시를 두 번 남기지 못하게 한다.
+
+    빈 상태 버튼을 두 번 누르거나 응답이 늦어 다시 눌렀을 때 같은 날에 두 줄이 생긴다.
+    그러면 취소가 한 줄만 지워 목록이 계속 무지출로 남고, 무지출 연속 판정도 두 배로 센다.
+    날 범위는 사용자 시간대로 자른다. UTC 로 자르면 한국 새벽에 남긴 표시가 전날로 간다.
+    """
+    if data.get("source") is not agg.TransactionSource.NO_SPEND:
+        return
+
+    tz = ledger.user_tz(user)
+    day = ledger.local_date(data["occurred_at"], tz)
+    start, end = ledger.day_bounds(day, tz)
+    existing = session.scalar(
+        select(Transaction.id)
+        .where(
+            Transaction.user_id == user.id,
+            Transaction.source == agg.TransactionSource.NO_SPEND,
+            Transaction.deleted_at.is_(None),
+            Transaction.occurred_at >= start,
+            Transaction.occurred_at < end,
+        )
+        .limit(1)
+    )
+    if existing is not None:
+        raise ApiError(ErrorCode.NO_SPEND_EXISTS, "오늘은 이미 안 썼다고 적었어요.", 422)
+
+
 def _normalized(data: dict) -> dict:
     """저장 형태로 맞춘다. 시각은 항상 UTC 다. 월 귀속은 조회할 때 사용자 시간대로 다시 본다."""
     payload = dict(data)
@@ -320,6 +348,7 @@ def create_transaction(
     session: Session, user: User, data: dict, *, today: date | None = None
 ) -> tuple[Transaction, SaveOutcome]:
     categories.require_owned(session, user, data.get("category_id"))
+    _require_no_spend_once(session, user, data)
     target = _refund_target(session, user, data.get("refund_of_transaction_id"), data.get("amount"))
 
     payload = _normalized(data)

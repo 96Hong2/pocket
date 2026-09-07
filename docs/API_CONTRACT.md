@@ -42,6 +42,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | `INVALID_REQUEST` | 422 | 요청 형식 오류 |
 | `INVALID_CATEGORY` | 422 | 내 카테고리도 기본 카테고리도 아닌 값 |
 | `INVALID_REFUND_TARGET` | 422 | 환불 대상이 내 지출이 아님 |
+| `NO_SPEND_EXISTS` | 422 | 그 날 안 썼다는 표시가 이미 있다. **다시 보내도 안 된다.** 지우고 다시 적어야 한다 |
 | `PERIOD_CLOSED` | 422 | 이미 끝난 기간의 예산을 바꾸려 함. 지난달은 보기만 된다 |
 | `USAGE_LIMIT` | 429 | 하루에 쓸 수 있는 분석을 다 썼다. 줄글·캡처·영수증이 상한을 함께 쓴다. 키패드 기록은 그대로 된다 |
 | `PARSE_UNAVAILABLE` | 503 | 지금은 읽지 못했다. 잠시 뒤 다시. 문구가 갈린다: 줄글은 '문장을', 캡처는 '캡처를', 영수증은 '영수증을' |
@@ -68,7 +69,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | POST | `/transactions` | 거래 하나 저장. **응답에 즉시 피드백 판정과 예산 상태가 함께 온다** |
 | PATCH | `/transactions/{id}` | 보낸 필드만 수정. 응답 형태는 저장과 같다(되돌리기 값만 없다) |
 | GET | `/transactions` | 목록. 아래 「목록 조회」 참고 |
-| GET | `/transactions/calendar` | 달력 격자용 날짜별 지출·수입. 기록이 있는 날만 온다 |
+| GET | `/transactions/calendar` | 달력 격자용 날짜별 지출·수입. 기록이 있는 날만 온다. 아래 「달력 한 칸」 참고 |
 | GET | `/transactions/summary` | 그 달의 지출·수입·차액 **+ 예산 상태** |
 | DELETE | `/transactions/{id}` | 삭제(표시만 남긴다) |
 | POST | `/transactions/{id}/undo` | 방금 저장한 것 되돌리기 |
@@ -100,6 +101,18 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 
 날짜와 달의 경계는 **사용자 시간대**로 판단한다. 서버가 UTC 로 돌아도 마찬가지다.
 
+### 달력 한 칸
+
+`GET /transactions/calendar` 는 기록이 있는 날만 `days[]` 로 준다. 빈 칸은 화면이 채운다.
+
+```json
+{ "day": "2026-09-07", "expense": "0", "income": "0", "is_no_spend": true }
+```
+
+`is_no_spend` 는 **안 썼다고 적어 둔 날**이다(`source: "no_spend"`). 그 표시가 있고 그 날
+지출·수입이 둘 다 0 일 때만 true 다. 금액이 0 이라 합계만으로는 '안 쓴 날' 과 '안 적은 날' 이
+구분되지 않아 따로 싣는다. 표시를 남긴 뒤 무언가를 적으면 false 가 되고, 화면은 그 금액을 그린다.
+
 ### 저장 요청
 
 입력 경로(키패드·줄글·캡처·영수증)가 달라도 서버로 오는 형태는 하나다.
@@ -121,6 +134,9 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 - 월 경계와 '오늘'은 사용자 시간대(`users.timezone`, 기본 `Asia/Seoul`) 기준이다. 저장은 UTC 로 한다.
 - `amount` 는 **원 단위 정수**이고 항상 양수다. 소수점은 반올림하지 않고 422 로 거절한다.
   0 은 `source: "no_spend"` 일 때만 받는다. 상한은 14자리다.
+- **`source: "no_spend"` 는 같은 날에 하나뿐이다.** 살아 있는 표시가 이미 있으면 422
+  `NO_SPEND_EXISTS` 다. 날 경계는 사용자 시간대로 자른다. 지우면 그 날 다시 적을 수 있다.
+  두 줄이 생기면 취소가 한 줄만 지워 목록이 계속 무지출로 남고, 무지출 연속 판정이 두 번 센다.
 - 의미는 `type` 이 정한다: `expense` `income` `transfer` `refund`
 - `source`: `keypad` `nl` `screenshot` `receipt` `asset_screenshot` `no_spend`
 - `confidence` 는 0~1. 손으로 넣은 값은 1.0
@@ -142,8 +158,9 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
   "budget": {
     "period_start": "2026-09-01", "period_end": "2026-09-30",
     "amount": "500000", "budgeted_spend": "12000",
-    "remaining_budget": "488000", "daily_allowance": "17428",
+    "remaining_budget": "488000", "daily_allowance": "17428", "weekly_allowance": "87140",
     "total_days": 30, "elapsed_days": 3, "remaining_days": 28,
+    "week_start": "2026-08-31", "week_end": "2026-09-06", "week_days_left": 5,
     "spend_progress": "0.0240", "pace_ratio": "0.2400",
     "projected_month_end": "120000",
     "is_projection_reliable": true, "is_over_budget": false,
@@ -161,8 +178,12 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 그릴 때, 어느 응답에서든 같은 필드로 채울 수 있어야 하기 때문이다.
 
 - `amount` 가 `null` 이면 예산을 정하지 않은 것이다. 그때 `remaining_budget`·`daily_allowance`·
-  `spend_progress`·`pace_ratio` 도 전부 `null` 이다. 진행도(`elapsed_days` 등)와
-  `projected_month_end` 는 예산이 없어도 나온다.
+  `weekly_allowance`·`spend_progress`·`pace_ratio` 도 전부 `null` 이다. 진행도(`elapsed_days` 등)와
+  `projected_month_end`, 주 경계(`week_start`·`week_end`·`week_days_left`)는 예산이 없어도 나온다.
+- **`weekly_allowance` 는 `daily_allowance × week_days_left` 다.** 화면이 곱하지 않는다.
+  한 주는 사용자 시간대의 월요일~일요일이고, `week_days_left` 는 오늘을 포함해 이번 주에 남은
+  날 중 **이 기간 안에 있는 날**만 센다. 달 마지막 주는 말일에서 잘려 주간 값이 남은 예산을
+  넘지 않는다. 보고 있는 기간에 오늘이 없으면(지난달) `week_days_left` 가 0 이다. 정본은 ADR-0011.
 - **`spend_progress` 가 게이지 비율이다.** 화면이 계산하지 말고 이 값을 쓴다.
   `budget = remaining_budget + month_expense` 로 역산하면 틀린다. `month_expense` 는 예산에서
   뺀 거래(`excluded_from_budget`)를 포함하고 `budgeted_spend` 는 포함하지 않는다.

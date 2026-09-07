@@ -123,6 +123,16 @@ class HomeHero {
     return this.page.getByTestId(TEST_IDS.dailyAllowance);
   }
 
+  /** 이번 주에 쓸 수 있는 돈. 예산이 없으면 아예 없다. */
+  get weeklyAllowance(): Locator {
+    return this.page.getByTestId(TEST_IDS.weeklyAllowance);
+  }
+
+  /** 이번 주 줄의 라벨. 숫자만 보고는 무슨 기간인지 알 수 없어 함께 확인한다. */
+  get weeklyLabel(): Locator {
+    return this.page.getByText('이번 주 쓸 수 있는 돈', { exact: true });
+  }
+
   get gauge(): Locator {
     return this.page.getByTestId(TEST_IDS.budgetGauge);
   }
@@ -221,6 +231,30 @@ class TodaySection {
   /** 행 오른쪽 금액. 화면에 찍히는 문자열 그대로 찾는다. */
   amount(text: string): Locator {
     return this.text(text);
+  }
+
+  /**
+   * 빈 상태에서 안 썼다고 남기는 버튼. 오늘 기록이 하나도 없을 때만 있다.
+   *
+   * 적어 둔 줄과 글자가 같아서 역할로 가른다. 둘은 함께 그려지지 않는다.
+   */
+  get noSpendButton(): Locator {
+    return this.root.getByRole('button', { name: '오늘은 안 썼어요' });
+  }
+
+  /**
+   * 안 쓴 날로 적어 둔 줄.
+   *
+   * 줄에는 role 도 이름도 없고 빈 상태 버튼과 글자가 같아, 줄 안의 취소 버튼에서
+   * 부모로 한 칸 올라가 잡는다. `RecoveryCard` 의 카드와 같은 방법이다.
+   */
+  get noSpendRow(): Locator {
+    return this.noSpendCancelButton.locator('..');
+  }
+
+  /** 적어 둔 무지출 표시를 되돌리는 버튼. */
+  get noSpendCancelButton(): Locator {
+    return this.root.getByRole('button', { name: '취소' });
   }
 
   /** 이 목록만 못 불러왔을 때 카드 안에 뜨는 제목. */

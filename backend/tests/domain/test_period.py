@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.domain.period import BudgetPeriod
+from app.domain.period import BudgetPeriod, week_containing
 
 
 def test_월_경계는_달마다_길이가_다르다():
@@ -69,3 +69,21 @@ def test_월_전체가_아니면_이전_기간을_말할_수_없다():
     assert not partial.is_full_month
     with pytest.raises(ValueError):
         partial.previous_period()
+
+
+def test_주는_월요일에_시작해서_일요일에_끝난다():
+    # 2026년 9월 10일은 목요일이다.
+    week = week_containing(date(2026, 9, 10))
+    assert week == BudgetPeriod(date(2026, 9, 7), date(2026, 9, 13))
+    assert week.total_days == 7
+
+
+def test_월요일과_일요일도_같은_주에_들어간다():
+    monday = week_containing(date(2026, 9, 7))
+    sunday = week_containing(date(2026, 9, 13))
+    assert monday == sunday
+
+
+def test_주는_달을_넘어도_이어진다():
+    week = week_containing(date(2026, 9, 30))
+    assert week == BudgetPeriod(date(2026, 9, 28), date(2026, 10, 4))

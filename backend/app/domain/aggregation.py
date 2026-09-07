@@ -61,6 +61,8 @@ class TransactionInput:
     category_id: str | None = None
     excluded_from_budget: bool = False
     is_deleted: bool = False
+    # 무지출일 표시를 가려내는 데만 쓴다. 금액이 0 이라 합계로는 구분되지 않는다.
+    source: TransactionSource | None = None
 
 
 @dataclass(frozen=True)
@@ -133,6 +135,9 @@ class DayTotals:
     day: date
     expense: Money
     income: Money
+    # 안 쓴 날로 표시해 둔 날. 달력이 빈 칸과 가려 그릴 근거다.
+    # 금액이 0 이라 합계만으로는 '안 썼다' 와 '안 적었다' 가 구분되지 않는다.
+    is_no_spend: bool = False
 
 
 def aggregate_days(
@@ -143,13 +148,19 @@ def aggregate_days(
 
     집계에 잡히는 거래가 하나도 없는 날은 결과에 넣지 않는다. 이체만 있는 날도 마찬가지다.
     달력 격자는 빈 칸을 스스로 채우므로, 값이 0 인 날을 굳이 실어 보내지 않는다.
+
+    무지출일 표시가 있고 그 날 지출·수입이 둘 다 0 인 날만 `is_no_spend` 다. 표시를 남긴 뒤
+    무언가를 적었으면 그 금액을 그리는 것이 먼저다.
     """
     expenses: dict[date, Money] = {}
     incomes: dict[date, Money] = {}
+    marked: set[date] = set()
 
     for tx in transactions:
         if tx.is_deleted or not period.contains(tx.occurred_on):
             continue
+        if tx.source is TransactionSource.NO_SPEND:
+            marked.add(tx.occurred_on)
         if tx.type is TransactionType.TRANSFER:
             continue
 
@@ -160,12 +171,17 @@ def aggregate_days(
         signed = tx.amount if tx.type is TransactionType.EXPENSE else -tx.amount
         expenses[tx.occurred_on] = expenses.get(tx.occurred_on, Money.zero()) + signed
 
-    days = sorted(expenses.keys() | incomes.keys())
+    days = sorted(expenses.keys() | incomes.keys() | marked)
     return [
         DayTotals(
             day=day,
             expense=expenses.get(day, Money.zero()),
             income=incomes.get(day, Money.zero()),
+            is_no_spend=(
+                day in marked
+                and expenses.get(day, Money.zero()).is_zero
+                and incomes.get(day, Money.zero()).is_zero
+            ),
         )
         for day in days
     ]

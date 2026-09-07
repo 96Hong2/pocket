@@ -1,7 +1,15 @@
-import type { CategoryOut, TransactionOut } from '../../shared/api';
+import {
+  ApiError,
+  useCreateTransaction,
+  useDeleteTransaction,
+  type CategoryOut,
+  type TransactionOut,
+} from '../../shared/api';
 import { LedgerRow } from '../../shared/ledger';
-import { toLedgerDate } from '../../shared/lib/format';
+import { toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
 import { Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui';
+
+import { NoSpendRow } from './NoSpendRow';
 
 interface TodayListProps {
   transactions: TransactionOut[];
@@ -36,23 +44,42 @@ export function TodayList({
 }: TodayListProps) {
   const today = toLedgerDate(new Date());
   const rows = transactions.filter((tx) => isToday(tx.occurred_at, today));
+  // 안 쓴 날 표시는 금액이 0 이라 다른 줄과 같은 모양으로 그릴 수 없다. 따로 뽑아 둔다.
+  const noSpend = rows.find((tx) => tx.source === 'no_spend') ?? null;
+  const spent = rows.filter((tx) => tx.source !== 'no_spend');
+
+  const markNoSpend = useCreateTransaction();
+  const cancelNoSpend = useDeleteTransaction();
+  const noSpendError =
+    markNoSpend.error instanceof ApiError
+      ? markNoSpend.error
+      : cancelNoSpend.error instanceof ApiError
+        ? cancelNoSpend.error
+        : null;
 
   return (
     <section className="home-today" aria-label="오늘">
       <h2 className="home-today__title">오늘</h2>
       {rows.length > 0 ? (
         <Card padding="list">
-          {rows.map((tx, index) => (
+          {spent.map((tx, index) => (
             <LedgerRow
               key={tx.id}
               transaction={tx}
               categories={categories}
               avatarSize={54}
               density="compact"
-              hideDivider={index === rows.length - 1}
+              hideDivider={noSpend == null && index === spent.length - 1}
               onClick={onPick ? () => onPick(tx) : undefined}
             />
           ))}
+          {noSpend != null ? (
+            <NoSpendRow
+              canceling={cancelNoSpend.isPending}
+              onCancel={() => cancelNoSpend.mutate(noSpend.id)}
+            />
+          ) : null}
+          {noSpendError ? <ErrorLine message={noSpendError.message} /> : null}
         </Card>
       ) : loading ? (
         <Card padding="md">
@@ -69,14 +96,41 @@ export function TodayList({
         </Card>
       ) : (
         <Card padding="md">
+          {/*
+            안 쓴 날에도 남길 것이 있어야 한다. 적을 게 없다고 그냥 닫으면 그 날은 '안 적은 날'
+            로만 남아, 안 썼는데도 기록이 빈 날이 된다.
+          */}
           <EmptyState
             size="inline"
             icon="27_clock"
             title="오늘은 아직 비어 있어요"
             description="지금 생각나는 것 하나만 적어도 충분해요."
+            actionLabel={markNoSpend.isPending ? '적는 중이에요' : '오늘은 안 썼어요'}
+            onAction={() => {
+              if (markNoSpend.isPending) return;
+              markNoSpend.mutate({
+                occurred_at: toLedgerNoonIso(today),
+                amount: '0',
+                type: 'expense',
+                category_id: null,
+                source: 'no_spend',
+                confidence: 1,
+                excluded_from_budget: false,
+              });
+            }}
           />
+          {noSpendError ? <ErrorLine message={noSpendError.message} /> : null}
         </Card>
       )}
     </section>
+  );
+}
+
+/** 안 쓴 날 표시가 저장·취소되지 않았을 때 그 자리에 남기는 한 줄. */
+function ErrorLine({ message }: { message: string }) {
+  return (
+    <p className="home-today__notice" role="alert">
+      {message}
+    </p>
   );
 }

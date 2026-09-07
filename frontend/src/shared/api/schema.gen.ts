@@ -441,12 +441,26 @@ export interface components {
             remaining_budget: string | null;
             /** Daily Allowance */
             daily_allowance: string | null;
+            /** Weekly Allowance */
+            weekly_allowance: string | null;
             /** Total Days */
             total_days: number;
             /** Elapsed Days */
             elapsed_days: number;
             /** Remaining Days */
             remaining_days: number;
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+            /**
+             * Week End
+             * Format: date
+             */
+            week_end: string;
+            /** Week Days Left */
+            week_days_left: number;
             /** Spend Progress */
             spend_progress: string | null;
             /** Pace Ratio */
@@ -489,6 +503,8 @@ export interface components {
             expense: string;
             /** Income */
             income: string;
+            /** Is No Spend */
+            is_no_spend: boolean;
         };
         /** CalendarMonthOut */
         CalendarMonthOut: {
@@ -581,7 +597,7 @@ export interface components {
          * @description 오류 code 의 유일한 정의. docs/API_CONTRACT.md 의 표가 이 값을 설명한다.
          * @enum {string}
          */
-        ErrorCode: "UNAUTHORIZED" | "VERIFY_UNAVAILABLE" | "NOT_FOUND" | "UNDO_EXPIRED" | "CONFLICT" | "DUPLICATE_CATEGORY" | "INVALID_REQUEST" | "INVALID_CATEGORY" | "INVALID_REFUND_TARGET" | "PERIOD_CLOSED" | "USAGE_LIMIT" | "PARSE_UNAVAILABLE" | "HTTP_ERROR" | "INTERNAL_ERROR";
+        ErrorCode: "UNAUTHORIZED" | "VERIFY_UNAVAILABLE" | "NOT_FOUND" | "UNDO_EXPIRED" | "CONFLICT" | "DUPLICATE_CATEGORY" | "INVALID_REQUEST" | "INVALID_CATEGORY" | "INVALID_REFUND_TARGET" | "NO_SPEND_EXISTS" | "PERIOD_CLOSED" | "USAGE_LIMIT" | "PARSE_UNAVAILABLE" | "HTTP_ERROR" | "INTERNAL_ERROR";
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];

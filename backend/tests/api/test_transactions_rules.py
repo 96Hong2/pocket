@@ -99,6 +99,48 @@ def test_무지출일만_0원을_허용한다(client: TestClient) -> None:
     assert bad.status_code == 422
 
 
+def test_같은_날_무지출일은_한_번만_적을_수_있다(client: TestClient) -> None:
+    """두 줄이 생기면 취소가 한 줄만 지워 목록이 계속 무지출로 남는다.
+
+    무지출 연속 판정도 하루를 두 번 센다. 날 경계는 사용자 시간대로 자른다.
+    """
+
+    def no_spend(occurred_at: str) -> dict:
+        return _payload(occurred_at=occurred_at, amount="0", source="no_spend", merchant=None)
+
+    first = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-15T09:00:00+09:00"), headers=AUTH
+    )
+    assert first.status_code == 201, first.text
+
+    # 같은 KST 날짜의 다른 시각. UTC 로 자르면 이 둘이 다른 날이 되어 통과한다.
+    again = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-15T01:00:00+09:00"), headers=AUTH
+    )
+    assert again.status_code == 422
+    assert again.json()["error"]["code"] == "NO_SPEND_EXISTS"
+
+    # 다른 날은 그대로 된다.
+    other = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-16T09:00:00+09:00"), headers=AUTH
+    )
+    assert other.status_code == 201, other.text
+
+
+def test_무지출일을_취소하면_그_날_다시_적을_수_있다(client: TestClient) -> None:
+    body = _payload(occurred_at="2026-09-15T12:00:00+09:00", amount="0", source="no_spend")
+    body["merchant"] = None
+
+    created = client.post("/api/v1/transactions", json=body, headers=AUTH)
+    assert created.status_code == 201, created.text
+    tx_id = created.json()["transaction"]["id"]
+
+    assert client.delete(f"/api/v1/transactions/{tx_id}", headers=AUTH).status_code == 204
+
+    again = client.post("/api/v1/transactions", json=body, headers=AUTH)
+    assert again.status_code == 201, again.text
+
+
 # ── 인가 ────────────────────────────────────────────────
 
 

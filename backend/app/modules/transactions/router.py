@@ -105,7 +105,12 @@ def calendar(
         period_start=month.start,
         period_end=month.end,
         days=[
-            CalendarDayOut(day=d.day, expense=d.expense.amount, income=d.income.amount)
+            CalendarDayOut(
+                day=d.day,
+                expense=d.expense.amount,
+                income=d.income.amount,
+                is_no_spend=d.is_no_spend,
+            )
             for d in ledger.load_day_totals(session, user, month)
         ],
     )

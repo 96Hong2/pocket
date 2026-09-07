@@ -15,6 +15,8 @@ export const TEST_IDS = {
   monthSpent: 'month-spent',
   /** 홈의 하루 가용액 금액 */
   dailyAllowance: 'daily-allowance',
+  /** 홈의 이번 주 가용액 금액. 하루치 × 이번 주에 남은 날 수다. */
+  weeklyAllowance: 'weekly-allowance',
   /** 홈의 예산 진행 게이지 */
   budgetGauge: 'budget-gauge',
   /** 큰 숫자를 감싼 관리 탭 입구. 링크라 이름으로도 잡히지만 자리를 못 박아 둔다. */

@@ -186,6 +186,11 @@
     color: var(--color-income);
   }
 
+  /* 안 쓴 날. 금액이 아니라 상태라 눌러 둔 색으로 적는다. */
+  .tx-cal__no-spend {
+    color: var(--color-muted);
+  }
+
   /* ── 목록 ────────────────────────────────────────── */
 
   .tx-list {

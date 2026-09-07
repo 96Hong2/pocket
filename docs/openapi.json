@@ -3710,6 +3710,18 @@
             ],
             "title": "Daily Allowance"
           },
+          "weekly_allowance": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Allowance"
+          },
           "total_days": {
             "type": "integer",
             "title": "Total Days"
@@ -3721,6 +3733,20 @@
           "remaining_days": {
             "type": "integer",
             "title": "Remaining Days"
+          },
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "week_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Week End"
+          },
+          "week_days_left": {
+            "type": "integer",
+            "title": "Week Days Left"
           },
           "spend_progress": {
             "anyOf": [
@@ -3776,9 +3802,13 @@
           "budgeted_spend",
           "remaining_budget",
           "daily_allowance",
+          "weekly_allowance",
           "total_days",
           "elapsed_days",
           "remaining_days",
+          "week_start",
+          "week_end",
+          "week_days_left",
           "spend_progress",
           "pace_ratio",
           "projected_month_end",
@@ -3831,13 +3861,18 @@
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Income"
+          },
+          "is_no_spend": {
+            "type": "boolean",
+            "title": "Is No Spend"
           }
         },
         "type": "object",
         "required": [
           "day",
           "expense",
-          "income"
+          "income",
+          "is_no_spend"
         ],
         "title": "CalendarDayOut",
         "description": "달력 한 칸. 집계에 잡히는 거래가 없는 날은 응답에 없다.\n\nexpense 는 그날 환불을 뺀 값이라 음수가 될 수 있다."
@@ -4068,6 +4103,7 @@
           "INVALID_REQUEST",
           "INVALID_CATEGORY",
           "INVALID_REFUND_TARGET",
+          "NO_SPEND_EXISTS",
           "PERIOD_CLOSED",
           "USAGE_LIMIT",
           "PARSE_UNAVAILABLE",

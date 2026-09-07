@@ -152,6 +152,8 @@ class CalendarDayOut(BaseModel):
     day: date
     expense: Decimal
     income: Decimal
+    # 안 쓴 날로 표시해 둔 날. 금액이 0 이라 화면이 합계만 보고는 빈 칸과 가릴 수 없다.
+    is_no_spend: bool
 
 
 class CalendarMonthOut(BaseModel):

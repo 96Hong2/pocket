@@ -20,6 +20,8 @@ e2e/
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
     HomeScreen       홈. 안쪽을 hero·today·budget·ads·recovery 로 나눠 들고 있다
+                     today 의 안 쓴 날 줄은 빈 상태 버튼과 글자가 같아, 줄 안의 취소 버튼에서
+                     부모로 한 칸 올라가 잡는다(둘은 함께 그려지지 않는다)
     RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글)·capture(캡처)·receipt(영수증) 다섯이다
                      capture 와 receipt 는 같은 클래스에 문구 표만 바꿔 끼운 둘이다
     ReportScreen     리포트 탭. 총액·도넛·조각 목록·6개월 흐름
@@ -52,7 +54,14 @@ e2e/
 | `setBudget(금액, 달?)` · `deleteBudget(달?)`                                     | 전체 예산. 달을 빼면 이번 달이다               |
 | `setCategoryBudget(카테고리, 금액, 달?)` · `deleteCategoryBudget(카테고리, 달?)` | 카테고리 예산                                  |
 | `setAutoCarryover(켬)`                                                           | 다음 달로 예산을 이어 쓸지                     |
+| `setHomeHero(방식)`                                                              | 홈 맨 위에 무엇을 크게 보여줄지                |
+| `addCategory(이름, 아이콘?)`                                                     | 카테고리 하나. 만들어진 id 를 돌려준다         |
+| `saveNoSpend(날?)`                                                               | 안 쓴 날 표시. 성공을 단언하지 않고 결과를 돌려준다 |
 | `categoryIdByName`                                                               | 이름으로 카테고리 id 찾기                      |
+
+`saveNoSpend` 만 예외적으로 `{ status, code }` 를 돌려준다. 화면은 오늘 기록이 하나도 없을 때만
+'오늘은 안 썼어요' 를 보여주므로 **같은 날 두 번 보내는 것을 화면으로는 만들 수 없다.**
+서버가 두 번째를 422 `NO_SPEND_EXISTS` 로 막는지 확인하는 자리라 실패를 그대로 받아야 한다.
 
 달은 `2026-08` 모양이고, `thisMonth()`·`lastMonth()` 로 얻는다. 기기 시간대로 만들지 않는다.
 지난달 예산은 이어쓰기를 보려고 심는다. 끝난 기간의 쓰기는 제품 규칙이 막아 두므로
