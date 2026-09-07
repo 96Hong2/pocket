@@ -169,9 +169,19 @@ class RecordInput {
     }
   }
 
-  /** 카테고리를 누르는 것이 곧 저장이다. 저장 버튼이 따로 없다. */
+  /** 금액이 이미 있으면 카테고리를 누르는 것이 곧 저장이다. */
   async pickCategory(name: string): Promise<void> {
     await this.categoryChip(name).click();
+  }
+
+  /** 금액보다 먼저 고른 뒤 접혀 있는 한 줄. 누르면 목록이 다시 펴진다. */
+  get pickedCategory(): Locator {
+    return this.root.getByRole('button', { name: /다시 고르기$/ });
+  }
+
+  /** 카테고리를 먼저 고른 다음에만 나오는 저장 버튼. */
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: '저장', exact: true });
   }
 }
 

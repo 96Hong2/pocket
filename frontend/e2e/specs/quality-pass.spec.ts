@@ -164,3 +164,69 @@ test('리포트 헤드라인이 라벨과 값으로 갈려 있다', async ({ pre
   await expect(report.comparison).toContainText('지난달 같은 기간');
   await expect(report.comparison).toContainText(/\d{1,2}\.\d{1,2}~\d{1,2}\.\d{1,2} vs /);
 });
+
+// ── 카테고리를 먼저 고르기 ──────────────────────────────
+
+test('카테고리를 먼저 고르면 목록이 접히고, 금액을 다 누른 뒤 저장한다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  // 화면에서 카테고리가 금액 바로 아래에 있다. 손이 먼저 그리로 가는데 눌리지 않았다.
+  await recordSheet.input.pickCategory(CATEGORY);
+  await expect(recordSheet.input.pickedCategory).toContainText(CATEGORY);
+  // 접혀야 한다. 분류가 늘수록 목록이 화면을 다 먹는다.
+  await expect(recordSheet.input.categoryChip('교통')).toHaveCount(0);
+
+  // 고르기만 했지 저장은 아니다. 금액이 없으면 저장도 눌리지 않는다.
+  await expect(recordSheet.input.saveButton).toBeDisabled();
+
+  await recordSheet.input.enterAmount(7_000);
+  await expect(recordSheet.input.saveButton).toBeEnabled();
+  await recordSheet.input.saveButton.click();
+
+  await expect(recordSheet.feedback.savedLabel).toBeVisible();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  await expect(home.today.amount('7,000원')).toBeVisible();
+});
+
+test('접힌 줄을 누르면 목록이 다시 펴져 분류를 바꿀 수 있다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.pickCategory(CATEGORY);
+  await expect(recordSheet.input.pickedCategory).toContainText(CATEGORY);
+
+  // 잘못 골랐을 때 되돌릴 길이 없으면 시트를 닫았다 다시 열어야 한다.
+  await recordSheet.input.pickedCategory.click();
+  await recordSheet.input.pickCategory('교통');
+  await expect(recordSheet.input.pickedCategory).toContainText('교통');
+  await expect(recordSheet.input.pickedCategory).not.toContainText(CATEGORY);
+});
+
+// ── 저장 카드는 한 줄 ───────────────────────────────────
+
+test('저장 직후 카드가 남은 날 수를 세지 않는다', async ({ home, prep, recordSheet }) => {
+  await prep.setBudget(BUDGET);
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.enterAmount(9_000);
+  await recordSheet.input.pickCategory(CATEGORY);
+  await expect(recordSheet.feedback.savedLabel).toBeVisible();
+
+  // 적을 때마다 남은 날을 세어 보여 주면 시간에 쫓기는 화면이 된다.
+  await expect(recordSheet.feedback.card).not.toContainText(/남은 \d+일/);
+  await expect(recordSheet.feedback.headline).toContainText('남은 예산');
+});

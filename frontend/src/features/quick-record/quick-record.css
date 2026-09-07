@@ -157,6 +157,42 @@
     white-space: nowrap;
   }
 
+  /* 고르고 나면 목록 대신 한 줄만 남는다. 눌러서 다시 편다. */
+  .record__picked {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 44px;
+    margin-top: 4px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .record__picked-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .record__picked-more {
+    margin-left: auto;
+    color: var(--color-muted);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .record__save {
+    width: 100%;
+    margin-top: 8px;
+  }
+
   /* ── 저장 직후 피드백 ───────────────────────────── */
 
   .feedback {
