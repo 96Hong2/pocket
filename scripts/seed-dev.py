@@ -151,7 +151,7 @@ def main() -> int:
         if day.day == 5:
             call("POST", "/transactions", {
                 "occurred_at": at(day, 10), "amount": "3200000", "type": "income",
-                "merchant": "월급", "category_id": cats.get("수입"), "source": "keypad",
+                "merchant": "월급", "category_id": cats.get("월급"), "source": "keypad",
             })
             made += 1
         # 고정비: 매달 1일
@@ -162,6 +162,13 @@ def main() -> int:
                     "merchant": name, "category_id": cats.get(cat), "source": "keypad",
                 })
                 made += 1
+        # 용돈: 매달 15일. 수입 분류가 둘이어야 리포트의 수입 쪽이 한 조각으로 안 뭉친다.
+        if day.day == 15:
+            call("POST", "/transactions", {
+                "occurred_at": at(day, 14), "amount": "200000", "type": "income",
+                "merchant": "용돈", "category_id": cats.get("용돈"), "source": "keypad",
+            })
+            made += 1
         # 저축 이체: 월급 다음 날. 예산에서 빠져야 한다
         if day.day == 6:
             call("POST", "/transactions", {
