@@ -200,6 +200,21 @@ def test_기한에_null_을_보내면_기한이_없어진다(client: TestClient,
     assert updated["months_left"] is None
 
 
+def test_비울_수_없는_값에_null_을_보내면_거절한다(client: TestClient) -> None:
+    """이름·목표 금액·처음 모아 둔 돈은 비울 자리가 없다.
+
+    그대로 컬럼에 쓰면 NOT NULL 위반이 409 로 새어, 영영 안 되는 요청에 잠시 후 다시
+    시도하라고 말하게 된다.
+    """
+    goal = _create(client)
+
+    for field in ("title", "target_amount", "initial_amount"):
+        res = client.patch(f"{GOALS}/{goal['id']}", json={field: None}, headers=AUTH)
+
+        assert res.status_code == 422, res.text
+        assert res.json()["error"]["code"] == "INVALID_REQUEST"
+
+
 def test_목표를_지우면_조회가_빈다(client: TestClient) -> None:
     """행은 남기고 표시만 지운다. 지운 뒤 새 목표를 만드는 것은 e2e 가 본다.
 

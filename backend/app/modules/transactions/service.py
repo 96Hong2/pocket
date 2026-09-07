@@ -166,12 +166,17 @@ def _require_refund_consistency(session: Session, tx: Transaction, payload: dict
         )
 
 
-def _require_no_spend_once(session: Session, user: User, data: dict) -> None:
+def _require_no_spend_once(
+    session: Session, user: User, data: dict, *, exclude_id: uuid.UUID | None = None
+) -> None:
     """같은 날에 무지출일 표시를 두 번 남기지 못하게 한다.
 
     빈 상태 버튼을 두 번 누르거나 응답이 늦어 다시 눌렀을 때 같은 날에 두 줄이 생긴다.
     그러면 취소가 한 줄만 지워 목록이 계속 무지출로 남고, 무지출 연속 판정도 두 배로 센다.
     날 범위는 사용자 시간대로 자른다. UTC 로 자르면 한국 새벽에 남긴 표시가 전날로 간다.
+
+    저장뿐 아니라 날짜를 옮기는 수정에도 건다. 수정은 자기 자신을 `exclude_id` 로 빼고
+    센다. 빼지 않으면 같은 날 안에서 시각만 고치는 것까지 막힌다.
     """
     if data.get("source") is not agg.TransactionSource.NO_SPEND:
         return
@@ -179,18 +184,16 @@ def _require_no_spend_once(session: Session, user: User, data: dict) -> None:
     tz = ledger.user_tz(user)
     day = ledger.local_date(data["occurred_at"], tz)
     start, end = ledger.day_bounds(day, tz)
-    existing = session.scalar(
-        select(Transaction.id)
-        .where(
-            Transaction.user_id == user.id,
-            Transaction.source == agg.TransactionSource.NO_SPEND,
-            Transaction.deleted_at.is_(None),
-            Transaction.occurred_at >= start,
-            Transaction.occurred_at < end,
-        )
-        .limit(1)
+    query = select(Transaction.id).where(
+        Transaction.user_id == user.id,
+        Transaction.source == agg.TransactionSource.NO_SPEND,
+        Transaction.deleted_at.is_(None),
+        Transaction.occurred_at >= start,
+        Transaction.occurred_at < end,
     )
-    if existing is not None:
+    if exclude_id is not None:
+        query = query.where(Transaction.id != exclude_id)
+    if session.scalar(query.limit(1)) is not None:
         raise ApiError(ErrorCode.NO_SPEND_EXISTS, "오늘은 이미 안 썼다고 적었어요.", 422)
 
 
@@ -403,6 +406,14 @@ def update_transaction(
         raise ApiError(ErrorCode.INVALID_REQUEST, "무지출일 기록의 금액은 바꿀 수 없어요.", 422)
     if "type" in payload and tx.source is agg.TransactionSource.NO_SPEND:
         raise ApiError(ErrorCode.INVALID_REQUEST, "무지출일 기록의 종류는 바꿀 수 없어요.", 422)
+    if "occurred_at" in payload and tx.source is agg.TransactionSource.NO_SPEND:
+        # 옮겨 갈 날에 이미 표시가 있으면 막는다. 저장에만 걸면 이 길로 하루에 둘이 된다.
+        _require_no_spend_once(
+            session,
+            user,
+            {"source": tx.source, "occurred_at": payload["occurred_at"]},
+            exclude_id=tx.id,
+        )
 
     _require_refund_consistency(session, tx, payload)
 

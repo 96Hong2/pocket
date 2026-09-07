@@ -14,6 +14,7 @@ interface AitManager {
   state?: {
     ads?: { forceNoFill?: boolean };
     notification?: { nextResult?: string };
+    failureModes?: Record<string, unknown>;
   };
   patch?: (slice: string, partial: Record<string, unknown>) => void;
   trigger?: (event: string) => void;
@@ -113,6 +114,31 @@ export async function agreementResultForced(page: Page, result: AgreementResult)
       (window as unknown as { __ait?: AitManager }).__ait?.state?.notification?.nextResult ===
       expected,
     result,
+  );
+}
+
+/**
+ * 알림 동의 요청을 실패로 돌린다. 화면을 연 채로 부른다.
+ *
+ * `forceAgreementResult` 는 `addInitScript` 라 화면을 여는 순간 한 번 정해진다. 한 번 실패한
+ * 뒤 다시 켜서 성공하는 흐름은 열린 화면에서 다이얼을 돌려야 만들 수 있다.
+ * `code` 가 없으면 실패를 푼다.
+ */
+export async function setAgreementFailure(page: Page, code: string | undefined): Promise<void> {
+  await page.evaluate((next) => {
+    (window as unknown as { __ait?: AitManager }).__ait?.patch?.('failureModes', {
+      requestNotificationAgreement: next,
+    });
+  }, code);
+}
+
+/** 실패 다이얼이 실제로 켜졌는지. 안 켜졌으면 실패가 아니라 성공을 보고 있는 것이다. */
+export async function agreementFailureForced(page: Page, code: string): Promise<boolean> {
+  return page.evaluate(
+    (expected) =>
+      (window as unknown as { __ait?: AitManager }).__ait?.state?.failureModes
+        ?.requestNotificationAgreement === expected,
+    code,
   );
 }
 

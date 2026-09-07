@@ -127,6 +127,60 @@ def test_같은_날_무지출일은_한_번만_적을_수_있다(client: TestCli
     assert other.status_code == 201, other.text
 
 
+def test_무지출일을_이미_적은_날로_옮기지_못한다(client: TestClient) -> None:
+    """하루 한 번 규칙이 저장에만 걸리면 날짜를 옮기는 수정으로 뚫린다.
+
+    같은 날로 옮긴 시각 수정은 그대로 되어야 한다. 자기 자신을 이미 있는 표시로 세면
+    시각만 고치는 것도 막힌다.
+    """
+
+    def no_spend(occurred_at: str) -> dict:
+        return _payload(occurred_at=occurred_at, amount="0", source="no_spend", merchant=None)
+
+    first = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-15T09:00:00+09:00"), headers=AUTH
+    )
+    assert first.status_code == 201, first.text
+    later = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-16T09:00:00+09:00"), headers=AUTH
+    )
+    assert later.status_code == 201, later.text
+    later_id = later.json()["transaction"]["id"]
+
+    moved = client.patch(
+        f"/api/v1/transactions/{later_id}",
+        json={"occurred_at": "2026-09-15T20:00:00+09:00"},
+        headers=AUTH,
+    )
+    assert moved.status_code == 422, moved.text
+    assert moved.json()["error"]["code"] == "NO_SPEND_EXISTS"
+
+    same_day = client.patch(
+        f"/api/v1/transactions/{later_id}",
+        json={"occurred_at": "2026-09-16T21:00:00+09:00"},
+        headers=AUTH,
+    )
+    assert same_day.status_code == 200, same_day.text
+
+
+def test_비울_수_없는_값에_null_을_보내면_수정을_거절한다(client: TestClient) -> None:
+    """시각·금액·종류·예산 반영은 비울 자리가 없다. 그대로 쓰면 시각 정규화가 죽어 500 이 난다."""
+    created = client.post("/api/v1/transactions", json=_payload(), headers=AUTH)
+    assert created.status_code == 201, created.text
+    tx_id = created.json()["transaction"]["id"]
+
+    for field in ("occurred_at", "amount", "type", "excluded_from_budget"):
+        res = client.patch(f"/api/v1/transactions/{tx_id}", json={field: None}, headers=AUTH)
+
+        assert res.status_code == 422, res.text
+        assert res.json()["error"]["code"] == "INVALID_REQUEST"
+
+    # 상호와 분류는 비우는 것이 정상 동작이다.
+    cleared = client.patch(f"/api/v1/transactions/{tx_id}", json={"merchant": None}, headers=AUTH)
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["transaction"]["merchant"] is None
+
+
 def test_무지출일을_취소하면_그_날_다시_적을_수_있다(client: TestClient) -> None:
     body = _payload(occurred_at="2026-09-15T12:00:00+09:00", amount="0", source="no_spend")
     body["merchant"] = None

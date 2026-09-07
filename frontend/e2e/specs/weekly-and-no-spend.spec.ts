@@ -134,6 +134,28 @@ test('오늘 아무것도 안 적은 날, 안 썼다고 남기고 되돌린다',
   });
 });
 
+test('달력의 안 쓴 날 줄은 읽기 전용이라 눌러도 수정 시트가 열리지 않는다', async ({
+  calendar,
+  home,
+}) => {
+  await home.open();
+  await home.waitReady();
+
+  await home.today.noSpendButton.click();
+  await expect(home.today.noSpendCancelButton).toBeVisible();
+
+  await calendar.open();
+  await calendar.waitReady();
+
+  // 거래 한 줄로 섞이면 제목이 '기록', 금액이 0원으로 찍힌다.
+  await expect(calendar.list.noSpendRow).toBeVisible();
+  await expect(calendar.list.row('기록')).toHaveCount(0);
+
+  // 눌러서 열리는 수정 시트는 금액을 1원부터만 받아 완료가 영영 잠긴다. 아예 안 열려야 한다.
+  await calendar.list.noSpendRow.click();
+  await calendar.edit.waitClosed();
+});
+
 test('안 썼다고 남겨도 남은 예산과 하루 가용액은 그대로다', async ({ home, prep }) => {
   await prep.setBudget(BUDGET);
   await prep.addExpense({ amount: 30_000, daysAgo: 1 });

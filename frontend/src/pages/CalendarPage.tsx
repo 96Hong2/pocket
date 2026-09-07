@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { IdentityNotice } from '../app/IdentityNotice';
 import {
@@ -17,6 +17,7 @@ import {
   useTransactionPages,
   type TransactionOut,
 } from '../shared/api';
+import { NoSpendRow, splitNoSpend } from '../shared/ledger';
 import {
   formatCurrency,
   formatDayLabel,
@@ -24,6 +25,7 @@ import {
   shiftMonth,
   toLedgerDate,
 } from '../shared/lib/format';
+import { useDebounced } from '../shared/lib/useDebounced';
 import { TEST_IDS } from '../shared/testIds';
 import { Card, EmptyState, ErrorState, LoadingState, MonthStepper } from '../shared/ui';
 
@@ -39,17 +41,6 @@ import { Card, EmptyState, ErrorState, LoadingState, MonthStepper } from '../sha
 
 /** 입력할 때마다 서버를 부르지 않는다. 한 글자씩 요청하면 앞 요청이 뒤 요청을 덮는다. */
 const SEARCH_DEBOUNCE_MS = 250;
-
-function useDebounced(value: string, delay: number): string {
-  const [settled, setSettled] = useState(value);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setSettled(value), delay);
-    return () => window.clearTimeout(timer);
-  }, [value, delay]);
-
-  return settled;
-}
 
 export default function CalendarPage() {
   const today = toLedgerDate(new Date());
@@ -78,6 +69,8 @@ export default function CalendarPage() {
   });
 
   const items = pages.data?.pages.flatMap((page) => page.items) ?? [];
+  // 안 쓴 날 표시는 금액이 0 이라 거래 한 줄로 그릴 수 없다. 홈과 같은 함수로 가른다.
+  const { noSpend, spent } = splitNoSpend(items);
   const categoryItems = categories.data?.items ?? [];
   const dayNumbers = calendar.data?.days.find((day) => day.day === selected);
 
@@ -123,10 +116,11 @@ export default function CalendarPage() {
       {searching ? (
         <section className="tx-list" aria-label="검색 결과">
           <p className="tx-list__head">
-            검색 결과 {pages.isPending ? '' : `${items.length}${pages.hasNextPage ? '건 이상' : '건'}`}
+            검색 결과{' '}
+            {pages.isPending ? '' : `${spent.length}${pages.hasNextPage ? '건 이상' : '건'}`}
           </p>
           <TransactionPages
-            items={items}
+            items={spent}
             categories={categoryItems}
             isPending={pages.isPending}
             isError={pages.isError}
@@ -177,7 +171,7 @@ export default function CalendarPage() {
               </span>
             </p>
             <TransactionPages
-              items={items}
+              items={spent}
               categories={categoryItems}
               isPending={pages.isPending}
               isError={pages.isError}
@@ -187,16 +181,25 @@ export default function CalendarPage() {
               onMore={() => void pages.fetchNextPage()}
               onPick={setEditing}
               empty={
-                <Card padding="md">
-                  <EmptyState
-                    size="inline"
-                    icon="27_clock"
-                    title="이 날은 기록이 없어요"
-                    description="없는 날도 괜찮아요."
-                  />
-                </Card>
+                // 안 썼다고 적어 둔 날은 빈 날이 아니다. 아래 줄이 그 자리를 채운다.
+                noSpend.length > 0 ? null : (
+                  <Card padding="md">
+                    <EmptyState
+                      size="inline"
+                      icon="27_clock"
+                      title="이 날은 기록이 없어요"
+                      description="없는 날도 괜찮아요."
+                    />
+                  </Card>
+                )
               }
             />
+            {/* 읽기 전용이다. 되돌리는 길은 오늘을 보는 홈에만 둔다. */}
+            {noSpend.length > 0 ? (
+              <Card padding="list">
+                <NoSpendRow />
+              </Card>
+            ) : null}
           </section>
         </>
       )}

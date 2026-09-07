@@ -156,8 +156,9 @@ def update_goal(session: Session, user: User, goal_id: uuid.UUID, payload: dict)
     """보낸 필드만 고친다. `target_date: null` 은 기한을 지운다는 뜻이다.
 
     라우터가 `exclude_unset` 으로 걸러 준 것만 온다. 그래서 여기서는 값이 None 인 것도
-    '지운다' 로 읽는다. 설정(`app.modules.settings`)과 규칙이 반대이므로 주의한다.
-    그쪽은 전부 기본값이 있는 컬럼이라 None 을 넣을 자리가 없다.
+    '지운다' 로 읽는데, 비울 수 있는 것은 기한 하나다. 나머지에 온 null 은 `GoalPatch` 가
+    앞에서 422 로 막아 여기까지 오지 않는다. 설정(`app.modules.settings`)과 규칙이
+    반대이므로 주의한다. 그쪽은 전부 기본값이 있는 컬럼이라 None 을 넣을 자리가 없다.
     """
     row = _require_goal(session, user, goal_id)
     for field, value in payload.items():

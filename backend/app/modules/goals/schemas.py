@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.api.amounts import MAX_AMOUNT, integral_won, ratio_out
 from app.domain.goals import GoalStatus as GoalEvaluation
@@ -67,6 +67,10 @@ class GoalPatch(BaseModel):
 
     **필드를 빼는 것과 null 을 보내는 것이 다르다.** 빼면 그대로 두고, `target_date: null`
     은 기한을 지운다는 뜻이다. 기한이 있는 목표에서 기한만 없애는 길이 그것뿐이다.
+
+    **비울 수 있는 값은 기한 하나다.** 이름·목표 금액·처음 모아 둔 돈에 null 이 오면 422 로
+    막는다. 그대로 컬럼에 쓰면 NOT NULL 위반이 409 로 새어, 영영 안 되는 요청에 잠시 후
+    다시 시도하라고 말하게 된다.
     """
 
     title: str | None = Field(default=None, min_length=1, max_length=MAX_TITLE)
@@ -81,6 +85,19 @@ class GoalPatch(BaseModel):
 
     _check_target = field_validator("target_amount")(integral_won)
     _check_initial = field_validator("initial_amount")(integral_won)
+
+    @model_validator(mode="after")
+    def _reject_explicit_nulls(self) -> GoalPatch:
+        """비울 수 없는 값에 null 을 보내면 막는다. 지울 수 있는 것은 기한뿐이다."""
+        labels = {
+            "title": "목표 이름",
+            "target_amount": "목표 금액",
+            "initial_amount": "처음 모아 둔 돈",
+        }
+        for field, label in labels.items():
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(f"{label}은 비울 수 없어요.")
+        return self
 
 
 class GoalContributionCreate(BaseModel):

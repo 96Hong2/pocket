@@ -165,14 +165,13 @@ test('결산 어느 카드에도 탓하는 말과 광고가 없다', async ({ pr
   await report.waitReady();
   await report.closing.open();
 
-  // 배너는 홈 한 곳뿐이다. 한 달을 돌아보는 자리에 광고가 끼면 결산이 광고의 구실이 된다.
-  await expect(report.closing.adSlot).toHaveCount(0);
-
-  // 한 장만 보면 나머지 석 장의 문구는 아무도 안 본다. 넉 장을 끝까지 넘기며 훑는다.
+  // 한 장만 보면 나머지 석 장은 아무도 안 본다. 넉 장을 끝까지 넘기며 훑는다.
   const cards = await report.closing.readAllCards();
   expect(cards, '카드 넉 장을 다 읽지 못했다').toHaveLength(4);
-  for (const text of cards) {
-    expect(findForbiddenWords(text), text).toEqual([]);
+  for (const card of cards) {
+    expect(findForbiddenWords(card.text), card.text).toEqual([]);
+    // 배너는 홈 한 곳뿐이다. 한 달을 돌아보는 자리에 광고가 끼면 결산이 광고의 구실이 된다.
+    expect(card.adSlots, `광고 자리가 있다: ${card.text}`).toBe(0);
   }
 });
 
@@ -204,6 +203,26 @@ test('주소로 들어오면 그 달 결산이 열린 채로 시작한다', asyn
   await expect(report.closing.title).toHaveText('잘한 것');
   // 결산만 열리고 뒤 화면은 다른 달이면 닫았을 때 엉뚱한 달에 서 있게 된다.
   await expect(report.headlineLabel).toContainText(formatMonthLabel(LAST_MONTH));
+
+  // 한 번 쓴 부탁은 주소에서 사라진다. 남아 있으면 아래처럼 다시 열릴 자리가 계속 생긴다.
+  await expect.poll(() => report.url.searchParams.get('closing')).toBeNull();
+
+  // 닫은 뒤에는 달을 오가도 다시 뜨지 않는다. 안 누른 전체화면이 뜨는 것은 진입 즉시
+  // 시트를 여는 것과 같다.
+  await report.closing.closeButton.click();
+  await expect(report.closing.overlay).toHaveCount(0);
+
+  await report.goPreviousMonth();
+  await report.waitReady();
+  // 입구가 보일 때까지 기다린 다음에 본다. 결산 조회가 끝나기 전에 세면 열려야 할 것도
+  // 아직 없어서 0 이 나온다.
+  await expect(report.closing.card).toBeVisible();
+  await expect(report.closing.overlay).toHaveCount(0);
+
+  await report.goNextMonth();
+  await report.waitReady();
+  await expect(report.closing.card).toBeVisible();
+  await expect(report.closing.overlay).toHaveCount(0);
 });
 
 test('홈의 결산 카드는 달 초에만 뜨고, 한 번 열어 보면 사라진다', async ({

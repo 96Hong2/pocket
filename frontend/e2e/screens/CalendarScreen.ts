@@ -148,6 +148,16 @@ class LedgerListArea {
     return this.root.getByText(title, { exact: true });
   }
 
+  /**
+   * 안 쓴 날로 적어 둔 줄.
+   *
+   * 홈은 '오늘은 안 썼어요' 라고 적고 달력은 고른 날이라 날짜를 말하지 않는다.
+   * 눌러도 아무 일이 없어야 하는 읽기 전용 줄이다.
+   */
+  get noSpendRow(): Locator {
+    return this.root.getByText('안 썼어요', { exact: true });
+  }
+
   /** 제목 아래 붙는 칩. '예산 제외' · '이체' · '환불' · '수입'. */
   chip(label: string): Locator {
     return this.root.getByText(label, { exact: true });

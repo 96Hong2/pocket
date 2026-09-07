@@ -421,6 +421,13 @@
     color: var(--color-ink);
   }
 
+  /* 서버에 다시 묻는 동안 합계 자리. 옛 숫자를 남기면 식이 어긋난 채로 읽힌다. */
+  .budget-suggest__pending {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
   .budget-suggest__note {
     margin: 0;
     font-size: var(--text-12);

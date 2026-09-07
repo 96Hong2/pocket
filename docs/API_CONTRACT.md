@@ -138,6 +138,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 - **`source: "no_spend"` 는 같은 날에 하나뿐이다.** 살아 있는 표시가 이미 있으면 422
   `NO_SPEND_EXISTS` 다. 날 경계는 사용자 시간대로 자른다. 지우면 그 날 다시 적을 수 있다.
   두 줄이 생기면 취소가 한 줄만 지워 목록이 계속 무지출로 남고, 무지출 연속 판정이 두 번 센다.
+  **날짜를 옮기는 수정에도 같은 규칙이 걸린다.** 옮겨 갈 날에 이미 표시가 있으면 422 다.
 - 의미는 `type` 이 정한다: `expense` `income` `transfer` `refund`
 - `source`: `keypad` `nl` `screenshot` `receipt` `asset_screenshot` `no_spend`
 - `confidence` 는 0~1. 손으로 넣은 값은 1.0
@@ -159,9 +160,9 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
   "budget": {
     "period_start": "2026-09-01", "period_end": "2026-09-30",
     "amount": "500000", "budgeted_spend": "12000",
-    "remaining_budget": "488000", "daily_allowance": "17428", "weekly_allowance": "87140",
+    "remaining_budget": "488000", "daily_allowance": "17428", "weekly_allowance": "69712",
     "total_days": 30, "elapsed_days": 3, "remaining_days": 28,
-    "week_start": "2026-08-31", "week_end": "2026-09-06", "week_days_left": 5,
+    "week_start": "2026-08-31", "week_end": "2026-09-06", "week_days_left": 4,
     "spend_progress": "0.0240", "pace_ratio": "0.2400",
     "projected_month_end": "120000",
     "is_projection_reliable": true, "is_over_budget": false,
@@ -579,7 +580,8 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
   `/preferences` 와 규칙이 반대다. `is_enabled`·`frequency` 는 `null` 이 뜻을 갖지 않아 그대로 둔다.
 - **켜면서 시각을 안 주면 서버가 `21:30` 을 넣는다.** 켜 두고 시각이 비면 영영 안 가는 알림이
   되는데, 화면에는 켜져 있다고 보인다.
-- `frequency` 는 발송기가 보는 값이고 화면에 고르는 자리가 없다. 켤 때 `daily` 로 보낸다.
+- `frequency` 는 **발송기가 보지 않는 값**이다. 알림은 하루 한 번으로 못 박혀 있고(ADR-0013),
+  컬럼이 초기 스키마에 남아 응답에만 싣는다. 화면에 고르는 자리가 없고 켤 때 `daily` 로 보낸다.
 - **토스 알림 동의는 서버가 저장하지 않는다.** 켜는 그 순간에 앱(브릿지)이 묻고, 거절하면
   화면이 켜지 않은 채로 둔다. 토스 앱 설정에서 언제든 바뀌는 값이라 서버 사본은 곧 낡는다.
 - 시간대는 `users.timezone` 이 정본이다. `notification_settings.timezone` 은 읽지 않는다.
@@ -771,6 +773,11 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 
 **목표를 정하지 않은 것은 정상 상태다.** 조회는 404 가 아니라 200 에 `goal: null` 로 답한다.
 쓰기 응답(POST·PATCH·기여 POST)도 모두 이 모양이라 화면이 받은 것을 그대로 캐시에 넣는다.
+
+**`PATCH` 에서 `target_date` 만 필드를 빼는 것과 `null` 이 다르다.** 빼면 그대로 두고, `null`
+을 보내면 기한을 지운다. 기한만 없애는 길이 그것뿐이다(알림 설정의 `remind_at` 을 비우는
+것과 같은 규칙이다). `title`·`target_amount`·`initial_amount` 는 비울 자리가 없어 `null` 을
+보내면 422 `INVALID_REQUEST` 다.
 
 **진행 중인 목표는 하나다.** 두 번째를 만들려 하면 `GOAL_ALREADY_ACTIVE` 다. 서비스가 먼저
 막고 부분 유니크 인덱스(`status = 'active' AND deleted_at IS NULL`)가 마지막을 막는다.

@@ -60,7 +60,10 @@ def create(body: GoalCreate, session: DbSession, user: CurrentUser) -> GoalState
 def update(
     goal_id: uuid.UUID, body: GoalPatch, session: DbSession, user: CurrentUser
 ) -> GoalStateOut:
-    """보낸 필드만 고친다. `target_date: null` 은 기한을 지운다는 뜻이다."""
+    """보낸 필드만 고친다. `target_date: null` 은 기한을 지운다는 뜻이다.
+
+    비울 수 있는 값은 기한 하나다. 다른 값에 null 을 보내면 422 다.
+    """
     payload = body.model_dump(exclude_unset=True)
     return _view(user, service.update_goal(session, user, goal_id, payload))
 

@@ -57,7 +57,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await demo.beat(2);
 
   await demo.step('그 아래 네 줄이 하위 화면으로 들어가는 입구다');
-  // 알림 설정은 화면이 아직 점선 자리표시자라 입구를 두지 않았다. 실물이 되면 되돌린다.
+  // 알림 설정은 앱 설정 아래에 둔다. 관리 탭은 돈을 손보는 자리다.
   await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText([
     '목표',
     '자산',

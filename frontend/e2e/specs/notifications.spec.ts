@@ -1,6 +1,8 @@
 import {
+  agreementFailureForced,
   agreementResultForced,
   forceAgreementResult,
+  setAgreementFailure,
   watchAgreementRequests,
 } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
@@ -8,8 +10,9 @@ import { expect, test } from '../support/fixtures';
 /**
  * 기록 알림.
  *
- * 알림은 잘못 만들면 벌주는 기능이 된다. 그래서 여기서 확인할 것은 세 가지다.
- * 켜기 전에는 아무것도 묻지 않는가, 거절한 사람에게 다시 묻지 않는가, 정한 시각이 남는가.
+ * 알림은 잘못 만들면 벌주는 기능이 된다. 그래서 여기서 확인할 것은 네 가지다.
+ * 켜기 전에는 아무것도 묻지 않는가, 거절한 사람에게 다시 묻지 않는가, 정한 시각이 남는가,
+ * 한 번 못 켠 뒤 다시 켜서 성공하면 그 안내가 걷히는가.
  *
  * 동의 결과는 devtools 목의 다이얼로 정한다. 브릿지 코드는 실기기와 같은 것이 그대로 돈다.
  */
@@ -17,6 +20,9 @@ import { expect, test } from '../support/fixtures';
 const NEW_TIME = '22:00';
 /** 시각을 안 고르고 켜면 서버가 넣어 주는 값. 켜 두고 시각이 비면 영영 안 가는 알림이 된다. */
 const DEFAULT_TIME = '21:30';
+
+/** 목이 알림 동의를 실패로 만들 때 쓰는 코드. `Notification agreement failed` 로 온다. */
+const AGREEMENT_FAILURE = '4000';
 
 test('알림 설정은 앱 설정 아래에 있고, 처음 열면 꺼져 있다', async ({
   appShell,
@@ -134,4 +140,38 @@ test('동의를 거절하면 켜지지 않고 이유를 알려 준다', async ({
 
   // 거절한 사람에게 같은 것을 반복해서 묻지 않는다.
   await expect(notifications.toggle).toBeDisabled();
+});
+
+test('동의를 못 받은 뒤 다시 켜서 성공하면 못 켰다는 안내가 걷힌다', async ({
+  page,
+  notifications,
+}) => {
+  await notifications.open();
+  await notifications.waitReady();
+
+  await setAgreementFailure(page, AGREEMENT_FAILURE);
+  expect(
+    await agreementFailureForced(page, AGREEMENT_FAILURE),
+    '목의 실패 다이얼이 켜지지 않았다',
+  ).toBe(true);
+
+  await test.step('한 번 실패하면 켜지지 않고 이유가 남는다', async () => {
+    await notifications.toggle.click();
+    await expect(notifications.notice).toHaveText(
+      '알림 동의를 받지 못했어요. 잠시 후 다시 시도해 주세요.',
+    );
+    await expect(notifications.toggle).toHaveAttribute('aria-checked', 'false');
+    // 거절과 달리 잠깐 못 받은 것이라 다시 눌러 볼 수 있어야 한다.
+    await expect(notifications.toggle).toBeEnabled();
+  });
+
+  await test.step('다시 켜서 성공하면 그 안내가 남지 않는다', async () => {
+    await setAgreementFailure(page, undefined);
+    await notifications.turnOn();
+
+    // 켜진 토글 아래에 못 켰다는 말이 남으면, 오는 알림을 안 온다고 읽게 된다.
+    await expect(notifications.notice).toHaveCount(0);
+    await expect(notifications.timeInput).toBeEnabled();
+    await expect(notifications.timeInput).toHaveValue(DEFAULT_TIME);
+  });
 });

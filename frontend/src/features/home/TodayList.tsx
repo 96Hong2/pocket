@@ -5,11 +5,9 @@ import {
   type CategoryOut,
   type TransactionOut,
 } from '../../shared/api';
-import { LedgerRow } from '../../shared/ledger';
+import { LedgerRow, NoSpendRow, splitNoSpend } from '../../shared/ledger';
 import { toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
 import { Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui';
-
-import { NoSpendRow } from './NoSpendRow';
 
 interface TodayListProps {
   transactions: TransactionOut[];
@@ -44,9 +42,9 @@ export function TodayList({
 }: TodayListProps) {
   const today = toLedgerDate(new Date());
   const rows = transactions.filter((tx) => isToday(tx.occurred_at, today));
-  // 안 쓴 날 표시는 금액이 0 이라 다른 줄과 같은 모양으로 그릴 수 없다. 따로 뽑아 둔다.
-  const noSpend = rows.find((tx) => tx.source === 'no_spend') ?? null;
-  const spent = rows.filter((tx) => tx.source !== 'no_spend');
+  // 안 쓴 날 표시는 금액이 0 이라 다른 줄과 같은 모양으로 그릴 수 없다. 달력과 같은 규칙으로 가른다.
+  const { noSpend: noSpendRows, spent } = splitNoSpend(rows);
+  const noSpend = noSpendRows[0] ?? null;
 
   const markNoSpend = useCreateTransaction();
   const cancelNoSpend = useDeleteTransaction();
@@ -75,6 +73,9 @@ export function TodayList({
           ))}
           {noSpend != null ? (
             <NoSpendRow
+              title="오늘은 안 썼어요"
+              avatarSize={54}
+              density="compact"
               canceling={cancelNoSpend.isPending}
               onCancel={() => cancelNoSpend.mutate(noSpend.id)}
             />

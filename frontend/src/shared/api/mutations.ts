@@ -416,16 +416,22 @@ export function useSaveAssets() {
  *
  * 다만 **생활비 제안은 함께 낡는다.** 제안액이 목표의 '매달 모을 돈' 을 빼서 나온 값이라,
  * 목표를 고치거나 접으면 관리 탭 카드가 옛 목표로 계산한 금액을 그대로 들고 있게 된다.
+ *
+ * **결산도 함께 낡는다.** 서버가 그 달 목표에 옮긴 돈을 잘한 것 하나로 세므로, 모은 돈을
+ * 더하거나 지우면 결산 카드가 옛 금액을 그대로 들고 있게 된다. 결산 키는 리포트 아래라
+ * `queryKeys.reports()` 하나로 함께 걸린다.
  */
 function writeGoal(queryClient: QueryClient, state: GoalStateOut): void {
   queryClient.setQueryData<GoalStateOut>(queryKeys.goal(), state);
   void invalidateBudgetSuggestions(queryClient);
+  void queryClient.invalidateQueries({ queryKey: queryKeys.reports() });
 }
 
 function invalidateGoal(queryClient: QueryClient): Promise<void> {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: queryKeys.goal() }),
     invalidateBudgetSuggestions(queryClient),
+    queryClient.invalidateQueries({ queryKey: queryKeys.reports() }),
   ]).then(() => undefined);
 }
 

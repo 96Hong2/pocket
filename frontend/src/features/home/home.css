@@ -88,9 +88,6 @@
     opacity: 0.6;
   }
 
-  /* 눈에는 안 보이고 스크린리더만 읽는 꼬리말.
-     링크 이름을 aria-label 로 덮으면 안쪽 금액이 통째로 안 읽혀, 이 자리로 목적지만 덧붙인다.
-     display:none 이나 visibility:hidden 은 접근성 트리에서도 빠지므로 쓰지 않는다. */
   /* ── 홈의 목표 카드 ─────────────────────────────── */
 
   .home-goal {
@@ -162,6 +159,9 @@
     color: var(--color-muted);
   }
 
+  /* 눈에는 안 보이고 스크린리더만 읽는 꼬리말.
+     링크 이름을 aria-label 로 덮으면 안쪽 금액이 통째로 안 읽혀, 이 자리로 목적지만 덧붙인다.
+     display:none 이나 visibility:hidden 은 접근성 트리에서도 빠지므로 쓰지 않는다. */
   .home-hero__sr,
   .home-goal__sr {
     position: absolute;

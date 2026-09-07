@@ -51,11 +51,14 @@ export function MonthlyReport({
   month,
   onMonthChange,
   autoOpenClosing = false,
+  onClosingAutoOpened,
 }: {
   month: string;
   onMonthChange: (next: string) => void;
   /** 홈의 결산 카드로 들어왔을 때만 참. 그 달 결산을 열어 둔 채로 시작한다. */
   autoOpenClosing?: boolean;
+  /** 그 부탁을 쓴 순간 알린다. 로딩 때문에 결산 자리는 달을 옮길 때마다 다시 마운트된다. */
+  onClosingAutoOpened?: () => void;
 }) {
   // 아직 오지 않은 달은 볼 수 없다. 가면 안 끝난 이번 달을 "지난달 전체" 로 견주는 거짓말이 나온다.
   const thisMonth = toLedgerDate(new Date()).slice(0, 7);
@@ -155,7 +158,7 @@ export function MonthlyReport({
       </Card>
 
       {/* 헤드라인 바로 아래. 끝난 달에 기록이 있을 때만 그려지고, 판정은 서버가 한다. */}
-      <ClosingSection month={month} autoOpen={autoOpenClosing} />
+      <ClosingSection month={month} autoOpen={autoOpenClosing} onAutoOpened={onClosingAutoOpened} />
 
       {!data.has_any_transaction ? (
         <Card className="report__empty">

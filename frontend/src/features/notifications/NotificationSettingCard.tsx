@@ -102,6 +102,9 @@ export function NotificationSettingCard() {
       setAsking(false);
     }
 
+    // 앞서 못 켠 이유를 지운다. 남겨 두면 켜진 토글 아래에서 못 켰다고 말하게 된다.
+    setBlocker(null);
+
     // 정해 둔 시각이 없으면 보내지 않는다. 그때는 서버가 기본 시각을 넣어 준다.
     patch({
       is_enabled: true,

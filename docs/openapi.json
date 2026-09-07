@@ -4296,7 +4296,7 @@
           "goals"
         ],
         "summary": "Update",
-        "description": "보낸 필드만 고친다. `target_date: null` 은 기한을 지운다는 뜻이다.",
+        "description": "보낸 필드만 고친다. `target_date: null` 은 기한을 지운다는 뜻이다.\n\n비울 수 있는 값은 기한 하나다. 다른 값에 null 을 보내면 422 다.",
         "operationId": "update_api_v1_goals__goal_id__patch",
         "parameters": [
           {
@@ -6569,7 +6569,7 @@
         },
         "type": "object",
         "title": "GoalPatch",
-        "description": "보낸 필드만 고친다.\n\n**필드를 빼는 것과 null 을 보내는 것이 다르다.** 빼면 그대로 두고, `target_date: null`\n은 기한을 지운다는 뜻이다. 기한이 있는 목표에서 기한만 없애는 길이 그것뿐이다."
+        "description": "보낸 필드만 고친다.\n\n**필드를 빼는 것과 null 을 보내는 것이 다르다.** 빼면 그대로 두고, `target_date: null`\n은 기한을 지운다는 뜻이다. 기한이 있는 목표에서 기한만 없애는 길이 그것뿐이다.\n\n**비울 수 있는 값은 기한 하나다.** 이름·목표 금액·처음 모아 둔 돈에 null 이 오면 422 로\n막는다. 그대로 컬럼에 쓰면 NOT NULL 위반이 409 로 새어, 영영 안 되는 요청에 잠시 후\n다시 시도하라고 말하게 된다."
       },
       "GoalStateOut": {
         "properties": {
@@ -7853,7 +7853,7 @@
         },
         "type": "object",
         "title": "TransactionUpdate",
-        "description": "보낸 필드만 고친다. 검증과 시각 정규화는 저장 경로와 같은 것을 쓴다."
+        "description": "보낸 필드만 고친다. 검증과 시각 정규화는 저장 경로와 같은 것을 쓴다.\n\n**비울 수 있는 값은 상호와 분류뿐이다.** 시각·금액·종류·예산 반영에 null 이 오면 422 로\n막는다. 그대로 쓰면 시각 정규화가 None 에서 죽어 500 이 난다."
       },
       "TransactionUpdated": {
         "properties": {

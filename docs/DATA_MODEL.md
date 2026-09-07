@@ -198,7 +198,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 |---|---|---|
 | `is_enabled` | **false** | 옵트인. 진입 즉시 동의 시트를 띄우지 않는다 |
 | `remind_at` | NULL | `HH:MM`. 켜면서 안 주면 서버가 21:30 을 넣는다 |
-| `frequency` | `weekly_twice` | `weekly_twice` \| `daily`. 화면에 고르는 자리는 없고 켤 때 `daily` 로 온다 |
+| `frequency` | `weekly_twice` | `weekly_twice` \| `daily`. **발송기는 읽지 않는다.** 하루 한 번 고정(ADR-0013). 화면에 고르는 자리는 없고 켤 때 `daily` 로 온다 |
 | `timezone` | `Asia/Seoul` | **읽지 않는다.** 아래 참고 |
 | `last_reminded_on` | NULL | 마지막으로 보낸 현지 날짜. 같은 날 두 번 보내지 않는 기준이다 |
 
@@ -307,7 +307,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 컬럼은 16자리인데 **API 상한은 거래·예산과 같은 14자리**다(`app/api/amounts.py` 의 `MAX_AMOUNT`).
 그보다 크면 JS 의 안전 정수 범위(약 9e15)를 넘겨 화면이 자릿수를 잘못 그린다.
 
-## goals / goal_contributions (P1)
+## goals / goal_contributions
 
 | goals | 설명 |
 |---|---|

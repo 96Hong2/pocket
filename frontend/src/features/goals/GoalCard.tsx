@@ -1,5 +1,10 @@
 import { parseDecimal, parseDecimalOr, type GoalOut } from '../../shared/api';
-import { formatCurrency, formatDayLabel, parseIsoDate } from '../../shared/lib/format';
+import {
+  formatCurrency,
+  formatDayLabel,
+  parseIsoDate,
+  toLedgerDate,
+} from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import { Amount, Button, Chip, Gauge } from '../../shared/ui';
 
@@ -101,9 +106,13 @@ export function GoalCard({ goal, onEdit, onContribute }: GoalCardProps) {
  * 기한 표기. 올해가 아니면 연도까지 적는다.
  *
  * `3월 1일` 만 적으면 내년 3월인 목표가 이미 지난 날처럼 읽힌다.
+ *
+ * 올해가 언제인지는 가계부 시간대로 센다. 기기 시계로 보면 연말에 시차만큼 해가 어긋나,
+ * 서버가 아직 올해로 세는 기한에 연도가 붙거나 그 반대가 된다.
  */
 function deadlineLabel(iso: string): string {
   const day = parseIsoDate(iso);
   const label = formatDayLabel(day);
-  return day.getFullYear() === new Date().getFullYear() ? label : `${day.getFullYear()}년 ${label}`;
+  const thisYear = Number(toLedgerDate(new Date()).slice(0, 4));
+  return day.getFullYear() === thisYear ? label : `${day.getFullYear()}년 ${label}`;
 }

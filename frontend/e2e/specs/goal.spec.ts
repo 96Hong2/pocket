@@ -33,7 +33,8 @@ test('관리 탭에서 목표로 들어가면 빈 상태가 있다', async ({ ap
   await manage.open();
   await manage.waitReady();
 
-  // 목표가 실물 화면이 되면서 관리 탭에 입구가 생겼다. 알림 설정은 아직 자리표시자다.
+  // 목표가 실물 화면이 되면서 관리 탭에 입구가 생겼다.
+  // 알림 설정은 앱 설정 아래에 둔다(관리 탭은 돈을 손보는 자리).
   await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText([
     '목표',
     '자산',

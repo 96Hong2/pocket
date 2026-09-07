@@ -6,6 +6,9 @@
 **시간대 정본은 `users.timezone` 이다.** `notification_settings.timezone` 컬럼은 초기
 스키마에 있지만 읽지 않는다. 두 곳을 보면 달 경계와 알림 시각이 서로 다른 시간대로 갈린다.
 
+**`notification_settings.frequency` 도 읽지 않는다.** 알림은 하루 한 번으로 못 박혀 있고
+(ADR-0013), 컬럼은 초기 스키마에 남아 응답에만 실린다.
+
 보낼 때인지 판정하는 산식은 `app.domain.reminders` 에 있다. 여기서 다시 쓰지 않는다.
 """
 
@@ -102,6 +105,8 @@ def due_reminders(session: Session, now_utc: datetime) -> list[DueReminder]:
 
     시각·날짜 판정은 사용자 시간대에 걸려 있어 SQL 로 좁힐 수 없다. 켜 둔 사람 수만큼만
     파이썬이 본다.
+
+    빈도(`frequency`)는 보지 않는다. 하루 한 번 고정이라 볼 것이 없다.
     """
     rows = session.execute(
         select(NotificationSetting, User)

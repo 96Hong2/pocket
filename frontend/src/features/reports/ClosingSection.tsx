@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useClosing } from '../../shared/api';
 import { formatMonthLabel } from '../../shared/lib/format';
@@ -12,6 +12,8 @@ export interface ClosingSectionProps {
   month: string;
   /** 홈의 결산 카드로 들어왔을 때만 참. 진입 즉시 오버레이를 연다. */
   autoOpen?: boolean;
+  /** 그 부탁을 실제로 쓴 순간 알린다. 부모가 지워 줘야 두 번 열리지 않는다. */
+  onAutoOpened?: () => void;
 }
 
 /**
@@ -24,11 +26,17 @@ export interface ClosingSectionProps {
  * 조회가 실패하면 이 자리를 비운다. 리포트 본문은 그대로 남으므로 결산 하나 때문에
  * 그 달을 통째로 못 보게 되지 않는다.
  */
-export function ClosingSection({ month, autoOpen = false }: ClosingSectionProps) {
+export function ClosingSection({ month, autoOpen = false, onAutoOpened }: ClosingSectionProps) {
   const [year, monthNumber] = month.split('-').map(Number);
   const closing = useClosing({ year, month: monthNumber });
   // 열린 달을 들고 있는다. 달을 옮기면 저절로 닫혀서, 옆 달 결산이 그대로 떠 있지 않는다.
   const [openMonth, setOpenMonth] = useState<string | null>(autoOpen ? month : null);
+
+  // 달을 옮기면 이 자리가 통째로 다시 마운트되면서 위 초기값을 또 읽는다. 열어 달라는
+  // 부탁을 쓴 즉시 알려서, 다음 마운트에는 닫힌 채로 시작하게 한다.
+  useEffect(() => {
+    if (autoOpen) onAutoOpened?.();
+  }, [autoOpen, onAutoOpened]);
 
   const data = closing.data;
   if (data == null || !data.is_closed || !data.has_any_transaction) return null;

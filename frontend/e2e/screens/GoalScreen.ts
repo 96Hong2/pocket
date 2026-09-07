@@ -222,8 +222,9 @@ class GoalFormSheet {
     return this.root.getByLabel('언제까지 (선택)');
   }
 
+  /** 시작 금액. 카드의 '지금까지' 와 다르다. 여기에 더한 돈까지 합친 것이 그 값이다. */
   get initialField(): Locator {
-    return this.root.getByLabel('지금까지 모은 돈 (선택)');
+    return this.root.getByLabel('시작할 때 이미 있던 돈 (선택)');
   }
 
   get saveButton(): Locator {

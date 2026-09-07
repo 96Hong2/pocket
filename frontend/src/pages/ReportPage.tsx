@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
@@ -13,11 +13,30 @@ export default function ReportPage() {
   const thisMonth = toLedgerDate(new Date()).slice(0, 7);
   // 홈의 결산 카드가 `?month=2026-08&closing=1` 로 데려온다. 그때는 그 달로 열고
   // 결산까지 펼친다. 주소를 손으로 친 경우에도 어긋난 값이면 그냥 이번 달을 연다.
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const asked = params.get('month');
   const [month, setMonth] = useState(
     asked != null && MONTH_PATTERN.test(asked) && asked <= thisMonth ? asked : thisMonth,
   );
+  // 열어 달라는 부탁은 한 번만 쓴다. 주소를 계속 보고 열면, 달을 옮겨 본문을 다시 그릴 때마다
+  // 사용자가 누르지도 않은 전체화면 결산이 다시 뜬다.
+  const [openClosing, setOpenClosing] = useState(() => params.get('closing') === '1');
+  const consumeClosing = useCallback(() => setOpenClosing(false), []);
+  // 달을 옮기면 부탁도 접는다. 로딩 중에는 결산 자리가 아직 없어서 부탁을 못 쓴 채로
+  // 달만 바뀔 수 있는데, 그러면 엉뚱한 달의 결산이 저절로 열린다.
+  const changeMonth = useCallback((next: string) => {
+    setMonth(next);
+    setOpenClosing(false);
+  }, []);
+
+  // 다 쓴 부탁은 주소에서도 지운다. 히스토리에는 남기지 않는다. 남기면 뒤로가기로
+  // 그 주소에 되돌아왔을 때 또 열린다.
+  useEffect(() => {
+    if (!params.has('closing')) return;
+    const next = new URLSearchParams(params);
+    next.delete('closing');
+    setParams(next, { replace: true });
+  }, [params, setParams]);
 
   return (
     <div className="page">
@@ -30,8 +49,9 @@ export default function ReportPage() {
 
       <MonthlyReport
         month={month}
-        onMonthChange={setMonth}
-        autoOpenClosing={params.get('closing') === '1'}
+        onMonthChange={changeMonth}
+        autoOpenClosing={openClosing}
+        onClosingAutoOpened={consumeClosing}
       />
     </div>
   );

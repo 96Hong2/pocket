@@ -55,6 +55,15 @@ export class ReportScreen {
     await this.monthButton('previous').click();
   }
 
+  async goNextMonth(): Promise<void> {
+    await this.monthButton('next').click();
+  }
+
+  /** 지금 열려 있는 주소. 결산처럼 한 번만 쓰는 파라미터가 남았는지 여기로 본다. */
+  get url(): URL {
+    return new URL(this.page.url());
+  }
+
   /** 다음 달 버튼. 이번 달에서는 눌리지 않아야 한다(아직 오지 않은 달이다). */
   monthButton(direction: 'previous' | 'next'): Locator {
     const buttons = this.root.getByRole('button', { name: /로 이동$/ });
@@ -290,15 +299,19 @@ export class ClosingArea {
   }
 
   /**
-   * 카드 넉 장을 끝까지 넘기며 화면에 찍힌 글자를 모은다.
+   * 카드 넉 장을 끝까지 넘기며 장마다 글자와 광고 자리 수를 모은다.
    *
-   * 한 장만 보면 나머지 석 장의 문구는 아무도 안 본다. 금지어 검사는 전부를 훑어야 한다.
+   * 한 장만 보면 나머지 석 장의 문구는 아무도 안 본다. 화면에는 늘 한 장만 있어서
+   * 열자마자 한 번 세는 것으로는 뒤 석 장의 광고 자리를 못 본다. 그래서 같이 센다.
    */
-  async readAllCards(): Promise<string[]> {
-    const texts: string[] = [];
+  async readAllCards(): Promise<Array<{ text: string; adSlots: number }>> {
+    const cards: Array<{ text: string; adSlots: number }> = [];
     for (;;) {
-      texts.push((await this.overlay.innerText()) ?? '');
-      if ((await this.nextButton.count()) === 0) return texts;
+      cards.push({
+        text: (await this.overlay.innerText()) ?? '',
+        adSlots: await this.adSlot.count(),
+      });
+      if ((await this.nextButton.count()) === 0) return cards;
       await this.nextButton.click();
     }
   }

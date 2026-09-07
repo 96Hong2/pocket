@@ -8,6 +8,7 @@ import {
   type MonthParams,
   type SuggestionAmountOut,
 } from '../../shared/api';
+import { useDebounced } from '../../shared/lib/useDebounced';
 import { TEST_IDS } from '../../shared/testIds';
 import { Amount, AmountField, Button, Card } from '../../shared/ui';
 
@@ -32,6 +33,9 @@ function givenAmount(edited: string | null): number | undefined {
   return edited === '' ? 0 : Number(edited);
 }
 
+/** 한 글자 고칠 때마다 서버를 부르지 않는다. 잦아든 값만 질의로 나간다. */
+const SUGGEST_DEBOUNCE_MS = 250;
+
 /**
  * 목표에서 거꾸로 낸 생활비 제안.
  *
@@ -49,10 +53,14 @@ export function GoalBudgetSuggestCard({ month }: GoalBudgetSuggestCardProps) {
   const [takeHome, setTakeHome] = useState<string | null>(null);
   const [fixedCosts, setFixedCosts] = useState<string | null>(null);
 
+  // 입력칸은 위 상태를 그대로 그리고, 질의만 잦아든 값으로 나간다.
+  const askedTakeHome = useDebounced(takeHome, SUGGEST_DEBOUNCE_MS);
+  const askedFixedCosts = useDebounced(fixedCosts, SUGGEST_DEBOUNCE_MS);
+
   const suggestion = useBudgetSuggestion({
     ...month,
-    takeHome: givenAmount(takeHome),
-    fixedCosts: givenAmount(fixedCosts),
+    takeHome: givenAmount(askedTakeHome),
+    fixedCosts: givenAmount(askedFixedCosts),
   });
   const saveBudget = useSaveBudget(month);
 
@@ -61,9 +69,19 @@ export function GoalBudgetSuggestCard({ month }: GoalBudgetSuggestCardProps) {
   // 이 카드가 없어도 예산을 정하는 길은 그대로다.
   if (data == null || !data.available) return null;
 
+  /*
+    화면에 적힌 값과 손에 든 답이 어긋난 동안이다. 하나라도 걸리면 지금 보이는 제안액은
+    고치기 전 것이라, 그대로 두면 새 실수령을 빼지 않은 옛 금액이 그대로 저장된다.
+  */
+  const stale =
+    takeHome !== askedTakeHome ||
+    fixedCosts !== askedFixedCosts ||
+    suggestion.isPlaceholderData ||
+    suggestion.isFetching;
+
   const saving = parseDecimalOr(data.goal_saving, 0);
   const suggested = parseDecimalOr(data.suggested, 0);
-  const canSave = suggested > 0 && !saveBudget.isPending;
+  const canSave = suggested > 0 && !stale && !saveBudget.isPending;
   const failure =
     saveBudget.error instanceof ApiError
       ? saveBudget.error.message
@@ -108,22 +126,26 @@ export function GoalBudgetSuggestCard({ month }: GoalBudgetSuggestCardProps) {
             onChange={setFixedCosts}
           />
 
-          <div className="budget-suggest__line budget-suggest__line--total">
+          <div className="budget-suggest__line budget-suggest__line--total" aria-busy={stale}>
             <span className="budget-suggest__op" aria-hidden="true">
               =
             </span>
             <span className="budget-suggest__label">이번 달 생활비</span>
-            <Amount
-              data-testid={TEST_IDS.budgetSuggestAmount}
-              value={suggested}
-              size={20}
-              weight={800}
-            />
+            {stale ? (
+              <span className="budget-suggest__pending">계산 중</span>
+            ) : (
+              <Amount
+                data-testid={TEST_IDS.budgetSuggestAmount}
+                value={suggested}
+                size={20}
+                weight={800}
+              />
+            )}
           </div>
         </div>
 
         {/* 0원은 예산으로 저장할 수 없다. 눌러 보고 422 를 만나기 전에 이유를 알린다. */}
-        {suggested === 0 ? (
+        {!stale && suggested === 0 ? (
           <p className="budget-suggest__note">
             지금 값으로는 생활비로 남는 돈이 없어요. 실수령이나 고정비를 고쳐 볼 수 있어요
           </p>

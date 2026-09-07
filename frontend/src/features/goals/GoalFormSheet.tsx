@@ -124,7 +124,13 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
         <span className="goal-sheet__hint">정해 두면 매달 얼마씩 모으면 되는지 알려드려요</span>
       </label>
 
-      <AmountField label="지금까지 모은 돈 (선택)" value={initial} onChange={setInitial} />
+      <div className="goal-sheet__field">
+        {/* 이 칸은 시작 금액이다. 카드의 '지금까지' 는 여기에 더한 돈까지 합친 값이라 서로 다르다. */}
+        <AmountField label="시작할 때 이미 있던 돈 (선택)" value={initial} onChange={setInitial} />
+        {goal != null && goal.contributions.length > 0 ? (
+          <span className="goal-sheet__hint">모은 돈은 목표 화면에서 더해요</span>
+        ) : null}
+      </div>
 
       {failure ? (
         <p className="goal-sheet__notice" role="alert">
