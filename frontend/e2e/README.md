@@ -29,6 +29,7 @@ e2e/
     ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·categories·banner·settings 로 나눠 들고 있다
     CategoriesScreen 카테고리 관리 화면. 기본·내 것 두 구획과 기억한 분류 목록을 함께 들고 있다
     SettingsScreen   앱 설정 화면. 홈 표시 방식과 개인정보 안내
+    AssetsScreen     자산 화면. 순자산 카드·그룹 구획 넷·항목 시트를 한 화면이 들고 있다
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
   specs/       테스트. 무엇을 확인하는지만 읽히게 쓴다. 매번 돌린다
   edge/        엣지케이스. 경계값·실패 주입·심사 항목. 출시 전과 크게 고친 뒤에만 돌린다
@@ -57,6 +58,7 @@ e2e/
 | `setHomeHero(방식)`                                                              | 홈 맨 위에 무엇을 크게 보여줄지                |
 | `addCategory(이름, 아이콘?)`                                                     | 카테고리 하나. 만들어진 id 를 돌려준다         |
 | `saveNoSpend(날?)`                                                               | 안 쓴 날 표시. 성공을 단언하지 않고 결과를 돌려준다 |
+| `putAssets(항목들)`                                                              | 자산 목록. 서버 저장이 PUT 하나라 통째로 보낸다 |
 | `categoryIdByName`                                                               | 이름으로 카테고리 id 찾기                      |
 
 `saveNoSpend` 만 예외적으로 `{ status, code }` 를 돌려준다. 화면은 오늘 기록이 하나도 없을 때만

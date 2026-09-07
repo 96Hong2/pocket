@@ -148,6 +148,24 @@ export function useCalendar(params?: MonthParams) {
 }
 
 /**
+ * 자산 목록과 순자산.
+ *
+ * 한 번도 안 적은 것은 정상이고 그때 `snapshot` 이 null 이다. 오류가 아니다.
+ * 목록이 곧 저장할 것이라서 오래 붙들지 않는다. 낡은 목록에 새 줄을 얹어 보내면
+ * 그 사이에 다른 데서 고친 줄이 사라진다.
+ */
+export function useAssets() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.assets(),
+    queryFn: ({ signal }) => client.getAssets({ signal }),
+    enabled: isReady,
+  });
+}
+
+/**
  * 기억한 분류 규칙.
  *
  * 줄글로 저장할 때마다 늘어나므로 오래 붙들지 않는다. 카테고리 관리에서만 본다.

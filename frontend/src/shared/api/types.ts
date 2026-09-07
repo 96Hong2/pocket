@@ -69,6 +69,22 @@ export type CategoryListOut = Schemas['CategoryListOut'];
 export type CategoryCreate = Schemas['CategoryCreate'];
 export type CategoryUpdate = Schemas['CategoryUpdate'];
 
+// ── 자산 ──────────────────────────────────────
+/** 자산 화면이 그리는 것 전부. 한 번도 안 적었으면 `snapshot` 이 null 이고 `items` 가 빈 배열이다. */
+export type AssetsOut = Schemas['AssetsOut'];
+/** 자산 항목 한 줄. 부채도 양수로 오고 뺄지는 `group` 이 정한다. */
+export type AssetItemOut = Schemas['AssetItemOut'];
+/** 저장할 항목 한 줄. 목록을 통째로 보내는 PUT 의 원소다. */
+export type AssetItemIn = Schemas['AssetItemIn'];
+export type AssetSnapshotPut = Schemas['AssetSnapshotPut'];
+/** 언제 적은 것인지. 화면이 기준일을 이 날짜로 적는다. */
+export type AssetSnapshotOut = Schemas['AssetSnapshotOut'];
+/** 자산 합·부채 합·순자산. 남은 예산·이번 달 차액과 다른 개념이다. */
+export type AssetSummaryOut = Schemas['AssetSummaryOut'];
+/** 그룹 소계. 항목이 없는 그룹도 0 으로 오고, 오는 순서가 화면 구획 순서다. */
+export type AssetGroupTotalOut = Schemas['AssetGroupTotalOut'];
+export type AssetGroup = Schemas['AssetGroup'];
+
 // ── 설정 ──────────────────────────────────────
 export type PreferencesOut = Schemas['PreferencesOut'];
 export type PreferencesPatch = Schemas['PreferencesPatch'];

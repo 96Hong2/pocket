@@ -145,16 +145,16 @@ src/
               assets · goals · recovery                    ← 폴더만 있고 비어 있다
 ```
 
-**`features/` 에는 지금 화면 아홉이 있다.** 홈(`home`), 기록 시트(`quick-record`),
+**`features/` 에는 지금 화면 열이 있다.** 홈(`home`), 기록 시트(`quick-record`),
 배너 슬롯(`ads`), 내역·달력·수정(`transactions`), 관리 탭 예산 섹션(`budgets`),
 줄글·캡처·영수증 검토(`imports`), 월 리포트(`reports`), 카테고리 관리(`categories`),
-앱 설정(`settings`) 다.
+앱 설정(`settings`), 자산(`assets`) 다.
 복구 카드는 `recovery` 폴더가 아니라 `home` 안에 있다. 홈 히어로와 같은 예산 응답을 보고
 같은 자리에 뜨고 지는 카드라, 폴더를 갈라 두면 왜 떴는지 두 곳을 읽어야 한다.
 `imports` 의 후보 검토 화면(`ImportReview`)은 줄글·캡처·영수증 탭이 **같은 컴포넌트를 쓴다.**
 복제해 두면 후보 줄 하나를 고칠 때마다 세 곳을 고쳐야 한다.
 캡처 탭과 영수증 탭은 `ImageImportTab` 하나에 문구 표만 바꿔 끼운 둘이다.
-남은 자리표시자는 목표·자산·알림 설정 셋이다. feature 하나는 컴포넌트와 판정 함수, 그리고
+남은 자리표시자는 목표·알림 설정 둘이다. feature 하나는 컴포넌트와 판정 함수, 그리고
 화면 스펙 CSS 파일 하나(`<feature>.css`, `index.css` 가 불러온다)를 함께 가진다.
 
 ### `shared/api` 안쪽

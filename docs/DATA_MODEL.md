@@ -1,7 +1,7 @@
 # 데이터 모델
 
 `backend/app/models/` 를 읽고 쓴 문서다. 코드가 정본이고 이 문서는 안내다.
-모델을 고쳤으면 여기도 같이 고친다. 확인 시점: 2026-09-05.
+모델을 고쳤으면 여기도 같이 고친다. 확인 시점: 2026-09-08.
 
 ## 공통 규칙
 
@@ -273,21 +273,34 @@ pref.budget_auto_carryover = false         → 복사 안 함
 
 **이 표만 봐서는 무엇을 적었는지 알 수 없다.** 그것이 이 표의 설계 조건이다.
 
-## asset_snapshots / asset_items (P1)
+## asset_snapshots / asset_items
 
-정확한 계좌관리가 아니라 시점별 대략 스냅샷이다. 모델만 있고 화면은 P1 에서 만든다.
+정확한 계좌관리가 아니라 시점별 대략 스냅샷이다. 계좌를 연결하지 않는다.
 
 | asset_snapshots | 설명 |
 |---|---|
 | `effective_on` | 사용자가 확인한 기준일. 순자산 추이를 이 날짜로 정렬한다 |
-| `source` | `manual` \| `screenshot` |
+| `source` | `manual` \| `screenshot` (지금 쓰는 것은 `manual` 뿐이다) |
+
+**하루에 스냅샷 하나다.** `PUT /assets` 가 오늘(`ledger.today_for`) 스냅샷을 찾아 항목을
+통째로 갈아 끼우고, 없을 때만 새로 만든다. 저장마다 쌓으면 하루에 세 번 고친 사람의
+순자산 추이가 같은 날에 세 점이 되어 날짜별 값이 정해지지 않는다.
+
+**항목은 지운 표시를 남기지 않고 통째로 비운다.** `asset_items` 에도 `deleted_at` 이 있고
+조회는 `deleted_at IS NULL` 로 거르지만, 갈아 끼울 때는 delete-orphan 으로 행을 없앤다.
+한 스냅샷의 항목은 '그때 적어 둔 목록' 자체라, 고칠 때마다 옛 줄을 남기면 스냅샷 하나가
+여러 목록을 들고 있게 된다. 무엇을 적었는지는 날짜별 스냅샷이 남기고 중간 편집은 남기지 않는다.
 
 | asset_items | 설명 |
 |---|---|
 | `group` | `cash` \| `investment` \| `deposit` \| `debt` (컬럼명은 `asset_group`. `group` 이 SQL 예약어다) |
-| `label` | 금융사·항목 표시명. **계좌·카드번호는 저장하지 않는다** |
+| `label` | 금융사·항목 표시명(80자). 선택이고, 안 적으면 `null`. **계좌·카드번호는 저장하지 않는다** |
 | `amount` | `numeric(16,0)`, `>= 0`. **부채도 양수로 저장한다.** 빼는 것은 `group` 이 결정한다 |
 | `confidence` | 캡처 인식값의 신뢰도. 직접 입력이면 1.0 |
+| `sort_order` | 화면에 놓이는 순서. API 가 받은 순서대로 0 부터 붙인다 |
+
+컬럼은 16자리인데 **API 상한은 거래·예산과 같은 14자리**다(`app/api/amounts.py` 의 `MAX_AMOUNT`).
+그보다 크면 JS 의 안전 정수 범위(약 9e15)를 넘겨 화면이 자릿수를 잘못 그린다.
 
 ## goals / goal_contributions (P1)
 

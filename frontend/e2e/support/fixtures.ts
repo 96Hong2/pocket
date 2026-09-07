@@ -1,6 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 
 import { AppShell } from '../screens/AppShell';
+import { AssetsScreen } from '../screens/AssetsScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { CategoriesScreen } from '../screens/CategoriesScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -36,6 +37,8 @@ interface PocketFixtures {
   categories: CategoriesScreen;
   /** 앱 설정. 홈 표시 방식과 개인정보 안내를 한 화면이 가진다. */
   settings: SettingsScreen;
+  /** 자산. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
+  assets: AssetsScreen;
   /** 확인하려는 동작의 배경 상태를 심는다. 브라우저와 같은 익명키를 쓴다. */
   prep: PrepApi;
 }
@@ -79,6 +82,10 @@ export const test = base.extend<PocketFixtures>({
 
   settings: async ({ page }, use) => {
     await use(new SettingsScreen(page));
+  },
+
+  assets: async ({ page }, use) => {
+    await use(new AssetsScreen(page));
   },
 
   prep: async ({ anonKey }, use) => {

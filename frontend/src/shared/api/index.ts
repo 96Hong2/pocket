@@ -15,6 +15,7 @@ export { ApiError, apiErrorMessage, CLIENT_ERROR_CODES, parseErrorEnvelope } fro
 export type { ApiErrorCode, ApiErrorInit, ClientErrorCode, ParsedErrorBody } from './errors';
 export { moneyQueryKeys, queryKeys } from './queryKeys';
 export {
+  useAssets,
   useBudget,
   useCalendar,
   useCategories,
@@ -38,6 +39,7 @@ export {
   useDeleteMerchantRule,
   useDeleteTransaction,
   usePatchImportCandidate,
+  useSaveAssets,
   useSaveBudget,
   useSaveCategoryBudget,
   useSavePreferences,

@@ -18,6 +18,8 @@ import type { MonthParams } from './client';
 import { useApiClient } from './context';
 import { moneyQueryKeys, queryKeys } from './queryKeys';
 import type {
+  AssetsOut,
+  AssetSnapshotPut,
   BudgetOut,
   BudgetStateOut,
   BudgetUpsert,
@@ -357,5 +359,24 @@ export function useDeleteMerchantRule() {
   return useMutation({
     mutationFn: (ruleId: string) => client.deleteMerchantRule(ruleId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.merchantRules() }),
+  });
+}
+
+/**
+ * 자산 목록 저장.
+ *
+ * 응답이 조회와 같은 모양이라 그대로 캐시에 넣는다. 순자산과 그룹 소계가 왕복 없이
+ * 그 자리에서 맞는다. 무효화는 하지 않는다. 예산·거래는 자산과 무관하고, 자산은
+ * 방금 보낸 목록이 그대로 정본이라 다시 받을 것이 없다.
+ */
+export function useSaveAssets() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: AssetSnapshotPut): Promise<AssetsOut> => client.saveAssets(body),
+    onSuccess: (assets) => {
+      queryClient.setQueryData<AssetsOut>(queryKeys.assets(), assets);
+    },
   });
 }

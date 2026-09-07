@@ -80,6 +80,13 @@ export const TEST_IDS = {
   /** 영수증 탭 패널. 같은 이유로 둔다. */
   receiptPanel: 'receipt-panel',
 
+  /** 자산 화면의 순자산 금액. 자산 합에서 부채 합을 뺀 값이다. */
+  netWorth: 'net-worth',
+  /** 자산 그룹 구획의 소계. 어느 그룹인지는 구획 이름으로 가른다. */
+  assetGroupTotal: 'asset-group-total',
+  /** 자산 항목 한 줄. 어느 항목인지는 줄 안의 이름으로 가른다. */
+  assetItemRow: 'asset-item-row',
+
   /** 리포트 헤드라인 라벨. 어느 달을 보고 있는지 여기에 적힌다. */
   reportHeadlineLabel: 'report-headline-label',
   /** 리포트의 그 달 총액 */

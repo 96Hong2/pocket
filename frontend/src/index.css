@@ -17,6 +17,7 @@
 @import './features/reports/reports.css';
 @import './features/categories/categories.css';
 @import './features/settings/settings.css';
+@import './features/assets/assets.css';
 
 /*
   디자인 토큰. 이 블록이 CSS 쪽 정본이고, 같은 값이 shared/tokens/index.ts 에 있다.

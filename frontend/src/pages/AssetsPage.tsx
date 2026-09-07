@@ -1,14 +1,17 @@
-import { Placeholder } from './Placeholder';
+import { IdentityNotice } from '../app/IdentityNotice';
+import { AssetsBoard } from '../features/assets';
 
-/** 자산관리. P1 이라 모델만 있고 화면은 자리만 잡아 둔다. */
+/** 자산. 계좌를 연결하지 않고 대략 얼마인지만 적어 순자산을 본다. */
 export default function AssetsPage() {
   return (
     <div className="page">
       <h1 className="page__title">자산</h1>
-      <p className="page__lead">P1 화면이에요. 지금은 자리만 잡아 뒀어요</p>
+      <p className="page__lead">대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요</p>
 
-      <Placeholder label="순자산">자산 합계에서 부채 합계를 뺀 값이다.</Placeholder>
-      <Placeholder label="자산 목록">그룹별 항목이 들어간다.</Placeholder>
+      {/* 식별키를 못 받으면 조회가 시작조차 안 한다. 이 안내가 없으면 목록이 계속 회색이다. */}
+      <IdentityNotice />
+
+      <AssetsBoard />
     </div>
   );
 }

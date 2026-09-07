@@ -11,6 +11,8 @@ import {
   type TransportOptions,
 } from './transport';
 import type {
+  AssetsOut,
+  AssetSnapshotPut,
   BudgetOut,
   BudgetUpsert,
   CalendarMonthOut,
@@ -76,6 +78,7 @@ const PATHS = {
   preferences: '/api/v1/preferences',
   imports: '/api/v1/imports',
   merchantRules: '/api/v1/merchant-rules',
+  assets: '/api/v1/assets',
 } as const;
 
 function transactionPath(id: string): string {
@@ -176,6 +179,15 @@ export interface ApiClient extends Transport {
   deleteImport(batchId: string, options?: CallOptions): Promise<void>;
   listMerchantRules(options?: CallOptions): Promise<MerchantRuleListOut>;
   deleteMerchantRule(ruleId: string, options?: CallOptions): Promise<void>;
+  /** 자산 목록과 순자산. 한 번도 안 적었으면 `snapshot` 이 null 이다. */
+  getAssets(options?: CallOptions): Promise<AssetsOut>;
+  /**
+   * 자산 목록을 통째로 바꾼다. 항목 하나만 고치는 경로는 없다.
+   *
+   * 보낸 목록이 오늘 스냅샷이 되므로 **지금 목록에 새 줄만 얹어 보내야 한다.**
+   * 목록을 못 받은 상태에서 부르면 나머지 줄이 사라진다.
+   */
+  saveAssets(body: AssetSnapshotPut, options?: CallOptions): Promise<AssetsOut>;
 }
 
 export function createApiClient(options: TransportOptions): ApiClient {
@@ -425,6 +437,23 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<void>({
         method: 'DELETE',
         path: `${PATHS.merchantRules}/${encodeURIComponent(ruleId)}`,
+        signal: call?.signal,
+      });
+    },
+
+    getAssets(call) {
+      return transport.request<AssetsOut>({
+        method: 'GET',
+        path: PATHS.assets,
+        signal: call?.signal,
+      });
+    },
+
+    saveAssets(body, call) {
+      return transport.request<AssetsOut>({
+        method: 'PUT',
+        path: PATHS.assets,
+        body,
         signal: call?.signal,
       });
     },

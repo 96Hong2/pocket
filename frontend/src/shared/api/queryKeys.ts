@@ -35,6 +35,14 @@ export const queryKeys = {
   /** 앱 설정. 달과 무관하다. */
   preferences: () => [ROOT, 'preferences'] as const,
 
+  /**
+   * 자산 목록과 순자산. 달과 무관하다.
+   *
+   * `moneyQueryKeys` 에 **일부러** 넣지 않는다. 거래를 저장해도 자산은 달라지지 않고,
+   * 자산을 고쳐도 남은 예산은 달라지지 않는다. 순자산은 그 둘과 다른 개념이다.
+   */
+  assets: () => [ROOT, 'assets'] as const,
+
   /** 달을 가리지 않는 예산 전부. 무효화할 때 쓴다. */
   budgets: () => [ROOT, 'budget'] as const,
   budget: (params?: MonthParams) => [ROOT, 'budget', monthPart(params)] as const,

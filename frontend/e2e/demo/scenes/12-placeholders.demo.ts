@@ -6,7 +6,7 @@ import { formatCurrency } from '../../../src/shared/lib/format';
 /**
  * 지금 어디까지 만들어졌는지 둘러본다.
  *
- * 하나는 관리 탭이 데리고 있는 화면들이다. 카테고리 관리와 앱 설정은 점선 카드가 걷히고
+ * 하나는 관리 탭이 데리고 있는 화면들이다. 자산·카테고리 관리·앱 설정은 점선 카드가 걷히고
  * 실제로 손댈 수 있는 화면이 들어왔으니 눌러 본다.
  * 하나는 아직 들어가는 링크가 없는 화면과 없는 주소다. 점선 카드에 그 자리에 무엇이
  * 들어올지 한 줄로 적혀 있으니 그것을 읽어 준다.
@@ -18,8 +18,13 @@ const MISSING_PATH = '/nope';
 /** 홈으로 돌아온 뒤 히어로가 숫자를 그리게 하려고 미리 심어 두는 예산. */
 const BUDGET = 500_000;
 
+/** 자산 화면에서 화면으로 직접 적어 넣는 예적금과 부채. */
+const CASH = 1_000_000;
+const DEBT = 300_000;
+
 test('20 관리 탭이 데리고 있는 화면들', async ({
   appShell,
+  assets,
   home,
   manage,
   categories,
@@ -41,12 +46,46 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await expect(manage.total.startButton).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('그 아래 두 줄이 하위 화면으로 들어가는 입구다');
-  // 자산·목표는 화면이 아직 점선 자리표시자라 입구를 두지 않았다. 실물이 되면 되돌린다.
-  await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText(['카테고리 관리', '앱 설정']);
+  await demo.step('그 아래 세 줄이 하위 화면으로 들어가는 입구다');
+  // 목표는 화면이 아직 점선 자리표시자라 입구를 두지 않았다. 실물이 되면 되돌린다.
+  await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText([
+    '자산',
+    '카테고리 관리',
+    '앱 설정',
+  ]);
   await demo.beat(2);
 
-  await demo.step('먼저 카테고리 관리로 들어간다');
+  await demo.step('먼저 자산으로 들어간다. 점선 카드가 걷히고 실제로 적는 화면이 들어왔다');
+  await appShell.followLink('자산');
+  await appShell.expectScreen('자산', '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요');
+  await assets.waitReady();
+  await demo.beat(2);
+
+  await demo.step('아직 한 줄도 없어서 다음 한 걸음만 보여준다. 계좌 연결은 없다');
+  await expect(assets.emptyTitle).toBeVisible();
+  await expect(assets.startButton).toBeVisible();
+  await demo.beat(2);
+
+  await demo.step('예적금 100만원을 적으면 순자산이 그 자리에서 생긴다');
+  await assets.start({ group: '예적금·현금', name: '토스뱅크', amount: CASH });
+  await expect(assets.netWorth).toHaveText(formatCurrency(CASH));
+  await demo.beat(2);
+
+  await demo.step('부채를 더하면 순자산이 줄어든다. 부채도 양수로 적고 빼는 것은 그룹이 정한다');
+  await assets.add('부채', { name: '학자금', amount: DEBT });
+  await expect(assets.netWorth).toHaveText(formatCurrency(CASH - DEBT));
+  await expect(assets.breakdown).toHaveText(
+    `자산 ${formatCurrency(CASH)} − 부채 ${formatCurrency(DEBT)}`,
+  );
+  await demo.beat(3);
+
+  await demo.step('시스템 뒤로가기로 관리로 돌아온다');
+  await appShell.pressBack();
+  await appShell.expectScreen('관리', '예산과 분류를 손봐요');
+  await manage.waitReady();
+  await demo.beat(2);
+
+  await demo.step('이번에는 카테고리 관리로 들어간다');
   await appShell.followLink('카테고리 관리');
   await appShell.expectScreen('카테고리 관리', '내가 쓰는 카테고리만 남겨요');
   await categories.waitReady();
@@ -119,21 +158,16 @@ test('21 아직 입구가 없는 화면과 없는 주소', async ({ appShell, ho
   await prep.setBudget(BUDGET);
 
   await appShell.open(ROUTES.goal);
-  await demo.open('아직 문이 안 달린 화면들', '주소로만 열리는 화면 셋과, 없는 주소로 갔을 때');
+  await demo.open('아직 문이 안 달린 화면들', '주소로만 열리는 화면 둘과, 없는 주소로 갔을 때');
 
   await demo.step('목표. P1 이라 모델만 있고 화면은 자리만 잡아 뒀다. 관리 탭의 입구는 걷어 냈다');
   await appShell.expectScreen('목표', 'P1 화면이에요. 지금은 자리만 잡아 뒀어요');
   await expect(appShell.placeholderNote('모은 금액과 게이지가 들어간다.')).toBeVisible();
-  await demo.beat(2);
-
-  await appShell.open(ROUTES.assets);
-  await demo.step('자산도 같다. 순자산과 자산 목록, 두 자리만 있고 입구도 없다');
-  await appShell.expectScreen('자산', 'P1 화면이에요. 지금은 자리만 잡아 뒀어요');
-  await expect(appShell.placeholderNote('자산 합계에서 부채 합계를 뺀 값이다.')).toBeVisible();
-  await expect(appShell.placeholderLabel('자산 목록')).toBeVisible();
+  await expect(appShell.placeholderLabel('목표 진행')).toBeVisible();
   await appShell.expectTabsHidden();
   await demo.beat(2);
 
+  // 자산은 여기서 빠졌다. 실물 화면이 되어 관리 탭에 입구가 생겼고, 20 장면이 그것을 보여준다.
   await appShell.open(ROUTES.notifications);
   await demo.step('알림 설정도 자리만 잡혀 있다. 앱 설정에 있던 입구는 걷어 냈다');
   await appShell.expectScreen('알림 설정', 'P1 화면이에요. 지금은 자리만 잡아 뒀어요');
