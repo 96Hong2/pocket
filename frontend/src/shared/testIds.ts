@@ -110,6 +110,8 @@ export const TEST_IDS = {
   feedbackHeadline: 'feedback-headline',
   /** 피드백 둘째 줄. 남은 예산 같은 숫자가 여기 붙는다. */
   feedbackDetail: 'feedback-detail',
+  /** 저장 직후 상호를 적는 칸. 라벨 없이 placeholder 만 있어 role 로 못 가른다. */
+  feedbackMerchantField: 'feedback-merchant-field',
 } as const;
 
 export type TestIdKey = keyof typeof TEST_IDS;

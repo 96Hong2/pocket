@@ -288,4 +288,31 @@
   .feedback__confirm {
     margin-top: 8px;
   }
+
+  /* 저장 직후 상호를 적는 칸. 고치기 시트의 같은 칸과 생김새를 맞춘다. */
+  .feedback__merchant {
+    width: 100%;
+    box-sizing: border-box;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    outline: none;
+    font-family: inherit;
+    /* 16px 아래로 두면 사파리가 칸을 누를 때 화면을 확대한다. */
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .feedback__merchant::placeholder {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-placeholder);
+  }
+
+  .feedback__merchant:disabled {
+    background: var(--color-surface-sunken);
+    color: var(--color-muted);
+  }
 }

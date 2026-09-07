@@ -273,9 +273,40 @@ test('저장 직후 금액을 고치면 홈 숫자가 함께 바뀐다', async (
     await recordSheet.waitClosed();
 
     // 두 건 다 고친 금액이라야 한다. 남은 예산이 그 두 배만큼 줄어 있으면 맞다.
-    await expect(home.hero.remainingBudget).toHaveText(
-      formatCurrency(BUDGET - FIXED_AMOUNT * 2),
-    );
+    await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - FIXED_AMOUNT * 2));
     await expect(home.today.amount(formatCurrency(FIXED_AMOUNT))).toHaveCount(2);
   });
+});
+
+/**
+ * 키패드는 금액과 분류만 받는다. 상호를 적을 자리가 저장 뒤에도 없으면
+ * 달력까지 들어가 고치기 시트를 여는 수밖에 없어, 적는 사람이 그냥 안 적는다.
+ * 예산을 세는 앞 테스트에 끼우면 여기서 더한 한 건이 그쪽 계산을 흔든다.
+ */
+test('저장 직후 그 자리에서 내용을 적으면 오늘 목록의 제목이 된다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.input.enterAmount(4_800);
+  await recordSheet.input.pickCategory(CATEGORY);
+  await recordSheet.feedback.waitSaved();
+
+  // 적기 전에는 분류 이름이 제목 자리에 선다.
+  await expect(recordSheet.feedback.merchantField).toHaveCount(0);
+
+  await recordSheet.feedback.writeMerchant('메가커피 역삼점');
+  // 저장되면 칸이 접힌다. 열린 채로 두면 되돌리기 버튼이 화면 밖으로 밀린다.
+  await expect(recordSheet.feedback.merchantField).toHaveCount(0);
+
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  // 적은 이름이 제목이 되고 분류는 그 아래로 내려간다.
+  await expect(home.today.row('메가커피 역삼점')).toBeVisible();
+  await expect(home.today.subtitle(CATEGORY)).toBeVisible();
 });

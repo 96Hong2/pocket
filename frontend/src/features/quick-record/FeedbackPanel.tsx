@@ -37,7 +37,10 @@ interface FeedbackPanelProps {
  * 둘을 함께 펼치면 시트가 길어져 되돌리기 버튼이 화면 밖으로 밀린다.
  * 되돌릴 시간이 8초뿐이라 그 버튼이 안 보이면 창이 그냥 지나간다.
  */
-type Editing = 'amount' | 'category' | null;
+type Editing = 'amount' | 'category' | 'merchant' | null;
+
+/** 상호는 서버가 120자까지 받는다. 화면에서 먼저 막아 422 를 왕복하지 않는다. */
+const MERCHANT_MAX = 120;
 
 /** 저장 결과와 그에 대한 한마디. 되돌리기와 금액·카테고리 다시 고르기가 여기 붙는다. */
 export function FeedbackPanel({
@@ -52,6 +55,7 @@ export function FeedbackPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<Editing>(null);
   const [digits, setDigits] = useState('');
+  const [merchant, setMerchant] = useState('');
   const undo = useUndoTransaction();
   const update = useUpdateTransaction();
   const remaining = useUndoCountdown(deadline);
@@ -111,6 +115,22 @@ export function FeedbackPanel({
 
   function toggleCategory(): void {
     toggleEditing('category');
+  }
+
+  function toggleMerchant(): void {
+    // 펼칠 때마다 지금 저장된 값에서 시작한다. 앞서 고치다 만 글자가 남으면 안 된다.
+    setMerchant(transaction.merchant ?? '');
+    toggleEditing('merchant');
+  }
+
+  /** 비우면 지운다. 빈 문자열을 그대로 보내면 서버가 빈 상호로 저장한다. */
+  function applyMerchant(): void {
+    const trimmed = merchant.trim();
+    if (trimmed === (transaction.merchant ?? '')) {
+      setEditing(null);
+      return;
+    }
+    apply({ merchant: trimmed === '' ? null : trimmed });
   }
 
   return (
@@ -197,6 +217,34 @@ export function FeedbackPanel({
         </div>
       ) : null}
 
+      {editing === 'merchant' ? (
+        <div className="feedback__change">
+          <p className="feedback__change-title">어디에서 썼나요?</p>
+          <input
+            className="feedback__merchant"
+            data-testid={TEST_IDS.feedbackMerchantField}
+            type="text"
+            value={merchant}
+            maxLength={MERCHANT_MAX}
+            placeholder="가게 이름이나 메모"
+            autoComplete="off"
+            disabled={update.isPending}
+            onChange={(event) => setMerchant(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') applyMerchant();
+            }}
+          />
+          <Button
+            className="feedback__apply"
+            fullWidth
+            disabled={update.isPending}
+            onClick={applyMerchant}
+          >
+            이 내용으로 저장
+          </Button>
+        </div>
+      ) : null}
+
       {editing !== null && updateError ? (
         <p className="feedback__notice" role="alert">
           {updateError.message}
@@ -209,6 +257,9 @@ export function FeedbackPanel({
         </Button>
         <Button variant="outline" onClick={toggleCategory}>
           카테고리 바꾸기
+        </Button>
+        <Button variant="outline" onClick={toggleMerchant}>
+          내용 적기
         </Button>
       </div>
       <Button className="feedback__confirm" variant="primarySmall" fullWidth onClick={onConfirm}>
