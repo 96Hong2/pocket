@@ -64,9 +64,12 @@
   --color-divider: #F4F1EA;
   --color-dashed: #DCD8CE;
 
-  /* 기능색. 내역 부호 · 달력 · 차트 전용이고 일반 UI 에 쓰지 않는다. */
-  --color-income: #3D6FB8;
-  --color-expense: #C25B4E;
+  /* 기능색. 내역 부호 · 달력 · 차트 전용이고 일반 UI 에 쓰지 않는다.
+     금액 글자에 그대로 걸리니 이 색이 놓이는 세 배경에서 모두 4.5:1 을 넘긴다. */
+  /* 흰 5.12:1 · surface-sunken 4.54:1 · sage-50 4.53:1 */
+  --color-income: #3C6EB6;
+  /* 흰 5.10:1 · surface-sunken 4.52:1 · sage-50 4.51:1 */
+  --color-expense: #B74C3F;
 
   /* 바텀시트 · 모달 딤 */
   --color-dim: rgba(38, 41, 43, 0.35);

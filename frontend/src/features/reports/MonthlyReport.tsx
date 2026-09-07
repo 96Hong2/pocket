@@ -243,18 +243,15 @@ function donutCenter(
 }
 
 /**
- * 예산이 있을 때만 뜨는 한 줄. 게이지 비율은 서버가 준다.
+ * 예산이 있을 때만 뜨는 한 줄. 게이지와 '예산 X 중 N%' 를 함께 둔다. 비율은 서버가 준다.
  *
- * **쓴 금액을 함께 적는다.** 위 헤드라인은 예산에서 뺀 거래까지 더한 값이고 이 비율은
- * 그것을 뺀 값이라, 숫자만 나란히 두면 같은 카드에서 산수가 안 맞는 것처럼 보인다.
+ * **예산 금액을 함께 적는다.** 비율만 두면 무엇의 몇 %인지 알 수 없다. 쓴 금액은 적지
+ * 않는다. 위 헤드라인은 예산에서 뺀 거래까지 더한 값이라 이 비율의 기준과 다르다.
  */
-/** 이 배율을 넘으면 견줄 지난 기간이 사실상 비어 있다는 뜻이다. 숫자를 감춘다. */
-const MAX_READABLE_RATIO = 9.99;
-
 function BudgetLine({
   budget,
 }: {
-  budget: { amount: string | null; budgeted_spend: string; spend_progress: string | null };
+  budget: { amount: string | null; spend_progress: string | null };
 }) {
   const amount = parseDecimal(budget.amount);
   const progress = parseDecimal(budget.spend_progress);
@@ -268,6 +265,9 @@ function BudgetLine({
     </div>
   );
 }
+
+/** 이 배율을 넘으면 견줄 지난 기간이 사실상 비어 있다는 뜻이다. 숫자를 감춘다. */
+const MAX_READABLE_RATIO = 9.99;
 
 /**
  * 지난 기간과 견준 한 줄.

@@ -6,8 +6,8 @@ import { expect, test } from '../support/director';
  *
  * 09 는 금액을 만드는 규칙이다. 키가 무엇무엇 있고, 지우면 어떻게 줄고,
  * 앞자리 0 과 12자리 상한이 어떻게 걸리는지까지 실제로 눌러서 보여준다.
- * 10 은 카테고리 칩이다. 지출 아홉 개만 나오는 것, 금액이 없으면 못 누르는 것,
- * 목록을 불러오는 중과 못 불러왔을 때의 화면을 이어서 보여준다.
+ * 10 은 카테고리 칩이다. 지출 아홉 개만 나오는 것, 금액이 0원일 때 누르면 저장이 아니라
+ * 고르기가 되는 것, 목록을 불러오는 중과 못 불러왔을 때의 화면을 이어서 보여준다.
  */
 
 /** 저장 없이 금액만 만드는 장면이라 숫자는 눈에 잘 들어오는 값 하나면 된다. */
@@ -78,12 +78,11 @@ test('09 키패드로 금액을 찍는 규칙', async ({ home, recordSheet, demo
   await demo.beat(3);
 
   await demo.step('1 · 2 · 00 · 0 을 눌러 12,000원을 만든다');
-  await expect(recordSheet.input.categoryChip('식비')).toBeDisabled();
   await recordSheet.input.enterAmount(AMOUNT);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(AMOUNT));
   await demo.beat();
 
-  await demo.step('금액이 생기면 힌트가 바뀌고 카테고리 칩이 살아난다');
+  await demo.step('금액이 생기면 힌트가 바뀐다. 이제 칩을 누르는 것이 곧 저장이다');
   await expect(recordSheet.input.hint).toHaveText(READY_HINT);
   await expect(recordSheet.input.categoryChip('식비')).toBeEnabled();
   await demo.beat(3);
@@ -95,17 +94,28 @@ test('09 키패드로 금액을 찍는 규칙', async ({ home, recordSheet, demo
     await demo.beat();
   }
 
-  await demo.step('0원으로 돌아오면 칩이 다시 잠긴다');
+  await demo.step('0원으로 돌아오면 안내도 처음 문구로 되돌아간다');
   await expect(recordSheet.input.hint).toHaveText(EMPTY_HINT);
-  await expect(recordSheet.input.categoryChip('식비')).toBeDisabled();
   await demo.beat(2);
 
-  await demo.step('0 만 눌러서는 금액이 만들어지지 않는다');
+  await demo.step('0원에서 칩을 누르면 저장이 아니라 고르기다. 저장은 아직 잠겨 있다');
+  await recordSheet.input.pickCategory('식비');
+  await expect(recordSheet.feedback.savedLabel).toHaveCount(0);
+  await expect(recordSheet.input.pickedCategory).toContainText('식비');
+  await expect(recordSheet.input.saveButton).toBeDisabled();
+  await demo.beat(3);
+
+  await demo.step('0 만 눌러서는 금액이 만들어지지 않아 저장도 그대로 잠겨 있다');
   await recordSheet.input.numberKey('0').click();
   await recordSheet.input.numberKey('0').click();
   await recordSheet.input.numberKey('00').click();
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));
-  await expect(recordSheet.input.categoryChip('식비')).toBeDisabled();
+  await expect(recordSheet.input.saveButton).toBeDisabled();
+  await demo.beat(2);
+
+  await demo.step('다시 고르기를 누르면 칩 목록이 그대로 돌아온다');
+  await recordSheet.input.pickedCategory.click();
+  await expect(recordSheet.input.categoryChip('식비')).toBeEnabled();
   await demo.beat(2);
 
   await demo.step('1 을 먼저 누르면 그 뒤의 0 은 자릿수가 된다');
@@ -128,7 +138,7 @@ test('09 키패드로 금액을 찍는 규칙', async ({ home, recordSheet, demo
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(MAX_AMOUNT));
   await demo.beat(2);
 
-  await demo.step('닫으면 아무것도 남지 않는다. 저장은 카테고리를 눌러야 일어난다');
+  await demo.step('닫으면 아무것도 남지 않는다. 0원에서 누른 칩은 저장이 아니었다');
   await recordSheet.closeButton.click();
   await recordSheet.waitClosed();
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(0));
@@ -151,7 +161,7 @@ test('10 카테고리 칩과 불러오기 실패', async ({
   await home.waitReady();
   await demo.open(
     '카테고리 칩',
-    '지출 아홉 개. 금액이 없으면 못 누르고, 못 불러오면 다시 시도한다',
+    '지출 아홉 개. 0원에 누르면 고르기가 되고, 못 불러오면 다시 시도한다',
   );
 
   await demo.step('기록 시트를 열면 지출 카테고리 아홉 개가 3열로 놓인다');
@@ -166,14 +176,23 @@ test('10 카테고리 칩과 불러오기 실패', async ({
   }
   await demo.beat(3);
 
-  await demo.step('금액이 0원이면 아홉 개 전부 눌리지 않는다');
+  await demo.step('금액이 0원일 때 눌러 보면 저장이 아니라 고르기가 된다');
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));
+  await recordSheet.input.pickCategory('식비');
+  await expect(recordSheet.feedback.savedLabel).toHaveCount(0);
+  await expect(recordSheet.input.pickedCategory).toContainText('식비');
+  // 고른 것만 한 줄로 남고 저장은 잠겨 있다. 금액을 찍기 전에는 넘어가지 않는다.
+  await expect(recordSheet.input.saveButton).toBeDisabled();
+  await demo.beat(3);
+
+  await demo.step('다시 고르기를 누르면 아홉 개가 그대로 돌아온다');
+  await recordSheet.input.pickedCategory.click();
   for (const name of EXPENSE_CATEGORIES) {
-    await expect(recordSheet.input.categoryChip(name)).toBeDisabled();
+    await expect(recordSheet.input.categoryChip(name)).toBeVisible();
   }
   await demo.beat(2);
 
-  await demo.step('4,500원을 찍으면 아홉 개가 한꺼번에 살아난다');
+  await demo.step('4,500원을 찍으면 이제 칩 하나가 곧 저장이다');
   await recordSheet.input.enterAmount(CHIP_AMOUNT);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(CHIP_AMOUNT));
   for (const name of EXPENSE_CATEGORIES) {

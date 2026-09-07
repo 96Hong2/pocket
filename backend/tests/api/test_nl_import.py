@@ -175,6 +175,29 @@ def test_규칙을_지우면_원래_분류로_돌아간다(client: TestClient, d
     assert str(again["candidates"][0]["category_id"]) == names["건강·미용"]
 
 
+def test_수입_분류도_기억하고_지출_후보에는_붙이지_않는다(
+    client: TestClient, default_categories
+) -> None:
+    names = {category.name: str(category.id) for category in default_categories}
+    batch = _analyze(client, "알바비 +150000")
+    candidate = batch["candidates"][0]
+    assert candidate["type"] == "income"
+    assert str(candidate["category_id"]) == names["월급"]
+
+    client.post(f"/api/v1/imports/{batch['id']}/commit", headers=AUTH)
+
+    rules = client.get("/api/v1/merchant-rules", headers=AUTH).json()["items"]
+    assert [(rule["merchant"], str(rule["category_id"])) for rule in rules] == [
+        ("알바비", names["월급"])
+    ]
+
+    # 같은 상호를 '+' 없이 적으면 지출이다. 여기에 수입 분류가 붙으면 쓴 돈이 수입으로 집계된다.
+    again = _analyze(client, "알바비 12000")
+    expense = again["candidates"][0]
+    assert expense["type"] == "expense"
+    assert expense["category_id"] is None
+
+
 def test_고치면_확신이_올라가_점선이_사라진다(client: TestClient, default_categories) -> None:
     batch = _analyze(client, "9000")
     candidate = batch["candidates"][0]

@@ -71,10 +71,11 @@ export function HomeHero({
           <Link
             className="home-hero__value-link"
             to={ROUTES.manage}
-            aria-label="예산 고치러 가기"
             data-testid={TEST_IDS.heroBudgetLink}
           >
             <HeroValue layout={layout} budget={budget} />
+            {/* 링크 이름은 안쪽 금액이 만든다. 갈 곳은 이름 끝에 덧붙여 읽어 준다. */}
+            <span className="home-hero__sr">, 예산 고치기</span>
           </Link>
         ) : (
           <HeroValue layout={layout} budget={budget} />
@@ -121,7 +122,7 @@ export function HomeHero({
       ) : null}
 
       {withBudget && progress != null ? (
-        <Link className="home-hero__budget" to={ROUTES.manage} aria-label="예산 고치러 가기">
+        <Link className="home-hero__budget" to={ROUTES.manage}>
           <Gauge
             data-testid={TEST_IDS.budgetGauge}
             ratio={progress}
@@ -158,6 +159,7 @@ export function HomeHero({
               />
             </span>
           </div>
+          <span className="home-hero__sr">, 예산 고치기</span>
         </Link>
       ) : null}
 

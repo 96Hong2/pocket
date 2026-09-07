@@ -31,6 +31,8 @@ SEED_NAMESPACE = uuid.UUID('4f4b0d9e-9f7a-5b1e-8a3d-1c2f6f9a0b71')
 
 RENAMED_FROM = '수입'
 RENAMED_TO = '기타 수입'
+# 이름을 옮긴 행이 달고 갈 아이콘. 월급이 쓰는 지폐와 겹치지 않게 동전으로 바꾼다.
+RENAMED_ICON_KEY = '01_coins'
 
 # (이름, 종류, 아이콘 키, 정렬 순서) 새로 넣는 것만.
 ADDED_CATEGORIES: tuple[tuple[str, str, str, int], ...] = (
@@ -64,11 +66,11 @@ def upgrade() -> None:
     conn = op.get_bind()
     table = _table()
 
-    # 1. 옛 '수입' 을 '기타 수입' 으로. 아이콘도 동전으로 바꿔 월급과 겹치지 않게 한다.
+    # 1. 옛 '수입' 을 '기타 수입' 으로. 아이콘도 함께 옮긴다.
     conn.execute(
         table.update()
         .where(table.c.user_id.is_(None), table.c.name == RENAMED_FROM)
-        .values(name=RENAMED_TO, icon_key='01_coins', sort_order=RENAMED_SORT_ORDER)
+        .values(name=RENAMED_TO, icon_key=RENAMED_ICON_KEY, sort_order=RENAMED_SORT_ORDER)
     )
 
     # 2. 없는 것만 넣는다. 두 번 돌아도 중복이 생기지 않게.
@@ -99,5 +101,6 @@ def downgrade() -> None:
     conn.execute(
         table.update()
         .where(table.c.user_id.is_(None), table.c.name == RENAMED_TO)
+        # '28_cash' 와 100 은 옛 시드가 '수입' 에 준 값이다. RENAMED_ICON_KEY 를 쓰면 안 되돌아간다.
         .values(name=RENAMED_FROM, icon_key='28_cash', sort_order=100)
     )

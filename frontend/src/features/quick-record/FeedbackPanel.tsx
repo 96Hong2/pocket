@@ -39,6 +39,9 @@ interface FeedbackPanelProps {
  */
 type Editing = 'amount' | 'category' | null;
 
+/** 마지막으로 보낸 고치기가 어느 칸이었나. 오류를 그 칸 아래에 붙이려면 알아야 한다. */
+type UpdateTarget = 'amount' | 'category' | 'merchant';
+
 /** 상호는 서버가 120자까지 받는다. 화면에서 먼저 막아 422 를 왕복하지 않는다. */
 const MERCHANT_MAX = 120;
 
@@ -56,6 +59,11 @@ export function FeedbackPanel({
   const [editing, setEditing] = useState<Editing>(null);
   const [digits, setDigits] = useState('');
   const [merchant, setMerchant] = useState(transaction.merchant ?? '');
+  const [target, setTarget] = useState<UpdateTarget | null>(null);
+  // 상호 칸이 마지막으로 보낸 값. 응답이 오기 전에는 transaction.merchant 로는 비교가 안 된다.
+  const sentMerchant = useRef<string | null>(null);
+  // 확인을 눌러 만든 요청인지. 성공하면 그때 닫고, 실패하면 닫지 않는다.
+  const closeAfterUpdate = useRef(false);
   const undo = useUndoTransaction();
   const update = useUpdateTransaction();
   const remaining = useUndoCountdown(deadline);
@@ -83,14 +91,27 @@ export function FeedbackPanel({
     panelRef.current?.focus();
   }, []);
 
-  /** 고친 것을 서버에 보낸다. 성공하면 펼친 것을 접는다. 실패하면 펼친 채로 이유를 보여준다. */
-  function apply(body: TransactionUpdate): void {
+  /**
+   * 고친 것을 서버에 보낸다. 성공하면 펼친 것을 접는다. 실패하면 펼친 채로 이유를 보여준다.
+   *
+   * 확인이 만든 요청이면 성공한 뒤에 시트를 닫는다. 실패했는데 닫아 버리면 방금 적은 것이
+   * 저장되지 않은 사실을 아무도 모른다.
+   */
+  function apply(next: UpdateTarget, body: TransactionUpdate): void {
+    setTarget(next);
     update.mutate(
       { id: transaction.id, body },
       {
         onSuccess: (updated) => {
           onUpdated(updated);
           setEditing(null);
+          if (closeAfterUpdate.current) {
+            closeAfterUpdate.current = false;
+            onConfirm();
+          }
+        },
+        onError: () => {
+          closeAfterUpdate.current = false;
         },
       },
     );
@@ -120,17 +141,27 @@ export function FeedbackPanel({
   /**
    * 적어 둔 내용을 보낸다. 안 적어도 되고, 지우면 지운 대로 저장한다.
    *
-   * 확인을 누를 때와 칸에서 빠져나갈 때 둘 다 여기를 지난다. 바뀐 것이 없으면
-   * 아무 요청도 안 한다. 버튼 없이 적는 칸이라 같은 값을 여러 번 보내기 쉽다.
+   * 확인을 누를 때와 칸에서 빠져나갈 때 둘 다 여기를 지난다. 바뀐 것이 없으면 아무 요청도
+   * 안 한다. 확인을 누르는 클릭이 blur 를 먼저 일으키니, 방금 보낸 값이 아직 돌아오지
+   * 않았으면 다시 보내지 않고 그 요청을 기다린다.
+   *
+   * 돌려주는 값은 닫는 일을 요청 하나에 맡겼는지다.
    */
-  function flushMerchant(): void {
+  function flushMerchant(closeOnSuccess = false): boolean {
     const trimmed = merchant.trim();
-    if (trimmed === (transaction.merchant ?? '')) return;
-    apply({ merchant: trimmed === '' ? null : trimmed });
+    if (trimmed === (transaction.merchant ?? '')) return false;
+
+    const alreadySent = update.isPending && sentMerchant.current === trimmed;
+    if (closeOnSuccess) closeAfterUpdate.current = true;
+    if (alreadySent) return true;
+
+    sentMerchant.current = trimmed;
+    apply('merchant', { merchant: trimmed === '' ? null : trimmed });
+    return true;
   }
 
   function confirm(): void {
-    flushMerchant();
+    if (flushMerchant(true)) return;
     onConfirm();
   }
 
@@ -199,7 +230,7 @@ export function FeedbackPanel({
             className="feedback__apply"
             fullWidth
             disabled={!amountOk || update.isPending}
-            onClick={() => apply({ amount: String(nextAmount) })}
+            onClick={() => apply('amount', { amount: String(nextAmount) })}
           >
             이 금액으로 고치기
           </Button>
@@ -213,7 +244,7 @@ export function FeedbackPanel({
             categories={categories}
             disabled={update.isPending}
             selectedId={transaction.category_id}
-            onPick={(picked) => apply({ category_id: picked.id })}
+            onPick={(picked) => apply('category', { category_id: picked.id })}
           />
         </div>
       ) : null}
@@ -231,14 +262,21 @@ export function FeedbackPanel({
           autoComplete="off"
           disabled={update.isPending}
           onChange={(event) => setMerchant(event.target.value)}
-          onBlur={flushMerchant}
+          onBlur={() => flushMerchant()}
           onKeyDown={(event) => {
             if (event.key === 'Enter') event.currentTarget.blur();
           }}
         />
       </label>
 
-      {editing !== null && updateError ? (
+      {/* 상호 저장이 실패한 것은 이 칸 아래에 붙인다. 아래 오류 줄은 펼쳐 둔 칸 것만 말한다. */}
+      {target === 'merchant' && updateError ? (
+        <p className="feedback__notice" role="alert">
+          {updateError.message}
+        </p>
+      ) : null}
+
+      {editing !== null && target !== 'merchant' && updateError ? (
         <p className="feedback__notice" role="alert">
           {updateError.message}
         </p>

@@ -6,7 +6,7 @@
 
     python3 scripts/seed-dev.py              # 6개월치 + 오늘까지
     python3 scripts/seed-dev.py --recovery   # 최근 나흘을 비워 복구 카드를 띄운다
-    python3 scripts/seed-dev.py --wipe       # 심은 것을 지우고 다시 넣는다
+    python3 scripts/seed-dev.py --wipe       # 이 익명키의 거래 전부를 지우고 다시 넣는다
 
 ⚠ 검증용 DB(pocket_e2e)가 아니라 개발용 DB(pocket)에 넣는다. e2e 와 섞이지 않는다.
 """
@@ -95,7 +95,7 @@ FIXED = [
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--recovery", action="store_true", help="최근 나흘을 비워 복구 카드를 띄운다")
-    ap.add_argument("--wipe", action="store_true", help="이미 있는 거래를 지우고 시작한다")
+    ap.add_argument("--wipe", action="store_true", help="이 익명키의 거래 전부를 지우고 시작한다")
     ap.add_argument("--months", type=int, default=6, help="몇 달치를 넣을지 (기본 6)")
     args = ap.parse_args()
 
@@ -106,7 +106,8 @@ def main() -> int:
     today = date.today()
 
     if args.wipe:
-        print("기존 거래를 지운다")
+        # 심은 것만 골라 지우지 않는다. 이 익명키에 있는 거래를 전부 지운다.
+        print("이 익명키의 거래 전부를 지운다")
         n = 0
         while True:
             page = call("GET", "/transactions?limit=100")
@@ -140,8 +141,12 @@ def main() -> int:
     made = 0
     refund_targets: list[tuple[str, int]] = []
 
-    start = (today.replace(day=1) - timedelta(days=31 * (args.months - 1))).replace(day=1)
-    day = start
+    # 31일씩 빼면 짧은 달을 지날 때 한 달을 더 거슬러 올라가 --months 6 이 7개월치가 된다.
+    year, month = today.year, today.month - (args.months - 1)
+    while month <= 0:
+        year -= 1
+        month += 12
+    day = date(year, month, 1)
     while day <= today:
         if quiet_from and day >= quiet_from:
             day += timedelta(days=1)
@@ -235,9 +240,12 @@ def main() -> int:
     # 5. 기억한 분류. 줄글 입구를 실제로 지나야 쌓인다
     print("기억한 분류를 쌓는다")
     batch = call("POST", "/imports/text", {"text": "어제 스타벅스 5500원 김밥천국 9000원"})
-    if batch and batch.get("candidates"):
-        call("POST", f"/imports/{batch['id']}/commit",
-             {"candidate_ids": [c["id"] for c in batch["candidates"] if c.get("selected", True)]})
+    # 무엇을 저장할지는 서버가 후보의 is_selected 로 들고 있다. commit 은 본문을 받지 않고,
+    # 고른 것이 하나도 없으면 422 로 막는다(확신이 낮은 후보는 서버가 선택을 꺼서 내려보낸다).
+    if batch and batch.get("selected_count"):
+        call("POST", f"/imports/{batch['id']}/commit")
+    elif batch:
+        print("  고른 후보가 없어 저장을 건너뛴다. 기억한 분류는 쌓이지 않는다")
 
     summary = call("GET", "/transactions/summary") or {}
     print()

@@ -260,11 +260,15 @@ function RecordBody({
     setListOpen(false);
   }
 
+  // 저장 버튼은 카테고리를 골라 목록을 접었을 때만 나온다. 목록을 다시 펴면 칩을 누르는
+  // 것이 곧 저장이라 버튼이 없다. 힌트가 같은 값을 봐야 없는 버튼을 가리키지 않는다.
+  const saveTarget = listOpen ? null : picked;
+
   let hint = '금액을 누르고 카테고리를 고르면 바로 저장돼요';
   if (create.isPending) hint = '저장하는 중이에요';
-  else if (picked && amount > 0) hint = '저장을 누르면 기록돼요';
-  else if (picked) hint = '금액을 누르면 저장할 수 있어요';
+  else if (saveTarget != null && amount > 0) hint = '저장을 누르면 기록돼요';
   else if (amount > 0) hint = '카테고리를 고르면 저장돼요';
+  else if (picked) hint = '금액을 누르면 저장할 수 있어요';
 
   return (
     <div className="record">
@@ -361,11 +365,11 @@ function RecordBody({
           </button>
         )}
 
-        {picked != null && listOpen === false ? (
+        {saveTarget != null ? (
           <Button
             className="record__save"
             disabled={amount <= 0 || create.isPending}
-            onClick={() => save(picked, amount)}
+            onClick={() => save(saveTarget, amount)}
           >
             저장
           </Button>

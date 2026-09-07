@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
@@ -46,11 +46,6 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
   const { state } = useIdentity();
   // 홈에서 바로 고친다. 여기서 못 고치면 달력까지 들어가야 해서 아무도 안 고친다.
   const [editing, setEditing] = useState<TransactionOut | null>(null);
-  // 홈이 보는 달은 늘 이번 달이다. 예산 캐시를 이 키로 써야 히어로 숫자가 함께 맞는다.
-  const thisMonth = useMemo(() => {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() + 1 };
-  }, []);
   const budget = useBudget();
   const categories = useCategories();
   const transactions = useTransactions();
@@ -120,11 +115,14 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
         전체 내역 보기
       </Link>
 
-      {/* 달력과 같은 시트를 쓴다. 고치는 자리가 둘이 되면 규칙도 둘이 된다. */}
+      {/*
+        달력과 같은 시트를 쓴다. 고치는 자리가 둘이 되면 규칙도 둘이 된다.
+        달은 넘기지 않는다. 홈의 조회도 달 없이 부르니, 수정 응답이 캐시에 쓰는 키를
+        홈이 읽는 키와 맞춰야 히어로 숫자가 왕복 없이 바뀐다.
+      */}
       <EditSheet
         transaction={editing}
         categories={categories.data?.items ?? []}
-        month={thisMonth}
         onClose={() => setEditing(null)}
       />
     </>

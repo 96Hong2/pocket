@@ -44,7 +44,9 @@ def _applied_categories() -> list[tuple[str, str, str, int]]:
     renamed = []
     for name, kind, icon_key, sort_order in rows:
         if name == income.RENAMED_FROM:
-            renamed.append((income.RENAMED_TO, kind, "01_coins", income.RENAMED_SORT_ORDER))
+            renamed.append(
+                (income.RENAMED_TO, kind, income.RENAMED_ICON_KEY, income.RENAMED_SORT_ORDER)
+            )
         else:
             renamed.append((name, kind, icon_key, sort_order))
     renamed.extend(income.ADDED_CATEGORIES)

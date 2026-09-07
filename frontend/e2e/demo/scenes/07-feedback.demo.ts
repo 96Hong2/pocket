@@ -42,11 +42,6 @@ function monthProgress(): MonthProgress {
   return { totalDays, elapsedDays: day, remainingDays: totalDays - day + 1 };
 }
 
-/** 하루 가용액. 남은 예산을 남은 일수로 나눈 내림값이다. 넘치면 안 되니 올리지 않는다. */
-function dailyAllowance(remaining: number, remainingDays: number): number {
-  return Math.floor(Math.max(0, remaining) / Math.max(1, remainingDays));
-}
-
 /** 지금 속도로 갔을 때 월말 예상 지출. 이번 달 지출을 날짜 진행률로 나눈 값이다. */
 function projectedMonthEnd(spend: number, progress: MonthProgress): number {
   return Math.round((spend * progress.totalDays) / progress.elapsedDays);
@@ -156,14 +151,13 @@ test('12 예산이 있을 때 저장 직후 한마디', async ({ demo, home, pre
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
 
-  await demo.step('계획대로 가는 중이라 남은 예산과 하루 몫을 알려 준다');
+  await demo.step('계획대로 가는 중이라 남은 예산 한 줄만 알려 준다');
   await expect(recordSheet.feedback.headline).toHaveText(
     `남은 예산은 ${formatCurrency(BUDGET - afterSteady)}이에요.`,
   );
-  await expect(recordSheet.feedback.detail).toHaveText(
-    `남은 ${progress.remainingDays}일 동안 하루 ` +
-      `${formatCurrency(dailyAllowance(BUDGET - afterSteady, progress.remainingDays))}씩 쓸 수 있어요.`,
-  );
+  // 남은 날과 하루 몫은 홈이 늘 들고 있다. 적을 때마다 세어 주면 쫓기는 화면이 된다.
+  await expect(recordSheet.feedback.detail).toHaveCount(0);
+  await expect(recordSheet.feedback.card).not.toContainText(/남은 \d+일/);
   await expect(recordSheet.feedback.card).not.toContainText('주의');
   await demo.beat(2);
 
@@ -175,19 +169,20 @@ test('12 예산이 있을 때 저장 직후 한마디', async ({ demo, home, pre
   await recordSheet.input.enterAmount(FAST);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(FAST));
 
-  await demo.step('저장하면 하루 몫이 줄어든 것으로 알려 준다');
+  await demo.step('저장하면 남은 예산만 알려 준다');
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
 
-  await demo.step('속도가 빨라도 겁주지 않는다. 지금 무엇을 하면 되는지만 말한다');
+  await demo.step('속도가 빨라도 겁주지 않는다. 남은 돈 한 줄이면 된다');
   // 달 말 예상액은 며칠치로 남은 달을 늘린 값이라 초반일수록 크게 튄다.
-  // 적을 때마다 그 숫자를 보여 주면 적기가 무서워진다.
+  // 적을 때마다 그 숫자나 남은 날을 보여 주면 적기가 무서워진다.
   await expect(recordSheet.feedback.headline).toHaveText(
-    `남은 ${progress.remainingDays}일 하루 ` +
-      `${formatCurrency(dailyAllowance(BUDGET - afterFast, progress.remainingDays))}이면 예산 안에서 지낼 수 있어요.`,
+    `남은 예산은 ${formatCurrency(BUDGET - afterFast)}이에요.`,
   );
+  await expect(recordSheet.feedback.detail).toHaveCount(0);
   await expect(recordSheet.feedback.card).not.toContainText('주의');
   await expect(recordSheet.feedback.card).not.toContainText('쓰게 돼요');
+  await expect(recordSheet.feedback.card).not.toContainText(/남은 \d+일/);
   await demo.beat(3);
 
   await demo.step('확인하고 400,000원을 마저 적는다');
@@ -207,9 +202,8 @@ test('12 예산이 있을 때 저장 직후 한마디', async ({ demo, home, pre
   await expect(recordSheet.feedback.headline).toHaveText(
     `이번 달 예산을 ${formatCurrency(afterOver - BUDGET)} 넘었어요.`,
   );
-  await expect(recordSheet.feedback.detail).toHaveText(
-    `남은 ${progress.remainingDays}일은 조금 천천히 가도 괜찮아요.`,
-  );
+  // 넘었을 때도 날을 세지 않는다. 얼마나 넘었는지 한 줄이 전부다.
+  await expect(recordSheet.feedback.detail).toHaveCount(0);
   await demo.beat(3);
 
   await demo.step('홈으로 돌아오면 남은 예산이 음수고 게이지가 꽉 찬다');
