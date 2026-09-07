@@ -32,6 +32,68 @@
     color: var(--color-muted);
   }
 
+  /* ── 헤드라인의 예산과 비교 ─────────────────────── */
+
+  /*
+    긴 문장 셋을 나란히 쌓으면 어느 숫자가 무엇인지 눈으로 못 가른다.
+    라벨과 값을 갈라 왼쪽 라벨·오른쪽 값으로 두고, 날짜 창은 작은 줄로 내린다.
+  */
+  .report__budget {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .report__budget-text {
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  .report__budget-text b {
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .report__compare {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .report__compare-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    row-gap: 2px;
+  }
+
+  .report__compare-label {
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  .report__compare-value {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    text-align: right;
+  }
+
+  /* 더 쓴 달만 눈에 걸리게 한다. 덜 쓴 달까지 색을 주면 둘 다 안 보인다. */
+  .report__compare-value.is-up {
+    color: var(--color-expense);
+  }
+
+  /* 어느 창끼리 견줬는지. 값이 아니라 근거라 두 칸을 함께 쓰고 작게 둔다. */
+  .report__compare-window {
+    grid-column: 1 / -1;
+    font-size: var(--text-11);
+    color: var(--color-placeholder);
+  }
+
   .report__note {
     margin-top: 8px;
     font-size: var(--text-12);

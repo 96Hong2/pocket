@@ -435,6 +435,11 @@ class RecordNaturalLanguage {
     return this.row(name).getByTestId(TEST_IDS.nlCandidateAmount);
   }
 
+  /** 후보 줄 금액의 글자색. 수입과 지출이 색으로 갈리는지 본다. */
+  async amountColor(name: string): Promise<string> {
+    return this.amount(name).evaluate((el) => getComputedStyle(el).color);
+  }
+
   day(name: string): Locator {
     return this.row(name).getByTestId(TEST_IDS.nlCandidateDate);
   }
@@ -657,6 +662,11 @@ class RecordImageImport {
 
   amount(name: string): Locator {
     return this.row(name).getByTestId(TEST_IDS.nlCandidateAmount);
+  }
+
+  /** 후보 줄 금액의 글자색. 수입과 지출이 색으로 갈리는지 본다. */
+  async amountColor(name: string): Promise<string> {
+    return this.amount(name).evaluate((el) => getComputedStyle(el).color);
   }
 
   day(name: string): Locator {

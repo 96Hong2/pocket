@@ -68,9 +68,17 @@ def test_프론트가_말하는_아이콘이_전부_존재한다() -> None:
 
 
 def test_이체와_수입_아이콘이_다르다() -> None:
-    """목록에서 이체와 수입을 눈으로 구분할 수 있어야 한다."""
+    """목록에서 이체와 수입을 눈으로 구분할 수 있어야 한다.
+
+    수입이 셋으로 갈렸으니 셋 다 이체와 달라야 하고, 서로도 달라야 한다.
+    같은 그림이 둘이면 목록에서 어느 쪽인지 알 수 없다.
+    """
     icons = default_category_icons()
-    assert icons["이체"] != icons["수입"]
+    income = [c.name for c in DEFAULT_CATEGORIES if c.kind is CategoryKind.INCOME]
+    assert len(income) >= 2
+    for name in income:
+        assert icons[name] != icons["이체"], name
+    assert len({icons[name] for name in income}) == len(income)
 
 
 def test_json_으로_옮겨도_깨지지_않는다() -> None:

@@ -14,10 +14,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # 종류·입력경로는 domain 이 정본이다. 여기서 값 목록을 다시 적지 않는다.
 from app.domain.aggregation import TransactionSource, TransactionType
-from app.domain.categories import expense_category_names
+from app.domain.categories import expense_category_names, income_category_names
 
 # 프롬프트와 스텁이 참고하는 분류 이름. 정본은 app/domain/categories.py 다.
-DEFAULT_CATEGORY_HINTS: tuple[str, ...] = expense_category_names()
+# 수입도 분류를 고를 수 있어야 한다. 후보에서 빼면 모델이 영영 못 고른다.
+DEFAULT_CATEGORY_HINTS: tuple[str, ...] = expense_category_names() + income_category_names()
 
 # 이 값 아래는 사용자 확인 없이 확정하지 않는다.
 LOW_CONFIDENCE_THRESHOLD = 0.5

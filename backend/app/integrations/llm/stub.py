@@ -44,6 +44,12 @@ _TYPE_KEYWORDS: tuple[tuple[TransactionType, tuple[str, ...]], ...] = (
     (TransactionType.INCOME, ("월급", "급여", "수입", "입금", "용돈", "정산받")),
 )
 
+# 수입도 어디서 온 돈인지 가른다. 지출만큼 잘게 나누지 않는다.
+_INCOME_CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("월급", ("월급", "급여", "봉급", "상여", "보너스", "알바비", "주급", "일당")),
+    ("용돈", ("용돈", "세뱃돈", "생일")),
+)
+
 _CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("식비", ("점심", "저녁", "아침", "밥", "식당", "김밥", "국밥", "배달", "치킨", "분식")),
     ("카페·간식", ("커피", "카페", "라떼", "아메리카노", "디저트", "빵", "스벅", "스타벅스")),
@@ -73,6 +79,9 @@ _IMAGE_SAMPLE: tuple[tuple[str, int, str, float, int], ...] = (
 # 그 약속을 화면에서 보려면 예시가 그 모양이어야 한다.
 # confidence 는 낮은 축이지만 0.5 위라서 서버가 스스로 선택을 켜 둔다.
 _RECEIPT_SAMPLE = (23_500, "식비", 0.72)
+
+# 금액 바로 앞에 붙은 '+'. 사이에 공백이 있어도 같은 뜻으로 본다.
+_PLUS_BEFORE_AMOUNT = re.compile(r"\+\s*$")
 
 _BASE_CONFIDENCE = 0.35
 _MERCHANT_BONUS = 0.20
@@ -204,10 +213,13 @@ def _parse_entry(
         return None
     amount = amounts[0]
 
-    remainder = f"{rest[: amount.start]} {rest[amount.end :]}".strip()
-    transaction_type = _guess_type(rest)
+    before = rest[: amount.start]
+    # 금액 바로 앞의 '+' 는 수입이라는 표시다. 적는 사람이 직접 준 신호라 말버릇보다 세다.
+    plus_signed = _PLUS_BEFORE_AMOUNT.search(before) is not None
+    remainder = f"{_PLUS_BEFORE_AMOUNT.sub('', before)} {rest[amount.end :]}".strip()
+    transaction_type = TransactionType.INCOME if plus_signed else _guess_type(rest)
     merchant = _clean_merchant(remainder)
-    category = _guess_category(rest) if transaction_type == TransactionType.EXPENSE else None
+    category = _guess_category_for(transaction_type, rest)
 
     confidence = _BASE_CONFIDENCE
     if merchant:
@@ -234,8 +246,17 @@ def _guess_type(text: str) -> TransactionType:
     return TransactionType.EXPENSE
 
 
-def _guess_category(text: str) -> str | None:
-    for category, keywords in _CATEGORY_KEYWORDS:
+def _guess_category_for(transaction_type: TransactionType, text: str) -> str | None:
+    """이체·환불은 분류를 찾지 않는다. 이체는 집계 밖이고 환불은 대상의 분류를 따른다."""
+    if transaction_type is TransactionType.INCOME:
+        return _match_keywords(_INCOME_CATEGORY_KEYWORDS, text)
+    if transaction_type is TransactionType.EXPENSE:
+        return _match_keywords(_CATEGORY_KEYWORDS, text)
+    return None
+
+
+def _match_keywords(table: tuple[tuple[str, tuple[str, ...]], ...], text: str) -> str | None:
+    for category, keywords in table:
         if any(keyword in text for keyword in keywords):
             return category
     return None

@@ -3,6 +3,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { ROUTES } from '../../src/app/router/routes';
 import { TEST_IDS } from '../../src/shared/testIds';
 
+import { EditSheetArea } from './CalendarScreen';
+
 /**
  * 홈 화면.
  *
@@ -19,6 +21,8 @@ export class HomeScreen {
   readonly hero: HomeHero;
   /** 오늘 목록. 행·칩·빈 상태·조회 실패. */
   readonly today: TodaySection;
+  /** 오늘 목록의 한 줄을 누르면 열리는 시트. 달력과 같은 것이다. */
+  readonly edit: EditSheetArea;
   /** 예산 제안 카드. 첫 기록을 마쳐야 뜬다. */
   readonly budget: BudgetCard;
   /** 광고 자리. */
@@ -30,6 +34,7 @@ export class HomeScreen {
     this.page = page;
     this.hero = new HomeHero(page);
     this.today = new TodaySection(page);
+    this.edit = new EditSheetArea(page);
     this.budget = new BudgetCard(page);
     this.ads = new AdArea(page);
     this.recovery = new RecoveryCard(page);
@@ -82,6 +87,11 @@ class HomeHero {
   /** 예산을 정한 뒤 그리는 남은 예산. */
   get remainingBudget(): Locator {
     return this.page.getByTestId(TEST_IDS.remainingBudget);
+  }
+
+  /** 큰 숫자를 감싼 관리 탭 입구. 예산이 있는 히어로에만 있다. */
+  get budgetLink(): Locator {
+    return this.page.getByTestId(TEST_IDS.heroBudgetLink);
   }
 
   /** 예산을 정하기 전 그리는 이번 달 지출. 수입·지출 히어로에서는 큰 숫자 아래 칸으로 내려간다. */

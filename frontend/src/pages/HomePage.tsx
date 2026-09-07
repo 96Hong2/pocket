@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
@@ -15,9 +15,16 @@ import {
   toHomeViewInput,
 } from '../features/home';
 import { QuickRecordSheet, type RecordTab } from '../features/quick-record';
+import { EditSheet } from '../features/transactions';
 // 방식 → 탭 환산은 시트 옆에 있다. 배럴에는 시트만 나와 있어 파일을 곧장 가리킨다.
 import { DEFAULT_RECORD_TAB, resolveRecordTab } from '../features/quick-record/recordTab';
-import { useBudget, useCategories, usePreferences, useTransactions } from '../shared/api';
+import {
+  useBudget,
+  useCategories,
+  usePreferences,
+  useTransactions,
+  type TransactionOut,
+} from '../shared/api';
 import { Button, ErrorState, LoadingState, iconUrl } from '../shared/ui';
 
 function RecordButton({ onClick }: { onClick: () => void }) {
@@ -37,6 +44,13 @@ function RecordButton({ onClick }: { onClick: () => void }) {
 
 function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
   const { state } = useIdentity();
+  // 홈에서 바로 고친다. 여기서 못 고치면 달력까지 들어가야 해서 아무도 안 고친다.
+  const [editing, setEditing] = useState<TransactionOut | null>(null);
+  // 홈이 보는 달은 늘 이번 달이다. 예산 캐시를 이 키로 써야 히어로 숫자가 함께 맞는다.
+  const thisMonth = useMemo(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  }, []);
   const budget = useBudget();
   const categories = useCategories();
   const transactions = useTransactions();
@@ -98,12 +112,21 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
           if (transactions.isError) void transactions.refetch();
           if (categories.isError) void categories.refetch();
         }}
+        onPick={setEditing}
       />
 
       {/* 달력 화면으로 가는 유일한 입구다. 오늘 아래에 두어 "오늘 말고 그 전" 으로 읽히게 한다. */}
       <Link className="home-more" to={ROUTES.calendar}>
         전체 내역 보기
       </Link>
+
+      {/* 달력과 같은 시트를 쓴다. 고치는 자리가 둘이 되면 규칙도 둘이 된다. */}
+      <EditSheet
+        transaction={editing}
+        categories={categories.data?.items ?? []}
+        month={thisMonth}
+        onClose={() => setEditing(null)}
+      />
     </>
   );
 }

@@ -17,6 +17,8 @@ export const TEST_IDS = {
   dailyAllowance: 'daily-allowance',
   /** 홈의 예산 진행 게이지 */
   budgetGauge: 'budget-gauge',
+  /** 큰 숫자를 감싼 관리 탭 입구. 링크라 이름으로도 잡히지만 자리를 못 박아 둔다. */
+  heroBudgetLink: 'hero-budget-link',
   /** 홈의 남은 일수. 하루 가용액이 이 값으로 나눈 결과인지 되짚는다. */
   remainingDays: 'remaining-days',
   /** 홈의 이번 달 번 돈. 수입을 함께 그리는 히어로에만 있다. */

@@ -23,6 +23,7 @@ import {
   Card,
   CategoryAvatar,
   ErrorState,
+  Gauge,
   LoadingState,
   MonthStepper,
   SegmentedControl,
@@ -133,11 +134,19 @@ export function MonthlyReport({
           data-testid={TEST_IDS.reportTotal}
         />
         {!income ? <BudgetLine budget={data.budget} /> : null}
-        {!income ? (
-          <ComparisonLine comparison={data.comparison} testId={TEST_IDS.reportComparison} />
-        ) : null}
-        {!income ? (
-          <ComparisonLine comparison={data.weeks} testId={TEST_IDS.reportWeeks} weekly />
+        {!income && (data.comparison || data.weeks) ? (
+          <dl className="report__compare">
+            <ComparisonLine
+              comparison={data.comparison}
+              testId={TEST_IDS.reportComparison}
+              label="지난달 같은 기간"
+            />
+            <ComparisonLine
+              comparison={data.weeks}
+              testId={TEST_IDS.reportWeeks}
+              label="지난주 같은 기간"
+            />
+          </dl>
         ) : null}
       </Card>
 
@@ -239,6 +248,9 @@ function donutCenter(
  * **쓴 금액을 함께 적는다.** 위 헤드라인은 예산에서 뺀 거래까지 더한 값이고 이 비율은
  * 그것을 뺀 값이라, 숫자만 나란히 두면 같은 카드에서 산수가 안 맞는 것처럼 보인다.
  */
+/** 이 배율을 넘으면 견줄 지난 기간이 사실상 비어 있다는 뜻이다. 숫자를 감춘다. */
+const MAX_READABLE_RATIO = 9.99;
+
 function BudgetLine({
   budget,
 }: {
@@ -248,10 +260,12 @@ function BudgetLine({
   const progress = parseDecimal(budget.spend_progress);
   if (amount == null || progress == null) return null;
   return (
-    <p className="report__meta" data-testid={TEST_IDS.reportBudgetLine}>
-      예산 {formatCurrency(amount)} 중 {formatCurrency(parseDecimalOr(budget.budgeted_spend, 0))}(
-      {toPercent(progress)}) 썼어요
-    </p>
+    <div className="report__budget" data-testid={TEST_IDS.reportBudgetLine}>
+      <Gauge className="report__budget-gauge" ratio={progress} label="예산 사용률" />
+      <p className="report__budget-text">
+        예산 {formatCurrency(amount)} 중 <b>{toPercent(progress)}</b>
+      </p>
+    </div>
   );
 }
 
@@ -264,27 +278,39 @@ function BudgetLine({
 function ComparisonLine({
   comparison,
   testId,
-  weekly = false,
+  label,
 }: {
   comparison: PeriodComparisonOut | null;
   testId: string;
-  weekly?: boolean;
+  label: string;
 }) {
   if (comparison == null) return null;
   const delta = parseDecimalOr(comparison.delta, 0);
   const ratio = parseDecimal(comparison.delta_ratio);
   const here = `${formatShortDate(comparison.current_start)}~${formatShortDate(comparison.current_end)}`;
   const there = `${formatShortDate(comparison.previous_start)}~${formatShortDate(comparison.previous_end)}`;
-  const noun = weekly ? '지난주' : '지난달';
-  const change =
+
+  // 지난 기간이 거의 0 이면 배율이 수천 퍼센트로 튄다. 숫자는 맞지만 읽을 값이 못 된다.
+  const showRatio = ratio != null && Math.abs(ratio) <= MAX_READABLE_RATIO;
+  const value =
     delta === 0
-      ? '그대로예요'
-      : `${formatCurrency(Math.abs(delta))}${ratio != null ? `(${toPercent(Math.abs(ratio))})` : ''} ${delta > 0 ? '더' : '덜'} 썼어요`;
+      ? '그대로'
+      : `${delta > 0 ? '+' : '-'}${formatCurrency(Math.abs(delta))}${showRatio ? ` (${toPercent(Math.abs(ratio))})` : ''}`;
+
   return (
-    <p className="report__meta" data-testid={testId}>
-      이 기간({here}) {formatCurrency(parseDecimalOr(comparison.current_expense, 0))}. {noun} 같은
-      기간({there}) {formatCurrency(parseDecimalOr(comparison.previous_expense, 0))}보다 {change}
-    </p>
+    <div className="report__compare-row" data-testid={testId}>
+      <dt className="report__compare-label">{label}</dt>
+      <dd className={delta > 0 ? 'report__compare-value is-up' : 'report__compare-value'}>
+        {value}
+      </dd>
+      {/*
+        양쪽 창의 날짜를 남긴다. 지난 기간만 적거나 아예 빼면, 이쪽 창이 그 달을 넘어가
+        있어도 사용자가 알 방법이 없다. 크게 읽을 값은 아니라 작은 줄로 내린다.
+      */}
+      <dd className="report__compare-window">
+        {here} vs {there}
+      </dd>
+    </div>
   );
 }
 

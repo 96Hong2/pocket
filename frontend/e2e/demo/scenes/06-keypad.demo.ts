@@ -39,7 +39,7 @@ const EXPENSE_CATEGORIES = [
 ] as const;
 
 /** 시트에 올라오지 않는 카테고리. 지출만 걸러 내는지 되짚는 데 쓴다. */
-const NOT_ON_SHEET = ['수입', '이체'] as const;
+const NOT_ON_SHEET = ['월급', '용돈', '기타 수입', '이체'] as const;
 
 const EMPTY_HINT = '금액을 누르고 카테고리를 고르면 바로 저장돼요';
 const READY_HINT = '카테고리를 고르면 저장돼요';
