@@ -46,6 +46,7 @@ __all__ = [
     "load_category_expense_median",
     "load_daily_budgeted_spend",
     "load_day_totals",
+    "load_period_inputs",
     "load_period_totals",
     "load_range_totals",
     "load_recovery_progress",
@@ -130,10 +131,20 @@ def _to_domain(tx: Transaction, tz: ZoneInfo) -> agg.TransactionInput:
     )
 
 
-def load_period_totals(session: Session, user: User, period: BudgetPeriod) -> agg.PeriodTotals:
+def load_period_inputs(
+    session: Session, user: User, period: BudgetPeriod
+) -> list[agg.TransactionInput]:
+    """그 기간의 거래를 집계용 값 객체로 읽는다.
+
+    한 조회의 답을 여러 판정이 나눠 봐야 할 때 쓴다(결산이 달 합계·지난달 합계·날짜별
+    판정을 한 목록으로 낸다). 기간마다 다시 읽으면 그 사이 저장이 끼어 서로 어긋난다.
+    """
     tz = user_tz(user)
-    rows = period_transactions(session, user, period)
-    return agg.aggregate_period([_to_domain(t, tz) for t in rows], period)
+    return [_to_domain(t, tz) for t in period_transactions(session, user, period)]
+
+
+def load_period_totals(session: Session, user: User, period: BudgetPeriod) -> agg.PeriodTotals:
+    return agg.aggregate_period(load_period_inputs(session, user, period), period)
 
 
 def load_range_totals(
@@ -151,8 +162,7 @@ def load_range_totals(
     if not periods:
         return []
     span = BudgetPeriod(min(p.start for p in periods), max(p.end for p in periods))
-    tz = user_tz(user)
-    rows = [_to_domain(t, tz) for t in period_transactions(session, user, span)]
+    rows = load_period_inputs(session, user, span)
     return [agg.aggregate_period(rows, period) for period in periods]
 
 
@@ -162,9 +172,7 @@ def load_day_totals(session: Session, user: User, period: BudgetPeriod) -> list[
     화면이 달의 거래를 전부 받아 스스로 접지 않는 이유: 같은 화면에 무한 스크롤이 붙어 있어서
     "전부 받아야 달력이 맞는다" 와 "조금씩 받는다" 가 서로 싸운다. 접는 일은 서버가 한다.
     """
-    tz = user_tz(user)
-    rows = period_transactions(session, user, period)
-    return agg.aggregate_days([_to_domain(t, tz) for t in rows], period)
+    return agg.aggregate_days(load_period_inputs(session, user, period), period)
 
 
 def last_transaction_date(
@@ -213,10 +221,8 @@ def load_recovery_progress(session: Session, user: User, today: date) -> recover
     창 안의 행을 한 번 읽고 접는 일은 도메인이 한다. 어떤 날을 '정리한 날' 로 볼지는
     집계 규칙이라, SQL 로 세면 같은 규칙이 두 곳에 적힌다.
     """
-    tz = user_tz(user)
     window = recovery.recovery_window(today)
-    rows = period_transactions(session, user, window)
-    return recovery.build_progress([_to_domain(t, tz) for t in rows], window)
+    return recovery.build_progress(load_period_inputs(session, user, window), window)
 
 
 def load_category_expense_median(

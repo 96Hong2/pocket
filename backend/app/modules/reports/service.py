@@ -11,15 +11,16 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.domain import aggregation as agg
+from app.domain import aggregation as agg, closing
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod, same_day_window, week_to_date
 from app.domain.report import BreakdownRow, rank_breakdown
 from app.models import Transaction, User
 from app.modules import ledger
 from app.modules.budgets import service as budgets
+from app.modules.goals import service as goals
 
-__all__ = ["MonthlyReport", "build_monthly"]
+__all__ = ["MonthlyReport", "build_closing", "build_monthly"]
 
 # 추이 막대 개수. 조회한 달을 포함해 뒤로 여섯 달이다.
 TREND_MONTHS = 6
@@ -76,6 +77,36 @@ def build_monthly(
         trend=trend,
         comparison=_compare_months(session, user, period, today),
         weeks=_compare_weeks(session, user, period, today),
+    )
+
+
+def build_closing(
+    session: Session, user: User, period: BudgetPeriod, *, today: date
+) -> closing.Closing:
+    """월간 결산 한 벌. 판정은 `domain/closing` 이 하고 여기서는 재료만 모은다.
+
+    **거래는 한 번만 읽는다.** 이번 달 합계·지난달 합계·날짜별 판정이 같은 목록을 나눠 본다.
+    따로 읽으면 그 사이에 저장이 끼어 카드끼리 다른 달을 말하게 된다.
+
+    분류 비교는 예산 반영 지출(`category_budgeted_spend`)로 한다. 다음 달 제안이 곧
+    분류 한도라, 생활비 제안이 고정비를 세는 규칙과 같은 자리를 봐야 두 화면이 안 어긋난다.
+    """
+    previous = period.previous_period()
+    rows = ledger.load_period_inputs(session, user, BudgetPeriod(previous.start, period.end))
+    budget = budgets.find_budget(session, user, period)
+
+    return closing.build_closing(
+        closing.ClosingFacts(
+            period=period,
+            today=today,
+            totals=agg.aggregate_period(rows, period),
+            previous_totals=agg.aggregate_period(rows, previous),
+            days=closing.count_days(rows, period),
+            budget_amount=Money(budget.amount) if budget is not None else None,
+            goal_contribution=goals.period_contributions(session, user, period),
+            # 합계가 0 인 것과 기록이 없는 것은 다르다. 이체만 있어도 기록은 있는 것이다.
+            has_any_transaction=any(period.contains(row.occurred_on) for row in rows),
+        )
     )
 
 

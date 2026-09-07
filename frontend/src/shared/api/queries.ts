@@ -134,6 +134,25 @@ export function useMonthlyReport(params?: MonthParams) {
 }
 
 /**
+ * 그 달의 결산.
+ *
+ * 부르는 것만으로는 아무것도 저장되지 않는다. 결산을 봤다는 표시는 기기에만 남는다.
+ *
+ * `enabled` 를 따로 받는다. 홈은 달이 바뀐 뒤 며칠 동안만 지난달 결산을 묻고, 이미 본
+ * 달은 아예 묻지 않는다. 늘 물으면 홈을 열 때마다 안 쓸 응답을 하나 더 받는다.
+ */
+export function useClosing(params?: MonthParams, options?: { enabled?: boolean }) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.closing(params),
+    queryFn: ({ signal }) => client.getClosing(params, { signal }),
+    enabled: isReady && (options?.enabled ?? true),
+  });
+}
+
+/**
  * 커서로 이어 받는 거래 목록.
  *
  * 달력 화면의 검색 결과와 전체 내역이 쓴다. 홈은 이걸 쓰지 않는다. 홈은 그 달을 한 번 받아

@@ -27,6 +27,8 @@ export class HomeScreen {
   readonly budget: BudgetCard;
   /** 목표 카드. 진행 중인 목표가 있을 때만 뜬다. */
   readonly goal: HomeGoalCard;
+  /** 지난달 결산 진입 카드. 달이 바뀐 뒤 며칠 동안, 아직 안 봤을 때만 뜬다. */
+  readonly closing: HomeClosingCard;
   /** 광고 자리. */
   readonly ads: AdArea;
   /** 며칠 비웠을 때 뜨는 복귀 카드. */
@@ -39,6 +41,7 @@ export class HomeScreen {
     this.edit = new EditSheetArea(page);
     this.budget = new BudgetCard(page);
     this.goal = new HomeGoalCard(page);
+    this.closing = new HomeClosingCard(page);
     this.ads = new AdArea(page);
     this.recovery = new RecoveryCard(page);
   }
@@ -368,6 +371,24 @@ class HomeGoalCard {
     if ((await gauge.count()) === 0) return null;
     const value = await gauge.getAttribute('aria-valuenow');
     return value == null ? null : Number(value);
+  }
+}
+
+/**
+ * 홈의 결산 진입 카드.
+ *
+ * 카드 전체가 리포트로 가는 링크다. 링크라 이름으로 잡는다. 한 번 열어 보면 사라지므로
+ * 있는지 없는지가 곧 '아직 안 봤는지' 다.
+ */
+class HomeClosingCard {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  get link(): Locator {
+    return this.page.getByRole('link', { name: /결산이 도착했어요/ });
   }
 }
 

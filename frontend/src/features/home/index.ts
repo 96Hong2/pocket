@@ -1,4 +1,5 @@
 export { BudgetSuggestCard } from './BudgetSuggestCard';
+export { ClosingEntryCard } from './ClosingEntryCard';
 export { GoalStatusCard } from './GoalStatusCard';
 export { HomeHero } from './HomeHero';
 export {

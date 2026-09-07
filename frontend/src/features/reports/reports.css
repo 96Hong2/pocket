@@ -272,4 +272,192 @@
     color: var(--color-muted);
     text-align: center;
   }
+
+  /* ── 결산 입구 ───────────────────────────────────── */
+
+  /* 카드 전체가 버튼이다. 누를 자리를 따로 찾게 하지 않는다. */
+  .closing-entry__button {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 16px;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-radius: var(--radius-card);
+    cursor: pointer;
+  }
+
+  .closing-entry__title {
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  .closing-entry__hint {
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  /* ── 결산 오버레이 ───────────────────────────────── */
+
+  /*
+    바텀시트가 아니라 화면을 다 쓰는 창이다. 카드 한 장에 한 가지만 두고 넘겨 보게 하려면
+    뒤 화면이 비쳐서는 안 된다. 포털로 body 에 붙어 셸의 안전영역을 못 물려받으므로
+    여기서 직접 넣는다. 시트(60)보다 위에 둘 이유는 없어 같은 층에 둔다.
+  */
+  .closing {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: calc(16px + var(--safe-top)) calc(20px + var(--safe-right))
+      calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left));
+    background: var(--color-bg);
+    overflow-y: auto;
+  }
+
+  .closing__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .closing__month {
+    flex: 1;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .closing__close {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin: -12px -12px -12px 0;
+    color: var(--color-muted);
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
+
+  .closing__dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .closing__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-pill);
+    background: var(--color-border);
+  }
+
+  .closing__dot[data-current] {
+    background: var(--color-sage-700);
+  }
+
+  /* 카드 하나가 화면 가운데를 차지한다. 여백이 넉넉해야 한 가지만 읽힌다. */
+  .closing__card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    justify-content: center;
+  }
+
+  .closing__title {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  .closing__lead {
+    /* 토큰 표에 없는 크기다. 카드 한 장에 한 문장이라 제목만 한 크기로 둔다. */
+    font-size: 22px;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.45;
+    color: var(--color-ink);
+    /* 긴 분류 이름이 화면을 가로로 밀지 않게 줄 안에서 끊는다. */
+    overflow-wrap: anywhere;
+  }
+
+  .closing__lines {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .closing__line {
+    font-size: 18px;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.45;
+    color: var(--color-ink);
+    overflow-wrap: anywhere;
+  }
+
+  .closing__flow {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .closing__flow-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: var(--text-15);
+    color: var(--color-muted);
+  }
+
+  .closing__flow-value {
+    font-variant-numeric: tabular-nums;
+    font-size: 18px;
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .closing__flow-value.is-income {
+    color: var(--color-income);
+  }
+
+  /* 옮긴 돈은 지출도 수입도 아니다. 어느 쪽 색도 쓰지 않는다. */
+  .closing__flow-value.is-muted {
+    color: var(--color-muted);
+  }
+
+  .closing__foot {
+    font-size: var(--text-15);
+    color: var(--color-muted);
+  }
+
+  .closing__note {
+    font-size: var(--text-13);
+    line-height: 1.5;
+    color: var(--color-muted);
+  }
+
+  .closing__link {
+    align-self: flex-start;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+    text-decoration: underline;
+  }
+
+  .closing__next {
+    min-height: 52px;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-surface);
+    background: var(--color-sage-700);
+    border: 0;
+    border-radius: var(--radius-card);
+    cursor: pointer;
+  }
 }

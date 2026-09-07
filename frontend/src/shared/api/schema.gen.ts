@@ -380,6 +380,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/closing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Closing
+         * @description 월간 결산. 카드 넉 장이 그리는 것을 한 응답으로 준다.
+         *
+         *     **아무것도 저장하지 않는다.** 결산을 열어 봤다는 표시는 기기에만 남는다.
+         *     아직 지나는 중인 달이나 기록이 없는 달도 200 으로 답하고, 그때는 `is_closed`·
+         *     `has_any_transaction` 이 false 라 화면이 입구를 아예 그리지 않는다.
+         */
+        get: operations["closing_api_v1_reports_closing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assets": {
         parameters: {
             query?: never;
@@ -829,6 +853,69 @@ export interface components {
             /** Icon Key */
             icon_key?: string | null;
         };
+        /**
+         * ChangeOut
+         * @description 지난달보다 가장 많이 늘어난 분류. 견줄 것이 없으면 응답에서 null 이다.
+         */
+        ChangeOut: {
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** Current */
+            current: string;
+            /** Previous */
+            previous: string;
+            /** Delta */
+            delta: string;
+        };
+        /**
+         * ClosingFlowOut
+         * @description 그 달에 돈이 어떻게 드나들었나. 남은 예산과 다른 이야기다.
+         */
+        ClosingFlowOut: {
+            /** Income */
+            income: string;
+            /** Expense */
+            expense: string;
+            /** Transfer */
+            transfer: string;
+            /** Delta */
+            delta: string;
+            /** Recorded Days */
+            recorded_days: number;
+            /** Total Days */
+            total_days: number;
+        };
+        /**
+         * ClosingOut
+         * @description 월간 결산. 카드 넉 장이 그리는 것을 한 응답에 담는다.
+         *
+         *     `is_closed` 와 `has_any_transaction` 이 둘 다 참일 때만 화면에 결산 입구가 뜬다.
+         *     아직 지나는 중인 달은 결산할 수 없고, 기록이 없는 달은 돌아볼 것이 없다.
+         */
+        ClosingOut: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Is Closed */
+            is_closed: boolean;
+            /** Has Any Transaction */
+            has_any_transaction: boolean;
+            /** Highlights */
+            highlights: components["schemas"]["HighlightOut"][];
+            flow: components["schemas"]["ClosingFlowOut"];
+            change: components["schemas"]["ChangeOut"] | null;
+            next: components["schemas"]["NextOut"] | null;
+        };
         /** ErrorBody */
         ErrorBody: {
             code: components["schemas"]["ErrorCode"];
@@ -1014,6 +1101,30 @@ export interface components {
          */
         GoalStatus: "active" | "achieved" | "archived";
         /**
+         * HighlightKind
+         * @description 잘한 것의 종류. **선언 순서가 곧 카드에 실리는 순서다.**
+         * @enum {string}
+         */
+        HighlightKind: "within_budget" | "category_decrease" | "no_spend_days" | "goal_contribution";
+        /**
+         * HighlightOut
+         * @description 잘한 것 하나. 문장이 아니라 종류와 숫자만 온다.
+         *
+         *     `amount` 는 **그 종류의 문장이 그대로 읽을 숫자**다. 예산이면 남긴 돈, 분류를 줄인
+         *     것이면 줄인 돈, 목표면 옮긴 돈이다. 화면이 두 값을 빼서 만들지 않게 서버가 낸다.
+         */
+        HighlightOut: {
+            kind: components["schemas"]["HighlightKind"];
+            /** Amount */
+            amount: string | null;
+            /** Category Id */
+            category_id: string | null;
+            /** Count */
+            count: number | null;
+            /** Previous */
+            previous: string | null;
+        };
+        /**
          * HomeHero
          * @enum {string}
          */
@@ -1192,6 +1303,29 @@ export interface components {
             comparison: components["schemas"]["PeriodComparisonOut"] | null;
             weeks: components["schemas"]["PeriodComparisonOut"] | null;
         };
+        /**
+         * NextOut
+         * @description 다음 달에 해 볼 것 하나. **여기에 적용 버튼은 없다.**
+         *
+         *     화면은 예산 화면으로 가는 링크만 둔다. 결산이 다음 달 예산을 대신 정해 버리면
+         *     사용자가 안 본 사이에 숫자가 바뀐다.
+         */
+        NextOut: {
+            kind: components["schemas"]["NextStepKind"];
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** Suggested Cap */
+            suggested_cap: string;
+        };
+        /**
+         * NextStepKind
+         * @description 다음 달에 해 볼 것 하나. 지금은 분류 한도 하나뿐이다.
+         * @enum {string}
+         */
+        NextStepKind: "category_cap";
         /**
          * PeriodComparisonOut
          * @description 지난 기간과의 비교.
@@ -3866,6 +4000,94 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MonthlyReportOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    closing_api_v1_reports_closing_get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClosingOut"];
                 };
             };
             /** @description 식별키가 없거나 검증에 실패 */

@@ -8,6 +8,7 @@
 | refund   | -amount     | 제외        | +amount | +amount   | -amount       |
 
 excluded_from_budget 인 거래는 예산 계산에서만 빠지고 목록·리포트에는 남는다.
+이체는 위 넷 어디에도 안 들어가지만 얼마를 옮겼는지는 `month_transfer` 로 따로 센다.
 """
 
 from __future__ import annotations
@@ -71,6 +72,9 @@ class PeriodTotals:
     month_expense: Money
     month_income: Money
     monthly_delta: Money
+    # 옮긴 돈. 위 표대로 지출·수입·차액·예산 어디에도 안 들어간다. 얼마를 옮겼는지만 따로 센다.
+    # 결산의 돈 흐름 카드가 "번 돈 - 쓴 돈" 으로 설명되지 않는 움직임을 말할 근거다.
+    month_transfer: Money
     # 리포트용: excluded 포함
     category_spend: dict[str | None, Money] = field(default_factory=dict)
     # 예산용: excluded 제외
@@ -87,6 +91,7 @@ def aggregate_period(
     budgeted_spend = Money.zero()
     month_expense = Money.zero()
     month_income = Money.zero()
+    month_transfer = Money.zero()
     category_spend: dict[str | None, Money] = {}
     category_budgeted_spend: dict[str | None, Money] = {}
     category_income: dict[str | None, Money] = {}
@@ -95,6 +100,7 @@ def aggregate_period(
         if tx.is_deleted or not period.contains(tx.occurred_on):
             continue
         if tx.type is TransactionType.TRANSFER:
+            month_transfer = month_transfer + tx.amount
             continue
 
         if tx.type is TransactionType.INCOME:
@@ -114,6 +120,7 @@ def aggregate_period(
         month_expense=month_expense,
         month_income=month_income,
         monthly_delta=month_income - month_expense,
+        month_transfer=month_transfer,
         category_spend=category_spend,
         category_budgeted_spend=category_budgeted_spend,
         category_income=category_income,

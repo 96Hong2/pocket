@@ -83,6 +83,14 @@ export const queryKeys = {
   reports: () => [ROOT, 'report'] as const,
   report: (params?: MonthParams) => [ROOT, 'report', monthPart(params)] as const,
 
+  /**
+   * 그 달의 결산.
+   *
+   * 리포트 아래에 둔다. 지난달 거래를 하나 고치면 그 달 결산도 함께 낡으므로,
+   * `queryKeys.reports()` 무효화에 같이 걸려야 한다.
+   */
+  closing: (params?: MonthParams) => [ROOT, 'report', 'closing', monthPart(params)] as const,
+
   calendars: () => [ROOT, 'calendar'] as const,
   calendar: (params?: MonthParams) => [ROOT, 'calendar', monthPart(params)] as const,
 

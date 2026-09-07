@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.errors import ApiError, ErrorCode
 from app.domain import goals as domain
 from app.domain.money import Money
+from app.domain.period import BudgetPeriod
 from app.models import User
 from app.models.goal import (
     Goal,
@@ -42,6 +43,7 @@ __all__ = [
     "archive_goal",
     "create_goal",
     "evaluate",
+    "period_contributions",
     "remove_contribution",
     "update_goal",
 ]
@@ -98,6 +100,29 @@ def evaluate(goal: Goal, today: date) -> GoalView:
         monthly_pace=pace,
         contributions=rows,
     )
+
+
+def period_contributions(session: Session, user: User, period: BudgetPeriod) -> Money:
+    """그 기간에 목표로 옮긴 돈 합. 한 번도 없으면 0 이다.
+
+    살아 있는 목표의 살아 있는 기여만 센다. 접은 목표에 남긴 것까지 세면, 지운 목표를
+    가리키며 "목표에 얼마를 넣었어요" 라고 말하게 되어 눌러 갈 곳이 없다.
+
+    **이 값은 지출도 수입도 아니다.** 모은 돈은 거래가 아니라 목표 안에서만 세는 값이고,
+    예산과 이번 달 차액에는 영향이 없다.
+    """
+    rows = session.scalars(
+        select(GoalContribution.amount)
+        .join(Goal, Goal.id == GoalContribution.goal_id)
+        .where(
+            Goal.user_id == user.id,
+            Goal.deleted_at.is_(None),
+            GoalContribution.deleted_at.is_(None),
+            GoalContribution.occurred_on >= period.start,
+            GoalContribution.occurred_on <= period.end,
+        )
+    )
+    return Money.total(Money(amount) for amount in rows)
 
 
 def create_goal(session: Session, user: User, body: GoalCreate) -> Goal:

@@ -32,6 +32,18 @@ export type MonthlyReportOut = Schemas['MonthlyReportOut'];
 export type BreakdownRowOut = Schemas['BreakdownRowOut'];
 export type TrendPointOut = Schemas['TrendPointOut'];
 export type PeriodComparisonOut = Schemas['PeriodComparisonOut'];
+/** 월간 결산. 카드 넉 장이 그리는 것이 한 응답에 들어 있다. */
+export type ClosingOut = Schemas['ClosingOut'];
+/** 잘한 것 하나. 문장이 아니라 종류와 숫자만 온다. 문장 조립은 화면이 한다. */
+export type HighlightOut = Schemas['HighlightOut'];
+export type HighlightKind = Schemas['HighlightKind'];
+/** 그 달 돈 흐름. 남은 예산·순자산과 다른 이야기다. */
+export type ClosingFlowOut = Schemas['ClosingFlowOut'];
+/** 지난달보다 가장 많이 늘어난 분류. 견줄 것이 없으면 null 이다. */
+export type ChangeOut = Schemas['ChangeOut'];
+/** 다음 달에 해 볼 것 하나. 여기에 적용 버튼은 없다. */
+export type NextOut = Schemas['NextOut'];
+export type NextStepKind = Schemas['NextStepKind'];
 /** 달력 한 칸. 기록이 있는 날만 온다. `expense` 는 환불을 뺀 값이라 음수일 수 있다. */
 export type CalendarDayOut = Schemas['CalendarDayOut'];
 export type CalendarMonthOut = Schemas['CalendarMonthOut'];

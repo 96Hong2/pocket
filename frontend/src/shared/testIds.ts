@@ -124,6 +124,21 @@ export const TEST_IDS = {
   reportBudgetLine: 'report-budget-line',
   /** 조각 합이 그 달 금액과 다른 이유를 적는 줄. 환불이 더 큰 분류가 있을 때만 있다. */
   reportSliceNote: 'report-slice-note',
+  /*
+    결산 입구 카드와 오버레이는 여기 없다. 버튼·다이얼로그라 이름으로 잡힌다.
+    이름이 없는 안쪽 줄과 점만 아래에 둔다.
+  */
+  /** 몇 번째 카드인지 알려 주는 점. 넷이고 지금 카드에 `data-current` 가 붙는다. */
+  closingDot: 'closing-dot',
+  /** 잘한 것 한 줄. 근거가 없으면 이 줄이 아예 없다. */
+  closingHighlight: 'closing-highlight',
+  /** 돈 흐름 카드 한 덩어리. 번 돈·쓴 돈·차액이 여기 있다. */
+  closingFlow: 'closing-flow',
+  /** 살펴볼 변화 한 줄. 지난달과 견줄 것이 없으면 숫자가 없다. */
+  closingChange: 'closing-change',
+  /** 다음 달에 해 볼 것 한 줄. 권할 것이 없으면 숫자가 없다. */
+  closingNext: 'closing-next',
+
   /** 줄글 검토 목록의 후보 한 줄 */
   nlCandidateRow: 'nl-candidate-row',
   /** 후보 한 줄의 금액 */

@@ -26,6 +26,7 @@ export {
   useBudgetSuggestion,
   useCalendar,
   useCategories,
+  useClosing,
   useGoal,
   useMerchantRules,
   usePreferences,

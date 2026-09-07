@@ -135,6 +135,33 @@
     margin-top: 6px;
   }
 
+  /* ── 결산 진입 카드 ─────────────────────────────── */
+
+  /*
+    달이 바뀐 뒤 며칠 동안만 뜬다. 히어로와 기록 버튼 다음 자리라,
+    눈에는 들어오되 오늘 기록하러 온 사람의 길을 막지 않는다.
+  */
+  .home-closing {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 16px;
+    background: var(--color-sage-50);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .home-closing__title {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  .home-closing__hint {
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
   .home-hero__sr,
   .home-goal__sr {
     position: absolute;

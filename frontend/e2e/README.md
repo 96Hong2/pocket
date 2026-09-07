@@ -19,12 +19,14 @@ e2e/
   fixtures/    테스트가 쓰는 파일. 지금은 사진용 PNG 한 장(capture.png). 캡처와 영수증이 함께 쓴다
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
-    HomeScreen       홈. 안쪽을 hero·today·budget·goal·ads·recovery 로 나눠 들고 있다
+    HomeScreen       홈. 안쪽을 hero·today·budget·goal·closing·ads·recovery 로 나눠 들고 있다
                      today 의 안 쓴 날 줄은 빈 상태 버튼과 글자가 같아, 줄 안의 취소 버튼에서
                      부모로 한 칸 올라가 잡는다(둘은 함께 그려지지 않는다)
     RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글)·capture(캡처)·receipt(영수증) 다섯이다
                      capture 와 receipt 는 같은 클래스에 문구 표만 바꿔 끼운 둘이다
-    ReportScreen     리포트 탭. 총액·도넛·조각 목록·6개월 흐름
+    ReportScreen     리포트 탭. 총액·도넛·조각 목록·6개월 흐름·월간 결산
+                     closing 은 결산 입구와 오버레이다. 입구는 버튼, 오버레이는 다이얼로그라
+                     둘 다 이름으로 잡고, 안쪽의 점·줄만 testid 를 쓴다
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
     ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·suggest·categories·banner·settings 로 나눠 들고 있다
                      suggest 는 목표 기반 생활비 제안 카드다. 예산이 없는 달에, 기한이 있는 목표가
@@ -96,8 +98,10 @@ e2e/
 - **`waitForTimeout` 을 쓰지 않는다.** 기다릴 것이 있으면 `expect(...).toHaveText` 나 `expect.poll` 로 상태를 기다린다.
 - **`.tsx` 와 `.css` 를 e2e 에서 import 하지 않는다.** e2e 는 브라우저 밖 Node 에서 돈다.
   `src/` 에서 가져와도 되는 것은 부수효과 없는 상수·순수 함수 모듈뿐이다.
-  지금 쓰는 것은 다섯이다: `shared/testIds.ts`, `app/router/routes.ts`, `shared/lib/format.ts`,
-  `shared/api/types.ts`(거래 종류 같은 타입), `features/transactions/ledgerView.ts`(한 페이지 줄 수·달력 칸 계산).
+  지금 쓰는 것은 일곱이다: `shared/testIds.ts`, `app/router/routes.ts`, `shared/lib/format.ts`,
+  `shared/api/types.ts`(거래 종류 같은 타입), `features/transactions/ledgerView.ts`(한 페이지 줄 수·달력 칸 계산),
+  `shared/lib/forbiddenWords.ts`(탓하는 말 목록과 판정), `shared/lib/closingSeen.ts`(결산 알림 창 일수).
+  뒤의 둘은 화면 문구·표시 규칙의 정본이라 spec 이 같은 값을 다시 적지 않으려고 가져온다.
   **배럴(`features/*/index.ts`)로 가져오지 않는다.** 배럴은 `.tsx` 를 함께 내보내서,
   상수 하나만 쓰려 해도 화면 컴포넌트가 Node 로 끌려온다. 순수 모듈을 경로로 직접 가져온다.
   목록에 없는 것을 가져오려면 `tsconfig.test.json` 을 먼저 본다. e2e·tests 프로그램이 그 모듈까지 타입 검사한다.

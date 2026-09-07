@@ -14,6 +14,7 @@ import type {
   AssetsOut,
   AssetSnapshotPut,
   BudgetOut,
+  ClosingOut,
   BudgetSuggestionOut,
   BudgetUpsert,
   CalendarMonthOut,
@@ -87,6 +88,7 @@ const PATHS = {
   transactions: '/api/v1/transactions',
   summary: '/api/v1/transactions/summary',
   monthlyReport: '/api/v1/reports/monthly',
+  closing: '/api/v1/reports/closing',
   calendar: '/api/v1/transactions/calendar',
   categories: '/api/v1/categories',
   budgets: '/api/v1/budgets',
@@ -150,6 +152,13 @@ export interface ApiClient extends Transport {
 
   /** 리포트 화면이 그리는 것 전부. 조회 하나로 끝낸다. */
   getMonthlyReport(params?: MonthParams, options?: CallOptions): Promise<MonthlyReportOut>;
+  /**
+   * 그 달의 결산. **부르는 것만으로는 아무것도 저장되지 않는다.**
+   *
+   * 아직 지나는 중인 달이나 기록이 없는 달도 200 으로 오고, 그때는 `is_closed`·
+   * `has_any_transaction` 이 false 라 화면이 입구를 아예 그리지 않는다.
+   */
+  getClosing(params?: MonthParams, options?: CallOptions): Promise<ClosingOut>;
   /** 달력 격자용 날짜별 합계. 기록이 있는 날만 온다. */
   getCalendar(params?: MonthParams, options?: CallOptions): Promise<CalendarMonthOut>;
   listCategories(options?: CallOptions): Promise<CategoryListOut>;
@@ -319,6 +328,15 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<MonthlyReportOut>({
         method: 'GET',
         path: PATHS.monthlyReport,
+        query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
+    getClosing(params, call) {
+      return transport.request<ClosingOut>({
+        method: 'GET',
+        path: PATHS.closing,
         query: monthQuery(params),
         signal: call?.signal,
       });

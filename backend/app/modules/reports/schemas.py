@@ -13,16 +13,24 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 from app.api.amounts import ratio_out
+from app.domain.closing import Closing, HighlightKind, NextStepKind
 from app.domain.money import Money
+from app.domain.period import BudgetPeriod
 from app.domain.report import BreakdownRow
 from app.modules.budgets.schemas import BudgetStateOut
 
 __all__ = [
     "BreakdownRowOut",
+    "ChangeOut",
+    "ClosingFlowOut",
+    "ClosingOut",
+    "HighlightOut",
     "MonthlyReportOut",
+    "NextOut",
     "PeriodComparisonOut",
     "TrendPointOut",
     "to_breakdown",
+    "to_closing",
     "to_comparison",
 ]
 
@@ -132,3 +140,129 @@ def to_comparison(
             delta.amount / previous_expense.amount if previous_expense.is_positive else None
         ),
     )
+
+
+class HighlightOut(BaseModel):
+    """잘한 것 하나. 문장이 아니라 종류와 숫자만 온다.
+
+    `amount` 는 **그 종류의 문장이 그대로 읽을 숫자**다. 예산이면 남긴 돈, 분류를 줄인
+    것이면 줄인 돈, 목표면 옮긴 돈이다. 화면이 두 값을 빼서 만들지 않게 서버가 낸다.
+    """
+
+    kind: HighlightKind
+    amount: Decimal | None
+    category_id: uuid.UUID | None
+    # 며칠인지. 안 쓴 날 종류에만 온다.
+    count: int | None
+    # 견준 지난달 금액. 분류를 줄인 종류에만 온다.
+    previous: Decimal | None
+
+
+class ClosingFlowOut(BaseModel):
+    """그 달에 돈이 어떻게 드나들었나. 남은 예산과 다른 이야기다."""
+
+    income: Decimal
+    expense: Decimal
+    # 옮긴 돈. 지출도 수입도 아니라 차액에 들어가지 않는다.
+    transfer: Decimal
+    # 수입 - 지출. 순자산도 남은 예산도 아니다.
+    delta: Decimal
+    # 그 달에 기록을 남긴 날 수. 이체만 있는 날도 센다.
+    recorded_days: int
+    total_days: int
+
+
+class ChangeOut(BaseModel):
+    """지난달보다 가장 많이 늘어난 분류. 견줄 것이 없으면 응답에서 null 이다."""
+
+    category_id: uuid.UUID
+    current: Decimal
+    previous: Decimal
+    # 이번 - 지난. 늘어난 분류만 싣기 때문에 항상 양수다.
+    delta: Decimal
+
+
+class NextOut(BaseModel):
+    """다음 달에 해 볼 것 하나. **여기에 적용 버튼은 없다.**
+
+    화면은 예산 화면으로 가는 링크만 둔다. 결산이 다음 달 예산을 대신 정해 버리면
+    사용자가 안 본 사이에 숫자가 바뀐다.
+    """
+
+    kind: NextStepKind
+    category_id: uuid.UUID
+    # 지난달 금액을 1,000원 단위로 올린 값.
+    suggested_cap: Decimal
+
+
+class ClosingOut(BaseModel):
+    """월간 결산. 카드 넉 장이 그리는 것을 한 응답에 담는다.
+
+    `is_closed` 와 `has_any_transaction` 이 둘 다 참일 때만 화면에 결산 입구가 뜬다.
+    아직 지나는 중인 달은 결산할 수 없고, 기록이 없는 달은 돌아볼 것이 없다.
+    """
+
+    period_start: date
+    period_end: date
+    is_closed: bool
+    has_any_transaction: bool
+    # 근거가 있는 것만 최대 셋. 하나도 없으면 빈 배열이고 그때 화면은 억지 칭찬을 하지 않는다.
+    highlights: list[HighlightOut]
+    flow: ClosingFlowOut
+    change: ChangeOut | None
+    next: NextOut | None
+
+
+def to_closing(period: BudgetPeriod, result: Closing) -> ClosingOut:
+    """판정 결과를 응답 형태로 옮긴다. 여기서 숫자를 새로 만들지 않는다."""
+    return ClosingOut(
+        period_start=period.start,
+        period_end=period.end,
+        is_closed=result.is_closed,
+        has_any_transaction=result.has_any_transaction,
+        highlights=[
+            HighlightOut(
+                kind=item.kind,
+                amount=_amount(item.amount),
+                category_id=_category(item.category_id),
+                count=item.count,
+                previous=_amount(item.previous),
+            )
+            for item in result.highlights
+        ],
+        flow=ClosingFlowOut(
+            income=result.flow.income.amount,
+            expense=result.flow.expense.amount,
+            transfer=result.flow.transfer.amount,
+            delta=result.flow.delta.amount,
+            recorded_days=result.flow.recorded_days,
+            total_days=result.flow.total_days,
+        ),
+        change=(
+            None
+            if result.change is None
+            else ChangeOut(
+                category_id=uuid.UUID(result.change.category_id),
+                current=result.change.current.amount,
+                previous=result.change.previous.amount,
+                delta=result.change.delta.amount,
+            )
+        ),
+        next=(
+            None
+            if result.next_step is None
+            else NextOut(
+                kind=result.next_step.kind,
+                category_id=uuid.UUID(result.next_step.category_id),
+                suggested_cap=result.next_step.suggested_cap.amount,
+            )
+        ),
+    )
+
+
+def _amount(value: Money | None) -> Decimal | None:
+    return value.amount if value is not None else None
+
+
+def _category(value: str | None) -> uuid.UUID | None:
+    return uuid.UUID(value) if value is not None else None

@@ -7,6 +7,7 @@ import { ROUTES } from '../app/router/routes';
 import { AdSlot } from '../features/ads';
 import {
   BudgetSuggestCard,
+  ClosingEntryCard,
   GoalStatusCard,
   HomeHero,
   RecoveryCard,
@@ -98,6 +99,12 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
       <RecordButton
         onClick={() => onRecord(resolveRecordTab(preferences.data?.last_record_method))}
       />
+
+      {/*
+        지난달 결산 안내. 달이 바뀐 뒤 며칠 동안, 지난달에 기록이 있고 아직 안 봤을 때만
+        스스로 나타난다. 기록 버튼 아래에 두어 오늘 할 일을 가리지 않는다.
+      */}
+      <ClosingEntryCard />
 
       {view?.showBudgetSuggestion ? <BudgetSuggestCard /> : null}
 

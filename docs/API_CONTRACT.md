@@ -603,6 +603,61 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 `has_any_transaction` 은 **그 달에** 기록이 있는지다. 합계가 0 인 것과 다르다(지출과 환불이
 맞물려 0 이 될 수 있다). 예산이 있는지와도 다르다.
 
+### 월간 결산
+
+| 메서드 | 경로 | 하는 일 |
+| --- | --- | --- |
+| GET | `/reports/closing` | 그 달 결산 카드 넉 장이 그리는 것 전부. `?year=&month=` 없으면 이번 달 |
+
+**아무것도 저장하지 않는다.** 결산을 열어 봤다는 표시는 기기에만 남는다
+(`bridge.storage` 의 `closing-seen-YYYY-MM`).
+
+```json
+{
+  "period_start": "2026-08-01",
+  "period_end": "2026-08-31",
+  "is_closed": true,
+  "has_any_transaction": true,
+  "highlights": [
+    { "kind": "within_budget", "amount": "70000", "category_id": null, "count": null, "previous": null },
+    { "kind": "category_decrease", "amount": "60000", "category_id": "…", "count": null, "previous": "300000" }
+  ],
+  "flow": {
+    "income": "3000000", "expense": "330000", "transfer": "0",
+    "delta": "2670000", "recorded_days": 12, "total_days": 31
+  },
+  "change": { "category_id": "…", "current": "90000", "previous": "47300", "delta": "42700" },
+  "next": { "kind": "category_cap", "category_id": "…", "suggested_cap": "48000" }
+}
+```
+
+**아직 지나는 중인 달과 기록이 없는 달도 200 이다.** 그때 `is_closed`·`has_any_transaction` 이
+false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린다. 404 를 쓰지 않는 이유는
+"결산할 수 없는 달" 이 오류가 아니라 정상 상태이기 때문이다.
+
+판정 규칙과 그렇게 정한 이유는 `docs/ADR/0012-closing-highlight-rules.md` 에 있다. 요약하면,
+
+| 필드 | 규칙 |
+| --- | --- |
+| `highlights` | 근거가 있는 것만 **최대 3개**. 순서는 `within_budget` → `category_decrease` → `no_spend_days` → `goal_contribution` 고정. 하나도 없으면 빈 배열 |
+| `highlights[].amount` | **그 종류의 문장이 그대로 읽을 숫자.** 예산이면 남긴 돈, 분류를 줄인 것이면 줄인 돈, 목표면 옮긴 돈 |
+| `highlights[].previous` | 견준 지난달 금액. `category_decrease` 에만 온다 |
+| `highlights[].count` | 안 쓴 날 수. `no_spend_days` 에만 온다 |
+| `flow.transfer` | 그 달에 옮긴 돈. **지출도 수입도 아니라 `delta` 에 안 들어간다** |
+| `flow.recorded_days` | 그 달에 기록을 남긴 날 수. 이체만 있는 날도 센다. 빠뜨린 날 수는 싣지 않는다 |
+| `change` | 지난달 대비 **가장 많이 늘어난** 분류 하나. 양쪽 달 모두 양수이고 증가액 > 0 일 때만. 없으면 null |
+| `next` | `change` 가 있을 때만. 그 분류의 **지난달 금액을 1,000원 단위로 올린** 한도. **적용 버튼은 없다** |
+
+⚠ **분류 비교는 예산 반영 지출(`category_budgeted_spend`)로 한다.** 다음 달에 권하는 것이
+곧 분류 한도라, 한도가 세는 것과 같은 자리를 봐야 두 화면이 안 어긋난다. 분류를 안 정한 줄은
+비교에서 뺀다. 이름 없이 "분류 없음이 늘었어요" 는 무엇을 보라는 말인지 알 수 없다.
+
+⚠ **'안 쓴 날' 은 기록이 있는데 지출이 없는 날이다.** 아예 안 적은 날은 세지 않는다.
+안 적은 날까지 세면 앱을 한 번도 안 연 달이 가장 잘한 달이 된다.
+
+⚠ **목표 기여는 거래가 아니다.** `goal_contribution` 은 그 달 목표 기여 합이고 `flow` 의
+지출·수입·차액에는 들어가지 않는다.
+
 ### 자산
 
 | 메서드 | 경로 | 하는 일 |
