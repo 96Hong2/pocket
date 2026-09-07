@@ -1,0 +1,242 @@
+/*
+  목표 화면 스펙. 색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
+  카드·시트·게이지·금액은 shared/ui 가 그리고, 여기에는 이 화면의 배치만 둔다.
+*/
+
+@layer components {
+  .goal {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+
+  /* ── 목표 카드 ──────────────────────────────────── */
+
+  .goal-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px;
+    background: var(--color-sage-50);
+    border-radius: var(--radius-card);
+  }
+
+  .goal-card__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .goal-card__title {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    /* 긴 목표 이름이 화면을 가로로 밀지 않게 줄 안에서 끊는다. */
+    overflow-wrap: anywhere;
+  }
+
+  .goal-card__sum {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+
+  .goal-card__gauge {
+    margin: 2px 0;
+  }
+
+  .goal-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+  }
+
+  .goal-facts__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .goal-facts__label {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .goal-facts__value {
+    margin: 0;
+    text-align: right;
+  }
+
+  .goal-card__eta {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  .goal-card__note {
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+    line-height: 1.5;
+  }
+
+  .goal-card__actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .goal-card__actions > * {
+    flex: 1;
+  }
+
+  .goal-card__add {
+    flex: 2;
+  }
+
+  /* ── 모은 돈 목록 ───────────────────────────────── */
+
+  .goal-log {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .goal-log__title {
+    margin: 0 2px;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .goal-log__empty {
+    margin: 0;
+    padding: 10px 2px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+  }
+
+  .goal-log__list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .goal-log__list > li + li {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .goal-log__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 6px 2px;
+  }
+
+  .goal-log__when {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .goal-log__remove {
+    flex: none;
+    min-height: 44px;
+    padding: 0 6px;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .goal-log__notice {
+    margin: 0 2px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+
+  /* ── 시트 ───────────────────────────────────────── */
+
+  .goal-sheet__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .goal-sheet__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .goal-sheet__label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .goal-sheet__input {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .goal-sheet__input::placeholder {
+    color: var(--color-placeholder);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .goal-sheet__hint {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+    line-height: 1.5;
+  }
+
+  .goal-sheet__notice {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+
+  .goal-sheet__actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .goal-sheet__actions > * {
+    flex: 1;
+  }
+
+  .goal-sheet__done {
+    flex: 2;
+  }
+}

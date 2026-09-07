@@ -43,6 +43,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | `INVALID_CATEGORY` | 422 | 내 카테고리도 기본 카테고리도 아닌 값 |
 | `INVALID_REFUND_TARGET` | 422 | 환불 대상이 내 지출이 아님 |
 | `NO_SPEND_EXISTS` | 422 | 그 날 안 썼다는 표시가 이미 있다. **다시 보내도 안 된다.** 지우고 다시 적어야 한다 |
+| `GOAL_ALREADY_ACTIVE` | 422 | 진행 중인 목표가 이미 있다. **다시 보내도 안 된다.** 먼저 마치거나 지워야 한다 |
 | `PERIOD_CLOSED` | 422 | 이미 끝난 기간의 예산을 바꾸려 함. 지난달은 보기만 된다 |
 | `USAGE_LIMIT` | 429 | 하루에 쓸 수 있는 분석을 다 썼다. 줄글·캡처·영수증이 상한을 함께 쓴다. 키패드 기록은 그대로 된다 |
 | `PARSE_UNAVAILABLE` | 503 | 지금은 읽지 못했다. 잠시 뒤 다시. 문구가 갈린다: 줄글은 '문장을', 캡처는 '캡처를', 영수증은 '영수증을' |
@@ -612,10 +613,87 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 ⚠ **`net_worth` 를 남은 예산·이번 달 차액과 한 숫자로 합치지 않는다.** 답하는 질문이 다르다
 (`docs/DATA_MODEL.md` 의 「세 금액 개념이 왜 따로인가」).
 
+### 목표
+
+| 메서드 | 경로 | 하는 일 |
+| --- | --- | --- |
+| GET | `/goals` | 진행 중인 목표 하나. 없으면 `goal: null` |
+| POST | `/goals` | 목표를 만든다. 진행 중인 목표가 이미 있으면 422 |
+| PATCH | `/goals/{id}` | 보낸 필드만 고친다 |
+| DELETE | `/goals/{id}` | 목표를 접는다. 204 |
+| POST | `/goals/{id}/contributions` | 모은 돈 한 번을 남긴다 |
+| DELETE | `/goals/{id}/contributions/{cid}` | 모은 돈 한 줄을 지운다. 204 |
+
+```json
+{
+  "goal": {
+    "id": "…",
+    "title": "제주도 여행",
+    "target_amount": "5000000",
+    "target_date": "2026-12-31",
+    "initial_amount": "1200000",
+    "status": "active",
+    "current_amount": "1200000",
+    "remaining": "3800000",
+    "progress": "0.2400",
+    "is_achieved": false,
+    "is_overdue": false,
+    "months_left": 4,
+    "required_monthly_saving": "950000",
+    "eta_months": null,
+    "monthly_pace": null,
+    "contributions": []
+  }
+}
+```
+
+**목표를 정하지 않은 것은 정상 상태다.** 조회는 404 가 아니라 200 에 `goal: null` 로 답한다.
+쓰기 응답(POST·PATCH·기여 POST)도 모두 이 모양이라 화면이 받은 것을 그대로 캐시에 넣는다.
+
+**진행 중인 목표는 하나다.** 두 번째를 만들려 하면 `GOAL_ALREADY_ACTIVE` 다. 서비스가 먼저
+막고 부분 유니크 인덱스(`status = 'active' AND deleted_at IS NULL`)가 마지막을 막는다.
+접은 목표는 조회에 오지 않으므로 **지운 뒤에는 새 목표를 만들 수 있다.**
+
+**목표액에 닿아도 `status` 는 `active` 로 남는다.** 달성은 금액을 견줘 그때그때 판정하는
+계산값(`is_achieved`)이다. 상태로 굳히면 기여 한 건을 지워 다시 모자라게 된 목표가
+진행 중인 목표 조회에서 사라져 화면에서 통째로 없어진다.
+
+계산값의 정의(전부 `app/domain/goals.py`).
+
+| 필드 | 정의 |
+| --- | --- |
+| `current_amount` | `initial_amount` + 살아 있는 기여 합 |
+| `remaining` | `target_amount - current_amount`. 넘겼으면 0(음수로 두지 않는다) |
+| `progress` | `current_amount / target_amount`. 0~1 이고 넘겨도 1 에서 멈춘다 |
+| `months_left` | 이번 달을 포함해 기한까지 남은 달 수. 기한이 없으면 null, 지났으면 0 |
+| `required_monthly_saving` | `remaining ÷ months_left`(올림). 기한이 없거나 이미 닿았으면 null |
+| `monthly_pace` | `기여 합 ÷ 첫 기여 달부터 이번 달까지의 달 수`(양쪽 끝 포함, 최소 1, 내림). 기여가 없으면 null |
+| `eta_months` | `remaining ÷ monthly_pace`(올림). 페이스가 없거나 0 이면 null |
+
+⚠ **없는 값을 0 으로 채우지 않는다.** 기한이 없으면 매달 얼마씩이라는 말을 만들 수 없고,
+기여가 한 번도 없으면 언제 닿는지도 알 수 없다. 화면은 그 줄을 통째로 뺀다.
+
+| 필드 | 규칙 |
+| --- | --- |
+| `title` | 60자까지. 공백만 보내면 422 |
+| `target_amount` | 원 단위 정수, 1원 이상 14자리까지. 0원은 진행률의 분모가 되지 못한다 |
+| `target_date` | 선택. **PATCH 에서 `null` 을 보내면 기한을 지운다**(필드를 빼는 것과 다르다) |
+| `initial_amount` | 원 단위 정수, 0 이상. 안 보내면 0 |
+| `contributions[].amount` | 원 단위 정수, 1원 이상 |
+| `contributions[].occurred_on` | 안 보내면 사용자 시간대의 오늘 |
+
+`contributions` 는 최근 날짜가 앞이고, 같은 날이면 나중에 적은 것이 위다. 순서를 못 박지
+않으면 목록을 다시 받을 때마다 줄이 뒤바뀌어 지우려던 줄이 다른 줄로 바뀐다.
+
+⚠ **모은 돈은 거래가 아니다.** `goal_contributions` 에만 쌓이고 지출·수입 집계와 예산에는
+영향이 없다. 목표에 돈을 더해도 남은 예산은 그대로다.
+
 ## 아직 없는 것
 
-- 목표 엔드포인트. 도메인 계산과 데이터 모델은 준비돼 있어 라우터만 붙이면 된다.
-  `backend/app/modules/goals/` 가 자리만 잡혀 있다.
+- **여러 목표.** 진행 중인 목표는 하나뿐이고, 접은 목표를 다시 꺼내 보는 화면도 없다.
+  그래서 목표 목록 경로를 두지 않았다.
+- **자산 스냅샷에서 목표 기여를 자동으로 끌어오기.** 모델에 `asset_snapshot` 출처가
+  있지만 그 경로를 만들지 않았다. 지금 기여는 전부 직접 적은 것(`manual`)이다.
 - **자산 캡처로 채우기.** `PUT /assets` 는 직접 입력만 받는다(`source: manual`). 모델에는
   `screenshot` 값이 있지만 그 경로를 만들지 않았다.
 - **순자산 추이.** 스냅샷을 날짜로 쌓아 두지만 조회는 가장 최근 하나뿐이다.

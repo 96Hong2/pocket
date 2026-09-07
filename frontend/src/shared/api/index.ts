@@ -19,6 +19,7 @@ export {
   useBudget,
   useCalendar,
   useCategories,
+  useGoal,
   useMerchantRules,
   usePreferences,
   useMonthlyReport,
@@ -27,14 +28,18 @@ export {
   useTransactions,
 } from './queries';
 export {
+  useAddGoalContribution,
   useAnalyzeImage,
   useAnalyzeText,
   useCommitImport,
   useCreateCategory,
+  useCreateGoal,
   useCreateTransaction,
   useDeleteBudget,
   useDeleteCategory,
   useDeleteCategoryBudget,
+  useDeleteGoal,
+  useDeleteGoalContribution,
   useDeleteImport,
   useDeleteMerchantRule,
   useDeleteTransaction,
@@ -45,6 +50,7 @@ export {
   useSavePreferences,
   useUndoTransaction,
   useUpdateCategory,
+  useUpdateGoal,
   useUpdateTransaction,
 } from './mutations';
 export { createTransport } from './transport';

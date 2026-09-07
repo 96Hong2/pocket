@@ -4,6 +4,7 @@ import { AppShell } from '../screens/AppShell';
 import { AssetsScreen } from '../screens/AssetsScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { CategoriesScreen } from '../screens/CategoriesScreen';
+import { GoalScreen } from '../screens/GoalScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ManageScreen } from '../screens/ManageScreen';
 import { ReportScreen } from '../screens/ReportScreen';
@@ -39,6 +40,8 @@ interface PocketFixtures {
   settings: SettingsScreen;
   /** 자산. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
   assets: AssetsScreen;
+  /** 목표. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
+  goal: GoalScreen;
   /** 확인하려는 동작의 배경 상태를 심는다. 브라우저와 같은 익명키를 쓴다. */
   prep: PrepApi;
 }
@@ -86,6 +89,10 @@ export const test = base.extend<PocketFixtures>({
 
   assets: async ({ page }, use) => {
     await use(new AssetsScreen(page));
+  },
+
+  goal: async ({ page }, use) => {
+    await use(new GoalScreen(page));
   },
 
   prep: async ({ anonKey }, use) => {

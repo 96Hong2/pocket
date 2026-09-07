@@ -377,6 +377,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Show */
+        get: operations["show_api_v1_goals_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_goals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Destroy
+         * @description 목표를 접는다. 지우고 나면 새 목표를 만들 수 있다.
+         */
+        delete: operations["destroy_api_v1_goals__goal_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update
+         * @description 보낸 필드만 고친다. `target_date: null` 은 기한을 지운다는 뜻이다.
+         */
+        patch: operations["update_api_v1_goals__goal_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/contributions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Contribution */
+        post: operations["add_contribution_api_v1_goals__goal_id__contributions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/contributions/{contribution_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Contribution
+         * @description 모은 돈 한 줄을 지운다. 지우는 응답은 다른 자원과 같게 본문이 없다.
+         */
+        delete: operations["remove_contribution_api_v1_goals__goal_id__contributions__contribution_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -716,7 +795,7 @@ export interface components {
          * @description 오류 code 의 유일한 정의. docs/API_CONTRACT.md 의 표가 이 값을 설명한다.
          * @enum {string}
          */
-        ErrorCode: "UNAUTHORIZED" | "VERIFY_UNAVAILABLE" | "NOT_FOUND" | "UNDO_EXPIRED" | "CONFLICT" | "DUPLICATE_CATEGORY" | "INVALID_REQUEST" | "INVALID_CATEGORY" | "INVALID_REFUND_TARGET" | "NO_SPEND_EXISTS" | "PERIOD_CLOSED" | "USAGE_LIMIT" | "PARSE_UNAVAILABLE" | "HTTP_ERROR" | "INTERNAL_ERROR";
+        ErrorCode: "UNAUTHORIZED" | "VERIFY_UNAVAILABLE" | "NOT_FOUND" | "UNDO_EXPIRED" | "CONFLICT" | "DUPLICATE_CATEGORY" | "INVALID_REQUEST" | "INVALID_CATEGORY" | "INVALID_REFUND_TARGET" | "NO_SPEND_EXISTS" | "GOAL_ALREADY_ACTIVE" | "PERIOD_CLOSED" | "USAGE_LIMIT" | "PARSE_UNAVAILABLE" | "HTTP_ERROR" | "INTERNAL_ERROR";
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
@@ -764,6 +843,131 @@ export interface components {
             /** Achievement No Spend Days */
             achievement_no_spend_days?: number | null;
         };
+        /**
+         * GoalContributionCreate
+         * @description 모은 돈 한 번. 날짜를 안 주면 사용자 시간대의 오늘이다.
+         */
+        GoalContributionCreate: {
+            /**
+             * Amount
+             * @description 원 단위 정수. 1원 이상
+             */
+            amount: number | string;
+            /** Occurred On */
+            occurred_on?: string | null;
+        };
+        /**
+         * GoalContributionOut
+         * @description 모은 돈 한 줄. 최근 것이 앞에 온다.
+         */
+        GoalContributionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Amount */
+            amount: string;
+        };
+        /**
+         * GoalCreate
+         * @description 목표 하나 만들기. 진행 중인 목표가 이미 있으면 서버가 막는다.
+         */
+        GoalCreate: {
+            /** Title */
+            title: string;
+            /**
+             * Target Amount
+             * @description 원 단위 정수. 1원 이상
+             */
+            target_amount: number | string;
+            /** Target Date */
+            target_date?: string | null;
+            /**
+             * Initial Amount
+             * @default 0
+             */
+            initial_amount: number | string;
+        };
+        /**
+         * GoalOut
+         * @description 목표 화면과 홈 카드가 그리는 것 전부.
+         *
+         *     계산값은 전부 `app.domain.goals` 가 낸다. 화면은 이 값을 그대로 그리고,
+         *     `목표 - 모은 돈` 처럼 스스로 다시 계산하지 않는다.
+         */
+        GoalOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Target Amount */
+            target_amount: string;
+            /** Target Date */
+            target_date: string | null;
+            /** Initial Amount */
+            initial_amount: string;
+            status: components["schemas"]["GoalStatus"];
+            /** Current Amount */
+            current_amount: string;
+            /** Remaining */
+            remaining: string;
+            /** Progress */
+            progress: string;
+            /** Is Achieved */
+            is_achieved: boolean;
+            /** Is Overdue */
+            is_overdue: boolean;
+            /** Months Left */
+            months_left: number | null;
+            /** Required Monthly Saving */
+            required_monthly_saving: string | null;
+            /** Eta Months */
+            eta_months: number | null;
+            /** Monthly Pace */
+            monthly_pace: string | null;
+            /** Contributions */
+            contributions: components["schemas"]["GoalContributionOut"][];
+        };
+        /**
+         * GoalPatch
+         * @description 보낸 필드만 고친다.
+         *
+         *     **필드를 빼는 것과 null 을 보내는 것이 다르다.** 빼면 그대로 두고, `target_date: null`
+         *     은 기한을 지운다는 뜻이다. 기한이 있는 목표에서 기한만 없애는 길이 그것뿐이다.
+         */
+        GoalPatch: {
+            /** Title */
+            title?: string | null;
+            /** Target Amount */
+            target_amount?: number | string | null;
+            /** Target Date */
+            target_date?: string | null;
+            /** Initial Amount */
+            initial_amount?: number | string | null;
+        };
+        /**
+         * GoalStateOut
+         * @description 목표 조회·저장 응답.
+         *
+         *     진행 중인 목표가 없는 것은 정상 상태다. 404 가 아니라 200 에 `goal: null` 로 답한다.
+         */
+        GoalStateOut: {
+            goal: components["schemas"]["GoalOut"] | null;
+        };
+        /**
+         * GoalStatus
+         * @enum {string}
+         */
+        GoalStatus: "active" | "achieved" | "archived";
         /**
          * HomeHero
          * @enum {string}
@@ -3677,6 +3881,533 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AssetsOut"];
                 };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    show_api_v1_goals_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalStateOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_api_v1_goals_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalStateOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    destroy_api_v1_goals__goal_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    update_api_v1_goals__goal_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalStateOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    add_contribution_api_v1_goals__goal_id__contributions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalContributionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalStateOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    remove_contribution_api_v1_goals__goal_id__contributions__contribution_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                goal_id: string;
+                contribution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description 식별키가 없거나 검증에 실패 */
             401: {

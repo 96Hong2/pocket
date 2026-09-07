@@ -18,8 +18,9 @@ test('관리 탭에서 자산으로 들어가면 빈 상태가 있다', async ({
   await manage.open();
   await manage.waitReady();
 
-  // 자산이 실물 화면이 되면서 관리 탭에 입구가 생겼다. 목표·알림은 아직 자리표시자다.
+  // 자산이 실물 화면이 되면서 관리 탭에 입구가 생겼다. 알림 설정은 아직 자리표시자다.
   await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText([
+    '목표',
     '자산',
     '카테고리 관리',
     '앱 설정',

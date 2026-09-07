@@ -85,6 +85,20 @@ export type AssetSummaryOut = Schemas['AssetSummaryOut'];
 export type AssetGroupTotalOut = Schemas['AssetGroupTotalOut'];
 export type AssetGroup = Schemas['AssetGroup'];
 
+// ── 목표 ──────────────────────────────────────
+/** 목표 조회·저장 응답. 진행 중인 목표가 없으면 `goal` 이 null 이고 그것이 정상이다. */
+export type GoalStateOut = Schemas['GoalStateOut'];
+/** 목표 하나. 남은 금액·진행률·필요 월저축액·도달 예상까지 서버가 센 값이 함께 온다. */
+export type GoalOut = Schemas['GoalOut'];
+export type GoalCreate = Schemas['GoalCreate'];
+export type GoalPatch = Schemas['GoalPatch'];
+/** 모은 돈 한 줄. 최근 것이 앞에 온다. */
+export type GoalContributionOut = Schemas['GoalContributionOut'];
+/** 모은 돈 한 번. 날짜를 안 보내면 서버가 가계부 기준 오늘로 남긴다. */
+export type GoalContributionCreate = Schemas['GoalContributionCreate'];
+/** 목표의 상태. 접은 목표는 조회에 오지 않는다. */
+export type GoalStatus = Schemas['GoalStatus'];
+
 // ── 설정 ──────────────────────────────────────
 export type PreferencesOut = Schemas['PreferencesOut'];
 export type PreferencesPatch = Schemas['PreferencesPatch'];

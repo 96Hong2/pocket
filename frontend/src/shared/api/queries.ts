@@ -180,3 +180,21 @@ export function useMerchantRules() {
     enabled: isReady,
   });
 }
+
+/**
+ * 진행 중인 목표 하나.
+ *
+ * 목표를 정하지 않은 것은 정상이고 그때 `goal` 이 null 이다. 오류가 아니다.
+ * 홈 카드와 목표 화면이 같은 조회를 본다. 두 곳이 각자 부르면 기여를 더한 직후
+ * 한쪽만 새 값이 되어, 홈 게이지와 목표 화면 게이지가 서로 다른 말을 한다.
+ */
+export function useGoal() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.goal(),
+    queryFn: ({ signal }) => client.getGoal({ signal }),
+    enabled: isReady,
+  });
+}

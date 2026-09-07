@@ -102,9 +102,9 @@ test('18 시스템 뒤로가기는 한 단씩 부모 화면으로 올라간다',
   await demo.clearStep();
   await demo.beat(2);
 
-  await demo.step('아직 앱 안에 입구가 없는 목표 화면을 주소로 바로 연다');
+  await demo.step('이번에는 목표 화면을 주소로 바로 연다. 관리 탭을 거치지 않고 들어온 자리다');
   await appShell.open(ROUTES.goal);
-  await appShell.expectScreen('목표', 'P1 화면이에요. 지금은 자리만 잡아 뒀어요');
+  await appShell.expectScreen('목표', '모으고 싶은 것 하나만 정해요');
   await appShell.expectTabsHidden();
   await demo.beat(2);
 

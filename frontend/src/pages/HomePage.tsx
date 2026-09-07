@@ -7,6 +7,7 @@ import { ROUTES } from '../app/router/routes';
 import { AdSlot } from '../features/ads';
 import {
   BudgetSuggestCard,
+  GoalStatusCard,
   HomeHero,
   RecoveryCard,
   TodayList,
@@ -21,6 +22,7 @@ import { DEFAULT_RECORD_TAB, resolveRecordTab } from '../features/quick-record/r
 import {
   useBudget,
   useCategories,
+  useGoal,
   usePreferences,
   useTransactions,
   type TransactionOut,
@@ -50,6 +52,7 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
   const categories = useCategories();
   const transactions = useTransactions();
   const preferences = usePreferences();
+  const goal = useGoal();
 
   // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다.
   // 아직 오는 중일 때만 기다리게 하고, 실패·미지원은 위 안내가 이유를 말한다.
@@ -97,6 +100,12 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
       />
 
       {view?.showBudgetSuggestion ? <BudgetSuggestCard /> : null}
+
+      {/*
+        목표가 있을 때만 그린다. 조회가 실패하면 이 자리를 비우고 오류 자리를 만들지 않는다.
+        홈에서 할 일은 기록이고, 목표는 곁들여 보는 값이다.
+      */}
+      {goal.data?.goal != null ? <GoalStatusCard goal={goal.data.goal} /> : null}
 
       <TodayList
         transactions={transactions.data?.items ?? []}

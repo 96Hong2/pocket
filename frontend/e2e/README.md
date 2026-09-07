@@ -19,7 +19,7 @@ e2e/
   fixtures/    테스트가 쓰는 파일. 지금은 사진용 PNG 한 장(capture.png). 캡처와 영수증이 함께 쓴다
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
-    HomeScreen       홈. 안쪽을 hero·today·budget·ads·recovery 로 나눠 들고 있다
+    HomeScreen       홈. 안쪽을 hero·today·budget·goal·ads·recovery 로 나눠 들고 있다
                      today 의 안 쓴 날 줄은 빈 상태 버튼과 글자가 같아, 줄 안의 취소 버튼에서
                      부모로 한 칸 올라가 잡는다(둘은 함께 그려지지 않는다)
     RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글)·capture(캡처)·receipt(영수증) 다섯이다
@@ -30,6 +30,7 @@ e2e/
     CategoriesScreen 카테고리 관리 화면. 기본·내 것 두 구획과 기억한 분류 목록을 함께 들고 있다
     SettingsScreen   앱 설정 화면. 홈 표시 방식과 개인정보 안내
     AssetsScreen     자산 화면. 순자산 카드·그룹 구획 넷·항목 시트를 한 화면이 들고 있다
+    GoalScreen       목표 화면. 목표 카드·모은 돈 목록·시트 둘(목표·기여)을 한 화면이 들고 있다
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
   specs/       테스트. 무엇을 확인하는지만 읽히게 쓴다. 매번 돌린다
   edge/        엣지케이스. 경계값·실패 주입·심사 항목. 출시 전과 크게 고친 뒤에만 돌린다
@@ -49,21 +50,26 @@ e2e/
 
 `PrepApi` 로 심을 수 있는 것.
 
-| 부르는 것                                                                        | 심는 것                                        |
-| -------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `addTransaction` · `addSeries` · `addExpense`                                    | 거래. 종류·가맹점·예산 제외·며칠 전까지 정한다 |
-| `setBudget(금액, 달?)` · `deleteBudget(달?)`                                     | 전체 예산. 달을 빼면 이번 달이다               |
-| `setCategoryBudget(카테고리, 금액, 달?)` · `deleteCategoryBudget(카테고리, 달?)` | 카테고리 예산                                  |
-| `setAutoCarryover(켬)`                                                           | 다음 달로 예산을 이어 쓸지                     |
-| `setHomeHero(방식)`                                                              | 홈 맨 위에 무엇을 크게 보여줄지                |
-| `addCategory(이름, 아이콘?)`                                                     | 카테고리 하나. 만들어진 id 를 돌려준다         |
-| `saveNoSpend(날?)`                                                               | 안 쓴 날 표시. 성공을 단언하지 않고 결과를 돌려준다 |
-| `putAssets(항목들)`                                                              | 자산 목록. 서버 저장이 PUT 하나라 통째로 보낸다 |
-| `categoryIdByName`                                                               | 이름으로 카테고리 id 찾기                      |
+| 부르는 것                                                                        | 심는 것                                                         |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `addTransaction` · `addSeries` · `addExpense`                                    | 거래. 종류·가맹점·예산 제외·며칠 전까지 정한다                  |
+| `setBudget(금액, 달?)` · `deleteBudget(달?)`                                     | 전체 예산. 달을 빼면 이번 달이다                                |
+| `setCategoryBudget(카테고리, 금액, 달?)` · `deleteCategoryBudget(카테고리, 달?)` | 카테고리 예산                                                   |
+| `setAutoCarryover(켬)`                                                           | 다음 달로 예산을 이어 쓸지                                      |
+| `setHomeHero(방식)`                                                              | 홈 맨 위에 무엇을 크게 보여줄지                                 |
+| `addCategory(이름, 아이콘?)`                                                     | 카테고리 하나. 만들어진 id 를 돌려준다                          |
+| `saveNoSpend(날?)`                                                               | 안 쓴 날 표시. 성공을 단언하지 않고 결과를 돌려준다             |
+| `putAssets(항목들)`                                                              | 자산 목록. 서버 저장이 PUT 하나라 통째로 보낸다                 |
+| `setGoal(목표)`                                                                  | 목표 하나. 만들어진 id 를 돌려준다                              |
+| `trySetGoal(목표)`                                                               | 목표 만들기를 시도만 한다. 성공을 단언하지 않고 결과를 돌려준다 |
+| `addContribution(목표id, 모은돈)`                                                | 목표에 모은 돈 한 번                                            |
+| `categoryIdByName`                                                               | 이름으로 카테고리 id 찾기                                       |
 
-`saveNoSpend` 만 예외적으로 `{ status, code }` 를 돌려준다. 화면은 오늘 기록이 하나도 없을 때만
-'오늘은 안 썼어요' 를 보여주므로 **같은 날 두 번 보내는 것을 화면으로는 만들 수 없다.**
-서버가 두 번째를 422 `NO_SPEND_EXISTS` 로 막는지 확인하는 자리라 실패를 그대로 받아야 한다.
+`saveNoSpend` 와 `trySetGoal` 만 예외적으로 `{ status, code }` 를 돌려준다. 화면은 오늘 기록이
+하나도 없을 때만 '오늘은 안 썼어요' 를 보여주고, 진행 중인 목표가 있으면 만들기 입구를 아예
+지운다. 그래서 **같은 날 두 번 보내는 것도, 두 번째 목표를 만드는 것도 화면으로는 만들 수 없다.**
+서버가 그것을 422(`NO_SPEND_EXISTS` · `GOAL_ALREADY_ACTIVE`)로 막는지 확인하는 자리라
+실패를 그대로 받아야 한다.
 
 달은 `2026-08` 모양이고, `thisMonth()`·`lastMonth()` 로 얻는다. 기기 시간대로 만들지 않는다.
 지난달 예산은 이어쓰기를 보려고 심는다. 끝난 기간의 쓰기는 제품 규칙이 막아 두므로
@@ -107,7 +113,7 @@ e2e/
 - 같은 절차를 **spec 2개**가 복붙하면 그때 `screens/` 의 메서드로 올린다. 1개면 spec 안에 둔다.
 - 화면 객체의 메서드가 **10개**를 넘으면 화면 안의 영역을 별도 객체로 쪼갠다.
   실제로 두 번 쪼갰다. `RecordSheet` 는 저장 전후와 입력 방법이 달라 `input`·`feedback`·`nl`·`capture` 로,
-  `HomeScreen` 은 카드가 쌓인 화면이라 `hero`·`today`·`budget`·`ads`·`recovery` 로 나눴다.
+  `HomeScreen` 은 카드가 쌓인 화면이라 `hero`·`today`·`budget`·`goal`·`ads`·`recovery` 로 나눴다.
   쪼갠 뒤에도 파일은 하나다. 한 화면을 여러 파일로 흩으면 어디를 봐야 할지 알 수 없어진다.
 - 하나의 절차가 **화면 3개**를 가로지르면 그때 `flows/` 를 새로 만든다. 지금은 없다. 미리 만들지 않는다.
 - `support/` 헬퍼는 **spec 2개**가 쓸 때 올린다. 한 spec 만 쓰는 헬퍼는 그 spec 파일 안에 둔다.

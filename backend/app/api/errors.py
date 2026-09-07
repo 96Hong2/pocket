@@ -55,6 +55,8 @@ class ErrorCode(StrEnum):
     INVALID_REFUND_TARGET = "INVALID_REFUND_TARGET"
     # 그 날 무지출일 표시가 이미 있는 것. 다시 보내도 영영 안 되므로 CONFLICT 와 따로 둔다.
     NO_SPEND_EXISTS = "NO_SPEND_EXISTS"
+    # 진행 중인 목표가 이미 있는 것. 목표는 하나뿐이라 먼저 마치거나 지워야 한다.
+    GOAL_ALREADY_ACTIVE = "GOAL_ALREADY_ACTIVE"
     PERIOD_CLOSED = "PERIOD_CLOSED"
     USAGE_LIMIT = "USAGE_LIMIT"
     PARSE_UNAVAILABLE = "PARSE_UNAVAILABLE"

@@ -20,6 +20,10 @@ import type {
   CategoryListOut,
   CategoryOut,
   CategoryUpdate,
+  GoalContributionCreate,
+  GoalCreate,
+  GoalPatch,
+  GoalStateOut,
   ImportBatchOut,
   ImportCandidatePatch,
   ImportCommitOut,
@@ -79,6 +83,7 @@ const PATHS = {
   imports: '/api/v1/imports',
   merchantRules: '/api/v1/merchant-rules',
   assets: '/api/v1/assets',
+  goals: '/api/v1/goals',
 } as const;
 
 function transactionPath(id: string): string {
@@ -99,6 +104,14 @@ function importPath(batchId: string): string {
 
 function candidatePath(batchId: string, candidateId: string): string {
   return `${importPath(batchId)}/candidates/${encodeURIComponent(candidateId)}`;
+}
+
+function goalPath(goalId: string): string {
+  return `${PATHS.goals}/${encodeURIComponent(goalId)}`;
+}
+
+function contributionPath(goalId: string, contributionId: string): string {
+  return `${goalPath(goalId)}/contributions/${encodeURIComponent(contributionId)}`;
 }
 
 function monthQuery(params?: MonthParams): RequestSpec['query'] {
@@ -188,6 +201,31 @@ export interface ApiClient extends Transport {
    * 목록을 못 받은 상태에서 부르면 나머지 줄이 사라진다.
    */
   saveAssets(body: AssetSnapshotPut, options?: CallOptions): Promise<AssetsOut>;
+
+  /** 진행 중인 목표 하나. 없으면 `goal` 이 null 이다. 오류가 아니다. */
+  getGoal(options?: CallOptions): Promise<GoalStateOut>;
+  /** 목표 만들기. 진행 중인 목표가 이미 있으면 422 `GOAL_ALREADY_ACTIVE` 다. */
+  createGoal(body: GoalCreate, options?: CallOptions): Promise<GoalStateOut>;
+  /**
+   * 목표 고치기. 보낸 필드만 바뀐다.
+   *
+   * `target_date: null` 을 보내면 기한이 없어진다. 필드를 빼는 것과 다르다.
+   */
+  updateGoal(goalId: string, body: GoalPatch, options?: CallOptions): Promise<GoalStateOut>;
+  /** 목표 접기. 접고 나면 새 목표를 만들 수 있다. 없어도 404 라 두 번 부르지 않는다. */
+  deleteGoal(goalId: string, options?: CallOptions): Promise<void>;
+  /** 모은 돈 한 번 남기기. 응답은 조회와 같은 모양이라 그대로 캐시에 넣는다. */
+  addGoalContribution(
+    goalId: string,
+    body: GoalContributionCreate,
+    options?: CallOptions,
+  ): Promise<GoalStateOut>;
+  /** 모은 돈 한 줄 지우기. 본문 없는 204 로 온다. */
+  deleteGoalContribution(
+    goalId: string,
+    contributionId: string,
+    options?: CallOptions,
+  ): Promise<void>;
 }
 
 export function createApiClient(options: TransportOptions): ApiClient {
@@ -454,6 +492,57 @@ export function createApiClient(options: TransportOptions): ApiClient {
         method: 'PUT',
         path: PATHS.assets,
         body,
+        signal: call?.signal,
+      });
+    },
+
+    getGoal(call) {
+      return transport.request<GoalStateOut>({
+        method: 'GET',
+        path: PATHS.goals,
+        signal: call?.signal,
+      });
+    },
+
+    createGoal(body, call) {
+      return transport.request<GoalStateOut>({
+        method: 'POST',
+        path: PATHS.goals,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    updateGoal(goalId, body, call) {
+      return transport.request<GoalStateOut>({
+        method: 'PATCH',
+        path: goalPath(goalId),
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    deleteGoal(goalId, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: goalPath(goalId),
+        signal: call?.signal,
+      });
+    },
+
+    addGoalContribution(goalId, body, call) {
+      return transport.request<GoalStateOut>({
+        method: 'POST',
+        path: `${goalPath(goalId)}/contributions`,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    deleteGoalContribution(goalId, contributionId, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: contributionPath(goalId, contributionId),
         signal: call?.signal,
       });
     },

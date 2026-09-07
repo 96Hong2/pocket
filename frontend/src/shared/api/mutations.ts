@@ -25,6 +25,10 @@ import type {
   BudgetUpsert,
   CategoryCreate,
   CategoryUpdate,
+  GoalContributionCreate,
+  GoalCreate,
+  GoalPatch,
+  GoalStateOut,
   PeriodSummaryOut,
   PreferencesOut,
   ImportBatchOut,
@@ -378,5 +382,80 @@ export function useSaveAssets() {
     onSuccess: (assets) => {
       queryClient.setQueryData<AssetsOut>(queryKeys.assets(), assets);
     },
+  });
+}
+
+/**
+ * 목표를 만들고 고치고 접는 것, 모은 돈을 더하고 지우는 것이 화면을 맞추는 방법.
+ *
+ * 응답이 조회와 같은 모양인 쪽은 그대로 캐시에 넣는다. 게이지와 남은 금액이 왕복 없이
+ * 그 자리에서 맞는다. 204 로 오는 쪽(접기·기여 지우기)은 넣을 값이 없어 다시 받는다.
+ *
+ * `moneyQueryKeys` 는 건드리지 않는다. 목표에 돈을 더해도 남은 예산은 달라지지 않는다.
+ * 모은 돈은 거래가 아니라 목표 안에서만 세는 값이다.
+ */
+function writeGoal(queryClient: QueryClient, state: GoalStateOut): void {
+  queryClient.setQueryData<GoalStateOut>(queryKeys.goal(), state);
+}
+
+function invalidateGoal(queryClient: QueryClient): Promise<void> {
+  return queryClient.invalidateQueries({ queryKey: queryKeys.goal() });
+}
+
+/** 목표 만들기. 진행 중인 목표가 이미 있으면 서버가 422 로 막는다. */
+export function useCreateGoal() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: GoalCreate): Promise<GoalStateOut> => client.createGoal(body),
+    onSuccess: (state) => writeGoal(queryClient, state),
+  });
+}
+
+/** 목표 고치기. 보낸 필드만 바뀐다. `target_date: null` 은 기한을 지운다는 뜻이다. */
+export function useUpdateGoal() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { goalId: string; body: GoalPatch }): Promise<GoalStateOut> =>
+      client.updateGoal(input.goalId, input.body),
+    onSuccess: (state) => writeGoal(queryClient, state),
+  });
+}
+
+/** 목표 접기. 204 라 돌려받는 값이 없어 다시 받아 빈 상태로 돌아간다. */
+export function useDeleteGoal() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (goalId: string) => client.deleteGoal(goalId),
+    onSuccess: () => invalidateGoal(queryClient),
+  });
+}
+
+/** 모은 돈 더하기. 응답이 조회와 같은 모양이라 그대로 캐시에 넣는다. */
+export function useAddGoalContribution() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { goalId: string; body: GoalContributionCreate }): Promise<GoalStateOut> =>
+      client.addGoalContribution(input.goalId, input.body),
+    onSuccess: (state) => writeGoal(queryClient, state),
+  });
+}
+
+/** 모은 돈 한 줄 지우기. 204 라 다시 받아 맞춘다. */
+export function useDeleteGoalContribution() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { goalId: string; contributionId: string }) =>
+      client.deleteGoalContribution(input.goalId, input.contributionId),
+    onSuccess: () => invalidateGoal(queryClient),
   });
 }

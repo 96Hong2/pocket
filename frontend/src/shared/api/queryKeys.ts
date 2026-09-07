@@ -43,6 +43,14 @@ export const queryKeys = {
    */
   assets: () => [ROOT, 'assets'] as const,
 
+  /**
+   * 진행 중인 목표 하나. 달과 무관하다.
+   *
+   * 자산과 같은 이유로 `moneyQueryKeys` 에 넣지 않는다. 거래를 저장해도 목표는 달라지지
+   * 않고, 목표에 돈을 더해도 남은 예산은 달라지지 않는다. 모은 돈은 거래가 아니다.
+   */
+  goal: () => [ROOT, 'goal'] as const,
+
   /** 달을 가리지 않는 예산 전부. 무효화할 때 쓴다. */
   budgets: () => [ROOT, 'budget'] as const,
   budget: (params?: MonthParams) => [ROOT, 'budget', monthPart(params)] as const,

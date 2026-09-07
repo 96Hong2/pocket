@@ -25,6 +25,8 @@ export class HomeScreen {
   readonly edit: EditSheetArea;
   /** 예산 제안 카드. 첫 기록을 마쳐야 뜬다. */
   readonly budget: BudgetCard;
+  /** 목표 카드. 진행 중인 목표가 있을 때만 뜬다. */
+  readonly goal: HomeGoalCard;
   /** 광고 자리. */
   readonly ads: AdArea;
   /** 며칠 비웠을 때 뜨는 복귀 카드. */
@@ -36,6 +38,7 @@ export class HomeScreen {
     this.today = new TodaySection(page);
     this.edit = new EditSheetArea(page);
     this.budget = new BudgetCard(page);
+    this.goal = new HomeGoalCard(page);
     this.ads = new AdArea(page);
     this.recovery = new RecoveryCard(page);
   }
@@ -328,6 +331,43 @@ class BudgetCard {
     await this.saveButton.click();
     // 저장이 끝나면 히어로가 남은 예산 모드로 바뀐다.
     await expect(this.page.getByTestId(TEST_IDS.remainingBudget)).toBeVisible();
+  }
+}
+
+/**
+ * 홈의 목표 카드. 진행 중인 목표가 있을 때만 뜬다.
+ *
+ * 카드 전체가 목표 화면으로 가는 링크다. 링크 이름 끝에 갈 곳이 덧붙어 있어
+ * 그것으로 집는다. 안쪽 숫자에는 testid 를 두지 않았다. 같은 값을 목표 화면이 크게
+ * 그리고 있어서, 여기서 다시 재면 어느 화면을 보는 검사인지 흐려진다.
+ */
+class HomeGoalCard {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  get link(): Locator {
+    return this.page.getByRole('link', { name: /목표 자세히 보기$/ });
+  }
+
+  /** 카드에 적힌 목표 이름. 어느 목표인지는 부르는 쪽이 안다. */
+  title(name: string): Locator {
+    return this.link.getByText(name, { exact: true });
+  }
+
+  /** 카드 오른쪽 한 줄. 남은 금액이거나 다 모았다는 말이다. */
+  get foot(): Locator {
+    return this.link.getByText(/^(남은 .+원|다 모았어요)$/);
+  }
+
+  /** 게이지가 스크린리더에 알리는 진행률(%). 카드가 없으면 null. */
+  async gaugePercent(): Promise<number | null> {
+    const gauge = this.link.getByRole('progressbar', { name: '목표 진행률' });
+    if ((await gauge.count()) === 0) return null;
+    const value = await gauge.getAttribute('aria-valuenow');
+    return value == null ? null : Number(value);
   }
 }
 

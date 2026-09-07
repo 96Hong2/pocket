@@ -87,6 +87,17 @@ export const TEST_IDS = {
   /** 자산 항목 한 줄. 어느 항목인지는 줄 안의 이름으로 가른다. */
   assetItemRow: 'asset-item-row',
 
+  /** 목표 진행 게이지. 예산 게이지와 크기가 다르다. */
+  goalGauge: 'goal-gauge',
+  /** 목표까지 남은 금액. 넘겨도 음수로 그리지 않는다. */
+  goalRemaining: 'goal-remaining',
+  /** 지금까지 모은 돈. 처음 적어 둔 금액 + 더한 돈이고 서버가 센다. */
+  goalCurrent: 'goal-current',
+  /** 기한까지 매달 얼마씩. 기한이 없는 목표에는 이 줄이 아예 없다. */
+  goalRequiredMonthly: 'goal-required-monthly',
+  /** 지금 페이스로 언제 닿는지 적는 한 줄. 기여가 없으면 숫자 없이 다른 말이 온다. */
+  goalEta: 'goal-eta',
+
   /** 리포트 헤드라인 라벨. 어느 달을 보고 있는지 여기에 적힌다. */
   reportHeadlineLabel: 'report-headline-label',
   /** 리포트의 그 달 총액 */
