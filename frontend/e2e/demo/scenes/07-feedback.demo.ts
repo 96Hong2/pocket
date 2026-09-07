@@ -21,7 +21,7 @@ const STEADY = 20_000;
 const FAST = 100_000;
 const OVER = 400_000;
 
-/** 속도 주의는 이번 달이 이 일수를 채워야 잡힌다. 서버의 MIN_PACE_ELAPSED_DAYS 와 같은 값이다. */
+/** 속도 판정은 이번 달이 이 일수를 채워야 잡힌다. 서버의 MIN_PACE_ELAPSED_DAYS 와 같은 값이다. */
 const MIN_PACE_ELAPSED_DAYS = 3;
 
 interface MonthProgress {
@@ -132,16 +132,19 @@ test('12 예산이 있을 때 저장 직후 한마디', async ({ demo, home, pre
   await home.waitReady();
   await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET));
 
-  // 속도 주의는 이번 달 초반에만 성립한다. 달이 흐를수록 같은 지출로는 예상 지출이 예산에
+  // 속도 판정은 이번 달 초반에만 성립한다. 달이 흐를수록 같은 지출로는 예상 지출이 예산에
   // 못 미쳐 계획대로(on_track)로 떨어진다. 그때는 문장이 어긋나기 전에 이유를 말하고 멈춘다.
   expect(
     progress.elapsedDays >= MIN_PACE_ELAPSED_DAYS && projectedAfterFast > BUDGET,
-    `속도 주의 장면이 오늘 날짜에서는 서지 않는다. 이번 달 ${progress.elapsedDays}일차라 ` +
+    `속도 장면이 오늘 날짜에서는 서지 않는다. 이번 달 ${progress.elapsedDays}일차라 ` +
       `${formatCurrency(afterFast)}를 써도 예상 지출이 ${formatCurrency(projectedAfterFast)}다. ` +
       '달 초반에 다시 찍거나 금액을 다시 잡아야 한다',
   ).toBe(true);
 
-  await demo.open('예산이 있으면 말이 달라진다', '계획대로 · 속도 주의 · 예산 초과가 차례로 온다');
+  await demo.open(
+    '예산이 있으면 말이 달라진다',
+    '계획대로 · 속도가 빠를 때 · 예산 초과가 차례로 온다',
+  );
 
   await demo.step('이번 달 예산은 500,000원. 20,000원을 적는다');
   await home.recordButton.click();
@@ -172,20 +175,19 @@ test('12 예산이 있을 때 저장 직후 한마디', async ({ demo, home, pre
   await recordSheet.input.enterAmount(FAST);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(FAST));
 
-  await demo.step('저장하면 이번엔 주의가 붙는다');
+  await demo.step('저장하면 하루 몫이 줄어든 것으로 알려 준다');
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
 
-  await demo.step('아직 예산 안이지만 이 속도면 월말에 넘는다고 말해 준다');
-  await expect(recordSheet.feedback.card).toContainText('주의');
+  await demo.step('속도가 빨라도 겁주지 않는다. 지금 무엇을 하면 되는지만 말한다');
+  // 달 말 예상액은 며칠치로 남은 달을 늘린 값이라 초반일수록 크게 튄다.
+  // 적을 때마다 그 숫자를 보여 주면 적기가 무서워진다.
   await expect(recordSheet.feedback.headline).toHaveText(
-    `지금 속도면 이번 달 ${formatCurrency(projectedAfterFast)}쯤 쓰게 돼요.`,
-  );
-  // 겁만 주지 않는다. 예산 안에서 지낼 하루 몫을 함께 준다.
-  await expect(recordSheet.feedback.detail).toHaveText(
     `남은 ${progress.remainingDays}일 하루 ` +
       `${formatCurrency(dailyAllowance(BUDGET - afterFast, progress.remainingDays))}이면 예산 안에서 지낼 수 있어요.`,
   );
+  await expect(recordSheet.feedback.card).not.toContainText('주의');
+  await expect(recordSheet.feedback.card).not.toContainText('쓰게 돼요');
   await demo.beat(3);
 
   await demo.step('확인하고 400,000원을 마저 적는다');

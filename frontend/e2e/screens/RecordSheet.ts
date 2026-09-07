@@ -237,25 +237,19 @@ class RecordFeedback {
     return this.root.getByRole('button', { name: '이 금액으로 고치기' });
   }
 
-  /** 상호를 적으러 칸을 펴는 버튼. */
-  get writeMerchantButton(): Locator {
-    return this.root.getByRole('button', { name: '내용 적기' });
-  }
-
-  /** 상호를 적는 칸. 라벨이 없어 testid 로 잡는다. 접혀 있으면 없다. */
+  /** 내용을 적는 칸. 버튼 뒤에 숨지 않고 저장 직후부터 늘 떠 있다. */
   get merchantField(): Locator {
     return this.root.getByTestId(TEST_IDS.feedbackMerchantField);
   }
 
-  get applyMerchantButton(): Locator {
-    return this.root.getByRole('button', { name: '이 내용으로 저장' });
-  }
-
-  /** 상호를 적어 저장까지 한다. */
+  /**
+   * 내용을 적고 칸에서 빠져나온다.
+   *
+   * 저장 버튼이 따로 없다. 칸을 벗어날 때 보내므로 blur 까지 해야 실제로 저장된다.
+   */
   async writeMerchant(name: string): Promise<void> {
-    await this.writeMerchantButton.click();
     await this.merchantField.fill(name);
-    await this.applyMerchantButton.click();
+    await this.merchantField.blur();
   }
 
   get backspaceKey(): Locator {

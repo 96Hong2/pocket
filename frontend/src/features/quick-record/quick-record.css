@@ -289,7 +289,20 @@
     margin-top: 8px;
   }
 
-  /* 저장 직후 상호를 적는 칸. 고치기 시트의 같은 칸과 생김새를 맞춘다. */
+  /* 저장 직후 내용을 적는 칸. 버튼 뒤에 숨기지 않고 늘 둔다. */
+  .feedback__merchant-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .feedback__merchant-label {
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
   .feedback__merchant {
     width: 100%;
     box-sizing: border-box;

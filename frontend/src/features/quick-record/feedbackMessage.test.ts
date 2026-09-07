@@ -69,6 +69,23 @@ describe('buildFeedbackMessage', () => {
     }
   });
 
+  it('속도가 빨라도 달 말 예상액으로 겁주지 않는다', () => {
+    // 며칠치로 남은 달 전체를 늘린 값이라 초반일수록 크게 튄다.
+    // 적는 사람은 그 숫자를 사실로 읽으므로, 적을 때마다 보여 주면 안 적게 된다.
+    const message = buildFeedbackMessage(
+      feedback('pace_warning', {
+        projected_month_end: '3836571',
+        daily_allowance: '25200',
+        remaining_days: 24,
+      }),
+    );
+
+    expect(message.headline).toBe('남은 24일 하루 25,200원이면 예산 안에서 지낼 수 있어요.');
+    expect(message.tone).toBe('calm');
+    expect(message.badge).toBeUndefined();
+    expect(`${message.headline}${message.detail ?? ''}`).not.toContain('3,836,571');
+  });
+
   describe('성취는 근거마다 다른 말을 한다', () => {
     // 셋에 같은 문장을 쓰면 근거 없는 칭찬과 구분되지 않는다.
     it('지난주보다 덜 쓴 것', () => {

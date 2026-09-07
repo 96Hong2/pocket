@@ -69,25 +69,26 @@ function overBudget(feedback: FeedbackOut, options: FeedbackMessageOptions): Fee
   };
 }
 
+/**
+ * 속도가 예산보다 빠를 때.
+ *
+ * 달 말 예상액을 앞세우지 않는다. 며칠치로 남은 달 전체를 늘린 값이라 초반일수록
+ * 크게 튀는데, 적는 사람은 그 숫자를 사실로 읽는다. 적을 때마다 겁을 주면 안 적게 된다.
+ * 지금 무엇을 하면 되는지만 남긴다. 판정 자체는 서버가 그대로 하고 홈이 쓴다.
+ */
 function paceWarning(feedback: FeedbackOut): FeedbackMessage {
-  const projected = won(feedback.projected_month_end);
   const daily = won(feedback.daily_allowance);
   const remaining = won(feedback.remaining_budget);
 
-  let detail: string | undefined;
   if (feedback.remaining_days != null && daily) {
-    detail = `남은 ${feedback.remaining_days}일 하루 ${daily}이면 예산 안에서 지낼 수 있어요.`;
-  } else if (remaining) {
-    detail = `남은 예산은 ${remaining}이에요.`;
+    return {
+      tone: 'calm',
+      headline: `남은 ${feedback.remaining_days}일 하루 ${daily}이면 예산 안에서 지낼 수 있어요.`,
+    };
   }
-
   return {
-    badge: '주의',
-    tone: 'caution',
-    headline: projected
-      ? `지금 속도면 이번 달 ${projected}쯤 쓰게 돼요.`
-      : '지금 속도가 예산보다 조금 빨라요.',
-    detail,
+    tone: 'calm',
+    headline: remaining ? `남은 예산은 ${remaining}이에요.` : '잘 기록했어요.',
   };
 }
 

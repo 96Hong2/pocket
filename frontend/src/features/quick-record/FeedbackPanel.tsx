@@ -37,7 +37,7 @@ interface FeedbackPanelProps {
  * 둘을 함께 펼치면 시트가 길어져 되돌리기 버튼이 화면 밖으로 밀린다.
  * 되돌릴 시간이 8초뿐이라 그 버튼이 안 보이면 창이 그냥 지나간다.
  */
-type Editing = 'amount' | 'category' | 'merchant' | null;
+type Editing = 'amount' | 'category' | null;
 
 /** 상호는 서버가 120자까지 받는다. 화면에서 먼저 막아 422 를 왕복하지 않는다. */
 const MERCHANT_MAX = 120;
@@ -55,7 +55,7 @@ export function FeedbackPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<Editing>(null);
   const [digits, setDigits] = useState('');
-  const [merchant, setMerchant] = useState('');
+  const [merchant, setMerchant] = useState(transaction.merchant ?? '');
   const undo = useUndoTransaction();
   const update = useUpdateTransaction();
   const remaining = useUndoCountdown(deadline);
@@ -117,20 +117,21 @@ export function FeedbackPanel({
     toggleEditing('category');
   }
 
-  function toggleMerchant(): void {
-    // 펼칠 때마다 지금 저장된 값에서 시작한다. 앞서 고치다 만 글자가 남으면 안 된다.
-    setMerchant(transaction.merchant ?? '');
-    toggleEditing('merchant');
+  /**
+   * 적어 둔 내용을 보낸다. 안 적어도 되고, 지우면 지운 대로 저장한다.
+   *
+   * 확인을 누를 때와 칸에서 빠져나갈 때 둘 다 여기를 지난다. 바뀐 것이 없으면
+   * 아무 요청도 안 한다. 버튼 없이 적는 칸이라 같은 값을 여러 번 보내기 쉽다.
+   */
+  function flushMerchant(): void {
+    const trimmed = merchant.trim();
+    if (trimmed === (transaction.merchant ?? '')) return;
+    apply({ merchant: trimmed === '' ? null : trimmed });
   }
 
-  /** 비우면 지운다. 빈 문자열을 그대로 보내면 서버가 빈 상호로 저장한다. */
-  function applyMerchant(): void {
-    const trimmed = merchant.trim();
-    if (trimmed === (transaction.merchant ?? '')) {
-      setEditing(null);
-      return;
-    }
-    apply({ merchant: trimmed === '' ? null : trimmed });
+  function confirm(): void {
+    flushMerchant();
+    onConfirm();
   }
 
   return (
@@ -217,33 +218,25 @@ export function FeedbackPanel({
         </div>
       ) : null}
 
-      {editing === 'merchant' ? (
-        <div className="feedback__change">
-          <p className="feedback__change-title">어디에서 썼나요?</p>
-          <input
-            className="feedback__merchant"
-            data-testid={TEST_IDS.feedbackMerchantField}
-            type="text"
-            value={merchant}
-            maxLength={MERCHANT_MAX}
-            placeholder="가게 이름이나 메모"
-            autoComplete="off"
-            disabled={update.isPending}
-            onChange={(event) => setMerchant(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') applyMerchant();
-            }}
-          />
-          <Button
-            className="feedback__apply"
-            fullWidth
-            disabled={update.isPending}
-            onClick={applyMerchant}
-          >
-            이 내용으로 저장
-          </Button>
-        </div>
-      ) : null}
+      {/* 안 적어도 되는 칸이다. 버튼 뒤에 숨기면 적을 수 있다는 것을 모른다. */}
+      <label className="feedback__merchant-field">
+        <span className="feedback__merchant-label">어디에서 썼나요?</span>
+        <input
+          className="feedback__merchant"
+          data-testid={TEST_IDS.feedbackMerchantField}
+          type="text"
+          value={merchant}
+          maxLength={MERCHANT_MAX}
+          placeholder="안 적어도 괜찮아요"
+          autoComplete="off"
+          disabled={update.isPending}
+          onChange={(event) => setMerchant(event.target.value)}
+          onBlur={flushMerchant}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.currentTarget.blur();
+          }}
+        />
+      </label>
 
       {editing !== null && updateError ? (
         <p className="feedback__notice" role="alert">
@@ -258,11 +251,8 @@ export function FeedbackPanel({
         <Button variant="outline" onClick={toggleCategory}>
           카테고리 바꾸기
         </Button>
-        <Button variant="outline" onClick={toggleMerchant}>
-          내용 적기
-        </Button>
       </div>
-      <Button className="feedback__confirm" variant="primarySmall" fullWidth onClick={onConfirm}>
+      <Button className="feedback__confirm" variant="primarySmall" fullWidth onClick={confirm}>
         확인
       </Button>
     </div>
