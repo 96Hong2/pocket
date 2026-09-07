@@ -164,6 +164,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/budgets/suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggestion
+         * @description 목표에서 거꾸로 낸 생활비 제안. **아무것도 저장하지 않는다.**
+         *
+         *     실수령과 고정비를 안 주면 지난달에서 어림한다. 화면에서 고친 값은 질의로 온다.
+         *     이 경로는 이어쓰기를 하지 않는다. 조회 하나가 예산을 만드는 자리는 `GET /budgets`
+         *     한 곳이면 되고, 제안은 예산이 없을 때만 화면에 뜨므로 그 조회를 이미 지나 있다.
+         */
+        get: operations["suggestion_api_v1_budgets_suggestion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/budgets/categories/{category_id}": {
         parameters: {
             query?: never;
@@ -673,6 +697,27 @@ export interface components {
             is_auto_carried: boolean;
             /** Is Editable */
             is_editable: boolean;
+        };
+        /**
+         * BudgetSuggestionOut
+         * @description 목표에서 거꾸로 낸 생활비 제안. **아무것도 저장하지 않는다.**
+         *
+         *     사용자가 '이 금액으로 예산 정하기' 를 누르면 그때 예산 저장(`PUT /budgets`)이 따로 간다.
+         *     이 조회만으로 예산이 생기면, 화면을 열어 본 것만으로 예산이 정해져 버린다.
+         *
+         *     `available` 이 false 면 `suggested` 와 `goal_saving` 이 null 이고 `reason` 에 이유가 온다.
+         *     그때 화면은 카드를 아예 그리지 않는다. 0 원 제안을 보여주지 않는다.
+         */
+        BudgetSuggestionOut: {
+            /** Available */
+            available: boolean;
+            /** Goal Saving */
+            goal_saving: string | null;
+            take_home: components["schemas"]["SuggestionAmountOut"];
+            fixed_costs: components["schemas"]["SuggestionAmountOut"];
+            /** Suggested */
+            suggested: string | null;
+            reason: components["schemas"]["SuggestionBlocker"] | null;
         };
         /**
          * BudgetUpsert
@@ -1243,6 +1288,31 @@ export interface components {
             /** Progress */
             progress: string;
         };
+        /**
+         * SuggestionAmountOut
+         * @description 제안식의 한 칸. 값만 주면 화면이 그것을 사실로 적어 버려서 출처를 함께 준다.
+         */
+        SuggestionAmountOut: {
+            /** Amount */
+            amount: string;
+            source: components["schemas"]["SuggestionSource"];
+            /** Basis Start */
+            basis_start: string | null;
+            /** Basis End */
+            basis_end: string | null;
+        };
+        /**
+         * SuggestionBlocker
+         * @description 제안을 낼 수 없는 이유. 화면은 이 값을 보고 카드를 아예 그리지 않는다.
+         * @enum {string}
+         */
+        SuggestionBlocker: "closed_period" | "no_goal" | "no_deadline" | "no_monthly_saving";
+        /**
+         * SuggestionSource
+         * @description 제안식 한 칸의 출처. 화면이 '추정값' 이라고 적을지 여기로 가른다.
+         * @enum {string}
+         */
+        SuggestionSource: "estimated" | "given";
         /**
          * TransactionCreate
          * @description 표준 거래 형식. 파싱 결과와 손입력이 같은 형태로 들어온다.
@@ -2562,6 +2632,96 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    suggestion_api_v1_budgets_suggestion_get: {
+        parameters: {
+            query?: {
+                take_home?: number | null;
+                fixed_costs?: number | null;
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetSuggestionOut"];
+                };
             };
             /** @description 식별키가 없거나 검증에 실패 */
             401: {

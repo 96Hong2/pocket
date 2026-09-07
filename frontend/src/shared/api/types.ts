@@ -43,6 +43,13 @@ export type BudgetOut = Schemas['BudgetOut'];
 export type BudgetUpsert = Schemas['BudgetUpsert'];
 /** 카테고리 한 줄. 한도와 그 카테고리 사용액이 함께 온다. 예산 조회 응답에만 실린다. */
 export type CategoryBudgetOut = Schemas['CategoryBudgetOut'];
+/** 목표에서 거꾸로 낸 생활비 제안. 조회만으로는 아무것도 저장되지 않는다. */
+export type BudgetSuggestionOut = Schemas['BudgetSuggestionOut'];
+/** 제안식의 한 칸. 지난달에서 어림한 값인지 사용자가 고쳐 준 값인지 함께 온다. */
+export type SuggestionAmountOut = Schemas['SuggestionAmountOut'];
+export type SuggestionSource = Schemas['SuggestionSource'];
+/** 제안을 낼 수 없는 이유. 이 값이 오면 화면은 카드를 아예 그리지 않는다. */
+export type SuggestionBlocker = Schemas['SuggestionBlocker'];
 /** 최근 며칠 중 며칠 기록했나. 빠진 날 수는 오지 않는다. 예산 조회 응답에 늘 실린다. */
 export type RecoveryProgressOut = Schemas['RecoveryProgressOut'];
 /** 문장이 아니라 종류와 숫자만 온다. 문장 조립은 화면이 한다. */

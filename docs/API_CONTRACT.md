@@ -287,6 +287,7 @@ ADR-0006 이다.
 | 메서드 | 경로 | 하는 일 |
 | --- | --- | --- |
 | GET | `/budgets?year=&month=` | 그 달의 예산 상태와 카테고리 예산. 기본은 사용자 시간대 이번 달 |
+| GET | `/budgets/suggestion?year=&month=&take_home=&fixed_costs=` | 목표에서 거꾸로 낸 생활비 제안. 저장하지 않는다 |
 | PUT | `/budgets?year=&month=` | 전체 예산 저장. 바디는 `{"amount": "600000"}` |
 | DELETE | `/budgets?year=&month=` | 예산 삭제. 딸린 카테고리 예산도 함께 지운다 |
 | PUT | `/budgets/categories/{category_id}?year=&month=` | 카테고리 한도 저장. 바디는 `{"amount": "300000"}` |
@@ -358,6 +359,47 @@ ADR-0006 이다.
   화면이 나누지 않는다. 게이지 너비를 두 곳에서 계산하지 않으려는 것이다.
 - **복구 카드를 띄울지는 서버가 정하지 않는다.** 며칠부터 복구로 볼지(사흘)는 화면이 안다.
   서버는 사실만 준다.
+
+### 목표 기반 생활비 제안
+
+`GET /budgets/suggestion` 은 **아무것도 저장하지 않는다.** 목표에 넣을 돈과 고정비를 먼저 떼고
+남는 만큼을 그 달 생활비로 제안하기만 한다. 사용자가 화면에서 '이 금액으로 예산 정하기' 를
+누르면 그때 `PUT /budgets` 가 따로 간다. 조회가 예산을 만들면 화면을 열어 본 것만으로 정하지
+않은 숫자가 굳는다. 산식의 정본은 `backend/app/domain/budget_plan.py` 다.
+
+```json
+{
+  "available": true,
+  "goal_saving": "1000000",
+  "take_home": {
+    "amount": "3000000", "source": "estimated",
+    "basis_start": "2026-08-01", "basis_end": "2026-08-31"
+  },
+  "fixed_costs": { "amount": "900000", "source": "estimated", "basis_start": "2026-08-01", "basis_end": "2026-08-31" },
+  "suggested": "1100000",
+  "reason": null
+}
+```
+
+- `suggested = max(0, take_home − goal_saving − fixed_costs)` 다. **화면이 빼지 않는다.**
+  실수령보다 목표와 고정비가 크면 0 이다. 생활비로 쓸 돈이 없다는 뜻이지 마이너스가 아니다.
+- `goal_saving` 은 진행 중인 목표의 `required_monthly_saving` 을 그대로 옮긴 값이다.
+  목표 화면의 '기한까지 매달' 과 같은 숫자여야 해서 여기서 다시 나누지 않는다.
+- **추정 규칙.** `take_home` 을 안 주면 지난달 수입 합, `fixed_costs` 를 안 주면 지난달 기본
+  분류 '주거·고정비' 의 예산 반영 지출이다. 그때 `source` 가 `estimated` 이고 어림한 기간이
+  `basis_start`·`basis_end` 로 함께 온다. 질의로 준 값은 `given` 이고 근거 기간이 `null` 이다.
+  값이 0 이어도 `estimated` 다. 지난달에 안 적은 것을 짐작으로 메우지 않는다.
+- 질의 금액은 **원 단위 정수**만 받는다(0 이상). 소수를 보내면 422 다. 제안액이 소수가 되면
+  그 값으로 예산을 저장할 때 저장 쪽이 거절해, 눌러 보고서야 막힌 이유를 알게 된다.
+- **`available` 이 false 면 `suggested` 와 `goal_saving` 이 `null` 이고 `reason` 에 이유가 온다.**
+  화면은 그때 카드를 아예 그리지 않는다. `take_home`·`fixed_costs` 는 그대로 실린다.
+
+| `reason` | 언제 |
+| --- | --- |
+| `closed_period` | 그 달이 이미 끝났다. 지난달 예산은 지금 정할 수 없다 |
+| `no_goal` | 진행 중인 목표가 없다 |
+| `no_deadline` | 목표에 기한이 없어 한 달 몫으로 나눌 수 없다 |
+| `no_monthly_saving` | 기한은 있는데 이번 달 몫이 없다. 이미 다 모았거나 기한이 지났다 |
 
 ### 예산 자동 이어쓰기
 

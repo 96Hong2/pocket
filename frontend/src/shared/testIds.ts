@@ -60,6 +60,10 @@ export const TEST_IDS = {
   budgetLeft: 'budget-left',
   /** 전체 예산 카드 아래 한 줄. 진행률과 하루 가용액이 여기 붙는다. */
   budgetCaption: 'budget-caption',
+  /** 생활비 제안 카드의 목표저축. 목표가 이번 달에 요구하는 몫이다. */
+  budgetSuggestSaving: 'budget-suggest-saving',
+  /** 생활비 제안 카드의 제안액. 실수령 − 목표저축 − 고정비를 서버가 센 값이다. */
+  budgetSuggestAmount: 'budget-suggest-amount',
   /** 카테고리 예산 한 줄. 어느 카테고리인지는 줄 안의 이름으로 가른다. */
   categoryBudgetRow: 'category-budget-row',
   /** 카테고리 예산 한 줄의 사용액 */

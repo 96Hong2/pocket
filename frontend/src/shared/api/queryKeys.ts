@@ -7,7 +7,7 @@
  * 모양은 `['pocket', <자원>, <달>]` 이다. 앞부분만 넘기면 그 아래가 전부 걸린다.
  */
 
-import type { MonthParams, TransactionListParams } from './client';
+import type { BudgetSuggestionParams, MonthParams, TransactionListParams } from './client';
 
 const ROOT = 'pocket';
 
@@ -51,9 +51,31 @@ export const queryKeys = {
    */
   goal: () => [ROOT, 'goal'] as const,
 
-  /** 달을 가리지 않는 예산 전부. 무효화할 때 쓴다. */
+  /** 달을 가리지 않는 예산 전부. 무효화할 때 쓴다. 아래 제안까지 함께 걸린다. */
   budgets: () => [ROOT, 'budget'] as const,
   budget: (params?: MonthParams) => [ROOT, 'budget', monthPart(params)] as const,
+
+  /** 달을 가리지 않는 생활비 제안 전부. 목표를 고치면 이 아래를 무효화한다. */
+  budgetSuggestions: () => [ROOT, 'budget', 'suggestion'] as const,
+  /**
+   * 목표 기반 생활비 제안.
+   *
+   * 화면에서 고친 실수령·고정비가 키에 들어간다. 빼면 값을 고쳐도 같은 자리를 보아
+   * 옛 제안액이 그대로 남는다. 계산은 서버가 하므로 값이 바뀌면 다시 물어야 한다.
+   */
+  budgetSuggestion: (params?: BudgetSuggestionParams) =>
+    [
+      ROOT,
+      'budget',
+      'suggestion',
+      monthPart(
+        params?.year != null && params.month != null
+          ? { year: params.year, month: params.month }
+          : undefined,
+      ),
+      params?.takeHome ?? '',
+      params?.fixedCosts ?? '',
+    ] as const,
 
   summaries: () => [ROOT, 'summary'] as const,
   summary: (params?: MonthParams) => [ROOT, 'summary', monthPart(params)] as const,

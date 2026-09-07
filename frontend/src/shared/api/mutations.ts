@@ -393,13 +393,24 @@ export function useSaveAssets() {
  *
  * `moneyQueryKeys` 는 건드리지 않는다. 목표에 돈을 더해도 남은 예산은 달라지지 않는다.
  * 모은 돈은 거래가 아니라 목표 안에서만 세는 값이다.
+ *
+ * 다만 **생활비 제안은 함께 낡는다.** 제안액이 목표의 '매달 모을 돈' 을 빼서 나온 값이라,
+ * 목표를 고치거나 접으면 관리 탭 카드가 옛 목표로 계산한 금액을 그대로 들고 있게 된다.
  */
 function writeGoal(queryClient: QueryClient, state: GoalStateOut): void {
   queryClient.setQueryData<GoalStateOut>(queryKeys.goal(), state);
+  void invalidateBudgetSuggestions(queryClient);
 }
 
 function invalidateGoal(queryClient: QueryClient): Promise<void> {
-  return queryClient.invalidateQueries({ queryKey: queryKeys.goal() });
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.goal() }),
+    invalidateBudgetSuggestions(queryClient),
+  ]).then(() => undefined);
+}
+
+function invalidateBudgetSuggestions(queryClient: QueryClient): Promise<void> {
+  return queryClient.invalidateQueries({ queryKey: queryKeys.budgetSuggestions() });
 }
 
 /** 목표 만들기. 진행 중인 목표가 이미 있으면 서버가 422 로 막는다. */

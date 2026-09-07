@@ -8,24 +8,32 @@
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Query, Response, status
 
+from app.api.amounts import MAX_AMOUNT
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES
 from app.api.months import MonthQuery
-from app.domain.money import Money
+from app.domain.money import Money, won
 from app.domain.period import BudgetPeriod
 from app.modules import ledger
 from app.modules.budgets import service
 from app.modules.budgets.schemas import (
     BudgetOut,
+    BudgetSuggestionOut,
     BudgetUpsert,
     CategoryBudgetOut,
     to_budget_state,
+    to_budget_suggestion,
     to_category_budget,
     to_recovery,
 )
+
+# 제안식에 직접 넣어 보는 금액. 원 단위 정수만 받는다. 소수를 받으면 제안액도 소수가 되고,
+# 그 값으로 예산을 저장하면 저장 쪽이 422 로 거절해 화면이 눌러 보고서야 알게 된다.
+SuggestionAmountQuery = Annotated[int | None, Query(ge=0, le=int(MAX_AMOUNT))]
 
 router = APIRouter(prefix="/budgets", tags=["budgets"], responses=ERROR_RESPONSES)
 
@@ -93,6 +101,38 @@ def _writable(session: DbSession, user: CurrentUser, period: BudgetPeriod | None
 @router.get("", response_model=BudgetOut)
 def show(session: DbSession, user: CurrentUser, period: MonthQuery) -> BudgetOut:
     return _view(session, user, _period(user, period))
+
+
+@router.get("/suggestion", response_model=BudgetSuggestionOut)
+def suggestion(
+    session: DbSession,
+    user: CurrentUser,
+    period: MonthQuery,
+    take_home: SuggestionAmountQuery = None,
+    fixed_costs: SuggestionAmountQuery = None,
+) -> BudgetSuggestionOut:
+    """목표에서 거꾸로 낸 생활비 제안. **아무것도 저장하지 않는다.**
+
+    실수령과 고정비를 안 주면 지난달에서 어림한다. 화면에서 고친 값은 질의로 온다.
+    이 경로는 이어쓰기를 하지 않는다. 조회 하나가 예산을 만드는 자리는 `GET /budgets`
+    한 곳이면 되고, 제안은 예산이 없을 때만 화면에 뜨므로 그 조회를 이미 지나 있다.
+    """
+    month = _period(user, period)
+    result = service.living_budget_suggestion(
+        session,
+        user,
+        month,
+        ledger.load_period_totals(session, user, month.previous_period()),
+        ledger.today_for(user),
+        take_home=won(take_home) if take_home is not None else None,
+        fixed_costs=won(fixed_costs) if fixed_costs is not None else None,
+    )
+    return to_budget_suggestion(
+        result.plan,
+        take_home=result.take_home,
+        fixed_costs=result.fixed_costs,
+        basis=result.basis,
+    )
 
 
 @router.put("", response_model=BudgetOut)

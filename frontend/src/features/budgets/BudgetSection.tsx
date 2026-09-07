@@ -16,6 +16,7 @@ import { BudgetTotalCard } from './BudgetTotalCard';
 import { CarryoverSetting } from './CarryoverSetting';
 import { CategoryBudgetList } from './CategoryBudgetList';
 import { CategoryBudgetSheet, type CategoryBudgetTarget } from './CategoryBudgetSheet';
+import { GoalBudgetSuggestCard } from './GoalBudgetSuggestCard';
 
 /** 달력 화면과 같게 3년 전까지 본다. */
 const MONTHS_BACK = 36;
@@ -108,9 +109,7 @@ export function BudgetSection() {
         </Card>
       ) : (
         <>
-          {!editable ? (
-            <p className="budget__closed">끝난 달이에요 · 보기만 할 수 있어요</p>
-          ) : null}
+          {!editable ? <p className="budget__closed">끝난 달이에요 · 보기만 할 수 있어요</p> : null}
 
           {state.is_auto_carried ? (
             <div className="budget-banner" aria-label="이어쓴 예산 안내" role="group">
@@ -127,6 +126,13 @@ export function BudgetSection() {
               ) : null}
             </div>
           ) : null}
+
+          {/*
+            예산이 아직 없는 달에만 제안을 묻는다. 이미 정한 예산 위에 다른 금액을 얹어
+            보여주면, 지금 예산이 무엇인지 화면에 두 개가 된다. 제안할 근거가 없으면
+            카드 스스로 아무것도 그리지 않는다.
+          */}
+          {amount == null && editable ? <GoalBudgetSuggestCard month={monthParams} /> : null}
 
           <BudgetTotalCard
             state={state}

@@ -14,6 +14,7 @@ import type {
   AssetsOut,
   AssetSnapshotPut,
   BudgetOut,
+  BudgetSuggestionOut,
   BudgetUpsert,
   CalendarMonthOut,
   CategoryCreate,
@@ -48,6 +49,17 @@ export interface MonthParams {
   month: number;
 }
 
+/**
+ * 생활비 제안을 물을 때 함께 보내는 것.
+ *
+ * 실수령·고정비를 안 보내면 서버가 지난달에서 어림한다. 화면에서 고친 값만 실어 보낸다.
+ * 원 단위 정수여야 한다. 소수를 보내면 서버가 422 로 막는다.
+ */
+export interface BudgetSuggestionParams extends Partial<MonthParams> {
+  takeHome?: number;
+  fixedCosts?: number;
+}
+
 export interface TransactionListParams extends Partial<MonthParams> {
   /** 1~200. 안 넘기면 서버 기본값 50. */
   limit?: number;
@@ -78,6 +90,7 @@ const PATHS = {
   calendar: '/api/v1/transactions/calendar',
   categories: '/api/v1/categories',
   budgets: '/api/v1/budgets',
+  budgetSuggestion: '/api/v1/budgets/suggestion',
   categoryBudgets: '/api/v1/budgets/categories',
   preferences: '/api/v1/preferences',
   imports: '/api/v1/imports',
@@ -147,6 +160,15 @@ export interface ApiClient extends Transport {
   /** 내 카테고리 지우기. 그 카테고리를 쓰던 거래는 남는다. 두 번 눌러도 204 다. */
   deleteCategory(id: string, options?: CallOptions): Promise<void>;
   getBudget(params?: MonthParams, options?: CallOptions): Promise<BudgetOut>;
+  /**
+   * 목표에서 거꾸로 낸 생활비 제안. **부르는 것만으로는 아무것도 저장되지 않는다.**
+   *
+   * 목표가 없거나 기한이 없으면 `available` 이 false 로 오고 그때 카드를 그리지 않는다.
+   */
+  getBudgetSuggestion(
+    params?: BudgetSuggestionParams,
+    options?: CallOptions,
+  ): Promise<BudgetSuggestionOut>;
   /** 예산 저장. 같은 기간에 몇 번을 보내도 결과가 같다. */
   saveBudget(body: BudgetUpsert, params?: MonthParams, options?: CallOptions): Promise<BudgetOut>;
   /** 예산 지우기. 카테고리 예산도 함께 사라진다. 예산이 없어도 204 다. */
@@ -350,6 +372,20 @@ export function createApiClient(options: TransportOptions): ApiClient {
         method: 'GET',
         path: PATHS.budgets,
         query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
+    getBudgetSuggestion(params, call) {
+      return transport.request<BudgetSuggestionOut>({
+        method: 'GET',
+        path: PATHS.budgetSuggestion,
+        query: {
+          year: params?.year,
+          month: params?.month,
+          take_home: params?.takeHome,
+          fixed_costs: params?.fixedCosts,
+        },
         signal: call?.signal,
       });
     },

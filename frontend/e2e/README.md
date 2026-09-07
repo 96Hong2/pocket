@@ -26,7 +26,9 @@ e2e/
                      capture 와 receipt 는 같은 클래스에 문구 표만 바꿔 끼운 둘이다
     ReportScreen     리포트 탭. 총액·도넛·조각 목록·6개월 흐름
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
-    ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·categories·banner·settings 로 나눠 들고 있다
+    ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·suggest·categories·banner·settings 로 나눠 들고 있다
+                     suggest 는 목표 기반 생활비 제안 카드다. 예산이 없는 달에, 기한이 있는 목표가
+                     있을 때만 떠서 없는 것을 단언하는 자리가 여럿이다
     CategoriesScreen 카테고리 관리 화면. 기본·내 것 두 구획과 기억한 분류 목록을 함께 들고 있다
     SettingsScreen   앱 설정 화면. 홈 표시 방식과 개인정보 안내
     AssetsScreen     자산 화면. 순자산 카드·그룹 구획 넷·항목 시트를 한 화면이 들고 있다

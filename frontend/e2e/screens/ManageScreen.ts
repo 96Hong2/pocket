@@ -17,6 +17,8 @@ export class ManageScreen {
 
   /** 전체 예산 카드와 금액 입력 시트. */
   readonly total: BudgetTotalArea;
+  /** 목표 기반 생활비 제안 카드. 예산이 없는 달에, 기한이 있는 목표가 있을 때만 뜬다. */
+  readonly suggest: GoalBudgetSuggestArea;
   /** 카테고리 예산 목록과 추가·수정 시트. */
   readonly categories: CategoryBudgetArea;
   /** 지난달 예산을 그대로 가져왔을 때 뜨는 안내 띠. */
@@ -29,6 +31,7 @@ export class ManageScreen {
     // '카테고리 예산' 도 region 이라 이름을 정확히 맞춰야 바깥 섹션만 잡힌다.
     this.section = page.getByRole('region', { name: '예산', exact: true });
     this.total = new BudgetTotalArea(page, this.section);
+    this.suggest = new GoalBudgetSuggestArea(page);
     this.categories = new CategoryBudgetArea(page);
     this.banner = new CarryoverBannerArea(page);
     this.settings = new BudgetSettingArea(page);
@@ -64,6 +67,105 @@ export class ManageScreen {
     await expect(this.monthLabel).toHaveText(label);
     await this.waitReady();
   }
+
+  /**
+   * 본문이 실제로 차지한 가로 폭과 화면에 보이는 폭.
+   *
+   * `innerWidth` 와 견주면 안 된다. 본문이 넘치면 브라우저가 축소하면서 `innerWidth` 도
+   * 함께 커져 둘이 늘 같아진다(항진 명제다). 축소해도 안 움직이는 것은 visual viewport 다.
+   */
+  async widths(): Promise<{ content: number; visible: number }> {
+    return this.page.evaluate(() => ({
+      content: document.documentElement.scrollWidth,
+      visible: Math.ceil(window.visualViewport?.width ?? window.innerWidth),
+    }));
+  }
+}
+
+/**
+ * 목표 기반 생활비 제안 카드.
+ *
+ * 식(실수령 − 목표저축 − 고정비 = 제안액)이 그대로 보이고, 실수령·고정비는 그 자리에서
+ * 고칠 수 있다. 금액은 서버가 센 값이라 여기서는 읽어 오기만 한다.
+ */
+class GoalBudgetSuggestArea {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('region', { name: '목표 기반 생활비 제안' });
+  }
+
+  /** 카드 자체. 떴는지 아예 없는지를 이걸로 본다. */
+  get card(): Locator {
+    return this.root;
+  }
+
+  get takeHomeField(): Locator {
+    return this.root.getByLabel('실수령');
+  }
+
+  get fixedCostsField(): Locator {
+    return this.root.getByLabel('고정비');
+  }
+
+  /** 목표가 이번 달에 요구하는 몫. 목표 화면의 '매달 모을 돈' 과 같은 값이다. */
+  get saving(): Locator {
+    return this.root.getByTestId(TEST_IDS.budgetSuggestSaving);
+  }
+
+  /** 제안액. 화면이 계산하지 않고 서버가 준 값을 그린다. */
+  get amount(): Locator {
+    return this.root.getByTestId(TEST_IDS.budgetSuggestAmount);
+  }
+
+  get applyButton(): Locator {
+    return this.root.getByRole('button', { name: '이 금액으로 예산 정하기' });
+  }
+
+  /** 어림한 칸 아래에 붙는 한 줄. 사용자가 고친 칸에는 없다. */
+  get basisNotes(): Locator {
+    return this.root.getByText('지난달 기준 · 추정값', { exact: true });
+  }
+
+  /** 제안일 뿐이라는 한 줄. 강요하지 않는 자리다. */
+  get foot(): Locator {
+    return this.root.getByText('제안일 뿐이에요 · 목표는 언제든 바꿔도 괜찮아요', { exact: true });
+  }
+
+  async waitVisible(): Promise<void> {
+    await expect(this.amount).toBeVisible();
+  }
+
+  /** 제안액을 원 단위 숫자로. 서버가 센 값을 spec 이 견주기 위한 것이다. */
+  suggestedWon(): Promise<number> {
+    return wonOf(this.amount);
+  }
+
+  /** 목표저축을 원 단위 숫자로. */
+  savingWon(): Promise<number> {
+    return wonOf(this.saving);
+  }
+
+  /** 실수령을 고친다. 고치면 서버에 다시 물어 제안액이 바뀐다. */
+  async setTakeHome(amount: number): Promise<void> {
+    await this.takeHomeField.fill(String(amount));
+  }
+
+  /** 고정비를 고친다. */
+  async setFixedCosts(amount: number): Promise<void> {
+    await this.fixedCostsField.fill(String(amount));
+  }
+
+  /** 제안액을 이번 달 예산으로 정한다. 누르기 전에는 아무것도 저장되지 않는다. */
+  async apply(): Promise<void> {
+    await this.applyButton.click();
+  }
+}
+
+/** `1,100,000원` → `1100000`. 화면에 그려진 글자에서 숫자만 뽑는다. */
+async function wonOf(locator: Locator): Promise<number> {
+  const text = (await locator.textContent()) ?? '';
+  return Number(text.replace(/[^0-9]/g, ''));
 }
 
 /**

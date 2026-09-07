@@ -8,9 +8,9 @@
  * **지금 화면이 실제로 쓰는 조회만 있다.** 나머지는 그 화면을 만들 때 여기에 더한다.
  */
 
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
-import type { MonthParams, TransactionListParams } from './client';
+import type { BudgetSuggestionParams, MonthParams, TransactionListParams } from './client';
 import { useApiClient, useApiReady } from './context';
 import { queryKeys } from './queryKeys';
 
@@ -63,6 +63,27 @@ export function useBudget(params?: MonthParams) {
     queryKey: queryKeys.budget(params),
     queryFn: ({ signal }) => client.getBudget(params, { signal }),
     enabled: isReady,
+  });
+}
+
+/**
+ * 목표 기반 생활비 제안.
+ *
+ * 부르는 것만으로는 아무것도 저장되지 않는다. 저장은 사용자가 버튼을 눌러 예산을 정할 때다.
+ *
+ * 실수령·고정비를 화면에서 고치면 키가 바뀌어 서버에 다시 묻는다. 그 사이 카드가 통째로
+ * 사라지지 않게 앞 응답을 자리에 남겨 둔다(`placeholderData`). 안 그러면 한 글자 고칠 때마다
+ * 카드가 빈 자리로 깜빡이고, 고치던 입력칸이 포커스를 잃는다.
+ */
+export function useBudgetSuggestion(params?: BudgetSuggestionParams) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.budgetSuggestion(params),
+    queryFn: ({ signal }) => client.getBudgetSuggestion(params, { signal }),
+    enabled: isReady,
+    placeholderData: keepPreviousData,
   });
 }
 

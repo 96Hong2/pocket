@@ -7,7 +7,13 @@
 
 export { resolveApiBaseUrl, API_BASE_URL_ENV } from './baseUrl';
 export { createApiClient } from './client';
-export type { ApiClient, CallOptions, MonthParams, TransactionListParams } from './client';
+export type {
+  ApiClient,
+  BudgetSuggestionParams,
+  CallOptions,
+  MonthParams,
+  TransactionListParams,
+} from './client';
 export { ApiContext, useApi, useApiClient, useApiReady } from './context';
 export type { ApiContextValue } from './context';
 export { parseDecimal, parseDecimalOr } from './decimal';
@@ -17,6 +23,7 @@ export { moneyQueryKeys, queryKeys } from './queryKeys';
 export {
   useAssets,
   useBudget,
+  useBudgetSuggestion,
   useCalendar,
   useCategories,
   useGoal,
