@@ -1,0 +1,71 @@
+<!doctype html><meta charset="utf-8">
+<style>
+  body{margin:0;background:#888;font-family:-apple-system,"SF Pro Display","Helvetica Neue",Arial,sans-serif}
+  .tile{width:600px;height:600px;position:relative;overflow:hidden;display:block;margin:20px}
+  .num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;letter-spacing:-0.06em;line-height:1}
+</style>
+
+<!-- A. 숫자 10 + 초침 눈금. 세이지 그라데이션 -->
+<div class="tile" id="a" style="background:linear-gradient(160deg,#4E6E4F 0%,#3F5A40 55%,#2F4530 100%)">
+  <svg width="600" height="600" viewBox="0 0 600 600" style="position:absolute;inset:0">
+    <circle cx="300" cy="300" r="212" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="30"/>
+    <path d="M300 88 A212 212 0 0 1 512 300" fill="none" stroke="#E8CE9C" stroke-width="30" stroke-linecap="round"/>
+    <rect x="286" y="46" width="28" height="34" rx="8" fill="#E8CE9C"/>
+    <rect x="262" y="34" width="76" height="22" rx="11" fill="#E8CE9C"/>
+  </svg>
+  <div class="num" style="color:#fff;font-size:250px;padding-top:14px">10</div>
+</div>
+
+<!-- B. 초시계 안에 원 표시. 크림 바탕 -->
+<div class="tile" id="b" style="background:#F7F5F0">
+  <svg width="600" height="600" viewBox="0 0 600 600" style="position:absolute;inset:0">
+    <rect x="262" y="58" width="76" height="24" rx="12" fill="#3F5A40"/>
+    <rect x="285" y="78" width="30" height="40" fill="#3F5A40"/>
+    <path d="M436 132 l40 -40" stroke="#3F5A40" stroke-width="26" stroke-linecap="round"/>
+    <circle cx="300" cy="330" r="212" fill="#fff" stroke="#3F5A40" stroke-width="30"/>
+    <path d="M300 118 A212 212 0 0 1 512 330" fill="none" stroke="#C89B4C" stroke-width="30" stroke-linecap="round"/>
+    <text x="300" y="416" text-anchor="middle" font-family="-apple-system,'SF Pro Display','Helvetica Neue',Arial" font-weight="900" font-size="230" fill="#3F5A40" letter-spacing="-8">₩</text>
+  </svg>
+</div>
+
+<!-- C. 주머니에서 동전이 나온다. Pocket Ledger -->
+<div class="tile" id="c" style="background:linear-gradient(180deg,#4A684B,#3F5A40)">
+  <svg width="600" height="600" viewBox="0 0 600 600" style="position:absolute;inset:0">
+    <circle cx="300" cy="196" r="92" fill="#E8CE9C"/>
+    <circle cx="300" cy="196" r="62" fill="none" stroke="#C89B4C" stroke-width="12"/>
+    <text x="300" y="228" text-anchor="middle" font-family="-apple-system,'SF Pro Display','Helvetica Neue',Arial" font-weight="900" font-size="88" fill="#C89B4C">₩</text>
+    <path d="M118 236 H482 V420 C482 500 400 540 300 540 C200 540 118 500 118 420 Z" fill="#F7F5F0"/>
+    <path d="M118 236 H482 V262 H118 Z" fill="#DCE5D3"/>
+    <path d="M150 300 C210 360 390 360 450 300" fill="none" stroke="#B7C9A8" stroke-width="16" stroke-linecap="round" stroke-dasharray="1 30"/>
+  </svg>
+</div>
+
+<!-- D. 아이콘 세트의 돼지저금통을 밝은 판 위에 크게 -->
+<div class="tile" id="d" style="background:radial-gradient(circle at 50% 42%,#DCE5D3 0%,#B7C9A8 70%,#A6BB97 100%)">
+  <div style="position:absolute;left:70px;top:70px;width:460px;height:460px;border-radius:50%;background:#F7F5F0;box-shadow:0 20px 40px rgba(38,41,43,.18)"></div>
+  <img src="../../../frontend/public/icons/lg/32_piggybank.png" style="position:absolute;left:90px;top:96px;width:420px;height:420px">
+</div>
+
+<!-- E. 아이콘 세트의 동전 더미. 세이지 바탕 -->
+<div class="tile" id="e" style="background:#3F5A40">
+  <div style="position:absolute;left:0;top:380px;width:600px;height:220px;background:#334A34"></div>
+  <img src="../../../frontend/public/icons/lg/01_coins.png" style="position:absolute;left:80px;top:70px;width:440px;height:440px">
+</div>
+
+<!-- F. 10초 워드마크. 크림 바탕 세이지 글자 + 앰버 점 -->
+<div class="tile" id="f" style="background:#F7F5F0">
+  <div class="num" style="color:#3F5A40;font-size:210px;font-family:-apple-system,'Apple SD Gothic Neo','SF Pro Display',sans-serif;padding-bottom:30px">10초</div>
+  <div style="position:absolute;left:150px;top:432px;width:300px;height:26px;border-radius:13px;background:#C89B4C"></div>
+  <div style="position:absolute;left:472px;top:418px;width:54px;height:54px;border-radius:50%;background:#E8CE9C;border:12px solid #C89B4C;box-sizing:border-box"></div>
+</div>
+
+<!-- G. 앰버 바탕. 흰 10 + 세이지 초침 -->
+<div class="tile" id="g" style="background:linear-gradient(160deg,#D8AC5E 0%,#C89B4C 55%,#B0863C 100%)">
+  <svg width="600" height="600" viewBox="0 0 600 600" style="position:absolute;inset:0">
+    <circle cx="300" cy="300" r="212" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="30"/>
+    <path d="M300 88 A212 212 0 0 1 512 300" fill="none" stroke="#3F5A40" stroke-width="30" stroke-linecap="round"/>
+    <rect x="286" y="46" width="28" height="34" rx="8" fill="#3F5A40"/>
+    <rect x="262" y="34" width="76" height="22" rx="11" fill="#3F5A40"/>
+  </svg>
+  <div class="num" style="color:#fff;font-size:250px;padding-top:14px">10</div>
+</div>
