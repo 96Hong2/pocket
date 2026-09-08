@@ -14,7 +14,7 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 
 import { anonKeyFor, installAnonKeyTrap, probeAnonKey } from './anonKey';
 import { PrepApi } from './api';
-import { DEV_STACK_URLS } from './env';
+import { DEV_STACK_URLS, FONT_CDN } from './env';
 
 /**
  * 모든 spec 의 유일한 진입점.
@@ -116,7 +116,11 @@ export const test = base.extend<PocketFixtures>({
     const consoleErrors: string[] = [];
 
     page.on('console', (message) => {
-      if (message.type() === 'error') consoleErrors.push(message.text());
+      if (message.type() !== 'error') return;
+      // 글꼴만 예외다. 비차단으로 받고 못 받아도 폴백 스택으로 읽힌다(frontend/index.html).
+      // 주소로 가르므로 우리 자원이 실패하면 같은 문구여도 그대로 터진다.
+      if (FONT_CDN.test(message.location().url)) return;
+      consoleErrors.push(message.text());
     });
     page.on('pageerror', (error) => consoleErrors.push(error.message));
 

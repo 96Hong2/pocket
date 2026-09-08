@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import type { Page, TestInfo } from '@playwright/test';
 
+import { FONT_CDN } from '../../support/env';
 import { expect, test as base } from '../../support/fixtures';
 
 import { installDemoOverlay } from './overlay';
@@ -26,14 +27,6 @@ const BEAT_MS = 750;
 
 /** 제목 카드를 띄워 두는 시간. 읽고 넘어갈 만큼만. */
 const TITLE_MS = 1900;
-
-/**
- * 글꼴을 받아 오는 곳.
- *
- * 인터넷이 막힌 곳에서는 못 받고 폴백 글꼴로 그려진다. 배치는 그대로라 녹화에는 지장이 없다.
- * 이 실패만 눈감고, 다른 요청이 실패하면 그대로 터지게 둔다.
- */
-const FONT_CDN = /cdn\.jsdelivr\.net/;
 
 interface DemoWindow {
   __pocketDemoStep: (text: string) => void;

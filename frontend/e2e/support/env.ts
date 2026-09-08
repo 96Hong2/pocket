@@ -13,6 +13,14 @@ export const E2E_API_URL = `http://localhost:${E2E_API_PORT}`;
 /** 개발 스택 주소. 여기로 요청이 나가면 가드가 테스트를 실패시킨다. */
 export const DEV_STACK_URLS = ['http://localhost:5173', 'http://localhost:8000'] as const;
 
+/**
+ * 글꼴을 받아 오는 곳.
+ *
+ * 인터넷이 느리거나 막힌 곳에서는 못 받고 폴백 스택으로 그려진다. 배치는 그대로다.
+ * 이 주소의 실패만 눈감고, 우리 자원이 실패하면 그대로 터지게 둔다.
+ */
+export const FONT_CDN = /cdn\.jsdelivr\.net/;
+
 export const E2E_DATABASE_URL =
   process.env.POCKET_E2E_DATABASE_URL ??
   'postgresql+psycopg://pocket:pocket@localhost:5434/pocket_e2e';

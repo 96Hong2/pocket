@@ -866,6 +866,10 @@ export interface components {
         /**
          * CategoryUpdate
          * @description 보낸 필드만 바꾼다. 종류와 순서는 서버가 정한 값을 그대로 둔다.
+         *
+         *     필드를 빼는 것과 null 을 보내는 것이 같다. 둘 다 "이 값은 그대로 둔다" 는 뜻이고
+         *     service 가 null 을 건너뛴다. 이름과 아이콘은 비워 둘 수 있는 값이 아니라 지우는 길을
+         *     두지 않았다. 목표(`target_date`)·알림(`remind_at`)처럼 null 이 '지운다' 인 곳과 다르다.
          */
         CategoryUpdate: {
             /** Name */
