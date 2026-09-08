@@ -13,6 +13,8 @@ from app.integrations.llm.contracts import (
     attach_source,
 )
 from app.integrations.llm.factory import get_llm_client
+from app.integrations.llm.gemini import GEMINI_DEFAULT_MODEL, GeminiStructuredClient
+from app.integrations.llm.openai import OPENAI_DEFAULT_MODEL, OpenAiStructuredClient
 from app.integrations.llm.port import (
     LlmError,
     LlmImage,
@@ -32,15 +34,19 @@ from app.integrations.llm.stub import StubLlmStructuredClient
 
 __all__ = [
     "DEFAULT_CATEGORY_HINTS",
+    "GEMINI_DEFAULT_MODEL",
     "LOW_CONFIDENCE_THRESHOLD",
+    "OPENAI_DEFAULT_MODEL",
     "RECEIPT_TASK_MARKER",
     "ExtractedTransaction",
+    "GeminiStructuredClient",
     "LlmError",
     "LlmImage",
     "LlmInputError",
     "LlmSchemaError",
     "LlmStructuredClient",
     "LlmUnavailableError",
+    "OpenAiStructuredClient",
     "ParseMeta",
     "ParseResult",
     "StubLlmStructuredClient",

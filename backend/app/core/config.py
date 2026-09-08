@@ -5,11 +5,13 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 Environment = Literal["local", "dev", "prod"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+# 줄글·사진을 읽는 모델. stub 은 규칙 파서라 사진을 한 바이트도 읽지 않는다.
+LlmProvider = Literal["stub", "gemini", "openai"]
 
 # 3.x 번들이 2.x origin 으로도 서비스되므로 두 도메인을 모두 허용한다.
 DEFAULT_CORS_ORIGINS: tuple[str, ...] = (
@@ -59,6 +61,18 @@ class Settings(BaseSettings):
     # 줄글 분석을 하루에 몇 번까지 받아 줄지. 핵심 루프를 끊지 않도록 넉넉히 잡는다.
     # 비용을 재기 전에 상한을 좁히지 않는다. 실제 사용량을 보고 나서 정한다.
     nl_parse_daily_limit: int = 300
+
+    # 어떤 모델이 읽는지. 기본은 스텁이라 키 없이 개발·검증이 돈다. 운영은 gemini 로 띄운다.
+    # 키는 SecretStr 이라 설정을 통째로 찍어도 값이 가려진다.
+    # 키가 비었는지는 여기서 안 본다. alembic·스크립트도 이 설정을 읽는데 그쪽은 모델을 안 부른다.
+    # 앱은 기동할 때 get_llm_client() 가 보고 멈춘다.
+    llm_provider: LlmProvider = "stub"
+    gemini_api_key: SecretStr | None = None
+    openai_api_key: SecretStr | None = None
+    # 비우면 provider 기본 모델(gemini-2.5-flash · gpt-5-mini).
+    llm_model: str | None = None
+    # 한 번 부르는 데 기다리는 시간. 한 번 재시도하므로 최악은 두 배다.
+    llm_timeout_seconds: float = 20.0
 
     @field_validator("cors_origins", mode="before")
     @classmethod
