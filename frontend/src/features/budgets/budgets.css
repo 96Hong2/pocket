@@ -20,8 +20,8 @@
 
   .budget__title {
     margin: 0;
-    font-size: var(--text-16);
-    font-weight: var(--font-weight-extrabold);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
     color: var(--color-ink);
   }
 
@@ -101,7 +101,7 @@
   .budget-total__title {
     margin: 0;
     font-size: var(--text-13);
-    font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
   }
 
@@ -181,10 +181,17 @@
     color: var(--color-ink);
   }
 
+  /* 목록과 추가 줄을 흰 카드 한 장에 담는다. 줄끼리는 구분선으로 가른다. */
+  .budget-cats__card {
+    padding: 6px 16px;
+    background: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
   .budget-cats__list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -193,16 +200,29 @@
   .budget-cat__hit {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
-    min-height: 60px;
-    padding: 10px 14px;
+    padding: 13px 0;
     border: 0;
-    border-radius: var(--radius-inset);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-card);
+    border-bottom: 1px solid var(--color-divider);
+    background: none;
     font-family: inherit;
     text-align: left;
+  }
+
+  /* 추가 줄이 없는 달에는 마지막 구분선이 카드 안에 홀로 남는다. */
+  .budget-cats__list:last-child > li:last-child .budget-cat__hit {
+    border-bottom: 0;
+  }
+
+  /* 카드 한 장이 되면서 줄마다 있던 그림자가 사라졌다. 누르는 동안 배경으로 대신 알린다. */
+  button.budget-cat__hit:active {
+    background: var(--color-surface-sunken);
+  }
+
+  .budget-cat__hit .pk-avatar__img {
+    width: 44px;
+    height: 44px;
   }
 
   .budget-cat__body {
@@ -235,15 +255,21 @@
     color: var(--color-muted);
   }
 
+  /* 목록 카드 안 마지막 줄. 위 줄들과 같은 높이로 이어 붙는다. */
   .budget-cats__add {
-    min-height: 44px;
-    border: 1px dashed var(--color-dashed);
-    border-radius: var(--radius-inset);
-    background: transparent;
+    width: 100%;
+    padding: 13px 0;
+    border: 0;
+    background: none;
     font-family: inherit;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-bold);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
     color: var(--color-sage-700);
+    text-align: center;
+  }
+
+  .budget-cats__add:active {
+    background: var(--color-surface-sunken);
   }
 
   .budget-cats__sum {
@@ -338,5 +364,100 @@
 
   .budget-sheet__done {
     flex: 2;
+  }
+
+  /* ── 목표 기반 생활비 제안 ───────────────────────── */
+
+  .budget-suggest > * {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .budget-suggest__title {
+    margin: 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-extrabold);
+    color: var(--color-ink);
+  }
+
+  .budget-suggest__lead,
+  .budget-suggest__foot {
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .budget-suggest__form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* 식이 한 열로 읽히게 기호 자리를 고정한다. 좁은 화면에서도 열이 흔들리지 않는다. */
+  .budget-suggest__row,
+  .budget-suggest__line {
+    display: grid;
+    grid-template-columns: 16px 1fr auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .budget-suggest__row {
+    align-items: start;
+  }
+
+  .budget-suggest__field {
+    grid-column: 2 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .budget-suggest__op {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  .budget-suggest__label {
+    min-width: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .budget-suggest__basis {
+    margin: 0;
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .budget-suggest__line--total {
+    padding-top: 10px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .budget-suggest__line--total .budget-suggest__label {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  /* 서버에 다시 묻는 동안 합계 자리. 옛 숫자를 남기면 식이 어긋난 채로 읽힌다. */
+  .budget-suggest__pending {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .budget-suggest__note {
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
   }
 }

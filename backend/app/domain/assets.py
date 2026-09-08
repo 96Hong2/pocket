@@ -8,7 +8,7 @@ from enum import StrEnum
 
 from app.domain.money import Money
 
-__all__ = ["AssetGroup", "AssetItem", "AssetSummary", "summarize_assets"]
+__all__ = ["AssetGroup", "AssetItem", "AssetSummary", "summarize_assets", "total_by_group"]
 
 
 class AssetGroup(StrEnum):
@@ -46,3 +46,15 @@ def summarize_assets(items: Iterable[AssetItem]) -> AssetSummary:
         total_liabilities=liabilities,
         net_worth=assets - liabilities,
     )
+
+
+def total_by_group(items: Iterable[AssetItem]) -> dict[AssetGroup, Money]:
+    """그룹별 소계. 항목이 없는 그룹도 0 으로 넣는다.
+
+    화면이 줄 금액을 다시 더하지 않게 서버가 센다. 그렇게 두면 화면이 접어 둔 줄이나
+    못 그린 줄을 빼고 더해, 소계와 순자산이 서로 다른 목록을 말하게 된다.
+    """
+    totals = dict.fromkeys(AssetGroup, Money.zero())
+    for item in items:
+        totals[item.group] = totals[item.group] + item.amount
+    return totals

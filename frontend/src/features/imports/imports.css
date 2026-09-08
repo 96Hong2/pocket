@@ -26,11 +26,11 @@
   }
 
   .nl__input {
+    display: block;
     width: 100%;
-    padding: 14px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-inset);
-    background: var(--color-surface);
+    padding: 0;
+    border: 0;
+    background: none;
     color: var(--color-ink);
     font-size: var(--text-16);
     line-height: 1.5;
@@ -41,10 +41,55 @@
     color: var(--color-placeholder);
   }
 
-  .nl__hint,
-  .nl__read {
-    font-size: var(--text-13);
+  /*
+    시안은 입력칸과 안내 한 줄을 같은 회색 상자에 담는다. 상자는 이 겹이 그리고
+    안쪽 입력칸은 배경을 비운다. 안내는 label 밖에 있어야 접근성 이름이 안 길어진다.
+  */
+  .nl__box {
+    display: block;
+    padding: 14px 16px 12px;
+    border-radius: var(--radius-inset);
+    background: var(--color-bg);
+  }
+
+  .nl__hint {
+    /* 상자 아래쪽 안이다. .nl 의 gap 14px 을 지우고 상자에 붙인다. */
+    margin-top: -26px;
+    padding: 0 16px 12px;
+    font-size: var(--text-12);
     color: var(--color-muted);
+  }
+
+  /* 후보 목록의 머리글. 목록과는 8px 만 띄운다. */
+  .nl__read {
+    margin-bottom: -6px;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  /* 고른 것의 분류를 한 번에 바꾸는 자리. 캡처처럼 여러 건이 한꺼번에 올 때만 나온다. */
+  .nl__bulk {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .nl__bulk-chip {
+    align-self: flex-start;
+    height: 36px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .nl__bulk-chip:disabled {
+    opacity: 0.45;
   }
 
   .nl__empty {
@@ -93,6 +138,11 @@
     gap: 10px;
   }
 
+  /* 공용 outline 은 48px 이지만 이 줄에서는 시안 CTA 와 같은 52px 로 선다. */
+  .nl__actions .pk-btn--outline {
+    height: 52px;
+  }
+
   .nl__done {
     flex: 1;
   }
@@ -115,13 +165,13 @@
   .nl-item__pick {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 11px;
     min-width: 0;
   }
 
   .nl-item__pick input {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     flex: none;
     accent-color: var(--color-sage-700);
   }
@@ -153,7 +203,8 @@
     align-items: center;
     gap: 6px;
     margin-top: 8px;
-    padding-left: 30px;
+    /* 체크박스 24 + gap 11 + 아바타 52 + gap 11. 아바타 크기를 바꾸면 이 값도 함께 바꾼다. */
+    padding-left: 98px;
     font-size: var(--text-12);
     color: var(--color-muted);
   }
@@ -263,9 +314,32 @@
     gap: 14px;
   }
 
+  .capture__intro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 18px;
+    border-radius: var(--radius-inset);
+    background: var(--color-bg);
+    text-align: center;
+  }
+
+  .capture__icon {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+  }
+
   .capture__guide {
     font-size: var(--text-14);
-    line-height: 1.6;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-muted);
+  }
+
+  .capture__privacy {
+    font-size: var(--text-12);
     color: var(--color-muted);
   }
 

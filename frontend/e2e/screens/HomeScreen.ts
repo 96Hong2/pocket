@@ -25,6 +25,10 @@ export class HomeScreen {
   readonly edit: EditSheetArea;
   /** 예산 제안 카드. 첫 기록을 마쳐야 뜬다. */
   readonly budget: BudgetCard;
+  /** 목표 카드. 진행 중인 목표가 있을 때만 뜬다. */
+  readonly goal: HomeGoalCard;
+  /** 지난달 결산 진입 카드. 달이 바뀐 뒤 며칠 동안, 아직 안 봤을 때만 뜬다. */
+  readonly closing: HomeClosingCard;
   /** 광고 자리. */
   readonly ads: AdArea;
   /** 며칠 비웠을 때 뜨는 복귀 카드. */
@@ -36,6 +40,8 @@ export class HomeScreen {
     this.today = new TodaySection(page);
     this.edit = new EditSheetArea(page);
     this.budget = new BudgetCard(page);
+    this.goal = new HomeGoalCard(page);
+    this.closing = new HomeClosingCard(page);
     this.ads = new AdArea(page);
     this.recovery = new RecoveryCard(page);
   }
@@ -121,6 +127,16 @@ class HomeHero {
 
   get dailyAllowance(): Locator {
     return this.page.getByTestId(TEST_IDS.dailyAllowance);
+  }
+
+  /** 이번 주에 쓸 수 있는 돈. 예산이 없으면 아예 없다. */
+  get weeklyAllowance(): Locator {
+    return this.page.getByTestId(TEST_IDS.weeklyAllowance);
+  }
+
+  /** 이번 주 줄의 라벨. 숫자만 보고는 무슨 기간인지 알 수 없어 함께 확인한다. */
+  get weeklyLabel(): Locator {
+    return this.page.getByText('이번 주 쓸 수 있는 돈', { exact: true });
   }
 
   get gauge(): Locator {
@@ -223,6 +239,30 @@ class TodaySection {
     return this.text(text);
   }
 
+  /**
+   * 빈 상태에서 안 썼다고 남기는 버튼. 오늘 기록이 하나도 없을 때만 있다.
+   *
+   * 적어 둔 줄과 글자가 같아서 역할로 가른다. 둘은 함께 그려지지 않는다.
+   */
+  get noSpendButton(): Locator {
+    return this.root.getByRole('button', { name: '오늘은 안 썼어요' });
+  }
+
+  /**
+   * 안 쓴 날로 적어 둔 줄.
+   *
+   * 줄에는 role 도 이름도 없고 빈 상태 버튼과 글자가 같아, 줄 안의 취소 버튼에서
+   * 부모로 한 칸 올라가 잡는다. `RecoveryCard` 의 카드와 같은 방법이다.
+   */
+  get noSpendRow(): Locator {
+    return this.noSpendCancelButton.locator('..');
+  }
+
+  /** 적어 둔 무지출 표시를 되돌리는 버튼. */
+  get noSpendCancelButton(): Locator {
+    return this.root.getByRole('button', { name: '취소' });
+  }
+
   /** 이 목록만 못 불러왔을 때 카드 안에 뜨는 제목. */
   get loadError(): Locator {
     return this.text('오늘 기록을 불러오지 못했어요');
@@ -294,6 +334,61 @@ class BudgetCard {
     await this.saveButton.click();
     // 저장이 끝나면 히어로가 남은 예산 모드로 바뀐다.
     await expect(this.page.getByTestId(TEST_IDS.remainingBudget)).toBeVisible();
+  }
+}
+
+/**
+ * 홈의 목표 카드. 진행 중인 목표가 있을 때만 뜬다.
+ *
+ * 카드 전체가 목표 화면으로 가는 링크다. 링크 이름 끝에 갈 곳이 덧붙어 있어
+ * 그것으로 집는다. 안쪽 숫자에는 testid 를 두지 않았다. 같은 값을 목표 화면이 크게
+ * 그리고 있어서, 여기서 다시 재면 어느 화면을 보는 검사인지 흐려진다.
+ */
+class HomeGoalCard {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  get link(): Locator {
+    return this.page.getByRole('link', { name: /목표 자세히 보기$/ });
+  }
+
+  /** 카드에 적힌 목표 이름. 어느 목표인지는 부르는 쪽이 안다. */
+  title(name: string): Locator {
+    return this.link.getByText(name, { exact: true });
+  }
+
+  /** 카드 오른쪽 한 줄. 남은 금액이거나 다 모았다는 말이다. */
+  get foot(): Locator {
+    return this.link.getByText(/^(남은 .+원|다 모았어요)$/);
+  }
+
+  /** 게이지가 스크린리더에 알리는 진행률(%). 카드가 없으면 null. */
+  async gaugePercent(): Promise<number | null> {
+    const gauge = this.link.getByRole('progressbar', { name: '목표 진행률' });
+    if ((await gauge.count()) === 0) return null;
+    const value = await gauge.getAttribute('aria-valuenow');
+    return value == null ? null : Number(value);
+  }
+}
+
+/**
+ * 홈의 결산 진입 카드.
+ *
+ * 카드 전체가 리포트로 가는 링크다. 링크라 이름으로 잡는다. 한 번 열어 보면 사라지므로
+ * 있는지 없는지가 곧 '아직 안 봤는지' 다.
+ */
+class HomeClosingCard {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  get link(): Locator {
+    return this.page.getByRole('link', { name: /결산이 도착했어요/ });
   }
 }
 

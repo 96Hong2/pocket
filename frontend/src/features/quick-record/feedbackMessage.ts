@@ -13,19 +13,11 @@ import { formatCurrency } from '../../shared/lib/format';
 
 /**
  * 사용자를 탓하는 말은 쓰지 않는다.
- * 정본은 백엔드 `app/domain/feedback.py` 의 `FORBIDDEN_WORDS` 다.
+ *
+ * 목록과 판정은 `shared/lib/forbiddenWords` 에 있다. 결산 문구와 e2e 도 같은 것을 본다.
+ * 여기서 다시 내보내는 것은 저장 직후 피드백을 다루는 자리에서 함께 읽히게 하려는 것뿐이다.
  */
-export const FORBIDDEN_WORDS = ['과소비', '낭비', '실패', '벌써', '또', '망함'] as const;
-
-/** `또는`·`또한` 은 접속사라 걸지 않는다. 백엔드 판정과 같은 규칙이다. */
-const WORD_PATTERNS: Record<string, RegExp> = { 또: /또(?!는|한)/ };
-
-export function findForbiddenWords(text: string): string[] {
-  return FORBIDDEN_WORDS.filter((word) => {
-    const pattern = WORD_PATTERNS[word];
-    return pattern ? pattern.test(text) : text.includes(word);
-  });
-}
+export { FORBIDDEN_WORDS, findForbiddenWords } from '../../shared/lib/forbiddenWords';
 
 export interface FeedbackMessage {
   /** 카드 위 작은 배지. 없을 수도 있다. */

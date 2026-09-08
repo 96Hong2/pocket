@@ -105,7 +105,11 @@ class TransactionCreate(BaseModel):
 
 
 class TransactionUpdate(BaseModel):
-    """보낸 필드만 고친다. 검증과 시각 정규화는 저장 경로와 같은 것을 쓴다."""
+    """보낸 필드만 고친다. 검증과 시각 정규화는 저장 경로와 같은 것을 쓴다.
+
+    **비울 수 있는 값은 상호와 분류뿐이다.** 시각·금액·종류·예산 반영에 null 이 오면 422 로
+    막는다. 그대로 쓰면 시각 정규화가 None 에서 죽어 500 이 난다.
+    """
 
     occurred_at: AwareDatetime | None = None
     amount: Decimal | None = Field(default=None, gt=0, le=MAX_AMOUNT)
@@ -117,6 +121,14 @@ class TransactionUpdate(BaseModel):
     _check_amount = field_validator("amount")(integral_won)
     _check_occurred_at = field_validator("occurred_at")(_in_range)
     _check_merchant = field_validator("merchant")(_clean_text)
+
+    @model_validator(mode="after")
+    def _reject_explicit_nulls(self) -> TransactionUpdate:
+        """비울 수 없는 값에 null 을 보내면 막는다."""
+        for field in ("occurred_at", "amount", "type", "excluded_from_budget"):
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(f"{field} 는 비울 수 없어요.")
+        return self
 
 
 class TransactionOut(BaseModel):
@@ -152,6 +164,8 @@ class CalendarDayOut(BaseModel):
     day: date
     expense: Decimal
     income: Decimal
+    # 안 쓴 날로 표시해 둔 날. 금액이 0 이라 화면이 합계만 보고는 빈 칸과 가릴 수 없다.
+    is_no_spend: bool
 
 
 class CalendarMonthOut(BaseModel):

@@ -1,0 +1,254 @@
+/*
+  자산 화면 스펙. 색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
+  카드·시트·세그먼트·금액은 shared/ui 가 그리고, 여기에는 이 화면의 배치만 둔다.
+*/
+
+@layer components {
+  .assets {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+
+  /* ── 관리 탭의 자산 입구 ─────────────────────────── */
+
+  /* 숫자를 그 자리에 보여 주는 줄. 이름만 있는 줄이면 눌러 보기 전에는 안이 안 보인다. */
+  .assets-entry {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    text-decoration: none;
+  }
+
+  .assets-entry__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .assets-entry__title {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .assets-entry__sub {
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  /* 화살표는 글자에 섞지 않는다. 스크린리더가 함께 읽는다. */
+  .assets-entry::after {
+    content: '';
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid var(--color-placeholder);
+    border-right: 2px solid var(--color-placeholder);
+    transform: rotate(45deg);
+  }
+
+  /* ── 순자산 카드 ────────────────────────────────── */
+
+  .net-worth {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px;
+    background: var(--color-sage-50);
+    border-radius: var(--radius-card);
+  }
+
+  .net-worth__label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  .net-worth__amount {
+    color: var(--color-ink);
+  }
+
+  /* 순자산이 어디서 나왔는지. 자릿수가 흔들리지 않게 숫자 폭을 고정한다. */
+  .net-worth__breakdown {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
+    /* 긴 금액 둘이 한 줄에 안 들어가면 줄을 바꾼다. 가로로 밀면 탭바가 화면 밖으로 나간다. */
+    overflow-wrap: anywhere;
+  }
+
+  /* ── 그룹 구획 ──────────────────────────────────── */
+
+  .asset-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .asset-group__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 2px;
+  }
+
+  .asset-group__title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .asset-group__name {
+    margin: 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .asset-group__hint {
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+  }
+
+  .asset-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .asset-list > li + li {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .asset-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 52px;
+    padding: 8px 2px;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    text-align: left;
+  }
+
+  .asset-row__name {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    /* 아주 긴 이름이 화면을 가로로 밀지 않게 줄 안에서 끊는다. */
+    overflow-wrap: anywhere;
+  }
+
+  .asset-row__go {
+    flex: none;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .asset-group__add {
+    min-height: 44px;
+    border: 1px dashed var(--color-dashed);
+    border-radius: var(--radius-inset);
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  /* 목록 끝에 한 줄. 어느 칸도 비워 둘 수 있다는 것을 적는 자리다. */
+  .assets__skip-note {
+    margin: 0;
+    padding: 12px 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  /* ── 항목 시트 ──────────────────────────────────── */
+
+  .asset-sheet__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .asset-sheet__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .asset-sheet__label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .asset-sheet__input {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .asset-sheet__input::placeholder {
+    color: var(--color-placeholder);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .asset-sheet__hint {
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+    line-height: 1.5;
+  }
+
+  .asset-sheet__notice {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+
+  .asset-sheet__actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .asset-sheet__actions > * {
+    flex: 1;
+  }
+
+  .asset-sheet__done {
+    flex: 2;
+  }
+}

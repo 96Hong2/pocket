@@ -14,7 +14,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
@@ -164,6 +164,83 @@ def _require_refund_consistency(session: Session, tx: Transaction, payload: dict
         raise ApiError(
             ErrorCode.INVALID_REFUND_TARGET, "환불 금액이 원래 지출보다 클 수 없어요.", 422
         )
+
+
+def _require_no_spend_once(
+    session: Session, user: User, data: dict, *, exclude_id: uuid.UUID | None = None
+) -> None:
+    """같은 날에 무지출일 표시를 두 번 남기지 못하게 한다.
+
+    빈 상태 버튼을 두 번 누르거나 응답이 늦어 다시 눌렀을 때 같은 날에 두 줄이 생긴다.
+    그러면 취소가 한 줄만 지워 목록이 계속 무지출로 남고, 무지출 연속 판정도 두 배로 센다.
+    날 범위는 사용자 시간대로 자른다. UTC 로 자르면 한국 새벽에 남긴 표시가 전날로 간다.
+
+    저장뿐 아니라 날짜를 옮기는 수정에도 건다. 수정은 자기 자신을 `exclude_id` 로 빼고
+    센다. 빼지 않으면 같은 날 안에서 시각만 고치는 것까지 막힌다.
+    """
+    if data.get("source") is not agg.TransactionSource.NO_SPEND:
+        return
+
+    tz = ledger.user_tz(user)
+    day = ledger.local_date(data["occurred_at"], tz)
+    start, end = ledger.day_bounds(day, tz)
+    query = select(Transaction.id).where(
+        Transaction.user_id == user.id,
+        Transaction.source == agg.TransactionSource.NO_SPEND,
+        Transaction.deleted_at.is_(None),
+        Transaction.occurred_at >= start,
+        Transaction.occurred_at < end,
+    )
+    if exclude_id is not None:
+        query = query.where(Transaction.id != exclude_id)
+    if session.scalar(query.limit(1)) is not None:
+        raise ApiError(ErrorCode.NO_SPEND_EXISTS, "오늘은 이미 안 썼다고 적었어요.", 422)
+
+    if session.scalar(_spent_on_day(user, start, end).limit(1)) is not None:
+        raise ApiError(ErrorCode.INVALID_REQUEST, "그날은 쓴 기록이 있어요.", 422)
+
+
+def _spent_on_day(user: User, start: datetime, end: datetime) -> Select[tuple[uuid.UUID]]:
+    """그 날 하루의 지출 행. 무지출 표시와 함께 설 수 없는 것들이다.
+
+    수입·이체·환불은 뺀다. 월급이 들어온 날도 안 쓴 날일 수 있고, 환불은 지출의 취소다.
+    """
+    return select(Transaction.id).where(
+        Transaction.user_id == user.id,
+        Transaction.type == agg.TransactionType.EXPENSE,
+        Transaction.source != agg.TransactionSource.NO_SPEND,
+        Transaction.deleted_at.is_(None),
+        Transaction.occurred_at >= start,
+        Transaction.occurred_at < end,
+    )
+
+
+def _clear_no_spend_for_spending(session: Session, user: User, tx: Transaction) -> None:
+    """지출을 적은 날의 '안 썼어요' 표시를 걷는다.
+
+    쓴 것이 있는 날에 안 썼다는 줄이 함께 남으면 그 날 장부가 스스로를 뒤집는다.
+    홈은 오늘 기록이 없을 때만 그 버튼을 보여 주지만, 줄글·캡처·영수증과 날짜를 옮기는
+    수정은 그 화면을 지나지 않는다. 그래서 네 입구가 다 지나는 저장 경로에서 걷는다.
+    """
+    if tx.source is agg.TransactionSource.NO_SPEND:
+        return
+    if tx.type is not agg.TransactionType.EXPENSE:
+        return
+
+    tz = ledger.user_tz(user)
+    start, end = ledger.day_bounds(ledger.local_date(tx.occurred_at, tz), tz)
+    marks = session.scalars(
+        select(Transaction).where(
+            Transaction.user_id == user.id,
+            Transaction.source == agg.TransactionSource.NO_SPEND,
+            Transaction.deleted_at.is_(None),
+            Transaction.occurred_at >= start,
+            Transaction.occurred_at < end,
+        )
+    ).all()
+    now = datetime.now(UTC)
+    for mark in marks:
+        mark.deleted_at = now
 
 
 def _normalized(data: dict) -> dict:
@@ -320,6 +397,7 @@ def create_transaction(
     session: Session, user: User, data: dict, *, today: date | None = None
 ) -> tuple[Transaction, SaveOutcome]:
     categories.require_owned(session, user, data.get("category_id"))
+    _require_no_spend_once(session, user, data)
     target = _refund_target(session, user, data.get("refund_of_transaction_id"), data.get("amount"))
 
     payload = _normalized(data)
@@ -339,6 +417,7 @@ def create_transaction(
     tx = Transaction(user_id=user.id, **payload)
     _stamp_identity(tx, user)
     session.add(tx)
+    _clear_no_spend_for_spending(session, user, tx)
     session.commit()
     session.refresh(tx)
 
@@ -374,12 +453,22 @@ def update_transaction(
         raise ApiError(ErrorCode.INVALID_REQUEST, "무지출일 기록의 금액은 바꿀 수 없어요.", 422)
     if "type" in payload and tx.source is agg.TransactionSource.NO_SPEND:
         raise ApiError(ErrorCode.INVALID_REQUEST, "무지출일 기록의 종류는 바꿀 수 없어요.", 422)
+    if "occurred_at" in payload and tx.source is agg.TransactionSource.NO_SPEND:
+        # 옮겨 갈 날에 이미 표시가 있으면 막는다. 저장에만 걸면 이 길로 하루에 둘이 된다.
+        _require_no_spend_once(
+            session,
+            user,
+            {"source": tx.source, "occurred_at": payload["occurred_at"]},
+            exclude_id=tx.id,
+        )
 
     _require_refund_consistency(session, tx, payload)
 
     for field, value in payload.items():
         setattr(tx, field, value)
     _stamp_identity(tx, user)
+    # 날짜나 종류를 고쳐 지출이 옮겨 간 날에도 표시가 남으면 안 된다.
+    _clear_no_spend_for_spending(session, user, tx)
     session.commit()
     session.refresh(tx)
 

@@ -12,6 +12,18 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
+    <!--
+      Pretendard 는 CDN 에서 받는다. CSS 안의 @import 로 두면 그 시트를 다 받을 때까지
+      첫 그림이 멈춘다. 미니앱은 열자마자 보여야 해서, 글꼴은 뒤늦게 와도 되도록
+      인쇄용으로 받아 두었다가 다 받은 뒤에 화면에 건다. 못 받으면 fallback 스택으로 읽힌다.
+    -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+      media="print"
+      onload="this.media='all'"
+    />
     <title>10초 가계부</title>
   </head>
   <body>

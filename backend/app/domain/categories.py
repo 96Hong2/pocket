@@ -13,6 +13,7 @@ from enum import StrEnum
 
 __all__ = [
     "DEFAULT_CATEGORIES",
+    "FIXED_COST_CATEGORY",
     "USER_CATEGORY_SORT_ORDER",
     "CategoryKind",
     "DefaultCategory",
@@ -36,6 +37,10 @@ class DefaultCategory:
     sort_order: int
 
 
+# 고정비를 추정할 때 들여다보는 기본 분류. 이름을 다른 파일에 다시 적지 않게 여기서 내보낸다.
+FIXED_COST_CATEGORY = "주거·고정비"
+
+
 # 순서가 곧 화면에 보이는 순서다. 자주 쓰는 것을 앞에 둔다.
 DEFAULT_CATEGORIES: tuple[DefaultCategory, ...] = (
     DefaultCategory("식비", CategoryKind.EXPENSE, "09_rice_bowl", 10),
@@ -43,7 +48,7 @@ DEFAULT_CATEGORIES: tuple[DefaultCategory, ...] = (
     DefaultCategory("교통", CategoryKind.EXPENSE, "33_train", 30),
     DefaultCategory("쇼핑", CategoryKind.EXPENSE, "34_shopping_cart", 40),
     DefaultCategory("생활", CategoryKind.EXPENSE, "18_cleaning_tools", 50),
-    DefaultCategory("주거·고정비", CategoryKind.EXPENSE, "12_house", 60),
+    DefaultCategory(FIXED_COST_CATEGORY, CategoryKind.EXPENSE, "12_house", 60),
     DefaultCategory("여가·취미", CategoryKind.EXPENSE, "35_paint_palette", 70),
     DefaultCategory("건강·미용", CategoryKind.EXPENSE, "44_dumbbell", 80),
     DefaultCategory("기타", CategoryKind.EXPENSE, "26_sparkles", 90),

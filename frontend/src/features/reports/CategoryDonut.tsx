@@ -13,9 +13,10 @@ import { donutColors } from './donutColors';
  * 비중은 서버가 준 값을 그대로 쓴다. 여기서 금액을 다시 나누면 두 곳에서 센 것이 된다.
  */
 
-const SIZE = 160;
-const STROKE = 26;
-const RADIUS = (SIZE - STROKE) / 2;
+const SIZE = 190;
+const STROKE = 30;
+/* 시안은 190 상자 안에 반지름 70 링을 그린다. 바깥 10px 은 여백이다. */
+const RADIUS = 70;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 /** 조각이 하나뿐이면 100% 링이라 알려 주는 것이 없다. 차트를 늘리는 곳이 아니다. */
 const MIN_SLICES = 2;

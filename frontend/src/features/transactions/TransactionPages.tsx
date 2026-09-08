@@ -64,6 +64,7 @@ export function TransactionPages({
             key={tx.id}
             transaction={tx}
             categories={categories}
+            density="compact"
             hideDivider={index === items.length - 1}
             onClick={() => onPick(tx)}
           />

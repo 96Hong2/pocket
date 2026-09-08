@@ -18,7 +18,6 @@ const LARGE = 50_000;
 /** 예산이 있을 때. 500,000원 예산에 세 번을 이어 넣으며 한마디가 바뀌는 것을 본다. */
 const BUDGET = 500_000;
 const STEADY = 20_000;
-const FAST = 100_000;
 const OVER = 400_000;
 
 /** 속도 판정은 이번 달이 이 일수를 채워야 잡힌다. 서버의 MIN_PACE_ELAPSED_DAYS 와 같은 값이다. */
@@ -45,6 +44,18 @@ function monthProgress(): MonthProgress {
 /** 지금 속도로 갔을 때 월말 예상 지출. 이번 달 지출을 날짜 진행률로 나눈 값이다. */
 function projectedMonthEnd(spend: number, progress: MonthProgress): number {
   return Math.round((spend * progress.totalDays) / progress.elapsedDays);
+}
+
+/**
+ * 두 번째 금액. 날짜에 따라 정한다.
+ *
+ * 속도 판정은 예상 지출(지출 × 총일수 / 경과일)이 예산을 넘어야 서는데, 달이 흐를수록
+ * 같은 금액으로는 못 넘긴다. 고정값(100,000원)은 7일차까지만 섰다. 예산을 넘기는 가장 작은
+ * 만 원 단위로 잡되 100,000원 아래로는 내리지 않는다. 남은 예산이 양수인지는 아래 guard 가 본다.
+ */
+function fastAmount(progress: MonthProgress): number {
+  const floorSpend = Math.floor((BUDGET * progress.elapsedDays) / progress.totalDays / 10_000);
+  return Math.max(100_000, (floorSpend + 1) * 10_000 - STEADY);
 }
 
 test('11 예산이 없을 때 저장 직후 한마디', async ({ demo, home, recordSheet }) => {
@@ -114,6 +125,7 @@ test('11 예산이 없을 때 저장 직후 한마디', async ({ demo, home, rec
 
 test('12 예산이 있을 때 저장 직후 한마디', async ({ demo, home, prep, recordSheet }) => {
   const progress = monthProgress();
+  const FAST = fastAmount(progress);
 
   const afterSteady = STEADY;
   const afterFast = STEADY + FAST;
@@ -127,13 +139,15 @@ test('12 예산이 있을 때 저장 직후 한마디', async ({ demo, home, pre
   await home.waitReady();
   await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET));
 
-  // 속도 판정은 이번 달 초반에만 성립한다. 달이 흐를수록 같은 지출로는 예상 지출이 예산에
-  // 못 미쳐 계획대로(on_track)로 떨어진다. 그때는 문장이 어긋나기 전에 이유를 말하고 멈춘다.
+  // 속도 판정은 사흘째부터 서고, 달 마지막 날에는 설 수 없다(예상 지출이 곧 지출이라 예산을
+  // 넘기면 이미 초과다). 그때는 문장이 어긋나기 전에 이유를 말하고 멈춘다.
   expect(
-    progress.elapsedDays >= MIN_PACE_ELAPSED_DAYS && projectedAfterFast > BUDGET,
+    progress.elapsedDays >= MIN_PACE_ELAPSED_DAYS &&
+      projectedAfterFast > BUDGET &&
+      afterFast < BUDGET,
     `속도 장면이 오늘 날짜에서는 서지 않는다. 이번 달 ${progress.elapsedDays}일차라 ` +
-      `${formatCurrency(afterFast)}를 써도 예상 지출이 ${formatCurrency(projectedAfterFast)}다. ` +
-      '달 초반에 다시 찍거나 금액을 다시 잡아야 한다',
+      `${formatCurrency(afterFast)}를 쓰면 예상 지출이 ${formatCurrency(projectedAfterFast)}다. ` +
+      '사흘째부터 달 마지막 날 전까지만 찍을 수 있다',
   ).toBe(true);
 
   await demo.open(
@@ -161,7 +175,7 @@ test('12 예산이 있을 때 저장 직후 한마디', async ({ demo, home, pre
   await expect(recordSheet.feedback.card).not.toContainText('주의');
   await demo.beat(2);
 
-  await demo.step('확인하고 이어서 100,000원을 적는다');
+  await demo.step(`확인하고 이어서 ${formatCurrency(FAST)}을 적는다`);
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
   await home.recordButton.click();

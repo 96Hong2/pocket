@@ -108,10 +108,18 @@ class CalendarGridArea {
    *
    * 문구는 화면이 쓰는 함수를 그대로 부른다. 베껴 적으면 화면만 바뀌어도 눈치채지 못한다.
    * 안 적은 쪽은 0원이다. 환불이 그날 지출을 깎으므로 expense 는 음수로 들어올 수 있다.
+   * `isNoSpend` 는 안 쓴 날로 적어 둔 날이다. 금액이 0 이라 그 표시로만 가려진다.
    */
-  cellName(iso: string, totals?: { expense?: number; income?: number }): string {
+  cellName(
+    iso: string,
+    totals?: { expense?: number; income?: number; isNoSpend?: boolean },
+  ): string {
     if (totals == null) return dayCellLabel(iso);
-    return dayCellLabel(iso, { expense: totals.expense ?? 0, income: totals.income ?? 0 });
+    return dayCellLabel(iso, {
+      expense: totals.expense ?? 0,
+      income: totals.income ?? 0,
+      isNoSpend: totals.isNoSpend ?? false,
+    });
   }
 }
 
@@ -140,6 +148,16 @@ class LedgerListArea {
     return this.root.getByText(title, { exact: true });
   }
 
+  /**
+   * 안 쓴 날로 적어 둔 줄.
+   *
+   * 홈은 '오늘은 안 썼어요' 라고 적고 달력은 고른 날이라 날짜를 말하지 않는다.
+   * 눌러도 아무 일이 없어야 하는 읽기 전용 줄이다.
+   */
+  get noSpendRow(): Locator {
+    return this.root.getByText('안 썼어요', { exact: true });
+  }
+
   /** 제목 아래 붙는 칩. '예산 제외' · '이체' · '환불' · '수입'. */
   chip(label: string): Locator {
     return this.root.getByText(label, { exact: true });
@@ -155,8 +173,9 @@ class LedgerListArea {
     await expect(this.root.getByRole('button', { name: '불러오는 중…' })).toHaveCount(0);
   }
 
+  /** 기록이 없는 날에 목록 자리를 대신하는 한 줄. */
   get emptyDay(): Locator {
-    return this.root.getByText('이 날은 기록이 없어요', { exact: true });
+    return this.root.getByText('이 날은 기록이 없어요. 없는 날도 괜찮아요.', { exact: true });
   }
 
   /** 행을 눌러 수정 시트를 연다. */

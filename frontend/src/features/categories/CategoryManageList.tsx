@@ -64,7 +64,7 @@ export function CategoryManageList() {
             <ul className="cat-list">
               {defaults.map((category) => (
                 <li className="cat-row" key={category.id}>
-                  <CategoryAvatar icon={toIconName(category.icon_key)} size={32} />
+                  <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
                   <span className="cat-row__name">{category.name}</span>
                   <Chip variant="kind">기본</Chip>
                 </li>
@@ -94,7 +94,7 @@ export function CategoryManageList() {
                     aria-label={`${category.name} 고치기`}
                     onClick={() => setTarget({ category })}
                   >
-                    <CategoryAvatar icon={toIconName(category.icon_key)} size={32} />
+                    <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
                     <span className="cat-row__name">{category.name}</span>
                     <span className="cat-row__go">고치기</span>
                   </button>

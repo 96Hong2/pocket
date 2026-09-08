@@ -15,6 +15,8 @@ export const TEST_IDS = {
   monthSpent: 'month-spent',
   /** 홈의 하루 가용액 금액 */
   dailyAllowance: 'daily-allowance',
+  /** 홈의 이번 주 가용액 금액. 하루치 × 이번 주에 남은 날 수다. */
+  weeklyAllowance: 'weekly-allowance',
   /** 홈의 예산 진행 게이지 */
   budgetGauge: 'budget-gauge',
   /** 큰 숫자를 감싼 관리 탭 입구. 링크라 이름으로도 잡히지만 자리를 못 박아 둔다. */
@@ -58,6 +60,10 @@ export const TEST_IDS = {
   budgetLeft: 'budget-left',
   /** 전체 예산 카드 아래 한 줄. 진행률과 하루 가용액이 여기 붙는다. */
   budgetCaption: 'budget-caption',
+  /** 생활비 제안 카드의 목표저축. 목표가 이번 달에 요구하는 몫이다. */
+  budgetSuggestSaving: 'budget-suggest-saving',
+  /** 생활비 제안 카드의 제안액. 실수령 − 목표저축 − 고정비를 서버가 센 값이다. */
+  budgetSuggestAmount: 'budget-suggest-amount',
   /** 카테고리 예산 한 줄. 어느 카테고리인지는 줄 안의 이름으로 가른다. */
   categoryBudgetRow: 'category-budget-row',
   /** 카테고리 예산 한 줄의 사용액 */
@@ -78,6 +84,24 @@ export const TEST_IDS = {
   /** 영수증 탭 패널. 같은 이유로 둔다. */
   receiptPanel: 'receipt-panel',
 
+  /** 자산 화면의 순자산 금액. 자산 합에서 부채 합을 뺀 값이다. */
+  netWorth: 'net-worth',
+  /** 자산 그룹 구획의 소계. 어느 그룹인지는 구획 이름으로 가른다. */
+  assetGroupTotal: 'asset-group-total',
+  /** 자산 항목 한 줄. 어느 항목인지는 줄 안의 이름으로 가른다. */
+  assetItemRow: 'asset-item-row',
+
+  /** 목표 진행 게이지. 예산 게이지와 크기가 다르다. */
+  goalGauge: 'goal-gauge',
+  /** 목표까지 남은 금액. 넘겨도 음수로 그리지 않는다. */
+  goalRemaining: 'goal-remaining',
+  /** 지금까지 모은 돈. 처음 적어 둔 금액 + 더한 돈이고 서버가 센다. */
+  goalCurrent: 'goal-current',
+  /** 기한까지 매달 얼마씩. 기한이 없는 목표에는 이 줄이 아예 없다. */
+  goalRequiredMonthly: 'goal-required-monthly',
+  /** 지금 페이스로 언제 닿는지 적는 한 줄. 기여가 없으면 숫자 없이 다른 말이 온다. */
+  goalEta: 'goal-eta',
+
   /** 리포트 헤드라인 라벨. 어느 달을 보고 있는지 여기에 적힌다. */
   reportHeadlineLabel: 'report-headline-label',
   /** 리포트의 그 달 총액 */
@@ -92,6 +116,10 @@ export const TEST_IDS = {
   reportRowShare: 'report-row-share',
   /** 6개월 추이 막대 하나 */
   reportTrendBar: 'report-trend-bar',
+  /** 큰 지출 한 줄. 어느 건인지는 줄 안의 상호로 가른다. */
+  reportLargeExpenseRow: 'report-large-expense-row',
+  /** 큰 지출 한 줄의 금액 */
+  reportLargeExpenseAmount: 'report-large-expense-amount',
   /** 지난 기간과의 비교 한 줄. 무엇과 견줬는지 날짜가 글자로 들어 있다. */
   reportComparison: 'report-comparison',
   /** 이번 주 대 지난주 한 줄 */
@@ -100,6 +128,21 @@ export const TEST_IDS = {
   reportBudgetLine: 'report-budget-line',
   /** 조각 합이 그 달 금액과 다른 이유를 적는 줄. 환불이 더 큰 분류가 있을 때만 있다. */
   reportSliceNote: 'report-slice-note',
+  /*
+    결산 입구 카드와 오버레이는 여기 없다. 버튼·다이얼로그라 이름으로 잡힌다.
+    이름이 없는 안쪽 줄과 점만 아래에 둔다.
+  */
+  /** 몇 번째 카드인지 알려 주는 점. 넷이고 지금 카드에 `data-current` 가 붙는다. */
+  closingDot: 'closing-dot',
+  /** 잘한 것 한 줄. 근거가 없으면 이 줄이 아예 없다. */
+  closingHighlight: 'closing-highlight',
+  /** 돈 흐름 카드 한 덩어리. 번 돈·쓴 돈·차액이 여기 있다. */
+  closingFlow: 'closing-flow',
+  /** 살펴볼 변화 한 줄. 지난달과 견줄 것이 없으면 숫자가 없다. */
+  closingChange: 'closing-change',
+  /** 다음 달에 해 볼 것 한 줄. 권할 것이 없으면 숫자가 없다. */
+  closingNext: 'closing-next',
+
   /** 줄글 검토 목록의 후보 한 줄 */
   nlCandidateRow: 'nl-candidate-row',
   /** 후보 한 줄의 금액 */

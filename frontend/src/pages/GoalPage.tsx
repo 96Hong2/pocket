@@ -1,13 +1,17 @@
-import { Placeholder } from './Placeholder';
+import { IdentityNotice } from '../app/IdentityNotice';
+import { GoalBoard } from '../features/goals';
 
-/** 목표 상세. P1 이라 모델만 있고 화면은 자리만 잡아 둔다. */
+/** 목표. 진행 중인 목표 하나를 보고 모은 돈을 더한다. */
 export default function GoalPage() {
   return (
     <div className="page">
       <h1 className="page__title">목표</h1>
-      <p className="page__lead">P1 화면이에요. 지금은 자리만 잡아 뒀어요</p>
+      <p className="page__lead">모으고 싶은 것 하나만 정해요</p>
 
-      <Placeholder label="목표 진행">모은 금액과 게이지가 들어간다.</Placeholder>
+      {/* 식별키를 못 받으면 조회가 시작조차 안 한다. 이 안내가 없으면 카드 자리가 계속 회색이다. */}
+      <IdentityNotice />
+
+      <GoalBoard />
     </div>
   );
 }

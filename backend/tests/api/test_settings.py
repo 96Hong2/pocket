@@ -51,6 +51,19 @@ def test_이어쓰기만_보내면_홈_표시_방식은_안_바뀐다(client: Te
     assert res.json()["home_hero"] == "income_expense"
 
 
+def test_null_을_보내면_그대로_둔다(client: TestClient) -> None:
+    """전부 기본값이 있는 컬럼이라 비울 자리가 없다. null 은 '안 보낸 것' 으로 본다."""
+    client.patch(PREFERENCES, json={"home_hero": "income_expense"}, headers=AUTH)
+
+    res = client.patch(
+        PREFERENCES, json={"home_hero": None, "budget_auto_carryover": None}, headers=AUTH
+    )
+
+    assert res.status_code == 200, res.text
+    assert res.json()["home_hero"] == "income_expense"
+    assert res.json()["budget_auto_carryover"] is True
+
+
 def test_목록에_없는_홈_표시_방식은_거절한다(client: TestClient) -> None:
     """DB 에는 문자열로 들어간다. 스키마가 막지 않으면 홈이 모르는 값을 읽게 된다."""
     res = client.patch(PREFERENCES, json={"home_hero": "net_worth"}, headers=AUTH)
@@ -79,7 +92,8 @@ def _save(client: TestClient, source: str, *, amount: str = "12000") -> None:
         "source": source,
     }
     if source == "no_spend":
-        body |= {"amount": "0", "merchant": None}
+        # 쓴 기록이 있는 날에는 무지출 표시를 남길 수 없다. 그날과 겹치지 않게 하루 옮긴다.
+        body |= {"amount": "0", "merchant": None, "occurred_at": "2026-09-16T12:30:00+09:00"}
     res = client.post("/api/v1/transactions", json=body, headers=AUTH)
     assert res.status_code == 201, res.text
 

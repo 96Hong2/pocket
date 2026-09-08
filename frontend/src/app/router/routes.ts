@@ -9,7 +9,6 @@ export const ROUTES = {
   categories: '/manage/categories',
   settings: '/settings',
   privacy: '/settings/privacy',
-  // 라우트는 남기고 진입점만 없앴다. 알림은 뒤 마일스톤 몫이다.
   notifications: '/settings/notifications',
 } as const;
 

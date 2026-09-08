@@ -1878,6 +1878,188 @@
         }
       }
     },
+    "/api/v1/budgets/suggestion": {
+      "get": {
+        "tags": [
+          "budgets"
+        ],
+        "summary": "Suggestion",
+        "description": "목표에서 거꾸로 낸 생활비 제안. **아무것도 저장하지 않는다.**\n\n실수령과 고정비를 안 주면 지난달에서 어림한다. 화면에서 고친 값은 질의로 온다.\n이 경로는 이어쓰기를 하지 않는다. 조회 하나가 예산을 만드는 자리는 `GET /budgets`\n한 곳이면 되고, 제안은 예산이 없을 때만 화면에 뜨므로 그 조회를 이미 지나 있다.",
+        "operationId": "suggestion_api_v1_budgets_suggestion_get",
+        "parameters": [
+          {
+            "name": "take_home",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 99999999999999,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Take Home"
+            }
+          },
+          {
+            "name": "fixed_costs",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 99999999999999,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Fixed Costs"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 2000
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 12,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetSuggestionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/budgets/categories/{category_id}": {
       "put": {
         "tags": [
@@ -3509,6 +3691,1324 @@
         }
       }
     },
+    "/api/v1/reports/closing": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Closing",
+        "description": "월간 결산. 카드 넉 장이 그리는 것을 한 응답으로 준다.\n\n**아무것도 저장하지 않는다.** 결산을 열어 봤다는 표시는 기기에만 남는다.\n아직 지나는 중인 달이나 기록이 없는 달도 200 으로 답하고, 그때는 `is_closed`·\n`has_any_transaction` 이 false 라 화면이 입구를 아예 그리지 않는다.",
+        "operationId": "closing_api_v1_reports_closing_get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 2000
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 12,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClosingOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets": {
+      "get": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "Show",
+        "operationId": "show_api_v1_assets_get",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "Replace",
+        "description": "보낸 목록이 오늘 스냅샷이 된다. 같은 목록을 두 번 보내도 결과가 같다.",
+        "operationId": "replace_api_v1_assets_put",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetSnapshotPut"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/goals": {
+      "get": {
+        "tags": [
+          "goals"
+        ],
+        "summary": "Show",
+        "operationId": "show_api_v1_goals_get",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalStateOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "goals"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_v1_goals_post",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoalCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalStateOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/goals/{goal_id}": {
+      "patch": {
+        "tags": [
+          "goals"
+        ],
+        "summary": "Update",
+        "description": "보낸 필드만 고친다. `target_date: null` 은 기한을 지운다는 뜻이다.\n\n비울 수 있는 값은 기한 하나다. 다른 값에 null 을 보내면 422 다.",
+        "operationId": "update_api_v1_goals__goal_id__patch",
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Goal Id"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoalPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalStateOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "goals"
+        ],
+        "summary": "Destroy",
+        "description": "목표를 접는다. 지우고 나면 새 목표를 만들 수 있다.",
+        "operationId": "destroy_api_v1_goals__goal_id__delete",
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Goal Id"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/goals/{goal_id}/contributions": {
+      "post": {
+        "tags": [
+          "goals"
+        ],
+        "summary": "Add Contribution",
+        "operationId": "add_contribution_api_v1_goals__goal_id__contributions_post",
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Goal Id"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoalContributionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalStateOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/goals/{goal_id}/contributions/{contribution_id}": {
+      "delete": {
+        "tags": [
+          "goals"
+        ],
+        "summary": "Remove Contribution",
+        "description": "모은 돈 한 줄을 지운다. 지우는 응답은 다른 자원과 같게 본문이 없다.",
+        "operationId": "remove_contribution_api_v1_goals__goal_id__contributions__contribution_id__delete",
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Goal Id"
+            }
+          },
+          {
+            "name": "contribution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Contribution Id"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/settings": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Show",
+        "operationId": "show_api_v1_notifications_settings_get",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Update",
+        "operationId": "update_api_v1_notifications_settings_patch",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -3545,6 +5045,226 @@
           "projected_within_budget"
         ],
         "title": "AchievementKind"
+      },
+      "AssetGroup": {
+        "type": "string",
+        "enum": [
+          "cash",
+          "investment",
+          "deposit",
+          "debt"
+        ],
+        "title": "AssetGroup"
+      },
+      "AssetGroupTotalOut": {
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/AssetGroup"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group",
+          "total"
+        ],
+        "title": "AssetGroupTotalOut",
+        "description": "그룹 소계. 항목이 없는 그룹도 0 으로 실린다.\n\n네 그룹이 늘 같은 순서로 오므로 화면이 구획 순서를 다시 정하지 않는다."
+      },
+      "AssetItemIn": {
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/AssetGroup"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Amount",
+            "description": "원 단위 정수. 0 이상"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group",
+          "amount"
+        ],
+        "title": "AssetItemIn",
+        "description": "자산 항목 하나. 부채도 양수로 보내고 순자산에서 뺄지는 group 이 정한다."
+      },
+      "AssetItemOut": {
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/AssetGroup"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group",
+          "label",
+          "amount",
+          "sort_order"
+        ],
+        "title": "AssetItemOut"
+      },
+      "AssetSnapshotOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "effective_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Effective On"
+          },
+          "source": {
+            "$ref": "#/components/schemas/AssetSource"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "effective_on",
+          "source"
+        ],
+        "title": "AssetSnapshotOut",
+        "description": "언제 적은 것인지. 화면이 `N월 N일 기준` 을 이 날짜로 적는다."
+      },
+      "AssetSnapshotPut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssetItemIn"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "title": "AssetSnapshotPut",
+        "description": "자산 목록을 통째로 바꾼다. 항목 단위 추가·삭제 경로는 두지 않는다.\n\n화면이 목록을 들고 있다가 그대로 보내므로, 빈 배열은 '전부 지웠다' 는 뜻이다."
+      },
+      "AssetSource": {
+        "type": "string",
+        "enum": [
+          "manual",
+          "screenshot"
+        ],
+        "title": "AssetSource"
+      },
+      "AssetSummaryOut": {
+        "properties": {
+          "total_assets": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Assets"
+          },
+          "total_liabilities": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Liabilities"
+          },
+          "net_worth": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Worth"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_assets",
+          "total_liabilities",
+          "net_worth"
+        ],
+        "title": "AssetSummaryOut",
+        "description": "자산·부채 합과 순자산.\n\n순자산은 남은 예산·이번 달 차액과 다른 개념이라 한 카드에 섞지 않는다."
+      },
+      "AssetsOut": {
+        "properties": {
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetSnapshotOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "$ref": "#/components/schemas/AssetSummaryOut"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AssetGroupTotalOut"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssetItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot",
+          "summary",
+          "groups",
+          "items"
+        ],
+        "title": "AssetsOut",
+        "description": "자산 화면이 그리는 것 전부. 조회 하나로 끝낸다."
       },
       "BreakdownRowOut": {
         "properties": {
@@ -3710,6 +5430,18 @@
             ],
             "title": "Daily Allowance"
           },
+          "weekly_allowance": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Allowance"
+          },
           "total_days": {
             "type": "integer",
             "title": "Total Days"
@@ -3721,6 +5453,20 @@
           "remaining_days": {
             "type": "integer",
             "title": "Remaining Days"
+          },
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "week_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Week End"
+          },
+          "week_days_left": {
+            "type": "integer",
+            "title": "Week Days Left"
           },
           "spend_progress": {
             "anyOf": [
@@ -3776,9 +5522,13 @@
           "budgeted_spend",
           "remaining_budget",
           "daily_allowance",
+          "weekly_allowance",
           "total_days",
           "elapsed_days",
           "remaining_days",
+          "week_start",
+          "week_end",
+          "week_days_left",
           "spend_progress",
           "pace_ratio",
           "projected_month_end",
@@ -3789,6 +5539,65 @@
         ],
         "title": "BudgetStateOut",
         "description": "예산 상태. 예산을 정하지 않은 것은 정상이고 그때 amount 가 null 이다."
+      },
+      "BudgetSuggestionOut": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "goal_saving": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Saving"
+          },
+          "take_home": {
+            "$ref": "#/components/schemas/SuggestionAmountOut"
+          },
+          "fixed_costs": {
+            "$ref": "#/components/schemas/SuggestionAmountOut"
+          },
+          "suggested": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuggestionBlocker"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "available",
+          "goal_saving",
+          "take_home",
+          "fixed_costs",
+          "suggested",
+          "reason"
+        ],
+        "title": "BudgetSuggestionOut",
+        "description": "목표에서 거꾸로 낸 생활비 제안. **아무것도 저장하지 않는다.**\n\n사용자가 '이 금액으로 예산 정하기' 를 누르면 그때 예산 저장(`PUT /budgets`)이 따로 간다.\n이 조회만으로 예산이 생기면, 화면을 열어 본 것만으로 예산이 정해져 버린다.\n\n`available` 이 false 면 `suggested` 와 `goal_saving` 이 null 이고 `reason` 에 이유가 온다.\n그때 화면은 카드를 아예 그리지 않는다. 0 원 제안을 보여주지 않는다."
       },
       "BudgetUpsert": {
         "properties": {
@@ -3831,13 +5640,18 @@
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Income"
+          },
+          "is_no_spend": {
+            "type": "boolean",
+            "title": "Is No Spend"
           }
         },
         "type": "object",
         "required": [
           "day",
           "expense",
-          "income"
+          "income",
+          "is_no_spend"
         ],
         "title": "CalendarDayOut",
         "description": "달력 한 칸. 집계에 잡히는 거래가 없는 날은 응답에 없다.\n\nexpense 는 그날 환불을 뺀 값이라 음수가 될 수 있다."
@@ -4037,7 +5851,148 @@
         },
         "type": "object",
         "title": "CategoryUpdate",
-        "description": "보낸 필드만 바꾼다. 종류와 순서는 서버가 정한 값을 그대로 둔다."
+        "description": "보낸 필드만 바꾼다. 종류와 순서는 서버가 정한 값을 그대로 둔다.\n\n필드를 빼는 것과 null 을 보내는 것이 같다. 둘 다 \"이 값은 그대로 둔다\" 는 뜻이고\nservice 가 null 을 건너뛴다. 이름과 아이콘은 비워 둘 수 있는 값이 아니라 지우는 길을\n두지 않았다. 목표(`target_date`)·알림(`remind_at`)처럼 null 이 '지운다' 인 곳과 다르다."
+      },
+      "ChangeOut": {
+        "properties": {
+          "category_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Category Id"
+          },
+          "current": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Current"
+          },
+          "previous": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Previous"
+          },
+          "delta": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Delta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category_id",
+          "current",
+          "previous",
+          "delta"
+        ],
+        "title": "ChangeOut",
+        "description": "지난달보다 가장 많이 늘어난 분류. 견줄 것이 없으면 응답에서 null 이다."
+      },
+      "ClosingFlowOut": {
+        "properties": {
+          "income": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Income"
+          },
+          "expense": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Expense"
+          },
+          "transfer": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Transfer"
+          },
+          "delta": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Delta"
+          },
+          "recorded_days": {
+            "type": "integer",
+            "title": "Recorded Days"
+          },
+          "total_days": {
+            "type": "integer",
+            "title": "Total Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "income",
+          "expense",
+          "transfer",
+          "delta",
+          "recorded_days",
+          "total_days"
+        ],
+        "title": "ClosingFlowOut",
+        "description": "그 달에 돈이 어떻게 드나들었나. 남은 예산과 다른 이야기다."
+      },
+      "ClosingOut": {
+        "properties": {
+          "period_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Period End"
+          },
+          "is_closed": {
+            "type": "boolean",
+            "title": "Is Closed"
+          },
+          "has_any_transaction": {
+            "type": "boolean",
+            "title": "Has Any Transaction"
+          },
+          "highlights": {
+            "items": {
+              "$ref": "#/components/schemas/HighlightOut"
+            },
+            "type": "array",
+            "title": "Highlights"
+          },
+          "flow": {
+            "$ref": "#/components/schemas/ClosingFlowOut"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChangeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "period_start",
+          "period_end",
+          "is_closed",
+          "has_any_transaction",
+          "highlights",
+          "flow",
+          "change",
+          "next"
+        ],
+        "title": "ClosingOut",
+        "description": "월간 결산. 카드 넉 장이 그리는 것을 한 응답에 담는다.\n\n`is_closed` 와 `has_any_transaction` 이 둘 다 참일 때만 화면에 결산 입구가 뜬다.\n아직 지나는 중인 달은 결산할 수 없고, 기록이 없는 달은 돌아볼 것이 없다."
       },
       "ErrorBody": {
         "properties": {
@@ -4068,6 +6023,8 @@
           "INVALID_REQUEST",
           "INVALID_CATEGORY",
           "INVALID_REFUND_TARGET",
+          "NO_SPEND_EXISTS",
+          "GOAL_ALREADY_ACTIVE",
           "PERIOD_CLOSED",
           "USAGE_LIMIT",
           "PARSE_UNAVAILABLE",
@@ -4289,6 +6246,434 @@
         ],
         "title": "FeedbackOut",
         "description": "저장 직후 돌려주는 판정 결과.\n\n문장이 아니라 숫자와 종류만 준다. 문장 조립은 화면이 한다."
+      },
+      "GoalContributionCreate": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Amount",
+            "description": "원 단위 정수. 1원 이상"
+          },
+          "occurred_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred On"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "title": "GoalContributionCreate",
+        "description": "모은 돈 한 번. 날짜를 안 주면 사용자 시간대의 오늘이다."
+      },
+      "GoalContributionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "occurred_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Occurred On"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "occurred_on",
+          "amount"
+        ],
+        "title": "GoalContributionOut",
+        "description": "모은 돈 한 줄. 최근 것이 앞에 온다."
+      },
+      "GoalCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "target_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Target Amount",
+            "description": "원 단위 정수. 1원 이상"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date"
+          },
+          "initial_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Initial Amount",
+            "default": "0"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "target_amount"
+        ],
+        "title": "GoalCreate",
+        "description": "목표 하나 만들기. 진행 중인 목표가 이미 있으면 서버가 막는다."
+      },
+      "GoalOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "target_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Target Amount"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date"
+          },
+          "initial_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Initial Amount"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GoalStatus"
+          },
+          "current_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Current Amount"
+          },
+          "remaining": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remaining"
+          },
+          "progress": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Progress"
+          },
+          "is_achieved": {
+            "type": "boolean",
+            "title": "Is Achieved"
+          },
+          "is_overdue": {
+            "type": "boolean",
+            "title": "Is Overdue"
+          },
+          "months_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Months Left"
+          },
+          "required_monthly_saving": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Monthly Saving"
+          },
+          "eta_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Months"
+          },
+          "monthly_pace": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Pace"
+          },
+          "contributions": {
+            "items": {
+              "$ref": "#/components/schemas/GoalContributionOut"
+            },
+            "type": "array",
+            "title": "Contributions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "target_amount",
+          "target_date",
+          "initial_amount",
+          "status",
+          "current_amount",
+          "remaining",
+          "progress",
+          "is_achieved",
+          "is_overdue",
+          "months_left",
+          "required_monthly_saving",
+          "eta_months",
+          "monthly_pace",
+          "contributions"
+        ],
+        "title": "GoalOut",
+        "description": "목표 화면과 홈 카드가 그리는 것 전부.\n\n계산값은 전부 `app.domain.goals` 가 낸다. 화면은 이 값을 그대로 그리고,\n`목표 - 모은 돈` 처럼 스스로 다시 계산하지 않는다."
+      },
+      "GoalPatch": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "target_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Amount"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date"
+          },
+          "initial_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Amount"
+          }
+        },
+        "type": "object",
+        "title": "GoalPatch",
+        "description": "보낸 필드만 고친다.\n\n**필드를 빼는 것과 null 을 보내는 것이 다르다.** 빼면 그대로 두고, `target_date: null`\n은 기한을 지운다는 뜻이다. 기한이 있는 목표에서 기한만 없애는 길이 그것뿐이다.\n\n**비울 수 있는 값은 기한 하나다.** 이름·목표 금액·처음 모아 둔 돈에 null 이 오면 422 로\n막는다. 그대로 컬럼에 쓰면 NOT NULL 위반이 409 로 새어, 영영 안 되는 요청에 잠시 후\n다시 시도하라고 말하게 된다."
+      },
+      "GoalStateOut": {
+        "properties": {
+          "goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoalOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "goal"
+        ],
+        "title": "GoalStateOut",
+        "description": "목표 조회·저장 응답.\n\n진행 중인 목표가 없는 것은 정상 상태다. 404 가 아니라 200 에 `goal: null` 로 답한다."
+      },
+      "GoalStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "achieved",
+          "archived"
+        ],
+        "title": "GoalStatus"
+      },
+      "HighlightKind": {
+        "type": "string",
+        "enum": [
+          "within_budget",
+          "category_decrease",
+          "no_spend_days",
+          "goal_contribution"
+        ],
+        "title": "HighlightKind",
+        "description": "잘한 것의 종류. **선언 순서가 곧 카드에 실리는 순서다.**"
+      },
+      "HighlightOut": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/HighlightKind"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "amount",
+          "category_id",
+          "count",
+          "previous"
+        ],
+        "title": "HighlightOut",
+        "description": "잘한 것 하나. 문장이 아니라 종류와 숫자만 온다.\n\n`amount` 는 **그 종류의 문장이 그대로 읽을 숫자**다. 예산이면 남긴 돈, 분류를 줄인\n것이면 줄인 돈, 목표면 옮긴 돈이다. 화면이 두 값을 빼서 만들지 않게 서버가 낸다."
       },
       "HomeHero": {
         "type": "string",
@@ -4626,6 +7011,58 @@
         "title": "ImportTextIn",
         "description": "줄글 한 덩어리. 여러 건이 들어 있을 수 있다."
       },
+      "LargeExpenseOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "occurred_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Occurred On"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "occurred_on",
+          "merchant",
+          "category_id",
+          "amount"
+        ],
+        "title": "LargeExpenseOut",
+        "description": "큰 지출 한 줄. 분류별 합계로는 \"무엇을 샀길래\" 가 안 보인다."
+      },
       "MerchantRuleListOut": {
         "properties": {
           "items": {
@@ -4753,6 +7190,13 @@
                 "type": "null"
               }
             ]
+          },
+          "large_expenses": {
+            "items": {
+              "$ref": "#/components/schemas/LargeExpenseOut"
+            },
+            "type": "array",
+            "title": "Large Expenses"
           }
         },
         "type": "object",
@@ -4770,9 +7214,120 @@
           "income_breakdown_total",
           "trend",
           "comparison",
-          "weeks"
+          "weeks",
+          "large_expenses"
         ],
         "title": "MonthlyReportOut"
+      },
+      "NextOut": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/NextStepKind"
+          },
+          "category_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Category Id"
+          },
+          "suggested_cap": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Suggested Cap"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "category_id",
+          "suggested_cap"
+        ],
+        "title": "NextOut",
+        "description": "다음 달에 해 볼 것 하나. **여기에 적용 버튼은 없다.**\n\n화면은 예산 화면으로 가는 링크만 둔다. 결산이 다음 달 예산을 대신 정해 버리면\n사용자가 안 본 사이에 숫자가 바뀐다."
+      },
+      "NextStepKind": {
+        "type": "string",
+        "enum": [
+          "category_cap"
+        ],
+        "title": "NextStepKind",
+        "description": "다음 달에 해 볼 것 하나. 지금은 분류 한도 하나뿐이다."
+      },
+      "NotificationFrequency": {
+        "type": "string",
+        "enum": [
+          "weekly_twice",
+          "daily"
+        ],
+        "title": "NotificationFrequency"
+      },
+      "NotificationSettingsOut": {
+        "properties": {
+          "is_enabled": {
+            "type": "boolean",
+            "title": "Is Enabled"
+          },
+          "remind_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remind At"
+          },
+          "frequency": {
+            "$ref": "#/components/schemas/NotificationFrequency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_enabled",
+          "frequency"
+        ],
+        "title": "NotificationSettingsOut"
+      },
+      "NotificationSettingsPatch": {
+        "properties": {
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "remind_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remind At"
+          },
+          "frequency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotificationFrequency"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "NotificationSettingsPatch",
+        "description": "보낸 필드만 고친다.\n\n**`remind_at` 은 필드를 빼는 것과 `null` 을 보내는 것이 다르다.** 빼면 그대로 두고,\n`null` 을 보내면 정해 둔 시각을 지운다. 시각은 '값 없음' 이 정상 상태인 유일한 값이라\n다른 설정(`/preferences`)과 규칙이 반대다.\n\n`is_enabled` 와 `frequency` 는 `null` 이 뜻을 갖지 않아 그대로 둔다. 기본값이 있는\n컬럼이라 비워 둘 자리가 없다."
       },
       "PeriodComparisonOut": {
         "properties": {
@@ -4969,6 +7524,71 @@
         ],
         "title": "RecoveryProgressOut",
         "description": "최근 며칠 중 며칠 기록했나. 며칠 만에 돌아온 사람에게 보여줄 복구 카드가 쓴다.\n\n빠진 날 수는 싣지 않는다. 화면이 뺄셈으로 만들어 쓰지 못하게 진행만 준다."
+      },
+      "SuggestionAmountOut": {
+        "properties": {
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SuggestionSource"
+          },
+          "basis_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis Start"
+          },
+          "basis_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "source",
+          "basis_start",
+          "basis_end"
+        ],
+        "title": "SuggestionAmountOut",
+        "description": "제안식의 한 칸. 값만 주면 화면이 그것을 사실로 적어 버려서 출처를 함께 준다."
+      },
+      "SuggestionBlocker": {
+        "type": "string",
+        "enum": [
+          "closed_period",
+          "no_goal",
+          "no_deadline",
+          "no_monthly_saving"
+        ],
+        "title": "SuggestionBlocker",
+        "description": "제안을 낼 수 없는 이유. 화면은 이 값을 보고 카드를 아예 그리지 않는다."
+      },
+      "SuggestionSource": {
+        "type": "string",
+        "enum": [
+          "estimated",
+          "given"
+        ],
+        "title": "SuggestionSource",
+        "description": "제안식 한 칸의 출처. 화면이 '추정값' 이라고 적을지 여기로 가른다."
       },
       "TransactionCreate": {
         "properties": {
@@ -5293,7 +7913,7 @@
         },
         "type": "object",
         "title": "TransactionUpdate",
-        "description": "보낸 필드만 고친다. 검증과 시각 정규화는 저장 경로와 같은 것을 쓴다."
+        "description": "보낸 필드만 고친다. 검증과 시각 정규화는 저장 경로와 같은 것을 쓴다.\n\n**비울 수 있는 값은 상호와 분류뿐이다.** 시각·금액·종류·예산 반영에 null 이 오면 422 로\n막는다. 그대로 쓰면 시각 정규화가 None 에서 죽어 500 이 난다."
       },
       "TransactionUpdated": {
         "properties": {

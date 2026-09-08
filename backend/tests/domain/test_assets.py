@@ -1,4 +1,4 @@
-from app.domain.assets import AssetGroup, AssetItem, summarize_assets
+from app.domain.assets import AssetGroup, AssetItem, summarize_assets, total_by_group
 from app.domain.money import Money, won
 
 
@@ -31,3 +31,20 @@ def test_아무것도_없으면_전부_0_이다():
     assert result.total_assets == Money.zero()
     assert result.total_liabilities == Money.zero()
     assert result.net_worth == Money.zero()
+
+
+def test_그룹_소계는_항목이_없는_그룹도_0_으로_채운다():
+    """화면이 구획 넷을 늘 같은 순서로 그리려면 빈 그룹도 값이 있어야 한다."""
+    totals = total_by_group(
+        [
+            AssetItem(AssetGroup.CASH, won(1_000_000)),
+            AssetItem(AssetGroup.CASH, won(500_000)),
+            AssetItem(AssetGroup.DEBT, won(300_000)),
+        ]
+    )
+    assert totals == {
+        AssetGroup.CASH: won(1_500_000),
+        AssetGroup.INVESTMENT: Money.zero(),
+        AssetGroup.DEPOSIT: Money.zero(),
+        AssetGroup.DEBT: won(300_000),
+    }

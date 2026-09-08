@@ -3,11 +3,12 @@ import {
   formatMonthLabel,
   formatSignedCurrency,
 } from '../../../src/shared/lib/format';
+import { shiftMonth } from '../../../src/shared/lib/format';
 import { lastMonth, thisMonth } from '../../support/api';
 import { expect, test } from '../support/director';
 
 /**
- * 리포트 탭 두 장면. 한 달을 나눠 보는 것과, 보는 창을 바꾸는 것이다.
+ * 리포트 탭 세 장면. 한 달을 나눠 보는 것, 보는 창을 바꾸는 것, 그리고 지난달 결산이다.
  *
  * 두 장면 다 홈에서 시작해 탭으로 옮긴다. 홈은 한 달을 총액 하나로 말하고
  * 리포트는 그 총액을 갈라 보여주니, 같은 숫자에서 출발해야 무엇이 더해졌는지 보인다.
@@ -18,6 +19,8 @@ import { expect, test } from '../support/director';
 
 const THIS_MONTH = thisMonth();
 const LAST_MONTH = lastMonth();
+/** 결산의 '살펴볼 변화' 는 지난달과 그 앞달을 견준다. 견줄 앞달이 있어야 카드가 다 찬다. */
+const TWO_MONTHS_AGO = shiftMonth(THIS_MONTH, -2);
 
 test('43 한 달 지출을 도넛과 목록으로 나눠 본다', async ({
   appShell,
@@ -158,6 +161,55 @@ test('44 달을 옮기고 수입으로 바꿔 본다', async ({ appShell, demo, 
   await demo.step('조각이 하나뿐이면 100% 링이라 도넛을 그리지 않는다');
   await expect(report.donut).toHaveCount(0);
   await demo.beat(3);
+
+  await demo.clearStep();
+  await demo.beat(2);
+});
+
+test('49 지난달 결산 카드 넉 장을 넘겨 본다', async ({ demo, prep, report }) => {
+  const food = await prep.categoryIdByName('식비');
+  const cafe = await prep.categoryIdByName('카페·간식');
+  await prep.setBudget(400_000, LAST_MONTH);
+  await prep.addTransaction({ amount: 300_000, on: `${TWO_MONTHS_AGO}-05`, categoryId: food });
+  await prep.addTransaction({ amount: 47_300, on: `${TWO_MONTHS_AGO}-06`, categoryId: cafe });
+  await prep.addTransaction({ amount: 240_000, on: `${LAST_MONTH}-05`, categoryId: food });
+  await prep.addTransaction({ amount: 90_000, on: `${LAST_MONTH}-06`, categoryId: cafe });
+  await prep.saveNoSpend(`${LAST_MONTH}-02`);
+
+  await report.open();
+  await report.waitReady();
+  await demo.open('지난달 결산', '한 달이 끝나면 잘한 것부터 넉 장으로 돌아본다');
+
+  await demo.step('지난달로 옮기면 결산 입구가 생긴다. 끝난 달에만 뜬다');
+  await report.goPreviousMonth();
+  await expect(report.monthLabel()).toHaveText(formatMonthLabel(LAST_MONTH));
+  await expect(report.closing.card).toBeVisible();
+  await demo.beat(3);
+
+  await demo.step('첫 장은 잘한 것이다. 근거가 있는 것만 적는다');
+  await report.closing.open();
+  await expect(report.closing.highlights).toHaveCount(3);
+  await demo.beat(4);
+
+  await demo.step('둘째 장은 돈 흐름. 번 돈과 쓴 돈, 며칠 적었는지');
+  await report.closing.nextButton.click();
+  await expect(report.closing.flow).toBeVisible();
+  await demo.beat(4);
+
+  await demo.step('셋째 장은 늘어난 것 하나. 잘못이 아니라 알아두면 좋은 변화다');
+  await report.closing.nextButton.click();
+  await expect(report.closing.change).toContainText('나쁜 게 아니라');
+  await demo.beat(4);
+
+  await demo.step('마지막 장은 다음 달에 해 볼 것 하나. 예산은 대신 정해 주지 않는다');
+  await report.closing.nextButton.click();
+  await expect(report.closing.budgetLink).toBeVisible();
+  await demo.beat(4);
+
+  await demo.step('다 봤으면 닫는다. 뒤로가기와 ✕ 로도 닫힌다');
+  await report.closing.doneButton.click();
+  await expect(report.closing.overlay).toHaveCount(0);
+  await demo.beat(2);
 
   await demo.clearStep();
   await demo.beat(2);

@@ -95,6 +95,8 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
 
   const busy = update.isPending || remove.isPending;
   const pickable = categories.filter((item) => item.kind === CATEGORY_KIND[transaction.type]);
+  // 머리의 아이콘은 지금 고른 카테고리를 따라간다. 저장한 값만 보면 바꾼 뒤에도 옛 그림이 남는다.
+  const headCategory = categories.find((item) => item.id === categoryId);
 
   const nextAmount = Number(amount);
   // 저장할 수 없는 금액이면 완료를 잠근다. 열어 두면 금액만 조용히 빠지고 나머지가 저장된다.
@@ -139,9 +141,12 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
 
   return (
     <>
-      <p className="tx-edit__title">
-        {nameOf(transaction, categories)} · {formatDayLabel(new Date(transaction.occurred_at))}
-      </p>
+      <div className="tx-edit__head">
+        <CategoryAvatar icon={toIconName(headCategory?.icon_key)} size={58} />
+        <p className="tx-edit__title">
+          {nameOf(transaction, categories)} · {formatDayLabel(new Date(transaction.occurred_at))}
+        </p>
+      </div>
 
       <div className="tx-edit__fields">
         <label className="tx-edit__field">
@@ -174,7 +179,7 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
             aria-pressed={category.id === categoryId}
             onClick={() => setCategoryId(category.id)}
           >
-            <CategoryAvatar icon={toIconName(category.icon_key)} size={22} />
+            <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
             {category.name}
           </button>
         ))}
@@ -205,6 +210,7 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
           삭제
         </Button>
         <Button
+          variant="primarySmall"
           className="tx-edit__done"
           onClick={() => void submit()}
           disabled={busy || !amountOk}

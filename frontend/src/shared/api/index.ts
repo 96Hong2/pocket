@@ -7,7 +7,13 @@
 
 export { resolveApiBaseUrl, API_BASE_URL_ENV } from './baseUrl';
 export { createApiClient } from './client';
-export type { ApiClient, CallOptions, MonthParams, TransactionListParams } from './client';
+export type {
+  ApiClient,
+  BudgetSuggestionParams,
+  CallOptions,
+  MonthParams,
+  TransactionListParams,
+} from './client';
 export { ApiContext, useApi, useApiClient, useApiReady } from './context';
 export type { ApiContextValue } from './context';
 export { parseDecimal, parseDecimalOr } from './decimal';
@@ -15,10 +21,15 @@ export { ApiError, apiErrorMessage, CLIENT_ERROR_CODES, parseErrorEnvelope } fro
 export type { ApiErrorCode, ApiErrorInit, ClientErrorCode, ParsedErrorBody } from './errors';
 export { moneyQueryKeys, queryKeys } from './queryKeys';
 export {
+  useAssets,
   useBudget,
+  useBudgetSuggestion,
   useCalendar,
   useCategories,
+  useClosing,
+  useGoal,
   useMerchantRules,
+  useNotificationSettings,
   usePreferences,
   useMonthlyReport,
   useSummary,
@@ -26,23 +37,30 @@ export {
   useTransactions,
 } from './queries';
 export {
+  useAddGoalContribution,
   useAnalyzeImage,
   useAnalyzeText,
   useCommitImport,
   useCreateCategory,
+  useCreateGoal,
   useCreateTransaction,
   useDeleteBudget,
   useDeleteCategory,
   useDeleteCategoryBudget,
+  useDeleteGoal,
+  useDeleteGoalContribution,
   useDeleteImport,
   useDeleteMerchantRule,
   useDeleteTransaction,
   usePatchImportCandidate,
+  useSaveAssets,
   useSaveBudget,
   useSaveCategoryBudget,
+  useSaveNotificationSettings,
   useSavePreferences,
   useUndoTransaction,
   useUpdateCategory,
+  useUpdateGoal,
   useUpdateTransaction,
 } from './mutations';
 export { createTransport } from './transport';

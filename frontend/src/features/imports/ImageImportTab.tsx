@@ -15,6 +15,8 @@ import {
   LoadingState,
   PermissionDenied,
   UnsupportedFeature,
+  iconUrl,
+  type IconName,
   type PermissionResource,
 } from '../../shared/ui';
 
@@ -32,6 +34,8 @@ interface ImageImportMode {
   /** 앱 버전이 낮아 못 쓸 때 무엇이 안 되는지. */
   feature: string;
   guide: string;
+  /** 안내를 감싸는 카드. 그림과 보조문이 함께 선다. 캡처에만 있다. */
+  intro?: { icon: IconName; note: string };
   pickLabel: string;
   /** 앨범·카메라를 아예 열지 못했을 때의 한 줄. */
   pickAlert: string;
@@ -56,6 +60,7 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
     feature: '캡처 불러오기',
     // PRD 원문. 어떤 화면을 골라도 되는지가 이 한 줄에 다 들어 있어 줄이지 않는다.
     guide: '거래내역 캡처를 골라주세요. 토스·카드·은행 화면도 괜찮아요.',
+    intro: { icon: '23_document', note: '원본 이미지는 정리 후 바로 지워져요' },
     pickLabel: '캡처 고르기',
     pickAlert: '앨범을 열지 못했어요',
     loadingLabel: '캡처를 읽는 중이에요',
@@ -69,6 +74,7 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
     permission: 'camera',
     feature: '영수증 촬영',
     guide: '영수증이 잘 보이게 찍어주세요. 총액이 나오면 돼요.',
+    intro: { icon: '43_camera', note: '원본 이미지는 정리 후 바로 지워져요' },
     pickLabel: '영수증 찍기',
     pickAlert: '카메라를 열지 못했어요',
     loadingLabel: '영수증을 읽는 중이에요',
@@ -126,6 +132,8 @@ export function ImageImportTab({
         onDone={onDone}
         onSaved={onSaved}
         testId={mode.panelTestId}
+        // 한 장에서 여러 건이 오는 캡처에서만 쓸모가 있다. 영수증은 보통 한 건이다.
+        allowBulkCategory={kind === 'capture'}
         restartLabel={mode.restartLabel}
         emptyMessage={mode.emptyMessage}
         emptyAction={fallbackAction}
@@ -167,7 +175,15 @@ export function ImageImportTab({
 
   return (
     <div className="capture" data-testid={mode.panelTestId}>
-      <p className="capture__guide">{mode.guide}</p>
+      {mode.intro ? (
+        <div className="capture__intro">
+          <img className="capture__icon" src={iconUrl(mode.intro.icon)} alt="" aria-hidden="true" />
+          <p className="capture__guide">{mode.guide}</p>
+          <span className="capture__privacy">{mode.intro.note}</span>
+        </div>
+      ) : (
+        <p className="capture__guide">{mode.guide}</p>
+      )}
 
       {pickFailure != null ? (
         <p className="capture__alert" role="alert">

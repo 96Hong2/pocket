@@ -192,6 +192,23 @@ def test_이름을_바꿀_때도_겹침을_본다(
     assert same.json()["icon_key"] == "26_sparkles"
 
 
+def test_이름과_아이콘에_null_을_보내면_그대로_둔다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """비울 수 없는 값이라 null 은 '안 보낸 것' 으로 본다. 422 도 500 도 아니다."""
+    del default_categories
+    mine = _create(client, name="카페", icon_key="26_sparkles").json()
+
+    kept = client.patch(
+        f"/api/v1/categories/{mine['id']}",
+        json={"name": None, "icon_key": None},
+        headers=AUTH,
+    )
+    assert kept.status_code == 200, kept.text
+    assert kept.json()["name"] == "카페"
+    assert kept.json()["icon_key"] == "26_sparkles"
+
+
 def test_분류를_지워도_그_거래는_그대로_남는다(
     client: TestClient, default_categories: list[Category]
 ) -> None:

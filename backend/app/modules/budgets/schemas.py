@@ -14,11 +14,13 @@ from __future__ import annotations
 import uuid
 from datetime import date
 from decimal import Decimal
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.api.amounts import MAX_AMOUNT, integral_won, ratio_out
 from app.domain.budget import BudgetStatus
+from app.domain.budget_plan import LivingBudgetPlan, SuggestionAmount, SuggestionBlocker
 from app.domain.money import Money, ratio
 from app.domain.period import BudgetPeriod
 from app.domain.recovery import RecoveryProgress
@@ -26,10 +28,14 @@ from app.domain.recovery import RecoveryProgress
 __all__ = [
     "BudgetOut",
     "BudgetStateOut",
+    "BudgetSuggestionOut",
     "BudgetUpsert",
     "CategoryBudgetOut",
     "RecoveryProgressOut",
+    "SuggestionAmountOut",
+    "SuggestionSource",
     "to_budget_state",
+    "to_budget_suggestion",
     "to_category_budget",
     "to_recovery",
 ]
@@ -56,9 +62,16 @@ class BudgetStateOut(BaseModel):
     budgeted_spend: Decimal
     remaining_budget: Decimal | None
     daily_allowance: Decimal | None
+    # 하루치 × 이번 주에 남은 날 수. 예산이 없으면 null 이다.
+    weekly_allowance: Decimal | None
     total_days: int
     elapsed_days: int
     remaining_days: int
+    # 오늘이 속한 주(월~일). 화면이 요일을 다시 세지 않게 창을 함께 준다.
+    week_start: date
+    week_end: date
+    # 오늘 포함 이번 주에 남은 날 중 이 달 안에 있는 날 수. 달 마지막 주에는 잘린다.
+    week_days_left: int
     # 게이지 비율. budgeted_spend / amount 다.
     spend_progress: Decimal | None
     pace_ratio: Decimal | None
@@ -115,6 +128,45 @@ class BudgetOut(BaseModel):
     recovery: RecoveryProgressOut
 
 
+class SuggestionSource(StrEnum):
+    """제안식 한 칸의 출처. 화면이 '추정값' 이라고 적을지 여기로 가른다."""
+
+    # 지난달에서 어림한 값. 사용자가 아직 손대지 않았다.
+    ESTIMATED = "estimated"
+    # 사용자가 화면에서 고쳐 보낸 값.
+    GIVEN = "given"
+
+
+class SuggestionAmountOut(BaseModel):
+    """제안식의 한 칸. 값만 주면 화면이 그것을 사실로 적어 버려서 출처를 함께 준다."""
+
+    amount: Decimal
+    source: SuggestionSource
+    # 어림한 값이 나온 기간. 사용자가 준 값이면 null 이다.
+    basis_start: date | None
+    basis_end: date | None
+
+
+class BudgetSuggestionOut(BaseModel):
+    """목표에서 거꾸로 낸 생활비 제안. **아무것도 저장하지 않는다.**
+
+    사용자가 '이 금액으로 예산 정하기' 를 누르면 그때 예산 저장(`PUT /budgets`)이 따로 간다.
+    이 조회만으로 예산이 생기면, 화면을 열어 본 것만으로 예산이 정해져 버린다.
+
+    `available` 이 false 면 `suggested` 와 `goal_saving` 이 null 이고 `reason` 에 이유가 온다.
+    그때 화면은 카드를 아예 그리지 않는다. 0 원 제안을 보여주지 않는다.
+    """
+
+    available: bool
+    # 목표가 이번 달에 요구하는 몫. 목표 화면의 '매달 모을 돈' 과 같은 값이다.
+    goal_saving: Decimal | None
+    take_home: SuggestionAmountOut
+    fixed_costs: SuggestionAmountOut
+    # 실수령 − 목표저축 − 고정비. 음수는 0 으로 붙인다.
+    suggested: Decimal | None
+    reason: SuggestionBlocker | None
+
+
 def _amount(value: Money | None) -> Decimal | None:
     return value.amount if value is not None else None
 
@@ -134,9 +186,13 @@ def to_budget_state(
         budgeted_spend=status.budgeted_spend.amount,
         remaining_budget=_amount(status.remaining_budget),
         daily_allowance=_amount(status.daily_allowance),
+        weekly_allowance=_amount(status.weekly_allowance),
         total_days=status.total_days,
         elapsed_days=status.elapsed_days,
         remaining_days=status.remaining_days,
+        week_start=status.week_start,
+        week_end=status.week_end,
+        week_days_left=status.week_days_left,
         spend_progress=ratio_out(status.spend_progress),
         pace_ratio=ratio_out(status.pace_ratio),
         projected_month_end=status.projected_month_end.amount,
@@ -144,6 +200,34 @@ def to_budget_state(
         is_over_budget=status.is_over_budget,
         is_auto_carried=is_auto_carried,
         is_editable=period.end >= today,
+    )
+
+
+def _suggestion_amount(value: SuggestionAmount, basis: BudgetPeriod) -> SuggestionAmountOut:
+    given = value.is_given
+    return SuggestionAmountOut(
+        amount=value.amount.amount,
+        source=SuggestionSource.GIVEN if given else SuggestionSource.ESTIMATED,
+        basis_start=None if given else basis.start,
+        basis_end=None if given else basis.end,
+    )
+
+
+def to_budget_suggestion(
+    plan: LivingBudgetPlan,
+    *,
+    take_home: SuggestionAmount,
+    fixed_costs: SuggestionAmount,
+    basis: BudgetPeriod,
+) -> BudgetSuggestionOut:
+    """도메인 판정 결과를 응답 형태로 옮긴다. 여기서 숫자를 새로 만들지 않는다."""
+    return BudgetSuggestionOut(
+        available=plan.available,
+        goal_saving=_amount(plan.goal_saving),
+        take_home=_suggestion_amount(take_home, basis),
+        fixed_costs=_suggestion_amount(fixed_costs, basis),
+        suggested=_amount(plan.suggested),
+        reason=plan.reason,
     )
 
 

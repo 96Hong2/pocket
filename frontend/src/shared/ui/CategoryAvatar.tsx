@@ -3,7 +3,7 @@ import { iconUrl, type IconName } from './icons';
 
 export interface CategoryAvatarProps {
   icon: IconName;
-  /** 지름(px). 홈 54 / 달력·예산 48 / 통계 44 / 캡처 50 / 수정 58. */
+  /** 지름(px). 홈·달력·알림 54 / 자산 54 / 예산 52 / 검토 52 / 통계 44 / 설정 48 / 카테고리 40. */
   size?: number;
   /** 비워 두면 장식으로 본다. 아이콘 옆에 이름이 있으면 비워 둔다. */
   alt?: string;

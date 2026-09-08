@@ -32,7 +32,7 @@ export function CategoryChips({
           disabled={disabled}
           onClick={() => onPick(category)}
         >
-          <CategoryAvatar icon={toIconName(category.icon_key)} size={30} />
+          <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
           <span className="cat-chips__name">{category.name}</span>
         </button>
       ))}

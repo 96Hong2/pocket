@@ -3,6 +3,7 @@ from datetime import date
 from app.domain.aggregation import (
     PeriodTotals,
     TransactionInput,
+    TransactionSource,
     TransactionType,
     aggregate_days,
     aggregate_period,
@@ -176,3 +177,42 @@ def test_기간_밖과_삭제된_것은_버린다():
         PERIOD,
     )
     assert [d.day.day for d in days] == [6]
+
+
+def _no_spend(day: int) -> TransactionInput:
+    return TransactionInput(
+        occurred_on=date(2026, 9, day),
+        amount=Money.zero(),
+        type=TransactionType.EXPENSE,
+        source=TransactionSource.NO_SPEND,
+    )
+
+
+def test_무지출일_표시가_있는_날은_따로_알려준다():
+    """금액이 0 이라, 표시가 없으면 화면이 '안 썼다' 와 '안 적었다' 를 가릴 수 없다."""
+    days = aggregate_days([_no_spend(7)], PERIOD)
+    assert [(d.day.day, d.expense, d.is_no_spend) for d in days] == [(7, Money.zero(), True)]
+
+
+def test_무지출일로_적었다가_뭔가_쓴_날은_무지출이_아니다():
+    days = aggregate_days(
+        [_no_spend(7), tx(4_000, TransactionType.EXPENSE, day=7)],
+        PERIOD,
+    )
+    assert [(d.expense, d.is_no_spend) for d in days] == [(won(4_000), False)]
+
+
+def test_무지출일_표시를_지우면_그_날은_사라진다():
+    days = aggregate_days(
+        [
+            TransactionInput(
+                occurred_on=date(2026, 9, 7),
+                amount=Money.zero(),
+                type=TransactionType.EXPENSE,
+                source=TransactionSource.NO_SPEND,
+                is_deleted=True,
+            )
+        ],
+        PERIOD,
+    )
+    assert days == []

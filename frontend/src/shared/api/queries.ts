@@ -8,9 +8,9 @@
  * **지금 화면이 실제로 쓰는 조회만 있다.** 나머지는 그 화면을 만들 때 여기에 더한다.
  */
 
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
-import type { MonthParams, TransactionListParams } from './client';
+import type { BudgetSuggestionParams, MonthParams, TransactionListParams } from './client';
 import { useApiClient, useApiReady } from './context';
 import { queryKeys } from './queryKeys';
 
@@ -50,6 +50,24 @@ export function usePreferences() {
 }
 
 /**
+ * 기록 알림 설정.
+ *
+ * 알림 화면 하나만 쓴다. 켜기와 시각 둘뿐이고, 행이 없는 사용자에게는 서버가 꺼진
+ * 기본값으로 만들어 주므로 '설정이 없는 상태' 를 화면이 따로 다루지 않는다.
+ */
+export function useNotificationSettings() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.notificationSettings(),
+    queryFn: ({ signal }) => client.getNotificationSettings({ signal }),
+    enabled: isReady,
+    staleTime: 30 * 60_000,
+  });
+}
+
+/**
  * 예산 상태와 이번 달 사실.
  *
  * 홈이 첫 화면을 고르는 근거(`has_any_transaction`)까지 여기서 온다.
@@ -63,6 +81,27 @@ export function useBudget(params?: MonthParams) {
     queryKey: queryKeys.budget(params),
     queryFn: ({ signal }) => client.getBudget(params, { signal }),
     enabled: isReady,
+  });
+}
+
+/**
+ * 목표 기반 생활비 제안.
+ *
+ * 부르는 것만으로는 아무것도 저장되지 않는다. 저장은 사용자가 버튼을 눌러 예산을 정할 때다.
+ *
+ * 실수령·고정비를 화면에서 고치면 키가 바뀌어 서버에 다시 묻는다. 그 사이 카드가 통째로
+ * 사라지지 않게 앞 응답을 자리에 남겨 둔다(`placeholderData`). 안 그러면 한 글자 고칠 때마다
+ * 카드가 빈 자리로 깜빡이고, 고치던 입력칸이 포커스를 잃는다.
+ */
+export function useBudgetSuggestion(params?: BudgetSuggestionParams) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.budgetSuggestion(params),
+    queryFn: ({ signal }) => client.getBudgetSuggestion(params, { signal }),
+    enabled: isReady,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -113,6 +152,25 @@ export function useMonthlyReport(params?: MonthParams) {
 }
 
 /**
+ * 그 달의 결산.
+ *
+ * 부르는 것만으로는 아무것도 저장되지 않는다. 결산을 봤다는 표시는 기기에만 남는다.
+ *
+ * `enabled` 를 따로 받는다. 홈은 달이 바뀐 뒤 며칠 동안만 지난달 결산을 묻고, 이미 본
+ * 달은 아예 묻지 않는다. 늘 물으면 홈을 열 때마다 안 쓸 응답을 하나 더 받는다.
+ */
+export function useClosing(params?: MonthParams, options?: { enabled?: boolean }) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.closing(params),
+    queryFn: ({ signal }) => client.getClosing(params, { signal }),
+    enabled: isReady && (options?.enabled ?? true),
+  });
+}
+
+/**
  * 커서로 이어 받는 거래 목록.
  *
  * 달력 화면의 검색 결과와 전체 내역이 쓴다. 홈은 이걸 쓰지 않는다. 홈은 그 달을 한 번 받아
@@ -148,6 +206,24 @@ export function useCalendar(params?: MonthParams) {
 }
 
 /**
+ * 자산 목록과 순자산.
+ *
+ * 한 번도 안 적은 것은 정상이고 그때 `snapshot` 이 null 이다. 오류가 아니다.
+ * 목록이 곧 저장할 것이라서 오래 붙들지 않는다. 낡은 목록에 새 줄을 얹어 보내면
+ * 그 사이에 다른 데서 고친 줄이 사라진다.
+ */
+export function useAssets() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.assets(),
+    queryFn: ({ signal }) => client.getAssets({ signal }),
+    enabled: isReady,
+  });
+}
+
+/**
  * 기억한 분류 규칙.
  *
  * 줄글로 저장할 때마다 늘어나므로 오래 붙들지 않는다. 카테고리 관리에서만 본다.
@@ -159,6 +235,24 @@ export function useMerchantRules() {
   return useQuery({
     queryKey: queryKeys.merchantRules(),
     queryFn: ({ signal }) => client.listMerchantRules({ signal }),
+    enabled: isReady,
+  });
+}
+
+/**
+ * 진행 중인 목표 하나.
+ *
+ * 목표를 정하지 않은 것은 정상이고 그때 `goal` 이 null 이다. 오류가 아니다.
+ * 홈 카드와 목표 화면이 같은 조회를 본다. 두 곳이 각자 부르면 기여를 더한 직후
+ * 한쪽만 새 값이 되어, 홈 게이지와 목표 화면 게이지가 서로 다른 말을 한다.
+ */
+export function useGoal() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.goal(),
+    queryFn: ({ signal }) => client.getGoal({ signal }),
     enabled: isReady,
   });
 }

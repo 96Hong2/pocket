@@ -18,7 +18,16 @@ export type BridgeCapability =
   | 'networkStatus'
   | 'safeArea'
   | 'navigationAccessory'
-  | 'ads';
+  | 'ads'
+  | 'notification';
+
+/**
+ * 토스 알림 동의 요청의 결과.
+ *
+ * `agreementRejected` 도 오류가 아니라 결과의 한 종류다. 사용자가 안 받겠다고 고른 것이라
+ * 다시 묻지 않는다. 값 이름은 SDK 가 주는 것을 그대로 쓴다.
+ */
+export type NotificationAgreementResult = 'newAgreement' | 'alreadyAgreed' | 'agreementRejected';
 
 /** 앨범·카메라가 돌려주는 이미지. dataUri 는 base64 data URL 이다. */
 export interface PickedImage {
@@ -143,6 +152,14 @@ export interface MiniAppBridge {
 
   /** 취소하면 null 을 돌려준다. */
   captureReceipt(options?: CaptureOptions): Promise<PickedImage | null>;
+
+  /**
+   * 토스 알림 동의를 묻는다. **사용자가 알림을 켜는 그 순간에만 부른다.**
+   *
+   * `templateCode` 는 토스 콘솔 스마트발송 템플릿 코드다. 거절도 결과의 한 종류라 던지지
+   * 않는다. 이 버전에서 못 쓰거나 템플릿 코드가 없으면 BridgeError('UNSUPPORTED').
+   */
+  requestNotificationAgreement(templateCode: string): Promise<NotificationAgreementResult>;
 
   getSafeAreaInsets(): SafeAreaInsets;
   subscribeSafeArea(listener: (insets: SafeAreaInsets) => void): () => void;

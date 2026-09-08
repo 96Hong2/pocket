@@ -99,6 +99,203 @@ def test_무지출일만_0원을_허용한다(client: TestClient) -> None:
     assert bad.status_code == 422
 
 
+def test_같은_날_무지출일은_한_번만_적을_수_있다(client: TestClient) -> None:
+    """두 줄이 생기면 취소가 한 줄만 지워 목록이 계속 무지출로 남는다.
+
+    무지출 연속 판정도 하루를 두 번 센다. 날 경계는 사용자 시간대로 자른다.
+    """
+
+    def no_spend(occurred_at: str) -> dict:
+        return _payload(occurred_at=occurred_at, amount="0", source="no_spend", merchant=None)
+
+    first = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-15T09:00:00+09:00"), headers=AUTH
+    )
+    assert first.status_code == 201, first.text
+
+    # 같은 KST 날짜의 다른 시각. UTC 로 자르면 이 둘이 다른 날이 되어 통과한다.
+    again = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-15T01:00:00+09:00"), headers=AUTH
+    )
+    assert again.status_code == 422
+    assert again.json()["error"]["code"] == "NO_SPEND_EXISTS"
+
+    # 다른 날은 그대로 된다.
+    other = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-16T09:00:00+09:00"), headers=AUTH
+    )
+    assert other.status_code == 201, other.text
+
+
+def test_무지출일을_이미_적은_날로_옮기지_못한다(client: TestClient) -> None:
+    """하루 한 번 규칙이 저장에만 걸리면 날짜를 옮기는 수정으로 뚫린다.
+
+    같은 날로 옮긴 시각 수정은 그대로 되어야 한다. 자기 자신을 이미 있는 표시로 세면
+    시각만 고치는 것도 막힌다.
+    """
+
+    def no_spend(occurred_at: str) -> dict:
+        return _payload(occurred_at=occurred_at, amount="0", source="no_spend", merchant=None)
+
+    first = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-15T09:00:00+09:00"), headers=AUTH
+    )
+    assert first.status_code == 201, first.text
+    later = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-16T09:00:00+09:00"), headers=AUTH
+    )
+    assert later.status_code == 201, later.text
+    later_id = later.json()["transaction"]["id"]
+
+    moved = client.patch(
+        f"/api/v1/transactions/{later_id}",
+        json={"occurred_at": "2026-09-15T20:00:00+09:00"},
+        headers=AUTH,
+    )
+    assert moved.status_code == 422, moved.text
+    assert moved.json()["error"]["code"] == "NO_SPEND_EXISTS"
+
+    same_day = client.patch(
+        f"/api/v1/transactions/{later_id}",
+        json={"occurred_at": "2026-09-16T21:00:00+09:00"},
+        headers=AUTH,
+    )
+    assert same_day.status_code == 200, same_day.text
+
+
+def test_지출을_적으면_그_날_무지출_표시가_걷힌다(client: TestClient) -> None:
+    """쓴 것이 있는 날에 안 썼다는 줄이 함께 남으면 그 날 장부가 스스로를 뒤집는다.
+
+    홈은 오늘 기록이 없을 때만 그 버튼을 보여 주지만, 줄글·캡처·영수증은 그 화면을
+    지나지 않는다. 그래서 네 입구가 다 지나는 저장 경로에서 걷는다.
+    """
+
+    def no_spend(occurred_at: str) -> dict:
+        return _payload(occurred_at=occurred_at, amount="0", source="no_spend", merchant=None)
+
+    marked = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-15T09:00:00+09:00"), headers=AUTH
+    )
+    assert marked.status_code == 201, marked.text
+
+    spent = client.post(
+        "/api/v1/transactions",
+        json=_payload(occurred_at="2026-09-15T20:00:00+09:00", source="nl"),
+        headers=AUTH,
+    )
+    assert spent.status_code == 201, spent.text
+
+    rows = client.get("/api/v1/transactions", headers=AUTH).json()["items"]
+    assert [row["source"] for row in rows] == ["nl"]
+
+
+def test_수입은_그_날_무지출_표시를_걷지_않는다(client: TestClient) -> None:
+    """월급이 들어온 날도 안 쓴 날일 수 있다. 들어온 돈은 쓴 것이 아니다."""
+
+    marked = client.post(
+        "/api/v1/transactions",
+        json=_payload(
+            occurred_at="2026-09-15T09:00:00+09:00", amount="0", source="no_spend", merchant=None
+        ),
+        headers=AUTH,
+    )
+    assert marked.status_code == 201, marked.text
+
+    income = client.post(
+        "/api/v1/transactions",
+        json=_payload(occurred_at="2026-09-15T20:00:00+09:00", type="income", amount="3000000"),
+        headers=AUTH,
+    )
+    assert income.status_code == 201, income.text
+
+    rows = client.get("/api/v1/transactions", headers=AUTH).json()["items"]
+    assert sorted(row["source"] for row in rows) == ["keypad", "no_spend"]
+
+
+def test_쓴_기록이_있는_날에는_무지출_표시를_남길_수_없다(client: TestClient) -> None:
+    """반대쪽도 막는다. 화면은 그 버튼을 감추지만 API 는 그것만으로 지켜지지 않는다."""
+
+    spent = client.post(
+        "/api/v1/transactions",
+        json=_payload(occurred_at="2026-09-15T09:00:00+09:00"),
+        headers=AUTH,
+    )
+    assert spent.status_code == 201, spent.text
+
+    marked = client.post(
+        "/api/v1/transactions",
+        json=_payload(
+            occurred_at="2026-09-15T20:00:00+09:00", amount="0", source="no_spend", merchant=None
+        ),
+        headers=AUTH,
+    )
+    assert marked.status_code == 422, marked.text
+    assert marked.json()["error"]["code"] == "INVALID_REQUEST"
+
+
+def test_지출을_무지출_표시가_있는_날로_옮기면_표시가_걷힌다(client: TestClient) -> None:
+    """저장에만 걸면 날짜를 옮기는 수정으로 두 줄이 다시 함께 선다."""
+
+    marked = client.post(
+        "/api/v1/transactions",
+        json=_payload(
+            occurred_at="2026-09-15T09:00:00+09:00", amount="0", source="no_spend", merchant=None
+        ),
+        headers=AUTH,
+    )
+    assert marked.status_code == 201, marked.text
+
+    spent = client.post(
+        "/api/v1/transactions",
+        json=_payload(occurred_at="2026-09-16T09:00:00+09:00"),
+        headers=AUTH,
+    )
+    assert spent.status_code == 201, spent.text
+    spent_id = spent.json()["transaction"]["id"]
+
+    moved = client.patch(
+        f"/api/v1/transactions/{spent_id}",
+        json={"occurred_at": "2026-09-15T20:00:00+09:00"},
+        headers=AUTH,
+    )
+    assert moved.status_code == 200, moved.text
+
+    rows = client.get("/api/v1/transactions", headers=AUTH).json()["items"]
+    assert [row["source"] for row in rows] == ["keypad"]
+
+
+def test_비울_수_없는_값에_null_을_보내면_수정을_거절한다(client: TestClient) -> None:
+    """시각·금액·종류·예산 반영은 비울 자리가 없다. 그대로 쓰면 시각 정규화가 죽어 500 이 난다."""
+    created = client.post("/api/v1/transactions", json=_payload(), headers=AUTH)
+    assert created.status_code == 201, created.text
+    tx_id = created.json()["transaction"]["id"]
+
+    for field in ("occurred_at", "amount", "type", "excluded_from_budget"):
+        res = client.patch(f"/api/v1/transactions/{tx_id}", json={field: None}, headers=AUTH)
+
+        assert res.status_code == 422, res.text
+        assert res.json()["error"]["code"] == "INVALID_REQUEST"
+
+    # 상호와 분류는 비우는 것이 정상 동작이다.
+    cleared = client.patch(f"/api/v1/transactions/{tx_id}", json={"merchant": None}, headers=AUTH)
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["transaction"]["merchant"] is None
+
+
+def test_무지출일을_취소하면_그_날_다시_적을_수_있다(client: TestClient) -> None:
+    body = _payload(occurred_at="2026-09-15T12:00:00+09:00", amount="0", source="no_spend")
+    body["merchant"] = None
+
+    created = client.post("/api/v1/transactions", json=body, headers=AUTH)
+    assert created.status_code == 201, created.text
+    tx_id = created.json()["transaction"]["id"]
+
+    assert client.delete(f"/api/v1/transactions/{tx_id}", headers=AUTH).status_code == 204
+
+    again = client.post("/api/v1/transactions", json=body, headers=AUTH)
+    assert again.status_code == 201, again.text
+
+
 # ── 인가 ────────────────────────────────────────────────
 
 

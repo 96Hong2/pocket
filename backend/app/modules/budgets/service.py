@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -19,15 +20,18 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
 from app.core.config import get_settings
-from app.domain import aggregation as agg
+from app.domain import aggregation as agg, budget_plan
 from app.domain.budget import BudgetStatus, evaluate_budget
 from app.domain.carryover import BudgetSnapshot, CategoryBudgetInput, decide_carryover
+from app.domain.categories import FIXED_COST_CATEGORY
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod
 from app.models import Budget, Category, CategoryBudget, User, UserPreference
 from app.modules.categories import service as categories
+from app.modules.goals import service as goals
 
 __all__ = [
+    "LivingBudgetSuggestion",
     "budget_status",
     "category_budget_amount",
     "delete_budget",
@@ -37,6 +41,7 @@ __all__ = [
     "is_carried",
     "is_period_editable",
     "list_category_budgets",
+    "living_budget_suggestion",
     "require_open_period",
     "upsert_budget",
     "upsert_category_budget",
@@ -300,6 +305,88 @@ def delete_category_budget(
         return
     row.deleted_at = datetime.now(UTC)
     session.commit()
+
+
+# ── 목표 기반 생활비 제안 ───────────────────────────────
+
+
+@dataclass(frozen=True)
+class LivingBudgetSuggestion:
+    """제안 한 벌. 판정과 그 판정에 쓴 값을 함께 준다.
+
+    어림한 값이 어느 기간에서 나왔는지(`basis`)를 함께 두는 이유는, 화면이 '지난달 기준'
+    이라고만 적고 실제로는 다른 달을 본다면 아무도 그것을 눈치채지 못하기 때문이다.
+    """
+
+    plan: budget_plan.LivingBudgetPlan
+    take_home: budget_plan.SuggestionAmount
+    fixed_costs: budget_plan.SuggestionAmount
+    basis: BudgetPeriod
+
+
+def _fixed_cost_spend(session: Session, totals: agg.PeriodTotals) -> Money:
+    """그 기간의 '주거·고정비' 지출. 그 분류를 못 찾으면 0 이다.
+
+    기본 분류(`user_id` NULL)만 본다. 사용자가 같은 이름을 새로 만들 수는 없고,
+    기본 분류는 이름을 바꾸지도 지우지도 못한다.
+    """
+    category_id = session.scalar(
+        select(Category.id).where(
+            Category.user_id.is_(None),
+            Category.name == FIXED_COST_CATEGORY,
+            Category.deleted_at.is_(None),
+        )
+    )
+    if category_id is None:
+        return Money.zero()
+    return totals.category_budgeted_spend.get(str(category_id), Money.zero())
+
+
+def _goal_saving(session: Session, user: User, today: date) -> budget_plan.GoalSavingBasis | None:
+    """진행 중인 목표가 이번 달에 요구하는 몫. 목표가 없으면 None 이다.
+
+    금액은 목표 판정이 이미 낸 값(`required_monthly_saving`)을 그대로 옮긴다.
+    남은 금액을 여기서 다시 달 수로 나누면 목표 화면과 다른 숫자를 말하게 된다.
+    """
+    goal = goals.active_goal(session, user)
+    if goal is None:
+        return None
+    view = goals.evaluate(goal, today)
+    return budget_plan.GoalSavingBasis(
+        has_deadline=goal.target_date is not None,
+        monthly_saving=view.evaluation.required_monthly_saving,
+    )
+
+
+def living_budget_suggestion(
+    session: Session,
+    user: User,
+    period: BudgetPeriod,
+    previous_totals: agg.PeriodTotals,
+    today: date,
+    *,
+    take_home: Money | None,
+    fixed_costs: Money | None,
+) -> LivingBudgetSuggestion:
+    """저장하지 않는 제안. 사용자가 버튼을 누르기 전에는 아무것도 남기지 않는다.
+
+    실수령과 고정비는 안 주면 지난달에서 어림한다. 실수령은 지난달 수입 합, 고정비는
+    지난달 '주거·고정비' 지출이다. 어림값이 0 이어도 그대로 0 으로 둔다. 지난달에
+    수입을 안 적은 것을 짐작으로 메우면 근거 없는 예산이 나온다.
+    """
+    take = take_home if take_home is not None else previous_totals.month_income
+    fixed = fixed_costs if fixed_costs is not None else _fixed_cost_spend(session, previous_totals)
+    return LivingBudgetSuggestion(
+        plan=budget_plan.suggest_living_budget(
+            take_home=take,
+            fixed_costs=fixed,
+            goal=_goal_saving(session, user, today),
+            is_period_open=is_period_editable(period, today),
+        ),
+        take_home=budget_plan.SuggestionAmount(take, is_given=take_home is not None),
+        fixed_costs=budget_plan.SuggestionAmount(fixed, is_given=fixed_costs is not None),
+        basis=period.previous_period(),
+    )
 
 
 # ── 자동 이어쓰기 ───────────────────────────────────────

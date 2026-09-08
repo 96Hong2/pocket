@@ -74,6 +74,7 @@ export function CandidateRow({
             disabled={disabled}
             onChange={(event) => onToggle(event.target.checked)}
           />
+          <CategoryAvatar icon={toIconName(category?.icon_key)} size={52} />
           <span className="nl-item__name">{name}</span>
         </label>
 
@@ -216,7 +217,7 @@ function CandidateForm({ candidate, categories, disabled, onSave }: CandidateFor
               aria-pressed={item.id === categoryId}
               onClick={() => setCategoryId(item.id)}
             >
-              <CategoryAvatar icon={toIconName(item.icon_key)} size={22} />
+              <CategoryAvatar icon={toIconName(item.icon_key)} size={32} />
               {item.name}
             </button>
           ))}

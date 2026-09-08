@@ -8,6 +8,7 @@
 | refund   | -amount     | 제외        | +amount | +amount   | -amount       |
 
 excluded_from_budget 인 거래는 예산 계산에서만 빠지고 목록·리포트에는 남는다.
+이체는 위 넷 어디에도 안 들어가지만 얼마를 옮겼는지는 `month_transfer` 로 따로 센다.
 """
 
 from __future__ import annotations
@@ -61,6 +62,8 @@ class TransactionInput:
     category_id: str | None = None
     excluded_from_budget: bool = False
     is_deleted: bool = False
+    # 무지출일 표시를 가려내는 데만 쓴다. 금액이 0 이라 합계로는 구분되지 않는다.
+    source: TransactionSource | None = None
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,9 @@ class PeriodTotals:
     month_expense: Money
     month_income: Money
     monthly_delta: Money
+    # 옮긴 돈. 위 표대로 지출·수입·차액·예산 어디에도 안 들어간다. 얼마를 옮겼는지만 따로 센다.
+    # 결산의 돈 흐름 카드가 "번 돈 - 쓴 돈" 으로 설명되지 않는 움직임을 말할 근거다.
+    month_transfer: Money
     # 리포트용: excluded 포함
     category_spend: dict[str | None, Money] = field(default_factory=dict)
     # 예산용: excluded 제외
@@ -85,6 +91,7 @@ def aggregate_period(
     budgeted_spend = Money.zero()
     month_expense = Money.zero()
     month_income = Money.zero()
+    month_transfer = Money.zero()
     category_spend: dict[str | None, Money] = {}
     category_budgeted_spend: dict[str | None, Money] = {}
     category_income: dict[str | None, Money] = {}
@@ -93,6 +100,7 @@ def aggregate_period(
         if tx.is_deleted or not period.contains(tx.occurred_on):
             continue
         if tx.type is TransactionType.TRANSFER:
+            month_transfer = month_transfer + tx.amount
             continue
 
         if tx.type is TransactionType.INCOME:
@@ -112,6 +120,7 @@ def aggregate_period(
         month_expense=month_expense,
         month_income=month_income,
         monthly_delta=month_income - month_expense,
+        month_transfer=month_transfer,
         category_spend=category_spend,
         category_budgeted_spend=category_budgeted_spend,
         category_income=category_income,
@@ -133,6 +142,9 @@ class DayTotals:
     day: date
     expense: Money
     income: Money
+    # 안 쓴 날로 표시해 둔 날. 달력이 빈 칸과 가려 그릴 근거다.
+    # 금액이 0 이라 합계만으로는 '안 썼다' 와 '안 적었다' 가 구분되지 않는다.
+    is_no_spend: bool = False
 
 
 def aggregate_days(
@@ -143,13 +155,19 @@ def aggregate_days(
 
     집계에 잡히는 거래가 하나도 없는 날은 결과에 넣지 않는다. 이체만 있는 날도 마찬가지다.
     달력 격자는 빈 칸을 스스로 채우므로, 값이 0 인 날을 굳이 실어 보내지 않는다.
+
+    무지출일 표시가 있고 그 날 지출·수입이 둘 다 0 인 날만 `is_no_spend` 다. 표시를 남긴 뒤
+    무언가를 적었으면 그 금액을 그리는 것이 먼저다.
     """
     expenses: dict[date, Money] = {}
     incomes: dict[date, Money] = {}
+    marked: set[date] = set()
 
     for tx in transactions:
         if tx.is_deleted or not period.contains(tx.occurred_on):
             continue
+        if tx.source is TransactionSource.NO_SPEND:
+            marked.add(tx.occurred_on)
         if tx.type is TransactionType.TRANSFER:
             continue
 
@@ -160,12 +178,17 @@ def aggregate_days(
         signed = tx.amount if tx.type is TransactionType.EXPENSE else -tx.amount
         expenses[tx.occurred_on] = expenses.get(tx.occurred_on, Money.zero()) + signed
 
-    days = sorted(expenses.keys() | incomes.keys())
+    days = sorted(expenses.keys() | incomes.keys() | marked)
     return [
         DayTotals(
             day=day,
             expense=expenses.get(day, Money.zero()),
             income=incomes.get(day, Money.zero()),
+            is_no_spend=(
+                day in marked
+                and expenses.get(day, Money.zero()).is_zero
+                and incomes.get(day, Money.zero()).is_zero
+            ),
         )
         for day in days
     ]

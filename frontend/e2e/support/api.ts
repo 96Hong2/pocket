@@ -1,6 +1,6 @@
-import { request, type APIRequestContext } from '@playwright/test';
+import { request, type APIRequestContext, type APIResponse } from '@playwright/test';
 
-import type { TransactionType } from '../../src/shared/api/types';
+import type { AssetGroup, TransactionType } from '../../src/shared/api/types';
 import { shiftMonth, toLedgerDate } from '../../src/shared/lib/format';
 
 import { E2E_API_URL } from './env';
@@ -37,6 +37,23 @@ export interface TransactionSeed {
   categoryId?: string;
   /** 예산 계산에서만 뺀다. 목록에는 흐려진 채로 남는다. */
   excludedFromBudget?: boolean;
+}
+
+/** 심을 목표 하나. 기한과 이미 모아 둔 돈은 선택이다. */
+export interface GoalSeed {
+  title: string;
+  targetAmount: number;
+  /** `2026-12-31` 모양. 없으면 기한이 없는 목표다. */
+  targetDate?: string;
+  /** 목표를 만들 때 이미 모아 둔 돈. 없으면 0 이다. */
+  initialAmount?: number;
+}
+
+/** 심을 자산 항목 하나. 이름은 선택이고 부채도 양수로 넣는다. */
+export interface AssetSeed {
+  group: AssetGroup;
+  amount: number;
+  label?: string;
 }
 
 /**
@@ -83,6 +100,31 @@ export class PrepApi {
       },
     });
     expectOk(response.status(), await response.text(), '거래를 심지 못했다');
+  }
+
+  /**
+   * 안 쓴 날 표시를 API 로 직접 남긴다. 성공을 단언하지 않고 결과를 그대로 돌려준다.
+   *
+   * 화면은 오늘 기록이 하나도 없을 때만 그 버튼을 보여주므로, **같은 날 두 번 보내는 것을
+   * 화면으로는 만들 수 없다.** 서버가 두 번째를 막는지는 여기로 확인한다.
+   * 날을 안 주면 가계부 시간대의 오늘이다.
+   */
+  async saveNoSpend(day?: string): Promise<{ status: number; code: string | null }> {
+    const on = day ?? toLedgerDate(new Date());
+    const response = await this.context.post('/api/v1/transactions', {
+      data: {
+        occurred_at: dayNoon(on).toISOString(),
+        amount: '0',
+        type: 'expense',
+        merchant: null,
+        source: 'no_spend',
+        confidence: 1,
+        excluded_from_budget: false,
+        category_id: null,
+      },
+    });
+    const body = (await response.json()) as { error?: { code?: string } };
+    return { status: response.status(), code: body.error?.code ?? null };
   }
 
   /**
@@ -175,12 +217,79 @@ export class PrepApi {
     return body.id;
   }
 
+  /**
+   * 자산 목록을 통째로 심는다. 이미 적어 둔 것이 있는 상태를 만들 때 쓴다.
+   *
+   * 서버 저장이 PUT 하나뿐이라 여기도 목록을 통째로 보낸다. 부채도 양수로 넣고
+   * 순자산에서 뺄지는 `group` 이 정한다.
+   */
+  async putAssets(items: AssetSeed[]): Promise<void> {
+    const response = await this.context.put('/api/v1/assets', {
+      data: {
+        items: items.map((item) => ({
+          group: item.group,
+          label: item.label ?? null,
+          amount: String(item.amount),
+        })),
+      },
+    });
+    expectOk(response.status(), await response.text(), '자산을 심지 못했다');
+  }
+
+  /**
+   * 목표 하나를 심고 그 id 를 돌려준다. '이미 목표가 있는 상태' 를 만들 때 쓴다.
+   *
+   * 만들기 자체를 확인하는 테스트는 화면으로 한다.
+   */
+  async setGoal(seed: GoalSeed): Promise<string> {
+    const response = await this.postGoal(seed);
+    expectOk(response.status(), await response.text(), '목표를 심지 못했다');
+    const body = (await response.json()) as { goal: { id: string } };
+    return body.goal.id;
+  }
+
+  /**
+   * 목표를 만들어 보고 결과를 그대로 돌려준다. 성공을 단언하지 않는다.
+   *
+   * 진행 중인 목표가 있으면 화면에 만들기 입구가 아예 없어서, **두 번째 목표를 만드는 것을
+   * 화면으로는 만들 수 없다.** 서버가 그것을 422 로 막는지는 여기로 확인한다.
+   */
+  async trySetGoal(seed: GoalSeed): Promise<{ status: number; code: string | null }> {
+    const response = await this.postGoal(seed);
+    const body = (await response.json()) as { error?: { code?: string } };
+    return { status: response.status(), code: body.error?.code ?? null };
+  }
+
+  /** 모은 돈 한 번을 심는다. 날을 안 주면 가계부 시간대의 오늘이다. */
+  async addContribution(goalId: string, seed: { amount: number; on?: string }): Promise<void> {
+    const response = await this.context.post(`/api/v1/goals/${goalId}/contributions`, {
+      data: {
+        amount: String(seed.amount),
+        occurred_on: seed.on ?? toLedgerDate(new Date()),
+      },
+    });
+    expectOk(response.status(), await response.text(), '모은 돈을 심지 못했다');
+  }
+
   /** 홈 맨 위에 무엇을 보여줄지. 설정 화면을 거치지 않고 그 상태를 만든다. */
-  async setHomeHero(hero: 'remaining_budget' | 'income_expense' | 'income_and_budget'): Promise<void> {
+  async setHomeHero(
+    hero: 'remaining_budget' | 'income_expense' | 'income_and_budget',
+  ): Promise<void> {
     const response = await this.context.patch('/api/v1/preferences', {
       data: { home_hero: hero },
     });
     expectOk(response.status(), await response.text(), '홈 표시 설정을 바꾸지 못했다');
+  }
+
+  private postGoal(seed: GoalSeed): Promise<APIResponse> {
+    return this.context.post('/api/v1/goals', {
+      data: {
+        title: seed.title,
+        target_amount: String(seed.targetAmount),
+        target_date: seed.targetDate ?? null,
+        initial_amount: String(seed.initialAmount ?? 0),
+      },
+    });
   }
 
   /** 기본 카테고리 목록. 이름으로 id 를 찾을 때 쓴다. */

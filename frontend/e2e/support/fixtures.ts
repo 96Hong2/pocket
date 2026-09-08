@@ -1,17 +1,20 @@
 import { test as base, expect } from '@playwright/test';
 
 import { AppShell } from '../screens/AppShell';
+import { AssetsScreen } from '../screens/AssetsScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { CategoriesScreen } from '../screens/CategoriesScreen';
+import { GoalScreen } from '../screens/GoalScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ManageScreen } from '../screens/ManageScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ReportScreen } from '../screens/ReportScreen';
 import { RecordSheet } from '../screens/RecordSheet';
 import { SettingsScreen } from '../screens/SettingsScreen';
 
 import { anonKeyFor, installAnonKeyTrap, probeAnonKey } from './anonKey';
 import { PrepApi } from './api';
-import { DEV_STACK_URLS } from './env';
+import { DEV_STACK_URLS, FONT_CDN } from './env';
 
 /**
  * 모든 spec 의 유일한 진입점.
@@ -36,6 +39,12 @@ interface PocketFixtures {
   categories: CategoriesScreen;
   /** 앱 설정. 홈 표시 방식과 개인정보 안내를 한 화면이 가진다. */
   settings: SettingsScreen;
+  /** 알림 설정. 앱 설정 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
+  notifications: NotificationsScreen;
+  /** 자산. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
+  assets: AssetsScreen;
+  /** 목표. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
+  goal: GoalScreen;
   /** 확인하려는 동작의 배경 상태를 심는다. 브라우저와 같은 익명키를 쓴다. */
   prep: PrepApi;
 }
@@ -81,6 +90,18 @@ export const test = base.extend<PocketFixtures>({
     await use(new SettingsScreen(page));
   },
 
+  notifications: async ({ page }, use) => {
+    await use(new NotificationsScreen(page));
+  },
+
+  assets: async ({ page }, use) => {
+    await use(new AssetsScreen(page));
+  },
+
+  goal: async ({ page }, use) => {
+    await use(new GoalScreen(page));
+  },
+
   prep: async ({ anonKey }, use) => {
     const api = await PrepApi.create(anonKey);
     await use(api);
@@ -95,7 +116,11 @@ export const test = base.extend<PocketFixtures>({
     const consoleErrors: string[] = [];
 
     page.on('console', (message) => {
-      if (message.type() === 'error') consoleErrors.push(message.text());
+      if (message.type() !== 'error') return;
+      // 글꼴만 예외다. 비차단으로 받고 못 받아도 폴백 스택으로 읽힌다(frontend/index.html).
+      // 주소로 가르므로 우리 자원이 실패하면 같은 문구여도 그대로 터진다.
+      if (FONT_CDN.test(message.location().url)) return;
+      consoleErrors.push(message.text());
     });
     page.on('pageerror', (error) => consoleErrors.push(error.message));
 

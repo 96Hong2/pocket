@@ -42,6 +42,8 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | `INVALID_REQUEST` | 422 | 요청 형식 오류 |
 | `INVALID_CATEGORY` | 422 | 내 카테고리도 기본 카테고리도 아닌 값 |
 | `INVALID_REFUND_TARGET` | 422 | 환불 대상이 내 지출이 아님 |
+| `NO_SPEND_EXISTS` | 422 | 그 날 안 썼다는 표시가 이미 있다. **다시 보내도 안 된다.** 지우고 다시 적어야 한다 |
+| `GOAL_ALREADY_ACTIVE` | 422 | 진행 중인 목표가 이미 있다. **다시 보내도 안 된다.** 먼저 마치거나 지워야 한다 |
 | `PERIOD_CLOSED` | 422 | 이미 끝난 기간의 예산을 바꾸려 함. 지난달은 보기만 된다 |
 | `USAGE_LIMIT` | 429 | 하루에 쓸 수 있는 분석을 다 썼다. 줄글·캡처·영수증이 상한을 함께 쓴다. 키패드 기록은 그대로 된다 |
 | `PARSE_UNAVAILABLE` | 503 | 지금은 읽지 못했다. 잠시 뒤 다시. 문구가 갈린다: 줄글은 '문장을', 캡처는 '캡처를', 영수증은 '영수증을' |
@@ -68,7 +70,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | POST | `/transactions` | 거래 하나 저장. **응답에 즉시 피드백 판정과 예산 상태가 함께 온다** |
 | PATCH | `/transactions/{id}` | 보낸 필드만 수정. 응답 형태는 저장과 같다(되돌리기 값만 없다) |
 | GET | `/transactions` | 목록. 아래 「목록 조회」 참고 |
-| GET | `/transactions/calendar` | 달력 격자용 날짜별 지출·수입. 기록이 있는 날만 온다 |
+| GET | `/transactions/calendar` | 달력 격자용 날짜별 지출·수입. 기록이 있는 날만 온다. 아래 「달력 한 칸」 참고 |
 | GET | `/transactions/summary` | 그 달의 지출·수입·차액 **+ 예산 상태** |
 | DELETE | `/transactions/{id}` | 삭제(표시만 남긴다) |
 | POST | `/transactions/{id}/undo` | 방금 저장한 것 되돌리기 |
@@ -100,6 +102,18 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 
 날짜와 달의 경계는 **사용자 시간대**로 판단한다. 서버가 UTC 로 돌아도 마찬가지다.
 
+### 달력 한 칸
+
+`GET /transactions/calendar` 는 기록이 있는 날만 `days[]` 로 준다. 빈 칸은 화면이 채운다.
+
+```json
+{ "day": "2026-09-07", "expense": "0", "income": "0", "is_no_spend": true }
+```
+
+`is_no_spend` 는 **안 썼다고 적어 둔 날**이다(`source: "no_spend"`). 그 표시가 있고 그 날
+지출·수입이 둘 다 0 일 때만 true 다. 금액이 0 이라 합계만으로는 '안 쓴 날' 과 '안 적은 날' 이
+구분되지 않아 따로 싣는다. 표시를 남긴 뒤 무언가를 적으면 false 가 되고, 화면은 그 금액을 그린다.
+
 ### 저장 요청
 
 입력 경로(키패드·줄글·캡처·영수증)가 달라도 서버로 오는 형태는 하나다.
@@ -121,6 +135,14 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 - 월 경계와 '오늘'은 사용자 시간대(`users.timezone`, 기본 `Asia/Seoul`) 기준이다. 저장은 UTC 로 한다.
 - `amount` 는 **원 단위 정수**이고 항상 양수다. 소수점은 반올림하지 않고 422 로 거절한다.
   0 은 `source: "no_spend"` 일 때만 받는다. 상한은 14자리다.
+- **`source: "no_spend"` 는 같은 날에 하나뿐이다.** 살아 있는 표시가 이미 있으면 422
+  `NO_SPEND_EXISTS` 다. 날 경계는 사용자 시간대로 자른다. 지우면 그 날 다시 적을 수 있다.
+  두 줄이 생기면 취소가 한 줄만 지워 목록이 계속 무지출로 남고, 무지출 연속 판정이 두 번 센다.
+  **날짜를 옮기는 수정에도 같은 규칙이 걸린다.** 옮겨 갈 날에 이미 표시가 있으면 422 다.
+- **안 썼다는 표시와 그 날의 지출은 함께 설 수 없다.** 지출(`type: "expense"`)을 저장하거나
+  그 날로 옮기면 서버가 그 날 표시를 걷는다. 반대로 쓴 기록이 있는 날에 표시를 남기려 하면
+  422 `INVALID_REQUEST` 다. 수입·이체·환불은 쓴 것이 아니라 표시를 걷지 않는다.
+  화면은 오늘 기록이 없을 때만 그 버튼을 보여주지만 줄글·캡처·영수증은 그 화면을 지나지 않는다.
 - 의미는 `type` 이 정한다: `expense` `income` `transfer` `refund`
 - `source`: `keypad` `nl` `screenshot` `receipt` `asset_screenshot` `no_spend`
 - `confidence` 는 0~1. 손으로 넣은 값은 1.0
@@ -142,8 +164,9 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
   "budget": {
     "period_start": "2026-09-01", "period_end": "2026-09-30",
     "amount": "500000", "budgeted_spend": "12000",
-    "remaining_budget": "488000", "daily_allowance": "17428",
+    "remaining_budget": "488000", "daily_allowance": "17428", "weekly_allowance": "69712",
     "total_days": 30, "elapsed_days": 3, "remaining_days": 28,
+    "week_start": "2026-08-31", "week_end": "2026-09-06", "week_days_left": 4,
     "spend_progress": "0.0240", "pace_ratio": "0.2400",
     "projected_month_end": "120000",
     "is_projection_reliable": true, "is_over_budget": false,
@@ -161,8 +184,12 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 그릴 때, 어느 응답에서든 같은 필드로 채울 수 있어야 하기 때문이다.
 
 - `amount` 가 `null` 이면 예산을 정하지 않은 것이다. 그때 `remaining_budget`·`daily_allowance`·
-  `spend_progress`·`pace_ratio` 도 전부 `null` 이다. 진행도(`elapsed_days` 등)와
-  `projected_month_end` 는 예산이 없어도 나온다.
+  `weekly_allowance`·`spend_progress`·`pace_ratio` 도 전부 `null` 이다. 진행도(`elapsed_days` 등)와
+  `projected_month_end`, 주 경계(`week_start`·`week_end`·`week_days_left`)는 예산이 없어도 나온다.
+- **`weekly_allowance` 는 `daily_allowance × week_days_left` 다.** 화면이 곱하지 않는다.
+  한 주는 사용자 시간대의 월요일~일요일이고, `week_days_left` 는 오늘을 포함해 이번 주에 남은
+  날 중 **이 기간 안에 있는 날**만 센다. 달 마지막 주는 말일에서 잘려 주간 값이 남은 예산을
+  넘지 않는다. 보고 있는 기간에 오늘이 없으면(지난달) `week_days_left` 가 0 이다. 정본은 ADR-0011.
 - **`spend_progress` 가 게이지 비율이다.** 화면이 계산하지 말고 이 값을 쓴다.
   `budget = remaining_budget + month_expense` 로 역산하면 틀린다. `month_expense` 는 예산에서
   뺀 거래(`excluded_from_budget`)를 포함하고 `budgeted_spend` 는 포함하지 않는다.
@@ -265,6 +292,7 @@ ADR-0006 이다.
 | 메서드 | 경로 | 하는 일 |
 | --- | --- | --- |
 | GET | `/budgets?year=&month=` | 그 달의 예산 상태와 카테고리 예산. 기본은 사용자 시간대 이번 달 |
+| GET | `/budgets/suggestion?year=&month=&take_home=&fixed_costs=` | 목표에서 거꾸로 낸 생활비 제안. 저장하지 않는다 |
 | PUT | `/budgets?year=&month=` | 전체 예산 저장. 바디는 `{"amount": "600000"}` |
 | DELETE | `/budgets?year=&month=` | 예산 삭제. 딸린 카테고리 예산도 함께 지운다 |
 | PUT | `/budgets/categories/{category_id}?year=&month=` | 카테고리 한도 저장. 바디는 `{"amount": "300000"}` |
@@ -336,6 +364,47 @@ ADR-0006 이다.
   화면이 나누지 않는다. 게이지 너비를 두 곳에서 계산하지 않으려는 것이다.
 - **복구 카드를 띄울지는 서버가 정하지 않는다.** 며칠부터 복구로 볼지(사흘)는 화면이 안다.
   서버는 사실만 준다.
+
+### 목표 기반 생활비 제안
+
+`GET /budgets/suggestion` 은 **아무것도 저장하지 않는다.** 목표에 넣을 돈과 고정비를 먼저 떼고
+남는 만큼을 그 달 생활비로 제안하기만 한다. 사용자가 화면에서 '이 금액으로 예산 정하기' 를
+누르면 그때 `PUT /budgets` 가 따로 간다. 조회가 예산을 만들면 화면을 열어 본 것만으로 정하지
+않은 숫자가 굳는다. 산식의 정본은 `backend/app/domain/budget_plan.py` 다.
+
+```json
+{
+  "available": true,
+  "goal_saving": "1000000",
+  "take_home": {
+    "amount": "3000000", "source": "estimated",
+    "basis_start": "2026-08-01", "basis_end": "2026-08-31"
+  },
+  "fixed_costs": { "amount": "900000", "source": "estimated", "basis_start": "2026-08-01", "basis_end": "2026-08-31" },
+  "suggested": "1100000",
+  "reason": null
+}
+```
+
+- `suggested = max(0, take_home − goal_saving − fixed_costs)` 다. **화면이 빼지 않는다.**
+  실수령보다 목표와 고정비가 크면 0 이다. 생활비로 쓸 돈이 없다는 뜻이지 마이너스가 아니다.
+- `goal_saving` 은 진행 중인 목표의 `required_monthly_saving` 을 그대로 옮긴 값이다.
+  목표 화면의 '기한까지 매달' 과 같은 숫자여야 해서 여기서 다시 나누지 않는다.
+- **추정 규칙.** `take_home` 을 안 주면 지난달 수입 합, `fixed_costs` 를 안 주면 지난달 기본
+  분류 '주거·고정비' 의 예산 반영 지출이다. 그때 `source` 가 `estimated` 이고 어림한 기간이
+  `basis_start`·`basis_end` 로 함께 온다. 질의로 준 값은 `given` 이고 근거 기간이 `null` 이다.
+  값이 0 이어도 `estimated` 다. 지난달에 안 적은 것을 짐작으로 메우지 않는다.
+- 질의 금액은 **원 단위 정수**만 받는다(0 이상). 소수를 보내면 422 다. 제안액이 소수가 되면
+  그 값으로 예산을 저장할 때 저장 쪽이 거절해, 눌러 보고서야 막힌 이유를 알게 된다.
+- **`available` 이 false 면 `suggested` 와 `goal_saving` 이 `null` 이고 `reason` 에 이유가 온다.**
+  화면은 그때 카드를 아예 그리지 않는다. `take_home`·`fixed_costs` 는 그대로 실린다.
+
+| `reason` | 언제 |
+| --- | --- |
+| `closed_period` | 그 달이 이미 끝났다. 지난달 예산은 지금 정할 수 없다 |
+| `no_goal` | 진행 중인 목표가 없다 |
+| `no_deadline` | 목표에 기한이 없어 한 달 몫으로 나눌 수 없다 |
+| `no_monthly_saving` | 기한은 있는데 이번 달 몫이 없다. 이미 다 모았거나 기한이 지났다 |
 
 ### 예산 자동 이어쓰기
 
@@ -461,7 +530,7 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 ```
 
 **지금 여는 값은 셋이다.** `budget_auto_carryover` 는 예산 화면의 이어쓰기 토글이 읽고 쓴다.
-`home_hero` 는 앱 설정 화면이 쓰고 홈 히어로가 읽는다. 알림처럼 아직 화면이 없는 설정은 열지 않는다.
+`home_hero` 는 앱 설정 화면이 쓰고 홈 히어로가 읽는다. 알림은 성격이 달라 아래 별도 경로에 있다.
 
 `last_record_method` 는 **읽기만 열려 있다.** `PATCH` 로 보내면 무시한다. 사용자가 고르는 값이
 아니라 거래를 저장할 때 서버가 그 거래의 `source` 로 남기는 흔적이라, 화면이 쓸 수 있으면
@@ -494,6 +563,32 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 
 `PATCH` 에서 **필드를 빼는 것과 `null` 을 보내는 것이 같다.** 둘 다 "이 값은 그대로 둔다" 는
 뜻이다. 전부 기본값이 있는 컬럼이라 '값 없음' 을 저장할 자리가 없다.
+
+### 알림 설정
+
+| 메서드 | 경로 | 하는 일 |
+| --- | --- | --- |
+| GET | `/notifications/settings` | 지금 알림 설정. 행이 없으면 꺼진 기본값으로 만들어 준다 |
+| PATCH | `/notifications/settings` | 보낸 필드만 고친다. 응답은 GET 과 같은 모양 |
+
+```json
+{ "is_enabled": true, "remind_at": "21:30", "frequency": "daily" }
+```
+
+보내는 알림은 **하루 한 번, 정한 시각에 기록을 떠올리게 하는 것 하나**다. 판정 규칙과 발송
+구조는 ADR-0013 에 있다.
+
+- `remind_at` 은 `"HH:MM"` 이다. 초를 싣지 않는다. 화면의 시각 입력이 분까지만 받는다.
+- **`PATCH` 에서 `remind_at` 만 필드를 빼는 것과 `null` 이 다르다.** 빼면 그대로 두고, `null`
+  을 보내면 정해 둔 시각을 지운다. 시각은 '값 없음' 이 정상 상태인 유일한 값이라 위
+  `/preferences` 와 규칙이 반대다. `is_enabled`·`frequency` 는 `null` 이 뜻을 갖지 않아 그대로 둔다.
+- **켜면서 시각을 안 주면 서버가 `21:30` 을 넣는다.** 켜 두고 시각이 비면 영영 안 가는 알림이
+  되는데, 화면에는 켜져 있다고 보인다.
+- `frequency` 는 **발송기가 보지 않는 값**이다. 알림은 하루 한 번으로 못 박혀 있고(ADR-0013),
+  컬럼이 초기 스키마에 남아 응답에만 싣는다. 화면에 고르는 자리가 없고 켤 때 `daily` 로 보낸다.
+- **토스 알림 동의는 서버가 저장하지 않는다.** 켜는 그 순간에 앱(브릿지)이 묻고, 거절하면
+  화면이 켜지 않은 채로 둔다. 토스 앱 설정에서 언제든 바뀌는 값이라 서버 사본은 곧 낡는다.
+- 시간대는 `users.timezone` 이 정본이다. `notification_settings.timezone` 은 읽지 않는다.
 
 ### 월 리포트
 
@@ -539,11 +634,207 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 `has_any_transaction` 은 **그 달에** 기록이 있는지다. 합계가 0 인 것과 다르다(지출과 환불이
 맞물려 0 이 될 수 있다). 예산이 있는지와도 다르다.
 
+### 월간 결산
+
+| 메서드 | 경로 | 하는 일 |
+| --- | --- | --- |
+| GET | `/reports/closing` | 그 달 결산 카드 넉 장이 그리는 것 전부. `?year=&month=` 없으면 이번 달 |
+
+**아무것도 저장하지 않는다.** 결산을 열어 봤다는 표시는 기기에만 남는다
+(`bridge.storage` 의 `closing-seen-YYYY-MM`).
+
+```json
+{
+  "period_start": "2026-08-01",
+  "period_end": "2026-08-31",
+  "is_closed": true,
+  "has_any_transaction": true,
+  "highlights": [
+    { "kind": "within_budget", "amount": "70000", "category_id": null, "count": null, "previous": null },
+    { "kind": "category_decrease", "amount": "60000", "category_id": "…", "count": null, "previous": "300000" }
+  ],
+  "flow": {
+    "income": "3000000", "expense": "330000", "transfer": "0",
+    "delta": "2670000", "recorded_days": 12, "total_days": 31
+  },
+  "change": { "category_id": "…", "current": "90000", "previous": "47300", "delta": "42700" },
+  "next": { "kind": "category_cap", "category_id": "…", "suggested_cap": "48000" }
+}
+```
+
+**아직 지나는 중인 달과 기록이 없는 달도 200 이다.** 그때 `is_closed`·`has_any_transaction` 이
+false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린다. 404 를 쓰지 않는 이유는
+"결산할 수 없는 달" 이 오류가 아니라 정상 상태이기 때문이다.
+
+판정 규칙과 그렇게 정한 이유는 `docs/ADR/0012-closing-highlight-rules.md` 에 있다. 요약하면,
+
+| 필드 | 규칙 |
+| --- | --- |
+| `highlights` | 근거가 있는 것만 **최대 3개**. 순서는 `within_budget` → `category_decrease` → `no_spend_days` → `goal_contribution` 고정. 하나도 없으면 빈 배열 |
+| `highlights[].amount` | **그 종류의 문장이 그대로 읽을 숫자.** 예산이면 남긴 돈, 분류를 줄인 것이면 줄인 돈, 목표면 옮긴 돈 |
+| `highlights[].previous` | 견준 지난달 금액. `category_decrease` 에만 온다 |
+| `highlights[].count` | 안 쓴 날 수. `no_spend_days` 에만 온다 |
+| `flow.transfer` | 그 달에 옮긴 돈. **지출도 수입도 아니라 `delta` 에 안 들어간다** |
+| `flow.recorded_days` | 그 달에 기록을 남긴 날 수. 이체만 있는 날도 센다. 빠뜨린 날 수는 싣지 않는다 |
+| `change` | 지난달 대비 **가장 많이 늘어난** 분류 하나. 양쪽 달 모두 양수이고 증가액 > 0 일 때만. 없으면 null |
+| `next` | `change` 가 있을 때만. 그 분류의 **지난달 금액을 1,000원 단위로 올린** 한도. **적용 버튼은 없다** |
+
+⚠ **분류 비교는 예산 반영 지출(`category_budgeted_spend`)로 한다.** 다음 달에 권하는 것이
+곧 분류 한도라, 한도가 세는 것과 같은 자리를 봐야 두 화면이 안 어긋난다. 분류를 안 정한 줄은
+비교에서 뺀다. 이름 없이 "분류 없음이 늘었어요" 는 무엇을 보라는 말인지 알 수 없다.
+
+⚠ **'안 쓴 날' 은 기록이 있는데 지출이 없는 날이다.** 아예 안 적은 날은 세지 않는다.
+안 적은 날까지 세면 앱을 한 번도 안 연 달이 가장 잘한 달이 된다.
+
+⚠ **목표 기여는 거래가 아니다.** `goal_contribution` 은 그 달 목표 기여 합이고 `flow` 의
+지출·수입·차액에는 들어가지 않는다.
+
+### 자산
+
+| 메서드 | 경로 | 하는 일 |
+| --- | --- | --- |
+| GET | `/assets` | 가장 최근 스냅샷과 그 항목·순자산. 한 번도 안 적었으면 `snapshot: null` |
+| PUT | `/assets` | 항목 목록을 통째로 바꾼다. 응답은 GET 과 같은 모양 |
+
+```json
+{
+  "snapshot": { "id": "…", "effective_on": "2026-09-08", "source": "manual" },
+  "summary": { "total_assets": "1000000", "total_liabilities": "300000", "net_worth": "700000" },
+  "groups": [
+    { "group": "cash", "total": "1000000" },
+    { "group": "investment", "total": "0" },
+    { "group": "deposit", "total": "0" },
+    { "group": "debt", "total": "300000" }
+  ],
+  "items": [{ "group": "cash", "label": "토스뱅크", "amount": "1000000", "sort_order": 0 }]
+}
+```
+
+**적지 않은 것은 정상 상태다.** 조회는 404 가 아니라 200 에 `snapshot: null`·`items: []` 로
+답하고, 그때 `summary` 와 `groups` 는 모두 0 이다.
+
+**하루에 스냅샷 하나다.** PUT 은 오늘 스냅샷이 있으면 그 항목을 통째로 갈아 끼우고, 없으면
+오늘 날짜로 새로 만든다(`source: manual`). 저장할 때마다 쌓으면 하루에 세 번 고친 사람의
+순자산 추이가 같은 날에 세 점이 되어 날짜별 값이 정해지지 않는다.
+
+**항목 단위 PATCH·DELETE 는 없다.** 화면이 목록을 들고 있다가 통째로 보낸다. 그래서
+`items: []` 는 "전부 지웠다" 는 뜻이고, **목록을 받지 못한 상태에서 PUT 을 보내면 남은
+항목이 사라진다.** 화면은 조회에 실패했을 때 더하기 입구를 열지 않는다.
+
+`sort_order` 는 서버가 받은 순서대로 0 부터 붙인다. 화면이 그 값으로 고칠 줄을 가리킨다.
+
+| 필드 | 규칙 |
+| --- | --- |
+| `group` | `cash` \| `investment` \| `deposit` \| `debt`. 값 목록의 정본은 `app/domain/assets.py` 의 `AssetGroup` |
+| `label` | 80자까지, 선택. 빈칸만 보내면 `null` 로 본다. **계좌·카드번호 칸은 없다** |
+| `amount` | 원 단위 정수, 0 이상 14자리까지. **부채도 양수로 보낸다** |
+| `items` | 40개까지 |
+
+**부채를 양수로 보내고 순자산에서 뺄지는 `group` 이 정한다.** 음수를 받으면 두 번 빠진다.
+컬럼은 `numeric(16,0)` 이지만 상한은 거래·예산과 같은 14자리다. 그보다 크면 JS 의 안전 정수
+범위(약 9e15)를 넘겨 화면이 자릿수를 잘못 그린다.
+
+`groups` 는 **항목이 없는 그룹도 0 으로** 늘 넷이 실리고, 순서는 `AssetGroup` 선언 순서다.
+화면 구획 순서가 그것이다. 소계를 서버가 세는 이유는 화면이 줄 금액을 다시 더하면
+접힌 줄이나 못 그린 줄을 빼고 세어, 소계와 순자산이 서로 다른 목록을 말하기 때문이다.
+
+⚠ **`net_worth` 를 남은 예산·이번 달 차액과 한 숫자로 합치지 않는다.** 답하는 질문이 다르다
+(`docs/DATA_MODEL.md` 의 「세 금액 개념이 왜 따로인가」).
+
+### 목표
+
+| 메서드 | 경로 | 하는 일 |
+| --- | --- | --- |
+| GET | `/goals` | 진행 중인 목표 하나. 없으면 `goal: null` |
+| POST | `/goals` | 목표를 만든다. 진행 중인 목표가 이미 있으면 422 |
+| PATCH | `/goals/{id}` | 보낸 필드만 고친다 |
+| DELETE | `/goals/{id}` | 목표를 접는다. 204 |
+| POST | `/goals/{id}/contributions` | 모은 돈 한 번을 남긴다 |
+| DELETE | `/goals/{id}/contributions/{cid}` | 모은 돈 한 줄을 지운다. 204 |
+
+```json
+{
+  "goal": {
+    "id": "…",
+    "title": "제주도 여행",
+    "target_amount": "5000000",
+    "target_date": "2026-12-31",
+    "initial_amount": "1200000",
+    "status": "active",
+    "current_amount": "1200000",
+    "remaining": "3800000",
+    "progress": "0.2400",
+    "is_achieved": false,
+    "is_overdue": false,
+    "months_left": 4,
+    "required_monthly_saving": "950000",
+    "eta_months": null,
+    "monthly_pace": null,
+    "contributions": []
+  }
+}
+```
+
+**목표를 정하지 않은 것은 정상 상태다.** 조회는 404 가 아니라 200 에 `goal: null` 로 답한다.
+쓰기 응답(POST·PATCH·기여 POST)도 모두 이 모양이라 화면이 받은 것을 그대로 캐시에 넣는다.
+
+**`PATCH` 에서 `target_date` 만 필드를 빼는 것과 `null` 이 다르다.** 빼면 그대로 두고, `null`
+을 보내면 기한을 지운다. 기한만 없애는 길이 그것뿐이다(알림 설정의 `remind_at` 을 비우는
+것과 같은 규칙이다). `title`·`target_amount`·`initial_amount` 는 비울 자리가 없어 `null` 을
+보내면 422 `INVALID_REQUEST` 다.
+
+**진행 중인 목표는 하나다.** 두 번째를 만들려 하면 `GOAL_ALREADY_ACTIVE` 다. 서비스가 먼저
+막고 부분 유니크 인덱스(`status = 'active' AND deleted_at IS NULL`)가 마지막을 막는다.
+접은 목표는 조회에 오지 않으므로 **지운 뒤에는 새 목표를 만들 수 있다.**
+
+**목표액에 닿아도 `status` 는 `active` 로 남는다.** 달성은 금액을 견줘 그때그때 판정하는
+계산값(`is_achieved`)이다. 상태로 굳히면 기여 한 건을 지워 다시 모자라게 된 목표가
+진행 중인 목표 조회에서 사라져 화면에서 통째로 없어진다.
+
+계산값의 정의(전부 `app/domain/goals.py`).
+
+| 필드 | 정의 |
+| --- | --- |
+| `current_amount` | `initial_amount` + 살아 있는 기여 합 |
+| `remaining` | `target_amount - current_amount`. 넘겼으면 0(음수로 두지 않는다) |
+| `progress` | `current_amount / target_amount`. 0~1 이고 넘겨도 1 에서 멈춘다 |
+| `months_left` | 이번 달을 포함해 기한까지 남은 달 수. 기한이 없으면 null, 지났으면 0 |
+| `required_monthly_saving` | `remaining ÷ months_left`(올림). 기한이 없거나 이미 닿았으면 null |
+| `monthly_pace` | `기여 합 ÷ 첫 기여 달부터 이번 달까지의 달 수`(양쪽 끝 포함, 최소 1, 내림). 기여가 없으면 null |
+| `eta_months` | `remaining ÷ monthly_pace`(올림). 페이스가 없거나 0 이면 null |
+
+⚠ **없는 값을 0 으로 채우지 않는다.** 기한이 없으면 매달 얼마씩이라는 말을 만들 수 없고,
+기여가 한 번도 없으면 언제 닿는지도 알 수 없다. 화면은 그 줄을 통째로 뺀다.
+
+| 필드 | 규칙 |
+| --- | --- |
+| `title` | 60자까지. 공백만 보내면 422 |
+| `target_amount` | 원 단위 정수, 1원 이상 14자리까지. 0원은 진행률의 분모가 되지 못한다 |
+| `target_date` | 선택. **PATCH 에서 `null` 을 보내면 기한을 지운다**(필드를 빼는 것과 다르다) |
+| `initial_amount` | 원 단위 정수, 0 이상. 안 보내면 0 |
+| `contributions[].amount` | 원 단위 정수, 1원 이상 |
+| `contributions[].occurred_on` | 안 보내면 사용자 시간대의 오늘 |
+
+`contributions` 는 최근 날짜가 앞이고, 같은 날이면 나중에 적은 것이 위다. 순서를 못 박지
+않으면 목록을 다시 받을 때마다 줄이 뒤바뀌어 지우려던 줄이 다른 줄로 바뀐다.
+
+⚠ **모은 돈은 거래가 아니다.** `goal_contributions` 에만 쌓이고 지출·수입 집계와 예산에는
+영향이 없다. 목표에 돈을 더해도 남은 예산은 그대로다.
+
 ## 아직 없는 것
 
-- 자산·목표 엔드포인트. 도메인 계산과 데이터 모델은 준비돼 있어 라우터만 붙이면 된다.
-  `backend/app/modules/` 아래 각 폴더가 자리만 잡혀 있다.
-- 설정은 `budget_auto_carryover` 와 `home_hero` 둘만 열려 있다. 알림·리포트 옵션은 아직 없다.
+- **여러 목표.** 진행 중인 목표는 하나뿐이고, 접은 목표를 다시 꺼내 보는 화면도 없다.
+  그래서 목표 목록 경로를 두지 않았다.
+- **자산 스냅샷에서 목표 기여를 자동으로 끌어오기.** 모델에 `asset_snapshot` 출처가
+  있지만 그 경로를 만들지 않았다. 지금 기여는 전부 직접 적은 것(`manual`)이다.
+- **자산 캡처로 채우기.** `PUT /assets` 는 직접 입력만 받는다(`source: manual`). 모델에는
+  `screenshot` 값이 있지만 그 경로를 만들지 않았다.
+- **순자산 추이.** 스냅샷을 날짜로 쌓아 두지만 조회는 가장 최근 하나뿐이다.
+- 설정은 `budget_auto_carryover` 와 `home_hero` 둘만 열려 있다. 리포트 옵션은 아직 없다.
+- **알림을 실제로 쏘는 경로.** 토스 스마트발송을 서버에서 부르는 API 를 확인하지 못해
+  `app/integrations/notifications/` 에 어댑터 자리와 로그 스텁만 뒀다. 누구에게 언제 보낼지
+  고르고 보낸 날을 남기는 부분은 지금 전부 돈다(`backend/scripts/send_reminders.py`).
+- **지난 시각을 나중에 몰아 보내기.** 발송기가 멈췄던 동안의 알림은 그 날 건너뛴다(ADR-0013).
 - **카테고리 표시 순서 바꾸기.** 만들고 고치고 지우는 것은 열렸지만 순서는 서버가 정한 자리 그대로다.
 - **살아 있는 카테고리를, 내가 지운 카테고리와 같은 이름으로 rename 하는 길.** 지운 이름이 유니크
   자리를 잡고 있어 409 로 막힌다. 화면에 그 이름이 안 보이니 사용자는 이유를 모른다.

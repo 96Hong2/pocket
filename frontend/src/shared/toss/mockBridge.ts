@@ -12,6 +12,7 @@ import {
   type MiniAppBridge,
   type NavigationAccessory,
   type NetworkStatus,
+  type NotificationAgreementResult,
   type PickPhotosOptions,
   type PickedImage,
   type SafeAreaInsets,
@@ -30,6 +31,13 @@ export interface MockScenario {
   album?: 'ok' | 'denied' | 'cancel';
   camera?: 'ok' | 'denied' | 'cancel';
   network?: NetworkStatus;
+  /**
+   * 알림 동의 요청의 결과. 거절은 오류가 아니라 결과의 한 종류다.
+   *
+   * 기본은 `alreadyAgreed` 다. 브라우저에서 화면을 눌러 볼 때 매번 새 동의를 받은 것처럼
+   * 굴면, 실기기에서 이미 동의한 사람이 보는 화면을 개발 중에 한 번도 못 본다.
+   */
+  notification?: NotificationAgreementResult;
   /** 지원하지 않는다고 답할 기능들. */
   unsupported?: BridgeCapability[];
   ads?: 'ok' | 'noFill' | 'failed' | 'unsupported';
@@ -161,6 +169,13 @@ export class MockMiniAppBridge implements MiniAppBridge {
     }
     if (mode === 'cancel') return null;
     return { id: 'mock-receipt', dataUri: BLANK_PNG };
+  }
+
+  async requestNotificationAgreement(_templateCode: string): Promise<NotificationAgreementResult> {
+    if (!this.supports('notification')) {
+      throw new BridgeError('UNSUPPORTED', '목: 이 환경에서는 알림을 켤 수 없어요.');
+    }
+    return this.scenario.notification ?? 'alreadyAgreed';
   }
 
   getSafeAreaInsets(): SafeAreaInsets {

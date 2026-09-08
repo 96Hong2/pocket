@@ -16,10 +16,13 @@ from app.modules.budgets import service as budgets
 from app.modules.budgets.schemas import to_budget_state
 from app.modules.reports import service
 from app.modules.reports.schemas import (
+    ClosingOut,
+    LargeExpenseOut,
     MonthlyReportOut,
     PeriodComparisonOut,
     TrendPointOut,
     to_breakdown,
+    to_closing,
     to_comparison,
 )
 
@@ -47,6 +50,16 @@ def monthly(session: DbSession, user: CurrentUser, period: MonthQuery) -> Monthl
             is_auto_carried=budgets.is_carried(session, user, month),
             today=today,
         ),
+        large_expenses=[
+            LargeExpenseOut(
+                id=row.id,
+                occurred_on=ledger.local_date(row.occurred_at, ledger.user_tz(user)),
+                merchant=row.merchant,
+                category_id=row.category_id,
+                amount=row.amount,
+            )
+            for row in report.large_expenses
+        ],
         expense_breakdown=to_breakdown(report.expense_rows),
         income_breakdown=to_breakdown(report.income_rows),
         expense_breakdown_total=report.expense_total.amount,
@@ -63,6 +76,19 @@ def monthly(session: DbSession, user: CurrentUser, period: MonthQuery) -> Monthl
         comparison=_comparison(report.comparison),
         weeks=_comparison(report.weeks),
     )
+
+
+@router.get("/closing", response_model=ClosingOut)
+def closing(session: DbSession, user: CurrentUser, period: MonthQuery) -> ClosingOut:
+    """월간 결산. 카드 넉 장이 그리는 것을 한 응답으로 준다.
+
+    **아무것도 저장하지 않는다.** 결산을 열어 봤다는 표시는 기기에만 남는다.
+    아직 지나는 중인 달이나 기록이 없는 달도 200 으로 답하고, 그때는 `is_closed`·
+    `has_any_transaction` 이 false 라 화면이 입구를 아예 그리지 않는다.
+    """
+    today = ledger.today_for(user)
+    month = period or ledger.period_for(user, today)
+    return to_closing(month, service.build_closing(session, user, month, today=today))
 
 
 def _comparison(pair: tuple[service.Window, service.Window] | None) -> PeriodComparisonOut | None:

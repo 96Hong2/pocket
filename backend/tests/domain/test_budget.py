@@ -83,6 +83,44 @@ def test_예산이_0_이면_진행률_대신_초과만_말한다():
     assert result.is_over_budget is True
 
 
+def test_주간_가용액은_하루치를_이번_주에_남은_날만큼_곱한_값이다():
+    """2026년 9월 10일은 목요일이다. 목·금·토·일 나흘이 남는다(ADR-0011)."""
+    result = status(budget=600_000, spend=200_000, day=10)
+    assert result.week_start == date(2026, 9, 7)
+    assert result.week_end == date(2026, 9, 13)
+    assert result.week_days_left == 4
+    assert result.daily_allowance == won(19_047)
+    assert result.weekly_allowance == won(19_047 * 4)
+
+
+def test_달_마지막_주는_말일에서_잘려_주간_값이_남은_예산을_넘지_않는다():
+    """9월 30일은 수요일이다. 주는 일요일까지지만 셀 수 있는 날은 30일 하루뿐이다."""
+    result = status(budget=600_000, spend=300_000, day=30)
+    assert result.week_end == date(2026, 10, 4)
+    assert result.week_days_left == 1
+    assert result.weekly_allowance == won(300_000)
+    assert result.weekly_allowance == result.remaining_budget
+
+
+def test_예산이_없으면_주간_가용액도_없지만_주_경계는_알려준다():
+    result = status(budget=None, spend=200_000, day=10)
+    assert result.weekly_allowance is None
+    assert result.week_days_left == 4
+    assert result.week_start == date(2026, 9, 7)
+
+
+def test_기간_밖을_보면_이번_주에_남은_날이_없다():
+    """지난달을 열어 본 것이다. 그 달에 남은 날이 없으니 주간 값도 0 이다."""
+    result = evaluate_budget(
+        budget_amount=won(600_000),
+        budgeted_spend=won(300_000),
+        period=PERIOD,
+        today=date(2026, 10, 3),
+    )
+    assert result.week_days_left == 0
+    assert result.weekly_allowance == Money.zero()
+
+
 def test_2월_같은_짧은_달도_그대로_계산한다():
     february = BudgetPeriod.of_month(2024, 2)
     result = evaluate_budget(

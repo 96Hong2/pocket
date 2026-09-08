@@ -1,6 +1,13 @@
 from datetime import date
+from decimal import Decimal
 
-from app.domain.goals import GoalInput, evaluate_goal, months_left
+from app.domain.goals import (
+    GoalInput,
+    evaluate_goal,
+    monthly_pace,
+    months_left,
+    months_spanned,
+)
 from app.domain.money import Money, won
 
 TODAY = date(2026, 9, 3)
@@ -70,3 +77,40 @@ def test_이미_모았으면_남은_금액은_0_이다():
     assert result.required_monthly_saving is None
     assert result.eta_months == 0
     assert result.is_overdue is False
+
+
+def test_진행률은_0_과_1_사이에서_멈춘다():
+    """게이지가 그릴 값이다. 1 을 넘겨 주면 막대가 칸을 넘어 그려진다."""
+    assert evaluate_goal(goal()).progress == Decimal("0.24")
+    assert evaluate_goal(goal(current_amount=won(6_000_000))).progress == Decimal(1)
+    assert evaluate_goal(goal(current_amount=Money.zero())).progress == Decimal(0)
+
+
+def test_기여가_없으면_페이스를_내지_않는다():
+    assert monthly_pace([], TODAY) is None
+
+
+def test_같은_달_기여는_합이_그대로_페이스다():
+    pace = monthly_pace(
+        [(date(2026, 9, 1), won(200_000)), (date(2026, 9, 20), won(100_000))], TODAY
+    )
+    assert pace == won(300_000)
+
+
+def test_페이스는_첫_기여_달부터_이번_달까지의_달_수로_나눈다():
+    """7·8·9 세 달에 걸쳐 600,000 을 모았으니 한 달에 200,000 이다."""
+    pace = monthly_pace(
+        [(date(2026, 7, 10), won(300_000)), (date(2026, 9, 1), won(300_000))], TODAY
+    )
+    assert pace == won(200_000)
+
+
+def test_페이스는_내림한다():
+    """올리면 실제보다 빠른 속도가 되어 아직 못 닿을 시점을 닿는다고 말한다."""
+    assert monthly_pace([(date(2026, 8, 1), won(100_000))], TODAY) == won(50_000)
+
+
+def test_앞날짜로_적은_기여만_있어도_한_달로_센다():
+    """0 이나 음수로 나누는 자리를 만들지 않는다."""
+    assert monthly_pace([(date(2026, 12, 1), won(90_000))], TODAY) == won(90_000)
+    assert months_spanned(date(2026, 12, 1), TODAY) == 1

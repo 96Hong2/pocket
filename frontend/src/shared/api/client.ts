@@ -11,18 +11,28 @@ import {
   type TransportOptions,
 } from './transport';
 import type {
+  AssetsOut,
+  AssetSnapshotPut,
   BudgetOut,
+  ClosingOut,
+  BudgetSuggestionOut,
   BudgetUpsert,
   CalendarMonthOut,
   CategoryCreate,
   CategoryListOut,
   CategoryOut,
   CategoryUpdate,
+  GoalContributionCreate,
+  GoalCreate,
+  GoalPatch,
+  GoalStateOut,
   ImportBatchOut,
   ImportCandidatePatch,
   ImportCommitOut,
   MerchantRuleListOut,
   MonthlyReportOut,
+  NotificationSettingsOut,
+  NotificationSettingsPatch,
   PeriodSummaryOut,
   PreferencesOut,
   PreferencesPatch,
@@ -40,6 +50,17 @@ import type {
 export interface MonthParams {
   year: number;
   month: number;
+}
+
+/**
+ * 생활비 제안을 물을 때 함께 보내는 것.
+ *
+ * 실수령·고정비를 안 보내면 서버가 지난달에서 어림한다. 화면에서 고친 값만 실어 보낸다.
+ * 원 단위 정수여야 한다. 소수를 보내면 서버가 422 로 막는다.
+ */
+export interface BudgetSuggestionParams extends Partial<MonthParams> {
+  takeHome?: number;
+  fixedCosts?: number;
 }
 
 export interface TransactionListParams extends Partial<MonthParams> {
@@ -69,13 +90,18 @@ const PATHS = {
   transactions: '/api/v1/transactions',
   summary: '/api/v1/transactions/summary',
   monthlyReport: '/api/v1/reports/monthly',
+  closing: '/api/v1/reports/closing',
   calendar: '/api/v1/transactions/calendar',
   categories: '/api/v1/categories',
   budgets: '/api/v1/budgets',
+  budgetSuggestion: '/api/v1/budgets/suggestion',
   categoryBudgets: '/api/v1/budgets/categories',
   preferences: '/api/v1/preferences',
+  notificationSettings: '/api/v1/notifications/settings',
   imports: '/api/v1/imports',
   merchantRules: '/api/v1/merchant-rules',
+  assets: '/api/v1/assets',
+  goals: '/api/v1/goals',
 } as const;
 
 function transactionPath(id: string): string {
@@ -96,6 +122,14 @@ function importPath(batchId: string): string {
 
 function candidatePath(batchId: string, candidateId: string): string {
   return `${importPath(batchId)}/candidates/${encodeURIComponent(candidateId)}`;
+}
+
+function goalPath(goalId: string): string {
+  return `${PATHS.goals}/${encodeURIComponent(goalId)}`;
+}
+
+function contributionPath(goalId: string, contributionId: string): string {
+  return `${goalPath(goalId)}/contributions/${encodeURIComponent(contributionId)}`;
 }
 
 function monthQuery(params?: MonthParams): RequestSpec['query'] {
@@ -121,6 +155,13 @@ export interface ApiClient extends Transport {
 
   /** 리포트 화면이 그리는 것 전부. 조회 하나로 끝낸다. */
   getMonthlyReport(params?: MonthParams, options?: CallOptions): Promise<MonthlyReportOut>;
+  /**
+   * 그 달의 결산. **부르는 것만으로는 아무것도 저장되지 않는다.**
+   *
+   * 아직 지나는 중인 달이나 기록이 없는 달도 200 으로 오고, 그때는 `is_closed`·
+   * `has_any_transaction` 이 false 라 화면이 입구를 아예 그리지 않는다.
+   */
+  getClosing(params?: MonthParams, options?: CallOptions): Promise<ClosingOut>;
   /** 달력 격자용 날짜별 합계. 기록이 있는 날만 온다. */
   getCalendar(params?: MonthParams, options?: CallOptions): Promise<CalendarMonthOut>;
   listCategories(options?: CallOptions): Promise<CategoryListOut>;
@@ -131,6 +172,15 @@ export interface ApiClient extends Transport {
   /** 내 카테고리 지우기. 그 카테고리를 쓰던 거래는 남는다. 두 번 눌러도 204 다. */
   deleteCategory(id: string, options?: CallOptions): Promise<void>;
   getBudget(params?: MonthParams, options?: CallOptions): Promise<BudgetOut>;
+  /**
+   * 목표에서 거꾸로 낸 생활비 제안. **부르는 것만으로는 아무것도 저장되지 않는다.**
+   *
+   * 목표가 없거나 기한이 없으면 `available` 이 false 로 오고 그때 카드를 그리지 않는다.
+   */
+  getBudgetSuggestion(
+    params?: BudgetSuggestionParams,
+    options?: CallOptions,
+  ): Promise<BudgetSuggestionOut>;
   /** 예산 저장. 같은 기간에 몇 번을 보내도 결과가 같다. */
   saveBudget(body: BudgetUpsert, params?: MonthParams, options?: CallOptions): Promise<BudgetOut>;
   /** 예산 지우기. 카테고리 예산도 함께 사라진다. 예산이 없어도 204 다. */
@@ -151,6 +201,18 @@ export interface ApiClient extends Transport {
   getPreferences(options?: CallOptions): Promise<PreferencesOut>;
   /** 보낸 필드만 고친다. 응답은 고친 뒤 전체 설정이다. */
   savePreferences(body: PreferencesPatch, options?: CallOptions): Promise<PreferencesOut>;
+  /** 기록 알림 설정. 행이 없으면 서버가 꺼진 기본값으로 만들어 준다. */
+  getNotificationSettings(options?: CallOptions): Promise<NotificationSettingsOut>;
+  /**
+   * 알림 설정 고치기. 보낸 필드만 바뀐다.
+   *
+   * `remind_at: null` 을 보내면 정해 둔 시각이 지워진다. 필드를 빼는 것과 다르다.
+   * 켜면서 시각을 안 주면 서버가 기본 시각을 넣어 준다.
+   */
+  saveNotificationSettings(
+    body: NotificationSettingsPatch,
+    options?: CallOptions,
+  ): Promise<NotificationSettingsOut>;
   /** 줄글 분석. 거래를 만들지 않고 검토 단위만 만든다. */
   analyzeText(text: string, options?: CallOptions): Promise<ImportBatchOut>;
   /**
@@ -176,6 +238,40 @@ export interface ApiClient extends Transport {
   deleteImport(batchId: string, options?: CallOptions): Promise<void>;
   listMerchantRules(options?: CallOptions): Promise<MerchantRuleListOut>;
   deleteMerchantRule(ruleId: string, options?: CallOptions): Promise<void>;
+  /** 자산 목록과 순자산. 한 번도 안 적었으면 `snapshot` 이 null 이다. */
+  getAssets(options?: CallOptions): Promise<AssetsOut>;
+  /**
+   * 자산 목록을 통째로 바꾼다. 항목 하나만 고치는 경로는 없다.
+   *
+   * 보낸 목록이 오늘 스냅샷이 되므로 **지금 목록에 새 줄만 얹어 보내야 한다.**
+   * 목록을 못 받은 상태에서 부르면 나머지 줄이 사라진다.
+   */
+  saveAssets(body: AssetSnapshotPut, options?: CallOptions): Promise<AssetsOut>;
+
+  /** 진행 중인 목표 하나. 없으면 `goal` 이 null 이다. 오류가 아니다. */
+  getGoal(options?: CallOptions): Promise<GoalStateOut>;
+  /** 목표 만들기. 진행 중인 목표가 이미 있으면 422 `GOAL_ALREADY_ACTIVE` 다. */
+  createGoal(body: GoalCreate, options?: CallOptions): Promise<GoalStateOut>;
+  /**
+   * 목표 고치기. 보낸 필드만 바뀐다.
+   *
+   * `target_date: null` 을 보내면 기한이 없어진다. 필드를 빼는 것과 다르다.
+   */
+  updateGoal(goalId: string, body: GoalPatch, options?: CallOptions): Promise<GoalStateOut>;
+  /** 목표 접기. 접고 나면 새 목표를 만들 수 있다. 없어도 404 라 두 번 부르지 않는다. */
+  deleteGoal(goalId: string, options?: CallOptions): Promise<void>;
+  /** 모은 돈 한 번 남기기. 응답은 조회와 같은 모양이라 그대로 캐시에 넣는다. */
+  addGoalContribution(
+    goalId: string,
+    body: GoalContributionCreate,
+    options?: CallOptions,
+  ): Promise<GoalStateOut>;
+  /** 모은 돈 한 줄 지우기. 본문 없는 204 로 온다. */
+  deleteGoalContribution(
+    goalId: string,
+    contributionId: string,
+    options?: CallOptions,
+  ): Promise<void>;
 }
 
 export function createApiClient(options: TransportOptions): ApiClient {
@@ -252,6 +348,15 @@ export function createApiClient(options: TransportOptions): ApiClient {
       });
     },
 
+    getClosing(params, call) {
+      return transport.request<ClosingOut>({
+        method: 'GET',
+        path: PATHS.closing,
+        query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
     getCalendar(params, call) {
       return transport.request<CalendarMonthOut>({
         method: 'GET',
@@ -300,6 +405,20 @@ export function createApiClient(options: TransportOptions): ApiClient {
         method: 'GET',
         path: PATHS.budgets,
         query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
+    getBudgetSuggestion(params, call) {
+      return transport.request<BudgetSuggestionOut>({
+        method: 'GET',
+        path: PATHS.budgetSuggestion,
+        query: {
+          year: params?.year,
+          month: params?.month,
+          take_home: params?.takeHome,
+          fixed_costs: params?.fixedCosts,
+        },
         signal: call?.signal,
       });
     },
@@ -354,6 +473,23 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<PreferencesOut>({
         method: 'PATCH',
         path: PATHS.preferences,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    getNotificationSettings(call) {
+      return transport.request<NotificationSettingsOut>({
+        method: 'GET',
+        path: PATHS.notificationSettings,
+        signal: call?.signal,
+      });
+    },
+
+    saveNotificationSettings(body, call) {
+      return transport.request<NotificationSettingsOut>({
+        method: 'PATCH',
+        path: PATHS.notificationSettings,
         body,
         signal: call?.signal,
       });
@@ -425,6 +561,74 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<void>({
         method: 'DELETE',
         path: `${PATHS.merchantRules}/${encodeURIComponent(ruleId)}`,
+        signal: call?.signal,
+      });
+    },
+
+    getAssets(call) {
+      return transport.request<AssetsOut>({
+        method: 'GET',
+        path: PATHS.assets,
+        signal: call?.signal,
+      });
+    },
+
+    saveAssets(body, call) {
+      return transport.request<AssetsOut>({
+        method: 'PUT',
+        path: PATHS.assets,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    getGoal(call) {
+      return transport.request<GoalStateOut>({
+        method: 'GET',
+        path: PATHS.goals,
+        signal: call?.signal,
+      });
+    },
+
+    createGoal(body, call) {
+      return transport.request<GoalStateOut>({
+        method: 'POST',
+        path: PATHS.goals,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    updateGoal(goalId, body, call) {
+      return transport.request<GoalStateOut>({
+        method: 'PATCH',
+        path: goalPath(goalId),
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    deleteGoal(goalId, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: goalPath(goalId),
+        signal: call?.signal,
+      });
+    },
+
+    addGoalContribution(goalId, body, call) {
+      return transport.request<GoalStateOut>({
+        method: 'POST',
+        path: `${goalPath(goalId)}/contributions`,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    deleteGoalContribution(goalId, contributionId, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: contributionPath(goalId, contributionId),
         signal: call?.signal,
       });
     },

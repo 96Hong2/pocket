@@ -11,15 +11,16 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.domain import aggregation as agg
+from app.domain import aggregation as agg, closing
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod, same_day_window, week_to_date
 from app.domain.report import BreakdownRow, rank_breakdown
 from app.models import Transaction, User
 from app.modules import ledger
 from app.modules.budgets import service as budgets
+from app.modules.goals import service as goals
 
-__all__ = ["MonthlyReport", "build_monthly"]
+__all__ = ["MonthlyReport", "build_closing", "build_monthly"]
 
 # 추이 막대 개수. 조회한 달을 포함해 뒤로 여섯 달이다.
 TREND_MONTHS = 6
@@ -48,6 +49,8 @@ class MonthlyReport:
     trend: list[tuple[BudgetPeriod, agg.PeriodTotals]]
     comparison: tuple[Window, Window] | None
     weeks: tuple[Window, Window] | None
+    # 그 달에서 가장 큰 지출 다섯 건. 분류별 합계로는 "무엇을 샀길래" 가 안 보인다.
+    large_expenses: list[Transaction]
 
 
 def build_monthly(
@@ -76,6 +79,37 @@ def build_monthly(
         trend=trend,
         comparison=_compare_months(session, user, period, today),
         weeks=_compare_weeks(session, user, period, today),
+        large_expenses=_large_expenses(session, user, period),
+    )
+
+
+def build_closing(
+    session: Session, user: User, period: BudgetPeriod, *, today: date
+) -> closing.Closing:
+    """월간 결산 한 벌. 판정은 `domain/closing` 이 하고 여기서는 재료만 모은다.
+
+    **거래는 한 번만 읽는다.** 이번 달 합계·지난달 합계·날짜별 판정이 같은 목록을 나눠 본다.
+    따로 읽으면 그 사이에 저장이 끼어 카드끼리 다른 달을 말하게 된다.
+
+    분류 비교는 예산 반영 지출(`category_budgeted_spend`)로 한다. 다음 달 제안이 곧
+    분류 한도라, 생활비 제안이 고정비를 세는 규칙과 같은 자리를 봐야 두 화면이 안 어긋난다.
+    """
+    previous = period.previous_period()
+    rows = ledger.load_period_inputs(session, user, BudgetPeriod(previous.start, period.end))
+    budget = budgets.find_budget(session, user, period)
+
+    return closing.build_closing(
+        closing.ClosingFacts(
+            period=period,
+            today=today,
+            totals=agg.aggregate_period(rows, period),
+            previous_totals=agg.aggregate_period(rows, previous),
+            days=closing.count_days(rows, period),
+            budget_amount=Money(budget.amount) if budget is not None else None,
+            goal_contribution=goals.period_contributions(session, user, period),
+            # 합계가 0 인 것과 기록이 없는 것은 다르다. 이체만 있어도 기록은 있는 것이다.
+            has_any_transaction=any(period.contains(row.occurred_on) for row in rows),
+        )
     )
 
 
@@ -149,6 +183,35 @@ def _pair_or_none(current: Window, previous: Window) -> tuple[Window, Window] | 
     if not current.expense.amount and not previous.expense.amount:
         return None
     return (current, previous)
+
+
+# 큰 지출 목록에 몇 줄을 실을지. 화면이 자를 수 없게 서버가 정한다.
+LARGE_EXPENSE_LIMIT = 5
+
+
+def _large_expenses(session: Session, user: User, period: BudgetPeriod) -> list[Transaction]:
+    """그 달에서 가장 큰 지출부터 다섯 건.
+
+    합계가 아니라 **줄 고르기**라 여기서 SQL 로 뽑는다. 분류별 합계만 보면 큰 결제 한 번과
+    잔돈 여러 번이 같은 크기로 보인다. 예산에서 뺀 지출도 쓴 돈이라 함께 센다.
+    환불·이체·수입은 쓴 것이 아니고, 무지출 표시는 금액이 0 이라 애초에 못 올라온다.
+    """
+    start, end = ledger.period_bounds(period, ledger.user_tz(user))
+    return list(
+        session.query(Transaction)
+        .filter(
+            Transaction.user_id == user.id,
+            Transaction.type == agg.TransactionType.EXPENSE,
+            Transaction.source != agg.TransactionSource.NO_SPEND,
+            Transaction.deleted_at.is_(None),
+            Transaction.occurred_at >= start,
+            Transaction.occurred_at < end,
+        )
+        # 같은 금액이면 최근 것부터. 순서가 흔들리면 같은 달을 두 번 열었을 때 목록이 바뀐다.
+        .order_by(Transaction.amount.desc(), Transaction.occurred_at.desc(), Transaction.id)
+        .limit(LARGE_EXPENSE_LIMIT)
+        .all()
+    )
 
 
 def _has_any(session: Session, user: User, period: BudgetPeriod) -> bool:

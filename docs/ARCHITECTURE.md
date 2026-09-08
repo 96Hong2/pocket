@@ -141,21 +141,21 @@ src/
   shared/api  HTTP 클라이언트 · 생성 타입 · 쿼리 훅        ← 있다
   features/   home · quick-record · ads
               transactions · budgets · imports · reports
-              categories · settings                        ← 있다
-              assets · goals · recovery                    ← 폴더만 있고 비어 있다
+              categories · settings
+              assets · goals · notifications               ← 있다
 ```
 
-**`features/` 에는 지금 화면 아홉이 있다.** 홈(`home`), 기록 시트(`quick-record`),
+**`features/` 에는 지금 화면 열둘이 있다.** 홈(`home`), 기록 시트(`quick-record`),
 배너 슬롯(`ads`), 내역·달력·수정(`transactions`), 관리 탭 예산 섹션(`budgets`),
 줄글·캡처·영수증 검토(`imports`), 월 리포트(`reports`), 카테고리 관리(`categories`),
-앱 설정(`settings`) 다.
+앱 설정(`settings`), 자산(`assets`), 목표(`goals`), 알림 설정(`notifications`) 다.
 복구 카드는 `recovery` 폴더가 아니라 `home` 안에 있다. 홈 히어로와 같은 예산 응답을 보고
 같은 자리에 뜨고 지는 카드라, 폴더를 갈라 두면 왜 떴는지 두 곳을 읽어야 한다.
 `imports` 의 후보 검토 화면(`ImportReview`)은 줄글·캡처·영수증 탭이 **같은 컴포넌트를 쓴다.**
 복제해 두면 후보 줄 하나를 고칠 때마다 세 곳을 고쳐야 한다.
 캡처 탭과 영수증 탭은 `ImageImportTab` 하나에 문구 표만 바꿔 끼운 둘이다.
-남은 자리표시자는 목표·자산·알림 설정 셋이다. feature 하나는 컴포넌트와 판정 함수, 그리고
-화면 스펙 CSS 파일 하나(`<feature>.css`, `index.css` 가 불러온다)를 함께 가진다.
+feature 하나는 컴포넌트와 판정 함수, 그리고 화면 스펙 CSS 파일 하나(`<feature>.css`,
+`index.css` 가 불러온다)를 함께 가진다.
 
 ### `shared/api` 안쪽
 
@@ -170,8 +170,8 @@ shared/api/
   client.ts       엔드포인트 하나에 메서드 하나
   context.ts      useApiClient() · useApiReady()
   queryKeys.ts    queryKey 규약과 무효화 대상
-  queries.ts      조회 훅 (카테고리 · 설정 · 예산 · 거래 목록 · 기간 요약 · 달력 · 월 리포트)
-  mutations.ts    변경 훅 (거래 · 예산 · 카테고리 한도 · 카테고리 · 설정 · 줄글·캡처·영수증 분석과 검토·저장)
+  queries.ts      조회 훅 (카테고리 · 설정 · 알림 설정 · 예산 · 예산 제안 · 거래 목록 · 기간 요약 · 달력 · 월 리포트 · 월 결산 · 자산 · 목표 · 기억한 분류)
+  mutations.ts    변경 훅 (거래 · 예산 · 카테고리 한도 · 카테고리 · 설정 · 알림 설정 · 자산 · 목표와 적립 · 줄글·캡처·영수증 분석과 검토·저장)
 ```
 
 생성 타입은 **커밋한다.** CI 의 frontend 잡은 백엔드 없이 도는데 그때도 타입이 있어야 빌드된다.
@@ -181,10 +181,12 @@ shared/api/
 **조회·변경 훅이 `features/` 가 아니라 `shared` 에 있는 이유**는 무효화 대상이 feature 경계를
 넘기 때문이다. 예산 상태는 홈·기록·예산 설정이 같이 보고, 거래를 하나 저장하면 셋이 한꺼번에
 낡는다. 키를 feature 마다 만들면 어느 한 곳이 반드시 빠진다.
-지금 있는 조회 훅은 카테고리·설정·예산·목록·요약·달력·월 리포트이고, 변경 훅은 거래 저장·수정·
-삭제·되돌리기, 예산 저장·삭제, 카테고리 한도 저장·삭제, 설정 저장, 그리고 줄글·캡처·영수증
-분석과 후보 고치기·저장·버리기, 기억한 분류 지우기다. 홈은 `useBudget` 과
-`useTransactions` 로, 달력 화면은 `useSummary` 와 `useCalendar` 로 그린다.
+지금 있는 조회 훅은 카테고리·설정·알림 설정·예산·예산 제안·목록·요약·달력·월 리포트·월 결산·
+자산·목표·기억한 분류이고, 변경 훅은 거래 저장·수정·삭제·되돌리기, 예산 저장·삭제,
+카테고리 한도 저장·삭제, 설정 저장, 알림 설정 저장, 자산 저장, 목표 만들기·고치기·지우기와
+적립 더하기·지우기, 그리고 줄글·캡처·영수증 분석과 후보 고치기·저장·버리기, 기억한 분류
+지우기다. 홈은 `useBudget` 과 `useTransactions` 로, 달력 화면은 `useSummary` 와
+`useCalendar` 로 그린다.
 
 익명 식별키는 클라이언트가 **게터로** 읽는다. 값으로 받으면 식별키가 도착할 때마다 인스턴스가
 새로 만들어진다. 만드는 자리는 `app/providers/ApiProvider.tsx` 이고, 식별키가 아직 없거나
@@ -204,13 +206,14 @@ app/
   core/              설정 · 로깅
   db/                세션 · 선언 베이스
   models/            SQLAlchemy ORM
-  domain/            순수 계산 (예산 · 페이스 · 피드백 · 중복 fingerprint · 기본 카테고리)
+  domain/            순수 계산 (예산 · 기간 · 페이스 · 피드백 · 중복 fingerprint · 기본 카테고리 · 생활비 제안 · 월 결산 · 알림 판정)
   api/               의존성 · 예외 변환 · 라우터 조립
     images.py        캡처 data URL 을 바이트로 푸는 유일한 자리 (ADR-0010)
   modules/           transactions · budgets · categories · reports
                      assets · goals · imports · settings
+                     notifications · merchant_rules
     ledger.py        사용자 시간대 기준 기간·합계. 거래와 예산이 함께 읽는다
-  integrations/      apps_in_toss · llm
+  integrations/      apps_in_toss · llm · notifications
 migrations/          alembic
 tests/               domain · api · integrations · 마이그레이션 스모크
 ```

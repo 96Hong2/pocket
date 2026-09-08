@@ -31,7 +31,11 @@ export function CalendarGrid({ month, days, selected, today, onSelect }: Calenda
   const numbers = new Map<string, DayNumbers>(
     days.map((d) => [
       d.day,
-      { expense: parseDecimalOr(d.expense, 0), income: parseDecimalOr(d.income, 0) },
+      {
+        expense: parseDecimalOr(d.expense, 0),
+        income: parseDecimalOr(d.income, 0),
+        isNoSpend: d.is_no_spend,
+      },
     ]),
   );
 
@@ -72,6 +76,13 @@ export function CalendarGrid({ month, days, selected, today, onSelect }: Calenda
                 ) : null}
                 {value != null && value.income !== 0 ? (
                   <span className="tx-cal__income">{formatNumber(value.income)}</span>
+                ) : null}
+                {/*
+                  안 쓴 날은 금액이 0 이라 숫자로는 빈 칸과 똑같이 보인다.
+                  `0` 을 찍는 대신 안 썼다고 적어 둔 날이라고 말한다.
+                */}
+                {value != null && value.isNoSpend ? (
+                  <span className="tx-cal__no-spend">무지출</span>
                 ) : null}
               </span>
             </button>

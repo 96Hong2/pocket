@@ -13,20 +13,30 @@ e2e/
                  보통은 fixtures 가 걸고, 이 장치 자체를 증명하는 spec 만 직접 부른다
     api.ts       사전 조건을 심는다. spec 은 `prep` 픽스처로 받는다
     deviceMock.ts devtools 목 앨범·카메라 다이얼. 사진 심기·권한 거부와 각각의 짝 확인 함수
-    aitMock.ts   그 밖의 devtools 목 다이얼. 광고 미채움·시스템 뒤로가기·미니앱 종료 감시
+    aitMock.ts   그 밖의 devtools 목 다이얼. 광고 미채움·시스템 뒤로가기·미니앱 종료 감시·
+                 알림 동의 결과와 그 요청 횟수 세기
     servers.ts   playwright.config 가 띄우는 dev 서버 정의
     fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다. spec 은 여기서 시작한다
   fixtures/    테스트가 쓰는 파일. 지금은 사진용 PNG 한 장(capture.png). 캡처와 영수증이 함께 쓴다
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
-    HomeScreen       홈. 안쪽을 hero·today·budget·ads·recovery 로 나눠 들고 있다
+    HomeScreen       홈. 안쪽을 hero·today·budget·goal·closing·ads·recovery 로 나눠 들고 있다
+                     today 의 안 쓴 날 줄은 빈 상태 버튼과 글자가 같아, 줄 안의 취소 버튼에서
+                     부모로 한 칸 올라가 잡는다(둘은 함께 그려지지 않는다)
     RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글)·capture(캡처)·receipt(영수증) 다섯이다
                      capture 와 receipt 는 같은 클래스에 문구 표만 바꿔 끼운 둘이다
-    ReportScreen     리포트 탭. 총액·도넛·조각 목록·6개월 흐름
+    ReportScreen     리포트 탭. 총액·도넛·조각 목록·6개월 흐름·월간 결산
+                     closing 은 결산 입구와 오버레이다. 입구는 버튼, 오버레이는 다이얼로그라
+                     둘 다 이름으로 잡고, 안쪽의 점·줄만 testid 를 쓴다
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
-    ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·categories·banner·settings 로 나눠 들고 있다
+    ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·suggest·categories·banner·settings 로 나눠 들고 있다
+                     suggest 는 목표 기반 생활비 제안 카드다. 예산이 없는 달에, 기한이 있는 목표가
+                     있을 때만 떠서 없는 것을 단언하는 자리가 여럿이다
     CategoriesScreen 카테고리 관리 화면. 기본·내 것 두 구획과 기억한 분류 목록을 함께 들고 있다
     SettingsScreen   앱 설정 화면. 홈 표시 방식과 개인정보 안내
+    NotificationsScreen 알림 설정 화면. 켜기와 시각 둘뿐이라 안을 더 쪼개지 않았다
+    AssetsScreen     자산 화면. 순자산 카드·그룹 구획 넷·항목 시트를 한 화면이 들고 있다
+    GoalScreen       목표 화면. 목표 카드·모은 돈 목록·시트 둘(목표·기여)을 한 화면이 들고 있다
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
   specs/       테스트. 무엇을 확인하는지만 읽히게 쓴다. 매번 돌린다
   edge/        엣지케이스. 경계값·실패 주입·심사 항목. 출시 전과 크게 고친 뒤에만 돌린다
@@ -46,13 +56,26 @@ e2e/
 
 `PrepApi` 로 심을 수 있는 것.
 
-| 부르는 것                                                                        | 심는 것                                        |
-| -------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `addTransaction` · `addSeries` · `addExpense`                                    | 거래. 종류·가맹점·예산 제외·며칠 전까지 정한다 |
-| `setBudget(금액, 달?)` · `deleteBudget(달?)`                                     | 전체 예산. 달을 빼면 이번 달이다               |
-| `setCategoryBudget(카테고리, 금액, 달?)` · `deleteCategoryBudget(카테고리, 달?)` | 카테고리 예산                                  |
-| `setAutoCarryover(켬)`                                                           | 다음 달로 예산을 이어 쓸지                     |
-| `categoryIdByName`                                                               | 이름으로 카테고리 id 찾기                      |
+| 부르는 것                                                                        | 심는 것                                                         |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `addTransaction` · `addSeries` · `addExpense`                                    | 거래. 종류·가맹점·예산 제외·며칠 전까지 정한다                  |
+| `setBudget(금액, 달?)` · `deleteBudget(달?)`                                     | 전체 예산. 달을 빼면 이번 달이다                                |
+| `setCategoryBudget(카테고리, 금액, 달?)` · `deleteCategoryBudget(카테고리, 달?)` | 카테고리 예산                                                   |
+| `setAutoCarryover(켬)`                                                           | 다음 달로 예산을 이어 쓸지                                      |
+| `setHomeHero(방식)`                                                              | 홈 맨 위에 무엇을 크게 보여줄지                                 |
+| `addCategory(이름, 아이콘?)`                                                     | 카테고리 하나. 만들어진 id 를 돌려준다                          |
+| `saveNoSpend(날?)`                                                               | 안 쓴 날 표시. 성공을 단언하지 않고 결과를 돌려준다             |
+| `putAssets(항목들)`                                                              | 자산 목록. 서버 저장이 PUT 하나라 통째로 보낸다                 |
+| `setGoal(목표)`                                                                  | 목표 하나. 만들어진 id 를 돌려준다                              |
+| `trySetGoal(목표)`                                                               | 목표 만들기를 시도만 한다. 성공을 단언하지 않고 결과를 돌려준다 |
+| `addContribution(목표id, 모은돈)`                                                | 목표에 모은 돈 한 번                                            |
+| `categoryIdByName`                                                               | 이름으로 카테고리 id 찾기                                       |
+
+`saveNoSpend` 와 `trySetGoal` 만 예외적으로 `{ status, code }` 를 돌려준다. 화면은 오늘 기록이
+하나도 없을 때만 '오늘은 안 썼어요' 를 보여주고, 진행 중인 목표가 있으면 만들기 입구를 아예
+지운다. 그래서 **같은 날 두 번 보내는 것도, 두 번째 목표를 만드는 것도 화면으로는 만들 수 없다.**
+서버가 그것을 422(`NO_SPEND_EXISTS` · `GOAL_ALREADY_ACTIVE`)로 막는지 확인하는 자리라
+실패를 그대로 받아야 한다.
 
 달은 `2026-08` 모양이고, `thisMonth()`·`lastMonth()` 로 얻는다. 기기 시간대로 만들지 않는다.
 지난달 예산은 이어쓰기를 보려고 심는다. 끝난 기간의 쓰기는 제품 규칙이 막아 두므로
@@ -77,8 +100,10 @@ e2e/
 - **`waitForTimeout` 을 쓰지 않는다.** 기다릴 것이 있으면 `expect(...).toHaveText` 나 `expect.poll` 로 상태를 기다린다.
 - **`.tsx` 와 `.css` 를 e2e 에서 import 하지 않는다.** e2e 는 브라우저 밖 Node 에서 돈다.
   `src/` 에서 가져와도 되는 것은 부수효과 없는 상수·순수 함수 모듈뿐이다.
-  지금 쓰는 것은 다섯이다: `shared/testIds.ts`, `app/router/routes.ts`, `shared/lib/format.ts`,
-  `shared/api/types.ts`(거래 종류 같은 타입), `features/transactions/ledgerView.ts`(한 페이지 줄 수·달력 칸 계산).
+  지금 쓰는 것은 일곱이다: `shared/testIds.ts`, `app/router/routes.ts`, `shared/lib/format.ts`,
+  `shared/api/types.ts`(거래 종류 같은 타입), `features/transactions/ledgerView.ts`(한 페이지 줄 수·달력 칸 계산),
+  `shared/lib/forbiddenWords.ts`(탓하는 말 목록과 판정), `shared/lib/closingSeen.ts`(결산 알림 창 일수).
+  뒤의 둘은 화면 문구·표시 규칙의 정본이라 spec 이 같은 값을 다시 적지 않으려고 가져온다.
   **배럴(`features/*/index.ts`)로 가져오지 않는다.** 배럴은 `.tsx` 를 함께 내보내서,
   상수 하나만 쓰려 해도 화면 컴포넌트가 Node 로 끌려온다. 순수 모듈을 경로로 직접 가져온다.
   목록에 없는 것을 가져오려면 `tsconfig.test.json` 을 먼저 본다. e2e·tests 프로그램이 그 모듈까지 타입 검사한다.
@@ -96,7 +121,7 @@ e2e/
 - 같은 절차를 **spec 2개**가 복붙하면 그때 `screens/` 의 메서드로 올린다. 1개면 spec 안에 둔다.
 - 화면 객체의 메서드가 **10개**를 넘으면 화면 안의 영역을 별도 객체로 쪼갠다.
   실제로 두 번 쪼갰다. `RecordSheet` 는 저장 전후와 입력 방법이 달라 `input`·`feedback`·`nl`·`capture` 로,
-  `HomeScreen` 은 카드가 쌓인 화면이라 `hero`·`today`·`budget`·`ads`·`recovery` 로 나눴다.
+  `HomeScreen` 은 카드가 쌓인 화면이라 `hero`·`today`·`budget`·`goal`·`ads`·`recovery` 로 나눴다.
   쪼갠 뒤에도 파일은 하나다. 한 화면을 여러 파일로 흩으면 어디를 봐야 할지 알 수 없어진다.
 - 하나의 절차가 **화면 3개**를 가로지르면 그때 `flows/` 를 새로 만든다. 지금은 없다. 미리 만들지 않는다.
 - `support/` 헬퍼는 **spec 2개**가 쓸 때 올린다. 한 spec 만 쓰는 헬퍼는 그 spec 파일 안에 둔다.
@@ -147,11 +172,20 @@ placeholder 3장으로 바꿔친다. **파일 선택 다이얼로그가 아예 �
 
 `support/deviceMock.ts` 는 익명키 트랩과 같은 모양이다. **다이얼마다 짝 확인 함수를 둔다.**
 
-| 거는 것                   | 확인하는 짝                    |
-| ------------------------- | ------------------------------ |
-| `seedMockImages(dataUri)` | `mockImagesSeeded(page)`       |
-| `denyPhotoPermission()`   | `photoPermissionDenied(page)`  |
-| `denyCameraPermission()`  | `cameraPermissionDenied(page)` |
+| 거는 것                          | 확인하는 짝                          |
+| -------------------------------- | ------------------------------------ |
+| `seedMockImages(dataUri)`        | `mockImagesSeeded(page)`             |
+| `denyPhotoPermission()`          | `photoPermissionDenied(page)`        |
+| `denyCameraPermission()`         | `cameraPermissionDenied(page)`       |
+| `forceAgreementResult(result)`   | `agreementResultForced(page, result)` |
+
+마지막 줄은 `support/aitMock.ts` 에 있고 알림 동의 결과를 정한다. 목의 기본값이
+`newAgreement` 라 **거절을 보려면 반드시 이 다이얼을 돌려야 한다.** 동의 화면을 몇 번
+띄웠는지는 `watchAgreementRequests(page)` 로 센다(목이 콘솔에 남기는 줄을 읽는다).
+화면에는 흔적이 남지 않아서, "켜는 그 순간에만 묻는다" 는 이 숫자로만 확인할 수 있다.
+
+알림 설정을 심는 `PrepApi` 헬퍼는 두지 않았다. 켜기도 시각 고르기도 화면으로 할 수 있고,
+확인하려는 동작이 바로 그 둘이다.
 
 짝을 안 부르면 **다이얼이 안 걸린 채로 초록이 된다.** 목 내부 구조(슬라이스 이름)에 기대는
 코드라 devtools 를 올리면 여기가 먼저 조용히 깨진다. 심는 사진은 `fixtures/capture.png` 를
@@ -173,7 +207,8 @@ base64 로 만든 data URL 이고, `addInitScript` 인자는 모든 문서마다
 
 - **미지원 토스 앱 버전 화면.** devtools 목은 `isSupported` 가 항상 true 다. 앨범도 카메라도
   버전 게이트가 없어 `supports('albumPick')`·`supports('camera')` 가 늘 true 다.
-  미지원 분기는 vitest 에서 `createBridge({ forceMock: true, scenario })` 로 본다.
+  **알림 동의도 같다**(실기기는 토스 5.255.0 부터다). 미지원 분기는 vitest 에서
+  `createBridge({ forceMock: true, scenario })` 로 본다.
 - **앨범에서 아무것도 안 고르고 닫기(취소).** `mock` 모드의 앨범은 배열을 돌려주므로 빈 배열을
   만들 수 없다. 앨범 취소는 vitest 에서 `scenario: { album: 'cancel' }` 로 본다.
   (**촬영 취소는 e2e 에서 본다.** 빈 dataUri 한 개로 만든다. 위 「앨범·카메라 목」 참고)

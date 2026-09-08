@@ -53,6 +53,7 @@ export function HomeHero({
   const label = `${monthLabel(state.period_start)} · ${LAYOUT_LABEL[layout]}`;
   const progress = parseDecimal(state.spend_progress);
   const daily = parseDecimal(state.daily_allowance);
+  const weekly = parseDecimal(state.weekly_allowance);
 
   const withBudget = layout === 'remainingBudget' || layout === 'incomeAndBudget';
   const withIncome = layout === 'incomeAndSpent' || layout === 'incomeAndBudget';
@@ -159,6 +160,21 @@ export function HomeHero({
               />
             </span>
           </div>
+          {/*
+            하루치만 보면 이번 주 외식이나 주말 나들이를 가늠할 수 없다.
+            서버가 이번 주에 남은 날까지 세어 준 값을 그대로 그린다. 화면이 곱하지 않는다.
+          */}
+          {weekly != null ? (
+            <div className="home-hero__week" data-numeric="">
+              <span className="home-hero__week-label">이번 주 쓸 수 있는 돈</span>
+              <Amount
+                data-testid={TEST_IDS.weeklyAllowance}
+                value={weekly}
+                size={13}
+                weight={700}
+              />
+            </div>
+          ) : null}
           <span className="home-hero__sr">, 예산 고치기</span>
         </Link>
       ) : null}

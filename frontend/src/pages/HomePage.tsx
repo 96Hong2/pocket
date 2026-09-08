@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
 import { useIdentity } from '../app/providers';
-import { ROUTES } from '../app/router/routes';
 import { AdSlot } from '../features/ads';
 import {
   BudgetSuggestCard,
+  ClosingEntryCard,
+  GoalStatusCard,
   HomeHero,
   RecoveryCard,
   TodayList,
@@ -21,6 +21,7 @@ import { DEFAULT_RECORD_TAB, resolveRecordTab } from '../features/quick-record/r
 import {
   useBudget,
   useCategories,
+  useGoal,
   usePreferences,
   useTransactions,
   type TransactionOut,
@@ -50,6 +51,7 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
   const categories = useCategories();
   const transactions = useTransactions();
   const preferences = usePreferences();
+  const goal = useGoal();
 
   // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다.
   // 아직 오는 중일 때만 기다리게 하고, 실패·미지원은 위 안내가 이유를 말한다.
@@ -96,7 +98,19 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
         onClick={() => onRecord(resolveRecordTab(preferences.data?.last_record_method))}
       />
 
+      {/*
+        지난달 결산 안내. 달이 바뀐 뒤 며칠 동안, 지난달에 기록이 있고 아직 안 봤을 때만
+        스스로 나타난다. 기록 버튼 아래에 두어 오늘 할 일을 가리지 않는다.
+      */}
+      <ClosingEntryCard />
+
       {view?.showBudgetSuggestion ? <BudgetSuggestCard /> : null}
+
+      {/*
+        목표가 있을 때만 그린다. 조회가 실패하면 이 자리를 비우고 오류 자리를 만들지 않는다.
+        홈에서 할 일은 기록이고, 목표는 곁들여 보는 값이다.
+      */}
+      {goal.data?.goal != null ? <GoalStatusCard goal={goal.data.goal} /> : null}
 
       <TodayList
         transactions={transactions.data?.items ?? []}
@@ -109,11 +123,6 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
         }}
         onPick={setEditing}
       />
-
-      {/* 달력 화면으로 가는 유일한 입구다. 오늘 아래에 두어 "오늘 말고 그 전" 으로 읽히게 한다. */}
-      <Link className="home-more" to={ROUTES.calendar}>
-        전체 내역 보기
-      </Link>
 
       {/*
         달력과 같은 시트를 쓴다. 고치는 자리가 둘이 되면 규칙도 둘이 된다.
