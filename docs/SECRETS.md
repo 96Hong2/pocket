@@ -12,7 +12,8 @@ git 에 올리지 않는 것: mTLS 인증서와 개인키, LLM API 키, 운영 �
 | 비밀값 | 어디서 받나 | 로컬 | 운영(Cloud Run) | 없으면 |
 |---|---|---|---|---|
 | 토스 mTLS 클라이언트 인증서 + 개인키 | Apps in Toss 파트너 콘솔 문의 (아래 §2) | 파일 경로를 `.env` 로 지정 | Secret Manager 볼륨 마운트 | 운영 기동 실패 / 로컬은 검증 생략 모드 |
-| LLM API 키 | 사용할 provider 콘솔 (아직 미정) | `.env` | Secret Manager 환경변수 | 스텁 파서로 동작 |
+| Gemini API 키 (기본 provider) | Google AI Studio, **유료 등급** 프로젝트 (아래 §4) | `.env` | Secret Manager 환경변수 | 스텁 파서로 동작(사진을 안 읽는다) |
+| OpenAI API 키 (예비 provider) | OpenAI 플랫폼 | `.env` | Secret Manager 환경변수 | `LLM_PROVIDER=openai` 일 때만 필요 |
 | 운영 광고 adGroupId | Apps in Toss 파트너 콘솔 광고 설정 | 안 씀(테스트 ID 사용) | 프론트 빌드 환경변수 | 배너 슬롯을 접는다 |
 
 ---
@@ -103,19 +104,40 @@ Cloud Run 헬스체크가 통과해 잘못된 리비전이 트래픽을 받는�
 
 ## 4. LLM API 키
 
-provider 를 아직 고르지 않았다. 지금은 `StubLlmStructuredClient`(규칙 기반 스텁)로 돌아간다.
-스텁 결과에는 응답 메타에 `is_stub: true` 가 붙으므로 진짜 모델 결과와 구분된다.
+provider 는 `LLM_PROVIDER` 로 고른다. 기본 provider 는 **Gemini 2.5 Flash** 이고 OpenAI gpt-5-mini 를
+예비로 둔다(ADR-0016). SDK 없이 httpx 로 부르고, 어댑터는 `app/integrations/llm/gemini.py`·`openai.py` 다.
 
-**스텁은 사진을 한 바이트도 읽지 않는다.** 프롬프트만 보고 캡처면 정해 둔 5건, 영수증이면
-정해 둔 1건을 낸다. 그래서 지금 나가는 사진 요청은 어디에도 도달하지 않고, 위 §4 의 유출 위험은
-**실제 vision provider 를 붙이는 순간부터** 생긴다. 그 전에 계약을 확인한다.
+`stub` 은 규칙 기반 파서다. 응답 메타에 `is_stub: true` 가 붙어 진짜 모델 결과와 구분되고,
+**사진은 한 바이트도 읽지 않는다.** 프롬프트만 보고 캡처면 정해 둔 5건, 영수증이면 1건을 낸다.
+검증(pytest·e2e)은 `.env` 와 무관하게 늘 스텁으로 돈다(`tests/conftest.py`, `e2e/support/servers.ts`).
 
 | 이름 | 값 | 비고 |
 |---|---|---|
-| `LLM_PROVIDER` | `stub` / (정해지면 provider 이름) | ⚠ 아직 `Settings` 에 필드가 없다. provider 를 고를 때 추가한다 |
-| `LLM_API_KEY` | provider 콘솔에서 발급 | 위와 같다 |
+| `LLM_PROVIDER` | `stub` / `gemini` / `openai` | 기본 `stub`. 운영은 `gemini`. 키 없는 provider 를 고르면 기동에 실패한다 |
+| `GEMINI_API_KEY` | Google AI Studio 에서 발급 | **유료 등급 프로젝트의 키**여야 한다(아래) |
+| `OPENAI_API_KEY` | OpenAI 플랫폼에서 발급 | `LLM_PROVIDER=openai` 일 때만 읽는다 |
+| `LLM_MODEL` | 비우면 `gemini-2.5-flash` / `gpt-5-mini` | 다른 모델을 재 볼 때만 |
+| `LLM_TIMEOUT_SECONDS` | 기본 20 | 한 번 재시도하므로 최악은 두 배 |
+
+### Gemini 키는 유료 등급으로 발급한다
+
+키는 https://aistudio.google.com/apikey 에서 만든다. 모든 키는 Google Cloud 프로젝트 하나에 묶인다.
+그 프로젝트가 **무료 등급이면 보낸 프롬프트·사진·응답을 Google 이 제품 개선에 쓰고 사람이 읽을 수 있다.**
+같은 페이지 「Set up billing」으로 결제 계정을 연결해 유료 등급으로 올린 프로젝트의 키만 쓴다.
+
+확인한 계약(Gemini API Additional Terms 2026-04-28 판, 2026-09-08 확인):
+
+- 유료: "Google doesn't use your prompts (including ... files such as images ...) or responses to improve our products."
+- 유료: 남용 감지를 위해 "logs prompts and responses for a limited period of time". 기간은 적혀 있지 않다.
+- 무료: "Google uses this data to provide, improve, and develop Google products", "Human reviewers may read ... your API input and output".
+
+OpenAI(예비)는 API 입력을 기본으로 학습에 쓰지 않고 남용 감지 로그를 최대 30일 보관한다.
+어댑터는 `store: false` 로 보내 응답이 30일 동안 저장되는 것을 끈다(OpenAI 「Your data」, 2026-09-08 확인).
 
 지켜야 하는 것:
+
+- 어댑터는 상태코드·토큰 수·걸린 시간만 로그에 남긴다. provider 오류 메시지도 200자에서 자른다.
+  응답 검증 실패도 어느 필드가 틀렸는지만 남기고 값은 버린다(`app/integrations/llm/schema.py`).
 
 - 키를 코드·테스트 픽스처·로그·에러 메시지에 넣지 않는다.
 - **LLM 에 보낸 원문과 받은 원문을 저장하거나 로그에 남기지 않는다.** analytics·error log 도 포함이다.
@@ -141,9 +163,9 @@ provider 로 나간다.** 감출 것이 아니라 알고 여는 구멍이다.
 
 - 설계로 메울 방법이 지금은 없다. OCR 을 먼저 돌려 텍스트만 보내는 안은 OCR provider 에 원본이
   그대로 가서 문제를 옮길 뿐이라 버렸다(ADR-0010 「대안」).
-- 그래서 **provider 를 고를 때의 계약 검토 항목으로 올린다.** 최소한 zero-retention(요청 데이터를
-  학습·보관에 쓰지 않음)을 문서로 확인하고, 확인한 내용을 이 절에 적는다. 그 전에는 실기기 배포를
-  하지 않는다.
+- 그래서 **provider 계약을 확인한 뒤에만 사진을 보낸다.** 확인한 내용은 위 「Gemini 키는 유료 등급으로
+  발급한다」에 있다. 학습에 쓰지 않는 것은 문서로 확인했고, 남용 감지 로그는 짧게 남는다. 그 로그까지
+  없애는 zero-retention 은 두 provider 모두 별도 계약이라 지금은 없다.
 - `parse_usages.redacted_count` 가 사진(캡처·영수증)에서 늘 0 인 것이 이 사실의 기록이다. 다만 이 값으로 두
   경로를 가를 수는 없다. 가릴 것이 없던 평범한 줄글도 0 이다. 경로는 `source` 로 가른다.
 
@@ -180,9 +202,13 @@ TOSS_MTLS_CERT_PATH=/Users/<나>/.pocket/secrets/toss-client.crt
 TOSS_MTLS_KEY_PATH=/Users/<나>/.pocket/secrets/toss-client.key
 ALLOW_UNVERIFIED_ANON_KEY=true
 
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=<AI Studio 유료 등급 프로젝트에서 발급한 키>
 ```
 
-`LLM_PROVIDER`·`LLM_API_KEY` 는 아직 코드가 읽지 않는다. provider 를 고를 때 함께 넣는다.
+`LLM_PROVIDER=gemini` 인데 `GEMINI_API_KEY` 가 비어 있으면 기동에 실패한다. 키가 아직 없으면
+`LLM_PROVIDER=stub` 으로 둔다. 키를 넣은 뒤에는 `uv run python scripts/llm_smoke.py --text "점심 12000"`
+으로 한 번 실제로 불러 본다.
 
 인증서가 아직 없으므로 `TOSS_MTLS_*_PATH` 두 줄은 비워 두고 `ALLOW_UNVERIFIED_ANON_KEY=true` 로 둔다.
 
@@ -202,8 +228,8 @@ gcloud secrets versions add pocket-toss-client-crt --data-file=./toss-client.crt
 gcloud secrets create pocket-toss-client-key --replication-policy=automatic
 gcloud secrets versions add pocket-toss-client-key --data-file=./toss-client.key
 
-gcloud secrets create pocket-llm-api-key --replication-policy=automatic
-gcloud secrets versions add pocket-llm-api-key --data-file=./llm-api-key.txt
+gcloud secrets create pocket-gemini-api-key --replication-policy=automatic
+gcloud secrets versions add pocket-gemini-api-key --data-file=./gemini-api-key.txt
 ```
 
 넣고 나면 로컬의 원본 파일을 지운다. 다운로드 폴더에 남겨 두지 않는다.
@@ -225,8 +251,9 @@ LLM 키처럼 문자열 하나인 것은 환경변수로 넣는다.
 gcloud run deploy pocket-backend \
   --set-secrets=/secrets/toss/toss-client.crt=pocket-toss-client-crt:latest \
   --set-secrets=/secrets/toss/toss-client.key=pocket-toss-client-key:latest \
-  --set-secrets=LLM_API_KEY=pocket-llm-api-key:latest \
+  --set-secrets=GEMINI_API_KEY=pocket-gemini-api-key:latest \
   --set-env-vars=ENVIRONMENT=prod \
+  --set-env-vars=LLM_PROVIDER=gemini \
   --set-env-vars=ALLOW_UNVERIFIED_ANON_KEY=false \
   --set-env-vars=TOSS_MTLS_CERT_PATH=/secrets/toss/toss-client.crt \
   --set-env-vars=TOSS_MTLS_KEY_PATH=/secrets/toss/toss-client.key
@@ -239,6 +266,8 @@ gcloud run deploy pocket-backend \
 
 - `ENVIRONMENT=prod` 인데 `ALLOW_UNVERIFIED_ANON_KEY=true` 면 앱이 기동하지 않는다. 의도된 동작이다.
 - 인증서 마운트 경로와 `TOSS_MTLS_*_PATH` 값이 같은지 확인한다.
+- `LLM_PROVIDER=gemini` 이고 키 시크릿이 실제로 걸렸는지 확인한다. 기동 로그의 `LLM provider=gemini` 한 줄로 안다.
+  스텁으로 뜨면 어떤 사진이든 예시 5건이 나온다.
 - 로그에 인증서 내용·키·익명키 원문이 찍히지 않는지 확인한다.
 
 ---

@@ -11,6 +11,8 @@ import pytest
 from app.api.deps import _verifier_for
 from app.core.config import Settings, get_settings
 from app.integrations.apps_in_toss.anon_key import AnonKeyVerifierMisconfigured
+from app.integrations.llm import GeminiStructuredClient, get_llm_client
+from app.integrations.llm.port import LlmMisconfigured
 from app.main import create_app
 
 
@@ -18,6 +20,7 @@ from app.main import create_app
 def _clear_caches() -> None:
     get_settings.cache_clear()
     _verifier_for.cache_clear()
+    get_llm_client.cache_clear()
 
 
 def test_인증서_없이_운영으로_뜨면_기동에_실패한다(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -49,6 +52,39 @@ def test_local_이_아니면_지난_기간_쓰기를_열_수_없다(monkeypatch:
 
     with pytest.raises(ValueError, match="local"):
         Settings()
+
+
+def test_키_없는_provider_는_기동에서_막힌다(monkeypatch: pytest.MonkeyPatch) -> None:
+    """첫 사진 요청에서야 503 이 나면 그 리비전은 이미 트래픽을 받고 있다.
+
+    Settings 자체는 통과한다. alembic·스크립트가 같은 설정을 읽는데 그쪽은 모델을 안 부른다.
+    """
+    monkeypatch.setenv("ENVIRONMENT", "local")
+    monkeypatch.setenv("ALLOW_UNVERIFIED_ANON_KEY", "true")
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    assert Settings().llm_provider == "gemini"
+    with pytest.raises(LlmMisconfigured, match="GEMINI_API_KEY"):
+        create_app()
+
+    get_settings.cache_clear()
+    get_llm_client.cache_clear()
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "  ")
+    with pytest.raises(LlmMisconfigured, match="OPENAI_API_KEY"):
+        create_app()
+
+
+def test_provider_설정대로_클라이언트를_고른다(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+
+    client = get_llm_client()
+    assert isinstance(client, GeminiStructuredClient)
+    assert client.is_stub is False
+    assert client.model == "gemini-2.5-flash"
+    # 설정을 찍어도 키는 가려진다.
+    assert "test-key" not in repr(get_settings())
 
 
 def test_local_에서는_검증을_끄고_뜬다(monkeypatch: pytest.MonkeyPatch) -> None:

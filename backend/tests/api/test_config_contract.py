@@ -33,9 +33,15 @@ def test_env_example_의_키를_전부_읽는다() -> None:
 
 
 def test_secrets_문서가_없는_변수_이름을_안내하지_않는다() -> None:
-    """문서에 적힌 TOSS_*·ENVIRONMENT 계열 이름이 실제 필드와 같아야 한다."""
+    """문서에 적힌 TOSS_*·LLM_*·키 계열 이름이 실제 필드와 같아야 한다."""
     doc = SECRETS_DOC.read_text(encoding="utf-8")
-    mentioned = set(re.findall(r"\b(TOSS_[A-Z_]+|ALLOW_[A-Z_]+|ENVIRONMENT|DATABASE_URL)\b", doc))
+    mentioned = set(
+        re.findall(
+            r"\b(TOSS_[A-Z_]+|ALLOW_[A-Z_]+|LLM_[A-Z_]+|GEMINI_[A-Z_]+|OPENAI_[A-Z_]+"
+            r"|ENVIRONMENT|DATABASE_URL)\b",
+            doc,
+        )
+    )
     # `TOSS_MTLS_*_PATH` 같은 와일드카드 표기는 이름이 아니라 설명이다.
     mentioned = {name for name in mentioned if not name.endswith("_")}
     fields = {name.upper() for name in Settings.model_fields}

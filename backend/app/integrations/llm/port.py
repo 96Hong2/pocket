@@ -50,6 +50,10 @@ class LlmInputError(LlmError):
     """입력이 잘못됐다. text 와 image 중 정확히 하나가 필요하다."""
 
 
+class LlmMisconfigured(RuntimeError):
+    """provider 는 골랐는데 키가 없다. 기동을 멈춘다."""
+
+
 @dataclass(frozen=True, slots=True)
 class LlmImage:
     """캡처 입력. 원문을 저장하거나 로그에 남기지 않는다."""

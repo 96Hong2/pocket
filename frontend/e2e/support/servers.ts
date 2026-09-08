@@ -27,6 +27,9 @@ export const E2E_SERVERS: PlaywrightTestConfig['webServer'] = [
       // 제품 규칙이 막아 둔다. 시간을 앞당길 수 없어 그 상태를 만들 길이 이것뿐이다.
       // 잠금 자체(422)는 이 스위치가 꺼진 백엔드 API 테스트가 지킨다. 자세한 배경은 docs/SECRETS.md §3.1.
       ALLOW_PAST_PERIOD_BUDGET_WRITE: 'true',
+      // 개발자의 backend/.env 에 gemini 가 켜져 있어도 검증은 스텁으로 돈다.
+      // 실제 모델은 값이 들고 결과가 흔들려 화면 단언을 못 한다.
+      LLM_PROVIDER: 'stub',
     },
     // 기동 실패가 'url 대기 타임아웃' 으로만 보이지 않게 로그를 흘린다.
     stdout: 'pipe',

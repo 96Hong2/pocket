@@ -466,6 +466,8 @@ ADR-0006 이다.
 응답에는 `selected_count` 와 `selected_expense_total`(지출만 센다) 이 실린다. **화면이 다시 더하지 않는다.**
 두 곳에서 세면 저장 버튼의 숫자와 실제 저장되는 것이 어긋난다.
 
+`meta.provider` 는 `stub` / `gemini` / `openai` 중 하나다. 서버 설정 `LLM_PROVIDER` 가 정하고
+화면은 이 값으로 갈리지 않는다.
 `meta.is_stub` 이 true 면 실제 모델이 아니라 규칙 파서가 읽은 것이다. 그 결과로 인식 정확도를
 재지 않는다.
 

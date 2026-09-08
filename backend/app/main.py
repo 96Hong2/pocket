@@ -12,6 +12,7 @@ from app.api.deps import get_verifier
 from app.api.errors import install_exception_handlers
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.integrations.llm import get_llm_client
 from app.modules.assets import router as assets_router
 from app.modules.budgets import router as budgets_router
 from app.modules.categories import router as categories_router
@@ -34,6 +35,8 @@ def create_app() -> FastAPI:
     # 요청 시점에만 만들면 설정이 잘못된 리비전도 /health 가 200 이라 배포가 성공으로 보인다.
     # 인증서가 없는 운영 배포는 첫 요청 500 이 아니라 기동 실패로 드러나야 한다.
     get_verifier(settings)
+    # 어떤 모델이 도는지 기동 로그에 한 줄 남긴다. 스텁이 운영에 올라간 것을 첫 사진에서 알면 늦다.
+    get_llm_client()
 
     app = FastAPI(
         title="10초 가계부 API",

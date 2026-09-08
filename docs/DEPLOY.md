@@ -103,8 +103,9 @@ gcloud run deploy pocket-backend \
   --set-secrets=DATABASE_URL=pocket-database-url:latest \
   --set-secrets=/secrets/toss/toss-client.crt=pocket-toss-client-crt:latest \
   --set-secrets=/secrets/toss/toss-client.key=pocket-toss-client-key:latest \
-  --set-secrets=LLM_API_KEY=pocket-llm-api-key:latest \
+  --set-secrets=GEMINI_API_KEY=pocket-gemini-api-key:latest \
   --set-env-vars=ENVIRONMENT=prod \
+  --set-env-vars=LLM_PROVIDER=gemini \
   --set-env-vars=ALLOW_UNVERIFIED_ANON_KEY=false \
   --set-env-vars=ALLOW_PAST_PERIOD_BUDGET_WRITE=false \
   --set-env-vars=TOSS_MTLS_CERT_PATH=/secrets/toss/toss-client.crt \
@@ -119,12 +120,13 @@ gcloud run deploy pocket-backend \
 검증기를 요청 시점에 만들었다면 `/health` 는 200 이라 배포가 성공으로 보이고, 진짜 사용자만
 500 을 본다. 그래서 일부러 기동 시점으로 옮겼다.
 
-같은 이유로 이 둘도 기동을 막는다.
+같은 이유로 이 셋도 기동을 막는다.
 
 - `ENVIRONMENT != local` 인데 `ALLOW_UNVERIFIED_ANON_KEY=true`
 - `ENVIRONMENT != local` 인데 `ALLOW_PAST_PERIOD_BUDGET_WRITE=true`
+- `LLM_PROVIDER=gemini`(또는 `openai`) 인데 그 키가 비어 있음
 
-`backend/tests/api/test_boot_guards.py` 가 이 셋을 지킨다.
+`backend/tests/api/test_boot_guards.py` 가 이 넷을 지킨다.
 
 ### 기록 알림 잡
 
@@ -240,6 +242,7 @@ make ait API_BASE_URL=https://<위에서 받은 주소>
 - [ ] `docs/openapi.json` 과 `frontend/src/shared/api/schema.gen.ts` 에 차이 없음
 - [ ] 마이그레이션 잡이 먼저 끝났다
 - [ ] `ENVIRONMENT=prod`, 두 스위치 모두 `false`
+- [ ] `LLM_PROVIDER=gemini`, 키 시크릿이 **유료 등급** 프로젝트의 키다 (`SECRETS.md` §4)
 - [ ] 인증서 마운트 경로와 `TOSS_MTLS_*_PATH` 가 같다
 - [ ] 프론트 빌드에 운영 `VITE_AD_GROUP_ID` 가 들어갔다 (개발 중 테스트 ID 로 뜨면 정책 위반)
 - [ ] 배포 뒤 연기 검사 두 줄을 실제로 돌렸다
