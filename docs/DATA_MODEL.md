@@ -134,6 +134,10 @@ erDiagram
 - `amount > 0 OR source = 'no_spend'` — 무지출일 표시만 0 을 허용한다
 - `confidence >= 0 AND confidence <= 1`
 
+무지출 표시는 하루 하나이고, **그 날 지출과 함께 남지 않는다.** DB 제약이 아니라 서비스
+계층이 지킨다(지출을 저장하면 그 날 표시를 소프트 삭제하고, 쓴 날에는 표시를 만들지 못하게
+막는다). 표는 그대로 두 줄을 담을 수 있으니 이 규칙은 코드에만 있다.
+
 인덱스: `(user_id, occurred_at)`, `(user_id, type, occurred_at)`, `(user_id, fingerprint)`.
 월별 조회, 종류별 집계, 중복 판정이 실제로 때리는 세 패턴이다.
 

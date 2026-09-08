@@ -139,6 +139,10 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
   `NO_SPEND_EXISTS` 다. 날 경계는 사용자 시간대로 자른다. 지우면 그 날 다시 적을 수 있다.
   두 줄이 생기면 취소가 한 줄만 지워 목록이 계속 무지출로 남고, 무지출 연속 판정이 두 번 센다.
   **날짜를 옮기는 수정에도 같은 규칙이 걸린다.** 옮겨 갈 날에 이미 표시가 있으면 422 다.
+- **안 썼다는 표시와 그 날의 지출은 함께 설 수 없다.** 지출(`type: "expense"`)을 저장하거나
+  그 날로 옮기면 서버가 그 날 표시를 걷는다. 반대로 쓴 기록이 있는 날에 표시를 남기려 하면
+  422 `INVALID_REQUEST` 다. 수입·이체·환불은 쓴 것이 아니라 표시를 걷지 않는다.
+  화면은 오늘 기록이 없을 때만 그 버튼을 보여주지만 줄글·캡처·영수증은 그 화면을 지나지 않는다.
 - 의미는 `type` 이 정한다: `expense` `income` `transfer` `refund`
 - `source`: `keypad` `nl` `screenshot` `receipt` `asset_screenshot` `no_spend`
 - `confidence` 는 0~1. 손으로 넣은 값은 1.0
