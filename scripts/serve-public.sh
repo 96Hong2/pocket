@@ -6,7 +6,7 @@
 # Cloud Run 이 서면 이 스크립트는 필요 없다. `docs/DEPLOY.md` 를 본다.
 #
 #   ./scripts/serve-public.sh          # 백엔드를 열고 주소를 찍는다
-#   ./scripts/serve-public.sh --build  # 그 주소로 pocket.ait 까지 만든다
+#   ./scripts/serve-public.sh --build  # 그 주소로 pocket-ledger.ait 까지 만든다
 #
 # ⚠ 이 서버는 익명 식별키를 검증하지 않는다(mTLS 인증서가 아직 없다).
 #   주소를 아는 사람은 아무 키나 보내 남의 기록을 볼 수 있다. 테스트가 끝나면 반드시 끈다.
@@ -83,9 +83,9 @@ done
 
 if [[ "$BUILD_AIT" == "1" ]]; then
   echo ""
-  echo "이 주소를 넣어 pocket.ait 를 만든다"
+  echo "이 주소를 넣어 pocket-ledger.ait 를 만든다"
   (cd frontend && VITE_API_BASE_URL="$URL" npm run build >/dev/null)
-  echo "  frontend/pocket.ait"
+  echo "  frontend/pocket-ledger.ait"
 fi
 
 cat <<MSG

@@ -47,7 +47,7 @@ npm run typecheck      # tsc -b
 npm run lint           # oxlint src tests e2e
 npm test               # vitest
 npm run build:web      # tsc -b && vite build   (CI 가 도는 것)
-npm run build          # build:web && ait build → pocket.ait  (배포용)
+npm run build          # build:web && ait build → pocket-ledger.ait  (배포용)
 
 # 백엔드
 cd backend

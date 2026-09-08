@@ -232,7 +232,7 @@ tests/               domain · api · integrations · 마이그레이션 스모�
 ## 실행 환경 경계
 
 - 프론트는 CSR 로만 빌드한다. SSR 은 플랫폼이 막는다. `eval`, iframe(YouTube 제외), `window.location.replace` 로 히스토리 조작 금지.
-- 프론트 빌드 산출물은 `frontend/dist` 이고 `ait build` 가 `pocket.ait` 로 묶는다.
+- 프론트 빌드 산출물은 `frontend/dist` 이고 `ait build` 가 `pocket-ledger.ait` 로 묶는다.
 - 백엔드 CORS 는 실서비스 origin 네 개(`pocket-ledger.web.tossmini.com`, `pocket-ledger.private-web.tossmini.com`, `pocket-ledger.apps.tossmini.com`, `pocket-ledger.private-apps.tossmini.com`)와 로컬 `http://localhost:5173` 을 허용한다. 3.x 번들이 2.x origin 으로 서비스되는 기간이 있어 둘 다 필요하다.
 - 서비스워커와 offline-first 는 쓰지 않는다. 오프라인 대비는 키패드 입력을 로컬 큐에 잠깐 담아 두는 것까지다.
 

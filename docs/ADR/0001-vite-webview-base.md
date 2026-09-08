@@ -27,6 +27,6 @@ React Native(Granite) 가 아니라 WebView 를 쓴다.
 
 ## 결과
 
-- 빌드는 `npm run build` = `tsc -b && vite build && ait build` → `frontend/pocket.ait`.
+- 빌드는 `npm run build` = `tsc -b && vite build && ait build` → `frontend/pocket-ledger.ait`.
 - `apps-in-toss.config.ts` 는 3.x 스키마다. 문서에 나오는 `granite.config.ts`, `brand.displayName`, `brand.icon`, `web.commands`, `outdir` 는 v2 형식이라 쓰지 않는다. 앱 표시 이름과 아이콘은 개발자센터 콘솔에서 설정한다.
 - CSR 만 쓴다. SSR 은 플랫폼이 막는다.

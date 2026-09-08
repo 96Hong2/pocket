@@ -49,7 +49,7 @@ npm run dev          # http://localhost:5173
 ```
 
 브라우저에서도 앱 전체가 돈다. `@apps-in-toss/devtools` 가 목 SDK를 넣어 준다.
-실기기 확인은 `npm run build` 로 `pocket.ait` 를 만들어 콘솔에 올린다.
+실기기 확인은 `npm run build` 로 `pocket-ledger.ait` 를 만들어 콘솔에 올린다.
 
 ### 백엔드
 
@@ -139,7 +139,7 @@ make e2e-edge  # 가장자리만. 경계값·실패 주입·심사 항목. 출�
 
 ```bash
 make serve-public                       # 백엔드를 잠깐 공개 주소로 연다
-make ait API_BASE_URL=https://...       # 그 주소를 넣어 pocket.ait 를 만든다
+make ait API_BASE_URL=https://...       # 그 주소를 넣어 pocket-ledger.ait 를 만든다
 ```
 
 콘솔에 올릴 것(로고·스크린샷·문안)은 [docs/store/](docs/store/) 에 있다.
