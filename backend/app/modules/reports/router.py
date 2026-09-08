@@ -17,6 +17,7 @@ from app.modules.budgets.schemas import to_budget_state
 from app.modules.reports import service
 from app.modules.reports.schemas import (
     ClosingOut,
+    LargeExpenseOut,
     MonthlyReportOut,
     PeriodComparisonOut,
     TrendPointOut,
@@ -49,6 +50,16 @@ def monthly(session: DbSession, user: CurrentUser, period: MonthQuery) -> Monthl
             is_auto_carried=budgets.is_carried(session, user, month),
             today=today,
         ),
+        large_expenses=[
+            LargeExpenseOut(
+                id=row.id,
+                occurred_on=ledger.local_date(row.occurred_at, ledger.user_tz(user)),
+                merchant=row.merchant,
+                category_id=row.category_id,
+                amount=row.amount,
+            )
+            for row in report.large_expenses
+        ],
         expense_breakdown=to_breakdown(report.expense_rows),
         income_breakdown=to_breakdown(report.income_rows),
         expense_breakdown_total=report.expense_total.amount,

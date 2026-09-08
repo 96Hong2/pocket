@@ -25,6 +25,7 @@ __all__ = [
     "ClosingFlowOut",
     "ClosingOut",
     "HighlightOut",
+    "LargeExpenseOut",
     "MonthlyReportOut",
     "NextOut",
     "PeriodComparisonOut",
@@ -76,6 +77,17 @@ class PeriodComparisonOut(BaseModel):
     delta_ratio: Decimal | None
 
 
+class LargeExpenseOut(BaseModel):
+    """큰 지출 한 줄. 분류별 합계로는 "무엇을 샀길래" 가 안 보인다."""
+
+    id: uuid.UUID
+    occurred_on: date
+    # 상호를 못 읽은 거래도 있다. 화면이 그때는 분류 이름으로 부른다.
+    merchant: str | None
+    category_id: uuid.UUID | None
+    amount: Decimal
+
+
 class MonthlyReportOut(BaseModel):
     period_start: date
     period_end: date
@@ -104,6 +116,9 @@ class MonthlyReportOut(BaseModel):
     # 이번 주 대 지난주 같은 요일까지. 조회한 달이 오늘이 속한 달이 아니거나
     # 양쪽 창이 다 0 원이면 null.
     weeks: PeriodComparisonOut | None
+
+    # 큰 것부터 다섯 건까지. 지출이 없으면 빈 목록이다.
+    large_expenses: list[LargeExpenseOut]
 
 
 def to_breakdown(rows: list[BreakdownRow]) -> list[BreakdownRowOut]:
