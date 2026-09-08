@@ -68,11 +68,16 @@ for _ in $(seq 1 40); do
 done
 [[ -n "$URL" ]] || { echo "터널 주소를 못 받았다. 로그: $LOG"; exit 1; }
 
-# 새 터널 주소는 DNS 에 퍼지는 데 몇십 초가 걸린다. 바로 물으면 "호스트를 못 찾는다" 로 끝난다.
+# 이 맥의 DNS 는 새 trycloudflare 주소를 못 푼다(회사 리졸버). 폰의 통신사 DNS 는 푼다.
+# 그래서 헬스체크는 1.1.1.1 로 주소를 찾아 --resolve 로 붙는다. 퍼지는 데 몇십 초 걸려 기다린다.
+HOST="${URL#https://}"
 OK=0
 for _ in $(seq 1 30); do
-  curl -fsS -o /dev/null "$URL/health" && { OK=1; break; }
-  sleep 2
+  IP="$(dig +short @1.1.1.1 "$HOST" | head -1 || true)"
+  if [[ -n "$IP" ]] && curl -fsS -o /dev/null --max-time 8 --resolve "$HOST:443:$IP" "$URL/health"; then
+    OK=1; break
+  fi
+  sleep 3
 done
 [[ "$OK" == "1" ]] || { echo "공개 주소로 헬스체크가 안 된다: $URL"; exit 1; }
 
