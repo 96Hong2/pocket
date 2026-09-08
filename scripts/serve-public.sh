@@ -68,7 +68,13 @@ for _ in $(seq 1 40); do
 done
 [[ -n "$URL" ]] || { echo "터널 주소를 못 받았다. 로그: $LOG"; exit 1; }
 
-curl -fsS -o /dev/null "$URL/health" || { echo "공개 주소로 헬스체크가 안 된다: $URL"; exit 1; }
+# 새 터널 주소는 DNS 에 퍼지는 데 몇십 초가 걸린다. 바로 물으면 "호스트를 못 찾는다" 로 끝난다.
+OK=0
+for _ in $(seq 1 30); do
+  curl -fsS -o /dev/null "$URL/health" && { OK=1; break; }
+  sleep 2
+done
+[[ "$OK" == "1" ]] || { echo "공개 주소로 헬스체크가 안 된다: $URL"; exit 1; }
 
 if [[ "$BUILD_AIT" == "1" ]]; then
   echo ""
