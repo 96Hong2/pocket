@@ -15,10 +15,10 @@ LlmProvider = Literal["stub", "gemini", "openai"]
 
 # 3.x 번들이 2.x origin 으로도 서비스되므로 두 도메인을 모두 허용한다.
 DEFAULT_CORS_ORIGINS: tuple[str, ...] = (
-    "https://pocket.web.tossmini.com",
-    "https://pocket.private-web.tossmini.com",
-    "https://pocket.apps.tossmini.com",
-    "https://pocket.private-apps.tossmini.com",
+    "https://pocket-ledger.web.tossmini.com",
+    "https://pocket-ledger.private-web.tossmini.com",
+    "https://pocket-ledger.apps.tossmini.com",
+    "https://pocket-ledger.private-apps.tossmini.com",
     "http://localhost:5173",
 )
 

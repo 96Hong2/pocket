@@ -99,7 +99,7 @@ image-run: image db-up
 ait:
 	@test -n "$(API_BASE_URL)" || { echo "API_BASE_URL 이 필요하다. 예: make ait API_BASE_URL=https://..."; exit 1; }
 	cd frontend && VITE_API_BASE_URL='$(API_BASE_URL)' npm run build
-	@echo "frontend/pocket.ait 를 콘솔에 올린다."
+	@echo "frontend/pocket-ledger.ait 를 콘솔에 올린다."
 
 # 운영 서버가 서기 전까지 쓰는 임시 공개 주소. 자세한 것은 스크립트 맨 위 주석.
 serve-public:

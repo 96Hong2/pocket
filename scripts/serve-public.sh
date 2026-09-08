@@ -6,7 +6,7 @@
 # Cloud Run 이 서면 이 스크립트는 필요 없다. `docs/DEPLOY.md` 를 본다.
 #
 #   ./scripts/serve-public.sh          # 백엔드를 열고 주소를 찍는다
-#   ./scripts/serve-public.sh --build  # 그 주소로 pocket.ait 까지 만든다
+#   ./scripts/serve-public.sh --build  # 그 주소로 pocket-ledger.ait 까지 만든다
 #
 # ⚠ 이 서버는 익명 식별키를 검증하지 않는다(mTLS 인증서가 아직 없다).
 #   주소를 아는 사람은 아무 키나 보내 남의 기록을 볼 수 있다. 테스트가 끝나면 반드시 끈다.
@@ -41,10 +41,16 @@ docker build -q -f docker/backend/Dockerfile -t pocket-backend:local backend >/d
 
 echo "3/4  백엔드를 8080 에 띄운다"
 docker rm -f pocket-api >/dev/null 2>&1 || true
+# backend/.env 가 있으면 넘긴다. 사진 인식 provider 와 키가 거기 있다.
+# 키를 아직 안 넣었으면 LLM_PROVIDER=stub ./scripts/serve-public.sh 로 이번만 스텁으로 띄운다.
+ENV_FILE_OPT=()
+[[ -f backend/.env ]] && ENV_FILE_OPT=(--env-file backend/.env)
 docker run -d --name pocket-api -p 8080:8080 \
+  "${ENV_FILE_OPT[@]}" \
   -e ENVIRONMENT=local \
   -e ALLOW_UNVERIFIED_ANON_KEY=true \
   -e DATABASE_URL='postgresql+psycopg://pocket:pocket@host.docker.internal:5434/pocket' \
+  ${LLM_PROVIDER:+-e LLM_PROVIDER="$LLM_PROVIDER"} \
   pocket-backend:local >/dev/null
 for _ in $(seq 1 30); do
   curl -fsS -o /dev/null http://localhost:8080/health && break
@@ -62,13 +68,24 @@ for _ in $(seq 1 40); do
 done
 [[ -n "$URL" ]] || { echo "터널 주소를 못 받았다. 로그: $LOG"; exit 1; }
 
-curl -fsS -o /dev/null "$URL/health" || { echo "공개 주소로 헬스체크가 안 된다: $URL"; exit 1; }
+# 이 맥의 DNS 는 새 trycloudflare 주소를 못 푼다(회사 리졸버). 폰의 통신사 DNS 는 푼다.
+# 그래서 헬스체크는 1.1.1.1 로 주소를 찾아 --resolve 로 붙는다. 퍼지는 데 몇십 초 걸려 기다린다.
+HOST="${URL#https://}"
+OK=0
+for _ in $(seq 1 30); do
+  IP="$(dig +short @1.1.1.1 "$HOST" | head -1 || true)"
+  if [[ -n "$IP" ]] && curl -fsS -o /dev/null --max-time 8 --resolve "$HOST:443:$IP" "$URL/health"; then
+    OK=1; break
+  fi
+  sleep 3
+done
+[[ "$OK" == "1" ]] || { echo "공개 주소로 헬스체크가 안 된다: $URL"; exit 1; }
 
 if [[ "$BUILD_AIT" == "1" ]]; then
   echo ""
-  echo "이 주소를 넣어 pocket.ait 를 만든다"
+  echo "이 주소를 넣어 pocket-ledger.ait 를 만든다"
   (cd frontend && VITE_API_BASE_URL="$URL" npm run build >/dev/null)
-  echo "  frontend/pocket.ait"
+  echo "  frontend/pocket-ledger.ait"
 fi
 
 cat <<MSG

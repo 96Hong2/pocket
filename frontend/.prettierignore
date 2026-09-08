@@ -4,7 +4,7 @@ coverage
 playwright-report
 test-results
 package-lock.json
-pocket.ait
+*.ait
 public/icons
 src/assets
 
