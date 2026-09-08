@@ -79,7 +79,8 @@ def _save(client: TestClient, source: str, *, amount: str = "12000") -> None:
         "source": source,
     }
     if source == "no_spend":
-        body |= {"amount": "0", "merchant": None}
+        # 쓴 기록이 있는 날에는 무지출 표시를 남길 수 없다. 그날과 겹치지 않게 하루 옮긴다.
+        body |= {"amount": "0", "merchant": None, "occurred_at": "2026-09-16T12:30:00+09:00"}
     res = client.post("/api/v1/transactions", json=body, headers=AUTH)
     assert res.status_code == 201, res.text
 

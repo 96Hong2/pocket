@@ -14,7 +14,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
@@ -196,6 +196,52 @@ def _require_no_spend_once(
     if session.scalar(query.limit(1)) is not None:
         raise ApiError(ErrorCode.NO_SPEND_EXISTS, "오늘은 이미 안 썼다고 적었어요.", 422)
 
+    if session.scalar(_spent_on_day(user, start, end).limit(1)) is not None:
+        raise ApiError(ErrorCode.INVALID_REQUEST, "그날은 쓴 기록이 있어요.", 422)
+
+
+def _spent_on_day(user: User, start: datetime, end: datetime) -> Select[tuple[uuid.UUID]]:
+    """그 날 하루의 지출 행. 무지출 표시와 함께 설 수 없는 것들이다.
+
+    수입·이체·환불은 뺀다. 월급이 들어온 날도 안 쓴 날일 수 있고, 환불은 지출의 취소다.
+    """
+    return select(Transaction.id).where(
+        Transaction.user_id == user.id,
+        Transaction.type == agg.TransactionType.EXPENSE,
+        Transaction.source != agg.TransactionSource.NO_SPEND,
+        Transaction.deleted_at.is_(None),
+        Transaction.occurred_at >= start,
+        Transaction.occurred_at < end,
+    )
+
+
+def _clear_no_spend_for_spending(session: Session, user: User, tx: Transaction) -> None:
+    """지출을 적은 날의 '안 썼어요' 표시를 걷는다.
+
+    쓴 것이 있는 날에 안 썼다는 줄이 함께 남으면 그 날 장부가 스스로를 뒤집는다.
+    홈은 오늘 기록이 없을 때만 그 버튼을 보여 주지만, 줄글·캡처·영수증과 날짜를 옮기는
+    수정은 그 화면을 지나지 않는다. 그래서 네 입구가 다 지나는 저장 경로에서 걷는다.
+    """
+    if tx.source is agg.TransactionSource.NO_SPEND:
+        return
+    if tx.type is not agg.TransactionType.EXPENSE:
+        return
+
+    tz = ledger.user_tz(user)
+    start, end = ledger.day_bounds(ledger.local_date(tx.occurred_at, tz), tz)
+    marks = session.scalars(
+        select(Transaction).where(
+            Transaction.user_id == user.id,
+            Transaction.source == agg.TransactionSource.NO_SPEND,
+            Transaction.deleted_at.is_(None),
+            Transaction.occurred_at >= start,
+            Transaction.occurred_at < end,
+        )
+    ).all()
+    now = datetime.now(UTC)
+    for mark in marks:
+        mark.deleted_at = now
+
 
 def _normalized(data: dict) -> dict:
     """저장 형태로 맞춘다. 시각은 항상 UTC 다. 월 귀속은 조회할 때 사용자 시간대로 다시 본다."""
@@ -371,6 +417,7 @@ def create_transaction(
     tx = Transaction(user_id=user.id, **payload)
     _stamp_identity(tx, user)
     session.add(tx)
+    _clear_no_spend_for_spending(session, user, tx)
     session.commit()
     session.refresh(tx)
 
@@ -420,6 +467,8 @@ def update_transaction(
     for field, value in payload.items():
         setattr(tx, field, value)
     _stamp_identity(tx, user)
+    # 날짜나 종류를 고쳐 지출이 옮겨 간 날에도 표시가 남으면 안 된다.
+    _clear_no_spend_for_spending(session, user, tx)
     session.commit()
     session.refresh(tx)
 

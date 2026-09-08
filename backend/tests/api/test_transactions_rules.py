@@ -163,6 +163,107 @@ def test_무지출일을_이미_적은_날로_옮기지_못한다(client: TestCl
     assert same_day.status_code == 200, same_day.text
 
 
+def test_지출을_적으면_그_날_무지출_표시가_걷힌다(client: TestClient) -> None:
+    """쓴 것이 있는 날에 안 썼다는 줄이 함께 남으면 그 날 장부가 스스로를 뒤집는다.
+
+    홈은 오늘 기록이 없을 때만 그 버튼을 보여 주지만, 줄글·캡처·영수증은 그 화면을
+    지나지 않는다. 그래서 네 입구가 다 지나는 저장 경로에서 걷는다.
+    """
+
+    def no_spend(occurred_at: str) -> dict:
+        return _payload(occurred_at=occurred_at, amount="0", source="no_spend", merchant=None)
+
+    marked = client.post(
+        "/api/v1/transactions", json=no_spend("2026-09-15T09:00:00+09:00"), headers=AUTH
+    )
+    assert marked.status_code == 201, marked.text
+
+    spent = client.post(
+        "/api/v1/transactions",
+        json=_payload(occurred_at="2026-09-15T20:00:00+09:00", source="nl"),
+        headers=AUTH,
+    )
+    assert spent.status_code == 201, spent.text
+
+    rows = client.get("/api/v1/transactions", headers=AUTH).json()["items"]
+    assert [row["source"] for row in rows] == ["nl"]
+
+
+def test_수입은_그_날_무지출_표시를_걷지_않는다(client: TestClient) -> None:
+    """월급이 들어온 날도 안 쓴 날일 수 있다. 들어온 돈은 쓴 것이 아니다."""
+
+    marked = client.post(
+        "/api/v1/transactions",
+        json=_payload(
+            occurred_at="2026-09-15T09:00:00+09:00", amount="0", source="no_spend", merchant=None
+        ),
+        headers=AUTH,
+    )
+    assert marked.status_code == 201, marked.text
+
+    income = client.post(
+        "/api/v1/transactions",
+        json=_payload(occurred_at="2026-09-15T20:00:00+09:00", type="income", amount="3000000"),
+        headers=AUTH,
+    )
+    assert income.status_code == 201, income.text
+
+    rows = client.get("/api/v1/transactions", headers=AUTH).json()["items"]
+    assert sorted(row["source"] for row in rows) == ["keypad", "no_spend"]
+
+
+def test_쓴_기록이_있는_날에는_무지출_표시를_남길_수_없다(client: TestClient) -> None:
+    """반대쪽도 막는다. 화면은 그 버튼을 감추지만 API 는 그것만으로 지켜지지 않는다."""
+
+    spent = client.post(
+        "/api/v1/transactions",
+        json=_payload(occurred_at="2026-09-15T09:00:00+09:00"),
+        headers=AUTH,
+    )
+    assert spent.status_code == 201, spent.text
+
+    marked = client.post(
+        "/api/v1/transactions",
+        json=_payload(
+            occurred_at="2026-09-15T20:00:00+09:00", amount="0", source="no_spend", merchant=None
+        ),
+        headers=AUTH,
+    )
+    assert marked.status_code == 422, marked.text
+    assert marked.json()["error"]["code"] == "INVALID_REQUEST"
+
+
+def test_지출을_무지출_표시가_있는_날로_옮기면_표시가_걷힌다(client: TestClient) -> None:
+    """저장에만 걸면 날짜를 옮기는 수정으로 두 줄이 다시 함께 선다."""
+
+    marked = client.post(
+        "/api/v1/transactions",
+        json=_payload(
+            occurred_at="2026-09-15T09:00:00+09:00", amount="0", source="no_spend", merchant=None
+        ),
+        headers=AUTH,
+    )
+    assert marked.status_code == 201, marked.text
+
+    spent = client.post(
+        "/api/v1/transactions",
+        json=_payload(occurred_at="2026-09-16T09:00:00+09:00"),
+        headers=AUTH,
+    )
+    assert spent.status_code == 201, spent.text
+    spent_id = spent.json()["transaction"]["id"]
+
+    moved = client.patch(
+        f"/api/v1/transactions/{spent_id}",
+        json={"occurred_at": "2026-09-15T20:00:00+09:00"},
+        headers=AUTH,
+    )
+    assert moved.status_code == 200, moved.text
+
+    rows = client.get("/api/v1/transactions", headers=AUTH).json()["items"]
+    assert [row["source"] for row in rows] == ["keypad"]
+
+
 def test_비울_수_없는_값에_null_을_보내면_수정을_거절한다(client: TestClient) -> None:
     """시각·금액·종류·예산 반영은 비울 자리가 없다. 그대로 쓰면 시각 정규화가 죽어 500 이 난다."""
     created = client.post("/api/v1/transactions", json=_payload(), headers=AUTH)
