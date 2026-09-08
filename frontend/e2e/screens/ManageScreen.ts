@@ -51,6 +51,16 @@ export class ManageScreen {
     await expect(this.total.amount.or(this.total.emptyTitle)).toBeVisible();
   }
 
+  /**
+   * 예산 위의 자산 입구 카드.
+   *
+   * 목록 줄이 아니라 순자산을 그 자리에 그리는 카드라 이름에 금액이 붙는다.
+   * 이름을 못 박으면 안 잡혀서 제목으로 시작하는지만 본다.
+   */
+  get assetsEntry(): Locator {
+    return this.page.getByRole('link', { name: /^자산관리/ });
+  }
+
   /** 지금 보고 있는 달. `2026년 9월`. */
   get monthLabel(): Locator {
     return this.section.getByText(/^\d{4}년 \d{1,2}월$/);

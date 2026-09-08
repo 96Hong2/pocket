@@ -18,16 +18,15 @@ test('관리 탭에서 자산으로 들어가면 빈 상태가 있다', async ({
   await manage.open();
   await manage.waitReady();
 
-  // 자산이 실물 화면이 되면서 관리 탭에 입구가 생겼다.
-  // 알림 설정은 앱 설정 아래에 둔다. 관리 탭은 돈을 손보는 자리다.
+  // 자산은 목록 줄이 아니라 예산 위의 요약 카드다. 순자산을 그 자리에서 보여준다.
   await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText([
     '목표',
-    '자산',
     '카테고리 관리',
+    '알림 설정',
     '앱 설정',
   ]);
 
-  await appShell.followLink('자산');
+  await manage.assetsEntry.click();
   await appShell.expectScreen('자산', '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요');
   await assets.waitReady();
 
@@ -116,7 +115,7 @@ test('다시 들어와도 남아 있고 기준일이 보인다', async ({ appShe
   await appShell.pressBack();
   await appShell.expectScreen('관리', '예산과 분류를 손봐요');
   await manage.waitReady();
-  await appShell.followLink('자산');
+  await manage.assetsEntry.click();
   await assets.waitReady();
 
   await expect(assets.netWorth).toHaveText(formatCurrency(50_000_000));
@@ -139,7 +138,7 @@ test('이름을 안 적으면 그룹 이름으로 부른다', async ({ assets })
 test('시스템 뒤로가기로 관리 탭에 돌아온다', async ({ appShell, assets, manage }) => {
   await manage.open();
   await manage.waitReady();
-  await appShell.followLink('자산');
+  await manage.assetsEntry.click();
   await assets.waitReady();
 
   // 하위 화면이라 탭바가 통째로 빠진다. 화면 안에 뒤로가기를 그리지도 않는다.

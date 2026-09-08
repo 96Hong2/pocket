@@ -11,6 +11,50 @@
     margin-bottom: 24px;
   }
 
+  /* ── 관리 탭의 자산 입구 ─────────────────────────── */
+
+  /* 숫자를 그 자리에 보여 주는 줄. 이름만 있는 줄이면 눌러 보기 전에는 안이 안 보인다. */
+  .assets-entry {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    text-decoration: none;
+  }
+
+  .assets-entry__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .assets-entry__title {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .assets-entry__sub {
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  /* 화살표는 글자에 섞지 않는다. 스크린리더가 함께 읽는다. */
+  .assets-entry::after {
+    content: '';
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid var(--color-placeholder);
+    border-right: 2px solid var(--color-placeholder);
+    transform: rotate(45deg);
+  }
+
   /* ── 순자산 카드 ────────────────────────────────── */
 
   .net-worth {

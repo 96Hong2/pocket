@@ -7,4 +7,5 @@ export {
 } from './assetGroups';
 export { AssetItemSheet, type AssetItemSheetProps, type AssetItemTarget } from './AssetItemSheet';
 export { AssetsBoard } from './AssetsBoard';
+export { AssetsEntryCard } from './AssetsEntryCard';
 export { NetWorthCard, type NetWorthCardProps } from './NetWorthCard';

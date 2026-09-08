@@ -57,11 +57,10 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await demo.beat(2);
 
   await demo.step('그 아래 네 줄이 하위 화면으로 들어가는 입구다');
-  // 알림 설정은 앱 설정 아래에 둔다. 관리 탭은 돈을 손보는 자리다.
   await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText([
     '목표',
-    '자산',
     '카테고리 관리',
+    '알림 설정',
     '앱 설정',
   ]);
   await demo.beat(2);
@@ -118,7 +117,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await demo.beat(3);
 
   await demo.step('이번에는 자산으로 들어간다. 점선 카드가 걷히고 실제로 적는 화면이 들어왔다');
-  await appShell.followLink('자산');
+  await manage.assetsEntry.click();
   await appShell.expectScreen('자산', '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요');
   await assets.waitReady();
   await demo.beat(2);
