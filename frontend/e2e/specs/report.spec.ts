@@ -246,6 +246,40 @@ test('수입으로 바꾸면 번 돈과 그 분류를 보여준다', async ({ pr
   await expect(report.budgetLine).toHaveCount(0);
 });
 
+test('큰 지출은 큰 것부터 다섯 건만 적고 수입 쪽에는 없다', async ({ prep, report }) => {
+  const food = await prep.categoryIdByName('식비');
+  // 여섯 건을 심는다. 다섯 건만 심으면 자르는 규칙을 지워도 초록이라 아무것도 안 지킨다.
+  const seeds = [
+    { merchant: '가게1', amount: 90_000 },
+    { merchant: '가게2', amount: 80_000 },
+    { merchant: '가게3', amount: 70_000 },
+    { merchant: '가게4', amount: 60_000 },
+    { merchant: '가게5', amount: 50_000 },
+    { merchant: '가게6', amount: 40_000 },
+  ];
+  for (const seed of seeds) {
+    await prep.addTransaction({ ...seed, on: day(THIS_MONTH, EARLY), categoryId: food });
+  }
+
+  await report.open();
+  await report.waitReady();
+
+  await expect(report.largeExpenseCard).toBeVisible();
+  await expect(report.largeExpenseRows).toHaveCount(5);
+  // 심은 금액으로 단언한다. 화면에서 읽은 값으로 견주면 무엇도 지키지 못한다.
+  await expect(report.largeExpenseAmount('가게1')).toHaveText(formatCurrency(90_000));
+  // 큰 것이 위다. 순서가 흔들리면 "큰 지출" 이라는 제목이 거짓이 된다.
+  await expect(report.largeExpenseRows.first()).toContainText('가게1');
+  // 가장 작은 한 건은 잘려 나간다.
+  await expect(report.largeExpenseRow('가게6')).toHaveCount(0);
+  // 어디에 쓴 돈인지도 적는다. 상호만 두면 분류별 합계와 이어지지 않는다.
+  await expect(report.largeExpenseRow('가게1')).toContainText('식비');
+
+  await report.modeTab('수입').click();
+  // 수입에는 큰 지출이 없다. 남아 있으면 화면이 스스로를 뒤집는다.
+  await expect(report.largeExpenseCard).toHaveCount(0);
+});
+
 test('환불이 지출보다 큰 달도 이유를 말한다', async ({ prep, report }) => {
   // 그 달에 환불만 남으면 분류 합이 음수라 조각을 못 그린다. 그때 화면이 조용하면
   // 헤드라인만 음수로 떠 있고 아무 설명이 없는 달이 된다.

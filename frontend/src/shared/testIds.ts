@@ -116,6 +116,10 @@ export const TEST_IDS = {
   reportRowShare: 'report-row-share',
   /** 6개월 추이 막대 하나 */
   reportTrendBar: 'report-trend-bar',
+  /** 큰 지출 한 줄. 어느 건인지는 줄 안의 상호로 가른다. */
+  reportLargeExpenseRow: 'report-large-expense-row',
+  /** 큰 지출 한 줄의 금액 */
+  reportLargeExpenseAmount: 'report-large-expense-amount',
   /** 지난 기간과의 비교 한 줄. 무엇과 견줬는지 날짜가 글자로 들어 있다. */
   reportComparison: 'report-comparison',
   /** 이번 주 대 지난주 한 줄 */

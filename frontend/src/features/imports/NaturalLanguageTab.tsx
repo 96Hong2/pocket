@@ -49,15 +49,21 @@ export function NaturalLanguageTab({ onBusyChange, onDone, onSaved }: NaturalLan
     <div className="nl" data-testid={TEST_IDS.nlPanel}>
       <label className="nl__field">
         <span className="nl__label">무엇을 썼나요</span>
-        <textarea
-          className="nl__input"
-          value={text}
-          rows={3}
-          maxLength={1000}
-          placeholder={PLACEHOLDER}
-          disabled={analyze.isPending}
-          onChange={(event) => setText(event.target.value)}
-        />
+        {/*
+          안내 한 줄은 상자 안에 있지만 label 밖이다. label 안에 두면 그 문구가
+          입력칸의 접근성 이름에 딸려 붙어 「무엇을 썼나요」가 길어진다.
+        */}
+        <span className="nl__box">
+          <textarea
+            className="nl__input"
+            value={text}
+            rows={3}
+            maxLength={1000}
+            placeholder={PLACEHOLDER}
+            disabled={analyze.isPending}
+            onChange={(event) => setText(event.target.value)}
+          />
+        </span>
       </label>
       <p className="nl__hint">한 번에 여러 건을 적어도 돼요. 날짜를 적으면 그 날로 넣어요</p>
 

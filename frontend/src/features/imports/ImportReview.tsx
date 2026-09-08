@@ -7,12 +7,13 @@ import {
   useCommitImport,
   useDeleteImport,
   usePatchImportCandidate,
+  type CategoryOut,
   type ImportBatchOut,
   type ImportCandidatePatch,
   type ImportCommitOut,
 } from '../../shared/api';
 import { formatCurrency, toLedgerDate } from '../../shared/lib/format';
-import { Button, ErrorState, LoadingState } from '../../shared/ui';
+import { Button, CategoryAvatar, ErrorState, LoadingState, toIconName } from '../../shared/ui';
 
 import { CandidateRow } from './CandidateRow';
 
@@ -32,6 +33,8 @@ export interface ImportReviewProps {
   onSaved?: () => void;
   /** 어느 탭의 검토 화면인지 e2e 가 가른다. 두 탭이 hidden 으로 함께 남는다. */
   testId: string;
+  /** 고른 것의 분류를 한 번에 바꾸는 자리를 둘지. 여러 건이 한꺼번에 오는 캡처에서만 쓴다. */
+  allowBulkCategory?: boolean;
   /** 되돌리는 버튼 문구. 줄글은 다시 쓰기, 캡처는 다시 고르기다. */
   restartLabel: string;
   /** 후보가 하나도 없을 때의 안내. 무엇을 다시 하면 되는지가 탭마다 다르다. */
@@ -56,6 +59,7 @@ export function ImportReview({
   onDone,
   onSaved,
   testId,
+  allowBulkCategory = false,
   restartLabel,
   emptyMessage,
   emptyAction,
@@ -68,6 +72,7 @@ export function ImportReview({
 
   const [editing, setEditing] = useState<string | null>(null);
   const [saved, setSaved] = useState<ImportCommitOut | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   // 종류에 따라 고를 수 있는 분류가 다르다. 거르는 일은 후보 줄이 한다.
   const pickable = (categories.data?.items ?? []).filter(
@@ -90,6 +95,36 @@ export function ImportReview({
   return (
     <div className="nl" data-testid={testId}>
       {notice}
+
+      {allowBulkCategory && candidates.length > 0 ? (
+        <div className="nl__bulk">
+          <button
+            type="button"
+            className="nl__bulk-chip"
+            aria-expanded={bulkOpen}
+            disabled={busy}
+            onClick={() => setBulkOpen((open) => !open)}
+          >
+            카테고리 한 번에 바꾸기
+          </button>
+          {bulkOpen ? (
+            <div className="nl-form__cats" role="group" aria-label="한 번에 바꿀 카테고리">
+              {pickable.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  className="nl-form__cat"
+                  disabled={busy}
+                  onClick={() => void applyBulk(category)}
+                >
+                  <CategoryAvatar icon={toIconName(category.icon_key)} size={32} />
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* 한 건도 못 읽었으면 안 띄운다. 이해한 것이 없는데 이해했다고 하면 실패 안내와 모순된다. */}
       {candidates.length > 0 ? (
@@ -185,6 +220,39 @@ export function ImportReview({
       </div>
     </div>
   );
+
+  /**
+   * 고른 줄의 분류를 한꺼번에 바꾼다.
+   *
+   * 서버에는 후보 하나짜리 PATCH 만 있어 차례로 보낸다.
+   * 종류가 다른 줄은 건너뛴다. 지출에 수입 분류를 붙이면 목록과 리포트가 서로 다른 말을 한다.
+   */
+  async function applyBulk(category: CategoryOut): Promise<void> {
+    const targets = candidates.filter(
+      (item) => item.is_selected && item.type === category.kind && item.category_id !== category.id,
+    );
+    setBulkOpen(false);
+    if (targets.length === 0) return;
+
+    onBusyChange(true);
+    let next = batch;
+    try {
+      for (const target of targets) {
+        next = await patch.mutateAsync({
+          batchId: batch.id,
+          candidateId: target.id,
+          body: { category_id: category.id },
+        });
+      }
+    } catch {
+      // 왜 안 됐는지는 patch.error 가 이미 들고 있어 안내 줄에 그대로 나온다.
+    } finally {
+      // 중간에 멈춰도 서버에는 이미 바뀐 줄이 있다. 거기까지는 화면에 올려야
+      // 목록이 실제와 다른 분류를 계속 보여주지 않는다.
+      if (next !== batch) onBatchChange(next);
+      onBusyChange(false);
+    }
+  }
 
   function sendPatch(
     batchId: string,

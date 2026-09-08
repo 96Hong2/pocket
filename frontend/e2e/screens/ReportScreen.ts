@@ -129,6 +129,28 @@ export class ReportScreen {
     return this.row(name).getByTestId(TEST_IDS.reportRowShare);
   }
 
+  /**
+   * 큰 지출 다섯 건 카드의 제목.
+   *
+   * 소비 이야기라 수입 쪽에는 없다. 그 달에 큰 지출이 하나도 없으면 카드째 없다.
+   */
+  get largeExpenseCard(): Locator {
+    return this.root.getByRole('heading', { name: '큰 지출 Top 5' });
+  }
+
+  /** 큰 지출 한 줄. 이름이 없는 줄이라 클래스로 잡는다. */
+  get largeExpenseRows(): Locator {
+    return this.root.getByTestId(TEST_IDS.reportLargeExpenseRow);
+  }
+
+  largeExpenseRow(name: string | RegExp): Locator {
+    return this.largeExpenseRows.filter({ hasText: name });
+  }
+
+  largeExpenseAmount(name: string | RegExp): Locator {
+    return this.largeExpenseRow(name).getByTestId(TEST_IDS.reportLargeExpenseAmount);
+  }
+
   /** 6개월 막대. 기록이 없는 달도 남으므로 늘 여섯이다. */
   get trendBars(): Locator {
     return this.root.getByTestId(TEST_IDS.reportTrendBar);

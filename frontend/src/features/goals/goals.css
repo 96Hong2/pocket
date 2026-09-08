@@ -18,8 +18,10 @@
     flex-direction: column;
     gap: 14px;
     padding: 20px 18px;
-    background: var(--color-sage-50);
+    background: var(--color-surface);
     border-radius: var(--radius-card);
+    /* 페이지 바탕도 밝아서 그림자가 없으면 카드 경계가 사라진다. */
+    box-shadow: var(--shadow-card);
   }
 
   .goal-card__head {

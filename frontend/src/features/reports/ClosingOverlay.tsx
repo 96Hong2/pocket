@@ -8,6 +8,7 @@ import { parseDecimalOr, useCategories, type CategoryOut, type ClosingOut } from
 import { markClosingSeen } from '../../shared/lib/closingSeen';
 import { formatCurrency, formatMonthLabel, formatSignedCurrency } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
+import { iconUrl, toIconName, type IconName } from '../../shared/ui';
 import { trapTab } from '../../shared/ui/focusTrap';
 
 import {
@@ -101,6 +102,18 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
       aria-label={label}
       tabIndex={-1}
     >
+      {/* 몇 장 중 몇 번째인지. 넘길 것이 남았다는 것을 맨 위 띠로 먼저 알린다. */}
+      <div className="closing__dots" aria-hidden="true">
+        {CLOSING_CARDS.map((card, position) => (
+          <span
+            key={card.key}
+            className="closing__dot"
+            data-testid={TEST_IDS.closingDot}
+            data-current={position === index ? '' : undefined}
+          />
+        ))}
+      </div>
+
       <header className="closing__head">
         <p className="closing__month">{label}</p>
         <button type="button" className="closing__close" onClick={onClose} aria-label="닫기">
@@ -115,19 +128,14 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
         </button>
       </header>
 
-      {/* 몇 장 중 몇 번째인지. 넘길 것이 남았다는 것을 점으로 알린다. */}
-      <div className="closing__dots" aria-hidden="true">
-        {CLOSING_CARDS.map((card, position) => (
-          <span
-            key={card.key}
-            className="closing__dot"
-            data-testid={TEST_IDS.closingDot}
-            data-current={position === index ? '' : undefined}
-          />
-        ))}
-      </div>
-
       <section className="closing__card" aria-live="polite">
+        {/* 카드마다 다른 그림. 넘긴 것이 글자 말고 그림으로도 보인다. */}
+        <img
+          className="closing__icon"
+          src={iconUrl(cardIcon(CLOSING_CARDS[index].key, closing, byId))}
+          alt=""
+          aria-hidden
+        />
         <h2 className="closing__title">{CLOSING_CARDS[index].title}</h2>
         <ClosingCardBody
           card={CLOSING_CARDS[index].key}
@@ -135,19 +143,46 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
           closing={closing}
           byId={byId}
         />
-      </section>
 
-      <button
-        type="button"
-        className="closing__next"
-        onClick={() => (last ? onClose() : setIndex(index + 1))}
-      >
-        {/* 마지막 장에서도 '닫기' 라고 하면 위 ✕ 와 이름이 같아진다. 다 본 것은 다른 뜻이다. */}
-        {last ? '다 봤어요' : '다음'}
-      </button>
+        {/*
+          버튼은 카드 안이다. 짙은 면 위에 두면 버튼 바닥색과 배경이 같아져
+          글자만 떠 있는 것처럼 보인다.
+        */}
+        <button
+          type="button"
+          className="closing__next"
+          onClick={() => (last ? onClose() : setIndex(index + 1))}
+        >
+          {/* 마지막 장에서도 '닫기' 라고 하면 위 ✕ 와 이름이 같아진다. 다 본 것은 다른 뜻이다. */}
+          {last ? '다 봤어요' : '다음'}
+        </button>
+      </section>
     </div>,
     document.body,
   );
+}
+
+/**
+ * 카드에 붙일 그림.
+ *
+ * 잘한 것과 돈 흐름은 늘 같은 그림이고, 변화·다음 달은 그 카드가 말하는 분류를 따라간다.
+ * 분류를 모르면 폴백이 온다.
+ */
+function cardIcon(
+  card: ClosingCardKey,
+  closing: ClosingOut,
+  byId: Map<string, CategoryOut>,
+): IconName {
+  switch (card) {
+    case 'highlights':
+      return '26_sparkles';
+    case 'flow':
+      return '28_cash';
+    case 'change':
+      return toIconName(byId.get(closing.change?.category_id ?? '')?.icon_key);
+    case 'next':
+      return toIconName(byId.get(closing.next?.category_id ?? '')?.icon_key);
+  }
 }
 
 function ClosingCardBody({

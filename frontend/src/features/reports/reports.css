@@ -104,38 +104,60 @@
 
   .report__section {
     margin-bottom: 12px;
-    font-size: var(--text-15);
-    font-weight: 600;
+    font-size: var(--text-13);
+    font-weight: 700;
     color: var(--color-ink);
   }
 
   .report__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 26px 18px;
     text-align: center;
     color: var(--color-muted);
   }
 
+  /* 글자만 두면 빈 달이 오류 화면처럼 보인다. 그림 하나가 "비어 있는 게 맞다" 고 말한다. */
+  .report__empty-icon {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    opacity: 0.6;
+  }
+
+  .report__empty-title {
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
   .report__empty-hint {
-    margin-top: 4px;
     font-size: var(--text-13);
+  }
+
+  /* 도넛과 목록이 든 카드. 공용 카드보다 위아래만 2px 넉넉하다. */
+  .report__breakdown {
+    padding: 18px 16px;
   }
 
   /* 한 화면에 차트 하나. 도넛은 여기 하나뿐이다. */
   .report__donut-wrap {
     position: relative;
-    width: 160px;
+    width: 190px;
     margin: 0 auto 16px;
   }
 
   .report__donut {
     display: block;
-    width: 160px;
-    height: 160px;
+    width: 190px;
+    height: 190px;
   }
 
-  /* 링 안쪽. 링 두께(26px)를 뺀 자리에 세 줄이 들어간다. */
+  /* 링 안쪽. 바깥 여백 10px 과 링 두께 30px 을 뺀 자리에 세 줄이 들어간다. */
   .report__donut-center {
     position: absolute;
-    inset: 34px;
+    inset: 40px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -156,8 +178,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--text-15);
-    font-weight: var(--font-weight-bold);
+    /* 타이포 스케일에 없는 크기다. 링 안에서 가장 먼저 읽히는 한 줄이라 여기만 크게 둔다. */
+    font-size: 17px;
+    font-weight: var(--font-weight-extrabold);
     color: var(--color-ink);
   }
 
@@ -180,16 +203,17 @@
      같은 이유로 minmax(0, 1fr) 을 쓴다. */
   .report__row {
     display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
-    gap: 8px;
+    /* 이름 칸이 먼저 줄어들게 두어야 금액이 안 잘린다. 값 칸은 '원' 까지 담는다. */
+    grid-template-columns: auto auto minmax(0, 70px) minmax(0, 1fr) minmax(74px, auto);
+    gap: 9px;
     align-items: center;
-    font-size: var(--text-14);
+    font-size: var(--text-13);
   }
 
   /* 링의 조각과 같은 색. 조각에 못 들어간 줄(환불이 더 큰 분류)은 비워 둔다. */
   .report__row-swatch {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: var(--radius-pill);
   }
 
@@ -199,26 +223,50 @@
 
   /* 아이콘이 없는 줄(분류 없음·그 밖 N개)도 같은 자리를 차지해 이름이 안 흔들린다. */
   .report__row-noicon {
-    width: 20px;
-    height: 20px;
+    width: 44px;
+    height: 44px;
   }
 
   .report__row-name {
     min-width: 0;
     /* 띄어쓸 자리가 없는 이름은 글자 사이에서라도 끊는다. */
     overflow-wrap: anywhere;
+    font-weight: var(--font-weight-semibold);
     color: var(--color-ink);
+  }
+
+  /* 숫자만으로는 줄끼리 크기를 못 견준다. 막대가 그 비교를 눈으로 시킨다. */
+  .report__row-bar {
+    height: 8px;
+    border-radius: var(--radius-pill);
+    background: var(--color-divider);
+    overflow: hidden;
+  }
+
+  .report__row-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--radius-pill);
+  }
+
+  /* 금액과 비중이 한 칸을 쓴다. 칸을 따로 두면 막대가 설 자리가 안 남는다. */
+  .report__row-value {
+    min-width: 0;
+    /* 아주 큰 금액이 이 칸을 넘어 페이지를 가로로 밀지 않게 줄 안에서 끊는다. */
+    overflow-wrap: anywhere;
+    text-align: right;
   }
 
   .report__row-amount {
     font-variant-numeric: tabular-nums;
+    font-weight: var(--font-weight-bold);
     color: var(--color-ink);
   }
 
   .report__row-share {
-    min-width: 40px;
     font-variant-numeric: tabular-nums;
-    text-align: right;
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
   }
 
@@ -253,7 +301,7 @@
     width: 100%;
     min-height: 2px;
     background: var(--color-sage-300);
-    border-radius: 4px 4px 0 0;
+    border-radius: 8px 8px 3px 3px;
   }
 
   /* 보고 있는 달만 진하게. 어느 막대가 지금 화면인지 색으로 가른다. */
@@ -269,19 +317,68 @@
 
   .report__trend-label {
     font-size: var(--text-11);
+    font-weight: var(--font-weight-bold);
     color: var(--color-muted);
     text-align: center;
   }
 
+  /* ── 큰 지출 다섯 건 ─────────────────────────────── */
+
+  /* 분류별 합계로는 "무엇을 샀길래" 가 안 보인다. 그 달에 가장 컸던 다섯 건을 그대로 적는다. */
+  .report__large {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .report__large-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-divider);
+  }
+
+  .report__large-rank {
+    width: 16px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .report__large-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .report__large-name {
+    overflow-wrap: anywhere;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .report__large-category {
+    font-size: var(--text-11);
+    color: var(--color-muted);
+  }
+
   /* ── 결산 입구 ───────────────────────────────────── */
+
+  /* 한 달에 한 번 열리는 자리다. 흰 카드들 사이에서 색으로 먼저 눈에 띄게 한다. */
+  .closing-entry {
+    background: var(--color-sage-700);
+  }
 
   /* 카드 전체가 버튼이다. 누를 자리를 따로 찾게 하지 않는다. */
   .closing-entry__button {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    gap: 13px;
     width: 100%;
-    padding: 16px;
+    padding: 16px 18px;
     text-align: left;
     background: none;
     border: 0;
@@ -289,15 +386,37 @@
     cursor: pointer;
   }
 
+  .closing-entry__icon {
+    flex: none;
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+  }
+
+  .closing-entry__text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   .closing-entry__title {
-    font-size: var(--text-16);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-sage-700);
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-extrabold);
+    color: var(--color-surface);
   }
 
   .closing-entry__hint {
-    font-size: var(--text-13);
-    color: var(--color-muted);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-sage-100);
+  }
+
+  .closing-entry__chevron {
+    flex: none;
+    font-size: 18px;
+    color: var(--color-sage-100);
   }
 
   /* ── 결산 오버레이 ───────────────────────────────── */
@@ -316,7 +435,11 @@
     gap: 20px;
     padding: calc(16px + var(--safe-top)) calc(20px + var(--safe-right))
       calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left));
-    background: var(--color-bg);
+    /*
+      한 달을 돌아보는 자리다. 짙은 면으로 앞 화면을 완전히 덮어 카드 한 장만 남긴다.
+      글자와 버튼은 이 위가 아니라 안쪽 크림 카드 위에 있어서 대비가 깎이지 않는다.
+    */
+    background: var(--color-sage-700);
     overflow-y: auto;
   }
 
@@ -328,9 +451,9 @@
 
   .closing__month {
     flex: 1;
-    font-size: var(--text-13);
+    font-size: var(--text-14);
     font-weight: var(--font-weight-bold);
-    color: var(--color-muted);
+    color: var(--color-sage-100);
   }
 
   .closing__close {
@@ -339,7 +462,7 @@
     width: 44px;
     height: 44px;
     margin: -12px -12px -12px 0;
-    color: var(--color-muted);
+    color: var(--color-sage-100);
     background: none;
     border: 0;
     cursor: pointer;
@@ -347,27 +470,42 @@
 
   .closing__dots {
     display: flex;
-    gap: 6px;
+    gap: 5px;
   }
 
+  /* 넉 장이 가로를 나눠 갖는다. 점보다 막대가 "얼마나 남았나" 를 바로 보여준다. */
   .closing__dot {
-    width: 8px;
-    height: 8px;
+    flex: 1;
+    height: 3px;
     border-radius: var(--radius-pill);
-    background: var(--color-border);
+    background: var(--color-sage-800);
   }
 
   .closing__dot[data-current] {
-    background: var(--color-sage-700);
+    background: var(--color-sage-100);
   }
 
-  /* 카드 하나가 화면 가운데를 차지한다. 여백이 넉넉해야 한 가지만 읽힌다. */
+  /*
+    짙은 면 위에 놓이는 크림 카드 한 장. 세로 가운데에 두고 안쪽 여백을 넉넉히 준다.
+    글자는 가운데로 모은다. 한 장에 한 가지만 있어서 왼쪽 정렬이면 허전하다.
+  */
   .closing__card {
-    flex: 1;
+    margin: auto 0;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    justify-content: center;
+    padding: 28px 22px;
+    background: var(--color-bg);
+    border-radius: 24px;
+    text-align: center;
+  }
+
+  /* 카드마다 다른 그림 하나. 넉 장이 글자만으로 이어지면 넘긴 것이 티가 안 난다. */
+  .closing__icon {
+    align-self: center;
+    width: 84px;
+    height: 84px;
+    object-fit: contain;
   }
 
   .closing__title {
@@ -443,7 +581,7 @@
   }
 
   .closing__link {
-    align-self: flex-start;
+    align-self: center;
     font-size: var(--text-15);
     font-weight: var(--font-weight-bold);
     color: var(--color-sage-700);
@@ -451,7 +589,8 @@
   }
 
   .closing__next {
-    min-height: 52px;
+    margin-top: 4px;
+    min-height: 50px;
     font-size: var(--text-16);
     font-weight: var(--font-weight-bold);
     color: var(--color-surface);

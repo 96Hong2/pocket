@@ -252,8 +252,15 @@
 
   /* ── 수정 시트 ───────────────────────────────────── */
 
+  /* 시안 머리는 카테고리 아바타 옆에 제목이 선다. */
+  .tx-edit__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
   .tx-edit__title {
-    margin: 0 0 4px;
+    margin: 0;
     font-size: var(--text-16);
     font-weight: var(--font-weight-extrabold);
     color: var(--color-ink);
@@ -301,7 +308,7 @@
   .tx-edit__cats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 7px;
+    gap: 8px;
     margin-top: 16px;
   }
 
@@ -311,7 +318,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 0 6px;
+    padding: 0 4px;
     border: none;
     border-radius: var(--radius-pill);
     background: var(--color-surface-sunken);
@@ -331,10 +338,10 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-top: 18px;
-    padding: 14px 16px;
+    margin-top: 14px;
+    padding: 12px 14px;
     background: var(--color-bg);
-    border-radius: var(--radius-inset);
+    border-radius: var(--radius-button);
   }
 
   .tx-edit__exclude-text {
@@ -347,12 +354,12 @@
 
   .tx-edit__exclude-title {
     font-size: var(--text-14);
-    font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-semibold);
     color: var(--color-ink);
   }
 
   .tx-edit__exclude-note {
-    font-size: var(--text-12);
+    font-size: var(--text-11);
     color: var(--color-muted);
     line-height: 1.5;
   }
@@ -372,8 +379,8 @@
 
   .tx-edit__actions {
     display: flex;
-    gap: 10px;
-    margin-top: 18px;
+    gap: 8px;
+    margin-top: 14px;
   }
 
   .tx-edit__actions > * {

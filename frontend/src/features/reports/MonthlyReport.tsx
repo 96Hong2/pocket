@@ -8,6 +8,7 @@ import {
   useMonthlyReport,
   type BreakdownRowOut,
   type CategoryOut,
+  type MonthlyReportOut,
   type PeriodComparisonOut,
 } from '../../shared/api';
 import {
@@ -24,6 +25,7 @@ import {
   CategoryAvatar,
   ErrorState,
   Gauge,
+  iconUrl,
   LoadingState,
   MonthStepper,
   SegmentedControl,
@@ -162,7 +164,8 @@ export function MonthlyReport({
 
       {!data.has_any_transaction ? (
         <Card className="report__empty">
-          <p>이 달엔 기록이 없어요</p>
+          <EmptyIcon />
+          <p className="report__empty-title">이 달엔 기록이 없어요</p>
           {/* 아래에 아직 볼 것이 남았다고 말한다. 없으면 여기서 화면이 끝난 줄 알고 나간다. */}
           <p className="report__empty-hint">
             기록이 없는 달도 괜찮아요. 아래 6개월 흐름은 볼 수 있어요
@@ -176,7 +179,8 @@ export function MonthlyReport({
       */}
       {data.has_any_transaction && rows.length === 0 ? (
         <Card className="report__empty">
-          <p>이 달엔 {income ? '수입' : '소비'} 기록이 없어요</p>
+          <EmptyIcon />
+          <p className="report__empty-title">이 달엔 {income ? '수입' : '소비'} 기록이 없어요</p>
           <p className="report__empty-hint">
             {income ? '번 돈을 적으면 여기에 모여요' : '쓴 돈을 적으면 여기에 모여요'}
           </p>
@@ -195,7 +199,7 @@ export function MonthlyReport({
       ) : null}
 
       {rows.length > 0 ? (
-        <Card>
+        <Card className="report__breakdown">
           {namesUnknown ? (
             <p className="report__note" role="status">
               분류 이름을 불러오지 못해 이름 대신 '이름 확인 중' 으로 적었어요
@@ -211,6 +215,7 @@ export function MonthlyReport({
                 namesUnknown={namesUnknown}
                 income={income}
                 color={colors.get(row.key)}
+                topShare={parseDecimal(rows[0]?.share ?? null) ?? 0}
               />
             ))}
           </ul>
@@ -222,11 +227,82 @@ export function MonthlyReport({
         <TrendBars points={data.trend} mode={mode} currentMonth={month} />
       </Card>
 
+      {/* 소비 이야기다. 수입에는 큰 지출이 없다. */}
+      {!income ? (
+        <LargeExpenses rows={data.large_expenses} byId={byId} namesUnknown={namesUnknown} />
+      ) : null}
+
       {/*
         광고 자리는 홈 한 곳뿐이다. 시안에는 여기에도 배너가 있지만 PRD v5 가 홈으로 못 박았다.
         달을 옮길 때마다 본문을 다시 그려서 배너가 다시 붙고, 그것이 곧 광고 새로고침이 된다.
       */}
     </div>
+  );
+}
+
+/** 기록이 없는 자리를 그림 하나로 알린다. 글자만 두면 못 불러온 화면처럼 보인다. */
+function EmptyIcon() {
+  return (
+    <img className="report__empty-icon" src={iconUrl('26_sparkles')} alt="" aria-hidden />
+  );
+}
+
+/**
+ * 그 달에 가장 컸던 지출 다섯 건.
+ *
+ * 분류별 합계는 "어디에" 를 말하지만 "무엇을 샀길래" 는 못 말한다. 큰 것부터 다섯 건은
+ * 서버가 골라 준다. 여기서 다시 정렬하거나 자르지 않는다.
+ */
+function LargeExpenses({
+  rows,
+  byId,
+  namesUnknown,
+}: {
+  rows: MonthlyReportOut['large_expenses'];
+  byId: Map<string, CategoryOut>;
+  namesUnknown: boolean;
+}) {
+  // 한 건도 없으면 카드째 그리지 않는다. 빈 카드는 아무것도 알려 주지 않는다.
+  if (rows.length === 0) return null;
+
+  return (
+    <Card>
+      <h2 className="report__section">큰 지출 Top 5</h2>
+      <ol className="report__large">
+        {rows.map((row, index) => {
+          const category = byId.get(row.category_id ?? '');
+          const categoryName =
+            row.category_id == null
+              ? null
+              : (category?.name ?? (namesUnknown ? '이름 확인 중' : '지운 분류'));
+          // 상호를 안 적은 거래가 많다. 그때는 분류로 부르고, 분류도 없으면 그 사실을 적는다.
+          const name = row.merchant ?? categoryName ?? '분류 없음';
+          return (
+            <li
+              key={row.id}
+              className="report__large-row"
+              data-testid={TEST_IDS.reportLargeExpenseRow}
+            >
+              <span className="report__large-rank" aria-hidden="true">
+                {index + 1}
+              </span>
+              <span className="report__large-text">
+                <span className="report__large-name">{name}</span>
+                {row.merchant != null && categoryName != null ? (
+                  <span className="report__large-category">{categoryName}</span>
+                ) : null}
+              </span>
+              <Amount
+                className="report__large-amount"
+                data-testid={TEST_IDS.reportLargeExpenseAmount}
+                value={parseDecimalOr(row.amount, 0)}
+                size={14}
+              />
+            </li>
+          );
+        })}
+      </ol>
+    </Card>
   );
 }
 
@@ -330,6 +406,7 @@ function BreakdownItem({
   namesUnknown,
   income,
   color,
+  topShare,
 }: {
   row: BreakdownRowOut;
   category?: CategoryOut;
@@ -337,6 +414,8 @@ function BreakdownItem({
   income: boolean;
   /** 이 줄이 링의 어느 조각인지. 조각에 못 들어간 줄은 색이 없다. */
   color?: string;
+  /** 맨 위 줄의 비중. 막대는 이 줄을 가득 채운 것으로 놓고 나머지를 견준다. */
+  topShare: number;
 }) {
   const amount = parseDecimalOr(row.amount, 0);
   const share = parseDecimal(row.share);
@@ -352,17 +431,29 @@ function BreakdownItem({
         aria-hidden="true"
       />
       {category != null ? (
-        <CategoryAvatar icon={toIconName(category.icon_key)} size={20} />
+        <CategoryAvatar icon={toIconName(category.icon_key)} size={44} />
       ) : (
         <span className="report__row-noicon" aria-hidden="true" />
       )}
       <span className="report__row-name">{labelOf(row, category, namesUnknown)}</span>
-      <span className="report__row-amount" data-testid={TEST_IDS.reportRowAmount}>
-        {/* 수입에만 부호를 붙인다. 헤드라인과 표기가 갈리면 같은 값이 달라 보인다. */}
-        {income ? formatSignedCurrency(amount) : formatCurrency(amount)}
+      {/*
+        비중을 길이로도 보여준다. 숫자만 있으면 줄끼리 크기를 머릿속에서 견줘야 한다.
+        조각에 못 들어간 줄(환불이 더 큰 분류)은 채울 것이 없어 트랙만 남는다.
+      */}
+      <span className="report__row-bar" aria-hidden="true">
+        <span
+          className="report__row-bar-fill"
+          style={{ width: `${barWidth(share, topShare)}%`, background: color ?? 'transparent' }}
+        />
       </span>
-      <span className="report__row-share" data-testid={TEST_IDS.reportRowShare}>
-        {share != null ? toPercent(share) : '—'}
+      <span className="report__row-value">
+        <span className="report__row-amount" data-testid={TEST_IDS.reportRowAmount}>
+          {/* 수입에만 부호를 붙인다. 헤드라인과 표기가 갈리면 같은 값이 달라 보인다. */}
+          {income ? formatSignedCurrency(amount) : formatCurrency(amount)}
+        </span>{' '}
+        <span className="report__row-share" data-testid={TEST_IDS.reportRowShare}>
+          {share != null ? toPercent(share) : '—'}
+        </span>
       </span>
     </li>
   );
@@ -378,6 +469,19 @@ function labelOf(
   // 셋을 갈라 적는다. 이름을 못 받은 것, 사용자가 분류를 안 정한 것(위에서 걸렀다),
   // 그리고 목록에 없는 분류를 가리키는 것. 마지막은 지운 분류라 '분류 없음' 과 다르다.
   return category?.name ?? (namesUnknown ? '이름 확인 중' : '지운 분류');
+}
+
+/**
+ * 막대가 차지할 길이(%).
+ *
+ * 전체 대비가 아니라 **맨 위 줄 대비**다. 분류가 아홉이면 1등도 30% 남짓이라
+ * 전체 대비로 그리면 막대가 트랙의 삼분의 일도 못 채우고 아래 줄들은 점이 된다.
+ * 줄끼리 크기를 견주라고 그리는 막대이므로 1등을 가득 채운 것으로 놓는다.
+ * 비중을 모르는 줄과 1등이 0 인 달은 0 이라 트랙만 남는다.
+ */
+function barWidth(share: number | null, topShare: number): number {
+  if (share == null || topShare <= 0) return 0;
+  return Math.max(0, Math.min(100, (share / topShare) * 100));
 }
 
 /** `0.4211` → `42%`. 서버가 준 비율을 표시만 바꾼다. */

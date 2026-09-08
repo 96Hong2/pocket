@@ -1,5 +1,4 @@
-/* Pretendard 는 CDN 에서 받는다. 못 받아도 아래 fallback 스택으로 읽힌다. */
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+/* Pretendard 는 index.html 이 비차단으로 받는다. 못 받아도 아래 fallback 스택으로 읽힌다. */
 
 @import 'tailwindcss';
 @import './shared/ui/ui.css';

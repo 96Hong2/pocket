@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { useClosing } from '../../shared/api';
 import { formatMonthLabel } from '../../shared/lib/format';
-import { Card } from '../../shared/ui';
+import { Card, iconUrl } from '../../shared/ui';
 
 import { ClosingOverlay } from './ClosingOverlay';
 import { CLOSING_CARDS } from './closingText';
@@ -46,9 +46,16 @@ export function ClosingSection({ month, autoOpen = false, onAutoOpened }: Closin
       {/* 카드 전체가 버튼이라 이름으로 잡힌다. 따로 표식을 붙이지 않는다. */}
       <Card className="closing-entry" padding="none">
         <button type="button" className="closing-entry__button" onClick={() => setOpenMonth(month)}>
-          <span className="closing-entry__title">{formatMonthLabel(month)} 결산</span>
-          <span className="closing-entry__hint">
-            카드 {CLOSING_CARDS.length}장 · 잘한 것부터 열어봐요
+          <img className="closing-entry__icon" src={iconUrl('31_gift')} alt="" aria-hidden />
+          <span className="closing-entry__text">
+            <span className="closing-entry__title">{formatMonthLabel(month)} 결산</span>
+            <span className="closing-entry__hint">
+              카드 {CLOSING_CARDS.length}장 · 잘한 것부터 열어봐요
+            </span>
+          </span>
+          {/* 눌러서 들어가는 자리라는 표시. 읽을 것이 아니라 방향이다. */}
+          <span className="closing-entry__chevron" aria-hidden="true">
+            ›
           </span>
         </button>
       </Card>

@@ -62,7 +62,7 @@
 
   .setting-block__title {
     margin: 0;
-    font-size: var(--text-14);
+    font-size: var(--text-13);
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
   }

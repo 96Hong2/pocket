@@ -43,22 +43,30 @@ export function CategoryBudgetList({
         <Chip variant="kind">{rows.length}개</Chip>
       </div>
 
-      <ul className="budget-cats__list">
-        {rows.map((row) => (
-          <CategoryBudgetRow
-            key={row.category_id}
-            row={row}
-            category={categories.find((item) => item.id === row.category_id)}
-            editable={editable}
-            onPick={onPick}
-          />
-        ))}
-      </ul>
+      {/*
+        목록과 추가 줄은 카드 한 장 안이다. 줄마다 카드를 두면 목록으로 읽히지 않는다.
+        줄도 없고 더할 수도 없는 끝난 달에는 카드 자체를 그리지 않는다. 빈 흰 판만 남는다.
+      */}
+      {rows.length > 0 || editable ? (
+        <div className="budget-cats__card">
+          <ul className="budget-cats__list">
+            {rows.map((row) => (
+              <CategoryBudgetRow
+                key={row.category_id}
+                row={row}
+                category={categories.find((item) => item.id === row.category_id)}
+                editable={editable}
+                onPick={onPick}
+              />
+            ))}
+          </ul>
 
-      {editable ? (
-        <button type="button" className="budget-cats__add" onClick={onAdd}>
-          ＋ 카테고리 예산 추가
-        </button>
+          {editable ? (
+            <button type="button" className="budget-cats__add" onClick={onAdd}>
+              ＋ 카테고리 예산 추가
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {sum > totalAmount ? (
@@ -84,7 +92,7 @@ function CategoryBudgetRow({ row, category, editable, onPick }: CategoryBudgetRo
 
   const inner = (
     <>
-      <CategoryAvatar icon={toIconName(category?.icon_key)} size={48} />
+      <CategoryAvatar icon={toIconName(category?.icon_key)} size={52} />
       <div className="budget-cat__body">
         <div className="budget-cat__head">
           <span className="budget-cat__name">{name}</span>
