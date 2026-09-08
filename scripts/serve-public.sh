@@ -41,10 +41,16 @@ docker build -q -f docker/backend/Dockerfile -t pocket-backend:local backend >/d
 
 echo "3/4  백엔드를 8080 에 띄운다"
 docker rm -f pocket-api >/dev/null 2>&1 || true
+# backend/.env 가 있으면 넘긴다. 사진 인식 provider 와 키가 거기 있다.
+# 키를 아직 안 넣었으면 LLM_PROVIDER=stub ./scripts/serve-public.sh 로 이번만 스텁으로 띄운다.
+ENV_FILE_OPT=()
+[[ -f backend/.env ]] && ENV_FILE_OPT=(--env-file backend/.env)
 docker run -d --name pocket-api -p 8080:8080 \
+  "${ENV_FILE_OPT[@]}" \
   -e ENVIRONMENT=local \
   -e ALLOW_UNVERIFIED_ANON_KEY=true \
   -e DATABASE_URL='postgresql+psycopg://pocket:pocket@host.docker.internal:5434/pocket' \
+  ${LLM_PROVIDER:+-e LLM_PROVIDER="$LLM_PROVIDER"} \
   pocket-backend:local >/dev/null
 for _ in $(seq 1 30); do
   curl -fsS -o /dev/null http://localhost:8080/health && break

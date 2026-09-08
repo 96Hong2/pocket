@@ -1,7 +1,8 @@
 import { defineConfig } from '@apps-in-toss/web-framework/config';
 
 export default defineConfig({
-  appName: 'pocket',
+  // 콘솔에서 'pocket' 은 이미 다른 앱이 쓰고 있어 못 받았다. 한 번 정하면 못 바꾼다.
+  appName: 'pocket-ledger',
   brand: {
     // 세이지 700. 디자인 토큰의 primary 와 같은 값을 쓴다.
     primaryColor: '#3F5A40',

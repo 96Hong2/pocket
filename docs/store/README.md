@@ -36,8 +36,9 @@ Pocket Ledger
 
 ### appName
 **한 번 등록하면 못 바꾼다.** `frontend/apps-in-toss.config.ts` 의 값과 반드시 같아야 한다.
+`pocket` 은 콘솔에서 이미 다른 앱이 쓰고 있어 받지 못했다(2026-09-08).
 ```
-pocket
+pocket-ledger
 ```
 
 ### 부제
