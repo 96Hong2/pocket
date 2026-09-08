@@ -6,8 +6,12 @@ import { TEST_IDS } from '../../src/shared/testIds';
 /**
  * 카테고리 관리 화면.
  *
- * 관리 탭과 URL 이 달라 별도 화면 객체다. 한 화면이 구획 둘(기본 · 내가 만든 것)과
+ * 관리 탭과 URL 이 달라 별도 화면 객체다. 한 화면이 종류 구획 셋(지출 · 수입 · 이체)과
  * 기억한 분류 목록, 시트 하나를 데리고 있어 목록과 시트를 안쪽 객체로 나눠 뒀다.
+ *
+ * 기본과 내가 만든 것은 이제 구획이 아니라 줄의 생김새로 갈린다. 기본 줄에는 '기본' 배지가
+ * 붙고 내 줄에는 '고치기' 버튼이 붙는다. 그래서 배지로 가른다. 버튼 유무로 가르면
+ * "기본 줄에 버튼이 없다" 는 단언이 스스로를 증명하는 동어반복이 된다.
  *
  * 셀렉터는 이 파일 안에만 둔다. 단언은 spec 이 한다.
  */
@@ -39,41 +43,56 @@ export class CategoriesScreen {
     await expect(this.addButton).toBeVisible();
   }
 
-  /** 처음부터 있는 카테고리 구획. 여기 줄은 누를 수 없다. */
-  get basicSection(): Locator {
-    return this.page.getByRole('region', { name: '기본 카테고리', exact: true });
+  /** 종류 구획 하나. 제목이 곧 접근성 이름이다. */
+  section(title: string): Locator {
+    return this.page.getByRole('region', { name: title, exact: true });
   }
 
-  /** 내가 만든 카테고리 구획. 하나도 없으면 안내만 있다. */
-  get mineSection(): Locator {
-    return this.page.getByRole('region', { name: '내가 만든 카테고리', exact: true });
+  get expenseSection(): Locator {
+    return this.section('지출 카테고리');
+  }
+
+  get incomeSection(): Locator {
+    return this.section('수입 카테고리');
+  }
+
+  get transferSection(): Locator {
+    return this.section('이체');
   }
 
   get addButton(): Locator {
     return this.page.getByRole('button', { name: '카테고리 만들기', exact: true });
   }
 
-  /** 내가 만든 것이 하나도 없을 때 그 구획에 뜨는 안내. */
+  /** 내가 만든 것이 하나도 없을 때 만들기 버튼 아래에 뜨는 안내. */
   get emptyNotice(): Locator {
-    return this.mineSection.getByText('아직 만든 카테고리가 없어요', { exact: true });
+    return this.page.getByText('아직 만든 카테고리가 없어요', { exact: true });
   }
 
+  /** '기본' 배지가 붙은 줄. 처음부터 있던 분류다. */
   get basicRows(): Locator {
-    return this.basicSection.getByRole('listitem');
+    return this.allRows.filter({ has: this.page.getByText('기본', { exact: true }) });
   }
 
+  /** 배지가 없는 줄. 내가 만든 것이다. */
   get mineRows(): Locator {
-    return this.mineSection.getByRole('listitem');
+    return this.allRows.filter({ hasNot: this.page.getByText('기본', { exact: true }) });
   }
 
   /**
-   * 기본 구획 안에서 누를 수 있는 것 전부.
+   * 기본 줄 안에서 누를 수 있는 것 전부.
    *
    * 여기가 0 이어야 기본 카테고리에 고치기·지우기 입구가 없는 것이다.
    * 비활성 버튼을 두는 것과 아예 두지 않는 것은 다르다.
    */
   get basicButtons(): Locator {
-    return this.basicSection.getByRole('button');
+    return this.basicRows.getByRole('button');
+  }
+
+  /** 한 구획 안에 놓인 줄 이름. 종류가 섞이지 않았는지 볼 때 쓴다. */
+  async sectionNames(title: string): Promise<string[]> {
+    const texts = await this.section(title).getByRole('listitem').allTextContents();
+    return texts.map((text) => text.replace(/(기본|고치기)$/, '').trim());
   }
 
   /** 어느 구획에 있든 그 이름의 줄. 몇 개 있는지 셀 때 쓴다. */
@@ -81,21 +100,21 @@ export class CategoriesScreen {
     return this.allRows.filter({ has: this.page.getByText(name, { exact: true }) });
   }
 
-  /** 기본 구획 안에 적힌 그 이름. */
+  /** '기본' 배지가 붙은 줄 중 그 이름. */
   basicRow(name: string): Locator {
-    return this.basicSection.getByText(name, { exact: true });
+    return this.basicRows.getByText(name, { exact: true });
   }
 
-  /** 내 구획 안에 적힌 그 이름. 기본 이름이 여기 없다는 것도 이걸로 본다. */
+  /** 배지가 없는 줄 중 그 이름. 기본 이름이 여기 없다는 것도 이걸로 본다. */
   mineRow(name: string): Locator {
-    return this.mineSection.getByText(name, { exact: true });
+    return this.mineRows.getByText(name, { exact: true });
   }
 
   /**
    * 내가 만든 줄. 이 줄만 버튼이고, 접근성 이름이 이름 그대로가 아니라 `{이름} 고치기` 다.
    */
   mineButton(name: string): Locator {
-    return this.mineSection.getByRole('button', { name: `${name} 고치기`, exact: true });
+    return this.page.getByRole('button', { name: `${name} 고치기`, exact: true });
   }
 
   /**
@@ -109,10 +128,15 @@ export class CategoriesScreen {
     return texts.map((text) => text.replace(/(기본|고치기)$/, '').trim());
   }
 
-  /** 새로 만든다. 이름을 적고 아이콘을 고르고 저장한다. 시트가 닫히면 저장이 끝난 것이다. */
-  async create(name: string, iconLabel: string): Promise<void> {
+  /**
+   * 새로 만든다. 이름을 적고 아이콘을 고르고 저장한다. 시트가 닫히면 저장이 끝난 것이다.
+   *
+   * 종류를 안 넘기면 시트 기본값인 지출 그대로 만든다.
+   */
+  async create(name: string, iconLabel: string, kind?: '지출' | '수입'): Promise<void> {
     await this.addButton.click();
     await this.sheet.waitOpen();
+    if (kind != null) await this.sheet.pickKind(kind);
     await this.sheet.nameField.fill(name);
     await this.sheet.pickIcon(iconLabel);
     await this.sheet.saveButton.click();
@@ -126,13 +150,13 @@ export class CategoriesScreen {
   }
 
   /**
-   * 두 구획의 줄 전부. 화면에 놓인 순서 그대로다.
+   * 세 구획의 줄 전부. 화면에 놓인 순서 그대로다.
    *
    * 같은 화면의 기억한 분류도 목록이라, 구획 이름으로 카테고리 쪽만 남긴다.
    */
   private get allRows(): Locator {
     return this.page
-      .getByRole('region', { name: /^(기본|내가 만든) 카테고리$/ })
+      .getByRole('region', { name: /^(지출 카테고리|수입 카테고리|이체)$/ })
       .getByRole('listitem');
   }
 }
@@ -168,6 +192,15 @@ class CategorySheet {
 
   get nameField(): Locator {
     return this.root.getByLabel('이름', { exact: true });
+  }
+
+  /** 만들 때만 있는 종류 고르기. 고친 뒤에는 바꿀 수 없어 시트에 아예 안 나온다. */
+  get kindToggle(): Locator {
+    return this.root.getByRole('group', { name: '분류의 종류' });
+  }
+
+  async pickKind(label: '지출' | '수입'): Promise<void> {
+    await this.kindToggle.getByRole('button', { name: label, exact: true }).click();
   }
 
   get saveButton(): Locator {

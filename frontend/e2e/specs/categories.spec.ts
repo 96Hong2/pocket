@@ -15,7 +15,7 @@ import { expect, test } from '../support/fixtures';
  * 정본은 백엔드 `app/domain/categories.py` 의 `DEFAULT_CATEGORIES` 이고, 순서는 그 파일의
  * `sort_order` 순이다. 화면 출력에서 베끼지 않고 그 파일을 읽어 적었다.
  */
-const BASIC_CATEGORIES = [
+const EXPENSE_CATEGORIES = [
   '식비',
   '카페·간식',
   '교통',
@@ -25,19 +25,41 @@ const BASIC_CATEGORIES = [
   '여가·취미',
   '건강·미용',
   '기타',
-  '월급',
-  '용돈',
-  '기타 수입',
-  '이체',
 ];
+const INCOME_CATEGORIES = ['월급', '용돈', '기타 수입'];
+const TRANSFER_CATEGORIES = ['이체'];
+const BASIC_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES, ...TRANSFER_CATEGORIES];
 
 const PET = '반려동물';
 /** 아이콘 파일 `16_paw`. 격자 칸은 파일 이름에서 앞 번호를 뗀 영어를 읽어 준다. */
 const PET_ICON = 'paw';
 
+const SIDE_JOB = '부업';
+/** 아이콘 파일 `28_cash`. */
+const SIDE_JOB_ICON = 'cash';
+
+/**
+ * 내가 만든 지출 분류가 앉는 자리.
+ *
+ * `USER_CATEGORY_SORT_ORDER` 가 85 라 기본 지출(10~80) 뒤, '기타'(90) 앞이다.
+ * 이것도 화면이 아니라 `app/domain/categories.py` 를 읽어 적었다.
+ */
+const EXPENSE_WITH_PET = [
+  '식비',
+  '카페·간식',
+  '교통',
+  '쇼핑',
+  '생활',
+  '주거·고정비',
+  '여가·취미',
+  '건강·미용',
+  PET,
+  '기타',
+];
+
 // ── 두 구획 ─────────────────────────────────────────────
 
-test('기본 카테고리와 내가 만든 것이 다른 자리에 놓인다', async ({ appShell, categories }) => {
+test('지출·수입·이체가 다른 구획에 놓인다', async ({ appShell, categories }) => {
   // 사용자가 이 화면에 닿는 길은 관리 탭 하나뿐이다. 주소로 바로 들어가지 않는다.
   await appShell.open();
   await appShell.goToTab('관리');
@@ -52,8 +74,13 @@ test('기본 카테고리와 내가 만든 것이 다른 자리에 놓인다', a
   // 개수를 박아 둔다. 기본 목록이 늘거나 줄면 화면보다 여기가 먼저 걸린다.
   await expect(categories.basicRows).toHaveCount(13);
 
-  // 내 구획은 비어 있어도 자리를 지킨다. 없는 것을 감추면 만들 수 있다는 것도 안 보인다.
-  await expect(categories.mineSection).toBeVisible();
+  // 종류가 섞이면 수입 분류를 만들어 놓고도 어디서 쓰이는지 알 수 없다.
+  // 기록 시트가 종류로 갈라 보여주는 것과 같은 모양이어야 한다.
+  expect(await categories.sectionNames('지출 카테고리')).toEqual(EXPENSE_CATEGORIES);
+  expect(await categories.sectionNames('수입 카테고리')).toEqual(INCOME_CATEGORIES);
+  expect(await categories.sectionNames('이체')).toEqual(TRANSFER_CATEGORIES);
+
+  // 만든 것이 하나도 없어도 만들 수 있다는 안내는 남는다.
   await expect(categories.mineRows).toHaveCount(0);
   await expect(categories.emptyNotice).toBeVisible();
 });
@@ -77,8 +104,13 @@ test('카테고리를 만들면 새로고침 없이 목록에 나타난다', asy
   await expect(categories.mineButton(PET)).toBeVisible();
   await expect(categories.emptyNotice).toHaveCount(0);
 
-  // 새로 만든 것이 기본 뒤에 선다. 앞으로 오면 기록 시트 칩의 첫 자리를 빼앗는다.
-  expect(await categories.rowNames()).toEqual([...BASIC_CATEGORIES, PET]);
+  // 새로 만든 것이 지출 구획 안, '기타' 앞에 선다. 앞으로 오면 기록 시트 칩의 첫 자리를 빼앗는다.
+  expect(await categories.sectionNames('지출 카테고리')).toEqual(EXPENSE_WITH_PET);
+  expect(await categories.rowNames()).toEqual([
+    ...EXPENSE_WITH_PET,
+    ...INCOME_CATEGORIES,
+    ...TRANSFER_CATEGORIES,
+  ]);
 
   // 구분을 여기서 본다. **양쪽 구획이 다 찬 뒤에** 서로의 이름이 건너편에서 안 잡혀야
   // 구분이 실제로 되고 있는 것이다. 내 구획이 비어 있을 때 '식비가 거기 없다' 를 세면,
@@ -130,6 +162,75 @@ test('방금 만든 카테고리가 기록 시트 칩에 바로 나온다', asyn
 
   await expect(home.today.row(PET)).toBeVisible();
   await expect(home.today.amount(formatCurrency(5_000))).toBeVisible();
+});
+
+// ── 수입 ────────────────────────────────────────────────
+
+/**
+ * 수입을 적는 길 전체.
+ *
+ * 예전에는 서버가 만들기를 지출로 고정했고 기록 시트도 지출 분류만 보여줘서, 들어온 돈을
+ * 적을 자리가 아예 없었다. 만들기부터 저장까지 한 줄기로 지나 그 자리가 생겼는지 본다.
+ */
+test('수입 카테고리를 만들어 키패드에서 수입으로 저장한다', async ({
+  appShell,
+  categories,
+  home,
+  recordSheet,
+}) => {
+  await categories.open();
+  await categories.waitReady();
+  await categories.create(SIDE_JOB, SIDE_JOB_ICON, '수입');
+
+  await test.step('수입 구획에 서고 지출 구획에는 없다', async () => {
+    expect(await categories.sectionNames('수입 카테고리')).toEqual([
+      ...INCOME_CATEGORIES,
+      SIDE_JOB,
+    ]);
+    expect(await categories.sectionNames('지출 카테고리')).toEqual(EXPENSE_CATEGORIES);
+    await expect(categories.mineRow(SIDE_JOB)).toBeVisible();
+    // 기본 목록은 그대로다. 만든 것이 기본으로 섞여 들어가면 지울 수 없는 줄이 된다.
+    await expect(categories.basicRows).toHaveCount(BASIC_CATEGORIES.length);
+  });
+
+  await appShell.pressBack();
+  await appShell.goToTab('홈');
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await test.step('지출로 열리고, 수입을 고르면 분류 목록이 갈린다', async () => {
+    await expect(recordSheet.input.kindButton('지출')).toHaveAttribute('aria-pressed', 'true');
+    expect(await recordSheet.input.categoryChipNames()).toEqual(EXPENSE_CATEGORIES);
+
+    await recordSheet.input.pickKind('수입');
+    // 지출 분류가 남아 있으면 수입이 '식비' 로 저장된다.
+    expect(await recordSheet.input.categoryChipNames()).toEqual([
+      ...INCOME_CATEGORIES,
+      SIDE_JOB,
+    ]);
+  });
+
+  await test.step('수입으로 저장된다', async () => {
+    await recordSheet.input.enterAmount(300_000);
+    await recordSheet.input.pickCategory(SIDE_JOB);
+    await recordSheet.feedback.waitSaved();
+
+    // 지출 판정 문장을 그대로 쓰면 "이번 달 얼마 썼어요" 가 수입 자리에 나온다.
+    await expect(recordSheet.feedback.headline).toHaveText(
+      `수입 ${formatCurrency(300_000)}을 적었어요.`,
+    );
+
+    await recordSheet.feedback.confirmButton.click();
+    await recordSheet.waitClosed();
+  });
+
+  await test.step('홈 목록이 수입이라고 말한다', async () => {
+    await expect(home.today.row(SIDE_JOB)).toBeVisible();
+    await expect(home.today.chip('수입')).toBeVisible();
+    // 수입은 쓴 돈이 아니다. 오늘 합계에 들어가면 남은 예산이 통째로 어긋난다.
+    await expect(home.today.amount(`+${formatCurrency(300_000)}`)).toBeVisible();
+  });
 });
 
 // ── 이름이 겹칠 때 ──────────────────────────────────────

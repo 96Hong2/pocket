@@ -3,8 +3,8 @@
 종류는 domain 의 enum 을 그대로 쓴다. 값 목록을 여기 다시 적지 않는다.
 그래야 openapi.json 에 enum 이 실려 프론트 타입이 문자열로 뭉개지지 않는다.
 
-만들 때 kind 를 받지 않는다. 서버가 지출로 고정한다. 기록 시트의 칩이 지출만 걸러
-보여주기 때문에, 수입 분류를 만들면 정작 고를 자리가 화면에 없다.
+만들 때 종류를 지출과 수입 중에서 고른다. 안 보내면 지출이다. 이체는 화살표 한 줄이라
+사용자가 새로 만들 것이 없어 막는다.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, StringConstraints, field_validator
 
 from app.domain.categories import CategoryKind
 
@@ -40,8 +40,22 @@ class CategoryListOut(BaseModel):
 
 
 class CategoryCreate(BaseModel):
+    """종류는 만들 때만 정한다. 나중에 바꾸는 길은 두지 않았다.
+
+    지출이던 분류를 수입으로 바꾸면 그 분류로 적어 둔 지난 거래가 종류와 어긋나고,
+    이미 본 리포트의 숫자가 나중에 달라진다.
+    """
+
     name: CategoryName
     icon_key: IconKey
+    kind: CategoryKind = CategoryKind.EXPENSE
+
+    @field_validator("kind")
+    @classmethod
+    def _creatable(cls, value: CategoryKind) -> CategoryKind:
+        if value is CategoryKind.TRANSFER:
+            raise ValueError("이체는 새로 만들 수 없어요.")
+        return value
 
 
 class CategoryUpdate(BaseModel):

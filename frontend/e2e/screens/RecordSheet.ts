@@ -137,6 +137,24 @@ class RecordInput {
     return this.root.getByRole('button', { name: '다시 시도' });
   }
 
+  /**
+   * 지출인지 수입인지 고르는 알약 두 개.
+   *
+   * 방법 탭과 달리 `role="radio"` 가 아니라 aria-pressed 를 쓰는 버튼이다.
+   * 탭과 같은 모양으로 그리면 탭이 두 줄인 것처럼 읽혀 일부러 다르게 뒀다.
+   */
+  get kindToggle(): Locator {
+    return this.root.getByRole('group', { name: '지출인지 수입인지' });
+  }
+
+  kindButton(label: '지출' | '수입'): Locator {
+    return this.kindToggle.getByRole('button', { name: label, exact: true });
+  }
+
+  async pickKind(label: '지출' | '수입'): Promise<void> {
+    await this.kindButton(label).click();
+  }
+
   categoryChip(name: string): Locator {
     return this.root.getByRole('button', { name, exact: true });
   }
@@ -459,6 +477,20 @@ class RecordNaturalLanguage {
     return this.row(name).getByText(label, { exact: true });
   }
 
+  /**
+   * 줄 위에 드러난 종류. 누르면 지출과 수입을 오간다.
+   *
+   * 접근성 이름이 `지출이에요. 눌러서 수입으로 바꾸기` 라, 그 안내말로 잡는다.
+   * 이체 줄은 버튼이 아니라 글자라 여기 안 걸린다.
+   */
+  kindButton(name: string): Locator {
+    return this.row(name).getByRole('button', { name: /눌러서/ });
+  }
+
+  async switchKind(name: string): Promise<void> {
+    await this.kindButton(name).click();
+  }
+
   async analyze(text: string): Promise<void> {
     await this.textarea.fill(text);
     await this.analyzeButton.click();
@@ -686,6 +718,20 @@ class RecordImageImport {
   /** `이미 있어요`·`확인 필요` 같은 칩. 없으면 개수 0 이다. */
   chip(name: string, label: string): Locator {
     return this.row(name).getByText(label, { exact: true });
+  }
+
+  /**
+   * 줄 위에 드러난 종류. 누르면 지출과 수입을 오간다.
+   *
+   * 접근성 이름이 `지출이에요. 눌러서 수입으로 바꾸기` 라, 그 안내말로 잡는다.
+   * 이체 줄은 버튼이 아니라 글자라 여기 안 걸린다.
+   */
+  kindButton(name: string): Locator {
+    return this.row(name).getByRole('button', { name: /눌러서/ });
+  }
+
+  async switchKind(name: string): Promise<void> {
+    await this.kindButton(name).click();
   }
 
   /** 사진을 가져와 검토 화면에 닿을 때까지. */

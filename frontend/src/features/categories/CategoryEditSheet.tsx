@@ -8,6 +8,7 @@ import {
   useUpdateCategory,
   type CategoryOut,
 } from '../../shared/api';
+import { KindToggle, type LedgerKind } from '../../shared/ledger';
 import {
   BottomSheet,
   Button,
@@ -74,6 +75,10 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
   const [icon, setIcon] = useState<IconName>(
     category == null ? FALLBACK_CATEGORY_ICON : toIconName(category.icon_key),
   );
+  // 종류는 만들 때만 정한다. 나중에 바꾸면 그 분류로 적어 둔 지난 기록이 종류와 어긋난다.
+  const [kind, setKind] = useState<LedgerKind>(
+    category?.kind === 'income' ? 'income' : 'expense',
+  );
   // 지우기는 한 단을 더 받는다. 시트를 하나 더 겹치면 포커스가 흔들려 여기서 묻는다.
   const [confirming, setConfirming] = useState(false);
 
@@ -95,7 +100,7 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
 
     if (category == null) {
       create.mutate(
-        { name: trimmed, icon_key: icon },
+        { name: trimmed, icon_key: icon, kind },
         { onSettled: () => onBusyChange(false), onSuccess: onClose },
       );
     } else {
@@ -117,6 +122,16 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
 
   return (
     <div className="cat-sheet__body">
+      {category == null ? (
+        <div className="cat-sheet__field">
+          <span className="cat-sheet__label">종류</span>
+          <KindToggle value={kind} onChange={setKind} disabled={busy} ariaLabel="분류의 종류" />
+          <span className="cat-sheet__note">
+            기록 시트에서 이 종류를 골랐을 때 나와요. 만든 뒤에는 바꿀 수 없어요
+          </span>
+        </div>
+      ) : null}
+
       <label className="cat-sheet__field">
         <span className="cat-sheet__label">이름</span>
         <input

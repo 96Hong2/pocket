@@ -166,6 +166,9 @@ export function ImportReview({
               onToggle={(selected) => {
                 sendPatch(batch.id, candidate.id, { is_selected: selected });
               }}
+              onKindChange={(body) => {
+                sendPatch(batch.id, candidate.id, body);
+              }}
               onEdit={() => setEditing(candidate.id)}
               onEditClose={() => setEditing(null)}
               onSave={(body) => {

@@ -155,12 +155,13 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await categories.waitReady();
   await demo.beat(2);
 
-  await demo.step('점선 카드가 걷히고 기본 카테고리와 내가 만든 카테고리가 자리로 갈렸다');
-  await expect(categories.basicSection).toBeVisible();
-  await expect(categories.mineSection).toBeVisible();
+  await demo.step('점선 카드가 걷히고 지출·수입·이체가 각자의 자리로 갈렸다');
+  await expect(categories.expenseSection).toBeVisible();
+  await expect(categories.incomeSection).toBeVisible();
+  await expect(categories.transferSection).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('아직 만든 것이 없어 아래 자리는 비어 있다. 만들기는 맨 위 버튼으로 한다');
+  await demo.step('아직 만든 것이 없어 안내 한 줄만 있다. 만들기는 맨 위 버튼으로 한다');
   await expect(categories.emptyNotice).toBeVisible();
   await expect(categories.addButton).toBeVisible();
   await demo.beat(2);

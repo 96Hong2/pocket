@@ -13,9 +13,24 @@
     margin-top: 4px;
   }
 
+  /*
+    탭과 그 아래 내용 사이의 한 뼘. 탭이 내용에 붙어 있으면 탭이 카드의 머리글처럼 읽혀,
+    눌러서 바꾸는 자리라는 것이 안 보인다. display 는 건드리지 않는다. 안 고른 탭은
+    `hidden` 이 감추고 있어, 여기서 display 를 주면 네 탭이 한꺼번에 펼쳐진다.
+  */
+  .record__panel {
+    margin-top: 16px;
+  }
+
+  /* 가운데 두 알약. 무엇을 적는지부터 고르는 자리라 금액 위에 선다. */
+  .record__kind {
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+
   .record__repeat {
     display: flex;
-    margin-top: 14px;
+    margin-top: 12px;
   }
 
   .repeat-chip {
@@ -64,7 +79,7 @@
   /* ── 금액과 키패드 ──────────────────────────────── */
 
   .keypad__head {
-    padding: 14px 0 6px;
+    padding: 10px 0 6px;
     text-align: center;
   }
 
@@ -158,12 +173,13 @@
   }
 
   /* 고르고 나면 목록 대신 한 줄만 남는다. 눌러서 다시 편다. */
+  /* 목록을 접은 뒤 남는 한 줄. 무엇을 골랐는지가 이 줄 하나로 읽혀야 해서 칩과 같은 크기로 그린다. */
   .record__picked {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     width: 100%;
-    height: 44px;
+    height: 56px;
     margin-top: 4px;
     padding: 0 14px;
     border: 0;
@@ -171,8 +187,8 @@
     background: var(--color-sage-50);
     color: var(--color-sage-700);
     font-family: inherit;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
   }
 
   .record__picked-name {
@@ -184,8 +200,8 @@
   .record__picked-more {
     margin-left: auto;
     color: var(--color-muted);
-    font-size: var(--text-12);
-    font-weight: var(--font-weight-medium);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
   }
 
   .record__save {

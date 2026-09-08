@@ -309,6 +309,52 @@
     color: var(--color-ink);
   }
 
+  /* ── Kind (지출·수입) ───────────────────────────────── */
+
+  /*
+    방법 탭과 같은 화면에 함께 선다. 그래서 트랙을 깐 세그먼트가 아니라 알약 두 개로 그린다.
+    고른 쪽은 분류 칩의 선택 상태와 같은 옷을 입어, 이 줄이 아래 칩을 고른다는 것이 읽힌다.
+  */
+  .pk-kind {
+    display: flex;
+    gap: 8px;
+  }
+
+  .pk-kind__item {
+    position: relative;
+    min-width: 84px;
+    height: 36px;
+    padding: 0 18px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-muted);
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    transition:
+      background-color 0.12s ease,
+      color 0.12s ease;
+  }
+
+  /* 보이는 높이는 36px 이지만 손가락이 닿는 영역은 44px 로 넓힌다. */
+  .pk-kind__item::after {
+    content: '';
+    position: absolute;
+    inset: -4px 0;
+  }
+
+  .pk-kind__item[aria-pressed='true'] {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .pk-kind__item:disabled {
+    opacity: 0.45;
+  }
+
   /* ── Toggle ─────────────────────────────────────────── */
   .pk-toggle {
     position: relative;

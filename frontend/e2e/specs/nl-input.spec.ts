@@ -316,6 +316,31 @@ test('수입이 섞이면 저장 버튼이 지출만 센다', async ({ home, rec
   await expect(recordSheet.nl.saveButton).toHaveText(`2건 저장 · ${formatCurrency(12000)}`);
 });
 
+/**
+ * 읽어 온 종류를 줄에서 바로 고친다.
+ *
+ * 사진과 문장에서 가장 자주 틀리는 값이 종류인데, 예전에는 '고치기' 를 펴야만 보였다.
+ * 그래서 줄 위로 꺼냈다. 화면 글자만 바뀌고 값이 안 바뀌면 아래 저장 버튼이 그대로 남는다.
+ */
+test('읽어 온 종류를 줄에서 한 번 눌러 바꾼다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000 월급 2000000 입금');
+
+  await expect(recordSheet.nl.kindButton('점심')).toHaveText(/지출/);
+  await expect(recordSheet.nl.saveButton).toHaveText(`2건 저장 · ${formatCurrency(12000)}`);
+
+  await recordSheet.nl.switchKind('점심');
+
+  await expect(recordSheet.nl.kindButton('점심')).toHaveText(/수입/);
+  // 붙어 있던 지출 분류가 함께 떨어진다. 남겨 두면 수입 줄에 '식비' 가 붙는다.
+  await expect(recordSheet.nl.row('점심')).toContainText('분류 없음');
+  // 쓴 돈이 아니게 됐으니 버튼에서 금액이 통째로 빠진다.
+  await expect(recordSheet.nl.saveButton).toHaveText('2건 저장');
+});
+
 test('환불로 읽힌 것은 스스로 켜지지 않는다', async ({ home, recordSheet }) => {
   await home.open();
   await home.waitReady();

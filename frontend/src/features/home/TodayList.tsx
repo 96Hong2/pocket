@@ -10,10 +10,20 @@ import {
   type TransactionOut,
 } from '../../shared/api';
 import { LedgerRow, NoSpendRow, splitNoSpend } from '../../shared/ledger';
-import { formatCurrency, toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
+import {
+  formatCurrency,
+  formatRelativeDay,
+  shiftDay,
+  toLedgerDate,
+  toLedgerNoonIso,
+  withTopic,
+} from '../../shared/lib/format';
 import { Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui';
 
 interface TodayListProps {
+  /** 보고 있는 날. `2026-09-08` */
+  day: string;
+  onDayChange: (day: string) => void;
   transactions: TransactionOut[];
   categories: CategoryOut[];
   /** 아직 오는 중인가. 오는 중을 "비어 있어요" 로 덮지 않으려고 받는다. */
@@ -26,18 +36,18 @@ interface TodayListProps {
 }
 
 /**
- * 오늘 것만 고른다.
+ * 고른 날 것만 고른다.
  *
  * 서버가 준 시각에는 UTC 오프셋이 붙어 있고, 서버는 '오늘'과 월 경계를 사용자 시간대로 정한다.
  * 기기 시간대로 날짜를 뽑으면 해외에서 앱을 열었을 때 히어로 숫자와 이 목록이 서로 다른 날을 본다.
  */
-function isToday(occurredAt: string, today: string): boolean {
+function isOn(occurredAt: string, day: string): boolean {
   const at = new Date(occurredAt);
-  return !Number.isNaN(at.getTime()) && toLedgerDate(at) === today;
+  return !Number.isNaN(at.getTime()) && toLedgerDate(at) === day;
 }
 
 /**
- * 오늘 쓴 돈 합계.
+ * 그날 쓴 돈 합계.
  *
  * 예산에서 뺀 줄은 세지 않는다. 시안이 그 줄을 흐리게 그리고 합계에서도 빼고 있어,
  * 여기서만 더하면 화면에 보이는 줄과 위 숫자가 서로 다른 말을 한다.
@@ -62,7 +72,24 @@ function MoreLink() {
   );
 }
 
+function Chevron({ direction }: { direction: 'left' | 'right' }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path
+        d={direction === 'left' ? 'M11 4L6 9l5 5' : 'M7 4l5 5-5 5'}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function TodayList({
+  day,
+  onDayChange,
   transactions,
   categories,
   loading = false,
@@ -71,11 +98,15 @@ export function TodayList({
   onPick,
 }: TodayListProps) {
   const today = toLedgerDate(new Date());
-  const rows = transactions.filter((tx) => isToday(tx.occurred_at, today));
+  const isToday = day === today;
+  const label = formatRelativeDay(day);
+  const rows = transactions.filter((tx) => isOn(tx.occurred_at, day));
   // 안 쓴 날 표시는 금액이 0 이라 다른 줄과 같은 모양으로 그릴 수 없다. 달력과 같은 규칙으로 가른다.
   const { noSpend: noSpendRows, spent } = splitNoSpend(rows);
   const noSpend = noSpendRows[0] ?? null;
   const spentTotal = sumSpent(spent);
+  // '오늘' 은 받침이 있어 조사가 '은' 이다. 오늘 화면의 문구는 예전 그대로 「오늘은 안 썼어요」다.
+  const noSpendLabel = `${withTopic(label)} 안 썼어요`;
 
   const markNoSpend = useCreateTransaction();
   const cancelNoSpend = useDeleteTransaction();
@@ -87,9 +118,34 @@ export function TodayList({
         : null;
 
   return (
-    <section className="home-today" aria-label="오늘">
+    <section className="home-today" aria-label={label}>
       <div className="home-today__head">
-        <h2 className="home-today__title">오늘</h2>
+        {/*
+          오늘 적은 것이 없어도 어제를 바로 볼 수 있어야 한다. 달력까지 들어가면 그냥 안 본다.
+          앞으로는 오늘까지만 간다. 아직 오지 않은 날에는 적을 것이 없다.
+        */}
+        <div className="home-today__nav">
+          <button
+            type="button"
+            className="home-today__step"
+            aria-label={`${formatRelativeDay(shiftDay(day, -1))} 보기`}
+            onClick={() => onDayChange(shiftDay(day, -1))}
+          >
+            <Chevron direction="left" />
+          </button>
+          <h2 className="home-today__title" aria-live="polite">
+            {label}
+          </h2>
+          <button
+            type="button"
+            className="home-today__step"
+            disabled={isToday}
+            aria-label={`${formatRelativeDay(shiftDay(day, 1))} 보기`}
+            onClick={() => onDayChange(shiftDay(day, 1))}
+          >
+            <Chevron direction="right" />
+          </button>
+        </div>
         {/* 적은 줄이 없으면 0원을 적지 않는다. 아직 아무 일도 없었다는 말이 먼저다.
             줄은 있는데 합이 0 인 날(예산 제외만 있거나 안 썼다고만 적은 날)에는 0원을 적는다. */}
         {rows.length > 0 ? (
@@ -113,7 +169,7 @@ export function TodayList({
           {/* 아래에 전체 내역 줄이 붙으니 구분선을 감추지 않는다. */}
           {noSpend != null ? (
             <NoSpendRow
-              title="오늘은 안 썼어요"
+              title={noSpendLabel}
               avatarSize={54}
               density="compact"
               canceling={cancelNoSpend.isPending}
@@ -126,13 +182,13 @@ export function TodayList({
         </Card>
       ) : loading ? (
         <Card padding="md">
-          <LoadingState variant="rows" rows={2} label="오늘 기록을 불러오는 중이에요" />
+          <LoadingState variant="rows" rows={2} label={`${label} 기록을 불러오는 중이에요`} />
         </Card>
       ) : loadFailed ? (
         <Card padding="md">
           <ErrorState
             size="inline"
-            title="오늘 기록을 불러오지 못했어요"
+            title={`${label} 기록을 불러오지 못했어요`}
             description="적어 둔 것이 사라진 게 아니에요. 다시 시도해 주세요."
             onRetry={onRetry}
           />
@@ -146,13 +202,17 @@ export function TodayList({
           <EmptyState
             size="inline"
             icon="27_clock"
-            title="오늘은 아직 비어 있어요"
-            description="지금 생각나는 것 하나만 적어도 충분해요."
-            actionLabel={markNoSpend.isPending ? '적는 중이에요' : '오늘은 안 썼어요'}
+            title={isToday ? '오늘은 아직 비어 있어요' : `${withTopic(label)} 비어 있어요`}
+            description={
+              isToday
+                ? '지금 생각나는 것 하나만 적어도 충분해요.'
+                : '지난 날도 지금 적어 두면 그 날로 들어가요.'
+            }
+            actionLabel={markNoSpend.isPending ? '적는 중이에요' : noSpendLabel}
             onAction={() => {
               if (markNoSpend.isPending) return;
               markNoSpend.mutate({
-                occurred_at: toLedgerNoonIso(today),
+                occurred_at: toLedgerNoonIso(day),
                 amount: '0',
                 type: 'expense',
                 category_id: null,

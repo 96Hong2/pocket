@@ -8,6 +8,10 @@ import { ImportReview } from './ImportReview';
 
 const PLACEHOLDER = '점심 12000 스벅 4500 어제 택시 9000';
 
+/** 라벨과 설명을 입력칸에 걸어 주는 id. 이 탭은 한 화면에 하나만 뜬다. */
+const FIELD_ID = 'nl-text';
+const HINT_ID = 'nl-text-hint';
+
 export interface NaturalLanguageTabProps {
   /** 요청이 도는 동안 시트가 닫히거나 탭이 옮겨지지 않게 껍데기에 알린다. */
   onBusyChange: (busy: boolean) => void;
@@ -47,15 +51,20 @@ export function NaturalLanguageTab({ onBusyChange, onDone, onSaved }: NaturalLan
 
   return (
     <div className="nl" data-testid={TEST_IDS.nlPanel}>
-      <label className="nl__field">
-        <span className="nl__label">무엇을 썼나요</span>
-        {/*
-          안내 한 줄은 상자 안에 있지만 label 밖이다. label 안에 두면 그 문구가
-          입력칸의 접근성 이름에 딸려 붙어 「무엇을 썼나요」가 길어진다.
-        */}
-        <span className="nl__box">
+      {/*
+        안내 한 줄은 상자 안에 두고 label 로는 감싸지 않는다. label 안에 넣으면 그 문구가
+        입력칸의 접근성 이름에 딸려 붙어 「무엇을 썼나요」가 길어진다. 대신 htmlFor 로
+        이름을 걸고 aria-describedby 로 설명을 따로 붙인다.
+      */}
+      <div className="nl__field">
+        <label className="nl__label" htmlFor={FIELD_ID}>
+          무엇을 썼나요
+        </label>
+        <div className="nl__box">
           <textarea
+            id={FIELD_ID}
             className="nl__input"
+            aria-describedby={HINT_ID}
             value={text}
             rows={3}
             maxLength={1000}
@@ -63,9 +72,14 @@ export function NaturalLanguageTab({ onBusyChange, onDone, onSaved }: NaturalLan
             disabled={analyze.isPending}
             onChange={(event) => setText(event.target.value)}
           />
-        </span>
-      </label>
-      <p className="nl__hint">한 번에 여러 건을 적어도 돼요. 날짜를 적으면 그 날로 넣어요</p>
+          <p id={HINT_ID} className="nl__hint">
+            한 번에 여러 건을 적어도 돼요. 날짜를 적으면 그 날로 넣어요
+          </p>
+        </div>
+      </div>
+
+      {/* 수입도 이 칸에 적으면 된다. 읽고 나서 줄마다 지출·수입을 바꿀 수 있다. */}
+      <p className="nl__aside">수입도 같이 적어도 돼요. 읽은 뒤에 줄마다 고칠 수 있어요</p>
 
       {message ? (
         <p className="nl__notice" role="alert">

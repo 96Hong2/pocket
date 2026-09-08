@@ -10,6 +10,7 @@ import {
   type TransactionOut,
   type TransactionUpdate,
 } from '../../shared/api';
+import { KindToggle, categoriesOfKind, kindOf, type LedgerKind } from '../../shared/ledger';
 import { formatDayLabel } from '../../shared/lib/format';
 import {
   AmountField,
@@ -82,6 +83,16 @@ const CATEGORY_KIND: Record<TransactionOut['type'], CategoryOut['kind']> = {
   transfer: 'transfer',
 };
 
+/**
+ * 종류를 여기서 바꿀 수 있는가.
+ *
+ * 지출과 수입만 서로 바꾼다. 환불은 되돌릴 지출을 함께 골라야 하고, 이체는 집계 밖이라
+ * 분류가 없다. 둘을 이 토글에 태우면 되돌릴 수 없는 방향으로만 흐른다.
+ */
+function canSwitchKind(type: TransactionOut['type']): boolean {
+  return type === 'expense' || type === 'income';
+}
+
 function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
   const update = useUpdateTransaction(month);
   const remove = useDeleteTransaction();
@@ -91,10 +102,14 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
   const [amount, setAmount] = useState(String(savedAmount));
   const [categoryId, setCategoryId] = useState<string | null>(transaction.category_id ?? null);
   const [excluded, setExcluded] = useState(transaction.excluded_from_budget);
+  const [kind, setKind] = useState<LedgerKind>(kindOf(transaction.type));
   const [failed, setFailed] = useState(false);
 
   const busy = update.isPending || remove.isPending;
-  const pickable = categories.filter((item) => item.kind === CATEGORY_KIND[transaction.type]);
+  const switchable = canSwitchKind(transaction.type);
+  const pickable = switchable
+    ? categoriesOfKind(kind, categories)
+    : categories.filter((item) => item.kind === CATEGORY_KIND[transaction.type]);
   // 머리의 아이콘은 지금 고른 카테고리를 따라간다. 저장한 값만 보면 바꾼 뒤에도 옛 그림이 남는다.
   const headCategory = categories.find((item) => item.id === categoryId);
 
@@ -108,6 +123,7 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
 
     if (trimmed !== (transaction.merchant ?? '')) next.merchant = trimmed === '' ? null : trimmed;
     if (nextAmount !== savedAmount) next.amount = String(nextAmount);
+    if (switchable && kind !== transaction.type) next.type = kind;
     if (categoryId !== (transaction.category_id ?? null)) next.category_id = categoryId;
     if (excluded !== transaction.excluded_from_budget) next.excluded_from_budget = excluded;
     return next;
@@ -167,6 +183,24 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
           onChange={setAmount}
         />
       </div>
+
+      {switchable ? (
+        <KindToggle
+          className="tx-edit__kind"
+          value={kind}
+          disabled={busy}
+          ariaLabel="지출인지 수입인지"
+          onChange={(next) => {
+            if (next === kind) return;
+            setKind(next);
+            // 종류를 바꾸면 고른 분류가 그 종류의 것이 아닐 수 있다. 남겨 두면 수입이
+            // '식비' 로 저장된다. 원래 종류로 되돌아오면 처음 값을 그대로 되찾는다.
+            setCategoryId(
+              next === kindOf(transaction.type) ? (transaction.category_id ?? null) : null,
+            );
+          }}
+        />
+      ) : null}
 
       <div className="tx-edit__cats" role="group" aria-label="카테고리">
         {pickable.map((category) => (

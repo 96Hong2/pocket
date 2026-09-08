@@ -120,6 +120,30 @@ export function shiftMonth(monthKey: string, delta: number): string {
   return toMonthKey(new Date(year, month - 1 + delta, 1));
 }
 
+/**
+ * `2026-09-03` 을 delta 일만큼 옮긴다. -1 이면 `2026-09-02`.
+ *
+ * 로컬 자정 Date 로 만들어 더한다. 문자열 산술은 달과 해의 경계에서 틀린다.
+ */
+export function shiftDay(day: string, delta: number): string {
+  const date = parseIsoDate(day);
+  date.setDate(date.getDate() + delta);
+  return toIsoDate(date);
+}
+
+/**
+ * 앞말에 맞는 주제 조사. `어제` → `어제는`, `9월 6일` → `9월 6일은`.
+ *
+ * 받침이 있으면 '은', 없으면 '는' 이다. 하나로 고정하면 "어제은 안 썼어요" 가 나온다.
+ * 한글이 아닌 글자로 끝나면 받침 없는 쪽으로 둔다. 화면에 그런 말이 오지는 않는다.
+ */
+export function withTopic(word: string): string {
+  const code = word.codePointAt(word.length - 1) ?? 0;
+  const isHangul = code >= 0xac00 && code <= 0xd7a3;
+  const hasFinal = isHangul && (code - 0xac00) % 28 !== 0;
+  return `${word}${hasFinal ? '은' : '는'}`;
+}
+
 /** `2026-09` 또는 Date → `2026년 9월` */
 export function formatMonthLabel(month: string | Date): string {
   if (typeof month === 'string') {

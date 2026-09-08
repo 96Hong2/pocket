@@ -33,6 +33,8 @@ export interface FeedbackMessage {
 export interface FeedbackMessageOptions {
   /** 카테고리 예산을 넘겼을 때 그 카테고리 이름. 모르면 넘기지 않는다. */
   overCategoryName?: string;
+  /** 방금 저장한 것이 수입이면 그 금액. 지출 판정 문장을 그대로 쓰면 안 된다. */
+  savedIncome?: number;
 }
 
 /** 금액 문자열을 `12,000원` 으로. 값이 없으면 null 이라 문장에서 통째로 빠진다. */
@@ -141,10 +143,30 @@ function monthFact(feedback: FeedbackOut): FeedbackMessage {
   };
 }
 
+/**
+ * 수입을 적은 직후.
+ *
+ * 서버 판정은 지출을 보고 만든 것이라 그대로 쓰면 "이번 달 12,000원 썼어요" 가
+ * 수입을 적은 자리에 나온다. 사실이긴 해도 방금 한 일과 어긋난다.
+ * 예산 경고도 세우지 않는다. 들어온 돈을 적었는데 붉은 카드가 뜨면 앞뒤가 안 맞는다.
+ */
+function income(feedback: FeedbackOut, amount: number): FeedbackMessage {
+  const remaining = won(feedback.remaining_budget);
+  const month = won(feedback.month_expense);
+
+  let detail: string | undefined;
+  if (remaining) detail = `이번 달 남은 예산은 ${remaining}이에요.`;
+  else if (month) detail = `이번 달 쓴 돈은 ${month}이에요.`;
+
+  return { tone: 'calm', headline: `수입 ${formatCurrency(amount)}을 적었어요.`, detail };
+}
+
 export function buildFeedbackMessage(
   feedback: FeedbackOut,
   options: FeedbackMessageOptions = {},
 ): FeedbackMessage {
+  if (options.savedIncome != null) return income(feedback, options.savedIncome);
+
   switch (feedback.kind) {
     case 'over_budget':
       return overBudget(feedback, options);

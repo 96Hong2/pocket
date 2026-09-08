@@ -105,6 +105,8 @@
     grid-template-columns: auto 1fr auto auto;
     align-items: center;
     gap: 4px 12px;
+    /* 기록 버튼과 붙어 있으면 카드가 버튼의 일부처럼 읽힌다. 세이지 카드와 같은 간격을 준다. */
+    margin-top: 16px;
     padding: 14px 16px;
     background: var(--color-surface);
     border-radius: var(--radius-card);
@@ -174,6 +176,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+    margin-top: 16px;
     padding: 14px 16px;
     background: var(--color-sage-50);
     border-radius: var(--radius-card);
@@ -377,20 +380,52 @@
     margin-top: 24px;
   }
 
-  /* 제목과 오늘 쓴 돈을 한 줄에 양쪽 끝으로 밀어 놓는다. */
+  /* 날짜 옮기는 줄과 그날 쓴 돈을 한 줄에 양쪽 끝으로 밀어 놓는다. */
   .home-today__head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
     margin-bottom: 10px;
   }
 
+  /* 화살표 · 날짜 · 화살표. 왼쪽 화살표의 안쪽 여백만큼 당겨 날짜가 본문 눈금에 선다. */
+  .home-today__nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: -7px;
+  }
+
+  .home-today__step {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-muted);
+  }
+
+  .home-today__step:not(:disabled):active {
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+  }
+
+  .home-today__step:disabled {
+    color: var(--color-disabled);
+  }
+
   .home-today__title {
+    /* 오늘·어제·9월 6일 사이를 오갈 때 화살표가 좌우로 흔들리지 않게 자리를 잡아 둔다. */
+    min-width: 62px;
     margin: 0;
     font-size: var(--text-15);
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
+    text-align: center;
   }
 
   .home-today__total {

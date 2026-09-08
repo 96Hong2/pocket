@@ -829,12 +829,20 @@ export interface components {
             /** Is Over Budget */
             is_over_budget: boolean;
         };
-        /** CategoryCreate */
+        /**
+         * CategoryCreate
+         * @description 종류는 만들 때만 정한다. 나중에 바꾸는 길은 두지 않았다.
+         *
+         *     지출이던 분류를 수입으로 바꾸면 그 분류로 적어 둔 지난 거래가 종류와 어긋나고,
+         *     이미 본 리포트의 숫자가 나중에 달라진다.
+         */
         CategoryCreate: {
             /** Name */
             name: string;
             /** Icon Key */
             icon_key: string;
+            /** @default expense */
+            kind: components["schemas"]["CategoryKind"];
         };
         /**
          * CategoryKind

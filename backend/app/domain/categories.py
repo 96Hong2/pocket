@@ -15,11 +15,13 @@ __all__ = [
     "DEFAULT_CATEGORIES",
     "FIXED_COST_CATEGORY",
     "USER_CATEGORY_SORT_ORDER",
+    "USER_INCOME_SORT_ORDER",
     "CategoryKind",
     "DefaultCategory",
     "default_category_icons",
     "expense_category_names",
     "income_category_names",
+    "user_sort_order",
 ]
 
 
@@ -66,6 +68,16 @@ DEFAULT_CATEGORIES: tuple[DefaultCategory, ...] = (
 # 컬럼 기본값인 0 을 그대로 쓰면 내가 만든 것이 '식비'보다 앞에 서서 목록이 뒤집힌다.
 # '기타'는 지출 목록의 끝에 남겨 둔다. 마지막 자리가 흔들리면 어디까지가 지출인지 읽기 어렵다.
 USER_CATEGORY_SORT_ORDER = 85
+
+# 내가 만든 수입 분류가 앉는 자리. 기본 수입(100~102) 뒤, '이체'(110) 앞이다.
+# 지출과 달리 '기타 수입' 앞에 끼우지 않는다. 그러려면 기본 수입 번호를 다시 매겨야 하고,
+# 이미 저장된 행의 순서를 마이그레이션으로 옮기는 값이 이 정렬에 걸맞지 않다.
+USER_INCOME_SORT_ORDER = 105
+
+
+def user_sort_order(kind: CategoryKind) -> int:
+    """내가 만든 분류가 그 종류의 목록에서 앉는 자리."""
+    return USER_INCOME_SORT_ORDER if kind is CategoryKind.INCOME else USER_CATEGORY_SORT_ORDER
 
 
 def expense_category_names() -> tuple[str, ...]:

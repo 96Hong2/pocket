@@ -33,7 +33,8 @@ interface ImageImportMode {
   permission: PermissionResource;
   /** 앱 버전이 낮아 못 쓸 때 무엇이 안 되는지. */
   feature: string;
-  guide: string;
+  /** 무엇을 고르면 되는지 한 줄. 가운뎃점으로 이은 낱말이 줄 끝에서 갈리지 않게 묶어 둔다. */
+  guide: ReactNode;
   /** 안내를 감싸는 카드. 그림과 보조문이 함께 선다. 캡처에만 있다. */
   intro?: { icon: IconName; note: string };
   pickLabel: string;
@@ -59,7 +60,13 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
     permission: 'photos',
     feature: '캡처 불러오기',
     // PRD 원문. 어떤 화면을 골라도 되는지가 이 한 줄에 다 들어 있어 줄이지 않는다.
-    guide: '거래내역 캡처를 골라주세요. 토스·카드·은행 화면도 괜찮아요.',
+    // 가운뎃점에서 줄이 갈리면 다음 줄이 '·은행' 으로 시작해 글머리표처럼 읽힌다.
+    guide: (
+      <>
+        거래내역 캡처를 골라주세요. <span className="capture__unit">토스·카드·은행</span> 화면도
+        괜찮아요.
+      </>
+    ),
     intro: { icon: '23_document', note: '원본 이미지는 정리 후 바로 지워져요' },
     pickLabel: '캡처 고르기',
     pickAlert: '앨범을 열지 못했어요',

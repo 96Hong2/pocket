@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
-from app.domain.categories import USER_CATEGORY_SORT_ORDER, CategoryKind
+from app.domain.categories import user_sort_order
 from app.models import Category, CategoryBudget, MerchantRule, User
 from app.modules.categories.schemas import CategoryCreate, CategoryUpdate
 
@@ -139,12 +139,18 @@ def _duplicate_error() -> ApiError:
 
 
 def _free_name_slot(
-    session: Session, rows: list[Category], user: User, key: str, *, keep_id: uuid.UUID
+    session: Session,
+    rows: list[Category],
+    user: User,
+    key: str,
+    *,
+    keep_id: uuid.UUID | None = None,
 ) -> None:
     """지운 행이 붙들고 있는 이름 자리를 비운다.
 
     유니크 인덱스에 `deleted_at` 이 없어서, 지운 행이 그 이름을 계속 잡고 있다.
-    만들기는 그 행을 되살려 비켜 가지만 이름 바꾸기는 그럴 수 없다. 바꿀 행이 이미 살아 있어서다.
+    이름 바꾸기는 그 행을 되살려 비켜 갈 수 없다. 바꿀 행이 이미 살아 있어서다.
+    만들기도 종류가 다르면 되살릴 수 없어 이리로 온다.
     그대로 두면 화면 어디에도 없는 이름 때문에 "이미 있어요" 가 나가고, 몇 번을 다시 눌러도
     풀리지 않는다.
 
@@ -165,11 +171,15 @@ def _free_name_slot(
 
 
 def create_category(session: Session, user: User, data: CategoryCreate) -> Category:
-    """내 지출 분류를 하나 만든다. 지웠던 같은 이름이 있으면 그 행을 되살린다.
+    """내 분류를 하나 만든다. 지웠던 같은 이름이 있으면 그 행을 되살린다.
 
     되살리는 이유가 둘이다. 지운 행이 (user_id, name) 자리를 계속 잡고 있어 새로 넣으면
     터진다. 그리고 같은 id 가 돌아와야 그 분류로 적어 둔 과거 거래가 이름을 되찾는다.
     예산이 tombstone 을 되살리는 것과 같은 방식이다(ADR-0008).
+
+    되살리는 것은 종류가 같을 때뿐이다. 지웠던 지출 '보너스' 를 수입 '보너스' 로 되살리면
+    그 분류로 적어 둔 지난 지출이 수입 분류를 달게 되고, 이미 본 리포트가 나중에 달라진다.
+    종류가 다르면 이름 자리만 비우고 새 행을 만든다.
     """
     name = _fold(data.name)
     key = _key(name)
@@ -184,22 +194,23 @@ def create_category(session: Session, user: User, data: CategoryCreate) -> Categ
         ),
         None,
     )
-    if revived is not None:
+    if revived is not None and revived.kind is data.kind:
         revived.name = name
-        revived.kind = CategoryKind.EXPENSE
         revived.icon_key = data.icon_key
-        revived.sort_order = USER_CATEGORY_SORT_ORDER
+        revived.sort_order = user_sort_order(data.kind)
         revived.deleted_at = None
         session.commit()
         session.refresh(revived)
         return revived
+    if revived is not None:
+        _free_name_slot(session, rows, user, key)
 
     row = Category(
         user_id=user.id,
         name=name,
-        kind=CategoryKind.EXPENSE,
+        kind=data.kind,
         icon_key=data.icon_key,
-        sort_order=USER_CATEGORY_SORT_ORDER,
+        sort_order=user_sort_order(data.kind),
     )
     session.add(row)
     try:
