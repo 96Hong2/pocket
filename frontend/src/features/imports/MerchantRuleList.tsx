@@ -56,7 +56,7 @@ export function MerchantRuleList() {
               const category = categories.data?.items.find((item) => item.id === rule.category_id);
               return (
                 <li className="rules__row" key={rule.id} data-testid={TEST_IDS.merchantRuleRow}>
-                  <CategoryAvatar icon={toIconName(category?.icon_key)} size={28} />
+                  <CategoryAvatar icon={toIconName(category?.icon_key)} size={40} />
                   <span className="rules__merchant">{rule.merchant}</span>
                   <span className="rules__category">{category?.name ?? '분류 없음'}</span>
                   <button

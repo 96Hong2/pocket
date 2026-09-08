@@ -173,8 +173,9 @@ class LedgerListArea {
     await expect(this.root.getByRole('button', { name: '불러오는 중…' })).toHaveCount(0);
   }
 
+  /** 기록이 없는 날에 목록 자리를 대신하는 한 줄. */
   get emptyDay(): Locator {
-    return this.root.getByText('이 날은 기록이 없어요', { exact: true });
+    return this.root.getByText('이 날은 기록이 없어요. 없는 날도 괜찮아요.', { exact: true });
   }
 
   /** 행을 눌러 수정 시트를 연다. */

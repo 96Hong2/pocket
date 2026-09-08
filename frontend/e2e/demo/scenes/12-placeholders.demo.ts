@@ -118,7 +118,10 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
 
   await demo.step('이번에는 자산으로 들어간다. 점선 카드가 걷히고 실제로 적는 화면이 들어왔다');
   await manage.assetsEntry.click();
-  await appShell.expectScreen('자산', '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요');
+  await appShell.expectScreen(
+    '자산',
+    '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요. 계좌 연결이나 정확한 숫자는 필요 없어요.',
+  );
   await assets.waitReady();
   await demo.beat(2);
 

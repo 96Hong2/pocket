@@ -81,6 +81,7 @@ export function AssetsBoard() {
               onAdd={add}
             />
           ))}
+          <p className="assets__skip-note">모든 항목은 건너뛸 수 있어요</p>
         </>
       )}
 

@@ -49,9 +49,13 @@ export class GoalScreen {
     return this.card.getByRole('heading', { level: 2 });
   }
 
-  /** 목표가 하나도 없을 때의 제목. */
+  /**
+   * 목표가 하나도 없을 때의 제목.
+   *
+   * 목표가 있을 때 화면 맨 아래에 뜨는 안심 문구와 섞이지 않게 빈 상태 블록 안에서만 찾는다.
+   */
   get emptyTitle(): Locator {
-    return this.page.getByText('목표는 언제든 바꿔도, 지워도 괜찮아요', { exact: true });
+    return this.page.getByRole('status').getByText('아직 정한 목표가 없어요', { exact: true });
   }
 
   /** 빈 상태에서 처음 만들기 시작하는 버튼. */

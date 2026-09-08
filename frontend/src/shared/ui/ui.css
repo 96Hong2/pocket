@@ -396,7 +396,7 @@
 
   .pk-month--compact .pk-month__label {
     min-width: 88px;
-    font-size: var(--text-14);
+    font-size: var(--text-13);
   }
 
   /* ── CategoryAvatar ─────────────────────────────────── */
@@ -410,9 +410,12 @@
   }
 
   .pk-avatar__img {
-    /* 동그라미 안에서 그림이 너무 작아 무엇인지 알아보기 어려웠다. 목록·칩이 다 이 값을 쓴다. */
-    width: 70%;
-    height: 70%;
+    /*
+      동그라미 안에서 그림이 너무 작아 무엇인지 알아보기 어려웠다. 목록·칩이 다 이 값을 쓴다.
+      시안은 원 지름의 73~86% 를 그림에 준다. 그보다 조금 더 크게 잡았다.
+    */
+    width: 78%;
+    height: 78%;
     object-fit: contain;
   }
 

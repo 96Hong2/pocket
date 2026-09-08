@@ -84,7 +84,7 @@ function CategoryBudgetRow({ row, category, editable, onPick }: CategoryBudgetRo
 
   const inner = (
     <>
-      <CategoryAvatar icon={toIconName(category?.icon_key)} size={36} />
+      <CategoryAvatar icon={toIconName(category?.icon_key)} size={48} />
       <div className="budget-cat__body">
         <div className="budget-cat__head">
           <span className="budget-cat__name">{name}</span>

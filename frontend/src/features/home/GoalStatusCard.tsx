@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { ROUTES } from '../../app/router/routes';
 import { parseDecimalOr, type GoalOut } from '../../shared/api';
 import { formatCurrency } from '../../shared/lib/format';
-import { Gauge } from '../../shared/ui';
+import { Gauge, iconUrl } from '../../shared/ui';
 
 interface GoalStatusCardProps {
   /** 진행 중인 목표. 없으면 이 카드를 아예 그리지 않는다. */
@@ -23,6 +23,7 @@ export function GoalStatusCard({ goal }: GoalStatusCardProps) {
 
   return (
     <Link className="home-goal" to={ROUTES.goal}>
+      <img className="home-goal__icon" src={iconUrl('02_gold_bars')} alt="" aria-hidden="true" />
       <span className="home-goal__label">목표</span>
       <span className="home-goal__title">{goal.title}</span>
       {/* 예산 게이지와 크기가 다르다. 홈의 주인공은 예산이고 이건 곁들여 보는 값이다. */}
@@ -34,6 +35,10 @@ export function GoalStatusCard({ goal }: GoalStatusCardProps) {
       />
       <span className="home-goal__foot" data-numeric="">
         {goal.is_achieved ? '다 모았어요' : `남은 ${formatCurrency(remaining)}`}
+      </span>
+      {/* 눌러서 들어가는 카드라는 표시. 이름은 안쪽 글자가 만들어 여기서는 읽지 않는다. */}
+      <span className="home-goal__chevron" aria-hidden="true">
+        ›
       </span>
       {/* 링크 이름은 안쪽 글자가 만든다. 갈 곳은 이름 끝에 덧붙여 읽어 준다. */}
       <span className="home-goal__sr">, 목표 자세히 보기</span>

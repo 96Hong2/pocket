@@ -26,7 +26,7 @@ export function AssetGroupSection({ group, total, items, onPick, onAdd }: AssetG
   return (
     <section className="asset-group" aria-label={view.label}>
       <div className="asset-group__head">
-        <CategoryAvatar icon={view.icon} size={36} />
+        <CategoryAvatar icon={view.icon} size={54} />
         <div className="asset-group__title">
           <h2 className="asset-group__name">{view.label}</h2>
           <span className="asset-group__hint">{view.hint}</span>
@@ -35,7 +35,7 @@ export function AssetGroupSection({ group, total, items, onPick, onAdd }: AssetG
           data-testid={TEST_IDS.assetGroupTotal}
           value={parseDecimalOr(total, 0)}
           size={15}
-          weight={800}
+          weight={700}
         />
       </div>
 

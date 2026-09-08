@@ -86,8 +86,9 @@
   }
 
   .tabbar__icon {
-    width: 19px;
-    height: 19px;
+    /* 시안은 19px 인데 실물에서 무엇인지 잘 안 읽혀 조금 키웠다. 알약 높이 46px 안에 든다. */
+    width: 23px;
+    height: 23px;
     object-fit: contain;
   }
 
@@ -112,6 +113,7 @@
   .page__lead {
     margin: 0 0 16px;
     font-size: var(--text-13);
+    line-height: 1.55;
     color: var(--color-muted);
   }
 
@@ -133,7 +135,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    /* 아이콘이 44px 이라 줄이 그만큼 높다. 시안의 줄 높이(그림 40 + 위아래 13)와 같은 자리다. */
+    /* 아이콘과 위아래 여백을 합친 값. 시안의 줄 높이(그림 40 + 위아래 13)와 같은 자리다. */
     min-height: 64px;
     gap: 12px;
     font-size: var(--text-15);

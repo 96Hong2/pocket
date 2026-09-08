@@ -10,7 +10,54 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    margin-bottom: 24px;
+    margin-bottom: 12px;
+  }
+
+  /* 홈 표시 덩어리만 흰 카드다. 아래 덩어리는 안에 카드를 이미 품고 있어 겹친다. */
+  .setting-block--card {
+    padding: 16px;
+    background: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  /*
+    시안은 흰 카드 위에 버튼 셋만 놓는다. 공용 세그먼트의 회색 트랙을 그대로 두면
+    흰 판 위에 띠가 하나 더 보인다. 트랙만 걷고 안 고른 버튼에 그 색을 옮긴다.
+  */
+  .setting-block--card .pk-segmented {
+    gap: 8px;
+    padding: 0;
+    background: none;
+  }
+
+  .setting-block--card .pk-segmented__item {
+    background: var(--color-bg);
+  }
+
+  .setting-block--card .pk-segmented__item[aria-checked='true'] {
+    background: var(--color-surface);
+  }
+
+  /* 링크 카드와 안내가 놓인 덩어리. 줄 사이를 시안과 같은 12px 로 둔다. */
+  .setting-block--links {
+    gap: 12px;
+  }
+
+  /* 아이콘이 40px 이라 줄 높이가 그만큼 늘어난다. 아이콘 없는 관리 탭 줄은 그대로 둔다. */
+  .setting-block--links .link-row {
+    padding: 13px 0;
+  }
+
+  /* 아직 못 누르는 자리라는 표시. 값처럼 보이면 눌러 보게 된다. */
+  .link-row__badge {
+    flex: none;
+    padding: 3px 9px;
+    background: var(--color-border);
+    border-radius: var(--radius-pill);
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
   }
 
   .setting-block__title {
@@ -64,18 +111,21 @@
 
   .setting-note {
     margin: 0;
-    padding: 12px 14px;
+    padding: 14px 16px;
     background: var(--color-sage-50);
     border-radius: var(--radius-inset);
-    font-size: var(--text-13);
+    font-size: var(--text-12);
     font-weight: var(--font-weight-semibold);
-    color: var(--color-sage-800);
-    line-height: 1.55;
+    color: var(--color-sage-700);
+    line-height: 1.6;
   }
 
-  /* 플랫폼 안내처럼 한 번 읽고 마는 줄. 본문보다 한 단 뒤로 물린다. */
+  /* 플랫폼 안내처럼 한 번 읽고 마는 줄. 박스 없이 맨 글로 둬 본문보다 뒤로 물린다. */
   .setting-note--muted {
-    color: var(--color-ad-label);
+    padding: 0 4px;
+    background: none;
+    border-radius: 0;
+    color: var(--color-muted);
   }
 
   /* ── 개인정보처리방침 화면 ──────────────────────── */

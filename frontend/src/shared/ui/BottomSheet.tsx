@@ -83,7 +83,7 @@ export function BottomSheet({
             </div>
             {showCloseButton && dismissible ? (
               <button type="button" className="pk-sheet__close" onClick={onClose} aria-label="닫기">
-                <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 18 18" aria-hidden="true">
                   <path
                     d="M4 4l10 10M14 4L4 14"
                     stroke="currentColor"

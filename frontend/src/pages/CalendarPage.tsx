@@ -183,13 +183,10 @@ export default function CalendarPage() {
               empty={
                 // 안 썼다고 적어 둔 날은 빈 날이 아니다. 아래 줄이 그 자리를 채운다.
                 noSpend.length > 0 ? null : (
-                  <Card padding="md">
-                    <EmptyState
-                      size="inline"
-                      icon="27_clock"
-                      title="이 날은 기록이 없어요"
-                      description="없는 날도 괜찮아요."
-                    />
+                  <Card padding="list">
+                    <p className="tx-list__empty" role="status">
+                      이 날은 기록이 없어요. 없는 날도 괜찮아요.
+                    </p>
                   </Card>
                 )
               }

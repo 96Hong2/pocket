@@ -1,12 +1,16 @@
+import { Link } from 'react-router';
+
+import { ROUTES } from '../../app/router/routes';
 import {
   ApiError,
+  parseDecimalOr,
   useCreateTransaction,
   useDeleteTransaction,
   type CategoryOut,
   type TransactionOut,
 } from '../../shared/api';
 import { LedgerRow, NoSpendRow, splitNoSpend } from '../../shared/ledger';
-import { toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
+import { formatCurrency, toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
 import { Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui';
 
 interface TodayListProps {
@@ -32,6 +36,32 @@ function isToday(occurredAt: string, today: string): boolean {
   return !Number.isNaN(at.getTime()) && toLedgerDate(at) === today;
 }
 
+/**
+ * 오늘 쓴 돈 합계.
+ *
+ * 예산에서 뺀 줄은 세지 않는다. 시안이 그 줄을 흐리게 그리고 합계에서도 빼고 있어,
+ * 여기서만 더하면 화면에 보이는 줄과 위 숫자가 서로 다른 말을 한다.
+ * 수입·이체는 쓴 돈이 아니라 지출만 센다.
+ */
+function sumSpent(rows: TransactionOut[]): number {
+  return rows.reduce(
+    (total, row) =>
+      row.type === 'expense' && !row.excluded_from_budget
+        ? total + parseDecimalOr(row.amount, 0)
+        : total,
+    0,
+  );
+}
+
+/** 오늘 카드의 마지막 줄. 카드 밖에 두면 오늘과 그 전이 서로 다른 덩어리로 갈린다. */
+function MoreLink() {
+  return (
+    <Link className="home-more" to={ROUTES.calendar}>
+      전체 내역 보기
+    </Link>
+  );
+}
+
 export function TodayList({
   transactions,
   categories,
@@ -45,6 +75,7 @@ export function TodayList({
   // 안 쓴 날 표시는 금액이 0 이라 다른 줄과 같은 모양으로 그릴 수 없다. 달력과 같은 규칙으로 가른다.
   const { noSpend: noSpendRows, spent } = splitNoSpend(rows);
   const noSpend = noSpendRows[0] ?? null;
+  const spentTotal = sumSpent(spent);
 
   const markNoSpend = useCreateTransaction();
   const cancelNoSpend = useDeleteTransaction();
@@ -57,20 +88,29 @@ export function TodayList({
 
   return (
     <section className="home-today" aria-label="오늘">
-      <h2 className="home-today__title">오늘</h2>
+      <div className="home-today__head">
+        <h2 className="home-today__title">오늘</h2>
+        {/* 적은 줄이 없으면 0원을 적지 않는다. 아직 아무 일도 없었다는 말이 먼저다.
+            줄은 있는데 합이 0 인 날(예산 제외만 있거나 안 썼다고만 적은 날)에는 0원을 적는다. */}
+        {rows.length > 0 ? (
+          <span className="home-today__total" data-numeric="">
+            {formatCurrency(spentTotal)} 씀
+          </span>
+        ) : null}
+      </div>
       {rows.length > 0 ? (
         <Card padding="list">
-          {spent.map((tx, index) => (
+          {spent.map((tx) => (
             <LedgerRow
               key={tx.id}
               transaction={tx}
               categories={categories}
               avatarSize={54}
               density="compact"
-              hideDivider={noSpend == null && index === spent.length - 1}
               onClick={onPick ? () => onPick(tx) : undefined}
             />
           ))}
+          {/* 아래에 전체 내역 줄이 붙으니 구분선을 감추지 않는다. */}
           {noSpend != null ? (
             <NoSpendRow
               title="오늘은 안 썼어요"
@@ -78,9 +118,11 @@ export function TodayList({
               density="compact"
               canceling={cancelNoSpend.isPending}
               onCancel={() => cancelNoSpend.mutate(noSpend.id)}
+              hideDivider={false}
             />
           ) : null}
           {noSpendError ? <ErrorLine message={noSpendError.message} /> : null}
+          <MoreLink />
         </Card>
       ) : loading ? (
         <Card padding="md">
@@ -121,6 +163,7 @@ export function TodayList({
             }}
           />
           {noSpendError ? <ErrorLine message={noSpendError.message} /> : null}
+          <MoreLink />
         </Card>
       )}
     </section>

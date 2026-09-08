@@ -6,7 +6,7 @@ import {
   toLedgerDate,
 } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
-import { Amount, Button, Chip, Gauge } from '../../shared/ui';
+import { Amount, Button, Chip, Gauge, iconUrl } from '../../shared/ui';
 
 export interface GoalCardProps {
   goal: GoalOut;
@@ -33,6 +33,14 @@ export function GoalCard({ goal, onEdit, onContribute }: GoalCardProps) {
   return (
     <section className="goal-card" aria-label="목표 진행">
       <div className="goal-card__head">
+        {/* 무엇을 모으는 중인지 카드 머리에서 바로 보이게 둔다. 이름 옆 장식이라 읽지 않는다. */}
+        <img
+          className="goal-card__icon"
+          src={iconUrl('02_gold_bars')}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+        />
         <h2 className="goal-card__title">{goal.title}</h2>
         {/* 달성은 계산으로 판정한다. 상태를 굳히지 않으니 기여를 지우면 이 배지도 사라진다. */}
         {goal.is_achieved ? <Chip variant="sage">달성했어요</Chip> : null}
@@ -49,7 +57,7 @@ export function GoalCard({ goal, onEdit, onContribute }: GoalCardProps) {
         className="goal-card__gauge"
         data-testid={TEST_IDS.goalGauge}
         ratio={parseDecimalOr(goal.progress, 0)}
-        size={6}
+        size={10}
         label="목표 진행률"
       />
 
@@ -57,7 +65,7 @@ export function GoalCard({ goal, onEdit, onContribute }: GoalCardProps) {
         <div className="goal-facts__row">
           <dt className="goal-facts__label">남은 금액</dt>
           <dd className="goal-facts__value">
-            <Amount data-testid={TEST_IDS.goalRemaining} value={remaining} size={15} weight={700} />
+            <Amount data-testid={TEST_IDS.goalRemaining} value={remaining} size={17} weight={800} />
           </dd>
         </div>
 

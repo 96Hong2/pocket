@@ -16,8 +16,8 @@
   .goal-card {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 18px;
+    gap: 14px;
+    padding: 20px 18px;
     background: var(--color-sage-50);
     border-radius: var(--radius-card);
   }
@@ -25,7 +25,14 @@
   .goal-card__head {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+  }
+
+  .goal-card__icon {
+    flex: none;
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
   }
 
   .goal-card__title {
@@ -105,6 +112,14 @@
     flex: 2;
   }
 
+  /* 화면 맨 아래 한 줄. 목표를 바꾸거나 지워도 된다는 것을 적는 자리다. */
+  .goal__closing {
+    margin: 0;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
   /* ── 모은 돈 목록 ───────────────────────────────── */
 
   .goal-log {
@@ -177,10 +192,40 @@
 
   /* ── 시트 ───────────────────────────────────────── */
 
+  /* 제목 옆 그림. 헤더가 아이콘에 밀리지 않게 높이도 여기서 함께 잡는다. */
+  .goal-sheet .pk-sheet__header {
+    min-height: 48px;
+  }
+
+  .goal-sheet__heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .goal-sheet__heading-icon {
+    flex: none;
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+  }
+
   .goal-sheet__body {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 8px;
+  }
+
+  /*
+    입력 줄마다 옅은 상자를 둘러 어디까지가 한 칸인지 보이게 한다.
+    금액 칸은 공용 부품이라 이 시트 안의 것만 고른다. 상자 안에 또 상자가 생기지 않게
+    바로 아래 자식만 잡는다.
+  */
+  .goal-sheet__field,
+  .goal-sheet__body > .pk-amount-field {
+    background: var(--color-bg);
+    border-radius: var(--radius-button);
+    padding: 10px 14px;
   }
 
   .goal-sheet__field {
@@ -227,6 +272,11 @@
     color: var(--color-amber-700);
   }
 
+  .goal-sheet__actions,
+  .goal-sheet__body > .pk-btn {
+    margin-top: 6px;
+  }
+
   .goal-sheet__actions {
     display: flex;
     gap: 10px;
@@ -238,5 +288,12 @@
 
   .goal-sheet__done {
     flex: 2;
+  }
+
+  .goal-sheet__closing {
+    margin: 2px 0 0;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+    text-align: center;
   }
 }

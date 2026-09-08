@@ -51,7 +51,7 @@ export function GoalBoard() {
         <Card padding="md">
           <EmptyState
             icon="32_piggybank"
-            title="목표는 언제든 바꿔도, 지워도 괜찮아요"
+            title="아직 정한 목표가 없어요"
             description="모으고 싶은 것 하나만 정해 봐요"
             actionLabel="목표 만들기"
             onAction={() => setFormOpen(true)}
@@ -65,6 +65,7 @@ export function GoalBoard() {
             onContribute={() => setContributionOpen(true)}
           />
           <ContributionList goalId={goal.id} contributions={goal.contributions} />
+          <p className="goal__closing">목표는 언제든 바꿔도, 지워도 괜찮아요</p>
         </>
       )}
 

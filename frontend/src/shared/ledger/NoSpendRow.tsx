@@ -10,6 +10,8 @@ export interface NoSpendRowProps {
   canceling?: boolean;
   /** 되돌릴 길. 안 넘기면 누를 것이 없는 읽기 전용 줄이 된다. */
   onCancel?: () => void;
+  /** 아래 구분선을 감출까. 목록 마지막 줄이 아니면 남겨야 다음 줄과 붙어 보이지 않는다. */
+  hideDivider?: boolean;
 }
 
 /**
@@ -25,6 +27,7 @@ export function NoSpendRow({
   density = 'default',
   canceling = false,
   onCancel,
+  hideDivider = true,
 }: NoSpendRowProps) {
   return (
     <TransactionRow
@@ -33,7 +36,7 @@ export function NoSpendRow({
       amount={0}
       avatarSize={avatarSize}
       density={density}
-      hideDivider
+      hideDivider={hideDivider}
       trailing={
         onCancel ? (
           <Button variant="ghost" disabled={canceling} onClick={onCancel}>

@@ -9,7 +9,7 @@ import {
   useUpdateGoal,
   type GoalOut,
 } from '../../shared/api';
-import { AmountField, BottomSheet, Button } from '../../shared/ui';
+import { AmountField, BottomSheet, Button, iconUrl } from '../../shared/ui';
 
 export interface GoalFormSheetProps {
   open: boolean;
@@ -32,7 +32,19 @@ export function GoalFormSheet({ open, goal, onClose }: GoalFormSheetProps) {
       open={open}
       onClose={onClose}
       dismissible={!saving}
-      title={goal == null ? '목표 만들기' : '목표 고치기'}
+      title={
+        <span className="goal-sheet__heading">
+          {/* 무슨 시트인지 그림으로도 알아보게 둔다. 제목 옆 장식이라 읽지 않는다. */}
+          <img
+            className="goal-sheet__heading-icon"
+            src={iconUrl('02_gold_bars')}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+          />
+          {goal == null ? '목표 만들기' : '목표 고치기'}
+        </span>
+      }
       className="goal-sheet"
     >
       {open ? (
@@ -152,6 +164,8 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
           저장
         </Button>
       </div>
+
+      <p className="goal-sheet__closing">목표는 언제든 바꿔도 괜찮아요 · 재촉하지 않을게요</p>
     </div>
   );
 }

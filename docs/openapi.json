@@ -7011,6 +7011,58 @@
         "title": "ImportTextIn",
         "description": "줄글 한 덩어리. 여러 건이 들어 있을 수 있다."
       },
+      "LargeExpenseOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "occurred_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Occurred On"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "occurred_on",
+          "merchant",
+          "category_id",
+          "amount"
+        ],
+        "title": "LargeExpenseOut",
+        "description": "큰 지출 한 줄. 분류별 합계로는 \"무엇을 샀길래\" 가 안 보인다."
+      },
       "MerchantRuleListOut": {
         "properties": {
           "items": {
@@ -7138,6 +7190,13 @@
                 "type": "null"
               }
             ]
+          },
+          "large_expenses": {
+            "items": {
+              "$ref": "#/components/schemas/LargeExpenseOut"
+            },
+            "type": "array",
+            "title": "Large Expenses"
           }
         },
         "type": "object",
@@ -7155,7 +7214,8 @@
           "income_breakdown_total",
           "trend",
           "comparison",
-          "weeks"
+          "weeks",
+          "large_expenses"
         ],
         "title": "MonthlyReportOut"
       },

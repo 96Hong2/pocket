@@ -27,7 +27,10 @@ test('관리 탭에서 자산으로 들어가면 빈 상태가 있다', async ({
   ]);
 
   await manage.assetsEntry.click();
-  await appShell.expectScreen('자산', '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요');
+  await appShell.expectScreen(
+    '자산',
+    '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요. 계좌 연결이나 정확한 숫자는 필요 없어요.',
+  );
   await assets.waitReady();
 
   await expect(assets.emptyTitle).toBeVisible();
@@ -162,7 +165,10 @@ test('시트가 열려 있으면 뒤로가기가 시트를 먼저 닫는다', as
 
   // 시트가 열린 채 화면만 뒤로 빠지면 자산 화면 밖에 시트가 떠 있게 된다.
   await assets.sheet.waitClosed();
-  await appShell.expectScreen('자산', '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요');
+  await appShell.expectScreen(
+    '자산',
+    '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요. 계좌 연결이나 정확한 숫자는 필요 없어요.',
+  );
 });
 
 test('긴 이름과 큰 금액에도 화면이 가로로 넘치지 않는다', async ({ assets, prep }) => {

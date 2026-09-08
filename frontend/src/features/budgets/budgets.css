@@ -20,8 +20,8 @@
 
   .budget__title {
     margin: 0;
-    font-size: var(--text-16);
-    font-weight: var(--font-weight-extrabold);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
     color: var(--color-ink);
   }
 
@@ -101,7 +101,7 @@
   .budget-total__title {
     margin: 0;
     font-size: var(--text-13);
-    font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
   }
 
@@ -195,7 +195,7 @@
     align-items: center;
     gap: 10px;
     width: 100%;
-    min-height: 60px;
+    min-height: 68px;
     padding: 10px 14px;
     border: 0;
     border-radius: var(--radius-inset);
@@ -203,6 +203,11 @@
     box-shadow: var(--shadow-card);
     font-family: inherit;
     text-align: left;
+  }
+
+  .budget-cat__hit .pk-avatar__img {
+    width: 40px;
+    height: 40px;
   }
 
   .budget-cat__body {

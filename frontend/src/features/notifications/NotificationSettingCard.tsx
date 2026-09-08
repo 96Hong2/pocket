@@ -8,7 +8,7 @@ import {
   type NotificationSettingsPatch,
 } from '../../shared/api';
 import { BridgeError } from '../../shared/toss';
-import { RetryButton, Toggle, UnsupportedFeature } from '../../shared/ui';
+import { CategoryAvatar, RetryButton, Toggle, UnsupportedFeature } from '../../shared/ui';
 
 /**
  * 토스 콘솔 스마트발송 템플릿 코드.
@@ -132,6 +132,7 @@ export function NotificationSettingCard() {
   return (
     <section className="notify" aria-labelledby={titleId}>
       <div className="notify__row">
+        <CategoryAvatar icon="30_bell" size={54} />
         <div className="notify__text">
           <span id={titleId} className="notify__title">
             기록 알림
@@ -148,6 +149,7 @@ export function NotificationSettingCard() {
       </div>
 
       <div className="notify__time">
+        <CategoryAvatar icon="27_clock" size={54} />
         <label className="notify__time-label" htmlFor={timeId}>
           알림 시간
         </label>

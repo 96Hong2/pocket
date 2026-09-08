@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
 import { useIdentity } from '../app/providers';
-import { ROUTES } from '../app/router/routes';
 import { AdSlot } from '../features/ads';
 import {
   BudgetSuggestCard,
@@ -125,11 +123,6 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
         }}
         onPick={setEditing}
       />
-
-      {/* 달력 화면으로 가는 유일한 입구다. 오늘 아래에 두어 "오늘 말고 그 전" 으로 읽히게 한다. */}
-      <Link className="home-more" to={ROUTES.calendar}>
-        전체 내역 보기
-      </Link>
 
       {/*
         달력과 같은 시트를 쓴다. 고치는 자리가 둘이 되면 규칙도 둘이 된다.

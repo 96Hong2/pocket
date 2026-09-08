@@ -1271,6 +1271,28 @@ export interface components {
             /** Text */
             text: string;
         };
+        /**
+         * LargeExpenseOut
+         * @description 큰 지출 한 줄. 분류별 합계로는 "무엇을 샀길래" 가 안 보인다.
+         */
+        LargeExpenseOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Merchant */
+            merchant: string | null;
+            /** Category Id */
+            category_id: string | null;
+            /** Amount */
+            amount: string;
+        };
         /** MerchantRuleListOut */
         MerchantRuleListOut: {
             /** Items */
@@ -1326,6 +1348,8 @@ export interface components {
             trend: components["schemas"]["TrendPointOut"][];
             comparison: components["schemas"]["PeriodComparisonOut"] | null;
             weeks: components["schemas"]["PeriodComparisonOut"] | null;
+            /** Large Expenses */
+            large_expenses: components["schemas"]["LargeExpenseOut"][];
         };
         /**
          * NextOut

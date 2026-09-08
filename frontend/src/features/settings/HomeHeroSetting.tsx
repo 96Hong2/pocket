@@ -80,7 +80,7 @@ export function HomeHeroSetting() {
   const layout = resolveHeroLayout(hero, amount != null && amount > 0);
 
   return (
-    <section className="setting-block" aria-labelledby={titleId}>
+    <section className="setting-block setting-block--card" aria-labelledby={titleId}>
       <h2 id={titleId} className="setting-block__title">
         홈 맨 위에 보여줄 것
       </h2>
