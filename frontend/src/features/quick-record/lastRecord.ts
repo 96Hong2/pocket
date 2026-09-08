@@ -7,12 +7,16 @@
 
 import type { KeyValueStore } from '../../shared/toss';
 
+import type { LedgerKind } from '../../shared/ledger';
+
 const KEY = 'last-record';
 
 export interface LastRecord {
   amount: number;
   categoryId: string;
   categoryName: string;
+  /** 지출이었나 수입이었나. 종류를 모르는 옛 값은 지출로 읽는다. */
+  kind: LedgerKind;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -37,12 +41,13 @@ export async function readLastRecord(store: KeyValueStore): Promise<LastRecord |
   }
   if (!isRecord(parsed)) return null;
 
-  const { amount, categoryId, categoryName } = parsed;
+  const { amount, categoryId, categoryName, kind } = parsed;
   if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return null;
   if (typeof categoryId !== 'string' || categoryId === '') return null;
   if (typeof categoryName !== 'string' || categoryName === '') return null;
 
-  return { amount, categoryId, categoryName };
+  // 종류를 안 담던 때의 값이 그대로 남아 있다. 그때는 전부 지출이었다.
+  return { amount, categoryId, categoryName, kind: kind === 'income' ? 'income' : 'expense' };
 }
 
 /** 저장에 실패해도 조용히 넘어간다. 편의 기능이라 기록 자체를 막지 않는다. */

@@ -21,6 +21,7 @@
     font-size: var(--text-12);
     font-weight: var(--font-weight-medium);
     color: var(--color-muted);
+    word-break: keep-all;
   }
 
   /* ── 섹션 ───────────────────────────────────────── */
@@ -45,6 +46,7 @@
     font-size: var(--text-12);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
+    word-break: keep-all;
   }
 
   /* ── 목록 한 줄 ─────────────────────────────────── */
@@ -156,6 +158,14 @@
     font-size: var(--text-11);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
+  }
+
+  /* 라벨 아래 한 줄. 지금 고르는 것이 나중에 어디서 쓰이는지 말한다. */
+  .cat-sheet__note {
+    font-size: var(--text-12);
+    line-height: 1.5;
+    color: var(--color-muted);
+    word-break: keep-all;
   }
 
   .cat-sheet__input {

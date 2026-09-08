@@ -7,6 +7,7 @@ import {
   type TransactionType,
   parseDecimalOr,
 } from '../../shared/api';
+import { categoriesOfKind, type LedgerKind } from '../../shared/ledger';
 import { formatDayLabel, toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import {
@@ -39,6 +40,8 @@ export interface CandidateRowProps {
   editing: boolean;
   disabled: boolean;
   onToggle: (selected: boolean) => void;
+  /** 줄을 펴지 않고 지출·수입만 바꾼다. 읽어 온 종류가 틀린 것이 가장 흔한 손질이라 밖에 둔다. */
+  onKindChange: (body: ImportCandidatePatch) => void;
   onEdit: () => void;
   onEditClose: () => void;
   onSave: (body: ImportCandidatePatch) => void;
@@ -56,6 +59,7 @@ export function CandidateRow({
   editing,
   disabled,
   onToggle,
+  onKindChange,
   onEdit,
   onEditClose,
   onSave,
@@ -63,6 +67,9 @@ export function CandidateRow({
   const name = candidate.merchant ?? '이름 없음';
   const category = categories.find((item) => item.id === candidate.category_id);
   const amount = parseDecimalOr(candidate.amount, 0);
+  // 이체는 여기서 못 바꾼다. 분류가 없는 종류라 한 번 누르는 것으로 오갈 수 없다.
+  const swap: LedgerKind | null =
+    candidate.type === 'expense' ? 'income' : candidate.type === 'income' ? 'expense' : null;
 
   return (
     <li className="nl-item" data-testid={TEST_IDS.nlCandidateRow}>
@@ -99,6 +106,24 @@ export function CandidateRow({
           ·
         </span>
         <span>{category?.name ?? '분류 없음'}</span>
+        {/*
+          읽어 온 종류를 겉으로 드러내고 한 번에 바꾼다. 예전에는 '고치기' 를 펴야 보였는데,
+          사진과 문장에서 가장 자주 틀리는 값이 이것이라 그 자리가 너무 멀었다.
+        */}
+        {swap != null ? (
+          <button
+            type="button"
+            className="nl-item__kind"
+            disabled={disabled}
+            aria-label={`${KIND_LABEL[candidate.type]}이에요. 눌러서 ${KIND_LABEL[swap]}으로 바꾸기`}
+            onClick={() => onKindChange(kindPatch(swap, candidate.category_id, categories))}
+          >
+            {KIND_LABEL[candidate.type]}
+            <span aria-hidden="true">⇄</span>
+          </button>
+        ) : (
+          <span className="nl-item__kind nl-item__kind--fixed">이체</span>
+        )}
         {candidate.is_duplicate ? <Chip variant="caution">이미 있어요</Chip> : null}
         {candidate.is_low_confidence ? <Chip variant="caution">확인 필요</Chip> : null}
         <button
@@ -123,6 +148,29 @@ export function CandidateRow({
       ) : null}
     </li>
   );
+}
+
+/** 화면에 보이는 말. 종류 값을 문자열로 바로 쓰면 화면마다 다른 말이 생긴다. */
+const KIND_LABEL: Record<TransactionType, string> = {
+  expense: '지출',
+  income: '수입',
+  transfer: '이체',
+  refund: '환불',
+};
+
+/**
+ * 종류만 바꾸는 요청 본문.
+ *
+ * 붙어 있던 분류가 새 종류의 것이 아니면 함께 뗀다. 남겨 두면 수입 줄에 '식비' 가 붙어
+ * 목록과 리포트가 서로 다른 말을 한다.
+ */
+function kindPatch(
+  next: LedgerKind,
+  categoryId: string | null | undefined,
+  categories: CategoryOut[],
+): ImportCandidatePatch {
+  const keeps = categoriesOfKind(next, categories).some((item) => item.id === categoryId);
+  return keeps ? { type: next } : { type: next, category_id: null };
 }
 
 interface CandidateFormProps {

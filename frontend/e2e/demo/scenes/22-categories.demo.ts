@@ -33,7 +33,7 @@ test('46 내 분류를 만들고 아이콘을 고른다', async ({
   await expect(categories.basicRows).toHaveCount(13);
   await demo.beat(3);
 
-  await demo.step('기본 분류는 처음부터 있고, 내가 만든 칸은 비어 있다');
+  await demo.step('지출·수입·이체가 자리를 나눠 서 있고, 아직 만든 것은 없다');
   await expect(categories.emptyNotice).toBeVisible();
   await demo.beat(2);
 
@@ -59,7 +59,7 @@ test('46 내 분류를 만들고 아이콘을 고른다', async ({
   await expect(categories.mineButton(PET)).toBeVisible();
   await demo.beat(3);
 
-  await demo.step('기본 칸이 아니라 내가 만든 칸에 선다');
+  await demo.step('지출 자리 안에 서고, 기본 분류와는 배지로 갈린다');
   await expect(categories.mineRow(PET)).toBeVisible();
   await expect(categories.basicRow(PET)).toHaveCount(0);
   await demo.beat(3);

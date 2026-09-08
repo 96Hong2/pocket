@@ -18,12 +18,36 @@ import { CategoryEditSheet } from './CategoryEditSheet';
 type EditTarget = { category: CategoryOut | null };
 
 /**
+ * 종류마다 한 묶음. 화면에 보이는 순서가 곧 이 배열의 순서다.
+ *
+ * 지출을 맨 위에 둔다. 적는 것 대부분이 지출이고, 기록 시트도 지출로 열린다.
+ */
+const GROUPS: { kind: CategoryOut['kind']; title: string; note: string }[] = [
+  {
+    kind: 'expense',
+    title: '지출 카테고리',
+    note: '기록할 때 지출을 고르면 이 목록이 나와요',
+  },
+  {
+    kind: 'income',
+    title: '수입 카테고리',
+    note: '들어온 돈을 적을 때 이 목록이 나와요',
+  },
+  {
+    kind: 'transfer',
+    title: '이체',
+    note: '계좌 사이를 옮긴 돈이에요. 지출에도 수입에도 세지 않아요',
+  },
+];
+
+/**
  * 카테고리 관리 목록.
  *
- * 기본과 내가 만든 것을 자리로 가른다. 기본 줄에는 고치기 입구를 두지 않는다.
- * 눌리지 않는 버튼을 두면 왜 안 되는지 물어보게 된다.
+ * 지출과 수입을 다른 묶음으로 나눈다. 한 목록에 섞어 두면 수입 분류를 만들어 놓고도
+ * 어디서 쓰이는지 알 수 없다. 기록 시트가 종류별로 갈라 보여주는 것과 같은 모양이다.
  *
- * 순서는 서버가 준 그대로다. 화면이 다시 정렬하면 기록 시트의 칩 순서와 어긋난다.
+ * 한 묶음 안에서는 기본과 내가 만든 것을 다시 가르지 않는다. 순서는 서버가 준 그대로라
+ * 기록 시트의 칩 순서와 같고, 고칠 수 있는 줄만 '고치기' 를 달고 있어 눈으로 갈린다.
  */
 export function CategoryManageList() {
   const categories = useCategories();
@@ -40,8 +64,7 @@ export function CategoryManageList() {
   }
 
   const items = categories.data?.items ?? [];
-  const defaults = items.filter((item) => item.is_default);
-  const mine = items.filter((item) => !item.is_default);
+  const mineCount = items.filter((item) => !item.is_default).length;
 
   return (
     <div className="cat-manage">
@@ -53,57 +76,56 @@ export function CategoryManageList() {
           만든 것이 어디에 나타나는지 여기서 말한다. 빈 상태 안내는 하나라도 만들면 사라지는데,
           둘째·셋째를 만드는 사람은 그때 처음으로 "이게 어디에 쓰이나" 를 묻는다.
         */}
-        <p className="cat-manage__hint">추가하면 기록 시트의 카테고리 칩에 바로 나타나요.</p>
+        <p className="cat-manage__hint">
+          만들 때 지출인지 수입인지 골라요. 기록 시트에서 그 종류를 골랐을 때 나타나요.
+        </p>
       </div>
 
-      {defaults.length > 0 ? (
-        <section className="cat-group" aria-label="기본 카테고리">
-          <h2 className="cat-group__title">기본 카테고리</h2>
-          <p className="cat-group__note">처음부터 있는 카테고리예요. 그대로 써요</p>
-          <Card padding="list">
-            <ul className="cat-list">
-              {defaults.map((category) => (
-                <li className="cat-row" key={category.id}>
-                  <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
-                  <span className="cat-row__name">{category.name}</span>
-                  <Chip variant="kind">기본</Chip>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </section>
+      {mineCount === 0 ? (
+        <EmptyState
+          size="inline"
+          title="아직 만든 카테고리가 없어요"
+          description="자주 쓰는 이름으로 하나 만들어 두면 기록할 때 바로 골라요"
+        />
       ) : null}
 
-      <section className="cat-group" aria-label="내가 만든 카테고리">
-        <h2 className="cat-group__title">내가 만든 카테고리</h2>
+      {GROUPS.map((group) => {
+        const rows = items.filter((item) => item.kind === group.kind);
+        if (rows.length === 0) return null;
 
-        {mine.length === 0 ? (
-          <EmptyState
-            size="inline"
-            title="아직 만든 카테고리가 없어요"
-            description="자주 쓰는 이름으로 하나 만들어 두면 기록할 때 바로 골라요"
-          />
-        ) : (
-          <Card padding="list">
-            <ul className="cat-list">
-              {mine.map((category) => (
-                <li key={category.id}>
-                  <button
-                    type="button"
-                    className="cat-row cat-row--hit"
-                    aria-label={`${category.name} 고치기`}
-                    onClick={() => setTarget({ category })}
-                  >
-                    <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
-                    <span className="cat-row__name">{category.name}</span>
-                    <span className="cat-row__go">고치기</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
-      </section>
+        return (
+          <section className="cat-group" aria-label={group.title} key={group.kind}>
+            <h2 className="cat-group__title">{group.title}</h2>
+            <p className="cat-group__note">{group.note}</p>
+            <Card padding="list">
+              <ul className="cat-list">
+                {rows.map((category) =>
+                  category.is_default ? (
+                    <li className="cat-row" key={category.id}>
+                      <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
+                      <span className="cat-row__name">{category.name}</span>
+                      <Chip variant="kind">기본</Chip>
+                    </li>
+                  ) : (
+                    <li key={category.id}>
+                      <button
+                        type="button"
+                        className="cat-row cat-row--hit"
+                        aria-label={`${category.name} 고치기`}
+                        onClick={() => setTarget({ category })}
+                      >
+                        <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
+                        <span className="cat-row__name">{category.name}</span>
+                        <span className="cat-row__go">고치기</span>
+                      </button>
+                    </li>
+                  ),
+                )}
+              </ul>
+            </Card>
+          </section>
+        );
+      })}
 
       <CategoryEditSheet
         open={target != null}

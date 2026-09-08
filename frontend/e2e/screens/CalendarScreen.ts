@@ -261,9 +261,28 @@ export class EditSheetArea {
     return this.root.getByRole('button', { name, exact: true });
   }
 
-  /** 지금 골라 둔 카테고리 칩. 화면이 aria-pressed 로 알린다. */
+  /** 지출인지 수입인지 고르는 알약 두 개. 이 시트에도 aria-pressed 를 쓴다. */
+  get kindToggle(): Locator {
+    return this.root.getByRole('group', { name: '지출인지 수입인지' });
+  }
+
+  kindButton(label: string): Locator {
+    return this.kindToggle.getByRole('button', { name: label, exact: true });
+  }
+
+  /** 고를 수 있는 카테고리 칩이 놓인 자리. */
+  get categoryGroup(): Locator {
+    return this.root.getByRole('group', { name: '카테고리' });
+  }
+
+  /**
+   * 지금 골라 둔 카테고리 칩. 화면이 aria-pressed 로 알린다.
+   *
+   * 종류 토글도 같은 속성을 쓰므로 칩 자리 안에서만 찾는다. 시트 전체에서 찾으면
+   * '지출' 알약이 함께 잡혀 무엇을 골랐는지 못 가린다.
+   */
   get pickedCategory(): Locator {
-    return this.root.locator('button[aria-pressed="true"]');
+    return this.categoryGroup.locator('button[aria-pressed="true"]');
   }
 
   get excludeToggle(): Locator {

@@ -14,6 +14,12 @@ import {
   type PreferencesOut,
   type TransactionOut,
 } from '../../shared/api';
+import {
+  KindToggle,
+  categoriesOfKind,
+  kindOf,
+  type LedgerKind,
+} from '../../shared/ledger';
 import { formatCurrency } from '../../shared/lib/format';
 import {
   BottomSheet,
@@ -103,6 +109,8 @@ function RecordBody({
   const create = useCreateTransaction();
 
   const [tab, setTab] = useState<RecordTab>(initialTab ?? DEFAULT_RECORD_TAB);
+  // 지출인가 수입인가. 이 값이 고를 수 있는 분류와 저장할 종류를 함께 정한다.
+  const [kind, setKind] = useState<LedgerKind>('expense');
   // 무언가 도는 중에는 탭을 옮기지 못한다. 옮기면 응답이 돌아올 자리가 사라진다.
   const [busy, setBusy] = useState(false);
   const [digits, setDigits] = useState('');
@@ -123,9 +131,9 @@ function RecordBody({
     };
   }, [bridge]);
 
-  const expenseCategories = (categories.data?.items ?? []).filter(
-    (category) => category.kind === 'expense',
-  );
+  const allCategories = categories.data?.items ?? [];
+  // 고른 종류의 분류만 보여준다. 섞어 두면 수입에 '식비' 가 붙어, 목록과 리포트가 다른 말을 한다.
+  const pickable = categoriesOfKind(kind, allCategories);
 
   /** 껍데기(닫기 막기)와 탭 잠금에 같은 신호를 쓴다. */
   function markBusy(next: boolean): void {
@@ -170,13 +178,15 @@ function RecordBody({
    */
   function rememberLastRecord(transaction: TransactionOut): void {
     const amount = parseDecimalOr(transaction.amount, 0);
-    const category = expenseCategories.find((item) => item.id === transaction.category_id);
+    // 고쳐 놓은 뒤라 지금 고른 종류가 아닐 수 있다. 저장된 거래의 종류로 찾는다.
+    const category = allCategories.find((item) => item.id === transaction.category_id);
     if (amount <= 0 || category == null) return;
 
     void writeLastRecord(bridge.storage, {
       amount,
       categoryId: category.id,
       categoryName: category.name,
+      kind: kindOf(transaction.type),
     });
   }
 
@@ -188,7 +198,7 @@ function RecordBody({
       {
         occurred_at: new Date().toISOString(),
         amount,
-        type: 'expense',
+        type: kind,
         category_id: category.id,
         source: 'keypad',
         // 손으로 직접 누른 값이라 분류를 의심할 이유가 없다.
@@ -208,6 +218,7 @@ function RecordBody({
             amount,
             categoryId: category.id,
             categoryName: category.name,
+            kind,
           });
         },
       },
@@ -219,7 +230,7 @@ function RecordBody({
       <FeedbackPanel
         transaction={saved.transaction}
         feedback={saved.feedback}
-        categories={expenseCategories}
+        categories={categoriesOfKind(kindOf(saved.transaction.type), allCategories)}
         deadline={saved.deadline}
         onUndone={finish}
         onUpdated={(updated) => {
@@ -239,11 +250,13 @@ function RecordBody({
 
   const amount = toAmount(digits);
   const saveError = create.error instanceof ApiError ? create.error : null;
-  const repeatCategory = repeat
-    ? expenseCategories.find((category) => category.id === repeat.categoryId)
-    : undefined;
+  // 종류가 다르면 칩을 감춘다. 수입을 적으러 왔는데 지출 한 건이 한 번에 저장되면 안 된다.
+  const repeatCategory =
+    repeat != null && repeat.kind === kind
+      ? pickable.find((category) => category.id === repeat.categoryId)
+      : undefined;
 
-  const picked = expenseCategories.find((category) => category.id === pickedId) ?? null;
+  const picked = pickable.find((category) => category.id === pickedId) ?? null;
 
   /**
    * 카테고리를 눌렀을 때.
@@ -283,11 +296,11 @@ function RecordBody({
       />
 
       {/* 감추기만 하고 남겨 둔다. 언마운트하면 적어 둔 줄글과 검토 목록이 사라진다. */}
-      <div hidden={tab !== 'nl'}>
+      <div className="record__panel" hidden={tab !== 'nl'}>
         <NaturalLanguageTab onBusyChange={markBusy} onDone={finish} onSaved={rememberMethod} />
       </div>
 
-      <div hidden={tab !== 'capture'}>
+      <div className="record__panel" hidden={tab !== 'capture'}>
         <ImageImportTab
           kind="capture"
           onBusyChange={markBusy}
@@ -296,7 +309,7 @@ function RecordBody({
         />
       </div>
 
-      <div hidden={tab !== 'receipt'}>
+      <div className="record__panel" hidden={tab !== 'receipt'}>
         <ImageImportTab
           kind="receipt"
           onBusyChange={markBusy}
@@ -311,7 +324,24 @@ function RecordBody({
         />
       </div>
 
-      <div hidden={tab !== 'keypad'}>
+      <div className="record__panel" hidden={tab !== 'keypad'}>
+        {/*
+          금액보다 먼저 정해야 하는 값이다. 아래 분류 칩과 저장할 종류가 이 하나를 따라간다.
+          바꾸면 골라 둔 분류를 버리고 목록을 다시 편다. 지출 분류가 수입에 남으면 안 된다.
+        */}
+        <KindToggle
+          className="record__kind"
+          value={kind}
+          disabled={create.isPending}
+          ariaLabel="지출인지 수입인지"
+          onChange={(next) => {
+            if (next === kind) return;
+            setKind(next);
+            setPickedId(null);
+            setListOpen(true);
+          }}
+        />
+
         {repeat && repeatCategory ? (
           <div className="record__repeat">
             <button
@@ -347,7 +377,7 @@ function RecordBody({
 
         {listOpen || picked == null ? (
           <CategoryChips
-            categories={expenseCategories}
+            categories={pickable}
             disabled={create.isPending}
             onPick={pickCategory}
             selectedId={pickedId}
@@ -359,7 +389,7 @@ function RecordBody({
             disabled={create.isPending}
             onClick={() => setListOpen(true)}
           >
-            <CategoryAvatar icon={toIconName(picked.icon_key)} size={26} />
+            <CategoryAvatar icon={toIconName(picked.icon_key)} size={40} />
             <span className="record__picked-name">{picked.name}</span>
             <span className="record__picked-more">다시 고르기</span>
           </button>

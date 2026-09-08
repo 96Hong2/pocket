@@ -11,6 +11,7 @@ import {
   type TransactionUpdate,
   type TransactionUpdated,
 } from '../../shared/api';
+import { KIND_WORDS, kindOf } from '../../shared/ledger';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, toIconName, TransactionRow } from '../../shared/ui';
 
@@ -70,9 +71,13 @@ export function FeedbackPanel({
 
   const category = categories.find((item) => item.id === transaction.category_id);
   const overName = categories.find((item) => item.id === feedback.over_category_id)?.name;
-  const message = buildFeedbackMessage(feedback, { overCategoryName: overName });
 
   const savedAmount = parseDecimalOr(transaction.amount, 0);
+  const kind = kindOf(transaction.type);
+  const message = buildFeedbackMessage(feedback, {
+    overCategoryName: overName,
+    savedIncome: kind === 'income' ? savedAmount : undefined,
+  });
   const nextAmount = toAmount(digits);
   // 저장이 0원을 막으니 고치기도 같다. 키패드를 다 지우면 0원이고, 그대로 보내면 서버가 되돌려보낸다.
   const amountOk = nextAmount > 0;
@@ -251,14 +256,14 @@ export function FeedbackPanel({
 
       {/* 안 적어도 되는 칸이다. 버튼 뒤에 숨기면 적을 수 있다는 것을 모른다. */}
       <label className="feedback__merchant-field">
-        <span className="feedback__merchant-label">어디에서 썼나요?</span>
+        <span className="feedback__merchant-label">{KIND_WORDS[kind].where}</span>
         <input
           className="feedback__merchant"
           data-testid={TEST_IDS.feedbackMerchantField}
           type="text"
           value={merchant}
           maxLength={MERCHANT_MAX}
-          placeholder="안 적어도 괜찮아요"
+          placeholder={KIND_WORDS[kind].wherePlaceholder}
           autoComplete="off"
           disabled={update.isPending}
           onChange={(event) => setMerchant(event.target.value)}

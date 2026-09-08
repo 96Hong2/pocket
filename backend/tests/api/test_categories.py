@@ -14,7 +14,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.domain.categories import DEFAULT_CATEGORIES, USER_CATEGORY_SORT_ORDER
+from app.domain.categories import (
+    DEFAULT_CATEGORIES,
+    USER_CATEGORY_SORT_ORDER,
+    USER_INCOME_SORT_ORDER,
+)
 from app.models import Category, CategoryBudget, CategoryKind, MerchantRule, User
 from app.modules import ledger
 
@@ -71,10 +75,16 @@ def test_지운_카테고리는_빠진다(
 # 기본 분류는 모두가 같은 행을 본다. 여기서 막지 않으면 한 사람의 삭제가 전체에 번진다.
 
 
-def _create(client: TestClient, name: str = "카페", icon_key: str = "06_coffee"):
-    return client.post(
-        "/api/v1/categories", json={"name": name, "icon_key": icon_key}, headers=AUTH
-    )
+def _create(
+    client: TestClient,
+    name: str = "카페",
+    icon_key: str = "06_coffee",
+    kind: str | None = None,
+):
+    body: dict[str, str] = {"name": name, "icon_key": icon_key}
+    if kind is not None:
+        body["kind"] = kind
+    return client.post("/api/v1/categories", json=body, headers=AUTH)
 
 
 def _names(client: TestClient) -> list[str]:
@@ -90,12 +100,58 @@ def test_만든_분류는_기본_지출_뒤_기타_앞에_선다(
     assert created.status_code == 201, created.text
     body = created.json()
     assert body["sort_order"] == USER_CATEGORY_SORT_ORDER
-    # 기록 시트 칩이 지출만 걸러 보여주므로 서버가 지출로 고정한다.
+    # 종류를 안 보내면 지출이다. 적는 것 대부분이 지출이라 그쪽을 기본으로 둔다.
     assert body["kind"] == "expense"
     assert body["is_default"] is False
 
     names = _names(client)
     assert names.index("건강·미용") < names.index("카페") < names.index("기타")
+
+
+def test_수입_분류를_만들면_기본_수입_뒤_이체_앞에_선다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """수입 목록에서 내가 만든 것을 찾을 수 있어야 한다. 지출 사이에 끼면 안 된다."""
+    del default_categories
+    created = _create(client, name="부업", icon_key="28_cash", kind="income")
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["kind"] == "income"
+    assert body["sort_order"] == USER_INCOME_SORT_ORDER
+
+    names = _names(client)
+    assert names.index("기타") < names.index("부업")
+    assert names.index("기타 수입") < names.index("부업") < names.index("이체")
+
+
+def test_이체_분류는_만들지_못한다(client: TestClient, default_categories: list[Category]) -> None:
+    """'이체' 는 집계에서 빠지는 화살표 한 줄이라 사용자가 늘릴 것이 없다."""
+    del default_categories
+    res = _create(client, name="계좌 옮김", kind="transfer")
+    assert res.status_code == 422, res.text
+
+
+def test_지운_지출_이름을_수입으로_다시_만들면_새_행이_생긴다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """되살리면 그 분류로 적어 둔 지난 지출이 수입 분류를 달게 된다.
+
+    종류가 같을 때만 되살린다. 다르면 지운 행은 그대로 두고 새 행을 만든다.
+    """
+    del default_categories
+    old = _create(client, name="보너스", icon_key="26_sparkles").json()
+    assert client.delete(f"/api/v1/categories/{old['id']}", headers=AUTH).status_code == 204
+
+    again = _create(client, name="보너스", icon_key="31_gift", kind="income")
+    assert again.status_code == 201, again.text
+    assert again.json()["id"] != old["id"]
+    assert again.json()["kind"] == "income"
+    assert _names(client).count("보너스") == 1
+
+    # 지운 행은 남는다. 하드 삭제하면 그 분류로 적어 둔 과거 거래가 분류를 잃는다.
+    tomb = db.get(Category, uuid.UUID(old["id"]))
+    assert tomb is not None
+    assert tomb.kind is CategoryKind.EXPENSE
 
 
 def test_같은_이름을_또_만들면_거절한다(

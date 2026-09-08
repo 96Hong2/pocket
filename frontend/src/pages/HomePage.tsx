@@ -16,6 +16,7 @@ import {
 } from '../features/home';
 import { QuickRecordSheet, type RecordTab } from '../features/quick-record';
 import { EditSheet } from '../features/transactions';
+import { toLedgerDate } from '../shared/lib/format';
 // 방식 → 탭 환산은 시트 옆에 있다. 배럴에는 시트만 나와 있어 파일을 곧장 가리킨다.
 import { DEFAULT_RECORD_TAB, resolveRecordTab } from '../features/quick-record/recordTab';
 import {
@@ -47,9 +48,13 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
   const { state } = useIdentity();
   // 홈에서 바로 고친다. 여기서 못 고치면 달력까지 들어가야 해서 아무도 안 고친다.
   const [editing, setEditing] = useState<TransactionOut | null>(null);
+  // 아래 목록이 보고 있는 날. 오늘로 열고 화살표로 옮긴다.
+  const [day, setDay] = useState(() => toLedgerDate(new Date()));
   const budget = useBudget();
   const categories = useCategories();
-  const transactions = useTransactions();
+  // 하루치만 받는다. 달을 통째로 받아 화면에서 거르면 지난달로 넘어갈 때 목록이 빈다.
+  // 저장·수정은 `transactions` 아래를 통째로 무효화하므로 어느 날을 보고 있어도 함께 새로 온다.
+  const transactions = useTransactions({ day });
   const preferences = usePreferences();
   const goal = useGoal();
 
@@ -112,7 +117,16 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
       */}
       {goal.data?.goal != null ? <GoalStatusCard goal={goal.data.goal} /> : null}
 
+      {/*
+        배너는 목표 카드 아래, 오늘 목록 위다. 조건부 형제들 사이에 늘 같은 자리로 서 있어
+        홈이 모드를 바꿔도 다시 마운트되지 않는다. 그것이 사실상 광고를 새로고침하는 것이 된다.
+        이 아래로 조건부 return 을 넣지 않는다. 넣으면 그 순간 슬롯이 사라졌다 다시 붙는다.
+      */}
+      <AdSlot />
+
       <TodayList
+        day={day}
+        onDayChange={setDay}
         transactions={transactions.data?.items ?? []}
         categories={categories.data?.items ?? []}
         loading={transactions.isPending || categories.isPending}
@@ -148,11 +162,6 @@ export default function HomePage() {
     <div className="page home">
       <IdentityNotice />
       <HomeContent onRecord={(tab) => setSheet({ open: true, tab })} />
-      {/*
-        배너는 모드 분기 밖 최상위 자식이다. 안쪽에 두면 홈이 모드를 바꿀 때마다
-        슬롯이 다시 마운트되고, 그것이 사실상 우리가 광고를 새로고침하는 것이 된다.
-      */}
-      <AdSlot />
       <div className="home__tail" />
       <QuickRecordSheet
         open={sheet.open}
