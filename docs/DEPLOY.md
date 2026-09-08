@@ -219,7 +219,7 @@ Cloud Run 이 아직 없어도 실기기에서 한 번 돌려 볼 수 있다. �
 ```bash
 make serve-public                    # 주소를 찍는다. 창을 닫으면 사라진다
 make ait API_BASE_URL=https://<위에서 받은 주소>
-# frontend/pocket-ledger.ait 를 콘솔에 올리고 QR 로 연다
+# frontend/pocket-ledger.ait 를 콘솔 [앱 출시] › [버전 등록] 에 올리고, 빌드가 끝나면 그 줄의 [테스트] 로 QR 을 연다
 ```
 
 지켜야 하는 것 셋.
