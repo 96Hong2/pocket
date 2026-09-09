@@ -14,6 +14,8 @@ logs/
 !.env.example
 *.pem
 *.key
+*.crt
+*.pem
 *.p12
 *.pfx
 certs/

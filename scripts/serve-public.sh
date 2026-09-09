@@ -58,7 +58,13 @@ for _ in $(seq 1 30); do
 done
 
 echo "4/4  공개 주소를 연다"
-cloudflared tunnel --url http://localhost:8080 --no-autoupdate >"$LOG" 2>&1 &
+# --protocol http2 를 반드시 준다.
+#
+# 안 주면 cloudflared 가 먼저 QUIC 을 잡으려다 UDP 7844 가 막힌 망에서 http2 로 "저하 모드" 전환을 한다.
+# 그 상태의 터널은 작은 응답만 오간다. 실측(2026-09-09): /health 37B 는 오는데
+# /api/v1/categories 1852B 는 40초에도 안 왔다. 폰에서는 "다 안 뜨는" 앱으로 보인다.
+# 명시적으로 http2 를 잡으면 같은 요청이 0.4초다.
+cloudflared tunnel --url http://localhost:8080 --no-autoupdate --protocol http2 >"$LOG" 2>&1 &
 TUNNEL_PID=$!
 URL=""
 for _ in $(seq 1 40); do
@@ -69,10 +75,13 @@ done
 [[ -n "$URL" ]] || { echo "터널 주소를 못 받았다. 로그: $LOG"; exit 1; }
 
 # 이 맥의 DNS 는 새 trycloudflare 주소를 못 푼다(회사 리졸버). 폰의 통신사 DNS 는 푼다.
-# 그래서 헬스체크는 1.1.1.1 로 주소를 찾아 --resolve 로 붙는다. 퍼지는 데 몇십 초 걸려 기다린다.
+# 그래서 헬스체크는 1.1.1.1 로 주소를 찾아 --resolve 로 붙는다.
+#
+# 90초는 모자랐다(2026-09-09). 세 리졸버가 다 NXDOMAIN 이다가 3분쯤 뒤에 레코드가 올라온 적이 있다.
+# 여기서 죽으면 trap 이 터널까지 걷어 처음부터 다시 해야 하므로 넉넉히 기다린다.
 HOST="${URL#https://}"
 OK=0
-for _ in $(seq 1 30); do
+for _ in $(seq 1 80); do
   IP="$(dig +short @1.1.1.1 "$HOST" | head -1 || true)"
   if [[ -n "$IP" ]] && curl -fsS -o /dev/null --max-time 8 --resolve "$HOST:443:$IP" "$URL/health"; then
     OK=1; break
@@ -80,6 +89,14 @@ for _ in $(seq 1 30); do
   sleep 3
 done
 [[ "$OK" == "1" ]] || { echo "공개 주소로 헬스체크가 안 된다: $URL"; exit 1; }
+
+# /health 는 37바이트라 저하된 터널에서도 통과한다. 실제로 쓰는 크기로 한 번 더 본다.
+IP="$(dig +short @1.1.1.1 "$HOST" | head -1)"
+if ! curl -fsS -o /dev/null --max-time 15 --resolve "$HOST:443:$IP" \
+     -H "X-Anon-Key: serve-public-smoke" "$URL/api/v1/categories"; then
+  echo "작은 응답은 오는데 목록(1.8KB)이 안 온다. 터널이 저하 모드다. 다시 띄운다."
+  exit 1
+fi
 
 if [[ "$BUILD_AIT" == "1" ]]; then
   echo ""
