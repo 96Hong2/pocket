@@ -268,10 +268,19 @@
     border-top: 1px solid var(--color-divider);
   }
 
+  /*
+    `1fr` 은 min-content 아래로는 안 줄어든다. 금액칸이 제 내용만큼 자라면서 이 격자를
+    밀어 상호가 115px 까지 좁아졌다. `minmax(0, 1fr)` 로 두 칸을 정확히 반씩 나눈다.
+  */
   .nl-form__fields {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 10px;
+    align-items: end;
+  }
+
+  .nl-form__fields > * {
+    min-width: 0;
   }
 
   .nl-form__field {
@@ -298,10 +307,15 @@
     font-size: var(--text-15);
   }
 
+  /*
+    분류를 늦게 받아 오면 이 자리가 0에서 한 줄로 커지며 아래 버튼이 튄다.
+    한 줄 높이를 미리 잡아 두어 도착해도 화면이 안 움직이게 한다.
+  */
   .nl-form__cats {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    min-height: 44px;
   }
 
   .nl-form__cat {

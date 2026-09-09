@@ -110,7 +110,12 @@ export function CandidateRow({
           읽어 온 종류를 겉으로 드러내고 한 번에 바꾼다. 예전에는 '고치기' 를 펴야 보였는데,
           사진과 문장에서 가장 자주 틀리는 값이 이것이라 그 자리가 너무 멀었다.
         */}
-        {swap != null ? (
+        {/*
+          줄을 펼치면 아래 폼에 지출·수입·이체 세 칸짜리가 나온다. 그때 이 버튼까지 두면
+          같은 값을 고치는 자리가 한 화면에 둘이라 어느 쪽이 진짜인지 헷갈린다.
+          접혀 있을 때만 보여 준다.
+        */}
+        {editing ? null : swap != null ? (
           <button
             type="button"
             className="nl-item__kind"
@@ -215,29 +220,33 @@ function CandidateForm({ candidate, categories, disabled, onSave }: CandidateFor
 
   return (
     <div className="nl-form">
-      <div className="nl-form__fields">
-        <label className="nl-form__field">
-          <span className="nl-form__label">상호</span>
-          <input
-            className="nl-form__input"
-            value={merchant}
-            onChange={(event) => setMerchant(event.target.value)}
-            placeholder="어디서 썼나요"
-            maxLength={120}
-          />
-        </label>
-        <AmountField variant="compact" label="금액" value={digits} onChange={setDigits} />
-      </div>
-
+      {/*
+        상호는 한 줄을 다 쓴다. 금액과 나란히 두었더니 금액칸이 제 몫보다 넓게 자라
+        상호가 115px 까지 좁아졌다(글자 서너 자). 가게 이름은 이 폼에서 가장 길게 적는 값이다.
+      */}
       <label className="nl-form__field">
-        <span className="nl-form__label">날짜</span>
+        <span className="nl-form__label">상호</span>
         <input
           className="nl-form__input"
-          type="date"
-          value={day}
-          onChange={(event) => setDay(event.target.value)}
+          value={merchant}
+          onChange={(event) => setMerchant(event.target.value)}
+          placeholder="어디서 썼나요"
+          maxLength={120}
         />
       </label>
+
+      <div className="nl-form__fields">
+        <AmountField variant="compact" label="금액" value={digits} onChange={setDigits} />
+        <label className="nl-form__field">
+          <span className="nl-form__label">날짜</span>
+          <input
+            className="nl-form__input"
+            type="date"
+            value={day}
+            onChange={(event) => setDay(event.target.value)}
+          />
+        </label>
+      </div>
 
       <SegmentedControl
         className="nl-form__types"
