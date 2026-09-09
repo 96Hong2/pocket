@@ -510,11 +510,18 @@
     border-radius: var(--radius-button);
   }
 
-  /* 포커스 링은 상자가 그린다. 굵기와 색은 index.css 의 전역 focus-visible 과 같다. */
+  /*
+    포커스 링은 상자가 그린다. 굵기와 색은 index.css 의 전역 focus-visible 과 같다.
+    `outline-offset` 대신 `box-shadow` 로 그린다. 링이 상자 밖 4px 를 차지하면
+    좁은 격자 안에서 가로로 넘쳐 스크롤이 생기는 기기가 있다. 그림자는 자리를 안 먹는다.
+  */
   .pk-amount-field__box:focus-within {
     border-color: var(--color-sage-700);
-    outline: 2px solid var(--color-sage-700);
-    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--color-sage-700);
+  }
+
+  .pk-amount-field {
+    min-width: 0;
   }
 
   .pk-amount-field__input {

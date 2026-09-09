@@ -28,6 +28,20 @@ function applyInsets(insets: SafeAreaInsets): void {
   }
 }
 
+/**
+ * 위쪽 인셋을 뗀다.
+ *
+ * 브릿지가 주는 것은 **기기의** 인셋(노치 높이)인데, 우리 웹뷰는 플랫폼이 그리는 상단바
+ * 아래에서 시작한다(`apps-in-toss.config.ts` 의 `navigationBar.withTitle`). 그 자리는 이미
+ * 상단바가 먹었으므로 다시 더하면 화면마다 노치 높이만큼 빈 띠가 생긴다.
+ * 실기기에서 제목 위가 80px 가까이 비어 보인 원인이 이것이다.
+ *
+ * 상단바를 끄게 되면 이 함수를 지우고 값을 그대로 내려보내면 된다.
+ */
+function withoutTopInset(insets: SafeAreaInsets): SafeAreaInsets {
+  return { ...insets, top: 0 };
+}
+
 export function SafeAreaProvider({ children }: { children: ReactNode }) {
   const bridge = useBridge();
   const [insets, setInsets] = useState<SafeAreaInsets>(ZERO_INSETS);
@@ -35,7 +49,8 @@ export function SafeAreaProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!bridge.supports('safeArea')) return;
 
-    const update = (next: SafeAreaInsets) => {
+    const update = (raw: SafeAreaInsets) => {
+      const next = withoutTopInset(raw);
       setInsets(next);
       applyInsets(next);
     };
