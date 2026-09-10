@@ -2,5 +2,15 @@
 
 from app.integrations.notifications.log_sender import LogReminderSender
 from app.integrations.notifications.port import ReminderSender, ReminderTarget
+from app.integrations.notifications.toss_sender import (
+    ReminderNotDelivered,
+    TossSmartMessageSender,
+)
 
-__all__ = ["LogReminderSender", "ReminderSender", "ReminderTarget"]
+__all__ = [
+    "LogReminderSender",
+    "ReminderNotDelivered",
+    "ReminderSender",
+    "ReminderTarget",
+    "TossSmartMessageSender",
+]

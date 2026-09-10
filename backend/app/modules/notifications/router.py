@@ -2,13 +2,14 @@
 
 설정 행이 없는 것은 정상이다. 조회가 기본값(꺼짐)으로 만들어 주므로 화면이 404 를 만나지 않는다.
 토스 알림 동의는 앱 쪽(브릿지)에서 받는다. 서버는 동의 여부를 저장하지 않는다.
+다만 켤 때는 익명키 원문을 함께 보관한다. 발송기가 토스에 누구인지 말할 값이 그것뿐이다.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentIdentity, CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES
 from app.models import NotificationSetting
 from app.modules.notifications import service
@@ -31,14 +32,27 @@ def _out(row: NotificationSetting) -> NotificationSettingsOut:
 
 
 @router.get("/settings", response_model=NotificationSettingsOut)
-def show(session: DbSession, user: CurrentUser) -> NotificationSettingsOut:
-    return _out(service.get_notification_settings(session, user))
+def show(
+    session: DbSession, user: CurrentUser, identity: CurrentIdentity
+) -> NotificationSettingsOut:
+    row = service.get_notification_settings(session, user)
+    # 이 컬럼이 생기기 전에 켜 둔 사람은 값이 비어 있다. 화면을 여는 것만으로 채워진다.
+    service.refresh_push_key(session, row, identity.anon_key)
+    return _out(row)
 
 
 @router.patch("/settings", response_model=NotificationSettingsOut)
 def update(
-    body: NotificationSettingsPatch, session: DbSession, user: CurrentUser
+    body: NotificationSettingsPatch,
+    session: DbSession,
+    user: CurrentUser,
+    identity: CurrentIdentity,
 ) -> NotificationSettingsOut:
     return _out(
-        service.update_notification_settings(session, user, body.model_dump(exclude_unset=True))
+        service.update_notification_settings(
+            session,
+            user,
+            body.model_dump(exclude_unset=True),
+            anon_key=identity.anon_key,
+        )
     )

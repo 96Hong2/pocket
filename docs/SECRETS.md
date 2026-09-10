@@ -15,6 +15,7 @@ git 에 올리지 않는 것: mTLS 인증서와 개인키, LLM API 키, 운영 �
 | Gemini API 키 (기본 provider) | Google AI Studio, **유료 등급** 프로젝트 (아래 §4) | `.env` | Secret Manager 환경변수 | 스텁 파서로 동작(사진을 안 읽는다) |
 | OpenAI API 키 (예비 provider) | OpenAI 플랫폼 | `.env` | Secret Manager 환경변수 | `LLM_PROVIDER=openai` 일 때만 필요 |
 | 운영 광고 adGroupId | Apps in Toss 파트너 콘솔 광고 설정 | 안 씀(테스트 ID 사용) | 프론트 빌드 환경변수 | 배너 슬롯을 접는다 |
+| 스마트발송 템플릿 코드 | 콘솔 [스마트 발송] › [기능성] (아래 §6) | `.env`(선택) | 알림 잡 환경변수 + 프론트 빌드 | 알림이 안 간다(잡은 로그만 남긴다) |
 
 ---
 
@@ -120,6 +121,7 @@ provider 는 `LLM_PROVIDER` 로 고른다. 기본 provider 는 **Gemini 2.5 Flas
 | `OPENAI_API_KEY` | OpenAI 플랫폼에서 발급 | `LLM_PROVIDER=openai` 일 때만 읽는다 |
 | `LLM_MODEL` | 비우면 `gemini-3.6-flash` / `gpt-5-mini` | 다른 모델을 재 볼 때만 |
 | `LLM_TIMEOUT_SECONDS` | 기본 20 | 한 번 재시도하므로 최악은 두 배 |
+| `TOSS_REMINDER_TEMPLATE_SET_CODE` | 콘솔 스마트 발송의 발송 코드 | 알림 잡만 읽는다. 비면 알림이 안 간다(§6) |
 
 ### Gemini 키는 유료 등급으로 발급한다
 
@@ -279,3 +281,39 @@ gcloud run deploy pocket-backend \
 1. 콘솔에서 해당 자격을 **먼저 폐기**한다. 코드 정리보다 이게 먼저다.
 2. 새로 발급받아 Secret Manager 에 새 버전으로 올리고 리비전을 다시 배포한다.
 3. git 히스토리에 들어갔으면 파일을 지우는 것으로 끝나지 않는다. 히스토리에서 제거하고 자격을 재발급한다.
+
+---
+
+## 6. 기록 알림 발송(스마트발송)
+
+알림은 **1분마다 도는 잡**(`scripts/send_reminders.py`)이 토스 스마트발송 API 로 보낸다.
+인증은 익명키 검증과 **같은 mTLS 인증서**를 쓴다. 새로 받을 것은 없고, 잡에도 붙여 주면 된다.
+
+```
+POST https://apps-in-toss-api.toss.im/api-partner/v1/apps-in-toss/messenger/send-message
+헤더  x-anon-key: <그 사람의 익명키>
+본문  {"templateSetCode": "<발송 코드>", "context": {}}
+```
+
+### 콘솔에서 받아야 하는 것
+
+1. **알림 동의문** 을 먼저 만든다. 「정해진 시간에 기록 알림을 보낸다」는 뜻을 적는다.
+   특정 시점에 알림을 받겠다고 동의를 받는 경우라 이게 있어야 한다
+2. **기능성 캠페인** 을 만들고 1번 동의문을 연결한다. 제목 7자·내용 25자 이내
+3. **발송 코드(templateSetCode)** 를 받는다. 반드시 `{appName}-` 로 시작한다
+4. **문구 검수** 를 통과해야 산다. 안 받은 코드로 부르면 `errorCode 5004` 다
+
+### 두 곳에 같은 값을 넣는다
+
+| 어디 | 이름 | 쓰임 |
+|---|---|---|
+| 프론트 빌드 | `VITE_NOTIFICATION_TEMPLATE_CODE` | 동의 화면을 띄울 때 |
+| 알림 잡 | `TOSS_REMINDER_TEMPLATE_SET_CODE` | 실제로 보낼 때 |
+
+**어긋나면 동의는 받았는데 발송이 0통이 된다.** 동의를 받은 그 템플릿으로 보내야 한다.
+
+### 익명키 원문을 왜 들고 있나
+
+토스에 "누구에게" 를 말하려면 익명키 원문이 필요한데 `users.anon_key_hash` 는 sha256 이라
+되돌릴 수 없다. 그래서 **알림을 켠 사람 것만** `notification_settings.push_anon_key` 에 둔다.
+끄면 그 자리에서 지운다(ADR-0017).

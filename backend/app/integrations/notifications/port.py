@@ -2,15 +2,16 @@
 
 앱 코드는 이 프로토콜만 안다. 실제로 무엇이 알림을 쏘는지는 이 패키지 밖으로 새지 않는다.
 
-**토스 스마트발송을 서버에서 부르는 API 는 아직 우리 손에 없다.** SDK 타입 정의에도 문서에도
-없어서, 있다고 가정하고 어댑터를 지어내지 않는다. 지금 붙어 있는 구현은 로그로 남기는
-스텁 하나이고, 실제 발송 경로가 열리면 이 프로토콜을 구현한 어댑터를 하나 더 두면 된다.
+구현은 둘이다. 로그로만 남기는 `LogReminderSender`(템플릿 코드가 없을 때)와 토스
+스마트발송을 부르는 `TossSmartMessageSender`. 어느 쪽이 붙었는지는 `is_stub` 으로 안다.
+
+**보내기는 async 다.** 실제 발송이 mTLS HTTP 호출이라 그렇다.
 """
 
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, time
 from typing import Protocol, runtime_checkable
 
@@ -30,6 +31,8 @@ class ReminderTarget:
     local_date: date
     #: 그 사람이 정해 둔 시각.
     remind_at: time
+    #: 토스에 "누구에게" 를 말하는 값. repr 에서 빼 로그에 원문이 안 남게 한다.
+    push_anon_key: str = field(repr=False, default="")
 
 
 @runtime_checkable
@@ -42,4 +45,4 @@ class ReminderSender(Protocol):
     @property
     def is_stub(self) -> bool: ...
 
-    def send(self, target: ReminderTarget) -> None: ...
+    async def send(self, target: ReminderTarget) -> None: ...

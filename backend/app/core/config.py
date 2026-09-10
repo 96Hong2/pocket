@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     toss_mtls_cert_path: str | None = None
     toss_mtls_key_path: str | None = None
 
+    # 기록 알림을 실어 보낼 스마트발송 템플릿 코드. 콘솔 「스마트 발송 > 기능성」에서 발급하고
+    # 검수를 통과해야 산다. 비어 있으면 발송기가 로그 스텁으로 돈다(알림이 안 간다).
+    toss_reminder_template_set_code: str | None = None
+
     # 익명 식별키 검증을 건너뛰는 로컬 개발용 스위치.
     allow_unverified_anon_key: bool = False
 

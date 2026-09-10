@@ -6,7 +6,7 @@ import uuid
 from datetime import date, time
 from enum import StrEnum
 
-from sqlalchemy import Boolean, Date, ForeignKey, String, Time, text
+from sqlalchemy import Boolean, Date, ForeignKey, String, Text, Time, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Entity, str_enum_type
@@ -77,3 +77,8 @@ class NotificationSetting(Entity):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, server_default="Asia/Seoul")
     # 마지막으로 알림을 보낸 현지 날짜. 같은 날 두 번 보내지 않으려고 남긴다.
     last_reminded_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # 스마트발송에 실을 익명키 원문. users.anon_key_hash 는 sha256 이라 되돌릴 수 없다.
+    # **켤 때 채우고 끌 때 지운다.** 알림을 안 쓰는 사람 것은 남기지 않는다.
+    # 길이 상한을 안 둔다. 토스 익명키의 최대 길이를 실측한 적이 없고, 넘치면 알림을
+    # 켜는 것 자체가 500 이 된다. Text 는 이 크기에서 값이 같다.
+    push_anon_key: Mapped[str | None] = mapped_column(Text, nullable=True)

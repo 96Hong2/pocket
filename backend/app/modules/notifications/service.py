@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, time
@@ -35,6 +36,7 @@ __all__ = [
     "DueReminder",
     "due_reminders",
     "get_notification_settings",
+    "refresh_push_key",
     "send_due_reminders",
     "update_notification_settings",
 ]
@@ -53,6 +55,19 @@ class DueReminder:
 
 def _find(session: Session, user: User) -> NotificationSetting | None:
     return session.scalar(select(NotificationSetting).where(NotificationSetting.user_id == user.id))
+
+
+def refresh_push_key(session: Session, row: NotificationSetting, anon_key: str) -> None:
+    """켜져 있는 동안은 익명키를 늘 최신으로 둔다.
+
+    **조회에서도 채운다.** 이 컬럼이 생기기 전에 알림을 켜 둔 사람은 값이 비어 있어 발송
+    대상에서 빠지는데, 화면에는 켜져 있다고 보인다. 설정을 다시 만지지 않는 한 영영 안 온다.
+    토스가 키를 새로 발급했을 때 옛 키로 보내는 것도 여기서 함께 막힌다.
+    """
+    if not row.is_enabled or not anon_key or row.push_anon_key == anon_key:
+        return
+    row.push_anon_key = anon_key
+    session.commit()
 
 
 def get_notification_settings(session: Session, user: User) -> NotificationSetting:
@@ -76,11 +91,16 @@ def get_notification_settings(session: Session, user: User) -> NotificationSetti
     return row
 
 
-def update_notification_settings(session: Session, user: User, data: dict) -> NotificationSetting:
+def update_notification_settings(
+    session: Session, user: User, data: dict, *, anon_key: str
+) -> NotificationSetting:
     """보낸 필드만 고친다. `remind_at` 만 `null` 이 '지움' 이라는 뜻이다.
 
     켜면서 시각을 안 줬고 정해 둔 시각도 없으면 기본값을 넣는다. 켜 두고 시각이 비면
     영영 안 가는 알림이 되고, 화면에는 켜져 있다고 보인다.
+
+    **익명키는 켜져 있는 동안만 보관한다.** 발송기가 토스에 "누구에게" 를 말하려면 원문이
+    있어야 하는데 `users.anon_key_hash` 는 되돌릴 수 없다. 끄면 그 자리에서 지운다.
     """
     row = get_notification_settings(session, user)
 
@@ -94,6 +114,12 @@ def update_notification_settings(session: Session, user: User, data: dict) -> No
 
     if row.is_enabled and row.remind_at is None:
         row.remind_at = DEFAULT_REMIND_AT
+
+    if not row.is_enabled:
+        row.push_anon_key = None
+    elif anon_key:
+        # 켜져 있는 동안은 늘 최신 값으로 덮는다. 토스가 키를 새로 발급하면 옛 키로는 안 간다.
+        row.push_anon_key = anon_key
 
     session.commit()
     session.refresh(row)
@@ -115,9 +141,14 @@ def due_reminders(session: Session, now_utc: datetime) -> list[DueReminder]:
     ).all()
 
     due: list[DueReminder] = []
+    missing_key = 0
     for setting, user in rows:
         remind_at = setting.remind_at
         if remind_at is None:
+            continue
+        if not setting.push_anon_key:
+            # 익명키를 남기기 전에 켜 둔 사람이다. 다시 켜면 채워진다.
+            missing_key += 1
             continue
         tz = ledger.user_tz(user)
         if not reminders.is_due(
@@ -134,30 +165,55 @@ def due_reminders(session: Session, now_utc: datetime) -> list[DueReminder]:
                     user_id=user.id,
                     local_date=reminders.local_today(now_utc, tz),
                     remind_at=remind_at,
+                    push_anon_key=setting.push_anon_key,
                 ),
             )
         )
+
+    if missing_key:
+        logger.warning("익명키가 없어 건너뛴 사람", extra={"count": missing_key})
     return due
 
 
-def send_due_reminders(session: Session, sender: ReminderSender, now_utc: datetime) -> int:
+async def send_due_reminders(session: Session, sender: ReminderSender, now_utc: datetime) -> int:
     """보낼 차례인 사람에게 보내고 보낸 날을 남긴다. 실제로 보낸 수를 돌려준다.
 
     한 사람에게 실패해도 멈추지 않는다. 실패한 사람은 보낸 날을 남기지 않으므로 다음 분에
     같은 시각이 아니면 그 날은 건너뛴다. 놓친 알림을 나중에 몰아 보내지 않는 쪽을 골랐다.
+
+    **한 통 보낼 때마다 바로 커밋한다.** 묶어서 마지막에 한 번 커밋하면, 중간에 잡이 죽거나
+    (OOM·SIGTERM) 커밋이 실패했을 때 이미 나간 알림이 전부 '안 보낸 것' 으로 남는다.
+    Cloud Run 이 그 태스크를 다시 돌리면 같은 분이라 그 사람들에게 두 번 울린다.
+    커밋 한 번이 늘어나는 값보다 두 번 울리는 값이 훨씬 크다.
+
+    **BaseException 까지 잡는다.** `except Exception` 은 취소(CancelledError)를 못 잡는다.
+    SIGTERM 이 그 자리로 오면 루프 밖으로 튀는데, 건별로 커밋해 두었으므로 거기까지는 안전하다.
+    취소는 삼키지 않고 다시 올려 잡이 제때 멈추게 한다.
+
+    한 사람씩 차례로 보낸다. 토스가 사용자당 분당 10회로 막아 두었고, 같은 분에 몰리는
+    사람 수가 우리 규모에서 아직 작다. 느려지면 그때 묶어 보낸다.
     """
     sent = 0
-    for item in due_reminders(session, now_utc):
+    # 목록을 먼저 다 읽어 두고 트랜잭션을 닫는다. 보내는 동안 읽기 트랜잭션을 열어 두면
+    # 사람 수만큼 곱해진 시간이 그대로 idle in transaction 이 된다.
+    due = due_reminders(session, now_utc)
+    session.commit()
+
+    for item in due:
         try:
-            sender.send(item.target)
-        except Exception:
+            await sender.send(item.target)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as error:
             logger.exception(
                 "기록 알림을 보내지 못했다", extra={"user_id": str(item.target.user_id)}
             )
+            if isinstance(error, asyncio.CancelledError):
+                raise
             continue
         item.setting.last_reminded_on = item.target.local_date
+        # 보낸 그 자리에서 남긴다. 여기서 실패하면 그 한 사람만 두 번 받을 수 있다.
+        session.commit()
         sent += 1
 
-    if sent:
-        session.commit()
     return sent
