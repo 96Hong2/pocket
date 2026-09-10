@@ -144,6 +144,14 @@ export interface MiniAppBridge {
 
   supports(capability: BridgeCapability): boolean;
 
+  /**
+   * 그 기능을 쓰려면 토스 앱이 적어도 몇이어야 하는지. 버전으로 갈리지 않으면 null.
+   *
+   * 못 쓰는 화면이 "업데이트하세요" 만 말하면, 이미 최신인 사람은 무엇을 해야 할지 모른다.
+   * 숫자를 알면 지금 버전과 견줘 보고 정말 업데이트 문제인지 스스로 가를 수 있다.
+   */
+  minAppVersion(capability: BridgeCapability): string | null;
+
   /** 실패하면 BridgeError 를 던진다. 호출부는 반드시 감싼다. */
   getIdentity(): Promise<Identity>;
 

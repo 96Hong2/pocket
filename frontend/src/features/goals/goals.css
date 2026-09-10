@@ -260,6 +260,32 @@
     font-weight: var(--font-weight-medium);
   }
 
+  /*
+    날짜 칸.
+
+    기기마다 그리는 방법이 다르다. iOS 는 안쪽 값 영역의 최소 너비를 칸의 최소 너비로 삼아
+    `width: 100%` 를 무시하고 부모를 밀고 나간다(세로 flex 안에서는 줄어들지도 못한다).
+    폭을 우리가 못 박고, 안쪽도 줄어들 수 있게 열어 둔다.
+  */
+  .goal-sheet__input[type='date'] {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    /* 안쪽 값 영역이 넘쳐도 칸 밖으로 나가지 않는다. */
+    overflow: hidden;
+  }
+
+  .goal-sheet__input[type='date']::-webkit-date-and-time-value {
+    /* iOS 는 값을 가운데로 민다. 다른 칸과 같은 왼쪽 정렬로 맞춘다. */
+    text-align: left;
+    width: 100%;
+    margin: 0;
+  }
+
+  .goal-sheet__input[type='date']::-webkit-datetime-edit {
+    min-width: 0;
+  }
+
   .goal-sheet__hint {
     font-size: var(--text-12);
     font-weight: var(--font-weight-medium);
@@ -274,9 +300,33 @@
     color: var(--color-amber-700);
   }
 
+  /* 지우기를 한 번 더 묻는 자리. 카테고리 시트와 같은 모양으로 둔다. */
+  .goal-sheet__confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 6px;
+    padding: 12px 14px;
+    background: var(--color-amber-50);
+    border-radius: var(--radius-inset);
+  }
+
+  .goal-sheet__confirm-text {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-amber-700);
+    line-height: 1.5;
+  }
+
   .goal-sheet__actions,
   .goal-sheet__body > .pk-btn {
     margin-top: 6px;
+  }
+
+  /* 확인 상자 안에서는 상자가 이미 간격을 갖는다. 두 번 띄우지 않는다. */
+  .goal-sheet__confirm .goal-sheet__actions {
+    margin-top: 0;
   }
 
   .goal-sheet__actions {

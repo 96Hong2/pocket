@@ -240,6 +240,26 @@ class GoalFormSheet {
     return this.root.getByRole('button', { name: '지우기', exact: true });
   }
 
+  /** 지우기를 누른 뒤 펼쳐지는 확인 자리. */
+  get confirmArea(): Locator {
+    return this.root.getByRole('group', { name: '지우기 확인' });
+  }
+
+  /** 확인 자리가 하는 약속. 함께 사라지는 것과 남는 것을 둘 다 적는다. */
+  get confirmText(): Locator {
+    return this.confirmArea.getByText(/^정말 지울까요\? .*더한 돈 기록도 함께 사라져요/);
+  }
+
+  /** 확인 자리 안의 지우기. 바깥의 같은 이름과 섞이지 않게 여기서만 찾는다. */
+  get confirmDeleteButton(): Locator {
+    return this.confirmArea.getByRole('button', { name: '지우기', exact: true });
+  }
+
+  /** 확인을 접고 시트로 돌아가는 버튼. */
+  get keepButton(): Locator {
+    return this.confirmArea.getByRole('button', { name: '그대로 둘게요', exact: true });
+  }
+
   async waitOpen(): Promise<void> {
     await expect(this.root).toBeVisible();
   }
@@ -261,8 +281,10 @@ class GoalFormSheet {
     await this.waitClosed();
   }
 
+  /** 지우기를 눌러 확인까지 마친다. 시트가 닫히면 지워진 것이다. */
   async remove(): Promise<void> {
     await this.deleteButton.click();
+    await this.confirmDeleteButton.click();
     await this.waitClosed();
   }
 }

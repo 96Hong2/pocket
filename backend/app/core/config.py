@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     llm_provider: LlmProvider = "stub"
     gemini_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
-    # 비우면 provider 기본 모델(gemini-2.5-flash · gpt-5-mini).
+    # 비우면 provider 기본 모델(gemini-3.6-flash · gpt-5-mini).
     llm_model: str | None = None
     # 한 번 부르는 데 기다리는 시간. 한 번 재시도하므로 최악은 두 배다.
     llm_timeout_seconds: float = 20.0

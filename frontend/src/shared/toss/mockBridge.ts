@@ -137,6 +137,11 @@ export class MockMiniAppBridge implements MiniAppBridge {
     return true;
   }
 
+  /** 브라우저에는 토스 앱 버전이 없다. 숫자를 지어내지 않는다. */
+  minAppVersion(): string | null {
+    return null;
+  }
+
   async getIdentity(): Promise<Identity> {
     if (this.scenario.identityFailure) {
       throw new BridgeError(this.scenario.identityFailure, '목: 사용자 정보를 확인하지 못했어요.');

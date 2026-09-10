@@ -82,7 +82,7 @@ def test_provider_설정대로_클라이언트를_고른다(monkeypatch: pytest.
     client = get_llm_client()
     assert isinstance(client, GeminiStructuredClient)
     assert client.is_stub is False
-    assert client.model == "gemini-2.5-flash"
+    assert client.model == "gemini-3.6-flash"
     # 설정을 찍어도 키는 가려진다.
     assert "test-key" not in repr(get_settings())
 

@@ -80,6 +80,9 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
     const saved = parseDecimalOr(goal?.initial_amount, 0);
     return goal == null || saved === 0 ? '' : String(saved);
   });
+  // 지우기는 한 단을 더 받는다. 시트를 하나 더 겹치면 포커스가 흔들려 여기서 묻는다.
+  // 카테고리 시트와 같은 방식이다.
+  const [confirming, setConfirming] = useState(false);
 
   const busy = create.isPending || update.isPending || remove.isPending;
   const canSave = title.trim() !== '' && target !== '' && Number(target) > 0 && !busy;
@@ -150,20 +153,44 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
         </p>
       ) : null}
 
-      <div className="goal-sheet__actions">
-        {goal != null ? (
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() => remove.mutate(goal.id, settle())}
-          >
-            지우기
+      {confirming && goal != null ? (
+        <div className="goal-sheet__confirm" role="group" aria-label="지우기 확인">
+          <p className="goal-sheet__confirm-text">
+            정말 지울까요? 지금까지 더한 돈 기록도 함께 사라져요. 가계부에 적어 둔 거래는 그대로
+            남아요
+          </p>
+          <div className="goal-sheet__actions">
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                remove.reset();
+                setConfirming(false);
+              }}
+            >
+              그대로 둘게요
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => remove.mutate(goal.id, settle())}
+            >
+              지우기
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="goal-sheet__actions">
+          {goal != null ? (
+            <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>
+              지우기
+            </Button>
+          ) : null}
+          <Button className="goal-sheet__done" disabled={!canSave} onClick={save}>
+            저장
           </Button>
-        ) : null}
-        <Button className="goal-sheet__done" disabled={!canSave} onClick={save}>
-          저장
-        </Button>
-      </div>
+        </div>
+      )}
 
       <p className="goal-sheet__closing">목표는 언제든 바꿔도 괜찮아요 · 재촉하지 않을게요</p>
     </div>

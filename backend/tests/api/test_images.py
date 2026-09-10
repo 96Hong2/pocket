@@ -55,7 +55,6 @@ def test_jpeg_와_webp_도_받는다(media_type: str, data: bytes) -> None:
         "",
         "https://example.com/a.png",
         "data:image/png,notbase64",
-        "data:;base64," + base64.b64encode(PNG_BYTES).decode(),
         base64.b64encode(PNG_BYTES).decode(),
     ],
 )
@@ -66,20 +65,49 @@ def test_data_url_모양이_아니면_막는다(value: str) -> None:
     assert caught.value.status_code == 422
 
 
+@pytest.mark.parametrize(
+    "header",
+    [
+        # 이름이 어긋난 것. 실기기 쪽에서 흔하다.
+        "image/jpg",
+        # 매개변수가 끼어든 것.
+        "image/png;charset=utf-8",
+        # 아예 형식을 안 적은 것.
+        "",
+        # 실제 바이트와 다른 형식을 적은 것.
+        "image/webp",
+    ],
+)
+def test_헤더가_뭐라_하든_실제_바이트로_형식을_정한다(header: str) -> None:
+    """기기가 붙여 주는 mime 은 믿지 않는다.
+
+    바이트가 멀쩡한 PNG 인데 헤더 한 줄 때문에 거절하면, 사용자에게는 그냥 안 되는 기능이다.
+    반대로 헤더를 믿으면 우리가 모델에 잘못된 형식을 알려 주게 된다. 바이트가 정본이다.
+    """
+    image = decode_data_url(f"data:{header};base64,{base64.b64encode(PNG_BYTES).decode()}")
+
+    assert image.media_type == "image/png"
+    assert image.data == PNG_BYTES
+
+
 @pytest.mark.parametrize("media_type", ["image/gif", "image/svg+xml", "application/pdf"])
-def test_허용하지_않는_형식은_막는다(media_type: str) -> None:
-    with pytest.raises(ApiError) as caught:
-        decode_data_url(_data_url(media_type, PNG_BYTES))
+def test_이미지가_아닌_바이트는_형식을_뭐라_적든_막는다(media_type: str) -> None:
+    # PNG 라고 적어도 통과하지 못한다. 통과 여부는 오직 바이트가 정한다.
+    for header in (media_type, "image/png"):
+        with pytest.raises(ApiError) as caught:
+            decode_data_url(_data_url(header, b"GIF89a" + b"\x00" * 32))
 
-    assert caught.value.status_code == 422
+        assert caught.value.status_code == 422
 
 
-def test_선언한_형식과_매직바이트가_다르면_막는다() -> None:
-    # 확장자만 png 로 바꾼 파일이다. 형식 문자열만 믿으면 그대로 통과한다.
-    with pytest.raises(ApiError) as caught:
-        decode_data_url(_data_url("image/png", JPEG_BYTES))
+def test_줄바꿈이_섞인_base64_도_푼다() -> None:
+    """base64 를 76자마다 끊거나 끝에 줄바꿈을 붙여 보내는 기기가 있다."""
+    encoded = base64.b64encode(PNG_BYTES).decode()
+    wrapped = "\n".join(encoded[i : i + 40] for i in range(0, len(encoded), 40)) + "\n"
 
-    assert caught.value.status_code == 422
+    image = decode_data_url(f"data:image/png;base64,{wrapped}")
+
+    assert image.data == PNG_BYTES
 
 
 def test_base64_가_깨졌으면_막는다() -> None:
@@ -135,8 +163,8 @@ def test_실패_문구는_이유를_나누지_않는다() -> None:
     messages = set()
     for value in (
         "그냥 문자열",
-        _data_url("image/gif", PNG_BYTES),
-        _data_url("image/png", JPEG_BYTES),
+        _data_url("image/gif", b"GIF89a" + b"\x00" * 32),
+        _data_url("image/png", MARKER.encode() * 4),
         "data:image/png;base64,%%%",
     ):
         with pytest.raises(ApiError) as caught:

@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from app.integrations.llm.contracts import TransactionExtraction
-from app.integrations.llm.gemini import GeminiStructuredClient
+from app.integrations.llm.gemini import GEMINI_DEFAULT_MODEL, GeminiStructuredClient
 from app.integrations.llm.openai import OpenAiStructuredClient
 from app.integrations.llm.port import LlmError, LlmImage, LlmSchemaError, LlmStructuredClient
 from app.integrations.llm.schema import provider_json_schema, validate_response
@@ -102,6 +102,24 @@ def test_gemini_요청은_이미지를_inline_으로_싣고_생각을_끈다(gem
     assert body["contents"][0]["parts"][1]["inline_data"]["mime_type"] == "image/png"
     assert body["generationConfig"]["responseJsonSchema"] is SCHEMA
     assert body["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 0}
+
+
+def test_기본_모델에는_생각_끄기_필드를_안_보낸다() -> None:
+    """3.x 는 끄는 방법이 달라, 2.5 의 필드를 그대로 보내면 호출이 통째로 막힌다."""
+    client = GeminiStructuredClient(
+        api_key="test-key", model=GEMINI_DEFAULT_MODEL, timeout_seconds=5
+    )
+
+    body = client._build_body(
+        prompt="규칙",
+        schema_name="TransactionExtraction",
+        schema_json=SCHEMA,
+        text="점심 12000",
+        image=None,
+    )
+
+    assert GEMINI_DEFAULT_MODEL.startswith("gemini-3.")
+    assert "thinkingConfig" not in body["generationConfig"]
 
 
 def test_gemini_응답에서_생각_조각을_빼고_본문만_읽는다(gemini) -> None:
