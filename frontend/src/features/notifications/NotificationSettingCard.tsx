@@ -7,7 +7,7 @@ import {
   useSaveNotificationSettings,
   type NotificationSettingsPatch,
 } from '../../shared/api';
-import { BridgeError } from '../../shared/toss';
+import { BridgeError, type MiniAppBridge } from '../../shared/toss';
 import { CategoryAvatar, RetryButton, Toggle, UnsupportedFeature } from '../../shared/ui';
 
 /**
@@ -20,6 +20,20 @@ import { CategoryAvatar, RetryButton, Toggle, UnsupportedFeature } from '../../s
 function templateCode(): string {
   const configured = import.meta.env.VITE_NOTIFICATION_TEMPLATE_CODE;
   return typeof configured === 'string' ? configured.trim() : '';
+}
+
+/**
+ * 못 쓰는 이유 한 줄.
+ *
+ * "토스 앱을 업데이트하세요" 만 말하면 이미 최신인 사람은 무엇을 해야 할지 모른다.
+ * 숫자 둘을 나란히 보여 주면 업데이트로 풀리는 일인지 스스로 가를 수 있다.
+ */
+function unsupportedNotice(bridge: MiniAppBridge): string {
+  const required = bridge.minAppVersion('notification');
+  if (required == null || bridge.appVersion === '') {
+    return '기록 알림은 토스 앱을 업데이트하면 쓸 수 있어요.';
+  }
+  return `기록 알림은 토스 앱 ${required} 이상에서 쓸 수 있어요. 지금 쓰는 토스 앱은 ${bridge.appVersion} 이에요.`;
 }
 
 /** 켤 수 없게 된 이유. 화면이 무엇을 말할지 여기서 갈린다. */
@@ -55,7 +69,7 @@ export function NotificationSettingCard() {
   const [draftTime, setDraftTime] = useState<string | null>(null);
 
   if (blocker === 'unsupported') {
-    return <UnsupportedFeature feature="기록 알림" />;
+    return <UnsupportedFeature feature="기록 알림" description={unsupportedNotice(bridge)} />;
   }
 
   if (settings.isError) {

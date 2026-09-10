@@ -156,6 +156,15 @@ export class TossMiniAppBridge implements MiniAppBridge {
     }
   }
 
+  minAppVersion(capability: BridgeCapability): string | null {
+    // 버전으로 갈리는 것만 적는다. 나머지는 앱 버전과 무관하거나 SDK 가 하한을 알려 주지 않는다.
+    if (capability !== 'notification') return null;
+    const gate = Notification.requestAgreement.MIN_TOSS_APP_VERSION;
+    if (this.platform === 'ios') return gate.ios;
+    if (this.platform === 'android') return gate.android;
+    return null;
+  }
+
   async getIdentity(): Promise<Identity> {
     try {
       const result = await User.getAnonymousKey();

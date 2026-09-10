@@ -14,7 +14,9 @@ from app.integrations.llm.remote import IMAGE_LEAD, MAX_OUTPUT_TOKENS, RemoteStr
 
 __all__ = ["GEMINI_DEFAULT_MODEL", "GeminiStructuredClient"]
 
-GEMINI_DEFAULT_MODEL = "gemini-2.5-flash"
+# 2026-09-10 에 2.5 Flash 로 두면 새 키에서 404 가 난다("no longer available to new users").
+# 구글이 후속으로 지목한 모델이 3.6 Flash 다. ADR 0016 이 예고한 대로 따라 올린 것이다.
+GEMINI_DEFAULT_MODEL = "gemini-3.6-flash"
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com"
 
 _NORMAL_FINISH = frozenset({None, "STOP"})
@@ -62,6 +64,9 @@ class GeminiStructuredClient(RemoteStructuredClient):
         }
         # 2.5 Flash 는 기본으로 생각(thinking)을 켠다. 옮겨 적는 일에 생각 토큰은 출력 단가로
         # 값만 들고 정확도를 올리지 않는다. Pro 는 끌 수 없어 모델 이름으로 가른다.
+        #
+        # 3.x 는 이 필드를 여기 넣지 않는다. 끄는 방법이 달라서, 안 받는 필드를 보내면
+        # 모든 호출이 통째로 막힌다. 값이 신경 쓰이면 실제 청구를 보고 나서 그때 맞춘다.
         if self.model.startswith("gemini-2.5-flash"):
             config["thinkingConfig"] = {"thinkingBudget": 0}
         return {

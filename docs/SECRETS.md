@@ -118,7 +118,7 @@ provider 는 `LLM_PROVIDER` 로 고른다. 기본 provider 는 **Gemini 2.5 Flas
 | `LLM_PROVIDER` | `stub` / `gemini` / `openai` | 기본 `stub`. 운영은 `gemini`. 키 없는 provider 를 고르면 기동에 실패한다 |
 | `GEMINI_API_KEY` | Google AI Studio 에서 발급 | **유료 등급 프로젝트의 키**여야 한다(아래) |
 | `OPENAI_API_KEY` | OpenAI 플랫폼에서 발급 | `LLM_PROVIDER=openai` 일 때만 읽는다 |
-| `LLM_MODEL` | 비우면 `gemini-2.5-flash` / `gpt-5-mini` | 다른 모델을 재 볼 때만 |
+| `LLM_MODEL` | 비우면 `gemini-3.6-flash` / `gpt-5-mini` | 다른 모델을 재 볼 때만 |
 | `LLM_TIMEOUT_SECONDS` | 기본 20 | 한 번 재시도하므로 최악은 두 배 |
 
 ### Gemini 키는 유료 등급으로 발급한다

@@ -254,6 +254,11 @@ make ait API_BASE_URL=https://<위에서 받은 주소>
 - [ ] 마이그레이션 잡이 먼저 끝났다
 - [ ] `ENVIRONMENT=prod`, 두 스위치 모두 `false`
 - [ ] `LLM_PROVIDER=gemini`, 키 시크릿이 **유료 등급** 프로젝트의 키다 (`SECRETS.md` §4)
+- [ ] **키가 실제로 부를 수 있다.** 키가 있다고 도는 게 아니다. 결제 계정에 선불 결제가 없으면
+      모든 호출이 `429 prepayment credits are depleted` 다. 화면에는 「지금은 읽지 못했어요」로만
+      보여 배포가 성공한 것처럼 지나간다.
+      한 번 불러 본다: `uv run python scripts/llm_smoke.py --text "점심 12000"`
+      막혀 있으면 <https://aistudio.google.com/u/1/billing> 의 「선불 결제 설정」
 - [ ] 인증서 마운트 경로와 `TOSS_MTLS_*_PATH` 가 같다
 - [ ] 프론트 빌드에 운영 `VITE_AD_GROUP_ID` 가 들어갔다 (개발 중 테스트 ID 로 뜨면 정책 위반)
 - [ ] 배포 뒤 연기 검사 두 줄을 실제로 돌렸다

@@ -165,6 +165,47 @@ test('진행 중인 목표가 있으면 하나 더 만들 수 없다', async ({ 
   await expect(goal.startButton).toHaveCount(0);
 });
 
+test('목표 지우기는 한 번 더 묻고, 접으면 목표가 그대로 남는다', async ({ goal, prep }) => {
+  await prep.setGoal({ title: TITLE, targetAmount: TARGET });
+
+  await goal.open();
+  await goal.waitReady();
+  await goal.editButton.click();
+  await goal.form.waitOpen();
+
+  // 누르자마자 사라지지 않는다. 목표는 몇 달을 들고 가는 것이라 되돌릴 수 없는 것을 한 번 묻는다.
+  await goal.form.deleteButton.click();
+  await expect(goal.form.confirmText).toBeVisible();
+  await expect(goal.form.dialog).toBeVisible();
+
+  await goal.form.keepButton.click();
+  await expect(goal.form.confirmArea).toHaveCount(0);
+  await goal.form.saveButton.click();
+  await goal.form.waitClosed();
+
+  await expect(goal.title).toHaveText(TITLE);
+});
+
+test('목표 시트의 기한 칸은 칸 밖으로 나가지 않는다', async ({ goal, page }) => {
+  await goal.open();
+  await goal.waitReady();
+  await goal.startButton.click();
+  await goal.form.waitOpen();
+
+  // 날짜 칸은 기기마다 자기 최소 너비를 우겨 넣어 부모를 밀고 나간 적이 있다.
+  const input = await goal.form.deadlineField.boundingBox();
+  const field = await page.locator('label').filter({ hasText: '언제까지' }).boundingBox();
+
+  expect(input).not.toBeNull();
+  expect(field).not.toBeNull();
+  expect(input!.x).toBeGreaterThanOrEqual(field!.x);
+  expect(input!.x + input!.width).toBeLessThanOrEqual(field!.x + field!.width);
+
+  // 시트 자체도 가로로 밀리지 않는다.
+  const { content, visible } = await goal.widths();
+  expect(content).toBeLessThanOrEqual(visible);
+});
+
 test('목표를 지우면 빈 상태로 돌아오고 새로 만들 수 있다', async ({ goal, prep }) => {
   await prep.setGoal({ title: TITLE, targetAmount: TARGET });
 
