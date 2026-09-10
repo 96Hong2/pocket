@@ -107,9 +107,9 @@ gcloud run deploy pocket-backend \
   --set-secrets=DATABASE_URL=pocket-database-url:latest \
   --set-secrets=/secrets/toss-crt/toss-client.crt=pocket-toss-client-crt:latest \
   --set-secrets=/secrets/toss-key/toss-client.key=pocket-toss-client-key:latest \
-  --set-secrets=GEMINI_API_KEY=pocket-gemini-api-key:latest \
+  --set-secrets=OPENAI_API_KEY=pocket-openai-api-key:latest \
   --set-env-vars=ENVIRONMENT=prod \
-  --set-env-vars=LLM_PROVIDER=gemini \
+  --set-env-vars=LLM_PROVIDER=openai \
   --set-env-vars=ALLOW_UNVERIFIED_ANON_KEY=false \
   --set-env-vars=ALLOW_PAST_PERIOD_BUDGET_WRITE=false \
   --set-env-vars=TOSS_MTLS_CERT_PATH=/secrets/toss-crt/toss-client.crt \
@@ -119,7 +119,7 @@ gcloud run deploy pocket-backend \
 인증서와 개인키는 **폴더를 따로 쓴다.** Cloud Run 은 시크릿 한 건을 폴더 하나로 붙이는 구조라,
 같은 폴더에 둘을 적으면 「다른 시크릿이 이미 붙어 있다」며 배포가 통째로 실패한다.
 
-Gemini 키가 아직 없으면 마지막 두 줄(`GEMINI_API_KEY`·`LLM_PROVIDER`)을 빼고 띄운다.
+모델 키가 아직 없으면 마지막 두 줄(`OPENAI_API_KEY`·`LLM_PROVIDER`)을 빼고 띄운다.
 `LLM_PROVIDER` 기본값이 `stub` 이라 서버는 정상으로 뜨고, 문장으로 적기만 가짜 응답이 된다.
 키가 생기면 시크릿을 만들고 두 줄을 붙여 다시 배포한다.
 
@@ -277,7 +277,7 @@ make ait API_BASE_URL=https://<위에서 받은 주소>
 - [ ] `docs/openapi.json` 과 `frontend/src/shared/api/schema.gen.ts` 에 차이 없음
 - [ ] 마이그레이션 잡이 먼저 끝났다
 - [ ] `ENVIRONMENT=prod`, 두 스위치 모두 `false`
-- [ ] `LLM_PROVIDER=gemini`, 키 시크릿이 **유료 등급** 프로젝트의 키다 (`SECRETS.md` §4)
+- [ ] `LLM_PROVIDER` 와 그 provider 의 키 시크릿이 짝이 맞다. 결제가 열려 있다 (`SECRETS.md` §4)
 - [ ] **키가 실제로 부를 수 있다.** 키가 있다고 도는 게 아니다. 결제 계정에 선불 결제가 없으면
       모든 호출이 `429 prepayment credits are depleted` 다. 화면에는 「지금은 읽지 못했어요」로만
       보여 배포가 성공한 것처럼 지나간다.

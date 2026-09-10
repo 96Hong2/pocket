@@ -2,6 +2,7 @@
 # Cloud Run 에 백엔드를 올린다. 임시 터널을 끝내고 주소를 고정하는 것이 목적이다.
 #
 #   ./scripts/deploy-cloudrun.sh            # 준비물 → 이미지 → 마이그레이션 → 리비전 → 연기 검사
+#   POCKET_OPENAI_KEY_FILE=~/.config/pocket/openai.key ./scripts/deploy-cloudrun.sh
 #   ./scripts/deploy-cloudrun.sh --dry-run  # 무엇을 할지만 찍는다
 #
 # 처음 한 번은 사람이 해야 하는 것이 셋 있다. 없으면 여기서 멈추고 무엇이 없는지 말한다.
@@ -25,6 +26,9 @@ SQL_EDITION="${POCKET_SQL_EDITION:-ENTERPRISE}"
 SQL_VERSION="${POCKET_SQL_VERSION:-POSTGRES_18}"
 MTLS_DIR="${POCKET_MTLS_DIR:-$HOME/.config/pocket/mtls}"
 GEMINI_KEY_FILE="${POCKET_GEMINI_KEY_FILE:-}"
+OPENAI_KEY_FILE="${POCKET_OPENAI_KEY_FILE:-}"
+# 어느 provider 로 띄울지. 비우면 아래에서 있는 키를 보고 고른다.
+LLM_PROVIDER_WANT="${POCKET_LLM_PROVIDER:-}"
 SERVICE="pocket-backend"
 DB_NAME=pocket
 DB_USER=pocket
@@ -148,17 +152,40 @@ fi
 put_secret pocket-toss-client-crt "$MTLS_DIR/pocketLedgerProd01_public.crt"
 put_secret pocket-toss-client-key "$MTLS_DIR/pocketLedgerProd01_private.key"
 
-# Gemini 키는 아직 없어도 뜬다. 없으면 문장 읽기가 stub 으로 돌 뿐이다.
-USE_GEMINI=0
+# 모델 키는 아직 없어도 뜬다. 없으면 사진·문장 읽기가 stub 으로 돌 뿐이다.
+# 둘 다 있으면 openai 를 고른다. 지금 기본 모델(gpt-5.6-luna)이 3.6 Flash 보다 3배 넘게 싸다.
+HAVE_GEMINI=0
+HAVE_OPENAI=0
 if [[ -n "$GEMINI_KEY_FILE" ]]; then
-  put_secret pocket-gemini-api-key "$GEMINI_KEY_FILE"
-  USE_GEMINI=1
+  put_secret pocket-gemini-api-key "$GEMINI_KEY_FILE"; HAVE_GEMINI=1
 elif have_secret pocket-gemini-api-key; then
-  skip "시크릿 pocket-gemini-api-key"
-  USE_GEMINI=1
+  skip "시크릿 pocket-gemini-api-key"; HAVE_GEMINI=1
+fi
+if [[ -n "$OPENAI_KEY_FILE" ]]; then
+  put_secret pocket-openai-api-key "$OPENAI_KEY_FILE"; HAVE_OPENAI=1
+elif have_secret pocket-openai-api-key; then
+  skip "시크릿 pocket-openai-api-key"; HAVE_OPENAI=1
+fi
+
+LLM_PROVIDER="$LLM_PROVIDER_WANT"
+if [[ -z "$LLM_PROVIDER" ]]; then
+  if [[ "$HAVE_OPENAI" == "1" ]]; then LLM_PROVIDER=openai
+  elif [[ "$HAVE_GEMINI" == "1" ]]; then LLM_PROVIDER=gemini
+  fi
+fi
+
+# 고른 provider 의 키가 없으면 기동 자체가 막힌다(의도한 가드). 배포 전에 여기서 멈춘다.
+if [[ "$LLM_PROVIDER" == "openai" && "$HAVE_OPENAI" != "1" ]]; then
+  echo "LLM_PROVIDER=openai 인데 OpenAI 키가 없다. POCKET_OPENAI_KEY_FILE 을 준다."; exit 1
+fi
+if [[ "$LLM_PROVIDER" == "gemini" && "$HAVE_GEMINI" != "1" ]]; then
+  echo "LLM_PROVIDER=gemini 인데 Gemini 키가 없다. POCKET_GEMINI_KEY_FILE 을 준다."; exit 1
+fi
+if [[ -z "$LLM_PROVIDER" ]]; then
+  echo "  건너뛴다: 모델 키가 없다. 사진·문장 읽기는 stub 으로 뜬다."
+  echo "  키가 생기면:  POCKET_OPENAI_KEY_FILE=<키 파일> ./scripts/deploy-cloudrun.sh"
 else
-  echo "  건너뛴다: Gemini 키가 없다. 문장 읽기는 stub 으로 뜬다."
-  echo "  나중에 키가 생기면:  POCKET_GEMINI_KEY_FILE=<키가 담긴 파일> ./scripts/deploy-cloudrun.sh"
+  printf '  provider: %s\n' "$LLM_PROVIDER"
 fi
 
 say "3/6  서비스 계정에 필요한 권한을 준다"
@@ -213,9 +240,12 @@ deploy_args=(
   --set-env-vars=TOSS_MTLS_CERT_PATH="$CERT_PATH"
   --set-env-vars=TOSS_MTLS_KEY_PATH="$KEY_PATH"
 )
-if [[ "$USE_GEMINI" == "1" ]]; then
-  secrets+=",GEMINI_API_KEY=pocket-gemini-api-key:latest"
-  deploy_args+=(--set-env-vars=LLM_PROVIDER=gemini)
+# 키는 있는 것을 다 붙인다. 무엇으로 도는지는 LLM_PROVIDER 하나가 정하므로,
+# provider 를 바꿀 때 환경변수 한 줄만 고치면 된다.
+[[ "$HAVE_GEMINI" == "1" ]] && secrets+=",GEMINI_API_KEY=pocket-gemini-api-key:latest"
+[[ "$HAVE_OPENAI" == "1" ]] && secrets+=",OPENAI_API_KEY=pocket-openai-api-key:latest"
+if [[ -n "$LLM_PROVIDER" ]]; then
+  deploy_args+=(--set-env-vars=LLM_PROVIDER="$LLM_PROVIDER")
 fi
 deploy_args+=(--set-secrets="$secrets")
 run gcloud run deploy "$SERVICE" "${deploy_args[@]}"
