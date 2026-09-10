@@ -28,7 +28,8 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column(
         'notification_settings',
-        sa.Column('push_anon_key', sa.String(length=256), nullable=True),
+        # 길이 상한을 안 둔다. 익명키의 최대 길이를 실측한 적이 없다.
+        sa.Column('push_anon_key', sa.Text(), nullable=True),
     )
 
 

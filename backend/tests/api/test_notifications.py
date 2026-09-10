@@ -214,3 +214,57 @@ async def test_익명키가_없으면_보낼_대상으로_고르지_않는다(cl
     assert sender.sent == []
     db.expire_all()
     assert _setting(db).last_reminded_on is None
+
+
+async def test_설정을_열어보기만_해도_익명키가_채워진다(client: TestClient, db: Session) -> None:
+    """이 컬럼이 생기기 전에 켜 둔 사람이 있다. 그 사람들은 화면에는 켜져 있는데
+    발송 대상에서 빠지고, 설정을 다시 만지지 않는 한 영영 알림을 못 받는다.
+    조회만으로 되살아나야 한다."""
+    client.patch(SETTINGS, json={"is_enabled": True, "remind_at": "21:30"}, headers=AUTH)
+    db.expire_all()
+    _setting(db).push_anon_key = None
+    db.commit()
+
+    client.get(SETTINGS, headers=AUTH)
+
+    db.expire_all()
+    assert _setting(db).push_anon_key == "test-anon-key"
+
+
+async def test_꺼_둔_사람은_조회해도_익명키가_안_생긴다(client: TestClient, db: Session) -> None:
+    """안 쓰는 사람 것을 들고 있을 이유가 없다."""
+    client.get(SETTINGS, headers=AUTH)
+
+    db.expire_all()
+    assert _setting(db).push_anon_key is None
+
+
+async def test_보내다_중간에_죽어도_이미_보낸_표시는_남는다(
+    client: TestClient, db: Session
+) -> None:
+    """묶어서 마지막에 한 번 커밋하면, 죽는 순간 이미 나간 알림이 전부 '안 보낸 것' 이 된다.
+    Cloud Run 이 태스크를 다시 돌리면 같은 분이라 그 사람들에게 두 번 울린다."""
+    first = _user(db, f"a-{uuid.uuid4().hex}", "Asia/Seoul")
+    _user(db, f"b-{uuid.uuid4().hex}", "Asia/Seoul")
+
+    class _DiesOnSecond:
+        def __init__(self) -> None:
+            self.sent = 0
+
+        @property
+        def is_stub(self) -> bool:
+            return True
+
+        async def send(self, target: ReminderTarget) -> None:
+            self.sent += 1
+            if self.sent == 2:
+                raise RuntimeError("여기서 죽는다")
+
+    assert await service.send_due_reminders(db, _DiesOnSecond(), NOW) == 1
+
+    db.expire_all()
+    rows = {row.user_id: row.last_reminded_on for row in db.scalars(select(NotificationSetting))}
+    # 첫 사람은 실제로 받았다. 표시가 남아야 다시 안 간다.
+    assert rows[first.id] is not None
+    # 두 번째는 못 받았으니 표시가 없다.
+    assert sum(1 for value in rows.values() if value is None) == 1

@@ -99,7 +99,7 @@ image-run: image db-up
 ait:
 	@test -n "$(API_BASE_URL)" || { echo "API_BASE_URL 이 필요하다. 예: make ait API_BASE_URL=https://..."; exit 1; }
 	@grep -q '^VITE_NOTIFICATION_TEMPLATE_CODE=.' frontend/.env.local 2>/dev/null || \
-		echo "⚠ frontend/.env.local 에 VITE_NOTIFICATION_TEMPLATE_CODE 가 없다. 이대로 빌드하면 알림을 못 켠다(docs/SECRETS.md §6)."
+		{ echo "frontend/.env.local 에 VITE_NOTIFICATION_TEMPLATE_CODE 가 없다. 이대로 빌드하면 아무도 알림을 못 켠다(docs/SECRETS.md §6)."; exit 1; }
 	cd frontend && VITE_API_BASE_URL='$(API_BASE_URL)' npm run build
 	@echo "frontend/pocket-ledger.ait 를 콘솔에 올린다."
 

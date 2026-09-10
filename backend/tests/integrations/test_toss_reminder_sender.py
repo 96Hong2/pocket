@@ -137,5 +137,55 @@ async def test_템플릿_코드가_비면_만들_수_없다(make_client) -> None
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=_sent())
 
-    with pytest.raises(ValueError):
-        TossSmartMessageSender(make_client(handler), template_set_code="   ")
+    # 다른 테스트와 같은 규약으로 닫는다. 안 닫으면 미닫힌 AsyncClient 경고가 남는다.
+    async with make_client(handler) as client:
+        with pytest.raises(ValueError):
+            TossSmartMessageSender(client, template_set_code="   ")
+
+
+async def test_통수를_못_찾은_응답은_0통으로_치지_않는다(make_client) -> None:
+    """응답 모양을 아직 실물로 못 봤다. 모른다고 정상 발송을 실패로 기록하면
+    진짜 장애와 구분이 안 된다."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"resultType": "SUCCESS", "success": {"ok": True}})
+
+    async with make_client(handler) as client:
+        sender = TossSmartMessageSender(client, template_set_code="pocket-remind")
+        # 예외가 안 난다. 보낸 것으로 본다.
+        await sender.send(TARGET)
+
+
+async def test_통수_자리에_참거짓이_와도_한_통으로_세지_않는다(make_client) -> None:
+    """파이썬에서 bool 은 int 의 하위형이다. True 를 1통으로 세면 0통 판정을 그냥 빠져나간다."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "resultType": "SUCCESS",
+                "success": {"sentPushCount": True, "sentInboxCount": False},
+            },
+        )
+
+    async with make_client(handler) as client:
+        sender = TossSmartMessageSender(client, template_set_code="pocket-remind")
+        # 셀 수 있는 자리가 하나도 없으므로 '모름' 이다. 1통으로 세지 않는다.
+        await sender.send(TARGET)
+
+
+async def test_다시_부르지_않는다고_명시해서_넘긴다(make_client) -> None:
+    """공통 클라이언트의 기본값이 바뀌어도 이 호출은 재시도하지 않아야 한다."""
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        # 429 는 공통 클라이언트가 재시도 대상으로 보는 상태다.
+        return httpx.Response(429, json={"resultType": "FAIL", "error": {"errorCode": "4095"}})
+
+    async with make_client(handler) as client:
+        sender = TossSmartMessageSender(client, template_set_code="pocket-remind")
+        with pytest.raises(TossBusinessError):
+            await sender.send(TARGET)
+
+    assert len(calls) == 1

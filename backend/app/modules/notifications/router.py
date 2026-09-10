@@ -32,8 +32,13 @@ def _out(row: NotificationSetting) -> NotificationSettingsOut:
 
 
 @router.get("/settings", response_model=NotificationSettingsOut)
-def show(session: DbSession, user: CurrentUser) -> NotificationSettingsOut:
-    return _out(service.get_notification_settings(session, user))
+def show(
+    session: DbSession, user: CurrentUser, identity: CurrentIdentity
+) -> NotificationSettingsOut:
+    row = service.get_notification_settings(session, user)
+    # 이 컬럼이 생기기 전에 켜 둔 사람은 값이 비어 있다. 화면을 여는 것만으로 채워진다.
+    service.refresh_push_key(session, row, identity.anon_key)
+    return _out(row)
 
 
 @router.patch("/settings", response_model=NotificationSettingsOut)

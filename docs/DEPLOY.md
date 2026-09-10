@@ -156,7 +156,8 @@ gcloud run jobs create pocket-reminders \
   --set-env-vars=ENVIRONMENT=prod \
   --set-env-vars=TOSS_MTLS_CERT_PATH=/secrets/toss-crt/toss-client.crt \
   --set-env-vars=TOSS_MTLS_KEY_PATH=/secrets/toss-key/toss-client.key \
-  --set-env-vars=TOSS_REMINDER_TEMPLATE_SET_CODE=<발송 코드>
+  --set-env-vars=TOSS_REMINDER_TEMPLATE_SET_CODE=<발송 코드> \
+  --max-retries=0
 ```
 
 ```bash
@@ -169,6 +170,9 @@ gcloud scheduler jobs create http pocket-reminders-tick \
   --oauth-service-account-email=<잡을 실행할 서비스 계정>
 ```
 
+- **`--max-retries=0` 을 빼지 않는다.** Cloud Run 기본값은 3회 재시도다. 잡이 비정상 종료하면
+  같은 분에 최대 네 번 돌고, 그때마다 아직 보낸 표시가 안 남은 사람에게 알림이 다시 간다.
+  「두 번 울리는 쪽이 더 나쁘다」(ADR-0017)와 정면으로 부딪힌다
 - **인증서를 웹 서비스와 똑같이 붙여야 한다.** 스마트발송도 익명키 검증과 같은 mTLS 를 탄다.
   인증서와 개인키는 폴더를 따로 쓴다(위 5절과 같은 이유)
 - **`TOSS_REMINDER_TEMPLATE_SET_CODE` 가 비면 알림이 안 간다.** 잡은 정상 종료하고 로그에
