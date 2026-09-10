@@ -20,7 +20,7 @@ from collections.abc import Callable
 from app.api.errors import ApiError, ErrorCode
 from app.integrations.llm import LlmImage
 
-__all__ = ["ALLOWED_MEDIA_TYPES", "MAX_IMAGE_BYTES", "decode_data_url"]
+__all__ = ["MAX_IMAGE_BYTES", "decode_data_url"]
 
 logger = logging.getLogger(__name__)
 
@@ -32,16 +32,13 @@ _PREFIX = "data:"
 # base64 사이에 섞여 오는 공백·줄바꿈. 기기에 따라 76자마다 끊거나 끝에 줄바꿈을 붙인다.
 _WHITESPACE = re.compile(r"\s+")
 
+# 받아 주는 형식. 이 표가 곧 허용 목록이고 검사기다. 둘이 어긋날 자리를 만들지 않는다.
 _MAGIC: dict[str, Callable[[bytes], bool]] = {
     "image/png": lambda data: data.startswith(b"\x89PNG"),
     "image/jpeg": lambda data: data.startswith(b"\xff\xd8\xff"),
     # RIFF 컨테이너라 앞 네 바이트만으로는 갈리지 않는다. 8번째부터의 WEBP 까지 본다.
     "image/webp": lambda data: data.startswith(b"RIFF") and data[8:12] == b"WEBP",
 }
-
-# 받아 주는 형식. 매직바이트를 아는 것만 넣는다. 목록과 검사가 어긋날 자리를 없앤다.
-ALLOWED_MEDIA_TYPES = frozenset(_MAGIC)
-
 
 def decode_data_url(value: str) -> LlmImage:
     """`data:<mime>;base64,<payload>` 를 이미지로 푼다.
