@@ -57,6 +57,10 @@ curl -sS localhost:8080/health
 Cloud SQL 인스턴스 하나에 데이터베이스 `pocket` 하나. 접속 주소는 Secret Manager 에 넣고
 `DATABASE_URL` 로 준다. 저장소에 적지 않는다.
 
+아래 명령은 `scripts/deploy-cloudrun.sh` 가 대신 한다. 인스턴스·데이터베이스·사용자·시크릿이
+없을 때만 만들고, 있으면 건드리지 않는다. 비밀번호는 스크립트가 무작위로 만들어 접속 주소째로
+시크릿에 넣으므로 사람이 어디에도 적지 않는다. 손으로 할 때만 아래를 쓴다.
+
 ```bash
 gcloud secrets create pocket-database-url --replication-policy=automatic
 printf '%s' 'postgresql+psycopg://<user>:<password>@/<db>?host=/cloudsql/<연결이름>' \
@@ -111,6 +115,10 @@ gcloud run deploy pocket-backend \
   --set-env-vars=TOSS_MTLS_CERT_PATH=/secrets/toss/toss-client.crt \
   --set-env-vars=TOSS_MTLS_KEY_PATH=/secrets/toss/toss-client.key
 ```
+
+Gemini 키가 아직 없으면 마지막 두 줄(`GEMINI_API_KEY`·`LLM_PROVIDER`)을 빼고 띄운다.
+`LLM_PROVIDER` 기본값이 `stub` 이라 서버는 정상으로 뜨고, 문장으로 적기만 가짜 응답이 된다.
+키가 생기면 시크릿을 만들고 두 줄을 붙여 다시 배포한다.
 
 ### 잘못된 설정이 트래픽을 못 받게 해 뒀다
 
