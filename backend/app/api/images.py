@@ -63,7 +63,7 @@ def decode_data_url(value: str) -> LlmImage:
         raise _rejected("base64 data URL 이 아니다")
 
     try:
-        data = base64.b64decode(_WHITESPACE.sub("", payload), validate=True)
+        data = base64.b64decode(_padded(_WHITESPACE.sub("", payload)), validate=True)
     except (binascii.Error, ValueError):
         # from None 으로 원인을 끊는다. 원인 예외의 문자열에 입력이 실려 올라갈 수 있다.
         raise _rejected("base64 를 풀지 못했다") from None
@@ -78,6 +78,12 @@ def decode_data_url(value: str) -> LlmImage:
         raise _rejected(f"아는 형식이 아니다 (헤더는 {declared!r})")
 
     return LlmImage(media_type=media_type, data=data)
+
+
+def _padded(payload: str) -> str:
+    """끝의 `=` 를 떼고 보내는 인코더가 있다. 붙여 놓고 디코드한다."""
+    remainder = len(payload) % 4
+    return payload if remainder == 0 else payload + "=" * (4 - remainder)
 
 
 def _sniff(data: bytes) -> str | None:

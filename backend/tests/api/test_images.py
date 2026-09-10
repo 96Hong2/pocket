@@ -110,6 +110,15 @@ def test_줄바꿈이_섞인_base64_도_푼다() -> None:
     assert image.data == PNG_BYTES
 
 
+def test_끝의_패딩이_떨어져_나가도_푼다() -> None:
+    """`=` 를 떼고 보내는 인코더가 있다. 붙여 놓고 디코드한다."""
+    stripped = base64.b64encode(PNG_BYTES).decode().rstrip("=")
+
+    image = decode_data_url(f"data:image/png;base64,{stripped}")
+
+    assert image.data == PNG_BYTES
+
+
 def test_base64_가_깨졌으면_막는다() -> None:
     with pytest.raises(ApiError) as caught:
         decode_data_url("data:image/png;base64,%%%not-base64%%%")
