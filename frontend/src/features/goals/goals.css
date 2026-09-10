@@ -271,6 +271,9 @@
     display: block;
     min-width: 0;
     max-width: 100%;
+    /* min-height 만 두면 안쪽 값이 세로 가운데로 안 오고 위에 붙는 기기가 있다. */
+    height: 48px;
+    line-height: 46px;
     /* 안쪽 값 영역이 넘쳐도 칸 밖으로 나가지 않는다. */
     overflow: hidden;
   }
