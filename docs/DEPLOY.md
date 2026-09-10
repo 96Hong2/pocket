@@ -105,16 +105,19 @@ gcloud run deploy pocket-backend \
   --region=<리전> \
   --set-cloudsql-instances=<연결이름> \
   --set-secrets=DATABASE_URL=pocket-database-url:latest \
-  --set-secrets=/secrets/toss/toss-client.crt=pocket-toss-client-crt:latest \
-  --set-secrets=/secrets/toss/toss-client.key=pocket-toss-client-key:latest \
+  --set-secrets=/secrets/toss-crt/toss-client.crt=pocket-toss-client-crt:latest \
+  --set-secrets=/secrets/toss-key/toss-client.key=pocket-toss-client-key:latest \
   --set-secrets=GEMINI_API_KEY=pocket-gemini-api-key:latest \
   --set-env-vars=ENVIRONMENT=prod \
   --set-env-vars=LLM_PROVIDER=gemini \
   --set-env-vars=ALLOW_UNVERIFIED_ANON_KEY=false \
   --set-env-vars=ALLOW_PAST_PERIOD_BUDGET_WRITE=false \
-  --set-env-vars=TOSS_MTLS_CERT_PATH=/secrets/toss/toss-client.crt \
-  --set-env-vars=TOSS_MTLS_KEY_PATH=/secrets/toss/toss-client.key
+  --set-env-vars=TOSS_MTLS_CERT_PATH=/secrets/toss-crt/toss-client.crt \
+  --set-env-vars=TOSS_MTLS_KEY_PATH=/secrets/toss-key/toss-client.key
 ```
+
+인증서와 개인키는 **폴더를 따로 쓴다.** Cloud Run 은 시크릿 한 건을 폴더 하나로 붙이는 구조라,
+같은 폴더에 둘을 적으면 「다른 시크릿이 이미 붙어 있다」며 배포가 통째로 실패한다.
 
 Gemini 키가 아직 없으면 마지막 두 줄(`GEMINI_API_KEY`·`LLM_PROVIDER`)을 빼고 띄운다.
 `LLM_PROVIDER` 기본값이 `stub` 이라 서버는 정상으로 뜨고, 문장으로 적기만 가짜 응답이 된다.

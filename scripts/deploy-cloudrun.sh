@@ -20,6 +20,7 @@ PROJECT="${POCKET_GCP_PROJECT:-}"
 REGION="${POCKET_GCP_REGION:-asia-northeast3}"
 SQL_INSTANCE="${POCKET_SQL_INSTANCE:-pocket-sql}"
 SQL_TIER="${POCKET_SQL_TIER:-db-f1-micro}"
+SQL_EDITION="${POCKET_SQL_EDITION:-ENTERPRISE}"
 # 로컬과 같은 판으로 맞춘다. 리전에서 아직 안 되면 POCKET_SQL_VERSION=POSTGRES_17 로 내린다.
 SQL_VERSION="${POCKET_SQL_VERSION:-POSTGRES_18}"
 MTLS_DIR="${POCKET_MTLS_DIR:-$HOME/.config/pocket/mtls}"
@@ -52,7 +53,7 @@ fi
 # 결제는 「등록했다」와 「열렸다」가 다르다. 선불 입금이 안 끝나면 계정이 닫힌 채로 있고,
 # 그 상태에서는 1/6 의 API 켜기부터 권한 오류로 죽는다. 여기서 먼저 가른다.
 if [[ -n "$PROJECT" && "$PROJECT" != "(unset)" ]]; then
-  BILLING_OPEN="$(gcloud beta billing projects describe "$PROJECT" \
+  BILLING_OPEN="$(gcloud billing projects describe "$PROJECT" \
     --format='value(billingEnabled)' 2>/dev/null || echo "")"
   if [[ "$BILLING_OPEN" != "True" ]]; then
     echo "❌ 이 프로젝트에 열려 있는 결제 계정이 없다."
@@ -106,9 +107,10 @@ if gcloud sql instances describe "$SQL_INSTANCE" --project="$PROJECT" >/dev/null
   skip "Cloud SQL 인스턴스 $SQL_INSTANCE"
 else
   # 10분쯤 걸린다. 가장 작은 등급으로 만든다. 나중에 키우는 건 되지만 줄이는 건 안 된다.
+  # edition 을 안 적으면 ENTERPRISE_PLUS 로 잡히고, 거기서는 db-f1-micro 를 안 받아 준다.
   run gcloud sql instances create "$SQL_INSTANCE" \
-    --database-version="$SQL_VERSION" --tier="$SQL_TIER" --region="$REGION" \
-    --storage-size=10 --storage-auto-increase --project="$PROJECT"
+    --database-version="$SQL_VERSION" --edition="$SQL_EDITION" --tier="$SQL_TIER" \
+    --region="$REGION" --storage-size=10 --storage-auto-increase --project="$PROJECT"
 fi
 
 if gcloud sql databases describe "$DB_NAME" --instance="$SQL_INSTANCE" \
@@ -159,16 +161,23 @@ else
   echo "  나중에 키가 생기면:  POCKET_GEMINI_KEY_FILE=<키가 담긴 파일> ./scripts/deploy-cloudrun.sh"
 fi
 
-say "3/6  런타임 서비스 계정에 시크릿 읽기 권한을 준다"
-run gcloud projects add-iam-policy-binding "$PROJECT" \
-  --member="serviceAccount:${RUNTIME_SA}" \
-  --role=roles/secretmanager.secretAccessor --condition=None
+say "3/6  서비스 계정에 필요한 권한을 준다"
+# 새로 만든 프로젝트에는 예전의 Cloud Build 전용 계정이 없다. 빌드도 이 기본 계정으로 도는데,
+# 갓 만든 계정은 소스 올린 버킷을 읽지도 못한다. builds.builder 가 버킷·이미지·로그를 함께 연다.
+# cloudsql.client 이 없으면 소켓 자체가 안 생긴다. 로그에는 "No such file or directory" 만 남아
+# 접속 주소가 틀린 것처럼 보이는데, 실제 원인은 권한이다.
+for role in roles/secretmanager.secretAccessor roles/cloudbuild.builds.builder roles/cloudsql.client; do
+  printf '  %s\n' "$role"
+  run gcloud projects add-iam-policy-binding "$PROJECT" \
+    --member="serviceAccount:${RUNTIME_SA}" --role="$role" --condition=None --format=none
+done
 
 say "4/6  이미지를 만들어 올린다"
 run gcloud artifacts repositories create pocket --repository-format=docker \
   --location="$REGION" --project="$PROJECT" 2>/dev/null || true
-run gcloud builds submit backend --tag="$IMAGE" \
-  --project="$PROJECT" --region="$REGION"
+# Dockerfile 자리와 빌드 맥락이 달라서 --tag 를 못 쓴다. 까닭은 cloudbuild.yaml 머리말에 적었다.
+run gcloud builds submit . --config=cloudbuild.yaml \
+  --substitutions=_IMAGE="$IMAGE" --project="$PROJECT" --region="$REGION"
 
 say "5/6  스키마를 먼저 올린다 (잡). 기본 카테고리 시드가 여기 딸려 온다"
 if gcloud run jobs describe pocket-migrate --region="$REGION" --project="$PROJECT" >/dev/null 2>&1; then
@@ -183,6 +192,17 @@ run gcloud run jobs execute pocket-migrate --region="$REGION" --project="$PROJEC
 
 say "6/6  리비전을 띄운다"
 # mTLS 인증서는 Secret Manager 에서 파일로 마운트한다. 없으면 기동 자체가 막힌다(의도한 가드).
+#
+# 인증서와 개인키를 한 폴더에 못 넣는다. Cloud Run 은 시크릿 한 건을 폴더 하나로 붙이는데,
+# 같은 폴더에 둘을 적으면 "다른 시크릿이 이미 붙어 있다" 며 배포가 통째로 실패한다. 그래서 폴더를 나눈다.
+CERT_PATH=/secrets/toss-crt/toss-client.crt
+KEY_PATH=/secrets/toss-key/toss-client.key
+
+# 시크릿은 쉼표로 이어 한 번에 준다. 플래그를 여러 번 쓰면 뒤엣것이 앞엣것을 덮는 판이 있다.
+secrets="DATABASE_URL=pocket-database-url:latest"
+secrets+=",${CERT_PATH}=pocket-toss-client-crt:latest"
+secrets+=",${KEY_PATH}=pocket-toss-client-key:latest"
+
 deploy_args=(
   --image="$IMAGE" --region="$REGION" --project="$PROJECT"
   --allow-unauthenticated
@@ -190,18 +210,14 @@ deploy_args=(
   --set-env-vars=ENVIRONMENT=prod
   --set-env-vars=ALLOW_UNVERIFIED_ANON_KEY=false
   --set-env-vars=ALLOW_PAST_PERIOD_BUDGET_WRITE=false
-  --set-env-vars=TOSS_MTLS_CERT_PATH=/secrets/toss/toss-client.crt
-  --set-env-vars=TOSS_MTLS_KEY_PATH=/secrets/toss/toss-client.key
-  --set-secrets=DATABASE_URL=pocket-database-url:latest
-  --set-secrets=/secrets/toss/toss-client.crt=pocket-toss-client-crt:latest
-  --set-secrets=/secrets/toss/toss-client.key=pocket-toss-client-key:latest
+  --set-env-vars=TOSS_MTLS_CERT_PATH="$CERT_PATH"
+  --set-env-vars=TOSS_MTLS_KEY_PATH="$KEY_PATH"
 )
 if [[ "$USE_GEMINI" == "1" ]]; then
-  deploy_args+=(
-    --set-env-vars=LLM_PROVIDER=gemini
-    --set-secrets=GEMINI_API_KEY=pocket-gemini-api-key:latest
-  )
+  secrets+=",GEMINI_API_KEY=pocket-gemini-api-key:latest"
+  deploy_args+=(--set-env-vars=LLM_PROVIDER=gemini)
 fi
+deploy_args+=(--set-secrets="$secrets")
 run gcloud run deploy "$SERVICE" "${deploy_args[@]}"
 
 say "연기 검사"
@@ -212,13 +228,13 @@ BASE="$(gcloud run services describe "$SERVICE" --region="$REGION" --project="$P
   --format='value(status.url)')"
 echo "  주소 $BASE"
 curl -fsS "$BASE/health"; echo ""
-# 작은 응답만 오가는 고장을 여기서도 거른다. 목록은 1.8KB 라 크기까지 본다.
-SIZE="$(curl -sS -o /dev/null -w '%{size_download}' -H 'X-Anon-Key: deploy-smoke' "$BASE/api/v1/categories")"
-echo "  키를 넣고 목록 조회 → ${SIZE}바이트"
-[[ "$SIZE" -gt 1000 ]] || { echo "❌ 목록이 안 온다. 리비전 로그를 본다."; exit 1; }
-CODE="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/api/v1/categories")"
-echo "  키 없이 조회 → $CODE  (401 이어야 한다)"
-[[ "$CODE" == "401" ]] || { echo "❌ 검증이 꺼진 채로 떴다. 즉시 롤백한다."; exit 1; }
+# 운영에서는 아무 키나 넣어 목록을 받아 볼 수 없다. 익명키를 토스에 되물어 확인하기 때문이다.
+# 그래서 「목록이 오나」가 아니라 「가짜 키를 제대로 막나」를 본다. 둘 다 401 이어야 정상이다.
+NOKEY="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/api/v1/categories")"
+FAKEKEY="$(curl -sS -o /dev/null -w '%{http_code}' -H 'X-Anon-Key: deploy-smoke' "$BASE/api/v1/categories")"
+echo "  키 없이 조회 → $NOKEY   가짜 키로 조회 → $FAKEKEY   (둘 다 401 이어야 한다)"
+[[ "$NOKEY" == "401" && "$FAKEKEY" == "401" ]] || {
+  echo "❌ 검증이 꺼진 채로 떴다. 즉시 롤백한다."; exit 1; }
 
 cat <<MSG
 
