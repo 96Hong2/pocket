@@ -13,7 +13,7 @@ import uuid
 
 from fastapi import APIRouter, Response, status
 
-from app.api.deps import CurrentUser, DbSession, LlmClient
+from app.api.deps import CurrentUser, DbSession, EscalationLlmClient, LlmClient
 from app.api.errors import ERROR_RESPONSES
 from app.api.images import decode_data_url
 from app.integrations.llm import TransactionSource
@@ -34,32 +34,54 @@ router = APIRouter(prefix="/imports", tags=["imports"], responses=ERROR_RESPONSE
 
 @router.post("/text", response_model=ImportBatchOut, status_code=status.HTTP_201_CREATED)
 def analyze_text(
-    body: ImportTextIn, session: DbSession, user: CurrentUser, client: LlmClient
+    body: ImportTextIn,
+    session: DbSession,
+    user: CurrentUser,
+    client: LlmClient,
+    escalation: EscalationLlmClient,
 ) -> ImportBatchOut:
-    batch = service.parse_text(session, user, text=body.text, client=client)
+    batch = service.parse_text(session, user, text=body.text, client=client, escalation=escalation)
     return to_batch(batch, client=client)
 
 
 @router.post("/capture", response_model=ImportBatchOut, status_code=status.HTTP_201_CREATED)
 def analyze_capture(
-    body: ImportImageIn, session: DbSession, user: CurrentUser, client: LlmClient
+    body: ImportImageIn,
+    session: DbSession,
+    user: CurrentUser,
+    client: LlmClient,
+    escalation: EscalationLlmClient,
 ) -> ImportBatchOut:
     # async 로 바꾸지 않는다. service._extract 의 anyio.from_thread.run 이 워커 스레드를 전제한다.
     image = decode_data_url(body.image)
     batch = service.parse_image(
-        session, user, image=image, source=TransactionSource.SCREENSHOT, client=client
+        session,
+        user,
+        image=image,
+        source=TransactionSource.SCREENSHOT,
+        client=client,
+        escalation=escalation,
     )
     return to_batch(batch, client=client)
 
 
 @router.post("/receipt", response_model=ImportBatchOut, status_code=status.HTTP_201_CREATED)
 def analyze_receipt(
-    body: ImportImageIn, session: DbSession, user: CurrentUser, client: LlmClient
+    body: ImportImageIn,
+    session: DbSession,
+    user: CurrentUser,
+    client: LlmClient,
+    escalation: EscalationLlmClient,
 ) -> ImportBatchOut:
     # 캡처와 같은 이유로 async 로 바꾸지 않는다.
     image = decode_data_url(body.image)
     batch = service.parse_image(
-        session, user, image=image, source=TransactionSource.RECEIPT, client=client
+        session,
+        user,
+        image=image,
+        source=TransactionSource.RECEIPT,
+        client=client,
+        escalation=escalation,
     )
     return to_batch(batch, client=client)
 

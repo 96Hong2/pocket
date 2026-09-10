@@ -33,3 +33,7 @@ class ParseUsage(Entity):
     # 보내기 전에 가린 숫자 뭉치가 몇 개였는지. 가리는 규칙이 실제로 도는지 확인한다.
     redacted_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     candidate_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    # 실제로 결과를 낸 모델. provider 만으로는 luna 와 terra 가 갈리지 않는다.
+    model: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # 비싼 모델까지 갔나. 「되도록 안 부른다」를 지키고 있는지 이 값으로 센다.
+    escalated: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))

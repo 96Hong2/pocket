@@ -12,9 +12,12 @@ from typing import Any
 from app.integrations.llm.port import LlmError, LlmImage, LlmSchemaError
 from app.integrations.llm.remote import IMAGE_LEAD, MAX_OUTPUT_TOKENS, RemoteStructuredClient
 
-__all__ = ["OPENAI_DEFAULT_MODEL", "OpenAiStructuredClient"]
+__all__ = ["OPENAI_DEFAULT_MODEL", "OPENAI_ESCALATION_MODEL", "OpenAiStructuredClient"]
 
-OPENAI_DEFAULT_MODEL = "gpt-5-mini"
+# gpt-5-mini 는 2026-12-11 에 내려간다. 후속 중 이미지·strict 스키마를 다 하면서
+# 가장 싼 것이 luna 다($0.20/$1.20). 재시도용은 terra($2/$12) 라 되도록 안 부른다.
+OPENAI_DEFAULT_MODEL = "gpt-5.6-luna"
+OPENAI_ESCALATION_MODEL = "gpt-5.6-terra"
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 
 
@@ -69,6 +72,7 @@ class OpenAiStructuredClient(RemoteStructuredClient):
             "max_output_tokens": MAX_OUTPUT_TOKENS,
         }
         # 옮겨 적는 일에 긴 추론은 값만 든다. 다만 사진은 조금은 봐야 해서 아예 끄지 않는다.
+        # 5.6 계열은 none 까지 받지만 영수증에서 자릿수를 놓쳐 low 로 둔다.
         if self.model.startswith("gpt-5"):
             body["reasoning"] = {"effort": "low"}
         return body

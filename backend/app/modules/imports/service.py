@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Callable
 from datetime import UTC, date, datetime, time
@@ -21,9 +22,11 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
 from app.core.config import get_settings
+from app.domain.extraction_review import ReviewVerdict, review_extraction
 from app.domain.fingerprint import Fingerprint, build_fingerprint, normalize_merchant
 from app.domain.money import Money
 from app.domain.redaction import redact
+from app.integrations.imaging import prepare_image
 from app.integrations.llm import (
     LOW_CONFIDENCE_THRESHOLD,
     LlmError,
@@ -36,6 +39,7 @@ from app.integrations.llm import (
     attach_source,
     natural_language_prompt,
     receipt_prompt,
+    retry_prompt,
     screenshot_prompt,
 )
 from app.models import (
@@ -52,6 +56,8 @@ from app.models import (
 from app.modules import ledger
 from app.modules.categories import service as categories
 from app.modules.transactions import service as transactions
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "CommitResult",
@@ -134,6 +140,7 @@ def parse_text(
     *,
     text: str,
     client: LlmStructuredClient,
+    escalation: LlmStructuredClient | None = None,
     today: date | None = None,
 ) -> ImportBatch:
     """줄글에서 거래 후보를 뽑아 검토 단위를 만든다."""
@@ -142,8 +149,9 @@ def parse_text(
 
     # 저장하지 않는 것만으로는 부족하다. 보내기 전에 가린다.
     cleaned = redact(text)
-    extraction = _extract(
+    read = _read_twice_if_odd(
         client,
+        escalation,
         prompt=natural_language_prompt(day),
         today=day,
         subject="문장을",
@@ -153,7 +161,7 @@ def parse_text(
         session,
         user,
         source=TransactionSource.NL,
-        extraction=extraction,
+        read=read,
         day=day,
         client=client,
         input_length=len(text),
@@ -168,6 +176,7 @@ def parse_image(
     image: LlmImage,
     source: TransactionSource,
     client: LlmStructuredClient,
+    escalation: LlmStructuredClient | None = None,
     today: date | None = None,
 ) -> ImportBatch:
     """이미지 한 장에서 거래 후보를 뽑아 검토 단위를 만든다.
@@ -181,18 +190,20 @@ def parse_image(
     day = today or ledger.today_for(user)
     _require_quota(session, user, day, label=kind.quota_label)
 
-    extraction = _extract(
-        client, prompt=kind.prompt(day), today=day, subject=kind.subject, image=image
+    # 돌리고 · 여백을 잘라내고 · 줄인 뒤에 보낸다. 위치 정보도 여기서 끊긴다.
+    sent = prepare_image(image)
+    read = _read_twice_if_odd(
+        client, escalation, prompt=kind.prompt(day), today=day, subject=kind.subject, image=sent
     )
     return _build_batch(
         session,
         user,
         source=source,
-        extraction=extraction,
+        read=read,
         day=day,
         client=client,
-        # 이미지에서는 글자 수가 없다. 바이트 수를 센다.
-        input_length=len(image.data),
+        # 이미지에서는 글자 수가 없다. 실제로 보낸 바이트 수를 센다.
+        input_length=len(sent.data),
         # redact() 는 문자열만 가린다. 이미지 안의 카드번호는 가릴 수단이 없고,
         # 0 이 그 사실을 표에 남긴 것이다.
         redacted_count=0,
@@ -204,14 +215,14 @@ def _build_batch(
     user: User,
     *,
     source: TransactionSource,
-    extraction: TransactionExtraction,
+    read: _ReadResult,
     day: date,
     client: LlmStructuredClient,
     input_length: int,
     redacted_count: int,
 ) -> ImportBatch:
     """추출 결과를 검토 단위로 옮긴다. 줄글·캡처·영수증이 이 뒤로는 같은 길을 지난다."""
-    found = attach_source(extraction, source)
+    found = attach_source(read.extraction, source)
     candidates = found[:MAX_CANDIDATES]
     dropped = len(found) - len(candidates)
 
@@ -229,7 +240,20 @@ def _build_batch(
     known = _known_fingerprints(session, user)
     rules = _rules_by_merchant(session, user)
     for order, candidate in enumerate(candidates):
-        session.add(_to_row(session, user, batch, candidate, order, day, known, rules))
+        session.add(
+            _to_row(
+                session,
+                user,
+                batch,
+                candidate,
+                order,
+                day,
+                known,
+                rules,
+                # 두 모델을 다 거치고도 이상한 줄은 사람이 봐야 한다.
+                needs_eyes=read.verdict.flags(order),
+            )
+        )
 
     session.commit()
     session.refresh(batch)
@@ -242,6 +266,8 @@ def _build_batch(
         input_length=input_length,
         redacted_count=redacted_count,
         candidate_count=len(candidates),
+        model=read.model,
+        escalated=read.escalated,
     )
     return batch
 
@@ -423,6 +449,64 @@ def _touches_content(data: dict[str, object]) -> bool:
     return any(field != "is_selected" for field in data)
 
 
+class _ReadResult(NamedTuple):
+    """읽어 낸 결과와 서버가 본 판정."""
+
+    extraction: TransactionExtraction
+    verdict: ReviewVerdict
+    #: 두 번째 모델까지 불렀나. 값이 비싸 얼마나 자주 가는지 세어야 한다.
+    escalated: bool
+    #: 이 결과를 실제로 낸 모델.
+    model: str
+
+
+def _read_twice_if_odd(
+    client: LlmStructuredClient,
+    escalation: LlmStructuredClient | None,
+    *,
+    prompt: str,
+    today: date,
+    subject: str,
+    text: str | None = None,
+    image: LlmImage | None = None,
+) -> _ReadResult:
+    """싼 모델로 먼저 읽고, 서버 검증에 걸린 것만 비싼 모델로 다시 읽는다.
+
+    되도록 안 부른다. 1차가 깨끗하면 두 번째 모델은 아예 안 뜬다.
+    다시 읽어도 이상하면 **더 이상 안 부르고 사람에게 넘긴다.** 세 번째 모델은 없다.
+
+    재시도 자체가 실패하면(키·한도·타임아웃) 1차 결과를 그대로 쓴다. 첫 답이 있는데
+    두 번째 호출이 죽었다고 사용자에게 아무것도 못 준다고 하는 것은 과하다.
+    """
+    first = _extract(client, prompt=prompt, today=today, subject=subject, text=text, image=image)
+    verdict = review_extraction(first, today=today)
+    if verdict.is_clean or escalation is None:
+        if not verdict.is_clean:
+            logger.info("재시도 모델이 없어 사람에게 넘긴다: %s", verdict.summary())
+        return _ReadResult(extraction=first, verdict=verdict, escalated=False, model=client.model)
+
+    logger.info("1차가 이상해 다시 읽는다 model=%s: %s", escalation.model, verdict.summary())
+    try:
+        second = _extract(
+            escalation,
+            prompt=retry_prompt(prompt, verdict.summary()),
+            today=today,
+            subject=subject,
+            text=text,
+            image=image,
+        )
+    except ApiError:
+        logger.warning("재시도가 실패해 1차 결과를 그대로 쓴다")
+        return _ReadResult(extraction=first, verdict=verdict, escalated=True, model=client.model)
+
+    retried = review_extraction(second, today=today)
+    if retried.is_clean:
+        logger.info("다시 읽으니 깨끗하다 model=%s", escalation.model)
+    else:
+        logger.info("다시 읽어도 이상해 사람에게 넘긴다: %s", retried.summary())
+    return _ReadResult(extraction=second, verdict=retried, escalated=True, model=escalation.model)
+
+
 def _extract(
     client: LlmStructuredClient,
     *,
@@ -469,6 +553,7 @@ def _to_row(
     today: date,
     known: set[str],
     rules: dict[str, _LearnedRule],
+    needs_eyes: bool = False,
 ) -> ImportCandidate:
     occurred_at = _occurred_at(candidate.occurred_at, user, today)
     # 돌아온 값도 가린다. 캡처는 입력을 가릴 수단이 없어(이미지다) 여기가 유일한 그물이고,
@@ -498,8 +583,9 @@ def _to_row(
         confidence=candidate.confidence,
         fingerprint=fingerprint.value,
         is_duplicate=is_duplicate,
-        # 확신이 낮거나 이미 있는 것은 스스로 켜지지 않는다. 사람이 켜야 저장된다.
-        is_selected=not low and not is_duplicate and not needs_target,
+        # 확신이 낮거나 · 이미 있거나 · 서버 검증에 걸린 것은 스스로 켜지지 않는다.
+        # 사람이 켜야 저장된다.
+        is_selected=not low and not is_duplicate and not needs_target and not needs_eyes,
         sort_order=order,
     )
 
@@ -636,6 +722,8 @@ def _record_usage(
     input_length: int,
     redacted_count: int,
     candidate_count: int,
+    model: str,
+    escalated: bool,
 ) -> None:
     session.add(
         ParseUsage(
@@ -646,6 +734,8 @@ def _record_usage(
             input_length=input_length,
             redacted_count=redacted_count,
             candidate_count=candidate_count,
+            model=model,
+            escalated=escalated,
         )
     )
     session.commit()

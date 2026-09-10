@@ -76,6 +76,15 @@ class LlmStructuredClient(Protocol):
     @property
     def is_stub(self) -> bool: ...
 
+    @property
+    def model(self) -> str:
+        """어느 모델이 읽었나. 스텁은 'stub' 이다.
+
+        로그와 응답 메타가 이것을 싣는다. 두 모델을 섞어 쓰게 되면서, 어느 쪽이 낸
+        결과인지 모르면 인식 품질을 모델별로 갈라 볼 수 없다.
+        """
+        ...
+
     async def extract(
         self,
         *,

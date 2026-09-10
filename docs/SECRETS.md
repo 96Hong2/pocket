@@ -107,8 +107,12 @@ Cloud Run 헬스체크가 통과해 잘못된 리비전이 트래픽을 받는�
 
 ## 4. LLM API 키
 
-provider 는 `LLM_PROVIDER` 로 고른다. 기본 provider 는 **Gemini 2.5 Flash** 이고 OpenAI gpt-5-mini 를
-예비로 둔다(ADR-0016). SDK 없이 httpx 로 부르고, 어댑터는 `app/integrations/llm/gemini.py`·`openai.py` 다.
+provider 는 `LLM_PROVIDER` 로 고른다. SDK 없이 httpx 로 부르고, 어댑터는
+`app/integrations/llm/gemini.py`·`openai.py` 다(ADR-0016).
+
+**모델이 둘이다**(ADR-0018). 1차는 값싼 것으로 늘 부르고, 서버 검증에 걸린 것만 재시도 모델로
+다시 읽는다. 재시도 쪽이 열 배 가까이 비싸서 일부러 갈라 뒀다. 얼마나 자주 가는지는
+`parse_usages.escalated` 로 센다.
 
 `stub` 은 규칙 기반 파서다. 응답 메타에 `is_stub: true` 가 붙어 진짜 모델 결과와 구분되고,
 **사진은 한 바이트도 읽지 않는다.** 프롬프트만 보고 캡처면 정해 둔 5건, 영수증이면 1건을 낸다.
@@ -119,7 +123,8 @@ provider 는 `LLM_PROVIDER` 로 고른다. 기본 provider 는 **Gemini 2.5 Flas
 | `LLM_PROVIDER` | `stub` / `gemini` / `openai` | 기본 `stub`. 운영은 `gemini`. 키 없는 provider 를 고르면 기동에 실패한다 |
 | `GEMINI_API_KEY` | Google AI Studio 에서 발급 | **유료 등급 프로젝트의 키**여야 한다(아래) |
 | `OPENAI_API_KEY` | OpenAI 플랫폼에서 발급 | `LLM_PROVIDER=openai` 일 때만 읽는다 |
-| `LLM_MODEL` | 비우면 `gemini-3.6-flash` / `gpt-5-mini` | 다른 모델을 재 볼 때만 |
+| `LLM_MODEL` | 비우면 `gemini-3.6-flash` / `gpt-5.6-luna` | 1차로 늘 부르는 모델 |
+| `LLM_ESCALATION_MODEL` | 비우면 `gemini-3.5-flash-lite` / `gpt-5.6-terra` | **서버 검증에 걸렸을 때만** 부른다(ADR-0018). 비우면 재시도 없이 사용자 확인 |
 | `LLM_TIMEOUT_SECONDS` | 기본 20 | 한 번 재시도하므로 최악은 두 배 |
 | `TOSS_REMINDER_TEMPLATE_SET_CODE` | 콘솔 스마트 발송의 발송 코드 | 알림 잡만 읽는다. 비면 알림이 안 간다(§6) |
 

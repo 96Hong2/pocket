@@ -102,6 +102,10 @@ class StubLlmStructuredClient:
         return PROVIDER_NAME
 
     @property
+    def model(self) -> str:
+        return "stub"
+
+    @property
     def is_stub(self) -> bool:
         return True
 
