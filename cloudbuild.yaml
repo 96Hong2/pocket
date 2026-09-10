@@ -1,0 +1,14 @@
+# Cloud Build 로 백엔드 이미지를 만든다.
+#
+# `gcloud builds submit --tag` 은 소스 루트에 Dockerfile 이 있어야 한다. 우리는 Dockerfile 이
+# `docker/backend/` 에 있고 빌드 맥락은 `backend/` 라 둘이 다르다. 그래서 --tag 대신 이 설정을 쓴다.
+# 맥락을 저장소 전체로 넓히지 않는 이유는 `.dockerignore` 가 backend 안에 있어서다.
+#
+# DOCKER_BUILDKIT: Dockerfile 이 `RUN --mount=type=cache` 를 쓴다. 옛 빌더는 그 줄을 못 읽고
+# 첫 단계에서 그냥 죽는다(로그 없이 exit 1 만 남는다).
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args: ['build', '-f', 'docker/backend/Dockerfile', '-t', '${_IMAGE}', 'backend']
+images:
+  - '${_IMAGE}'

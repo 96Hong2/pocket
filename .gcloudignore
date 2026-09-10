@@ -1,0 +1,10 @@
+# Cloud Build 에 올리지 않는 것. 이 파일이 있으면 gcloud 는 .gitignore 를 자동으로 보지 않는다.
+#!include:.gitignore
+
+.git/
+.github/
+.claude/
+
+# 백엔드 이미지에 안 들어가는 것들. 올리면 업로드만 느려진다(node_modules 226MB).
+frontend/
+docs/
