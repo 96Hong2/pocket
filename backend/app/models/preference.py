@@ -77,3 +77,6 @@ class NotificationSetting(Entity):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, server_default="Asia/Seoul")
     # 마지막으로 알림을 보낸 현지 날짜. 같은 날 두 번 보내지 않으려고 남긴다.
     last_reminded_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # 스마트발송에 실을 익명키 원문. users.anon_key_hash 는 sha256 이라 되돌릴 수 없다.
+    # **켤 때 채우고 끌 때 지운다.** 알림을 안 쓰는 사람 것은 남기지 않는다.
+    push_anon_key: Mapped[str | None] = mapped_column(String(256), nullable=True)

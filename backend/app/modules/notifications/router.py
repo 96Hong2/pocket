@@ -2,13 +2,14 @@
 
 설정 행이 없는 것은 정상이다. 조회가 기본값(꺼짐)으로 만들어 주므로 화면이 404 를 만나지 않는다.
 토스 알림 동의는 앱 쪽(브릿지)에서 받는다. 서버는 동의 여부를 저장하지 않는다.
+다만 켤 때는 익명키 원문을 함께 보관한다. 발송기가 토스에 누구인지 말할 값이 그것뿐이다.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentIdentity, CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES
 from app.models import NotificationSetting
 from app.modules.notifications import service
@@ -37,8 +38,16 @@ def show(session: DbSession, user: CurrentUser) -> NotificationSettingsOut:
 
 @router.patch("/settings", response_model=NotificationSettingsOut)
 def update(
-    body: NotificationSettingsPatch, session: DbSession, user: CurrentUser
+    body: NotificationSettingsPatch,
+    session: DbSession,
+    user: CurrentUser,
+    identity: CurrentIdentity,
 ) -> NotificationSettingsOut:
     return _out(
-        service.update_notification_settings(session, user, body.model_dump(exclude_unset=True))
+        service.update_notification_settings(
+            session,
+            user,
+            body.model_dump(exclude_unset=True),
+            anon_key=identity.anon_key,
+        )
     )

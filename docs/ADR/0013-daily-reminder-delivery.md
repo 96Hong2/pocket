@@ -70,3 +70,8 @@ SDK 타입 정의(`@apps-in-toss/web-framework`)에는 앱에서 동의를 받�
   통과시키고 운영 빌드에서는 못 쓰는 기능으로 다룬다(광고 그룹 ID 와 같은 방식이다).
 - 낮은 토스 앱 버전에서 못 쓰는 갈래는 **e2e 로 볼 수 없다**(devtools 목의 `isSupported` 가 늘
   true 다). 그 갈래는 `frontend/tests/notification-bridge.test.ts` 가 지킨다.
+
+---
+
+**2026-09-10 후속.** 발송 API 를 찾았다. 어댑터 자리가 실제 어댑터로 채워졌고, 그 대상을
+가리키는 익명키를 어디에 둘지는 [ADR-0017](0017-reminder-push-anon-key.md) 이 정한다.

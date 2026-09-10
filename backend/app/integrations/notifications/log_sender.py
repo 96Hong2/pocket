@@ -23,7 +23,7 @@ class LogReminderSender:
     def is_stub(self) -> bool:
         return True
 
-    def send(self, target: ReminderTarget) -> None:
+    async def send(self, target: ReminderTarget) -> None:
         logger.info(
             "기록 알림 발송(스텁)",
             extra={

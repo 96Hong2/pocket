@@ -35,7 +35,7 @@ class _RecordingSender:
     def is_stub(self) -> bool:
         return True
 
-    def send(self, target: ReminderTarget) -> None:
+    async def send(self, target: ReminderTarget) -> None:
         self.sent.append(target)
 
 
@@ -44,7 +44,7 @@ class _FailingSender:
     def is_stub(self) -> bool:
         return True
 
-    def send(self, target: ReminderTarget) -> None:
+    async def send(self, target: ReminderTarget) -> None:
         raise RuntimeError("발송 실패")
 
 
@@ -59,7 +59,14 @@ def _user(db: Session, anon: str, timezone: str) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
-    db.add(NotificationSetting(user_id=user.id, is_enabled=True, remind_at=time(21, 30)))
+    db.add(
+        NotificationSetting(
+            user_id=user.id,
+            is_enabled=True,
+            remind_at=time(21, 30),
+            push_anon_key=anon,
+        )
+    )
     db.commit()
     return user
 
@@ -118,7 +125,7 @@ def test_시각_형식이_틀리면_막는다(client: TestClient) -> None:
     assert res.json()["error"]["code"] == "INVALID_REQUEST"
 
 
-def test_켜_둔_사람에게_보내고_보낸_날을_남긴다(client: TestClient, db: Session) -> None:
+async def test_켜_둔_사람에게_보내고_보낸_날을_남긴다(client: TestClient, db: Session) -> None:
     """설정만으로는 아무 일도 안 일어난다. 고르고 보내고 남기는 데까지 실제로 돈다."""
     client.patch(
         SETTINGS,
@@ -127,7 +134,7 @@ def test_켜_둔_사람에게_보내고_보낸_날을_남긴다(client: TestClie
     )
     sender = _RecordingSender()
 
-    sent = service.send_due_reminders(db, sender, NOW)
+    sent = await service.send_due_reminders(db, sender, NOW)
 
     assert sent == 1
     assert len(sender.sent) == 1
@@ -136,45 +143,74 @@ def test_켜_둔_사람에게_보내고_보낸_날을_남긴다(client: TestClie
     assert _setting(db).last_reminded_on == sender.sent[0].local_date
 
 
-def test_같은_분에_다시_돌려도_두_번_보내지_않는다(client: TestClient, db: Session) -> None:
+async def test_같은_분에_다시_돌려도_두_번_보내지_않는다(client: TestClient, db: Session) -> None:
     """발송기가 1분마다 도는데 재시도가 겹치면 알림이 두 번 간다."""
     client.patch(
         SETTINGS,
         json={"is_enabled": True, "remind_at": "21:30", "frequency": "daily"},
         headers=AUTH,
     )
-    service.send_due_reminders(db, _RecordingSender(), NOW)
+    await service.send_due_reminders(db, _RecordingSender(), NOW)
     db.expire_all()
 
     again = _RecordingSender()
-    assert service.send_due_reminders(db, again, NOW) == 0
+    assert await service.send_due_reminders(db, again, NOW) == 0
     assert again.sent == []
 
 
-def test_꺼_둔_사람에게는_보내지_않는다(client: TestClient, db: Session) -> None:
+async def test_꺼_둔_사람에게는_보내지_않는다(client: TestClient, db: Session) -> None:
     client.patch(SETTINGS, json={"is_enabled": True, "remind_at": "21:30"}, headers=AUTH)
     client.patch(SETTINGS, json={"is_enabled": False}, headers=AUTH)
     db.expire_all()
 
     sender = _RecordingSender()
-    assert service.send_due_reminders(db, sender, NOW) == 0
+    assert await service.send_due_reminders(db, sender, NOW) == 0
     assert sender.sent == []
 
 
-def test_보내기가_실패하면_보낸_날을_남기지_않는다(client: TestClient, db: Session) -> None:
+async def test_보내기가_실패하면_보낸_날을_남기지_않는다(client: TestClient, db: Session) -> None:
     """남겨 버리면 그 날은 영영 못 보낸다. 실패는 실패인 채로 둔다."""
     client.patch(SETTINGS, json={"is_enabled": True, "remind_at": "21:30"}, headers=AUTH)
 
-    assert service.send_due_reminders(db, _FailingSender(), NOW) == 0
+    assert await service.send_due_reminders(db, _FailingSender(), NOW) == 0
     db.expire_all()
     assert _setting(db).last_reminded_on is None
 
 
-def test_시간대가_다르면_보낼_때도_다르다(db: Session) -> None:
+async def test_시간대가_다르면_보낼_때도_다르다(db: Session) -> None:
     """21:30 은 그 사람이 사는 곳의 21:30 이다. 한 사람만 대상이 된다."""
     seoul = _user(db, f"seoul-{uuid.uuid4().hex}", "Asia/Seoul")
     _user(db, f"ny-{uuid.uuid4().hex}", "America/New_York")
 
     sender = _RecordingSender()
-    assert service.send_due_reminders(db, sender, NOW) == 1
+    assert await service.send_due_reminders(db, sender, NOW) == 1
     assert [target.user_id for target in sender.sent] == [seoul.id]
+
+
+async def test_켤_때_익명키를_보관하고_끄면_지운다(client: TestClient, db: Session) -> None:
+    """발송기가 토스에 '누구에게' 를 말할 값은 이것뿐이다. users 쪽은 sha256 이라 못 되돌린다.
+
+    그래서 켜져 있는 동안만 들고 있는다. 끄면 그 자리에서 지워야, 알림을 안 쓰는 사람의
+    익명키가 우리 DB 에 남지 않는다.
+    """
+    client.patch(SETTINGS, json={"is_enabled": True, "remind_at": "21:30"}, headers=AUTH)
+    db.expire_all()
+    assert _setting(db).push_anon_key == "test-anon-key"
+
+    client.patch(SETTINGS, json={"is_enabled": False}, headers=AUTH)
+    db.expire_all()
+    assert _setting(db).push_anon_key is None
+
+
+async def test_익명키가_없으면_보낼_대상으로_고르지_않는다(client: TestClient, db: Session) -> None:
+    """익명키를 남기기 전에 켜 둔 사람이 있다. 보낼 곳을 모르면서 보낸 날을 남기면 안 된다."""
+    client.patch(SETTINGS, json={"is_enabled": True, "remind_at": "21:30"}, headers=AUTH)
+    db.expire_all()
+    _setting(db).push_anon_key = None
+    db.commit()
+
+    sender = _RecordingSender()
+    assert await service.send_due_reminders(db, sender, NOW) == 0
+    assert sender.sent == []
+    db.expire_all()
+    assert _setting(db).last_reminded_on is None

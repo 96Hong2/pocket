@@ -27,7 +27,14 @@ from app.integrations.apps_in_toss.anon_key import (
 from app.integrations.llm import LlmStructuredClient, get_llm_client
 from app.models import User, UserPreference
 
-__all__ = ["CurrentUser", "DbSession", "LlmClient", "get_current_user", "get_verifier"]
+__all__ = [
+    "CurrentIdentity",
+    "CurrentUser",
+    "DbSession",
+    "LlmClient",
+    "get_current_user",
+    "get_verifier",
+]
 
 DbSession = Annotated[Session, Depends(get_session)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
@@ -108,3 +115,5 @@ def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+# 검증을 통과한 익명키 원문. 알림을 켤 때 그 값을 보관해야 해서 라우터까지 내려간다.
+CurrentIdentity = Annotated[VerifiedIdentity, Depends(get_verified_identity)]

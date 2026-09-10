@@ -147,16 +147,36 @@ Gemini 키가 아직 없으면 마지막 두 줄(`GEMINI_API_KEY`·`LLM_PROVIDER
 ```bash
 gcloud run jobs create pocket-reminders \
   --image=<이미지> \
+  --region=asia-northeast3 \
   --command=python --args=scripts/send_reminders.py \
   --set-secrets=DATABASE_URL=pocket-database-url:latest \
+  --set-secrets=/secrets/toss-crt/toss-client.crt=pocket-toss-client-crt:latest \
+  --set-secrets=/secrets/toss-key/toss-client.key=pocket-toss-client-key:latest \
   --set-cloudsql-instances=<연결이름> \
-  --set-env-vars=ENVIRONMENT=prod
-# Cloud Scheduler 가 1분마다 이 잡을 실행하게 건다
+  --set-env-vars=ENVIRONMENT=prod \
+  --set-env-vars=TOSS_MTLS_CERT_PATH=/secrets/toss-crt/toss-client.crt \
+  --set-env-vars=TOSS_MTLS_KEY_PATH=/secrets/toss-key/toss-client.key \
+  --set-env-vars=TOSS_REMINDER_TEMPLATE_SET_CODE=<발송 코드>
 ```
 
-- **아직 실제로 알림을 쏘지 않는다.** 붙어 있는 발송기가 로그 스텁이라, 지금 이 잡을 걸면
-  '누구에게 보낼 차례였다' 는 줄만 남는다. 토스 발송 API 가 열리면 어댑터 하나를 더 만든다
+```bash
+# 1분마다 이 잡을 실행한다. 판정이 '같은 분' 이라 이보다 뜸하면 그 시각은 그 날 안 간다.
+gcloud scheduler jobs create http pocket-reminders-tick \
+  --location=asia-northeast3 \
+  --schedule="* * * * *" \
+  --uri="https://asia-northeast3-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/<프로젝트>/jobs/pocket-reminders:run" \
+  --http-method=POST \
+  --oauth-service-account-email=<잡을 실행할 서비스 계정>
+```
+
+- **인증서를 웹 서비스와 똑같이 붙여야 한다.** 스마트발송도 익명키 검증과 같은 mTLS 를 탄다.
+  인증서와 개인키는 폴더를 따로 쓴다(위 5절과 같은 이유)
+- **`TOSS_REMINDER_TEMPLATE_SET_CODE` 가 비면 알림이 안 간다.** 잡은 정상 종료하고 로그에
+  「로그 스텁으로 돈다」 한 줄만 남는다. 코드는 있는데 인증서가 없으면 잡이 **실패한다**(종료코드 2)
+- 이 값은 프론트의 `VITE_NOTIFICATION_TEMPLATE_CODE` 와 **같은 값**이다. 동의를 받은 그 템플릿으로
+  보내야 한다. 둘이 어긋나면 동의는 받았는데 발송이 0통이 된다
 - 대상만 세어 보려면 `--args=scripts/send_reminders.py,--dry-run` 으로 한 번 돌린다
+  (이때는 인증서도 템플릿 코드도 안 본다)
 
 ---
 
