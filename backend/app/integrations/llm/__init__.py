@@ -12,9 +12,17 @@ from app.integrations.llm.contracts import (
     TransactionType,
     attach_source,
 )
-from app.integrations.llm.factory import get_llm_client
-from app.integrations.llm.gemini import GEMINI_DEFAULT_MODEL, GeminiStructuredClient
-from app.integrations.llm.openai import OPENAI_DEFAULT_MODEL, OpenAiStructuredClient
+from app.integrations.llm.factory import get_escalation_client, get_llm_client
+from app.integrations.llm.gemini import (
+    GEMINI_DEFAULT_MODEL,
+    GEMINI_ESCALATION_MODEL,
+    GeminiStructuredClient,
+)
+from app.integrations.llm.openai import (
+    OPENAI_DEFAULT_MODEL,
+    OPENAI_ESCALATION_MODEL,
+    OpenAiStructuredClient,
+)
 from app.integrations.llm.port import (
     LlmError,
     LlmImage,
@@ -28,6 +36,7 @@ from app.integrations.llm.prompts import (
     RECEIPT_TASK_MARKER,
     natural_language_prompt,
     receipt_prompt,
+    retry_prompt,
     screenshot_prompt,
 )
 from app.integrations.llm.stub import StubLlmStructuredClient
@@ -35,8 +44,10 @@ from app.integrations.llm.stub import StubLlmStructuredClient
 __all__ = [
     "DEFAULT_CATEGORY_HINTS",
     "GEMINI_DEFAULT_MODEL",
+    "GEMINI_ESCALATION_MODEL",
     "LOW_CONFIDENCE_THRESHOLD",
     "OPENAI_DEFAULT_MODEL",
+    "OPENAI_ESCALATION_MODEL",
     "RECEIPT_TASK_MARKER",
     "ExtractedTransaction",
     "GeminiStructuredClient",
@@ -56,8 +67,10 @@ __all__ = [
     "TransactionType",
     "attach_source",
     "build_meta",
+    "get_escalation_client",
     "get_llm_client",
     "natural_language_prompt",
     "receipt_prompt",
+    "retry_prompt",
     "screenshot_prompt",
 ]

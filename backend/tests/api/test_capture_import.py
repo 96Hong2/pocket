@@ -154,12 +154,17 @@ def test_사용량_기록이_캡처로_남는다(client: TestClient, db: Session
 
     usage = db.scalars(select(ParseUsage)).one()
     assert usage.source == "screenshot"
-    # 이미지에서는 글자 수가 없다. 바이트 수를 센다.
-    assert usage.input_length == len(PNG_BYTES)
+    # 이미지에서는 글자 수가 없다. **모델에게 실제로 보낸** 바이트 수를 센다.
+    # 원본이 아니라 다듬은 뒤의 크기다. 값은 보낸 만큼 나가지 원본만큼 나가지 않는다.
+    assert 0 < usage.input_length <= len(PNG_BYTES)
     # redact() 는 문자열만 가린다. 이미지는 가릴 수단이 없고 0 이 그 사실의 기록이다.
     assert usage.redacted_count == 0
     assert usage.candidate_count == 5
     assert usage.is_stub is True
+    # 어느 모델이 읽었는지 남는다. provider 만으로는 luna 와 terra 가 안 갈린다.
+    assert usage.model == "stub"
+    # 스텁에는 재시도 모델이 없다. 비싼 쪽으로 갔는지를 이 값으로 센다.
+    assert usage.escalated is False
 
 
 def test_업로드한_이미지가_DB_에_남지_않는다(

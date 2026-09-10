@@ -60,3 +60,17 @@ def screenshot_prompt(today: date | None = None) -> str:
 
 def receipt_prompt(today: date | None = None) -> str:
     return f"{_base(today)}\n{_RECEIPT_TASK}"
+
+
+# 다시 읽어 달라고 할 때 앞에 붙인다. 무엇이 이상했는지 구체적으로 말해 줘야
+# 같은 답을 한 번 더 내지 않는다.
+_RETRY_LEAD = (
+    "앞서 다른 모델이 같은 입력을 읽었는데 아래가 이상했다.\n{problems}\n"
+    "다시 처음부터 읽는다. 앞의 답을 참고하지 말고, 이상하다고 지적된 곳은 특히 꼼꼼히 본다."
+    " 그래도 못 읽겠으면 지어내지 말고 null 과 낮은 confidence 로 둔다.\n"
+)
+
+
+def retry_prompt(base: str, problems: str) -> str:
+    """1차 결과가 서버 검증에 걸렸을 때 두 번째 모델에게 주는 지시."""
+    return _RETRY_LEAD.format(problems=problems) + base

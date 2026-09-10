@@ -73,8 +73,11 @@ class Settings(BaseSettings):
     llm_provider: LlmProvider = "stub"
     gemini_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
-    # 비우면 provider 기본 모델(gemini-3.6-flash · gpt-5-mini).
+    # 비우면 provider 기본 모델(gemini-3.6-flash · gpt-5.6-luna).
     llm_model: str | None = None
+    # 1차 결과가 서버 검증에 걸렸을 때만 부르는 모델. 값이 비싸서 되도록 안 부른다.
+    # 같은 provider 의 다른 모델이다. 비우면 재시도 없이 바로 사용자 확인으로 간다.
+    llm_escalation_model: str | None = None
     # 한 번 부르는 데 기다리는 시간. 한 번 재시도하므로 최악은 두 배다.
     llm_timeout_seconds: float = 20.0
 

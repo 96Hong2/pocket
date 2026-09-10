@@ -12,11 +12,13 @@ from typing import Any
 from app.integrations.llm.port import LlmError, LlmImage, LlmSchemaError
 from app.integrations.llm.remote import IMAGE_LEAD, MAX_OUTPUT_TOKENS, RemoteStructuredClient
 
-__all__ = ["GEMINI_DEFAULT_MODEL", "GeminiStructuredClient"]
+__all__ = ["GEMINI_DEFAULT_MODEL", "GEMINI_ESCALATION_MODEL", "GeminiStructuredClient"]
 
 # 2026-09-10 에 2.5 Flash 로 두면 새 키에서 404 가 난다("no longer available to new users").
 # 구글이 후속으로 지목한 모델이 3.6 Flash 다. ADR 0016 이 예고한 대로 따라 올린 것이다.
 GEMINI_DEFAULT_MODEL = "gemini-3.6-flash"
+# 재시도용. 3.6 Flash 보다 싸고(0.30/2.50) 2027-01-01 인상 예고도 없다.
+GEMINI_ESCALATION_MODEL = "gemini-3.5-flash-lite"
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com"
 
 _NORMAL_FINISH = frozenset({None, "STOP"})
