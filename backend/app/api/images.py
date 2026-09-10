@@ -40,6 +40,7 @@ _MAGIC: dict[str, Callable[[bytes], bool]] = {
     "image/webp": lambda data: data.startswith(b"RIFF") and data[8:12] == b"WEBP",
 }
 
+
 def decode_data_url(value: str) -> LlmImage:
     """`data:<mime>;base64,<payload>` 를 이미지로 푼다.
 
