@@ -3,9 +3,10 @@ import { useEffect, useId, useState } from 'react';
 import { useBridge } from '../../app/providers';
 import { useOverlayBackClose } from '../../app/providers';
 import { readAdOptOut, writeAdOptOut } from '../../shared/lib/adOptOut';
+import { clearDeviceMarks } from '../../shared/lib/deviceMarks';
 import { TEST_IDS } from '../../shared/testIds';
 import type { BridgeEnvironment } from '../../shared/toss';
-import { BottomSheet, Toggle } from '../../shared/ui';
+import { BottomSheet, Button, Toggle } from '../../shared/ui';
 
 /**
  * 이 앱이 지금 어느 판에서 돌고 있는지.
@@ -34,6 +35,7 @@ export function AppDiagnosticsSheet({ open, onClose }: AppDiagnosticsSheetProps)
   const adTitleId = useId();
   const [optOut, setOptOut] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [cleared, setCleared] = useState<boolean | null>(null);
 
   useOverlayBackClose(open, onClose);
 
@@ -102,6 +104,28 @@ export function AppDiagnosticsSheet({ open, onClose }: AppDiagnosticsSheetProps)
           저장하지 못했어요. 이 기기에는 광고가 그대로 떠요.
         </p>
       ) : null}
+
+      <div className="diag-reset">
+        <p className="diag-reset__desc">
+          한 번만 뜨는 안내(홈 화면 추가·지난달 결산)를 이 기기에서 처음 상태로 되돌려요. 적어 둔
+          기록은 지우지 않아요.
+        </p>
+        <Button
+          variant="outline"
+          fullWidth
+          onClick={() => {
+            void clearDeviceMarks(bridge.storage, new Date()).then(setCleared);
+          }}
+        >
+          안내를 처음 상태로
+        </Button>
+        {cleared === true ? (
+          <p className="diag-note">되돌렸어요. 앱을 다시 열면 안내가 처음처럼 떠요.</p>
+        ) : null}
+        {cleared === false ? (
+          <p className="diag-note diag-note--warn">일부를 지우지 못했어요.</p>
+        ) : null}
+      </div>
     </BottomSheet>
   );
 }

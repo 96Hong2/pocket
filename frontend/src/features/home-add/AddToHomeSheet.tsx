@@ -37,15 +37,20 @@ export function AddToHomeSheet({ open, onClose, from }: AddToHomeSheetProps) {
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
   useOverlayBackClose(open, onClose);
 
+  // 첫 기록 직후에는 방금 한 일과 이어 붙인다. 설정에서 연 사람에게 「첫 기록」 은 남의 얘기다.
+  const firstRecord = from === 'first_record';
+
   return (
     <BottomSheet
       open={open}
       onClose={onClose}
-      title="홈 화면에 추가하면 더 빨라요"
+      title={firstRecord ? '첫 기록 끝! 홈에 두면 더 빨라요' : '홈 화면에 추가하면 더 빨라요'}
       className="home-add-sheet"
     >
       <p className="home-add-sheet__lead">
-        토스를 열고 찾을 필요 없이, 홈 화면에서 바로 눌러 기록해요
+        {firstRecord
+          ? '다음부터는 토스를 열고 찾지 않고, 홈 화면에서 바로 눌러 적어요'
+          : '토스를 열고 찾을 필요 없이, 홈 화면에서 바로 눌러 기록해요'}
       </p>
 
       <ol className="home-add-steps">

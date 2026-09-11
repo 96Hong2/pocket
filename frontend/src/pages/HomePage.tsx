@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { IdentityNotice } from '../app/IdentityNotice';
 import { useIdentity } from '../app/providers';
 import { AdSlot } from '../features/ads';
-import { AddToHomeCard } from '../features/home-add';
+import { AddToHomePrompt } from '../features/home-add';
 import {
   BudgetSuggestCard,
   ClosingEntryCard,
@@ -113,12 +113,6 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
       {view?.showBudgetSuggestion ? <BudgetSuggestCard /> : null}
 
       {/*
-        첫 기록을 마친 사람에게 한 번만. 기록 버튼 아래라 오늘 할 일을 가리지 않는다.
-        판정과 저장은 카드가 스스로 한다.
-      */}
-      <AddToHomeCard hasAnyTransaction={budget.data?.has_any_transaction ?? false} />
-
-      {/*
         목표가 있을 때만 그린다. 조회가 실패하면 이 자리를 비우고 오류 자리를 만들지 않는다.
         홈에서 할 일은 기록이고, 목표는 곁들여 보는 값이다.
       */}
@@ -164,6 +158,8 @@ export default function HomePage() {
     open: false,
     tab: DEFAULT_RECORD_TAB,
   });
+  // 아래 화면과 같은 조회다. 캐시를 함께 읽으므로 요청이 늘지 않는다.
+  const budget = useBudget();
 
   return (
     <div className="page home">
@@ -174,6 +170,15 @@ export default function HomePage() {
         open={sheet.open}
         initialTab={sheet.tab}
         onClose={() => setSheet((prev) => ({ ...prev, open: false }))}
+      />
+
+      {/*
+        첫 기록을 마친 그 순간 스스로 열리는 안내. 한 번뿐이다.
+        기록 시트 위에 겹치지 않게, 시트가 닫힌 뒤에만 연다.
+      */}
+      <AddToHomePrompt
+        hasAnyTransaction={budget.data == null ? null : budget.data.has_any_transaction}
+        paused={sheet.open}
       />
     </div>
   );

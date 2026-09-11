@@ -15,4 +15,25 @@
   .ad-slot--collapsed {
     display: none;
   }
+
+  /*
+    광고를 끈 기기에서만 보이는 빈 자리. 실제 배너와 같은 크기라
+    「이 자리에 배너가 들어가면 화면이 어떻게 보이나」 를 그대로 확인할 수 있다.
+    쓰는 사람에게는 절대 안 보인다(끈 기기에서만 그린다).
+  */
+  .ad-slot--preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--color-dashed);
+    border-radius: var(--radius-card);
+    background: var(--color-surface-sunken);
+  }
+
+  .ad-slot__preview {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-placeholder);
+    letter-spacing: 0.02em;
+  }
 }

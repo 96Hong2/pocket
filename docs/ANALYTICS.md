@@ -20,7 +20,7 @@
 | 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드 |
 | 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움·되돌림, 고친 칸 이름, 그 기록의 입력 방식 |
 | 저장 뒤 뜻이 전달됐나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것 |
-| 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지, 유도한 자리, 동의·거절·미지원 |
+| 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지, 유도한 자리(첫 기록 직후·앱 설정), 동의·거절·미지원 |
 | 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
 
 `review_finished` 는 「5건 중 날짜 2건·금액 1건 고침」 까지만 남긴다.

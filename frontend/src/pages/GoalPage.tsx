@@ -1,4 +1,5 @@
 import { IdentityNotice } from '../app/IdentityNotice';
+import { AdSlot } from '../features/ads';
 import { GoalBoard } from '../features/goals';
 
 /** 목표. 진행 중인 목표 하나를 보고 모은 돈을 더한다. */
@@ -12,6 +13,9 @@ export default function GoalPage() {
       <IdentityNotice />
 
       <GoalBoard />
+
+      {/* 목표 카드 아래 맨 끝. */}
+      <AdSlot placement="goal" />
     </div>
   );
 }

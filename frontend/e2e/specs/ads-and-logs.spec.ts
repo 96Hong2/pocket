@@ -126,7 +126,7 @@ test('앱 정보 시트가 지금 어느 판인지 말해 준다', async ({ sett
   await expect(shown).toContainText('기기');
 });
 
-test('이 기기에서 광고를 끄면 자리가 접히고 그 이유가 남는다', async ({ page, settings }) => {
+test('이 기기에서 광고를 끄면 빈 자리만 남고 그 이유가 남는다', async ({ page, settings }) => {
   await settings.open();
   await settings.waitReady();
   await expect(settings.adSlot).toBeVisible();
@@ -138,10 +138,26 @@ test('이 기기에서 광고를 끄면 자리가 접히고 그 이유가 남는
   // 만든 사람이 자기 광고를 보면 무효 트래픽으로 잡힌다. 판으로만 가르면 QR 테스트에서 샌다.
   await settings.open();
   await settings.waitReady();
-  await expect(settings.adSlot).not.toBeVisible();
+  await expect(settings.adSlot).toHaveAttribute('data-state', 'preview');
+
+  // 접지 않고 같은 크기로 남긴다. 접어 버리면 배너가 들어간 화면을 확인할 수 없다.
+  await expect(settings.adSlot).toContainText('광고 자리');
 
   const results = (await logsNamed(page, 'ad_result')).filter(
     (log) => log.params.placement === 'settings',
   );
   expect(results.at(-1)?.params.result).toBe('opted_out');
+});
+
+test('배너 자리는 화면마다 흐름을 끊지 않는 끝자리에 선다', async ({ page }) => {
+  // 예산과 하위 화면 사이처럼 할 일 한가운데에 두면 어색하다. 여섯 자리를 끝으로 몰았다.
+  for (const [path, placement] of [
+    ['/manage', 'manage'],
+    ['/assets', 'assets'],
+    ['/goal', 'goal'],
+  ] as const) {
+    await page.goto(path);
+    const slot = page.getByTestId('ad-slot');
+    await expect(slot).toHaveAttribute('data-placement', placement);
+  }
 });

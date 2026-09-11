@@ -402,33 +402,29 @@ class HomeClosingCard {
  * 깨끗한 채로 시작하는 테스트마다 다시 볼 수 있다.
  */
 class AddToHomeArea {
-  private readonly root: Locator;
   private readonly page: Page;
 
   constructor(page: Page) {
     this.page = page;
-    this.root = page.getByRole('region', { name: '홈 화면에 두면 10초가 3초가 돼요' });
   }
 
-  get card(): Locator {
-    return this.root;
-  }
-
-  get guideButton(): Locator {
-    return this.root.getByRole('button', { name: '추가하는 법', exact: true });
-  }
-
-  get laterButton(): Locator {
-    return this.root.getByRole('button', { name: '다음에', exact: true });
-  }
-
+  /**
+   * 첫 기록을 마친 그 순간 스스로 열리는 시트.
+   *
+   * 처음에는 홈 카드였다. 목록에 섞여 그냥 지나쳐져서 시트 하나로 합쳤다.
+   * 제목이 앱 설정에서 여는 것과 다르다. 방금 한 일과 이어 붙이기 때문이다.
+   */
   get sheet(): Locator {
-    return this.page.getByRole('dialog', { name: '홈 화면에 추가하면 더 빨라요', exact: true });
+    return this.page.getByRole('dialog', { name: '첫 기록 끝! 홈에 두면 더 빨라요', exact: true });
   }
 
   /** 안내 시트 안의 단계 셋. 넷째 단계부터는 읽지 않는다. */
   get steps(): Locator {
     return this.sheet.getByRole('listitem');
+  }
+
+  get doneButton(): Locator {
+    return this.sheet.getByRole('button', { name: '알겠어요', exact: true });
   }
 }
 
