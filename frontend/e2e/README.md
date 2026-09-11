@@ -14,13 +14,16 @@ e2e/
     api.ts       사전 조건을 심는다. spec 은 `prep` 픽스처로 받는다
     deviceMock.ts devtools 목 앨범·카메라 다이얼. 사진 심기·권한 거부와 각각의 짝 확인 함수
     aitMock.ts   그 밖의 devtools 목 다이얼. 광고 미채움·시스템 뒤로가기·미니앱 종료 감시·
-                 알림 동의 결과와 그 요청 횟수 세기
+                 알림 동의 결과와 그 요청 횟수 세기.
+                 남은 행동 로그를 읽는 `readLogs`·`logsNamed` 도 여기 있다(운영 판에는 없는 사본이다)
     servers.ts   playwright.config 가 띄우는 dev 서버 정의
     fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다. spec 은 여기서 시작한다
   fixtures/    테스트가 쓰는 파일. 지금은 사진용 PNG 한 장(capture.png). 캡처와 영수증이 함께 쓴다
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
-    HomeScreen       홈. 안쪽을 hero·today·budget·goal·closing·ads·recovery 로 나눠 들고 있다
+    HomeScreen       홈. 안쪽을 hero·today·budget·goal·closing·ads·addToHome·recovery 로 나눠 들고 있다
+                     addToHome 은 첫 기록 뒤 한 번만 뜨는 카드다. 기기에 표시를 남기므로
+                     테스트마다 새 브라우저 컨텍스트에서 다시 볼 수 있다
                      today 의 안 쓴 날 줄은 빈 상태 버튼과 글자가 같아, 줄 안의 취소 버튼에서
                      부모로 한 칸 올라가 잡는다(둘은 함께 그려지지 않는다)
     RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글)·capture(캡처)·receipt(영수증) 다섯이다
@@ -33,7 +36,9 @@ e2e/
                      suggest 는 목표 기반 생활비 제안 카드다. 예산이 없는 달에, 기한이 있는 목표가
                      있을 때만 떠서 없는 것을 단언하는 자리가 여럿이다
     CategoriesScreen 카테고리 관리 화면. 기본·내 것 두 구획과 기억한 분류 목록을 함께 들고 있다
-    SettingsScreen   앱 설정 화면. 홈 표시 방식과 개인정보 안내
+                     기억한 분류는 목록·검색칸·걸러 보기 칩·걸어두기 시트를 한 덩어리로 들고 있다
+                     (스무 줄을 넘어야 검색칸이 열리고, 손으로 건 것이 있어야 칩이 나온다)
+    SettingsScreen   앱 설정 화면. 홈 표시 방식·개인정보 안내·홈 화면 추가 안내·배너 자리
     NotificationsScreen 알림 설정 화면. 켜기와 시각 둘뿐이라 안을 더 쪼개지 않았다
     AssetsScreen     자산 화면. 순자산 카드·그룹 구획 넷·항목 시트를 한 화면이 들고 있다
     GoalScreen       목표 화면. 목표 카드·모은 돈 목록·시트 둘(목표·기여)을 한 화면이 들고 있다

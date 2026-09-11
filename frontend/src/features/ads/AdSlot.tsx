@@ -27,6 +27,11 @@ const REQUEST_COOLDOWN_MS = 15_000;
 /** 자리마다 마지막으로 배너를 요청한 시각. 화면이 다시 마운트돼도 남아야 해서 모듈에 둔다. */
 const lastRequestAt = new Map<AdPlacement, number>();
 
+/** 방금 이 자리에 붙였다 나갔다 돌아온 것인가. */
+function inCooldown(placement: AdPlacement): boolean {
+  return Date.now() - (lastRequestAt.get(placement) ?? 0) < REQUEST_COOLDOWN_MS;
+}
+
 type SlotState = 'waiting' | 'shown' | 'collapsed';
 
 export interface AdSlotProps {
@@ -45,8 +50,13 @@ export function AdSlot({ placement }: AdSlotProps) {
   const bridge = useBridge();
   const analytics = useAnalytics();
   const hostRef = useRef<HTMLDivElement>(null);
+  // 쿨다운까지 여기서 본다. 첫 값이 이미 접힘이면 effect 가 다시 그리지 않아도 된다.
   const [state, setState] = useState<SlotState>(() =>
-    resolveGroup(bridge.environment) != null && bridge.supports('ads') ? 'waiting' : 'collapsed',
+    resolveGroup(bridge.environment) != null &&
+    bridge.supports('ads') &&
+    !inCooldown(placement)
+      ? 'waiting'
+      : 'collapsed',
   );
 
   useEffect(() => {
@@ -64,9 +74,8 @@ export function AdSlot({ placement }: AdSlotProps) {
     }
 
     // 방금 이 자리에 붙였다 나갔다 돌아온 것이면 다시 요청하지 않는다.
-    const since = Date.now() - (lastRequestAt.get(placement) ?? 0);
-    if (since < REQUEST_COOLDOWN_MS) {
-      setState('collapsed');
+    // 첫 값이 이미 접힘이라 여기서 다시 그리지 않는다.
+    if (inCooldown(placement)) {
       analytics.log(EVENTS.adResult, { placement, result: 'cooldown' });
       return;
     }

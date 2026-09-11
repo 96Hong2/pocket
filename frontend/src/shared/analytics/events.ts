@@ -50,6 +50,8 @@ export const EVENTS = {
   budgetSaved: 'budget_saved',
   /** 홈 화면에 추가하라는 안내의 결과. 실제 추가 여부는 앱이 알 수 없다. */
   homeAddResult: 'home_add_result',
+  /** 알림을 켜려 했을 때의 결과. 이 앱이 사람을 다시 데려오는 유일한 장치다. */
+  notificationResult: 'notification_result',
 
   /** 배너 자리의 결과. 떴는지·채울 게 없었는지·실패했는지. */
   adResult: 'ad_result',

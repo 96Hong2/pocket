@@ -65,13 +65,17 @@ _CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
 # 이 결과로 인식 정확도를 재면 안 된다.
 # 분류 이름은 app/domain/categories.py 에 실제로 있는 것만 쓴다. 없는 이름은 조용히 미분류가 된다.
 # 날짜는 오늘 기준 상대다. 절대 날짜를 박으면 달력을 따라 흔들리고 CI 에서 하루가 어긋난다.
-_IMAGE_SAMPLE: tuple[tuple[str, int, str, float, int], ...] = (
-    ("스타벅스", 4500, "카페·간식", 0.92, 0),
-    ("GS25", 3200, "생활", 0.88, 0),
-    ("김밥천국", 8000, "식비", 0.90, 1),
+_IMAGE_SAMPLE: tuple[tuple[str, int, str | None, float, int, TransactionType], ...] = (
+    ("스타벅스", 4500, "카페·간식", 0.92, 0, TransactionType.EXPENSE),
+    ("GS25", 3200, "생활", 0.88, 0, TransactionType.EXPENSE),
+    ("김밥천국", 8000, "식비", 0.90, 1, TransactionType.EXPENSE),
     # 0.5 아래라 검토 화면이 스스로 켜지 않는다. 저신뢰 분기를 화면에서 볼 수 있게 한 줄 둔다.
-    ("카카오T", 9800, "교통", 0.40, 1),
-    ("쿠팡", 32900, "쇼핑", 0.86, 2),
+    ("카카오T", 9800, "교통", 0.40, 1, TransactionType.EXPENSE),
+    ("쿠팡", 32900, "쇼핑", 0.86, 2, TransactionType.EXPENSE),
+    # 카드 캐시백. 실제 거래내역 캡처에 섞여 들어오는 줄이고, 되돌릴 지출을 못 고르는 동안은
+    # 저장할 수 없다. 이 줄이 없으면 검토 화면의 환불 분기를 개발에서도 e2e 에서도 못 본다.
+    # 실기기에서 그것 때문에 여덟 건이 통째로 안 들어간 적이 있다.
+    ("MY 카드 캐시백", 500, None, 0.90, 0, TransactionType.REFUND),
 )
 
 # 영수증 한 장에 대해 늘 내는 한 건. 상호를 못 읽은 영수증이다.
@@ -140,18 +144,18 @@ class StubLlmStructuredClient:
 
 
 def sample_image_extraction(today: date | None = None) -> TransactionExtraction:
-    """캡처에 대해 늘 같은 5건. 어떤 이미지를 넣어도 결과가 같다."""
+    """캡처에 대해 늘 같은 6건. 어떤 이미지를 넣어도 결과가 같다."""
     return TransactionExtraction(
         candidates=[
             ExtractedTransaction(
                 occurred_at=today - timedelta(days=days_back) if today else None,
                 amount=amount,
-                type=TransactionType.EXPENSE,
+                type=kind,
                 merchant=merchant,
                 category=category,
                 confidence=confidence,
             )
-            for merchant, amount, category, confidence, days_back in _IMAGE_SAMPLE
+            for merchant, amount, category, confidence, days_back, kind in _IMAGE_SAMPLE
         ]
     )
 

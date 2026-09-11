@@ -773,6 +773,16 @@ class RecordImageImport {
     await this.kindButton(name).click();
   }
 
+  /** 환불로 읽힌 줄의 안내. 켤 수 없는 줄이라 왜 못 켜는지가 그 자리에 있어야 한다. */
+  refundNotice(name: string): Locator {
+    return this.row(name).getByText('환불로 읽었어요', { exact: false });
+  }
+
+  /** 그 자리에서 한 번에 고치는 길. 카드 캐시백은 실제로 들어온 돈이다. */
+  refundToIncome(name: string): Locator {
+    return this.row(name).getByRole('button', { name: '수입으로 바꾸기' });
+  }
+
   /** 사진을 가져와 검토 화면에 닿을 때까지. */
   async pick(): Promise<void> {
     await this.pickButton.click();

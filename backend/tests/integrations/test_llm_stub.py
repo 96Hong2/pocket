@@ -20,6 +20,7 @@ from app.integrations.llm.port import (
 )
 from app.integrations.llm.prompts import natural_language_prompt
 from app.integrations.llm.stub import StubLlmStructuredClient
+from app.models import TransactionType
 
 pytestmark = pytest.mark.asyncio
 
@@ -102,7 +103,9 @@ async def test_image_input_returns_a_fixed_sample_the_stub_did_not_read(client) 
     """스텁은 이미지를 읽지 않고 정해 둔 예시를 낸다.
 
     빈 결과를 내면 캡처 화면이 늘 '0건 인식' 이라 검토·수정·저장을 한 번도 못 본다.
-    이 5건은 배관 확인용이고 인식 정확도의 근거가 아니다.
+    이 6건은 배관 확인용이고 인식 정확도의 근거가 아니다.
+    마지막 한 줄은 카드 캐시백(환불)이다. 실제 캡처에 섞여 들어오고 그대로는 저장할 수 없는
+    줄이라, 그 분기를 화면에서 볼 수 있게 예시에 넣어 뒀다.
     """
     today = date(2026, 3, 10)
     result = await client.extract(
@@ -118,21 +121,26 @@ async def test_image_input_returns_a_fixed_sample_the_stub_did_not_read(client) 
         "김밥천국",
         "카카오T",
         "쿠팡",
+        "MY 카드 캐시백",
     ]
-    assert [item.amount for item in result.candidates] == [4500, 3200, 8000, 9800, 32900]
+    assert [item.amount for item in result.candidates] == [4500, 3200, 8000, 9800, 32900, 500]
     assert [item.occurred_at for item in result.candidates] == [
         today,
         today,
         date(2026, 3, 9),
         date(2026, 3, 9),
         date(2026, 3, 8),
+        today,
     ]
+    # 캐시백만 환불이다. 나머지는 전부 지출이다.
+    assert [item.type for item in result.candidates][-1] == TransactionType.REFUND
     # 카카오T 한 줄만 저신뢰다. 검토 화면의 '확인 필요' 분기가 여기서 켜진다.
     assert [item.is_low_confidence for item in result.candidates] == [
         False,
         False,
         False,
         True,
+        False,
         False,
     ]
 
@@ -165,7 +173,8 @@ async def test_image_categories_exist_in_the_default_set(client) -> None:
         today=date(2026, 3, 10),
     )
 
-    names = {item.category for item in result.candidates}
+    # 환불 줄은 분류가 없다. 되돌릴 지출의 분류를 따라가므로 스텁이 지어내지 않는다.
+    names = {item.category for item in result.candidates if item.category is not None}
     # 후보가 비면 검사할 이름이 없어 부분집합 비교가 진공으로 통과한다.
     assert names
     assert names <= set(DEFAULT_CATEGORY_HINTS)
