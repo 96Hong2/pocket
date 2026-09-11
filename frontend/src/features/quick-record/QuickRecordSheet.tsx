@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useBridge, useOverlayBackClose } from '../../app/providers';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   ApiError,
   parseDecimalOr,
@@ -104,9 +105,19 @@ function RecordBody({
   onSavingChange: (saving: boolean) => void;
 }) {
   const bridge = useBridge();
+  const analytics = useAnalytics();
   const queryClient = useQueryClient();
   const categories = useCategories();
   const create = useCreateTransaction();
+
+  /*
+    이 시트가 사는 동안이 기록 흐름 하나다.
+
+    시트는 열 때 새로 마운트되고 닫으면 통째로 사라지므로, 여기서 만든 값 하나가
+    기록 시작부터 저장까지의 모든 로그를 잇는다. 탭을 옮겨도 같은 흐름이다.
+    캡처로 시작해 키패드로 끝낸 사람을 두 흐름으로 세면 방식별 완료율이 거짓이 된다.
+  */
+  const [flowId] = useState(() => analytics.startFlow());
 
   const [tab, setTab] = useState<RecordTab>(initialTab ?? DEFAULT_RECORD_TAB);
   // 지출인가 수입인가. 이 값이 고를 수 있는 분류와 저장할 종류를 함께 정한다.
@@ -130,6 +141,17 @@ function RecordBody({
       alive = false;
     };
   }, [bridge]);
+
+  // 어느 방식으로 시작했나. 마지막에 쓴 방식으로 열리므로 시작 방식과 끝낸 방식이 다를 수 있다.
+  useEffect(() => {
+    analytics.log(
+      EVENTS.recordStarted,
+      { method: recordMethodOf(initialTab ?? DEFAULT_RECORD_TAB) },
+      { flowId },
+    );
+    // 시트가 사는 동안 한 번이다. 탭을 옮겼다고 다시 시작한 것이 아니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const allCategories = categories.data?.items ?? [];
   // 고른 종류의 분류만 보여준다. 섞어 두면 수입에 '식비' 가 붙어, 목록과 리포트가 다른 말을 한다.
@@ -194,6 +216,8 @@ function RecordBody({
     if (!Number.isFinite(amount) || amount <= 0) return;
 
     markBusy(true);
+    analytics.log(EVENTS.saveRequested, { method: 'keypad', count: 1 }, { flowId, kind: 'click' });
+    const startedAt = Date.now();
     create.mutate(
       {
         occurred_at: new Date().toISOString(),
@@ -207,7 +231,30 @@ function RecordBody({
       },
       {
         onSettled: () => markBusy(false),
+        onError: (error) => {
+          analytics.log(
+            EVENTS.saveResult,
+            {
+              method: 'keypad',
+              result: 'failed',
+              elapsed_ms: Date.now() - startedAt,
+              error_code: error instanceof ApiError ? error.code : 'unknown',
+            },
+            { flowId },
+          );
+        },
         onSuccess: (created) => {
+          // 서버가 거래를 돌려준 뒤에만 성공이다. 버튼을 누른 것은 성공이 아니다.
+          analytics.log(
+            EVENTS.saveResult,
+            {
+              method: 'keypad',
+              result: 'ok',
+              created_count: 1,
+              elapsed_ms: Date.now() - startedAt,
+            },
+            { flowId },
+          );
           rememberMethod();
           setSaved({
             transaction: created.transaction,
@@ -228,6 +275,7 @@ function RecordBody({
   if (saved != null) {
     return (
       <FeedbackPanel
+        flowId={flowId}
         transaction={saved.transaction}
         feedback={saved.feedback}
         categories={categoriesOfKind(kindOf(saved.transaction.type), allCategories)}
@@ -291,18 +339,31 @@ function RecordBody({
           option.value === tab ? option : { ...option, disabled: option.disabled || busy },
         )}
         value={tab}
-        onChange={setTab}
+        onChange={(next) => {
+          analytics.log(
+            EVENTS.inputMethodChanged,
+            { from: recordMethodOf(tab), to: recordMethodOf(next) },
+            { flowId, kind: 'click' },
+          );
+          setTab(next);
+        }}
         ariaLabel="기록 방법"
       />
 
       {/* 감추기만 하고 남겨 둔다. 언마운트하면 적어 둔 줄글과 검토 목록이 사라진다. */}
       <div className="record__panel" hidden={tab !== 'nl'}>
-        <NaturalLanguageTab onBusyChange={markBusy} onDone={finish} onSaved={rememberMethod} />
+        <NaturalLanguageTab
+          flowId={flowId}
+          onBusyChange={markBusy}
+          onDone={finish}
+          onSaved={rememberMethod}
+        />
       </div>
 
       <div className="record__panel" hidden={tab !== 'capture'}>
         <ImageImportTab
           kind="capture"
+          flowId={flowId}
           onBusyChange={markBusy}
           onDone={finish}
           onSaved={rememberMethod}
@@ -312,6 +373,7 @@ function RecordBody({
       <div className="record__panel" hidden={tab !== 'receipt'}>
         <ImageImportTab
           kind="receipt"
+          flowId={flowId}
           onBusyChange={markBusy}
           onDone={finish}
           onSaved={rememberMethod}

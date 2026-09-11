@@ -26,7 +26,7 @@ const EXPENSE_CATEGORIES = [
   '건강·미용',
   '기타',
 ];
-const INCOME_CATEGORIES = ['월급', '용돈', '기타 수입'];
+const INCOME_CATEGORIES = ['월급', '용돈', '부업', '기타 수입'];
 const TRANSFER_CATEGORIES = ['이체'];
 const BASIC_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES, ...TRANSFER_CATEGORIES];
 
@@ -34,9 +34,10 @@ const PET = '반려동물';
 /** 아이콘 파일 `16_paw`. 격자 칸은 파일 이름에서 앞 번호를 뗀 영어를 읽어 준다. */
 const PET_ICON = 'paw';
 
-const SIDE_JOB = '부업';
+/** 내가 만드는 수입 분류. '부업' 은 이제 기본 분류라 같은 이름으로는 못 만든다. */
+const DIVIDEND = '배당금';
 /** 아이콘 파일 `28_cash`. */
-const SIDE_JOB_ICON = 'cash';
+const DIVIDEND_ICON = 'cash';
 
 /**
  * 내가 만든 지출 분류가 앉는 자리.
@@ -72,7 +73,8 @@ test('지출·수입·이체가 다른 구획에 놓인다', async ({ appShell, 
   await expect(categories.basicRow('카페·간식')).toBeVisible();
 
   // 개수를 박아 둔다. 기본 목록이 늘거나 줄면 화면보다 여기가 먼저 걸린다.
-  await expect(categories.basicRows).toHaveCount(13);
+  // 숫자를 따로 적지 않고 위 배열을 센다. 두 곳에 적으면 한쪽만 고쳐진다.
+  await expect(categories.basicRows).toHaveCount(BASIC_CATEGORIES.length);
 
   // 종류가 섞이면 수입 분류를 만들어 놓고도 어디서 쓰이는지 알 수 없다.
   // 기록 시트가 종류로 갈라 보여주는 것과 같은 모양이어야 한다.
@@ -180,15 +182,15 @@ test('수입 카테고리를 만들어 키패드에서 수입으로 저장한다
 }) => {
   await categories.open();
   await categories.waitReady();
-  await categories.create(SIDE_JOB, SIDE_JOB_ICON, '수입');
+  await categories.create(DIVIDEND, DIVIDEND_ICON, '수입');
 
   await test.step('수입 구획에 서고 지출 구획에는 없다', async () => {
     expect(await categories.sectionNames('수입 카테고리')).toEqual([
       ...INCOME_CATEGORIES,
-      SIDE_JOB,
+      DIVIDEND,
     ]);
     expect(await categories.sectionNames('지출 카테고리')).toEqual(EXPENSE_CATEGORIES);
-    await expect(categories.mineRow(SIDE_JOB)).toBeVisible();
+    await expect(categories.mineRow(DIVIDEND)).toBeVisible();
     // 기본 목록은 그대로다. 만든 것이 기본으로 섞여 들어가면 지울 수 없는 줄이 된다.
     await expect(categories.basicRows).toHaveCount(BASIC_CATEGORIES.length);
   });
@@ -207,13 +209,13 @@ test('수입 카테고리를 만들어 키패드에서 수입으로 저장한다
     // 지출 분류가 남아 있으면 수입이 '식비' 로 저장된다.
     expect(await recordSheet.input.categoryChipNames()).toEqual([
       ...INCOME_CATEGORIES,
-      SIDE_JOB,
+      DIVIDEND,
     ]);
   });
 
   await test.step('수입으로 저장된다', async () => {
     await recordSheet.input.enterAmount(300_000);
-    await recordSheet.input.pickCategory(SIDE_JOB);
+    await recordSheet.input.pickCategory(DIVIDEND);
     await recordSheet.feedback.waitSaved();
 
     // 지출 판정 문장을 그대로 쓰면 "이번 달 얼마 썼어요" 가 수입 자리에 나온다.
@@ -226,7 +228,7 @@ test('수입 카테고리를 만들어 키패드에서 수입으로 저장한다
   });
 
   await test.step('홈 목록이 수입이라고 말한다', async () => {
-    await expect(home.today.row(SIDE_JOB)).toBeVisible();
+    await expect(home.today.row(DIVIDEND)).toBeVisible();
     await expect(home.today.chip('수입')).toBeVisible();
     // 수입은 쓴 돈이 아니다. 오늘 합계에 들어가면 남은 예산이 통째로 어긋난다.
     await expect(home.today.amount(`+${formatCurrency(300_000)}`)).toBeVisible();

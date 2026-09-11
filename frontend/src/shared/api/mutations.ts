@@ -36,6 +36,7 @@ import type {
   ImportBatchOut,
   ImportCandidatePatch,
   ImportCommitOut,
+  MerchantRuleCreate,
   PreferencesPatch,
   TransactionCreate,
   TransactionUpdate,
@@ -372,6 +373,21 @@ export function useDeleteImport() {
 
   return useMutation({
     mutationFn: (batchId: string) => client.deleteImport(batchId),
+  });
+}
+
+/**
+ * 기억한 분류 손으로 걸기.
+ *
+ * 같은 상호가 이미 있으면 서버가 분류만 바꾼다. 화면에서 "이미 있다" 를 따로 다루지 않는다.
+ */
+export function useCreateMerchantRule() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: MerchantRuleCreate) => client.createMerchantRule(body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.merchantRules() }),
   });
 }
 

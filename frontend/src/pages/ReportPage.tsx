@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
+import { AdSlot } from '../features/ads';
 import { MonthlyReport } from '../features/reports';
 import { toLedgerDate } from '../shared/lib/format';
 
@@ -52,6 +53,7 @@ export default function ReportPage() {
         onMonthChange={changeMonth}
         autoOpenClosing={openClosing}
         onClosingAutoOpened={consumeClosing}
+        adSlot={<AdSlot placement="report" />}
       />
     </div>
   );

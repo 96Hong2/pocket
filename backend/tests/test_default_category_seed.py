@@ -17,6 +17,7 @@ from app.domain.categories import DEFAULT_CATEGORIES
 VERSIONS = Path(__file__).resolve().parents[1] / "migrations" / "versions"
 SEED_FILE = VERSIONS / "20260903_1200_c4a1b8f2d7e3_seed_default_categories.py"
 INCOME_FILE = VERSIONS / "20260907_1900_a3f1c07b52d4_income_categories.py"
+SIDE_JOB_FILE = VERSIONS / "20260911_1500_d4a2e8c31b70_income_side_job.py"
 
 
 def _load(path: Path) -> ModuleType:
@@ -39,6 +40,7 @@ def _applied_categories() -> list[tuple[str, str, str, int]]:
     이름 옮기기와 추가를 여기서 그대로 되짚는다. 도메인 목록과 어긋나면 이 테스트가 잡는다.
     """
     income = _load(INCOME_FILE)
+    side_job = _load(SIDE_JOB_FILE)
     rows = list(_seed_module().DEFAULT_CATEGORIES)
 
     renamed = []
@@ -50,7 +52,16 @@ def _applied_categories() -> list[tuple[str, str, str, int]]:
         else:
             renamed.append((name, kind, icon_key, sort_order))
     renamed.extend(income.ADDED_CATEGORIES)
-    return sorted(renamed, key=lambda row: row[3])
+
+    # '기타 수입' 을 끝자리로 밀고 '부업' 을 그 앞에 세운 리비전.
+    moved = [
+        (name, kind, icon_key, side_job.MOVED_SORT_ORDER if name == side_job.MOVED_NAME else order)
+        for name, kind, icon_key, order in renamed
+    ]
+    moved.append(
+        (side_job.ADDED_NAME, "income", side_job.ADDED_ICON_KEY, side_job.ADDED_SORT_ORDER)
+    )
+    return sorted(moved, key=lambda row: row[3])
 
 
 def test_시드가_도메인_목록과_같다() -> None:

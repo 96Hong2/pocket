@@ -1,3 +1,4 @@
+import { logsNamed } from '../support/aitMock';
 import { thisMonth } from '../support/api';
 import { E2E_API_URL } from '../support/env';
 import { expect, test } from '../support/fixtures';
@@ -102,23 +103,25 @@ test('아주 긴 분류 이름이 리포트를 가로로 밀지 않는다', asyn
   );
 });
 
-test('리포트에는 광고 자리가 없다', async ({ home, report }) => {
-  // 광고 자체가 안 붙는 환경이라 없는 것이 아니라는 것부터 홈에서 확인한다.
-  await home.open();
-  await home.waitReady();
-  await expect(home.ads.banner).toBeVisible();
+test('달을 옮겨도 리포트 배너를 다시 요청하지 않는다', async ({ page, report }) => {
+  /*
+    배너가 홈 한 곳에만 있던 이유가 이것이었다(ADR-0004). 달을 옮기면 본문을 통째로 다시
+    그리는데, 그때마다 배너가 다시 붙으면 우리가 광고를 새로고침하는 것이 된다.
 
+    자리를 넷으로 늘리면서 그 우려를 자리별 재요청 간격으로 막았다. 여기서 보는 것은
+    "리포트에 배너가 있다" 가 아니라 **"달을 옮겨도 다시 요청하지 않는다"** 다.
+  */
   await report.open();
   await report.waitReady();
+  await expect(report.adSlot).toHaveCount(1);
 
-  // 시안에는 리포트 아래에도 배너가 있지만 배너는 홈 한 곳뿐이다.
-  await expect(report.adSlot).toHaveCount(0);
-
-  // 달을 옮기면 본문을 통째로 다시 그린다. 여기에 배너가 있으면 그때마다 다시 붙어
-  // 우리가 광고를 새로고침하는 것이 된다.
   await report.goPreviousMonth();
   await report.waitReady();
-  await expect(report.adSlot).toHaveCount(0);
+
+  const reportAds = (await logsNamed(page, 'ad_result')).filter(
+    (log) => log.params.placement === 'report',
+  );
+  expect(reportAds.at(-1)?.params.result, '달을 옮겼더니 배너를 다시 요청했다').toBe('cooldown');
 });
 
 test.describe('리포트 조회가 실패했을 때', () => {

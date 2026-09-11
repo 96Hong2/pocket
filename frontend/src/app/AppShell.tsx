@@ -1,9 +1,11 @@
 import { Suspense, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 
+import { EVENTS, useAnalytics } from '../shared/analytics';
 import { LoadingState, iconUrl, type IconName } from '../shared/ui';
 
 import { ErrorBoundary } from './ErrorBoundary';
+import { useBridge } from './providers';
 import { ROUTES, SCREEN_TITLES, isTabRoot } from './router/routes';
 
 interface TabItem {
@@ -44,12 +46,36 @@ function TabBar() {
  */
 export function AppShell() {
   const { pathname } = useLocation();
+  const analytics = useAnalytics();
+  const bridge = useBridge();
   const showTabBar = isTabRoot(pathname);
 
   useEffect(() => {
     document.title = SCREEN_TITLES[pathname] ?? '10초 가계부';
     window.scrollTo(0, 0);
   }, [pathname]);
+
+  /*
+    들어와서 어디로 가나.
+
+    화면 이름은 경로가 아니라 우리가 붙인 이름으로 남긴다. 경로에는 언젠가 값이 섞이고
+    (`?month=2026-08` 같은 것), 그러면 로그에 사용자의 기록이 새기 시작한다.
+    첫 진입인지도 함께 남긴다. 처음 온 사람이 어디서 멈추는지가 이 앱의 첫 관문이다.
+  */
+  useEffect(() => {
+    analytics.appOpen(EVENTS.appOpen, {
+      entry: SCREEN_TITLES[window.location.pathname] ?? 'unknown',
+      toss_app_version: bridge.appVersion,
+    });
+  }, [analytics, bridge]);
+
+  useEffect(() => {
+    analytics.log(
+      EVENTS.screenView,
+      { screen: SCREEN_TITLES[pathname] ?? 'unknown' },
+      { kind: 'screen' },
+    );
+  }, [analytics, pathname]);
 
   return (
     <div className="shell">

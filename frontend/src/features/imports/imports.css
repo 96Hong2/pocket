@@ -247,6 +247,58 @@
     color: var(--color-muted);
   }
 
+  /*
+    환불로 읽힌 줄의 안내.
+
+    켤 수 없는 줄이라 왜 못 켜는지와 무엇을 하면 되는지를 그 자리에 적는다.
+    목록 아래 한 줄로 몰아 두면 여덟 줄 중 어느 것이 문제인지 알 수 없다.
+  */
+  .nl-item__refund {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--color-amber-50);
+    border-radius: var(--radius-inset);
+  }
+
+  .nl-item__refund-text {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+
+  .nl-item__refund-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nl-item__refund-fix {
+    flex: none;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-amber-700);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .nl-item__refund-fix:disabled {
+    opacity: 0.45;
+  }
+
+  .nl-item__refund-hint {
+    flex: 1;
+    min-width: 140px;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
   .nl-item__edit {
     margin-left: auto;
     padding: 4px 8px;
@@ -305,6 +357,11 @@
     background: var(--color-surface);
     color: var(--color-ink);
     font-size: var(--text-15);
+  }
+
+  /* 폭은 공용 `.pk-date` 가 잡는다. 여기서는 이 폼의 줄 높이만 맞춘다. */
+  .nl-form__input[type='date'] {
+    line-height: 38px;
   }
 
   /*
@@ -431,10 +488,85 @@
     margin-top: 28px;
   }
 
+  /* 제목과 '걸어두기' 를 한 줄에. 목록이 비어 있을 때도 만드는 길이 보여야 한다. */
+  .rules__heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
   .rules__title {
     font-size: var(--text-16);
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
+  }
+
+  .rules__add {
+    flex: none;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  /* 전체 · 내가 걸어둔 것. 직접 건 규칙이 하나라도 있을 때만 나온다. */
+  .rules__filters {
+    display: flex;
+    gap: 8px;
+  }
+
+  .rules__filter {
+    min-height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-muted);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .rules__filter--on {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+  }
+
+  /* 목록이 스무 줄을 넘을 때만 나오는 검색칸. */
+  .rules__search {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .rules__search-label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .rules__search-input {
+    width: 100%;
+    height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: var(--text-15);
+  }
+
+  .rules__search-input::placeholder {
+    color: var(--color-placeholder);
+  }
+
+  /* 브라우저가 그리는 x 는 자리만 차지하고 눌리지 않는다. */
+  .rules__search-input::-webkit-search-cancel-button {
+    appearance: none;
   }
 
   .rules__lead {
@@ -474,6 +606,7 @@
 
   .rules__category {
     margin-left: auto;
+    flex: none;
     font-size: var(--text-13);
     color: var(--color-muted);
   }
@@ -488,9 +621,117 @@
     font-weight: var(--font-weight-semibold);
   }
 
+  /* 스무 줄에서 잘렸을 때. 몇 개가 감춰졌는지 말하지 않으면 지운 줄 안다. */
+  .rules__more {
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
   /* 지우기가 막혔을 때. 다시 눌러야 하는 줄이라 앰버로 세운다. */
   .rules__notice {
     font-size: var(--text-13);
     color: var(--color-amber-700);
+  }
+
+  /* ── 분류 걸어두기 시트 ──────────────────── */
+
+  .rule-sheet__body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .rule-sheet__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .rule-sheet__label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .rule-sheet__input {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .rule-sheet__input::placeholder {
+    color: var(--color-placeholder);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .rule-sheet__note {
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  .rule-sheet__notice {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+
+  /* ── 읽는 동안의 진행 막대 ───────────────── */
+
+  .parse-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 0 4px;
+  }
+
+  .parse-progress__label {
+    margin: 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .parse-progress__track {
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+    overflow: hidden;
+  }
+
+  /*
+    막대는 scaleX 로 움직인다. width 를 1초에 열 번 고치면 그때마다 레이아웃이 다시 계산된다.
+    transform 은 합성만 바꾼다.
+  */
+  .parse-progress__bar {
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-700);
+    transform-origin: left center;
+    transition: transform 0.12s linear;
+  }
+
+  /* 평소보다 오래 걸리는 중. 실패는 아니라 붉게 하지 않고 앰버로 알린다. */
+  .parse-progress__bar--slow {
+    background: var(--color-amber-300);
+  }
+
+  .parse-progress__hint {
+    margin: 0;
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  /* 움직임을 줄이라고 한 기기에서는 막대가 튀지 않게 한 번에 놓는다. */
+  @media (prefers-reduced-motion: reduce) {
+    .parse-progress__bar {
+      transition: none;
+    }
   }
 }

@@ -113,15 +113,16 @@ def test_수입_분류를_만들면_기본_수입_뒤_이체_앞에_선다(
 ) -> None:
     """수입 목록에서 내가 만든 것을 찾을 수 있어야 한다. 지출 사이에 끼면 안 된다."""
     del default_categories
-    created = _create(client, name="부업", icon_key="28_cash", kind="income")
+    # '부업' 은 이제 기본 수입 분류라 같은 이름으로는 못 만든다.
+    created = _create(client, name="배당금", icon_key="28_cash", kind="income")
     assert created.status_code == 201, created.text
     body = created.json()
     assert body["kind"] == "income"
     assert body["sort_order"] == USER_INCOME_SORT_ORDER
 
     names = _names(client)
-    assert names.index("기타") < names.index("부업")
-    assert names.index("기타 수입") < names.index("부업") < names.index("이체")
+    assert names.index("기타") < names.index("배당금")
+    assert names.index("기타 수입") < names.index("배당금") < names.index("이체")
 
 
 def test_이체_분류는_만들지_못한다(client: TestClient, default_categories: list[Category]) -> None:

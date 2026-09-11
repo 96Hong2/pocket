@@ -218,6 +218,27 @@ export class PrepApi {
   }
 
   /**
+   * 기억한 분류 하나를 손으로 건다.
+   *
+   * 화면으로도 걸 수 있지만 여기는 "이미 스무 줄이 넘는 상태" 처럼 배경으로만 필요할 때 쓴다.
+   * 스물다섯 줄을 화면으로 만들면 그 테스트가 무엇을 보는지 흐려진다.
+   */
+  async addMerchantRule(merchant: string, categoryId: string): Promise<void> {
+    const response = await this.context.post('/api/v1/merchant-rules', {
+      data: { merchant, category_id: categoryId },
+    });
+    expectOk(response.status(), await response.text(), `규칙 '${merchant}' 을 걸지 못했다`);
+  }
+
+  /** 지금 있는 카테고리 이름 → id. 규칙을 걸 때 분류 id 가 필요해서 쓴다. */
+  async categoryIds(): Promise<Map<string, string>> {
+    const response = await this.context.get('/api/v1/categories');
+    expectOk(response.status(), await response.text(), '카테고리를 불러오지 못했다');
+    const body = (await response.json()) as { items: { id: string; name: string }[] };
+    return new Map(body.items.map((item) => [item.name, item.id]));
+  }
+
+  /**
    * 자산 목록을 통째로 심는다. 이미 적어 둔 것이 있는 상태를 만들 때 쓴다.
    *
    * 서버 저장이 PUT 하나뿐이라 여기도 목록을 통째로 보낸다. 부채도 양수로 넣고

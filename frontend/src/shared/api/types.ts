@@ -80,6 +80,8 @@ export type ImportCommitOut = Schemas['ImportCommitOut'];
 /** 기억한 분류 규칙. 지울 수 있다. */
 export type MerchantRuleOut = Schemas['MerchantRuleOut'];
 export type MerchantRuleListOut = Schemas['MerchantRuleListOut'];
+/** 손으로 걸어 두는 규칙. 같은 상호가 이미 있으면 분류만 바뀐다. */
+export type MerchantRuleCreate = Schemas['MerchantRuleCreate'];
 
 // ── 카테고리 ───────────────────────────────────
 export type CategoryOut = Schemas['CategoryOut'];

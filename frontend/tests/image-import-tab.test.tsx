@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { BridgeProvider } from '../src/app/providers';
+import { AnalyticsProvider, BridgeProvider } from '../src/app/providers';
 import { ImageImportTab, type ImageImportKind } from '../src/features/imports';
 import { ApiContext, createApiClient } from '../src/shared/api';
 import { createBridge, type MockScenario } from '../src/shared/toss';
@@ -31,16 +31,19 @@ function renderTab(kind: ImageImportKind, scenario: MockScenario) {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <BridgeProvider bridge={bridge}>
-        <ApiContext.Provider value={api}>
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        </ApiContext.Provider>
+        <AnalyticsProvider>
+          <ApiContext.Provider value={api}>
+            <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+          </ApiContext.Provider>
+        </AnalyticsProvider>
       </BridgeProvider>
     );
   }
 
-  return render(<ImageImportTab kind={kind} onBusyChange={() => {}} onDone={() => {}} />, {
-    wrapper: Wrapper,
-  });
+  return render(
+    <ImageImportTab kind={kind} flowId="test-flow" onBusyChange={() => {}} onDone={() => {}} />,
+    { wrapper: Wrapper },
+  );
 }
 
 /** 두 탭이 같은 세 갈래를 각자의 자원·문구로 지난다. */

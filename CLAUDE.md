@@ -30,6 +30,7 @@
 | 엔드포인트 | `docs/API_CONTRACT.md`, 정본은 `docs/openapi.json` |
 | 설치된 실제 버전 | `docs/DEPENDENCIES.md` |
 | 왜 그렇게 정했나 | `docs/ADR/` |
+| 무슨 행동 로그를 남기나 | `docs/ANALYTICS.md` |
 | 비밀값 넣는 법 | `docs/SECRETS.md` |
 | 디자인 시안 | 레포에 없다. PRD 와 같은 자리에 있다 |
 | 변경 전 자가점검 | `.claude/skills/app-guard` |

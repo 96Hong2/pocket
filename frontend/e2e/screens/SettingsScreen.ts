@@ -93,6 +93,21 @@ export class SettingsScreen {
     return this.page.getByRole('link', { name: '개인정보처리방침', exact: true });
   }
 
+  /** 홈 화면에 추가하는 법을 여는 줄. 홈 카드를 놓친 사람이 나중에 찾아오는 자리다. */
+  get addToHomeRow(): Locator {
+    return this.page.getByRole('button', { name: /휴대폰 홈 화면에 추가/ });
+  }
+
+  /** 그 줄이 여는 안내 시트. 홈 카드가 여는 것과 같은 시트다. */
+  get addToHomeSheet(): Locator {
+    return this.page.getByRole('dialog', { name: '홈 화면에 추가하면 더 빨라요', exact: true });
+  }
+
+  /** 버전 줄 아래 배너 자리. 채울 광고가 없으면 접힌다. */
+  get adSlot(): Locator {
+    return this.page.getByTestId(TEST_IDS.adSlot);
+  }
+
   /**
    * 화면 어디든 그 글자.
    *

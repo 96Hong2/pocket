@@ -1,4 +1,6 @@
 import { IdentityNotice } from '../app/IdentityNotice';
+import { AdSlot } from '../features/ads';
+import { AddToHomeSetting } from '../features/home-add';
 import { HomeHeroSetting, PrivacyNotice } from '../features/settings';
 
 /** 앱 설정. */
@@ -13,7 +15,9 @@ export default function SettingsPage() {
 
       <HomeHeroSetting />
 
-      <PrivacyNotice />
+      <AddToHomeSetting />
+
+      <PrivacyNotice adSlot={<AdSlot placement="settings" />} />
     </div>
   );
 }

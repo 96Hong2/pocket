@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { useIdentity } from '../../app/providers';
 import {
@@ -54,6 +54,7 @@ export function MonthlyReport({
   onMonthChange,
   autoOpenClosing = false,
   onClosingAutoOpened,
+  adSlot,
 }: {
   month: string;
   onMonthChange: (next: string) => void;
@@ -61,6 +62,8 @@ export function MonthlyReport({
   autoOpenClosing?: boolean;
   /** 그 부탁을 쓴 순간 알린다. 로딩 때문에 결산 자리는 달을 옮길 때마다 다시 마운트된다. */
   onClosingAutoOpened?: () => void;
+  /** 도넛 바로 위에 설 배너. 페이지가 넣어 준다. */
+  adSlot?: ReactNode;
 }) {
   // 아직 오지 않은 달은 볼 수 없다. 가면 안 끝난 이번 달을 "지난달 전체" 로 견주는 거짓말이 나온다.
   const thisMonth = toLedgerDate(new Date()).slice(0, 7);
@@ -197,6 +200,12 @@ export function MonthlyReport({
           </p>
         </Card>
       ) : null}
+
+      {/*
+        배너 자리. 페이지가 넣어 준다. 조건부 형제들 사이지만 이 슬롯 자체는 늘 자리를 지켜,
+        달을 옮겨 목록이 비어도 다시 마운트되지 않는다. 그것이 곧 광고 새로고침이다.
+      */}
+      {adSlot}
 
       {rows.length > 0 ? (
         <Card className="report__breakdown">

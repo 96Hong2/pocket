@@ -195,6 +195,11 @@ provider 로 나간다.** 감출 것이 아니라 알고 여는 구멍이다.
 | `VITE_AD_GROUP_ID` | 콘솔에서 발급한 운영 adGroupId | 번들에 박히므로 "감춰지는" 값은 아니다. 다만 저장소에는 남기지 않는다 |
 
 값이 비어 있으면 배너 슬롯 자체를 접는다. 빈 자리를 남기지 않는다.
+조용히 접히므로 오류로는 드러나지 않는다. **`ad_result` 로그의 `no_group` 이 유일한 실마리다.**
+
+**테스트 판(sandbox)에서는 이 값을 쓰지 않는다.** QR 테스트와 심사로 여는 판이 sandbox 이고,
+거기서는 공식 테스트 배너로 고정한다. 우리가 만든 앱을 우리가 눌러 보는 동안 실광고가 뜨면
+같은 기기·같은 아이피에서 반복 노출과 클릭이 쌓여 무효 트래픽으로 잡힌다(ADR-0004 개정).
 
 ---
 
@@ -221,7 +226,8 @@ GEMINI_API_KEY=<AI Studio 유료 등급 프로젝트에서 발급한 키>
 
 인증서가 아직 없으므로 `TOSS_MTLS_*_PATH` 두 줄은 비워 두고 `ALLOW_UNVERIFIED_ANON_KEY=true` 로 둔다.
 
-프론트는 `frontend/.env.local` 에 `VITE_AD_GROUP_ID=ait-ad-test-banner-id`.
+프론트 `.env.local` 에는 광고 ID 를 넣지 않아도 된다. 개발도 QR 테스트도 sandbox 라
+코드가 알아서 공식 테스트 배너를 쓴다.
 
 ---
 

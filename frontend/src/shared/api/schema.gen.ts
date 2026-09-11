@@ -339,7 +339,8 @@ export interface paths {
         /** Index */
         get: operations["index_api_v1_merchant_rules_get"];
         put?: never;
-        post?: never;
+        /** Create */
+        post: operations["create_api_v1_merchant_rules_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1305,6 +1306,16 @@ export interface components {
             /** Amount */
             amount: string;
         };
+        /** MerchantRuleCreate */
+        MerchantRuleCreate: {
+            /** Merchant */
+            merchant: string;
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+        };
         /** MerchantRuleListOut */
         MerchantRuleListOut: {
             /** Items */
@@ -1326,7 +1337,14 @@ export interface components {
             category_id: string;
             /** Applied Count */
             applied_count: number;
+            source: components["schemas"]["MerchantRuleSource"];
         };
+        /**
+         * MerchantRuleSource
+         * @description 규칙이 어디서 왔나.
+         * @enum {string}
+         */
+        MerchantRuleSource: "learned" | "manual";
         /** MonthlyReportOut */
         MonthlyReportOut: {
             /**
@@ -3921,6 +3939,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MerchantRuleListOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_api_v1_merchant_rules_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MerchantRuleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantRuleOut"];
                 };
             };
             /** @description 식별키가 없거나 검증에 실패 */

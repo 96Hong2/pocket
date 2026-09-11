@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { ApiError, useSaveBudget, type MonthParams } from '../../shared/api';
 import { AmountField, BottomSheet, Button } from '../../shared/ui';
 
@@ -51,6 +52,7 @@ interface BudgetAmountFormProps {
 }
 
 function BudgetAmountForm({ month, amount, onSavingChange, onClose }: BudgetAmountFormProps) {
+  const analytics = useAnalytics();
   const save = useSaveBudget(month);
   const [digits, setDigits] = useState(amount == null ? '' : String(amount));
 
@@ -76,7 +78,14 @@ function BudgetAmountForm({ month, amount, onSavingChange, onClose }: BudgetAmou
           onSavingChange(true);
           save.mutate(
             { amount: next },
-            { onSettled: () => onSavingChange(false), onSuccess: onClose },
+            {
+              onSettled: () => onSavingChange(false),
+              onSuccess: () => {
+                // 금액은 남기지 않는다. 처음 정한 것인지가 알고 싶은 전부다.
+                analytics.log(EVENTS.budgetSaved, { first: amount == null, from: 'sheet' });
+                onClose();
+              },
+            },
           );
         }}
       >

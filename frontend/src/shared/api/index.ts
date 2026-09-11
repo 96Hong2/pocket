@@ -43,6 +43,7 @@ export {
   useCommitImport,
   useCreateCategory,
   useCreateGoal,
+  useCreateMerchantRule,
   useCreateTransaction,
   useDeleteBudget,
   useDeleteCategory,
