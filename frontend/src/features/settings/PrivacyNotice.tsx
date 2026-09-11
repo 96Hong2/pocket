@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
+import { useBridge } from '../../app/providers';
 import { ROUTES } from '../../app/router/routes';
 import { Card, CategoryAvatar } from '../../shared/ui';
+import { AppDiagnosticsSheet } from './AppDiagnosticsSheet';
 
 /**
  * 설정 화면 아래쪽 한 덩어리.
@@ -18,6 +20,11 @@ import { Card, CategoryAvatar } from '../../shared/ui';
  * 저장하지 않는 것과 읽지 않는 것은 다르고, 못 지킬 약속을 방침에 적으면 그것이 더 나쁘다.
  */
 export function PrivacyNotice({ adSlot }: { adSlot?: ReactNode }) {
+  const bridge = useBridge();
+  const [diagOpen, setDiagOpen] = useState(false);
+  // 운영 판에서는 뱃지를 달지 않는다. 쓰는 사람에게 「테스트」 는 아무 뜻도 없다.
+  const testBadge = bridge.environment === 'sandbox' ? '테스트' : null;
+
   return (
     <section className="setting-block setting-block--links">
       <nav aria-label="설정 하위 화면">
@@ -45,14 +52,19 @@ export function PrivacyNotice({ adSlot }: { adSlot?: ReactNode }) {
               </Link>
             </li>
             <li>
-              {/* 문의를 받을 때 어느 판인지 묻지 않아도 되게 화면에 적어 둔다. */}
-              <div className="link-row link-row--static">
+              {/*
+                문의를 받을 때 어느 판인지 묻지 않아도 되게 화면에 적어 둔다.
+                눌러 열리는 시트에 판·배포·기기가 있다. 실기기에서 그 값을 볼 자리가
+                여기 말고는 없다(로그는 운영 판에서만 실제로 나간다).
+              */}
+              <button type="button" className="link-row" onClick={() => setDiagOpen(true)}>
                 <CategoryAvatar icon="26_sparkles" size={48} />
                 <span className="link-row__label">버전</span>
+                {testBadge ? <span className="link-row__badge">{testBadge}</span> : null}
                 <span className="link-row__value" data-numeric="">
                   {__APP_VERSION__}
                 </span>
-              </div>
+              </button>
             </li>
           </ul>
         </Card>
@@ -72,6 +84,8 @@ export function PrivacyNotice({ adSlot }: { adSlot?: ReactNode }) {
       <p className="setting-note setting-note--muted">
         화면 맨 위 ⋯ 는 토스가 주는 공통 메뉴예요(공유·새로고침·신고). 앱 설정은 이 화면에서 바꿔요.
       </p>
+
+      <AppDiagnosticsSheet open={diagOpen} onClose={() => setDiagOpen(false)} />
     </section>
   );
 }

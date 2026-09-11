@@ -110,3 +110,38 @@ test('기록 흐름 하나가 같은 값으로 이어지고, 적은 내용은 �
     }
   });
 });
+
+test('앱 정보 시트가 지금 어느 판인지 말해 준다', async ({ settings }) => {
+  await settings.open();
+  await settings.waitReady();
+
+  // 실기기에서 판을 볼 자리가 여기 말고는 없다. 로그는 운영 판에서만 실제로 나간다.
+  await settings.versionRow.click();
+  await expect(settings.diagnosticsSheet).toBeVisible();
+
+  // e2e 는 devtools 목 SDK 가 주입돼 샌드박스로 잡힌다. 운영이면 여기가 「운영 (toss)」 다.
+  const shown = settings.diagnostics;
+  await expect(shown).toContainText('테스트 (sandbox)');
+  await expect(shown).toContainText('배포');
+  await expect(shown).toContainText('기기');
+});
+
+test('이 기기에서 광고를 끄면 자리가 접히고 그 이유가 남는다', async ({ page, settings }) => {
+  await settings.open();
+  await settings.waitReady();
+  await expect(settings.adSlot).toBeVisible();
+
+  await settings.versionRow.click();
+  await settings.adOptOutToggle.click();
+  await expect(settings.adOptOutToggle).toHaveAttribute('aria-checked', 'true');
+
+  // 만든 사람이 자기 광고를 보면 무효 트래픽으로 잡힌다. 판으로만 가르면 QR 테스트에서 샌다.
+  await settings.open();
+  await settings.waitReady();
+  await expect(settings.adSlot).not.toBeVisible();
+
+  const results = (await logsNamed(page, 'ad_result')).filter(
+    (log) => log.params.placement === 'settings',
+  );
+  expect(results.at(-1)?.params.result).toBe('opted_out');
+});

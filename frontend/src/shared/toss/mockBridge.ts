@@ -128,6 +128,8 @@ export class MockMiniAppBridge implements MiniAppBridge {
   readonly environment: BridgeEnvironment = 'browser';
   readonly platform: BridgePlatform = 'web';
   readonly appVersion = '';
+  readonly deviceId = '';
+  readonly deploymentId = '';
   readonly storage = new MemoryStorage();
   readonly ads: AdsBridge;
   readonly analytics: AnalyticsBridge = new MockAnalyticsBridge();

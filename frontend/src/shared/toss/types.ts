@@ -198,6 +198,13 @@ export interface MiniAppBridge {
   readonly platform: BridgePlatform;
   /** 토스 앱 버전. 브라우저에서는 빈 문자열. */
   readonly appVersion: string;
+  /**
+   * 기기 고유 식별자. **진단 화면에만 보여 주고 로그·서버로는 보내지 않는다.**
+   * 이 값이 로그에 실리면 익명 집계가 기기 단위 추적이 된다. 브라우저에서는 빈 문자열.
+   */
+  readonly deviceId: string;
+  /** 지금 돌고 있는 번들. 개발에서는 'local', 브라우저에서는 빈 문자열. */
+  readonly deploymentId: string;
 
   supports(capability: BridgeCapability): boolean;
 

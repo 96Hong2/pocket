@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
+import { readAdOptOut } from '../../shared/lib/adOptOut';
 import { TEST_IDS } from '../../shared/testIds';
 import type { BannerHandle } from '../../shared/toss';
 
@@ -89,10 +90,15 @@ export function AdSlot({ placement }: AdSlotProps) {
       analytics.log(EVENTS.adResult, { placement, result }, { kind: 'impression' });
     };
 
-    bridge.ads
-      .initialize()
-      .then(() => {
+    // 초기화와 함께 읽는다. 읽고 나서 초기화하면 그만큼 배너가 늦는다.
+    Promise.all([bridge.ads.initialize(), readAdOptOut(bridge.storage)])
+      .then(([, optedOut]) => {
         if (!alive) return;
+        if (optedOut) {
+          // 만든 사람 기기다. 자리까지 접는다. 테스트 배너로 바꿔 두면 그것도 노출로 센다.
+          done('collapsed', 'opted_out');
+          return;
+        }
         /*
           시각은 **실제로 붙이는 이 순간에** 남긴다. 위에서 미리 남기면 개발 모드의
           effect 이중 실행에서 첫 번째가 찍은 시각에 두 번째가 걸려, 아무도 안 오갔는데

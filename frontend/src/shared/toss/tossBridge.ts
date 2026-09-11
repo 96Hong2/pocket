@@ -146,6 +146,8 @@ export class TossMiniAppBridge implements MiniAppBridge {
   readonly environment: BridgeEnvironment;
   readonly platform: BridgePlatform;
   readonly appVersion: string;
+  readonly deviceId: string;
+  readonly deploymentId: string;
   readonly storage = new TossStorage();
   readonly ads = new TossAdsBridge();
   readonly analytics = new TossAnalyticsBridge();
@@ -154,6 +156,8 @@ export class TossMiniAppBridge implements MiniAppBridge {
     this.environment = Environment.environment;
     this.platform = Device.os;
     this.appVersion = Environment.tossAppVersion;
+    this.deviceId = Environment.deviceId;
+    this.deploymentId = Environment.deploymentId;
   }
 
   supports(capability: BridgeCapability): boolean {
