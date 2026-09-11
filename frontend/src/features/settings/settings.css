@@ -181,4 +181,101 @@
     border-radius: var(--radius-pill);
     background: var(--color-sage-300);
   }
+
+  /* ── 앱 정보 시트 ─────────────────────────────── */
+
+  /* 버전 줄은 이제 눌린다. 버튼 기본 모양을 지워 옆 줄들과 같은 자리에 선다. */
+  .setting-block--links button.link-row {
+    width: 100%;
+    border: 0;
+    background: none;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .diag-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 4px 0 0;
+  }
+
+  .diag-list__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 11px 0;
+  }
+
+  .diag-list__row + .diag-list__row {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .diag-list dt {
+    flex: none;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .diag-list dd {
+    margin: 0;
+    min-width: 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    text-align: right;
+    /* 배포·기기 식별자는 길다. 줄을 넘겨서라도 다 보여 준다. 잘라 두면 대조를 못 한다. */
+    overflow-wrap: anywhere;
+  }
+
+  .diag-list__mono {
+    font-size: var(--text-12);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+
+  .diag-ad {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 14px;
+    padding: 14px;
+    background: var(--color-surface-sunken);
+    border-radius: var(--radius-md);
+  }
+
+  .diag-ad__text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .diag-ad__title {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .diag-ad__desc {
+    font-size: var(--text-12);
+    color: var(--color-muted);
+    line-height: 1.5;
+  }
+
+  .diag-note {
+    margin: 10px 0 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+  }
+
+  .diag-note--warn {
+    color: var(--color-amber-700);
+  }
 }

@@ -108,6 +108,26 @@ export class SettingsScreen {
     return this.page.getByTestId(TEST_IDS.adSlot);
   }
 
+  /** 앱 정보 시트를 여는 버전 줄. 실기기에서 판을 확인할 유일한 자리다. */
+  get versionRow(): Locator {
+    return this.page.getByRole('button', { name: /^버전/ });
+  }
+
+  /** 그 줄이 여는 시트. */
+  get diagnosticsSheet(): Locator {
+    return this.page.getByRole('dialog', { name: '앱 정보', exact: true });
+  }
+
+  /** 시트 안의 값 목록. 판·앱 버전·토스 앱·배포·기기가 여기 있다. */
+  get diagnostics(): Locator {
+    return this.page.getByTestId(TEST_IDS.diagnostics);
+  }
+
+  /** 이 기기에서 배너를 끄는 스위치. 무효 트래픽 방어의 마지막 자리다. */
+  get adOptOutToggle(): Locator {
+    return this.page.getByRole('switch', { name: '이 기기에서 광고 끄기' });
+  }
+
   /**
    * 화면 어디든 그 글자.
    *
