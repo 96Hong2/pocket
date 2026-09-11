@@ -54,15 +54,36 @@ def test_jpeg_와_webp_도_받는다(media_type: str, data: bytes) -> None:
     [
         "",
         "https://example.com/a.png",
+        "file:///var/mobile/Media/DCIM/100APPLE/IMG_0001.JPG",
+        "content://media/external/images/media/42",
         "data:image/png,notbase64",
-        base64.b64encode(PNG_BYTES).decode(),
     ],
 )
-def test_data_url_모양이_아니면_막는다(value: str) -> None:
+def test_이미지_바이트가_아니면_막는다(value: str) -> None:
     with pytest.raises(ApiError) as caught:
         decode_data_url(value)
 
     assert caught.value.status_code == 422
+
+
+def test_헤더_없이_base64_만_와도_받는다() -> None:
+    """토스 앨범·카메라의 `dataUri` 는 이름과 달리 `data:` 접두사가 없을 때가 있다.
+
+    실기기에서 캡처 등록이 통째로 막혔던 자리다. 접두사는 형식을 정하지도 안전을 지키지도
+    않는다. 그 일은 매직바이트와 크기 상한이 한다.
+    """
+    image = decode_data_url(base64.b64encode(PNG_BYTES).decode())
+
+    assert image.media_type == "image/png"
+    assert image.data == PNG_BYTES
+
+
+def test_거절하면_값의_생김새를_로그에_남긴다(caplog: pytest.LogCaptureFixture) -> None:
+    """무엇이 왔는지 갈래라도 안 남기면 실기기에서 왜 막혔는지 알 길이 없다."""
+    with caplog.at_level(logging.WARNING), pytest.raises(ApiError):
+        decode_data_url("file:///var/mobile/Media/DCIM/100APPLE/IMG_0001.JPG")
+
+    assert "파일 경로" in caplog.text
 
 
 @pytest.mark.parametrize(
