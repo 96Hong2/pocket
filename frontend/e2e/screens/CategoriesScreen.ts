@@ -299,12 +299,19 @@ class CategorySheet {
   }
 }
 
-/** 상호마다 기억해 둔 분류. 줄글·캡처로 고쳐 저장할 때 늘어난다. */
+/**
+ * 상호마다 기억해 둔 분류.
+ *
+ * 저장할 때 저절로 늘어나고, 손으로 걸어 둘 수도 있다. 쓸수록 길어지는 목록이라
+ * 스무 줄에서 자르고 그 위에 검색칸이 열린다. 그 셋(목록·검색·걸어두기)을 여기서 다 잡는다.
+ */
 class MerchantRuleArea {
   private readonly root: Locator;
+  readonly sheet: MerchantRuleSheet;
 
   constructor(page: Page) {
     this.root = page.getByRole('region', { name: '기억한 분류', exact: true });
+    this.sheet = new MerchantRuleSheet(page);
   }
 
   get rows(): Locator {
@@ -319,8 +326,85 @@ class MerchantRuleArea {
     return this.rows.filter({ hasText: merchant });
   }
 
+  /** 손으로 건 줄에만 붙는 배지. 앱이 기억한 줄에는 없다. */
+  mineBadge(merchant: string): Locator {
+    return this.row(merchant).getByText('내가', { exact: true });
+  }
+
+  get addButton(): Locator {
+    return this.root.getByRole('button', { name: '걸어두기', exact: true });
+  }
+
+  /** 스무 줄을 넘을 때만 열리는 검색칸. 짧은 목록 위에서는 아예 없다. */
+  get search(): Locator {
+    return this.root.getByLabel('상호 검색', { exact: true });
+  }
+
+  /** 손으로 건 규칙이 하나라도 있을 때만 나오는 두 칩. */
+  filter(label: '전체' | '내가 걸어둔 것'): Locator {
+    return this.root
+      .getByRole('group', { name: '무엇을 볼지' })
+      .getByRole('button', { name: new RegExp(`^${label} \\d+$`) });
+  }
+
+  /** 스무 줄에서 잘렸을 때 몇 개가 감춰졌는지 알리는 줄. */
+  get moreNotice(): Locator {
+    return this.root.getByText(/개를 더 기억하고 있어요/);
+  }
+
+  /** 걸러서 아무것도 안 남았을 때. 목록이 아예 빈 것과 다른 상황이다. */
+  get noMatch(): Locator {
+    return this.root.getByText('찾는 상호가 없어요', { exact: true });
+  }
+
+  /** 상호와 분류를 손으로 건다. 시트가 닫히면 걸린 것이다. */
+  async add(merchant: string, categoryName: string): Promise<void> {
+    await this.addButton.click();
+    await this.sheet.waitOpen();
+    await this.sheet.merchantField.fill(merchant);
+    await this.sheet.pickCategory(categoryName);
+    await this.sheet.saveButton.click();
+    await this.sheet.waitClosed();
+  }
+
   async remove(merchant: string): Promise<void> {
-    await this.row(merchant).getByRole('button', { name: '지우기' }).click();
+    await this.row(merchant).getByRole('button', { name: /지우기$/ }).click();
     await expect(this.row(merchant)).toHaveCount(0);
+  }
+}
+
+/** 상호에 분류를 손으로 거는 시트. */
+class MerchantRuleSheet {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('dialog', { name: '분류 걸어두기', exact: true });
+  }
+
+  get dialog(): Locator {
+    return this.root;
+  }
+
+  get merchantField(): Locator {
+    return this.root.getByLabel('상호', { exact: true });
+  }
+
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: '걸어두기', exact: true });
+  }
+
+  async pickCategory(name: string): Promise<void> {
+    await this.root
+      .getByRole('group', { name: '걸어 둘 분류' })
+      .getByRole('button', { name: new RegExp(`${name}$`) })
+      .click();
+  }
+
+  async waitOpen(): Promise<void> {
+    await expect(this.root).toBeVisible();
+  }
+
+  async waitClosed(): Promise<void> {
+    await expect(this.root).toHaveCount(0);
   }
 }

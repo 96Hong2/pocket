@@ -29,7 +29,9 @@ import type {
   ImportBatchOut,
   ImportCandidatePatch,
   ImportCommitOut,
+  MerchantRuleCreate,
   MerchantRuleListOut,
+  MerchantRuleOut,
   MonthlyReportOut,
   NotificationSettingsOut,
   NotificationSettingsPatch,
@@ -237,6 +239,7 @@ export interface ApiClient extends Transport {
   /** 검토를 접는다. 없어도 204 다. */
   deleteImport(batchId: string, options?: CallOptions): Promise<void>;
   listMerchantRules(options?: CallOptions): Promise<MerchantRuleListOut>;
+  createMerchantRule(body: MerchantRuleCreate, options?: CallOptions): Promise<MerchantRuleOut>;
   deleteMerchantRule(ruleId: string, options?: CallOptions): Promise<void>;
   /** 자산 목록과 순자산. 한 번도 안 적었으면 `snapshot` 이 null 이다. */
   getAssets(options?: CallOptions): Promise<AssetsOut>;
@@ -553,6 +556,15 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<MerchantRuleListOut>({
         method: 'GET',
         path: PATHS.merchantRules,
+        signal: call?.signal,
+      });
+    },
+
+    createMerchantRule(body, call) {
+      return transport.request<MerchantRuleOut>({
+        method: 'POST',
+        path: PATHS.merchantRules,
+        body,
         signal: call?.signal,
       });
     },

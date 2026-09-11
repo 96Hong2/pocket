@@ -79,8 +79,8 @@ def test_캡처_한_장에서_후보_다섯_건이_나온다(client: TestClient,
     batch = _analyze(client)
 
     assert batch["source"] == "screenshot"
-    assert batch["detected_count"] == 5
-    assert len(batch["candidates"]) == 5
+    assert batch["detected_count"] == 6
+    assert len(batch["candidates"]) == 6
     assert batch["error_code"] is None
 
 
@@ -159,7 +159,7 @@ def test_사용량_기록이_캡처로_남는다(client: TestClient, db: Session
     assert 0 < usage.input_length <= len(PNG_BYTES)
     # redact() 는 문자열만 가린다. 이미지는 가릴 수단이 없고 0 이 그 사실의 기록이다.
     assert usage.redacted_count == 0
-    assert usage.candidate_count == 5
+    assert usage.candidate_count == 6
     assert usage.is_stub is True
     # 어느 모델이 읽었는지 남는다. provider 만으로는 luna 와 terra 가 안 갈린다.
     assert usage.model == "stub"
@@ -212,7 +212,7 @@ def test_읽지_못한_사진은_사용량으로_세지_않는다(
     assert db.scalars(select(ImportBatch)).all() == []
 
     # 막힌 요청이 상한을 깎지 않았다는 것을 다음 요청이 통과하는 것으로 확인한다.
-    assert _analyze(client)["detected_count"] == 5
+    assert _analyze(client)["detected_count"] == 6
 
 
 def test_하루_상한을_넘기면_캡처도_막힌다(

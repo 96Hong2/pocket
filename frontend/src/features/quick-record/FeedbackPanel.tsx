@@ -11,6 +11,7 @@ import {
   type TransactionUpdate,
   type TransactionUpdated,
 } from '../../shared/api';
+import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
 import { KIND_WORDS, kindOf } from '../../shared/ledger';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, toIconName, TransactionRow } from '../../shared/ui';
@@ -22,6 +23,8 @@ import { AmountDisplay, Keypad } from './Keypad';
 import { useUndoCountdown } from './useUndoCountdown';
 
 interface FeedbackPanelProps {
+  /** 이 기록 흐름을 가리키는 값. 저장 뒤 손질까지 한 줄로 잇는다. */
+  flowId: FlowId;
   transaction: TransactionOut;
   feedback: FeedbackOut;
   categories: CategoryOut[];
@@ -48,6 +51,7 @@ const MERCHANT_MAX = 120;
 
 /** 저장 결과와 그에 대한 한마디. 되돌리기와 금액·카테고리 다시 고르기가 여기 붙는다. */
 export function FeedbackPanel({
+  flowId,
   transaction,
   feedback,
   categories,
@@ -56,6 +60,7 @@ export function FeedbackPanel({
   onUpdated,
   onConfirm,
 }: FeedbackPanelProps) {
+  const analytics = useAnalytics();
   const panelRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<Editing>(null);
   const [digits, setDigits] = useState('');
@@ -96,6 +101,17 @@ export function FeedbackPanel({
     panelRef.current?.focus();
   }, []);
 
+  // 저장 뒤에 무슨 말을 건넸나. 문구가 아니라 종류만 남긴다.
+  useEffect(() => {
+    analytics.log(
+      EVENTS.feedbackShown,
+      { feedback_kind: feedback.kind, has_budget: feedback.remaining_budget != null },
+      { flowId, kind: 'impression' },
+    );
+    // 저장 한 건에 한 번이다. 금액을 고쳐 피드백이 다시 와도 같은 저장이다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /**
    * 고친 것을 서버에 보낸다. 성공하면 펼친 것을 접는다. 실패하면 펼친 채로 이유를 보여준다.
    *
@@ -104,6 +120,12 @@ export function FeedbackPanel({
    */
   function apply(next: UpdateTarget, body: TransactionUpdate): void {
     setTarget(next);
+    // 저장하고 나서 바로 발견한 잘못. 어느 칸인지만 남긴다.
+    analytics.log(
+      EVENTS.recordChanged,
+      { action: 'edit', field: next, method: 'keypad' },
+      { flowId },
+    );
     update.mutate(
       { id: transaction.id, body },
       {
@@ -166,6 +188,7 @@ export function FeedbackPanel({
   }
 
   function confirm(): void {
+    analytics.log(EVENTS.feedbackAction, { action: 'confirm' }, { flowId, kind: 'click' });
     if (flushMerchant(true)) return;
     onConfirm();
   }
@@ -180,7 +203,14 @@ export function FeedbackPanel({
             className="feedback__undo"
             aria-label="되돌리기"
             disabled={undo.isPending}
-            onClick={() => undo.mutate(transaction.id, { onSuccess: onUndone })}
+            onClick={() => {
+              analytics.log(
+                EVENTS.recordChanged,
+                { action: 'undo', method: 'keypad' },
+                { flowId, kind: 'click' },
+              );
+              undo.mutate(transaction.id, { onSuccess: onUndone });
+            }}
           >
             <span>되돌리기</span>
             {remaining > 0 ? (

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   parseDecimalOr,
   useDeleteTransaction,
@@ -94,6 +95,7 @@ function canSwitchKind(type: TransactionOut['type']): boolean {
 }
 
 function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
+  const analytics = useAnalytics();
   const update = useUpdateTransaction(month);
   const remove = useDeleteTransaction();
 
@@ -138,6 +140,18 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
     try {
       setFailed(false);
       await update.mutateAsync({ id: transaction.id, body });
+      /*
+        저장하고 한참 뒤에 발견한 잘못.
+
+        어느 칸을 고쳤는지와 그 기록이 **어느 방식으로 들어왔는지** 를 함께 남긴다.
+        캡처로 들어온 건만 날짜를 자꾸 고친다면 고칠 곳은 화면이 아니라 프롬프트다.
+        고친 값 자체는 남기지 않는다.
+      */
+      analytics.log(EVENTS.recordChanged, {
+        action: 'edit',
+        fields: Object.keys(body).sort().join(','),
+        source: transaction.source,
+      });
       onClose();
     } catch {
       // 시트를 닫지 않는다. 고쳐 둔 값이 사라지면 처음부터 다시 입력해야 한다.
@@ -149,6 +163,7 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
     try {
       setFailed(false);
       await remove.mutateAsync(transaction.id);
+      analytics.log(EVENTS.recordChanged, { action: 'delete', source: transaction.source });
       onClose();
     } catch {
       setFailed(true);

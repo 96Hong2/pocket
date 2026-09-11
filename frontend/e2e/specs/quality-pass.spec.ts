@@ -127,6 +127,53 @@ test('검토 화면에서 수입으로 바꾸면 수입 분류를 고를 수 있
   await expect(recordSheet.nl.form.categoryChip(CATEGORY)).toHaveCount(0);
 });
 
+// ── 날짜 칸 ────────────────────────────────────────────
+
+/**
+ * 날짜 칸이 자기 자리를 넘지 않는지.
+ *
+ * iOS 는 안쪽 값 영역의 최소 너비를 칸의 최소 너비로 삼아 `width: 100%` 를 무시하고
+ * 부모를 밀고 나간다. 실기기 영수증 화면에서 날짜 칸이 카드 밖으로 삐져나온 자리다.
+ * 눈으로만 보면 "왜 이상하지" 로 끝나므로 숫자로 못 박는다.
+ */
+async function overflowOf(field: import('@playwright/test').Locator): Promise<number> {
+  return field.evaluate((element) => {
+    const parent = element.parentElement;
+    if (parent == null) return 0;
+    return element.getBoundingClientRect().right - parent.getBoundingClientRect().right;
+  });
+}
+
+test('날짜 칸이 제 자리를 넘지 않는다', async ({ goal, home, page, prep, recordSheet }) => {
+  await test.step('검토 화면의 날짜 칸', async () => {
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.methodTab('줄글').click();
+    await recordSheet.nl.analyze('점심 12000');
+    await recordSheet.nl.openEdit('점심');
+
+    // 금액과 나란히 두 칸으로 서는 자리다. 여기가 가장 좁다.
+    expect(await overflowOf(recordSheet.nl.form.dayField), '날짜 칸이 폼 밖으로 나갔다').toBeLessThanOrEqual(1);
+    // 한 칸이 삐져나가면 화면 전체가 가로로 밀린다. 그쪽도 함께 본다.
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+      '화면이 가로로 밀린다',
+    ).toBeLessThanOrEqual(0);
+    await recordSheet.closeByEsc();
+  });
+
+  await test.step('목표 시트의 기한 칸', async () => {
+    await prep.setGoal({ title: '세부여행', targetAmount: 1_500_000 });
+    await goal.open();
+    await goal.editButton.click();
+    await goal.form.waitOpen();
+
+    await expect(goal.form.deadlineField).toBeVisible();
+    expect(await overflowOf(goal.form.deadlineField), '기한 칸이 시트 밖으로 나갔다').toBeLessThanOrEqual(1);
+  });
+});
+
 // ── 아이콘 고르기 ───────────────────────────────────────
 
 test('고른 아이콘 칸의 테두리가 네 변 다 있다', async ({ categories }) => {

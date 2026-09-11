@@ -1,6 +1,10 @@
 import {
   BridgeError,
+  recordLog,
   type AdsBridge,
+  type AnalyticsBridge,
+  type AnalyticsKind,
+  type AnalyticsParams,
   type AttachBannerOptions,
   type BannerHandle,
   type BridgeCapability,
@@ -113,12 +117,20 @@ class MockAdsBridge implements AdsBridge {
   }
 }
 
+/** 브라우저·테스트용 로그 수집. 창에 쌓아 두고 e2e 가 읽는다. */
+class MockAnalyticsBridge implements AnalyticsBridge {
+  log(kind: AnalyticsKind, name: string, params: AnalyticsParams = {}): void {
+    recordLog('browser', kind, name, params);
+  }
+}
+
 export class MockMiniAppBridge implements MiniAppBridge {
   readonly environment: BridgeEnvironment = 'browser';
   readonly platform: BridgePlatform = 'web';
   readonly appVersion = '';
   readonly storage = new MemoryStorage();
   readonly ads: AdsBridge;
+  readonly analytics: AnalyticsBridge = new MockAnalyticsBridge();
 
   private accessoryListeners = new Set<(id: string) => void>();
   private backListeners = new Set<() => void>();

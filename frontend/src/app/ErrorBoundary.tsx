@@ -1,5 +1,6 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component, type ContextType, type ErrorInfo, type ReactNode } from 'react';
 
+import { AnalyticsContext, EVENTS } from '../shared/analytics';
 import { ErrorState } from '../shared/ui';
 
 interface ErrorBoundaryProps {
@@ -32,6 +33,15 @@ function isChunkLoadError(error: Error): boolean {
  * 화면 단위 실패는 각 화면이 자기 빈 상태로 처리하고, 여기까지 오면 통째로 다시 그린다.
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  /*
+    클래스라 훅을 못 쓴다. 로거는 컨텍스트로 받는다.
+
+    앱 바깥(프로바이더 위)에 놓인 바운더리도 있어서 null 일 수 있다. 그때는 로그만 없고
+    화면은 그대로 산다. 로그 때문에 마지막 그물이 찢어지면 안 된다.
+  */
+  static contextType = AnalyticsContext;
+  declare context: ContextType<typeof AnalyticsContext>;
+
   state: ErrorBoundaryState = { hasError: false, needsReload: false };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -39,8 +49,20 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    // TODO: 에러 리포팅이 붙으면 여기로 보낸다. 캡처·영수증 원문은 절대 함께 보내지 않는다.
     console.error('[pocket] 화면을 그리지 못했어요', error, info.componentStack);
+    /*
+      무엇이 죽었는지만 남긴다.
+
+      **메시지 본문과 스택은 보내지 않는다.** 화면이 죽는 자리는 대개 사용자가 방금 넣은
+      값을 다루던 자리라, 예외 메시지에 금액·상호·캡처 조각이 실려 있을 수 있다.
+      이름과 어느 화면인지면 어디를 봐야 할지는 정해진다.
+    */
+    this.context?.log(EVENTS.clientError, {
+      kind: this.props.variant ?? 'app',
+      error_name: error.name,
+      needs_reload: isChunkLoadError(error),
+      screen: document.title,
+    });
   }
 
   handleRetry = (): void => {

@@ -1,0 +1,112 @@
+import { logsNamed, readLogs } from '../support/aitMock';
+import { expect, test } from '../support/fixtures';
+
+/**
+ * 배너 자리와 행동 로그.
+ *
+ * 둘을 한 파일에 둔 이유는 배너의 결과 자체가 로그로만 확인되기 때문이다.
+ * 운영에서 광고 그룹 ID 를 빠뜨린 채 배포하면 아무 오류 없이 자리가 접힌다.
+ * 그때 남는 유일한 실마리가 `ad_result` 다.
+ *
+ * 로그는 개발·샌드박스에서만 창에 사본이 남는다. 실기기 운영 판에서는 토스 수집기로만 간다.
+ */
+
+test('배너가 네 화면에 서고, 자리마다 결과를 남긴다', async ({ appShell, home, page, settings }) => {
+  await home.open();
+  await home.waitReady();
+  await expect(home.ads.slot).toHaveCount(1);
+  await expect(home.ads.slot).toHaveAttribute('data-placement', 'home');
+
+  await test.step('리포트와 관리에도 한 자리씩', async () => {
+    await appShell.goToTab('리포트');
+    await expect(page.getByTestId('ad-slot')).toHaveAttribute('data-placement', 'report');
+
+    await appShell.goToTab('관리');
+    await expect(page.getByTestId('ad-slot')).toHaveAttribute('data-placement', 'manage');
+  });
+
+  await test.step('앱 설정의 버전 줄 아래에도', async () => {
+    await settings.open();
+    await settings.waitReady();
+    await expect(settings.adSlot).toHaveAttribute('data-placement', 'settings');
+  });
+
+  await test.step('자리마다 결과가 남는다', async () => {
+    const results = await logsNamed(page, 'ad_result');
+    // 앱 설정으로 옮기며 화면이 새로 뜨므로 그 화면 것만 확실히 있다.
+    expect(results.map((log) => log.params.placement)).toContain('settings');
+    for (const log of results) {
+      expect(log.params.result, `광고 결과가 비어 있다: ${JSON.stringify(log.params)}`).toBeTruthy();
+    }
+  });
+});
+
+test('같은 자리로 곧바로 돌아오면 배너를 다시 요청하지 않는다', async ({
+  appShell,
+  home,
+  page,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await expect(home.ads.banner).toBeVisible();
+
+  // 탭을 오갈 때마다 새 요청이 나가면 노출 수가 부풀려진다(ADR-0004 개정).
+  await appShell.goToTab('리포트');
+  await appShell.goToTab('홈');
+  await home.waitReady();
+
+  const home방문 = (await logsNamed(page, 'ad_result')).filter(
+    (log) => log.params.placement === 'home',
+  );
+  expect(home방문.at(-1)?.params.result).toBe('cooldown');
+  await expect(home.ads.slot).not.toBeVisible();
+});
+
+test('기록 흐름 하나가 같은 값으로 이어지고, 적은 내용은 남지 않는다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+  await recordSheet.nl.save();
+
+  const logs = await readLogs(page);
+  const names = logs.map((log) => log.name);
+
+  await test.step('시작부터 저장까지 다 남는다', async () => {
+    expect(names).toContain('app_open');
+    expect(names).toContain('record_started');
+    expect(names).toContain('parse_started');
+    expect(names).toContain('parse_finished');
+    expect(names).toContain('review_shown');
+    expect(names).toContain('save_requested');
+    expect(names).toContain('save_result');
+  });
+
+  await test.step('한 흐름은 같은 flow_id 로 묶인다', async () => {
+    const flowed = logs.filter((log) => log.params.flow_id != null);
+    const ids = new Set(flowed.map((log) => log.params.flow_id));
+    expect(ids.size, '한 번 기록했는데 흐름이 여럿으로 갈렸다').toBe(1);
+  });
+
+  await test.step('저장은 서버가 답한 뒤에만 성공이다', async () => {
+    const saved = (await logsNamed(page, 'save_result')).at(-1);
+    expect(saved?.params.result).toBe('ok');
+    expect(saved?.params.created_count).toBe(1);
+    // 시간을 재지 않으면 AI 대기인지 사람이 고친 시간인지 가를 수 없다.
+    expect(Number(saved?.params.elapsed_ms)).toBeGreaterThanOrEqual(0);
+  });
+
+  await test.step('적은 문장도 금액도 어느 로그에도 없다', async () => {
+    const dump = JSON.stringify(logs);
+    for (const secret of ['점심', '12000']) {
+      expect(dump, `로그에 입력이 새어 나갔다: ${secret}`).not.toContain(secret);
+    }
+  });
+});

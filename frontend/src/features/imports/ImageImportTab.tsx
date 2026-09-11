@@ -1,6 +1,13 @@
 import { useState, type ReactNode } from 'react';
 
 import { useBridge } from '../../app/providers';
+import {
+  EVENTS,
+  useAnalytics,
+  type FlowId,
+  type ParseOutcome,
+  type PickOutcome,
+} from '../../shared/analytics';
 import { ApiError, useAnalyzeImage, type ImportBatchOut } from '../../shared/api';
 import { TEST_IDS } from '../../shared/testIds';
 import {
@@ -12,7 +19,6 @@ import {
 } from '../../shared/toss';
 import {
   Button,
-  LoadingState,
   PermissionDenied,
   UnsupportedFeature,
   iconUrl,
@@ -21,6 +27,7 @@ import {
 } from '../../shared/ui';
 
 import { ImportReview } from './ImportReview';
+import { ParseProgress, type ParseStep } from './ParseProgress';
 
 /** 사진 한 장을 어디서 가져오는가. 그 뒤로는 두 갈래가 같은 길을 지난다. */
 export type ImageImportKind = 'capture' | 'receipt';
@@ -40,7 +47,10 @@ interface ImageImportMode {
   pickLabel: string;
   /** 앨범·카메라를 아예 열지 못했을 때의 한 줄. */
   pickAlert: string;
-  loadingLabel: string;
+  /** 읽는 동안 차례로 바뀌는 문구. 앞의 값이 그 문구가 시작하는 시각(ms)이다. */
+  progressSteps: ParseStep[];
+  /** 예상보다 오래 걸릴 때 덧붙이는 한 줄. */
+  slowHint: string;
   panelTestId: string;
   restartLabel: string;
   emptyMessage: ReactNode;
@@ -70,7 +80,14 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
     intro: { icon: '23_document', note: '원본 이미지는 정리 후 바로 지워져요' },
     pickLabel: '캡처 고르기',
     pickAlert: '앨범을 열지 못했어요',
-    loadingLabel: '캡처를 읽는 중이에요',
+    // 실제 단계와 순서를 맞춘다. 지어낸 단계를 보여 주면 그 시간이 더 길게 느껴진다.
+    progressSteps: [
+      { at: 0, label: '캡처를 준비하고 있어요' },
+      { at: 1_500, label: '글자를 읽고 있어요' },
+      { at: 5_000, label: '거래를 하나씩 골라내고 있어요' },
+      { at: 9_000, label: '분류를 맞추고 있어요' },
+    ],
+    slowHint: '글자가 많은 캡처는 더 걸려요. 조금만 기다려 주세요',
     panelTestId: TEST_IDS.capturePanel,
     restartLabel: '다시 고르기',
     emptyMessage: '캡처에서 거래를 찾지 못했어요',
@@ -84,7 +101,13 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
     intro: { icon: '43_camera', note: '원본 이미지는 정리 후 바로 지워져요' },
     pickLabel: '영수증 찍기',
     pickAlert: '카메라를 열지 못했어요',
-    loadingLabel: '영수증을 읽는 중이에요',
+    progressSteps: [
+      { at: 0, label: '영수증을 준비하고 있어요' },
+      { at: 1_500, label: '글자를 읽고 있어요' },
+      { at: 5_000, label: '총액을 찾고 있어요' },
+      { at: 9_000, label: '분류를 맞추고 있어요' },
+    ],
+    slowHint: '어두운 사진은 더 걸려요. 조금만 기다려 주세요',
     panelTestId: TEST_IDS.receiptPanel,
     restartLabel: '다시 찍기',
     emptyMessage: (
@@ -99,6 +122,8 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
 
 export interface ImageImportTabProps {
   kind: ImageImportKind;
+  /** 이 기록 흐름을 가리키는 값. 고르기·읽기·저장 로그를 한 줄로 잇는다. */
+  flowId: FlowId;
   /** 요청이 도는 동안 시트가 닫히거나 탭이 옮겨지지 않게 껍데기에 알린다. */
   onBusyChange: (busy: boolean) => void;
   onDone: () => void;
@@ -117,6 +142,7 @@ export interface ImageImportTabProps {
  */
 export function ImageImportTab({
   kind,
+  flowId,
   onBusyChange,
   onDone,
   onSaved,
@@ -124,6 +150,7 @@ export function ImageImportTab({
 }: ImageImportTabProps) {
   const mode = MODES[kind];
   const bridge = useBridge();
+  const analytics = useAnalytics();
   const analyze = useAnalyzeImage(kind);
 
   const [batch, setBatch] = useState<ImportBatchOut | null>(null);
@@ -133,6 +160,8 @@ export function ImageImportTab({
     return (
       <ImportReview
         batch={batch}
+        flowId={flowId}
+        method={kind}
         onBatchChange={setBatch}
         onBusyChange={onBusyChange}
         onRestart={() => setBatch(null)}
@@ -204,7 +233,13 @@ export function ImageImportTab({
         </p>
       ) : null}
 
-      {analyzing ? <LoadingState size="inline" label={mode.loadingLabel} /> : null}
+      {/*
+        스피너 하나만 돌던 자리다. 12초 안팎이 걸리는데 아무 변화가 없어, 멈춘 줄 알고
+        뒤로 나가는 사람이 있었다. 남은 시간 대신 지금 무엇을 하는 중인지를 보여 준다.
+      */}
+      {analyzing ? (
+        <ParseProgress steps={mode.progressSteps} slowHint={mode.slowHint} />
+      ) : null}
 
       <Button fullWidth disabled={analyzing} onClick={() => void pick()}>
         {pickFailure != null ? '다시 시도' : mode.pickLabel}
@@ -221,16 +256,75 @@ export function ImageImportTab({
     try {
       const picked = await mode.pick(bridge);
       // 취소하면 null 이다. 사용자가 스스로 그만둔 것이라 아무 말도 하지 않는다.
-      if (picked == null) return;
-      setBatch(await analyze.mutateAsync(picked.dataUri));
+      if (picked == null) {
+        analytics.log(EVENTS.imagePickResult, { method: kind, result: 'cancelled' }, { flowId });
+        return;
+      }
+      // 몇 장을 골랐는지만 남긴다. 그림도, 파일 이름도, 크기도 싣지 않는다.
+      analytics.log(
+        EVENTS.imagePickResult,
+        { method: kind, result: 'ok', image_count: 1 },
+        { flowId },
+      );
+
+      analytics.log(EVENTS.parseStarted, { method: kind }, { flowId });
+      // 걸린 시간은 우리가 잰다. 서버 로그로는 사용자가 실제로 기다린 시간을 알 수 없다.
+      const startedAt = Date.now();
+      try {
+        const result = await analyze.mutateAsync(picked.dataUri);
+        analytics.log(
+          EVENTS.parseFinished,
+          {
+            method: kind,
+            result: parseOutcome(result),
+            elapsed_ms: Date.now() - startedAt,
+            candidate_count: result.candidates?.length ?? 0,
+          },
+          { flowId },
+        );
+        setBatch(result);
+      } catch (error) {
+        analytics.log(
+          EVENTS.parseFinished,
+          {
+            method: kind,
+            result: 'failed',
+            elapsed_ms: Date.now() - startedAt,
+            error_code: error instanceof ApiError ? error.code : 'unknown',
+          },
+          { flowId },
+        );
+        throw error;
+      }
     } catch (error) {
       // 사진을 가져오는 쪽 실패만 여기서 화면을 가른다. 읽기 실패는 analyze.error 가 이미 들고 있다.
-      if (error instanceof BridgeError) setPickFailure(error.code);
+      if (error instanceof BridgeError) {
+        setPickFailure(error.code);
+        analytics.log(
+          EVENTS.imagePickResult,
+          { method: kind, result: pickOutcome(error.code) },
+          { flowId },
+        );
+      }
     } finally {
       // 취소로 일찍 빠져나갈 때도 반드시 풀어야 한다. 안 풀리면 시트를 닫을 수 없다.
       onBusyChange(false);
     }
   }
+}
+
+/** 브릿지 실패를 로그 값으로 옮긴다. 취소는 여기 오지 않는다(null 로 먼저 빠진다). */
+function pickOutcome(code: BridgeErrorCode): PickOutcome {
+  if (code === 'PERMISSION_DENIED') return 'denied';
+  if (code === 'UNSUPPORTED') return 'unsupported';
+  if (code === 'CANCELLED') return 'cancelled';
+  return 'failed';
+}
+
+/** 읽기 결과를 한 낱말로. 상한을 넘겨 일부를 버렸으면 온전한 성공이 아니다. */
+function parseOutcome(batch: ImportBatchOut): ParseOutcome {
+  if ((batch.candidates?.length ?? 0) === 0) return 'empty';
+  return batch.error_code?.startsWith('TRUNCATED:') ? 'partial' : 'ok';
 }
 
 /** 스텁이 지어낸 결과인지. provider 가 붙으면 이 코드값이 사라져 안내도 함께 사라진다. */

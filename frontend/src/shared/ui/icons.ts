@@ -110,6 +110,7 @@ export const DEFAULT_CATEGORY_ICONS: Record<string, IconName> = {
   기타: '26_sparkles',
   월급: '28_cash',
   용돈: '31_gift',
+  부업: '20_computer',
   '기타 수입': '01_coins',
   // 이체는 화살표다. 수입과 같은 아이콘을 쓰면 목록에서 구분이 안 된다.
   이체: '05_choice_arrows',

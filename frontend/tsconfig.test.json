@@ -24,6 +24,9 @@
   "include": [
     "e2e",
     "tests",
+    // 테스트가 화면을 통해 끌어오는 src 파일이 빌드 상수(__APP_VERSION__)를 읽는다.
+    // 이 선언이 없으면 그 파일들만 타입 검사에서 이름을 못 찾는다.
+    "src/app-version.d.ts",
     "playwright.config.ts",
     "playwright.demo.config.ts",
     "playwright.edge.config.ts"

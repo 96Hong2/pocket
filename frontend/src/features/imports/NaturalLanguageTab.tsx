@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
 import { ApiError, useAnalyzeText, type ImportBatchOut } from '../../shared/api';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, LoadingState } from '../../shared/ui';
@@ -13,6 +14,8 @@ const FIELD_ID = 'nl-text';
 const HINT_ID = 'nl-text-hint';
 
 export interface NaturalLanguageTabProps {
+  /** 이 기록 흐름을 가리키는 값. 읽기·검토·저장 로그를 한 줄로 잇는다. */
+  flowId: FlowId;
   /** 요청이 도는 동안 시트가 닫히거나 탭이 옮겨지지 않게 껍데기에 알린다. */
   onBusyChange: (busy: boolean) => void;
   onDone: () => void;
@@ -25,7 +28,13 @@ export interface NaturalLanguageTabProps {
  *
  * 분석은 거래를 만들지 않는다. 읽어 온 뒤부터는 캡처 탭과 같은 검토 화면을 쓴다.
  */
-export function NaturalLanguageTab({ onBusyChange, onDone, onSaved }: NaturalLanguageTabProps) {
+export function NaturalLanguageTab({
+  flowId,
+  onBusyChange,
+  onDone,
+  onSaved,
+}: NaturalLanguageTabProps) {
+  const analytics = useAnalytics();
   const analyze = useAnalyzeText();
 
   const [text, setText] = useState('');
@@ -35,6 +44,8 @@ export function NaturalLanguageTab({ onBusyChange, onDone, onSaved }: NaturalLan
     return (
       <ImportReview
         batch={batch}
+        flowId={flowId}
+        method="text"
         onBatchChange={setBatch}
         onBusyChange={onBusyChange}
         onRestart={() => setBatch(null)}
@@ -95,9 +106,40 @@ export function NaturalLanguageTab({ onBusyChange, onDone, onSaved }: NaturalLan
         onClick={() => {
           // 분석이 도는 동안 시트가 닫히면 결과를 되찾을 길이 없다.
           onBusyChange(true);
+          // 글자 수만 남긴다. 적은 문장 자체는 어느 로그에도 싣지 않는다.
+          analytics.log(
+            EVENTS.parseStarted,
+            { method: 'text', text_length: text.trim().length },
+            { flowId },
+          );
+          const startedAt = Date.now();
           analyze.mutate(text.trim(), {
             onSettled: () => onBusyChange(false),
-            onSuccess: setBatch,
+            onSuccess: (result) => {
+              analytics.log(
+                EVENTS.parseFinished,
+                {
+                  method: 'text',
+                  result: (result.candidates?.length ?? 0) === 0 ? 'empty' : 'ok',
+                  elapsed_ms: Date.now() - startedAt,
+                  candidate_count: result.candidates?.length ?? 0,
+                },
+                { flowId },
+              );
+              setBatch(result);
+            },
+            onError: (error) => {
+              analytics.log(
+                EVENTS.parseFinished,
+                {
+                  method: 'text',
+                  result: 'failed',
+                  elapsed_ms: Date.now() - startedAt,
+                  error_code: error instanceof ApiError ? error.code : 'unknown',
+                },
+                { flowId },
+              );
+            },
           });
         }}
       >

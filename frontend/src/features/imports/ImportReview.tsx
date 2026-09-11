@@ -1,5 +1,12 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
+import {
+  EVENTS,
+  useAnalytics,
+  type EditField,
+  type FlowId,
+  type LogMethod,
+} from '../../shared/analytics';
 import {
   ApiError,
   parseDecimalOr,
@@ -20,6 +27,10 @@ import { CandidateRow } from './CandidateRow';
 export interface ImportReviewProps {
   /** 서버가 읽어 준 묶음. 껍데기가 들고 있고 여기서는 고쳐 준 것을 돌려주기만 한다. */
   batch: ImportBatchOut;
+  /** 이 기록 흐름을 가리키는 값. 읽기·검토·저장 로그를 한 줄로 잇는다. */
+  flowId: FlowId;
+  /** 어느 방식으로 들어온 검토인가. 방식별 완료율을 이 값으로 가른다. */
+  method: LogMethod;
   onBatchChange: (batch: ImportBatchOut) => void;
   /** 요청이 도는 동안 시트가 닫히거나 탭이 옮겨지지 않게 껍데기에 알린다. */
   onBusyChange: (busy: boolean) => void;
@@ -53,6 +64,8 @@ export interface ImportReviewProps {
  */
 export function ImportReview({
   batch,
+  flowId,
+  method,
   onBatchChange,
   onBusyChange,
   onRestart,
@@ -65,6 +78,7 @@ export function ImportReview({
   emptyAction,
   notice,
 }: ImportReviewProps) {
+  const analytics = useAnalytics();
   const categories = useCategories();
   const patch = usePatchImportCandidate();
   const commit = useCommitImport();
@@ -73,6 +87,44 @@ export function ImportReview({
   const [editing, setEditing] = useState<string | null>(null);
   const [saved, setSaved] = useState<ImportCommitOut | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+
+  /*
+    무엇을 몇 번 고쳤나. 값이 아니라 **어느 칸을 몇 번** 인지만 센다.
+    「5건 중 날짜 2건·금액 1건 고침」 이 알고 싶은 전부다. 그 날짜와 금액이 무엇이었는지는
+    분석에 필요 없고, 남기면 그때부터 이 로그는 가계부 사본이 된다.
+
+    ref 인 이유는 이 값이 화면을 바꾸지 않기 때문이다. state 로 두면 고칠 때마다 다시 그린다.
+  */
+  const edits = useRef<Partial<Record<EditField, number>>>({});
+
+  /*
+    값을 실제로 고친 후보의 id.
+
+    「AI 무수정 저장률」 을 재려면 몇 번 고쳤나가 아니라 **몇 건을 손댔나** 가 필요하다.
+    켰다 껐다 한 것은 손댄 것이 아니라 고를지 말지를 정한 것이라 여기 들어오지 않는다.
+    서버가 `was_edited` 를 매기는 기준과 같다.
+  */
+  const touched = useRef(new Set<string>());
+
+  // 검토 목록을 실제로 본 순간. 읽기는 됐는데 여기서 그만두는 사람이 얼마나 되는지 본다.
+  const shownRef = useRef(false);
+  useEffect(() => {
+    if (shownRef.current || saved != null) return;
+    shownRef.current = true;
+    const candidates = batch.candidates ?? [];
+    analytics.log(
+      EVENTS.reviewShown,
+      {
+        method,
+        candidate_count: candidates.length,
+        selected_count: batch.selected_count,
+        unsure_count: candidates.filter((item) => item.is_low_confidence).length,
+        duplicate_count: candidates.filter((item) => item.is_duplicate).length,
+        refund_count: candidates.filter((item) => item.type === 'refund').length,
+      },
+      { flowId },
+    );
+  }, [analytics, batch, flowId, method, saved]);
 
   // 종류에 따라 고를 수 있는 분류가 다르다. 거르는 일은 후보 줄이 한다.
   const pickable = (categories.data?.items ?? []).filter(
@@ -208,11 +260,54 @@ export function ImportReview({
             disabled={!canSave}
             onClick={() => {
               onBusyChange(true);
+              // 검토가 끝난 시점의 손질량. 저장 결과와 별개로 남긴다.
+              analytics.log(
+                EVENTS.reviewFinished,
+                {
+                  method,
+                  candidate_count: candidates.length,
+                  selected_count: batch.selected_count,
+                  edited_count: touched.current.size,
+                  ...editParams(edits.current),
+                },
+                { flowId },
+              );
+              analytics.log(
+                EVENTS.saveRequested,
+                { method, count: batch.selected_count },
+                { flowId, kind: 'click' },
+              );
+
+              const startedAt = Date.now();
               commit.mutate(batch.id, {
                 onSettled: () => onBusyChange(false),
                 onSuccess: (result) => {
+                  // **서버가 몇 건을 넣었는지 답한 뒤에만** 성공이다.
+                  // 버튼을 누른 것도, 200 을 받은 것도 저장된 것이 아니다.
+                  analytics.log(
+                    EVENTS.saveResult,
+                    {
+                      method,
+                      result: 'ok',
+                      created_count: result.created_count,
+                      elapsed_ms: Date.now() - startedAt,
+                    },
+                    { flowId },
+                  );
                   setSaved(result);
                   onSaved?.();
+                },
+                onError: (error) => {
+                  analytics.log(
+                    EVENTS.saveResult,
+                    {
+                      method,
+                      result: 'failed',
+                      elapsed_ms: Date.now() - startedAt,
+                      error_code: error instanceof ApiError ? error.code : 'unknown',
+                    },
+                    { flowId },
+                  );
                 },
               });
             }}
@@ -263,6 +358,11 @@ export function ImportReview({
     body: ImportCandidatePatch,
     onSuccess?: () => void,
   ): void {
+    const fields = fieldsOf(body);
+    for (const field of fields) {
+      edits.current[field] = (edits.current[field] ?? 0) + 1;
+    }
+    if (fields.some((field) => field !== 'selection')) touched.current.add(candidateId);
     onBusyChange(true);
     patch.mutate(
       { batchId, candidateId, body },
@@ -275,6 +375,30 @@ export function ImportReview({
       },
     );
   }
+}
+
+/** 보낸 항목을 로그가 세는 칸 이름으로 옮긴다. 값은 보지 않는다. */
+function fieldsOf(body: ImportCandidatePatch): EditField[] {
+  const map: Record<string, EditField> = {
+    amount: 'amount',
+    occurred_at: 'date',
+    category_id: 'category',
+    type: 'type',
+    merchant: 'merchant',
+    is_selected: 'selection',
+  };
+  return Object.keys(body)
+    .map((key) => map[key])
+    .filter((field): field is EditField => field != null);
+}
+
+/** `{date: 2}` 를 `{edited_date: 2}` 로. 0 인 칸은 빼서 로그를 짧게 둔다. */
+function editParams(counts: Partial<Record<EditField, number>>): Record<string, number> {
+  const params: Record<string, number> = {};
+  for (const [field, count] of Object.entries(counts)) {
+    if (count != null && count > 0) params[`edited_${field}`] = count;
+  }
+  return params;
 }
 
 /**

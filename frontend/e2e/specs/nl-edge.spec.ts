@@ -232,20 +232,29 @@ test.describe('일부러 실패시켰을 때', () => {
     await expect(recordSheet.closeButton).toBeVisible();
   });
 
-  test('환불을 손으로 켜서 저장하면 이유를 말하고 후보를 지킨다', async ({ home, recordSheet }) => {
+  test('환불은 켤 수 없고, 그 자리에서 수입으로 바꿔 저장한다', async ({ home, recordSheet }) => {
     await home.open();
     await home.waitReady();
     await openNlTab(home, recordSheet);
     await recordSheet.nl.analyze('스벅 환불 40000');
 
-    // 스스로 켜지지는 않지만 손으로 켜는 길은 열려 있다. 눌리는 저장 버튼이 실제로 만들어진다.
-    await recordSheet.nl.toggle('스벅 환불', true);
-    await expect(recordSheet.nl.saveButton).toBeEnabled();
-    await recordSheet.nl.saveButton.click();
+    /*
+      예전에는 손으로 켤 수 있었고, 켜서 저장하면 여덟 건이 통째로 막히면서
+      「환불은 내역에서 원래 지출을 찾아 되돌려 주세요」 한 줄만 떴다. 어느 줄이 문제인지도,
+      무엇을 하면 되는지도 알 수 없었다. 이제 켜지지 않고, 대신 할 수 있는 일이 줄 안에 있다.
+    */
+    await expect(recordSheet.nl.checkbox('스벅 환불')).toBeDisabled();
+    await expect(recordSheet.nl.refundNotice('스벅 환불')).toBeVisible();
+    // 고른 것이 없으니 저장 버튼도 눌리지 않는다.
+    await expect(recordSheet.nl.saveButton).toBeDisabled();
 
-    await expect(recordSheet.nl.notice).toContainText('원래 지출');
-    await expect(recordSheet.nl.rows).toHaveCount(1);
-    await expect(recordSheet.nl.savedTitle).toHaveCount(0);
+    // 카드 캐시백·환급처럼 실제로 들어온 돈이면 이 한 번으로 저장 대상이 된다.
+    await recordSheet.nl.refundToIncome('스벅 환불').click();
+
+    await expect(recordSheet.nl.checkbox('스벅 환불')).toBeChecked();
+    await expect(recordSheet.nl.refundNotice('스벅 환불')).toHaveCount(0);
+    await recordSheet.nl.save();
+    await expect(recordSheet.nl.savedTitle).toContainText('1건 저장했어요');
   });
 
   test('분류를 못 불러와도 검토와 저장은 이어진다', async ({ home, page, recordSheet }) => {

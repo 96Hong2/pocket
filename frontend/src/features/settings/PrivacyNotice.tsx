@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { ROUTES } from '../../app/router/routes';
@@ -10,11 +11,13 @@ import { Card, CategoryAvatar } from '../../shared/ui';
  * 그 아래에서 사진을 올리는 사람이 가장 먼저 묻는 것에 한 문단으로 답한다.
  * 더 볼 사람만 방침 화면으로 들어가게 한다.
  *
+ * 배너는 버전 줄 바로 아래다. 페이지가 넣어 준다.
+ *
  * **"계좌번호나 카드번호는 아예 읽지 않아요" 는 쓰지 않는다.** 시안에는 그 문장이 있지만
  * 캡처는 vision 모델이 이미지를 직접 읽으므로 사실과 다르다(`docs/ADR/0010`).
  * 저장하지 않는 것과 읽지 않는 것은 다르고, 못 지킬 약속을 방침에 적으면 그것이 더 나쁘다.
  */
-export function PrivacyNotice() {
+export function PrivacyNotice({ adSlot }: { adSlot?: ReactNode }) {
   return (
     <section className="setting-block setting-block--links">
       <nav aria-label="설정 하위 화면">
@@ -54,6 +57,8 @@ export function PrivacyNotice() {
           </ul>
         </Card>
       </nav>
+
+      {adSlot}
 
       <p className="setting-note">
         캡처 원본은 정리 직후 지워져요. 저장되는 것은 날짜, 금액, 상호, 분류처럼 기록에 필요한

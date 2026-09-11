@@ -8,6 +8,7 @@
 
 /* 화면별 스펙. feature 하나에 css 하나이고 여기서만 불러온다. */
 @import './features/home/home.css';
+@import './features/home-add/home-add.css';
 @import './features/quick-record/quick-record.css';
 @import './features/ads/ads.css';
 @import './features/transactions/transactions.css';

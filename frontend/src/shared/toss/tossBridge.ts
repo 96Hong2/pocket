@@ -1,4 +1,5 @@
 import {
+  Analytics,
   Device,
   Environment,
   Notification,
@@ -15,7 +16,11 @@ import {
 
 import {
   BridgeError,
+  recordLog,
   type AdsBridge,
+  type AnalyticsBridge,
+  type AnalyticsKind,
+  type AnalyticsParams,
   type AttachBannerOptions,
   type BannerHandle,
   type BridgeCapability,
@@ -68,6 +73,24 @@ class TossStorage implements KeyValueStore {
   }
   remove(key: string) {
     return Storage.removeItem(key);
+  }
+}
+
+/**
+ * 토스 공식 Analytics 로 행동 로그를 보낸다.
+ *
+ * 별도 분석 도구를 붙이지 않는다. 이미 있는 수집 경로 하나를 쓴다.
+ * SDK 는 sandbox 에서 콘솔에만 남기고, 낮은 앱 버전에서는 조용히 무시한다. 둘 다 우리가
+ * 바라는 동작이라 갈라 다루지 않는다.
+ */
+class TossAnalyticsBridge implements AnalyticsBridge {
+  log(kind: AnalyticsKind, name: string, params: AnalyticsParams = {}): void {
+    // 운영이 아닌 판에서는 SDK 가 조용히 삼킨다. 무엇이 찍혔는지 볼 수 있게 사본을 남긴다.
+    recordLog(Environment.environment, kind, name, params);
+    // 로그는 부수적인 일이다. 여기서 던지면 기록·저장이 멈춘다.
+    void Promise.resolve()
+      .then(() => Analytics.log({ log_type: kind, log_name: name, params }))
+      .catch(() => {});
   }
 }
 
@@ -125,6 +148,7 @@ export class TossMiniAppBridge implements MiniAppBridge {
   readonly appVersion: string;
   readonly storage = new TossStorage();
   readonly ads = new TossAdsBridge();
+  readonly analytics = new TossAnalyticsBridge();
 
   constructor() {
     this.environment = Environment.environment;
@@ -153,6 +177,9 @@ export class TossMiniAppBridge implements MiniAppBridge {
         return TossAds.attachBanner.isSupported();
       case 'notification':
         return Notification.requestAgreement.isSupported();
+      case 'analytics':
+        // 낮은 버전에서는 SDK 가 조용히 무시한다. 화면이 로그 때문에 갈릴 일은 없다.
+        return true;
     }
   }
 

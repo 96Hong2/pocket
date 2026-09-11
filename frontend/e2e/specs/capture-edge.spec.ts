@@ -107,6 +107,21 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
   await recordSheet.capture.pickButton.click();
 
   await expect(recordSheet.capture.analyzing).toBeVisible();
+  await expect(recordSheet.capture.progressLabel).toHaveText('캡처를 준비하고 있어요');
+
+  await test.step('막대가 차오르되 끝까지 차지는 않는다', async () => {
+    /*
+      12초 안팎이 걸리는 자리다. 아무 변화가 없으면 멈춘 줄 알고 나간다.
+      반대로 다 찬 막대를 두고 계속 기다리게 하는 것은 더 나쁘다. 그래서 92% 에서 멈춘다.
+    */
+    const first = await recordSheet.capture.progressRatio();
+    await page.waitForTimeout(700);
+    const later = await recordSheet.capture.progressRatio();
+
+    expect(later, '막대가 멈춰 있다').toBeGreaterThan(first);
+    expect(later, '응답도 안 왔는데 막대가 다 찼다').toBeLessThan(1);
+  });
+
   // 결과가 돌아올 자리를 없애면 하루 상한만 깎고 얻은 것이 사라진다.
   await expect(recordSheet.methodTab('키패드')).toBeDisabled();
   await expect(recordSheet.closeButton).toHaveCount(0);

@@ -9,9 +9,9 @@ import uuid
 
 from pydantic import BaseModel, Field
 
-from app.models import MerchantRule
+from app.models import MerchantRule, MerchantRuleSource
 
-__all__ = ["MerchantRuleListOut", "MerchantRuleOut", "to_rule"]
+__all__ = ["MerchantRuleCreate", "MerchantRuleListOut", "MerchantRuleOut", "to_rule"]
 
 
 class MerchantRuleOut(BaseModel):
@@ -21,6 +21,14 @@ class MerchantRuleOut(BaseModel):
     category_id: uuid.UUID
     # 이 규칙이 몇 번 쓰였는지.
     applied_count: int
+    # 앱이 기억한 것(learned)인지 사람이 적은 것(manual)인지.
+    source: MerchantRuleSource
+
+
+class MerchantRuleCreate(BaseModel):
+    # 정규화하면 띄어쓰기가 사라지므로 길이는 적은 그대로 잰다.
+    merchant: str = Field(min_length=1, max_length=120)
+    category_id: uuid.UUID
 
 
 class MerchantRuleListOut(BaseModel):
@@ -33,4 +41,5 @@ def to_rule(row: MerchantRule) -> MerchantRuleOut:
         merchant=row.merchant or row.merchant_normalized,
         category_id=row.category_id,
         applied_count=row.applied_count,
+        source=row.source,
     )

@@ -19,7 +19,8 @@ export type BridgeCapability =
   | 'safeArea'
   | 'navigationAccessory'
   | 'ads'
-  | 'notification';
+  | 'notification'
+  | 'analytics';
 
 /**
  * 토스 알림 동의 요청의 결과.
@@ -129,6 +130,62 @@ export interface AdsBridge {
   ): BannerHandle;
 }
 
+/**
+ * 행동 로그 한 줄에 실을 값.
+ *
+ * 문자열·숫자·불리언만 받는다. 중첩 객체를 허용하면 언젠가 응답 본문이 통째로 실린다.
+ * `undefined` 는 SDK 가 알아서 빼므로 부르는 쪽이 조건문으로 나누지 않아도 된다.
+ */
+export type AnalyticsParams = Record<string, string | number | boolean | undefined>;
+
+/**
+ * 무슨 종류의 로그인가. 토스 SDK 가 정한 값이라 우리가 늘리지 않는다.
+ *
+ * `screen` 화면 진입 · `click` 누름 · `impression` 노출 · `event` 그 밖의 사실.
+ */
+export type AnalyticsKind = 'screen' | 'click' | 'impression' | 'event';
+
+/**
+ * 행동 로그를 보내는 자리.
+ *
+ * **실패해도 던지지 않는다.** 로그가 안 가는 것보다 기록이 막히는 쪽이 훨씬 나쁘다.
+ * 미지원 앱 버전에서는 SDK 가 조용히 무시하고, 브라우저에서는 목이 콘솔에만 남긴다.
+ */
+export interface AnalyticsBridge {
+  log(kind: AnalyticsKind, name: string, params?: AnalyticsParams): void;
+}
+
+/** 남긴 행동 로그 한 줄. 운영 판이 아닐 때만 창에 쌓인다. */
+export interface RecordedLog {
+  kind: AnalyticsKind;
+  name: string;
+  params: AnalyticsParams;
+}
+
+declare global {
+  interface Window {
+    /**
+     * 브라우저·샌드박스에서만 있는 로그 사본.
+     *
+     * 토스 SDK 는 운영 판에서만 실제로 로그를 보내고, 그 밖에서는 조용히 삼킨다.
+     * 그래서 개발 중에도 e2e 에서도 "무엇이 찍혔나" 를 볼 방법이 없었다.
+     * 여기 쌓아 두면 눈으로도 보고 테스트로도 본다. 운영 판에서는 채우지 않는다.
+     */
+    __pocketLogs?: RecordedLog[];
+  }
+}
+
+/** 운영 판이 아닐 때 로그를 창에 남긴다. 실패해도 아무 일도 일어나지 않는다. */
+export function recordLog(
+  environment: BridgeEnvironment,
+  kind: AnalyticsKind,
+  name: string,
+  params: AnalyticsParams,
+): void {
+  if (environment === 'toss' || typeof window === 'undefined') return;
+  (window.__pocketLogs ??= []).push({ kind, name, params });
+}
+
 export interface NavigationAccessory {
   id: string;
   title: string;
@@ -191,4 +248,5 @@ export interface MiniAppBridge {
 
   readonly storage: KeyValueStore;
   readonly ads: AdsBridge;
+  readonly analytics: AnalyticsBridge;
 }

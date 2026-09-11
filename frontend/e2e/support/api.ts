@@ -218,6 +218,55 @@ export class PrepApi {
   }
 
   /**
+   * 기억한 분류 하나를 손으로 건다.
+   *
+   * 화면으로도 걸 수 있지만 여기는 "이미 스무 줄이 넘는 상태" 처럼 배경으로만 필요할 때 쓴다.
+   * 스물다섯 줄을 화면으로 만들면 그 테스트가 무엇을 보는지 흐려진다.
+   */
+  async addMerchantRule(merchant: string, categoryId: string): Promise<void> {
+    const response = await this.context.post('/api/v1/merchant-rules', {
+      data: { merchant, category_id: categoryId },
+    });
+    expectOk(response.status(), await response.text(), `규칙 '${merchant}' 을 걸지 못했다`);
+  }
+
+  /**
+   * 앱이 스스로 기억한 규칙을 만든다.
+   *
+   * `addMerchantRule` 은 사람이 건 것(`manual`)만 만든다. 목록이 둘을 갈라 보여 주므로,
+   * "앱이 기억한 것" 쪽을 확인하려면 실제 저장 경로를 타야 한다. 줄글로 한 건 적고
+   * 분류를 골라 저장하면 그 상호가 규칙으로 남는다.
+   *
+   * 거래도 함께 생긴다. 하루 분석 상한도 깎으므로 배경으로 몇 건만 쓴다.
+   */
+  async learnMerchantRule(merchant: string, categoryId: string): Promise<void> {
+    const analyzed = await this.context.post('/api/v1/imports/text', {
+      data: { text: `${merchant} 12000` },
+    });
+    expectOk(analyzed.status(), await analyzed.text(), `'${merchant}' 을 읽지 못했다`);
+    const batch = (await analyzed.json()) as { id: string; candidates: { id: string }[] };
+    const candidate = batch.candidates[0];
+    if (candidate == null) throw new Error(`'${merchant}' 에서 후보가 나오지 않았다`);
+
+    const patched = await this.context.patch(
+      `/api/v1/imports/${batch.id}/candidates/${candidate.id}`,
+      { data: { category_id: categoryId } },
+    );
+    expectOk(patched.status(), await patched.text(), `'${merchant}' 의 분류를 바꾸지 못했다`);
+
+    const committed = await this.context.post(`/api/v1/imports/${batch.id}/commit`);
+    expectOk(committed.status(), await committed.text(), `'${merchant}' 을 저장하지 못했다`);
+  }
+
+  /** 지금 있는 카테고리 이름 → id. 규칙을 걸 때 분류 id 가 필요해서 쓴다. */
+  async categoryIds(): Promise<Map<string, string>> {
+    const response = await this.context.get('/api/v1/categories');
+    expectOk(response.status(), await response.text(), '카테고리를 불러오지 못했다');
+    const body = (await response.json()) as { items: { id: string; name: string }[] };
+    return new Map(body.items.map((item) => [item.name, item.id]));
+  }
+
+  /**
    * 자산 목록을 통째로 심는다. 이미 적어 둔 것이 있는 상태를 만들 때 쓴다.
    *
    * 서버 저장이 PUT 하나뿐이라 여기도 목록을 통째로 보낸다. 부채도 양수로 넣고

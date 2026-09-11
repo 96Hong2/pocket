@@ -57,7 +57,7 @@ function ContributionForm({ goalId, onSavingChange, onClose }: ContributionFormP
       <label className="goal-sheet__field">
         <span className="goal-sheet__label">날짜</span>
         <input
-          className="goal-sheet__input"
+          className="goal-sheet__input pk-date"
           type="date"
           value={day}
           onChange={(event) => setDay(event.target.value)}

@@ -31,6 +31,8 @@ export class HomeScreen {
   readonly closing: HomeClosingCard;
   /** 광고 자리. */
   readonly ads: AdArea;
+  /** 첫 기록 뒤 한 번 뜨는 홈 화면 추가 제안. */
+  readonly addToHome: AddToHomeArea;
   /** 며칠 비웠을 때 뜨는 복귀 카드. */
   readonly recovery: RecoveryCard;
 
@@ -43,6 +45,7 @@ export class HomeScreen {
     this.goal = new HomeGoalCard(page);
     this.closing = new HomeClosingCard(page);
     this.ads = new AdArea(page);
+    this.addToHome = new AddToHomeArea(page);
     this.recovery = new RecoveryCard(page);
   }
 
@@ -389,6 +392,43 @@ class HomeClosingCard {
 
   get link(): Locator {
     return this.page.getByRole('link', { name: /결산이 도착했어요/ });
+  }
+}
+
+/**
+ * 첫 기록을 마친 사람에게 한 번만 뜨는 카드.
+ *
+ * 어느 버튼을 눌러도 다시 뜨지 않는다. 기기에 남기는 표시라, e2e 는 브라우저 저장소가
+ * 깨끗한 채로 시작하는 테스트마다 다시 볼 수 있다.
+ */
+class AddToHomeArea {
+  private readonly root: Locator;
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.root = page.getByRole('region', { name: '홈 화면에 두면 10초가 3초가 돼요' });
+  }
+
+  get card(): Locator {
+    return this.root;
+  }
+
+  get guideButton(): Locator {
+    return this.root.getByRole('button', { name: '추가하는 법', exact: true });
+  }
+
+  get laterButton(): Locator {
+    return this.root.getByRole('button', { name: '다음에', exact: true });
+  }
+
+  get sheet(): Locator {
+    return this.page.getByRole('dialog', { name: '홈 화면에 추가하면 더 빨라요', exact: true });
+  }
+
+  /** 안내 시트 안의 단계 셋. 넷째 단계부터는 읽지 않는다. */
+  get steps(): Locator {
+    return this.sheet.getByRole('listitem');
   }
 }
 

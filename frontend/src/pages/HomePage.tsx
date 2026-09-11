@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { IdentityNotice } from '../app/IdentityNotice';
 import { useIdentity } from '../app/providers';
 import { AdSlot } from '../features/ads';
+import { AddToHomeCard } from '../features/home-add';
 import {
   BudgetSuggestCard,
   ClosingEntryCard,
@@ -112,6 +113,12 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
       {view?.showBudgetSuggestion ? <BudgetSuggestCard /> : null}
 
       {/*
+        첫 기록을 마친 사람에게 한 번만. 기록 버튼 아래라 오늘 할 일을 가리지 않는다.
+        판정과 저장은 카드가 스스로 한다.
+      */}
+      <AddToHomeCard hasAnyTransaction={budget.data?.has_any_transaction ?? false} />
+
+      {/*
         목표가 있을 때만 그린다. 조회가 실패하면 이 자리를 비우고 오류 자리를 만들지 않는다.
         홈에서 할 일은 기록이고, 목표는 곁들여 보는 값이다.
       */}
@@ -122,7 +129,7 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
         홈이 모드를 바꿔도 다시 마운트되지 않는다. 그것이 사실상 광고를 새로고침하는 것이 된다.
         이 아래로 조건부 return 을 넣지 않는다. 넣으면 그 순간 슬롯이 사라졌다 다시 붙는다.
       */}
-      <AdSlot />
+      <AdSlot placement="home" />
 
       <TodayList
         day={day}

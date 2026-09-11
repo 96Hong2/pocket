@@ -491,6 +491,20 @@ class RecordNaturalLanguage {
     await this.kindButton(name).click();
   }
 
+  /**
+   * 환불로 읽힌 줄의 안내와 그 자리에 있는 한 번 누르기.
+   *
+   * 되돌릴 지출을 못 고르는 동안에는 저장할 수 없는 줄이라, 왜 못 켜는지와 무엇을 하면
+   * 되는지가 줄 안에 함께 있어야 한다.
+   */
+  refundNotice(name: string): Locator {
+    return this.row(name).getByText('환불로 읽었어요', { exact: false });
+  }
+
+  refundToIncome(name: string): Locator {
+    return this.row(name).getByRole('button', { name: '수입으로 바꾸기' });
+  }
+
   async analyze(text: string): Promise<void> {
     await this.textarea.fill(text);
     await this.analyzeButton.click();
@@ -582,6 +596,7 @@ interface ImageImportLabels {
   guide: string;
   /** 사진을 가져오는 버튼. 실패한 뒤에는 `다시 시도` 로 바뀐다. */
   pickButton: RegExp;
+  /** 진행 표시의 첫 문구. 1~2초 뒤 다음 단계로 넘어간다. */
   analyzingLabel: string;
   emptyNotice: string;
   restartLabel: string;
@@ -592,7 +607,7 @@ const CAPTURE_LABELS: ImageImportLabels = {
   panelTestId: TEST_IDS.capturePanel,
   guide: '거래내역 캡처를 골라주세요',
   pickButton: /^(캡처 고르기|다시 시도)$/,
-  analyzingLabel: '캡처를 읽는 중이에요',
+  analyzingLabel: '캡처를 준비하고 있어요',
   emptyNotice: '캡처에서 거래를 찾지 못했어요',
   restartLabel: '다시 고르기',
   permissionTitle: '사진 접근이 꺼져 있어요',
@@ -602,7 +617,7 @@ const RECEIPT_LABELS: ImageImportLabels = {
   panelTestId: TEST_IDS.receiptPanel,
   guide: '영수증이 잘 보이게 찍어주세요',
   pickButton: /^(영수증 찍기|다시 시도)$/,
-  analyzingLabel: '영수증을 읽는 중이에요',
+  analyzingLabel: '영수증을 준비하고 있어요',
   emptyNotice: '영수증을 읽지 못했어요',
   restartLabel: '다시 찍기',
   permissionTitle: '카메라 접근이 꺼져 있어요',
@@ -632,9 +647,33 @@ class RecordImageImport {
     return this.root.getByRole('button', { name: this.labels.pickButton });
   }
 
-  /** 분석 응답을 기다리는 동안 도는 스피너. 탭마다 문구가 다르다. */
+  /**
+   * 분석 응답을 기다리는 동안의 진행 표시.
+   *
+   * 예전에는 스피너 하나였다. 12초 안팎이 걸리는데 아무 변화가 없어 멈춘 줄 알고 나가는
+   * 사람이 있어서, 지금 무엇을 하는 중인지 적는 한 줄과 막대로 바꿨다. 문구는 시간이
+   * 지나며 바뀌므로 첫 문구로 잡는다.
+   */
   get analyzing(): Locator {
-    return this.root.getByRole('status', { name: this.labels.analyzingLabel });
+    return this.root.getByTestId(TEST_IDS.parseProgress);
+  }
+
+  /** 지금 무엇을 하는 중인지 적는 한 줄. 시간이 지나며 바뀐다. */
+  get progressLabel(): Locator {
+    return this.analyzing.getByRole('status');
+  }
+
+  /** 차오르는 막대. 응답 전에는 끝까지 차지 않는다. */
+  get progressBar(): Locator {
+    return this.root.getByTestId(TEST_IDS.parseProgressBar);
+  }
+
+  /** 막대가 지금 얼마나 찼나. 0 과 1 사이. */
+  async progressRatio(): Promise<number> {
+    return this.progressBar.evaluate((element) => {
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+      return matrix.a;
+    });
   }
 
   /** 스텁이 지어낸 결과라는 안내. provider 가 붙으면 사라진다. */
@@ -732,6 +771,16 @@ class RecordImageImport {
 
   async switchKind(name: string): Promise<void> {
     await this.kindButton(name).click();
+  }
+
+  /** 환불로 읽힌 줄의 안내. 켤 수 없는 줄이라 왜 못 켜는지가 그 자리에 있어야 한다. */
+  refundNotice(name: string): Locator {
+    return this.row(name).getByText('환불로 읽었어요', { exact: false });
+  }
+
+  /** 그 자리에서 한 번에 고치는 길. 카드 캐시백은 실제로 들어온 돈이다. */
+  refundToIncome(name: string): Locator {
+    return this.row(name).getByRole('button', { name: '수입으로 바꾸기' });
   }
 
   /** 사진을 가져와 검토 화면에 닿을 때까지. */

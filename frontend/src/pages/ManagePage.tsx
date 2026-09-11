@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
 import { ROUTES } from '../app/router/routes';
+import { AdSlot } from '../features/ads';
 import { AssetsEntryCard } from '../features/assets';
 import { BudgetSection } from '../features/budgets';
 import { Card, CategoryAvatar, type IconName } from '../shared/ui';
@@ -32,6 +33,9 @@ export default function ManagePage() {
       <AssetsEntryCard />
 
       <BudgetSection />
+
+      {/* 예산 아래, 하위 화면 목록 위. 이 화면은 모드에 따라 갈리지 않아 늘 같은 자리다. */}
+      <AdSlot placement="manage" />
 
       <nav aria-label="관리 하위 화면">
         <Card padding="list">

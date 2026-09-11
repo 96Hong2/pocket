@@ -11,7 +11,7 @@ from app.models.goal import (
     GoalStatus,
 )
 from app.models.import_batch import ImportBatch, ImportBatchStatus, ImportCandidate
-from app.models.merchant_rule import MerchantRule
+from app.models.merchant_rule import MerchantRule, MerchantRuleSource
 from app.models.parse_usage import ParseUsage
 from app.models.preference import (
     HomeHero,
@@ -42,6 +42,7 @@ __all__ = [
     "ImportBatchStatus",
     "ImportCandidate",
     "MerchantRule",
+    "MerchantRuleSource",
     "NotificationFrequency",
     "NotificationSetting",
     "ParseUsage",

@@ -130,7 +130,7 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
       <label className="goal-sheet__field">
         <span className="goal-sheet__label">언제까지 (선택)</span>
         <input
-          className="goal-sheet__input"
+          className="goal-sheet__input pk-date"
           type="date"
           value={deadline}
           onChange={(event) => setDeadline(event.target.value)}

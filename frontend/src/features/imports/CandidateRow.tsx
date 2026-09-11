@@ -70,6 +70,17 @@ export function CandidateRow({
   // 이체는 여기서 못 바꾼다. 분류가 없는 종류라 한 번 누르는 것으로 오갈 수 없다.
   const swap: LedgerKind | null =
     candidate.type === 'expense' ? 'income' : candidate.type === 'income' ? 'expense' : null;
+  /*
+    환불로 읽힌 줄.
+
+    되돌릴 지출을 함께 골라야 저장할 수 있는데 그 자리가 아직 없다. 그래서 이 줄은 켤 수
+    없고, 예전에는 그 사실을 어디에도 적지 않은 채 '이체' 라고만 보여 줬다. 카드 캐시백이
+    여기 걸려서, 왜 저장이 안 되는지 알 길이 없었다.
+
+    지금은 두 가지를 한 자리에서 말한다: 왜 못 켜는지, 그리고 무엇을 하면 되는지.
+    캐시백·환급처럼 실제로 들어온 돈이면 수입으로 바꿔 한 번에 저장한다.
+  */
+  const isRefund = candidate.type === 'refund';
 
   return (
     <li className="nl-item" data-testid={TEST_IDS.nlCandidateRow}>
@@ -78,7 +89,8 @@ export function CandidateRow({
           <input
             type="checkbox"
             checked={candidate.is_selected}
-            disabled={disabled}
+            // 환불은 켜 봐야 저장에서 통째로 막힌다. 켤 수 있게 두면 여덟 건이 다 안 들어간다.
+            disabled={disabled || isRefund}
             onChange={(event) => onToggle(event.target.checked)}
           />
           <CategoryAvatar icon={toIconName(category?.icon_key)} size={52} />
@@ -127,10 +139,10 @@ export function CandidateRow({
             <span aria-hidden="true">⇄</span>
           </button>
         ) : (
-          <span className="nl-item__kind nl-item__kind--fixed">이체</span>
+          <span className="nl-item__kind nl-item__kind--fixed">{KIND_LABEL[candidate.type]}</span>
         )}
         {candidate.is_duplicate ? <Chip variant="caution">이미 있어요</Chip> : null}
-        {candidate.is_low_confidence ? <Chip variant="caution">확인 필요</Chip> : null}
+        {candidate.is_low_confidence && !isRefund ? <Chip variant="caution">확인 필요</Chip> : null}
         <button
           type="button"
           className="nl-item__edit"
@@ -140,6 +152,28 @@ export function CandidateRow({
           {editing ? '접기' : '고치기'}
         </button>
       </div>
+
+      {isRefund ? (
+        <div className="nl-item__refund">
+          <p className="nl-item__refund-text">
+            환불로 읽었어요. 되돌릴 지출을 골라야 해서 이대로는 저장할 수 없어요
+          </p>
+          <div className="nl-item__refund-actions">
+            {/* 카드 캐시백·환급은 실제로 들어온 돈이다. 이 한 번으로 저장 대상이 된다. */}
+            <button
+              type="button"
+              className="nl-item__refund-fix"
+              disabled={disabled}
+              onClick={() => onKindChange(kindPatch('income', candidate.category_id, categories))}
+            >
+              수입으로 바꾸기
+            </button>
+            <span className="nl-item__refund-hint">
+              이미 적어 둔 지출을 취소하려면 내역에서 그 건을 찾아 되돌려요
+            </span>
+          </div>
+        </div>
+      ) : null}
 
       {editing ? (
         <CandidateForm
@@ -240,7 +274,7 @@ function CandidateForm({ candidate, categories, disabled, onSave }: CandidateFor
         <label className="nl-form__field">
           <span className="nl-form__label">날짜</span>
           <input
-            className="nl-form__input"
+            className="nl-form__input pk-date"
             type="date"
             value={day}
             onChange={(event) => setDay(event.target.value)}

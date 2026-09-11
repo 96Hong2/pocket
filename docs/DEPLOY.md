@@ -284,7 +284,8 @@ make ait API_BASE_URL=https://<위에서 받은 주소>
       한 번 불러 본다: `uv run python scripts/llm_smoke.py --text "점심 12000"`
       막혀 있으면 <https://aistudio.google.com/u/1/billing> 의 「선불 결제 설정」
 - [ ] 인증서 마운트 경로와 `TOSS_MTLS_*_PATH` 가 같다
-- [ ] 프론트 빌드에 운영 `VITE_AD_GROUP_ID` 가 들어갔다 (개발 중 테스트 ID 로 뜨면 정책 위반)
+- [ ] 프론트 빌드에 운영 `VITE_AD_GROUP_ID` 가 들어갔다. 빠뜨리면 오류 없이 네 자리가 조용히 접힌다
+- [ ] 만든 사람과 테스트를 부탁한 사람에게 **자기 앱의 광고를 누르지 말라고** 알렸다 (무효 트래픽)
 - [ ] 프론트 빌드에 `VITE_NOTIFICATION_TEMPLATE_CODE` 가 들어갔다. **알림 잡의 `TOSS_REMINDER_TEMPLATE_SET_CODE` 와 같은 값이다** (다르면 동의는 받고 발송은 0통)
 - [ ] 배포 뒤 연기 검사 두 줄을 실제로 돌렸다
 - [ ] 콘솔 로고·스크린샷·문안이 최신인가 (`docs/store/`)

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   ApiError,
   parseDecimalOr,
@@ -62,6 +63,7 @@ export function GoalBudgetSuggestCard({ month }: GoalBudgetSuggestCardProps) {
     takeHome: givenAmount(askedTakeHome),
     fixedCosts: givenAmount(askedFixedCosts),
   });
+  const analytics = useAnalytics();
   const saveBudget = useSaveBudget(month);
 
   const data = suggestion.data ?? null;
@@ -161,7 +163,16 @@ export function GoalBudgetSuggestCard({ month }: GoalBudgetSuggestCardProps) {
           variant="primarySmall"
           fullWidth
           disabled={!canSave}
-          onClick={() => saveBudget.mutate({ amount: suggested })}
+          onClick={() =>
+            saveBudget.mutate(
+              { amount: suggested },
+              {
+                // 이 카드는 예산이 없는 달에만 뜬다. 여기서 정했으면 늘 첫 예산이다.
+                onSuccess: () =>
+                  analytics.log(EVENTS.budgetSaved, { first: true, from: 'goal_suggestion' }),
+              },
+            )
+          }
         >
           이 금액으로 예산 정하기
         </Button>

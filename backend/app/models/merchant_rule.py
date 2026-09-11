@@ -3,11 +3,21 @@
 from __future__ import annotations
 
 import uuid
+from enum import StrEnum
 
 from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Entity, SoftDeleteMixin
+from app.db.base import Entity, SoftDeleteMixin, str_enum_type
+
+
+class MerchantRuleSource(StrEnum):
+    """규칙이 어디서 왔나."""
+
+    # 저장하면서 앱이 스스로 기억한 것.
+    LEARNED = "learned"
+    # 사용자가 목록에서 직접 적어 넣은 것.
+    MANUAL = "manual"
 
 
 class MerchantRule(Entity, SoftDeleteMixin):
@@ -31,3 +41,10 @@ class MerchantRule(Entity, SoftDeleteMixin):
     )
     # 규칙이 실제로 몇 번 맞았는지. 자주 쓰는 카테고리를 앞에 배치할 때 쓴다.
     applied_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    # 앱이 기억한 것인지 사람이 적은 것인지. 목록에서 갈라 보여 준다.
+    # 사람이 적은 것은 지우기 전까지 자기가 지운 기억이 아니라 자기가 쓴 규칙이다.
+    source: Mapped[MerchantRuleSource] = mapped_column(
+        str_enum_type(MerchantRuleSource, name="merchant_rule_source"),
+        nullable=False,
+        server_default=MerchantRuleSource.LEARNED.value,
+    )

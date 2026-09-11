@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   ApiError,
   useNotificationSettings,
@@ -58,6 +59,7 @@ export function NotificationSettingCard() {
   const titleId = useId();
   const timeId = useId();
   const bridge = useBridge();
+  const analytics = useAnalytics();
   const settings = useNotificationSettings();
   const save = useSaveNotificationSettings();
 
@@ -103,14 +105,21 @@ export function NotificationSettingCard() {
     setAsking(true);
     try {
       const result = await bridge.requestNotificationAgreement(templateCode());
+      /*
+        알림은 이 앱이 사람을 다시 데려오는 유일한 장치다. 몇 명이 켰는지 모르면
+        재방문율이 낮을 때 알림이 안 닿은 것인지 알림을 켠 사람이 없는 것인지 못 가른다.
+        결과 갈래만 남긴다. 시각도 주기도 싣지 않는다.
+      */
+      analytics.log(EVENTS.notificationResult, { result }, { kind: 'click' });
       if (result === 'agreementRejected') {
         setBlocker('rejected');
         return;
       }
     } catch (error) {
-      setBlocker(
-        error instanceof BridgeError && error.code === 'UNSUPPORTED' ? 'unsupported' : 'failed',
-      );
+      const code =
+        error instanceof BridgeError && error.code === 'UNSUPPORTED' ? 'unsupported' : 'failed';
+      analytics.log(EVENTS.notificationResult, { result: code }, { kind: 'click' });
+      setBlocker(code);
       return;
     } finally {
       setAsking(false);

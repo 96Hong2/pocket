@@ -6,7 +6,7 @@ import { expect, test } from '../support/fixtures';
  * 캡처 한 장을 골라 읽고 검토해서 저장하는 한 바퀴.
  *
  * 지금 도는 것은 실제 vision 모델이 아니라 정해 둔 예시를 내는 스텁이다. 어떤 이미지를 넣어도
- * 같은 5건이 온다. 그래서 여기서 재는 것은 "얼마나 잘 읽는가" 가 아니라
+ * 같은 6건이 온다(지출 다섯 + 카드 캐시백 한 줄). 그래서 여기서 재는 것은 "얼마나 잘 읽는가" 가 아니라
  * "읽은 것을 화면이 어떻게 다루는가" 다. 인식 정확도는 실제 모델이 붙은 뒤에 잰다.
  *
  * 앨범은 네이티브 기능이라 devtools 목에 사진을 심어 통과시킨다. 브릿지 코드는 실기기와 같다.
@@ -14,7 +14,12 @@ import { expect, test } from '../support/fixtures';
 
 const CAPTURE_ANALYZE = '**/api/v1/imports/capture';
 
-/** 스텁이 내는 5건 중 기본으로 켜지는 것들. 스타벅스를 미리 심으면 그 줄이 중복으로 빠진다. */
+/**
+ * 스텁이 내는 6건 중 기본으로 켜지는 것들.
+ *
+ * 스타벅스는 미리 심어 두어 중복으로 빠지고, 카카오T 는 확신이 낮아 안 켜지고,
+ * 카드 캐시백은 환불이라 아예 못 켠다.
+ */
 const SELECTED = [
   { amount: 3_200, daysAgo: 0 }, // GS25
   { amount: 8_000, daysAgo: 1 }, // 김밥천국
@@ -49,7 +54,7 @@ function thisMonthTotal(): number {
   return SEEDED + inThisMonth.reduce((sum, row) => sum + row.amount, 0);
 }
 
-test('캡처 한 장에서 다섯 건을 읽어 한 화면에서 검토하고 저장한다', async ({
+test('캡처 한 장에서 여섯 건을 읽어 한 화면에서 검토하고 저장한다', async ({
   calendar,
   home,
   page,
@@ -84,7 +89,7 @@ test('캡처 한 장에서 다섯 건을 읽어 한 화면에서 검토하고 �
   await recordSheet.capture.pick();
 
   expect(sentImage).toBe(CAPTURE_DATA_URI);
-  await expect(recordSheet.capture.rows).toHaveCount(5);
+  await expect(recordSheet.capture.rows).toHaveCount(6);
   await expect(recordSheet.capture.stubNotice).toBeVisible();
 
   await expect(recordSheet.capture.amount('GS25')).toHaveText(formatCurrency(3_200));
@@ -98,6 +103,10 @@ test('캡처 한 장에서 다섯 건을 읽어 한 화면에서 검토하고 �
 
   // 확신이 낮은 줄은 서버가 스스로 켜지 않는다. 사람이 켜야 저장된다.
   await expect(recordSheet.capture.chip('카카오T', '확인 필요')).toBeVisible();
+
+  // 카드 캐시백은 환불이라 켤 수 없다. 대신 무엇을 하면 되는지가 그 줄 안에 있다.
+  await expect(recordSheet.capture.checkbox('MY 카드 캐시백')).toBeDisabled();
+  await expect(recordSheet.capture.refundNotice('MY 카드 캐시백')).toBeVisible();
   await expect(recordSheet.capture.checkbox('카카오T')).not.toBeChecked();
 
   await expect(recordSheet.capture.saveButton).toHaveText(

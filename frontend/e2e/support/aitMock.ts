@@ -1,5 +1,7 @@
 import type { Page } from '@playwright/test';
 
+import type { RecordedLog } from '../../src/shared/toss';
+
 /**
  * 앱인토스 devtools 목의 다이얼을 돌린다.
  *
@@ -154,4 +156,20 @@ export function watchAgreementRequests(page: Page): () => number {
     if (message.text().includes('requestNotificationAgreement:')) count += 1;
   });
   return () => count;
+}
+
+/**
+ * 지금까지 남은 행동 로그.
+ *
+ * 실기기 운영 판에서는 토스 수집기로만 가고 이 배열이 없다. 개발·샌드박스에서만
+ * 브릿지가 사본을 남긴다(`shared/toss/types.ts` 의 `recordLog`).
+ * 로그는 부수적인 일이라, 없으면 빈 배열이다.
+ */
+export async function readLogs(page: Page): Promise<RecordedLog[]> {
+  return page.evaluate(() => window.__pocketLogs ?? []);
+}
+
+/** 그 이름으로 남은 로그만. 순서는 찍힌 순서 그대로다. */
+export async function logsNamed(page: Page, name: string): Promise<RecordedLog[]> {
+  return (await readLogs(page)).filter((log) => log.name === name);
 }
