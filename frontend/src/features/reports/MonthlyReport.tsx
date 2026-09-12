@@ -29,7 +29,7 @@ import {
   LoadingState,
   MonthStepper,
   SegmentedControl,
-  toIconName,
+  iconOf,
   type SegmentedOption,
 } from '../../shared/ui';
 
@@ -440,7 +440,7 @@ function BreakdownItem({
         aria-hidden="true"
       />
       {category != null ? (
-        <CategoryAvatar icon={toIconName(category.icon_key)} size={44} />
+        <CategoryAvatar {...iconOf(category)} size={44} />
       ) : (
         <span className="report__row-noicon" aria-hidden="true" />
       )}

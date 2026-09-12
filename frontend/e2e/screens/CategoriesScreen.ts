@@ -286,9 +286,34 @@ class CategorySheet {
 
   /** 아이콘 하나를 고른다. 고른 칸만 눌린 상태가 된다. */
   async pickIcon(label: string): Promise<void> {
+    await this.pickIconSource('기본');
     const cell = this.iconCell(label);
     await cell.click();
     await expect(cell).toHaveAttribute('aria-pressed', 'true');
+  }
+
+  /** 아이콘을 무엇으로 고를지. 기본 그림 · 자판 이모지 · 직접 찍은 사진. */
+  get iconSourceTabs(): Locator {
+    return this.root.getByRole('radiogroup', { name: '아이콘 고르는 방법' });
+  }
+
+  async pickIconSource(label: '기본' | '이모지' | '사진'): Promise<void> {
+    await this.iconSourceTabs.getByRole('radio', { name: label, exact: true }).click();
+  }
+
+  /** 이모지 탭의 한 칸. 자판이 여는 자리라 값으로 잡는다. */
+  get emojiField(): Locator {
+    return this.root.getByLabel('이모지', { exact: true });
+  }
+
+  /** 사진 탭의 두 버튼. 실기기 다리가 없는 e2e 에서는 목 브릿지가 답한다. */
+  get albumButton(): Locator {
+    return this.root.getByRole('button', { name: '앨범에서 고르기', exact: true });
+  }
+
+  /** 이모지·사진을 걸었을 때만 뜬다. */
+  get clearCustomButton(): Locator {
+    return this.root.getByRole('button', { name: '기본 아이콘으로 되돌리기', exact: true });
   }
 
   /** 지우기를 눌러 확인까지 마친다. 시트가 닫히면 지워진 것이다. */

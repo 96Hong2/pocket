@@ -17,7 +17,7 @@ import {
   CategoryAvatar,
   Chip,
   SegmentedControl,
-  toIconName,
+  iconOf,
   type SegmentedOption,
 } from '../../shared/ui';
 
@@ -109,7 +109,7 @@ export function CandidateRow({
           aria-expanded={editing}
           onClick={editing ? onEditClose : onEdit}
         >
-          <CategoryAvatar icon={toIconName(category?.icon_key)} size={52} />
+          <CategoryAvatar {...iconOf(category)} size={52} />
           <span className="nl-item__name">{name}</span>
           {/*
             종류를 숫자로 드러낸다. 수입은 앞에 + 가 붙고 색이 갈린다.
@@ -339,7 +339,7 @@ function CandidateForm({ candidate, categories, disabled, onSave }: CandidateFor
               aria-pressed={item.id === categoryId}
               onClick={() => setCategoryId(item.id)}
             >
-              <CategoryAvatar icon={toIconName(item.icon_key)} size={32} />
+              <CategoryAvatar {...iconOf(item)} size={32} />
               {item.name}
             </button>
           ))}

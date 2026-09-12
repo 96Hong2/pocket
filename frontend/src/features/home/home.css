@@ -314,6 +314,13 @@
     width: 38px;
     height: 38px;
     object-fit: contain;
+    /*
+      아이콘 파일은 128px 정사각인데 동전 그림은 그 안에서 왼쪽에 23px, 오른쪽에 28px 을
+      비워 두고 있다. 38px 로 줄이면 왼쪽에 안 보이는 여백이 7px 생기고, 자리 계산은 그
+      여백까지 넣어 가운데를 잡는다. 그래서 눈에 보이는 아이콘과 글씨가 통째로 오른쪽으로
+      밀려 보였다. 그만큼 당겨 보이는 것을 가운데에 둔다.
+    */
+    margin-left: -7px;
   }
 
   /* ── 세이지 카드(복귀·예산 제안) ─────────────────── */
@@ -416,6 +423,28 @@
 
   .home-today__step:disabled {
     color: var(--color-disabled);
+  }
+
+  /*
+    며칠 뒤로 넘어갔을 때만 뜨는 돌아오기. 화살표와 같은 높이로 서되, 누를 것이라는 게
+    보이게 테두리를 두른다. 화살표 옆에 글씨만 놓으면 날짜의 일부로 읽힌다.
+  */
+  .home-today__jump {
+    height: 28px;
+    margin-left: 4px;
+    padding: 0 10px;
+    flex: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-sage-700);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    white-space: nowrap;
+  }
+
+  .home-today__jump:active {
+    background: var(--color-sage-50);
   }
 
   .home-today__title {

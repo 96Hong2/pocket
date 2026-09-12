@@ -494,6 +494,22 @@
     object-fit: contain;
   }
 
+  /*
+    직접 올린 사진은 동그라미를 꽉 채운다. 우리 아이콘처럼 여백을 두면 배경이 있는 사진이
+    작은 네모로 떠 보인다.
+  */
+  .pk-avatar__img--photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* 이모지는 글자라 크기를 인라인으로 받는다. 줄바꿈 여백이 끼지 않게 블록으로 세운다. */
+  .pk-avatar__emoji {
+    display: block;
+    line-height: 1;
+  }
+
   /* ── Amount ─────────────────────────────────────────── */
   .pk-amount {
     font-variant-numeric: tabular-nums;

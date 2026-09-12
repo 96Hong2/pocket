@@ -20,7 +20,7 @@ import {
   type ImportCommitOut,
 } from '../../shared/api';
 import { formatCurrency, toLedgerDate } from '../../shared/lib/format';
-import { Button, CategoryAvatar, ErrorState, LoadingState, toIconName } from '../../shared/ui';
+import { Button, CategoryAvatar, ErrorState, LoadingState, iconOf } from '../../shared/ui';
 
 import { CandidateRow } from './CandidateRow';
 
@@ -169,7 +169,7 @@ export function ImportReview({
                   disabled={busy}
                   onClick={() => void applyBulk(category)}
                 >
-                  <CategoryAvatar icon={toIconName(category.icon_key)} size={32} />
+                  <CategoryAvatar {...iconOf(category)} size={32} />
                   {category.name}
                 </button>
               ))}

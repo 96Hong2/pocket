@@ -75,6 +75,8 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
   const [icon, setIcon] = useState<IconName>(
     category == null ? FALLBACK_CATEGORY_ICON : toIconName(category.icon_key),
   );
+  // 직접 건 이모지·사진. 있으면 아이콘 대신 이게 그려진다.
+  const [custom, setCustom] = useState<string | null>(category?.icon_custom ?? null);
   // 종류는 만들 때만 정한다. 나중에 바꾸면 그 분류로 적어 둔 지난 기록이 종류와 어긋난다.
   const [kind, setKind] = useState<LedgerKind>(
     category?.kind === 'income' ? 'income' : 'expense',
@@ -100,12 +102,18 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
 
     if (category == null) {
       create.mutate(
-        { name: trimmed, icon_key: icon, kind },
+        { name: trimmed, icon_key: icon, icon_custom: custom, kind },
         { onSettled: () => onBusyChange(false), onSuccess: onClose },
       );
     } else {
       update.mutate(
-        { id: category.id, body: { name: trimmed, icon_key: icon } },
+        // 아이콘은 한 번에 하나만 보낸다. 서버가 보낸 쪽을 걸고 나머지를 지운다.
+        {
+          id: category.id,
+          body: custom == null
+            ? { name: trimmed, icon_key: icon }
+            : { name: trimmed, icon_custom: custom },
+        },
         { onSettled: () => onBusyChange(false), onSuccess: onClose },
       );
     }
@@ -146,7 +154,15 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
 
       <div className="cat-sheet__field">
         <span className="cat-sheet__label">아이콘</span>
-        <IconPicker value={icon} onChange={setIcon} disabled={busy} />
+        <IconPicker
+          value={icon}
+          custom={custom}
+          disabled={busy}
+          onChange={(next) => {
+            setIcon(next.icon);
+            setCustom(next.custom);
+          }}
+        />
       </div>
 
       {failure ? (

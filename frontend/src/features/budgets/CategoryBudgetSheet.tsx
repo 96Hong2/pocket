@@ -10,7 +10,7 @@ import {
   type CategoryOut,
   type MonthParams,
 } from '../../shared/api';
-import { AmountField, BottomSheet, Button, CategoryAvatar, toIconName } from '../../shared/ui';
+import { AmountField, BottomSheet, Button, CategoryAvatar, iconOf } from '../../shared/ui';
 
 /** 열려 있으면 대상이 있다. `categoryId` 가 null 이면 새로 추가하는 중이다. */
 export interface CategoryBudgetTarget {
@@ -142,7 +142,7 @@ function CategoryBudgetForm({
               aria-pressed={category.id === picked}
               onClick={() => setPicked(category.id)}
             >
-              <CategoryAvatar icon={toIconName(category.icon_key)} size={22} />
+              <CategoryAvatar {...iconOf(category)} size={22} />
               {category.name}
             </button>
           ))}
@@ -150,7 +150,7 @@ function CategoryBudgetForm({
       ) : (
         // 아이콘이 div 라 문단(p) 안에 둘 수 없다. 브라우저가 문단을 먼저 닫아 버린다.
         <div className="budget-sheet__picked">
-          <CategoryAvatar icon={toIconName(current?.icon_key)} size={28} />
+          <CategoryAvatar {...iconOf(current)} size={28} />
           {current?.name ?? '카테고리'}
         </div>
       )}

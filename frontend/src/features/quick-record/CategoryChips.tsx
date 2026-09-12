@@ -1,5 +1,5 @@
 import type { CategoryOut } from '../../shared/api';
-import { CategoryAvatar, toIconName } from '../../shared/ui';
+import { CategoryAvatar, iconOf } from '../../shared/ui';
 
 interface CategoryChipsProps {
   categories: CategoryOut[];
@@ -32,7 +32,7 @@ export function CategoryChips({
           disabled={disabled}
           onClick={() => onPick(category)}
         >
-          <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
+          <CategoryAvatar {...iconOf(category)} size={40} />
           <span className="cat-chips__name">{category.name}</span>
         </button>
       ))}

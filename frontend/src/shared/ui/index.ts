@@ -27,11 +27,15 @@ export { TransactionRow, type TransactionRowProps } from './TransactionRow';
 export {
   categoryIcon,
   DEFAULT_CATEGORY_ICONS,
+  emojiIcon,
   FALLBACK_CATEGORY_ICON,
+  iconOf,
   iconUrl,
   LG_ICONS,
+  parseCustomIcon,
   SM_ICONS,
   toIconName,
+  type CustomIcon,
   type IconName,
   type IconSize,
 } from './icons';

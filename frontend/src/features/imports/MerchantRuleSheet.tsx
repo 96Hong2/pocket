@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
 import { ApiError, useCategories, useCreateMerchantRule } from '../../shared/api';
-import { BottomSheet, Button, CategoryAvatar, toIconName } from '../../shared/ui';
+import { BottomSheet, Button, CategoryAvatar, iconOf } from '../../shared/ui';
 
 /** 라벨과 설명을 입력칸에 걸어 주는 id. 이 시트는 한 화면에 하나만 뜬다. */
 const MERCHANT_FIELD_ID = 'rule-merchant';
@@ -114,7 +114,7 @@ function MerchantRuleForm({
               disabled={busy}
               onClick={() => setCategoryId(item.id)}
             >
-              <CategoryAvatar icon={toIconName(item.icon_key)} size={32} />
+              <CategoryAvatar {...iconOf(item)} size={32} />
               {item.name}
             </button>
           ))}

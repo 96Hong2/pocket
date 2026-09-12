@@ -30,6 +30,7 @@ def _out(row: Category) -> CategoryOut:
         name=row.name,
         kind=row.kind,
         icon_key=row.icon_key,
+        icon_custom=row.icon_custom,
         sort_order=row.sort_order,
         is_default=row.user_id is None,
     )

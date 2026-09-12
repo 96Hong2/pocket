@@ -29,7 +29,7 @@ import {
   ErrorState,
   LoadingState,
   SegmentedControl,
-  toIconName,
+  iconOf,
   type SegmentedOption,
 } from '../../shared/ui';
 
@@ -451,7 +451,7 @@ function RecordBody({
             disabled={create.isPending}
             onClick={() => setListOpen(true)}
           >
-            <CategoryAvatar icon={toIconName(picked.icon_key)} size={40} />
+            <CategoryAvatar {...iconOf(picked)} size={40} />
             <span className="record__picked-name">{picked.name}</span>
             <span className="record__picked-more">다시 고르기</span>
           </button>
