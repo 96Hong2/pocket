@@ -63,7 +63,7 @@ export function AddToHomeSheet({ open, onClose, from }: AddToHomeSheetProps) {
       <div className="home-add-hero">
         <img
           className="home-add-hero__icon"
-          src={iconUrl('57_smartphone')}
+          src={iconUrl('04_home')}
           alt=""
           aria-hidden="true"
         />
