@@ -30,6 +30,13 @@ import {
 } from '../shared/api';
 import { Button, ErrorState, LoadingState, iconUrl } from '../shared/ui';
 
+/**
+ * 홈에서 가장 큰 버튼.
+ *
+ * 예전 이름은 「10초 기록」 이었다. 앱 이름을 그대로 버튼에 얹은 것인데, 처음 열어 본
+ * 사람이 이게 기록하는 자리인지 걸린 시간을 말하는 건지 몰라 헤맸다.
+ * **버튼에는 브랜드가 아니라 할 일을 적는다.**
+ */
 function RecordButton({ onClick }: { onClick: () => void }) {
   return (
     <Button
@@ -40,7 +47,7 @@ function RecordButton({ onClick }: { onClick: () => void }) {
         <img className="home-cta__icon" src={iconUrl('01_coins')} alt="" aria-hidden="true" />
       }
     >
-      10초 기록
+      기록하기
     </Button>
   );
 }
@@ -137,6 +144,7 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
           if (categories.isError) void categories.refetch();
         }}
         onPick={setEditing}
+        onRecord={() => onRecord(resolveRecordTab(preferences.data?.last_record_method))}
       />
 
       {/*

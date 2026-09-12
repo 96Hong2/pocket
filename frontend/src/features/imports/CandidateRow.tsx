@@ -85,29 +85,46 @@ export function CandidateRow({
   return (
     <li className="nl-item" data-testid={TEST_IDS.nlCandidateRow}>
       <div className="nl-item__head">
+        {/*
+          라벨이 감싸는 것은 체크박스 하나뿐이다. 예전에는 이름과 아이콘까지 라벨 안이라
+          줄을 누르면 저장 대상이 켜졌다 꺼졌다 했고, 고치려면 아래 작은 「고치기」 를
+          정확히 찾아 눌러야 했다. **고치는 자리가 줄 자체여야 한다.**
+        */}
         <label className="nl-item__pick">
           <input
             type="checkbox"
             checked={candidate.is_selected}
+            // 이름을 그대로 읽는다. 화면에서 이 칸이 가리키는 것이 그 줄이다.
+            aria-label={name}
             // 환불은 켜 봐야 저장에서 통째로 막힌다. 켤 수 있게 두면 여덟 건이 다 안 들어간다.
             disabled={disabled || isRefund}
             onChange={(event) => onToggle(event.target.checked)}
           />
-          <CategoryAvatar icon={toIconName(category?.icon_key)} size={52} />
-          <span className="nl-item__name">{name}</span>
         </label>
 
-        {/*
-          종류를 숫자로 드러낸다. 수입은 앞에 + 가 붙고 색이 갈린다.
-          아래 메타 줄의 분류만으로는 이게 들어온 돈인지 나간 돈인지 알 수 없었다.
-        */}
-        <Amount
-          className={candidate.is_low_confidence ? 'nl-item__amount--unsure' : undefined}
-          value={amount}
-          tone={candidate.type}
-          size={17}
-          data-testid={TEST_IDS.nlCandidateAmount}
-        />
+        <button
+          type="button"
+          className="nl-item__open"
+          disabled={disabled}
+          aria-expanded={editing}
+          onClick={editing ? onEditClose : onEdit}
+        >
+          <CategoryAvatar icon={toIconName(category?.icon_key)} size={52} />
+          <span className="nl-item__name">{name}</span>
+          {/*
+            종류를 숫자로 드러낸다. 수입은 앞에 + 가 붙고 색이 갈린다.
+            아래 메타 줄의 분류만으로는 이게 들어온 돈인지 나간 돈인지 알 수 없었다.
+          */}
+          <Amount
+            className={candidate.is_low_confidence ? 'nl-item__amount--unsure' : undefined}
+            value={amount}
+            tone={candidate.type}
+            size={17}
+            data-testid={TEST_IDS.nlCandidateAmount}
+          />
+          <Caret open={editing} />
+          <span className="nl-item__sr">, 눌러서 고치기</span>
+        </button>
       </div>
 
       <div className="nl-item__meta">
@@ -143,14 +160,6 @@ export function CandidateRow({
         )}
         {candidate.is_duplicate ? <Chip variant="caution">이미 있어요</Chip> : null}
         {candidate.is_low_confidence && !isRefund ? <Chip variant="caution">확인 필요</Chip> : null}
-        <button
-          type="button"
-          className="nl-item__edit"
-          disabled={disabled}
-          onClick={editing ? onEditClose : onEdit}
-        >
-          {editing ? '접기' : '고치기'}
-        </button>
       </div>
 
       {isRefund ? (
@@ -186,6 +195,28 @@ export function CandidateRow({
         />
       ) : null}
     </li>
+  );
+}
+
+/** 줄이 눌린다는 신호. 펼치면 아래를 가리킨다. */
+function Caret({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={open ? 'nl-item__caret nl-item__caret--open' : 'nl-item__caret'}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+    >
+      <path
+        d="M6 3.5L10.5 8 6 12.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

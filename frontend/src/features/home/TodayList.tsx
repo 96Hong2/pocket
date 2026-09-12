@@ -18,7 +18,7 @@ import {
   toLedgerNoonIso,
   withTopic,
 } from '../../shared/lib/format';
-import { Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui';
+import { Card, ErrorState, LoadingState, iconUrl } from '../../shared/ui';
 
 interface TodayListProps {
   /** 보고 있는 날. `2026-09-08` */
@@ -33,6 +33,8 @@ interface TodayListProps {
   onRetry?: () => void;
   /** 한 줄을 누르면 고치기로 간다. 안 넘기면 줄이 눌리지 않는다. */
   onPick?: (transaction: TransactionOut) => void;
+  /** 비었을 때 여는 기록 시트. 위 큰 버튼과 같은 자리로 간다. */
+  onRecord: () => void;
 }
 
 /**
@@ -96,6 +98,7 @@ export function TodayList({
   loadFailed = false,
   onRetry,
   onPick,
+  onRecord,
 }: TodayListProps) {
   const today = toLedgerDate(new Date());
   const isToday = day === today;
@@ -196,20 +199,45 @@ export function TodayList({
       ) : (
         <Card padding="md">
           {/*
-            안 쓴 날에도 남길 것이 있어야 한다. 적을 게 없다고 그냥 닫으면 그 날은 '안 적은 날'
-            로만 남아, 안 썼는데도 기록이 빈 날이 된다.
+            **비어 있는 자리에서 할 일은 기록이다.**
+
+            예전에는 이 자리가 안내문 하나와 「오늘은 안 썼어요」 버튼이었다. 비었다는 안내로
+            읽고 눌렀다가 안 쓴 날 기록이 저장돼, 적은 적도 없는데 첫 기록을 마친 화면으로
+            넘어가는 일이 있었다. 처음 써 본 사람이 실제로 여기서 걸렸다.
+
+            그래서 안내 자체를 누를 수 있게 바꿨다. 비었다는 말을 누르면 기록 시트가 열린다.
+            안 썼다는 표시는 그 아래 한 줄로 내렸다. 안 쓴 날에도 남길 것은 있어야 하니
+            없애지는 않는다. 적을 게 없다고 그냥 닫으면 그 날은 '안 적은 날' 로만 남아,
+            안 썼는데도 기록이 빈 날이 된다.
           */}
-          <EmptyState
-            size="inline"
-            icon="27_clock"
-            title={isToday ? '오늘은 아직 비어 있어요' : `${withTopic(label)} 비어 있어요`}
-            description={
-              isToday
-                ? '지금 생각나는 것 하나만 적어도 충분해요.'
-                : '지난 날도 지금 적어 두면 그 날로 들어가요.'
-            }
-            actionLabel={markNoSpend.isPending ? '적는 중이에요' : noSpendLabel}
-            onAction={() => {
+          <button type="button" className="home-today__empty" onClick={onRecord}>
+            <img
+              className="home-today__empty-icon"
+              src={iconUrl('27_clock')}
+              alt=""
+              aria-hidden="true"
+            />
+            <span className="home-today__empty-body">
+              <span className="home-today__empty-title">
+                {isToday ? '오늘은 아직 비어 있어요' : `${withTopic(label)} 비어 있어요`}
+              </span>
+              <span className="home-today__empty-desc">
+                {isToday
+                  ? '눌러서 지금 적어 보세요. 하나만 적어도 충분해요'
+                  : '눌러서 적으면 사진과 문장은 그 날로 들어가요'}
+              </span>
+            </span>
+            <span className="home-today__empty-go" aria-hidden="true">
+              <Chevron direction="right" />
+            </span>
+          </button>
+
+          {/* 안 썼다는 것도 기록이다. 다만 기록하기보다 뒤에 선다. */}
+          <button
+            type="button"
+            className="home-today__nospend"
+            disabled={markNoSpend.isPending}
+            onClick={() => {
               if (markNoSpend.isPending) return;
               markNoSpend.mutate({
                 occurred_at: toLedgerNoonIso(day),
@@ -221,7 +249,9 @@ export function TodayList({
                 excluded_from_budget: false,
               });
             }}
-          />
+          >
+            {markNoSpend.isPending ? '적는 중이에요' : noSpendLabel}
+          </button>
           {noSpendError ? <ErrorLine message={noSpendError.message} /> : null}
           <MoreLink />
         </Card>

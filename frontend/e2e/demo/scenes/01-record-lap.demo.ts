@@ -30,7 +30,7 @@ test('01 처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ dem
   await demo.step('처음 열어도 예산부터 묻지 않아요. 이번 달 쓴 돈 0원만 보여줍니다');
   await demo.beat(2);
 
-  await demo.step('1단계 · 홈에서 10초 기록을 누릅니다');
+  await demo.step('1단계 · 홈에서 기록하기를 누릅니다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));

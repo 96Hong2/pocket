@@ -52,7 +52,7 @@ test('09 키패드로 금액을 찍는 규칙', async ({ home, recordSheet, demo
   await home.waitReady();
   await demo.open('키패드로 금액 찍기', '숫자 키 열한 개와 지우기 하나. 앞자리 0 은 먹지 않는다');
 
-  await demo.step('홈에서 10초 기록을 누른다');
+  await demo.step('홈에서 기록하기를 누른다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));

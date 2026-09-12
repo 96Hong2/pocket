@@ -481,10 +481,11 @@ class RecordNaturalLanguage {
    * 줄 위에 드러난 종류. 누르면 지출과 수입을 오간다.
    *
    * 접근성 이름이 `지출이에요. 눌러서 수입으로 바꾸기` 라, 그 안내말로 잡는다.
+   * 줄 전체도 「눌러서 고치기」 라는 이름을 달고 있어, 끝말까지 보고 가른다.
    * 이체 줄은 버튼이 아니라 글자라 여기 안 걸린다.
    */
   kindButton(name: string): Locator {
-    return this.row(name).getByRole('button', { name: /눌러서/ });
+    return this.row(name).getByRole('button', { name: /눌러서 .+으로 바꾸기$/ });
   }
 
   async switchKind(name: string): Promise<void> {
@@ -518,8 +519,13 @@ class RecordNaturalLanguage {
     await expect(box).toBeChecked({ checked: selected });
   }
 
+  /** 줄을 통째로 누르면 고치기가 펼쳐진다. 예전의 작은 「고치기」 버튼은 없앴다. */
+  editTrigger(name: string): Locator {
+    return this.row(name).getByRole('button', { name: /눌러서 고치기$/ });
+  }
+
   async openEdit(name: string): Promise<void> {
-    await this.row(name).getByRole('button', { name: '고치기' }).click();
+    await this.editTrigger(name).click();
     await expect(this.root.getByRole('button', { name: '이대로 고치기' })).toBeVisible();
   }
 
@@ -763,10 +769,11 @@ class RecordImageImport {
    * 줄 위에 드러난 종류. 누르면 지출과 수입을 오간다.
    *
    * 접근성 이름이 `지출이에요. 눌러서 수입으로 바꾸기` 라, 그 안내말로 잡는다.
+   * 줄 전체도 「눌러서 고치기」 라는 이름을 달고 있어, 끝말까지 보고 가른다.
    * 이체 줄은 버튼이 아니라 글자라 여기 안 걸린다.
    */
   kindButton(name: string): Locator {
-    return this.row(name).getByRole('button', { name: /눌러서/ });
+    return this.row(name).getByRole('button', { name: /눌러서 .+으로 바꾸기$/ });
   }
 
   async switchKind(name: string): Promise<void> {

@@ -36,7 +36,7 @@ test('42 영수증을 찍으면 총액 한 건이 나오고 상호는 비어 있
   expect(await mockImagesSeeded(page), '목에 사진이 안 심겼다').toBe(true);
   await demo.open('영수증 찍기', '상호를 못 읽어도 총액은 버리지 않는다');
 
-  await demo.step('홈에서 10초 기록을 누른다');
+  await demo.step('홈에서 기록하기를 누른다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await demo.beat(2);

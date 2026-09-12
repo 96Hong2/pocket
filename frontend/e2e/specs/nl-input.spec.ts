@@ -102,6 +102,36 @@ test('금액을 못 읽으면 이유를 말하고 저장 버튼을 내놓지 않
 
 // ── 검토하고 고치기 ──────────────────────────────
 
+/**
+ * 고치는 자리는 줄 자체다.
+ *
+ * 예전에는 메타 줄 끝의 작은 「고치기」 하나뿐이라, 고치려는 사람이 그 자리를 먼저 찾아야
+ * 했다. 지금은 이름·금액이 있는 자리를 그냥 누르면 펼쳐진다. 저장 대상 선택은 그대로 둔다.
+ * 같은 자리에서 두 가지가 함께 바뀌면 무엇을 눌렀는지 사용자가 알 수 없다.
+ */
+test('후보 줄을 누르면 고치기가 펼쳐지고, 저장 대상 선택은 그대로다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+
+  await expect(recordSheet.nl.checkbox('점심')).toBeChecked();
+
+  await recordSheet.nl.editTrigger('점심').click();
+
+  await expect(recordSheet.nl.form.merchantField).toBeVisible();
+  await expect(recordSheet.nl.checkbox('점심')).toBeChecked();
+
+  // 같은 자리를 다시 누르면 접힌다. 접는 버튼을 따로 찾지 않아도 된다.
+  await recordSheet.nl.editTrigger('점심').click();
+  await expect(recordSheet.nl.form.merchantField).toHaveCount(0);
+});
+
+
 test('저장 버튼 하나에 건수와 합계가 적히고, 선택을 바꾸면 함께 바뀐다', async ({
   home,
   recordSheet,

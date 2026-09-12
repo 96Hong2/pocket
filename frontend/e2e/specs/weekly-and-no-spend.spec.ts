@@ -88,6 +88,46 @@ function wonOf(text: string): number {
 
 // ── 안 쓴 날 ────────────────────────────────────────────
 
+/**
+ * 빈 자리를 누르면 무엇이 열리나.
+ *
+ * 예전에는 이 자리의 버튼이 「오늘은 안 썼어요」 하나였다. 비었다는 안내문으로 읽고 누른
+ * 사람에게 안 쓴 날 기록이 저장됐고, 적은 적도 없는데 첫 기록을 마친 화면으로 넘어갔다.
+ * 처음 써 본 사람이 실제로 여기서 걸렸다. 지금은 안내 자체가 기록 시트 입구다.
+ */
+test('비었다는 안내를 누르면 기록 시트가 열리고, 안 쓴 날로 저장되지 않는다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+
+  await expect(home.today.emptyButton).toBeVisible();
+  await home.today.emptyButton.click();
+
+  await recordSheet.waitOpen();
+  await recordSheet.closeButton.click();
+  await recordSheet.waitClosed();
+
+  // 안내를 눌렀다고 기록이 생기면 안 된다. 빈 자리 그대로여야 한다.
+  await expect(home.today.empty).toBeVisible();
+  await expect(home.today.noSpendCancelButton).toHaveCount(0);
+});
+
+/** 위 큰 버튼은 앱 이름이 아니라 할 일을 적는다. 「10초 기록」 이 무슨 뜻인지 못 알아봤다. */
+test('홈의 큰 버튼은 기록하기라고 적고, 누르면 기록 시트가 열린다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+
+  await expect(home.recordButton).toHaveText(/기록하기/);
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+});
+
+
 test('오늘 아무것도 안 적은 날, 안 썼다고 남기고 되돌린다', async ({ calendar, home, prep }) => {
   // 예산은 없다. 히어로가 '쓴 돈' 을 크게 그리는 화면에서 그 숫자가 안 변하는지 본다.
   await prep.addExpense({ amount: 30_000, daysAgo: 1 });

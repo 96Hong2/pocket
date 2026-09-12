@@ -54,7 +54,7 @@ export class HomeScreen {
   }
 
   get recordButton(): Locator {
-    return this.page.getByRole('button', { name: '10초 기록' });
+    return this.page.getByRole('button', { name: '기록하기' });
   }
 
   /** 홈이 그릴 것을 다 그린 뒤를 기다린다. 조회가 끝나야 히어로 숫자가 진짜다. */
@@ -220,6 +220,15 @@ class TodaySection {
   /** 아직 안 적었거나, 적은 것을 되돌려 다시 비었을 때. */
   get empty(): Locator {
     return this.text('오늘은 아직 비어 있어요');
+  }
+
+  /**
+   * 비었다는 안내 줄 자체. 안내가 곧 기록 시트 입구다.
+   *
+   * 위 큰 버튼과 글자가 달라야 둘이 안 섞인다. 여기는 비었다는 말로 잡는다.
+   */
+  get emptyButton(): Locator {
+    return this.root.getByRole('button', { name: /비어 있어요/ });
   }
 
   /** 행 제목. 가맹점을 아는 기록은 가맹점명, 아니면 카테고리 이름이다. */
