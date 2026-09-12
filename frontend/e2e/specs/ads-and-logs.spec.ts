@@ -29,6 +29,11 @@ test('배너가 네 화면에 서고, 자리마다 결과를 남긴다', async (
     await settings.open();
     await settings.waitReady();
     await expect(settings.adSlot).toHaveAttribute('data-placement', 'settings');
+    /*
+      결과 로그는 배너가 붙거나 접힌 뒤에 남는다. 자리가 선 것만 보고 로그를 읽으면
+      아직 기다리는 중일 수 있다. 붙이기 전에 기기 설정을 한 번 읽으므로 그만큼 늦다.
+    */
+    await expect(settings.adSlot).not.toHaveAttribute('data-state', 'waiting');
   });
 
   await test.step('자리마다 결과가 남는다', async () => {
