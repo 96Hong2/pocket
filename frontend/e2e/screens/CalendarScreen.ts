@@ -285,6 +285,52 @@ export class EditSheetArea {
     return this.categoryGroup.locator('button[aria-pressed="true"]');
   }
 
+  /**
+   * 분류를 이 자리에서 바로 만든다.
+   *
+   * 나중에 내역을 보다가 「이건 따로 세고 싶다」 고 생각하는 순간이 여기다. 그때
+   * 관리 탭까지 나갔다 오면 고쳐 둔 값이 사라진다.
+   */
+  get newCategoryButton(): Locator {
+    return this.categoryGroup.getByRole('button', { name: '새 분류', exact: true });
+  }
+
+  /** 「새 분류」를 누르면 칩 자리에 펼쳐지는 만들기 폼. */
+  get newCategoryTitle(): Locator {
+    return this.root.getByText('새 분류 만들기', { exact: true });
+  }
+
+  get newCategoryNameField(): Locator {
+    return this.root.getByLabel('이름', { exact: true });
+  }
+
+  get newCategorySaveButton(): Locator {
+    return this.root.getByRole('button', { name: '저장', exact: true });
+  }
+
+  get newCategoryBackButton(): Locator {
+    return this.root.getByRole('button', { name: '고치기로 돌아가기', exact: true });
+  }
+
+  /** 이름과 아이콘을 채워 한 건을 만든다. 기록 시트의 만들기 자리와 같은 폼이다. */
+  async createCategory(name: string, iconLabel: string): Promise<void> {
+    await this.newCategoryNameField.fill(name);
+    await this.root
+      .getByRole('group', { name: '아이콘' })
+      .getByRole('button', { name: iconLabel, exact: true })
+      .click();
+    await this.newCategorySaveButton.click();
+  }
+
+  /** 무엇으로 냈나. 지출일 때만 선다. */
+  get paymentGroup(): Locator {
+    return this.root.getByRole('group', { name: '결제 수단' });
+  }
+
+  paymentButton(label: '신용카드' | '체크카드' | '현금'): Locator {
+    return this.paymentGroup.getByRole('button', { name: label, exact: true });
+  }
+
   get excludeToggle(): Locator {
     return this.root.getByRole('switch', { name: '예산 계산에서 제외' });
   }

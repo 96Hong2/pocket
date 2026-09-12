@@ -23,6 +23,7 @@ from app.domain.period import BudgetPeriod
 
 __all__ = [
     "DayTotals",
+    "PaymentMethod",
     "PeriodTotals",
     "TransactionInput",
     "TransactionSource",
@@ -39,6 +40,22 @@ class TransactionType(StrEnum):
     INCOME = "income"
     TRANSFER = "transfer"
     REFUND = "refund"
+
+
+class PaymentMethod(StrEnum):
+    """지출을 무엇으로 냈나.
+
+    **안 고른 것은 값이 아니라 null 이다.** '모름' 을 값으로 두면 예전에 적어 둔 기록과
+    일부러 안 고른 기록이 한 칸에 섞여 구분되지 않는다. 쓰는 데는 지출뿐이라, 수입과
+    이체에는 붙이지 않는다.
+    """
+
+    CREDIT = "credit"
+    """신용카드."""
+    DEBIT = "debit"
+    """체크카드. 통장에서 바로 빠져 신용카드와 돈이 나가는 때가 다르다."""
+    CASH = "cash"
+    """현금. 계좌이체로 낸 것도 여기로 본다."""
 
 
 class TransactionSource(StrEnum):
@@ -64,6 +81,8 @@ class TransactionInput:
     is_deleted: bool = False
     # 무지출일 표시를 가려내는 데만 쓴다. 금액이 0 이라 합계로는 구분되지 않는다.
     source: TransactionSource | None = None
+    # 무엇으로 냈나. 지출에만 붙고 안 고르면 None 이다.
+    payment_method: PaymentMethod | None = None
 
 
 @dataclass(frozen=True)
@@ -81,6 +100,9 @@ class PeriodTotals:
     category_budgeted_spend: dict[str | None, Money] = field(default_factory=dict)
     # 리포트의 수입 모드용. 예산은 수입을 안 보므로 excluded 를 가르지 않는다.
     category_income: dict[str | None, Money] = field(default_factory=dict)
+    # 결제 수단별 지출. 분류별 지출과 같은 규칙이다(환불 차감·excluded 포함).
+    # 안 고른 것은 None 칸에 모인다.
+    method_spend: dict[PaymentMethod | None, Money] = field(default_factory=dict)
 
 
 def aggregate_period(
@@ -95,6 +117,7 @@ def aggregate_period(
     category_spend: dict[str | None, Money] = {}
     category_budgeted_spend: dict[str | None, Money] = {}
     category_income: dict[str | None, Money] = {}
+    method_spend: dict[PaymentMethod | None, Money] = {}
 
     for tx in transactions:
         if tx.is_deleted or not period.contains(tx.occurred_on):
@@ -111,6 +134,7 @@ def aggregate_period(
         signed = tx.amount if tx.type is TransactionType.EXPENSE else -tx.amount
         month_expense = month_expense + signed
         _accumulate(category_spend, tx.category_id, signed)
+        _accumulate(method_spend, tx.payment_method, signed)
         if not tx.excluded_from_budget:
             budgeted_spend = budgeted_spend + signed
             _accumulate(category_budgeted_spend, tx.category_id, signed)
@@ -124,11 +148,12 @@ def aggregate_period(
         category_spend=category_spend,
         category_budgeted_spend=category_budgeted_spend,
         category_income=category_income,
+        method_spend=method_spend,
     )
 
 
-def _accumulate(bucket: dict[str | None, Money], category_id: str | None, amount: Money) -> None:
-    bucket[category_id] = bucket.get(category_id, Money.zero()) + amount
+def _accumulate[KeyT](bucket: dict[KeyT, Money], key: KeyT, amount: Money) -> None:
+    bucket[key] = bucket.get(key, Money.zero()) + amount
 
 
 @dataclass(frozen=True)

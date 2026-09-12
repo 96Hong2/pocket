@@ -13,7 +13,7 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, Field
 
 # 종류·입력경로는 domain 이 정본이다. 여기서 값 목록을 다시 적지 않는다.
-from app.domain.aggregation import TransactionSource, TransactionType
+from app.domain.aggregation import PaymentMethod, TransactionSource, TransactionType
 from app.domain.categories import expense_category_names, income_category_names
 
 # 프롬프트와 스텁이 참고하는 분류 이름. 정본은 app/domain/categories.py 다.
@@ -49,6 +49,13 @@ class ExtractedTransaction(BaseModel):
         default=None,
         max_length=40,
         description="분류 이름 후보. 확실하지 않으면 null.",
+    )
+    payment_method: PaymentMethod | None = Field(
+        default=None,
+        description=(
+            "무엇으로 냈는지. credit 신용카드 / debit 체크카드 / cash 현금."
+            " 입력에 적혀 있을 때만 고르고, 없으면 null."
+        ),
     )
     confidence: float = Field(
         ge=0.0,

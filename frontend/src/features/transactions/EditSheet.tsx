@@ -8,10 +8,17 @@ import {
   useUpdateTransaction,
   type CategoryOut,
   type MonthParams,
+  type PaymentMethod,
   type TransactionOut,
   type TransactionUpdate,
 } from '../../shared/api';
-import { KindToggle, categoriesOfKind, kindOf, type LedgerKind } from '../../shared/ledger';
+import {
+  KindToggle,
+  PaymentMethodPicker,
+  categoriesOfKind,
+  kindOf,
+  type LedgerKind,
+} from '../../shared/ledger';
 import { formatDayLabel } from '../../shared/lib/format';
 import {
   AmountField,
@@ -21,6 +28,8 @@ import {
   Toggle,
   iconOf,
 } from '../../shared/ui';
+
+import { CategoryEditForm } from '../categories';
 
 /**
  * 수정 시트. 상호·금액·카테고리·예산 제외를 한 화면에서 고친다.
@@ -105,7 +114,17 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
   const [categoryId, setCategoryId] = useState<string | null>(transaction.category_id ?? null);
   const [excluded, setExcluded] = useState(transaction.excluded_from_budget);
   const [kind, setKind] = useState<LedgerKind>(kindOf(transaction.type));
+  const [method, setMethod] = useState<PaymentMethod | null>(transaction.payment_method);
   const [failed, setFailed] = useState(false);
+  /*
+    분류 만들기 자리가 열렸나.
+
+    기록할 때만 만들 수 있으면, 나중에 목록을 보다가 「이건 따로 세고 싶다」 고 생각한
+    순간에 갈 곳이 없다. 기록 시트와 같은 방식으로 시트를 하나 더 띄우지 않고
+    분류 칸이 만들기 폼으로 바뀐다. 고쳐 둔 금액·상호가 살아 있어야 이어서 저장한다.
+  */
+  const [creating, setCreating] = useState(false);
+  const [creatingBusy, setCreatingBusy] = useState(false);
 
   const busy = update.isPending || remove.isPending;
   const switchable = canSwitchKind(transaction.type);
@@ -128,6 +147,9 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
     if (switchable && kind !== transaction.type) next.type = kind;
     if (categoryId !== (transaction.category_id ?? null)) next.category_id = categoryId;
     if (excluded !== transaction.excluded_from_budget) next.excluded_from_budget = excluded;
+    // 수입으로 바꾸면 서버가 어차피 비운다. 여기서도 안 보내 두 곳이 같은 말을 하게 한다.
+    const nextMethod = kind === 'expense' ? method : null;
+    if (nextMethod !== transaction.payment_method) next.payment_method = nextMethod;
     return next;
   }
 
@@ -213,26 +235,75 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
             setCategoryId(
               next === kindOf(transaction.type) ? (transaction.category_id ?? null) : null,
             );
+            // 수입에는 결제 수단이 없다. 지출로 되돌아오면 저장돼 있던 값을 되찾는다.
+            setMethod(next === 'expense' ? transaction.payment_method : null);
           }}
         />
       ) : null}
 
-      <div className="tx-edit__cats" role="group" aria-label="카테고리">
-        {pickable.map((category) => (
+      {/* 수입에는 뜻이 없어 아예 안 세운다. 비활성으로 두면 무엇을 잘못했나 싶어진다. */}
+      {kind === 'expense' ? (
+        <PaymentMethodPicker
+          className="tx-edit__pay"
+          value={method}
+          disabled={busy}
+          onChange={setMethod}
+        />
+      ) : null}
+
+      {creating ? (
+        <div className="tx-edit__new-cat">
+          <div className="tx-edit__new-cat-head">
+            <span className="tx-edit__new-cat-title">새 분류 만들기</span>
+            <button
+              type="button"
+              className="tx-edit__new-cat-back"
+              disabled={creatingBusy}
+              onClick={() => setCreating(false)}
+            >
+              고치기로 돌아가기
+            </button>
+          </div>
+          <CategoryEditForm
+            // 종류는 위 토글이 이미 정했다. 여기서 다시 묻지 않는다.
+            fixedKind={kind}
+            onBusyChange={setCreatingBusy}
+            onClose={() => setCreating(false)}
+            // 만들자마자 이 기록의 분류로 둔다. 다시 찾아 누르게 하면 만든 보람이 없다.
+            onCreated={(created) => {
+              setCategoryId(created.id);
+              setCreating(false);
+            }}
+          />
+        </div>
+      ) : (
+        <div className="tx-edit__cats" role="group" aria-label="카테고리">
+          {pickable.map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              className={
+                category.id === categoryId ? 'tx-edit__cat tx-edit__cat--on' : 'tx-edit__cat'
+              }
+              aria-pressed={category.id === categoryId}
+              onClick={() => setCategoryId(category.id)}
+            >
+              <CategoryAvatar {...iconOf(category)} size={40} />
+              {category.name}
+            </button>
+          ))}
           <button
-            key={category.id}
             type="button"
-            className={
-              category.id === categoryId ? 'tx-edit__cat tx-edit__cat--on' : 'tx-edit__cat'
-            }
-            aria-pressed={category.id === categoryId}
-            onClick={() => setCategoryId(category.id)}
+            className="tx-edit__cat tx-edit__cat--new"
+            onClick={() => setCreating(true)}
           >
-            <CategoryAvatar {...iconOf(category)} size={40} />
-            {category.name}
+            <span className="tx-edit__cat-mark" aria-hidden="true">
+              ＋
+            </span>
+            새 분류
           </button>
-        ))}
-      </div>
+        </div>
+      )}
 
       <div className="tx-edit__exclude">
         <div className="tx-edit__exclude-text">
@@ -255,14 +326,14 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
       ) : null}
 
       <div className="tx-edit__actions">
-        <Button variant="outline" onClick={() => void destroy()} disabled={busy}>
+        <Button variant="outline" onClick={() => void destroy()} disabled={busy || creating}>
           삭제
         </Button>
         <Button
           variant="primarySmall"
           className="tx-edit__done"
           onClick={() => void submit()}
-          disabled={busy || !amountOk}
+          disabled={busy || creating || !amountOk}
         >
           완료
         </Button>

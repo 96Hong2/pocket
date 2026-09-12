@@ -6971,6 +6971,16 @@
             ],
             "title": "Category Id"
           },
+          "payment_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "confidence": {
             "type": "number",
             "title": "Confidence"
@@ -6994,6 +7004,7 @@
           "occurred_at",
           "amount",
           "type",
+          "payment_method",
           "confidence",
           "is_low_confidence",
           "is_duplicate",
@@ -7065,6 +7076,16 @@
               }
             ],
             "title": "Category Id"
+          },
+          "payment_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "is_selected": {
             "anyOf": [
@@ -7313,6 +7334,39 @@
         "title": "MerchantRuleSource",
         "description": "규칙이 어디서 왔나."
       },
+      "MethodRowOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "share": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "amount",
+          "share"
+        ],
+        "title": "MethodRowOut",
+        "description": "결제 수단 한 줄. 화면이 이름을 붙인다."
+      },
       "MonthlyReportOut": {
         "properties": {
           "period_start": {
@@ -7371,6 +7425,18 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Income Breakdown Total"
           },
+          "method_breakdown": {
+            "items": {
+              "$ref": "#/components/schemas/MethodRowOut"
+            },
+            "type": "array",
+            "title": "Method Breakdown"
+          },
+          "method_breakdown_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Method Breakdown Total"
+          },
           "trend": {
             "items": {
               "$ref": "#/components/schemas/TrendPointOut"
@@ -7419,6 +7485,8 @@
           "income_breakdown",
           "expense_breakdown_total",
           "income_breakdown_total",
+          "method_breakdown",
+          "method_breakdown_total",
           "trend",
           "comparison",
           "weeks",
@@ -7535,6 +7603,16 @@
         "type": "object",
         "title": "NotificationSettingsPatch",
         "description": "보낸 필드만 고친다.\n\n**`remind_at` 은 필드를 빼는 것과 `null` 을 보내는 것이 다르다.** 빼면 그대로 두고,\n`null` 을 보내면 정해 둔 시각을 지운다. 시각은 '값 없음' 이 정상 상태인 유일한 값이라\n다른 설정(`/preferences`)과 규칙이 반대다.\n\n`is_enabled` 와 `frequency` 는 `null` 이 뜻을 갖지 않아 그대로 둔다. 기본값이 있는\n컬럼이라 비워 둘 자리가 없다."
+      },
+      "PaymentMethod": {
+        "type": "string",
+        "enum": [
+          "credit",
+          "debit",
+          "cash"
+        ],
+        "title": "PaymentMethod",
+        "description": "지출을 무엇으로 냈나.\n\n**안 고른 것은 값이 아니라 null 이다.** '모름' 을 값으로 두면 예전에 적어 둔 기록과\n일부러 안 고른 기록이 한 칸에 섞여 구분되지 않는다. 쓰는 데는 지출뿐이라, 수입과\n이체에는 붙이지 않는다."
       },
       "PeriodComparisonOut": {
         "properties": {
@@ -7863,6 +7941,16 @@
             "title": "Excluded From Budget",
             "default": false
           },
+          "payment_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "refund_of_transaction_id": {
             "anyOf": [
               {
@@ -8001,6 +8089,16 @@
           "excluded_from_budget": {
             "type": "boolean",
             "title": "Excluded From Budget"
+          },
+          "payment_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -8013,7 +8111,8 @@
           "category_id",
           "source",
           "confidence",
-          "excluded_from_budget"
+          "excluded_from_budget",
+          "payment_method"
         ],
         "title": "TransactionOut"
       },
@@ -8116,6 +8215,16 @@
               }
             ],
             "title": "Excluded From Budget"
+          },
+          "payment_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

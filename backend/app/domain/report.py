@@ -9,14 +9,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
+from app.domain.aggregation import PaymentMethod
 from app.domain.money import Money, ratio
 
-__all__ = ["ROLLED_UP", "UNCATEGORIZED", "BreakdownRow", "rank_breakdown"]
+__all__ = [
+    "NO_METHOD",
+    "ROLLED_UP",
+    "UNCATEGORIZED",
+    "BreakdownRow",
+    "MethodRow",
+    "rank_breakdown",
+    "rank_methods",
+]
 
 # 분류를 못 정한 줄. 감추지 않는다. 감추면 조각 합이 총액과 안 맞는다.
 UNCATEGORIZED = "uncategorized"
 # 상위 몇 개 밖으로 밀려난 것들을 한 줄로 접은 것.
 ROLLED_UP = "rolled_up"
+# 결제 수단을 안 고르고 적은 줄. 이것도 감추지 않는다. 감추면 네 줄의 합이 총액과 안 맞는다.
+NO_METHOD = "none"
 
 # 색 램프가 아홉 색이다. 순환시키면 링 안에 같은 색이 두 번 나와 오히려 못 읽는다.
 # 여덟 줄 + 접은 한 줄이 정확히 아홉이다.
@@ -83,3 +94,42 @@ def _key_of(category_id: str | None) -> str:
 def _sort_key(category_id: str | None) -> str:
     """금액이 같을 때의 순서. 같은 입력이면 늘 같은 화면이어야 한다."""
     return category_id if category_id is not None else ""
+
+
+@dataclass(frozen=True)
+class MethodRow:
+    """결제 수단 한 줄. 카드·현금을 갈라 본다."""
+
+    key: str
+    """`credit`·`debit`·`cash`, 그리고 안 고른 줄은 `none`."""
+    amount: Money
+    share: Decimal | None
+
+
+def rank_methods(spend: dict[PaymentMethod | None, Money]) -> tuple[list[MethodRow], Money]:
+    """결제 수단별 지출을 큰 순으로 세운다.
+
+    분류와 달리 칸이 넷뿐이라 접지 않는다. **안 고른 줄은 언제나 맨 아래**다. 금액으로만
+    세우면 그 줄이 맨 위에 오는 사람이 많은데, 그러면 '모르는 것' 이 화면의 결론이 된다.
+
+    음수(그 수단으로 환불이 더 큰 경우)는 뺀다. `rank_breakdown` 과 같은 이유다.
+    """
+    positive = {key: value for key, value in spend.items() if value.is_positive}
+
+    total = Money.zero()
+    for value in positive.values():
+        total = total + value
+
+    ordered = sorted(
+        positive.items(),
+        key=lambda item: (item[0] is None, -item[1].amount),
+    )
+    rows = [
+        MethodRow(
+            key=method.value if method is not None else NO_METHOD,
+            amount=value,
+            share=ratio(value, total),
+        )
+        for method, value in ordered
+    ]
+    return rows, total

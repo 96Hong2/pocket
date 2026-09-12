@@ -127,6 +127,7 @@ erDiagram
 | `source` | `keypad` \| `nl` \| `screenshot` \| `receipt` \| `asset_screenshot` \| `no_spend` | 어떤 경로로 들어왔는지 |
 | `confidence` | `float` = 1.0 | 0~1. 사용자가 직접 넣은 값은 1.0 |
 | `excluded_from_budget` | `bool` = false | **거래목록·리포트에는 남고 예산 계산에서만 빠진다** |
+| `payment_method` | `credit` \| `debit` \| `cash` \| `null` | 신용카드·체크카드·현금. **지출과 환불에만 붙고** 수입·이체로 고치면 서비스가 비운다. `null` 이 「안 고름」이라 '모름' 값을 따로 두지 않는다 |
 | `fingerprint` | `varchar(64)?` | 중복 후보를 찾는 sha256 해시 |
 | `refund_of_transaction_id` | `uuid?` | 어떤 지출의 환불인지 |
 | `import_batch_id` | `uuid?` | 줄글·캡처·영수증 분석에서 저장했으면 그 묶음. `imports.commit_batch` 가 채운다 |
@@ -248,7 +249,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 
 | import_candidates | 설명 |
 |---|---|
-| `occurred_at`, `amount`, `type`, `merchant`, `merchant_normalized`, `category_id`, `confidence`, `fingerprint` | 거래와 같은 모양 |
+| `occurred_at`, `amount`, `type`, `merchant`, `merchant_normalized`, `category_id`, `payment_method`, `confidence`, `fingerprint` | 거래와 같은 모양 |
 | `is_duplicate` | 기존 거래와 정확히 일치. 화면에서 기본 미선택 |
 | `is_selected` | 사용자가 저장하기로 고른 것 |
 | `sort_order` | 화면 순서 |

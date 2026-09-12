@@ -18,7 +18,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 
 from app.api.amounts import MAX_AMOUNT, integral_won, ratio_out
 from app.api.months import MAX_YEAR, MIN_YEAR
-from app.domain.aggregation import TransactionSource, TransactionType
+from app.domain.aggregation import PaymentMethod, TransactionSource, TransactionType
 from app.domain.feedback import AchievementKind, FeedbackKind, FeedbackResult
 from app.domain.money import Money
 from app.modules import ledger
@@ -87,6 +87,8 @@ class TransactionCreate(BaseModel):
     source: TransactionSource = TransactionSource.KEYPAD
     confidence: float = Field(default=1.0, ge=0, le=1)
     excluded_from_budget: bool = False
+    # 무엇으로 냈나. 안 고르면 null 이고, 지출이 아닌 종류에는 붙지 않는다.
+    payment_method: PaymentMethod | None = None
     refund_of_transaction_id: uuid.UUID | None = None
 
     _check_amount = field_validator("amount")(integral_won)
@@ -117,6 +119,8 @@ class TransactionUpdate(BaseModel):
     merchant: str | None = Field(default=None, max_length=120)
     category_id: uuid.UUID | None = None
     excluded_from_budget: bool | None = None
+    # 분류와 같이 null 이 「지운다」 다. 골랐다가 되무를 수 있어야 한다.
+    payment_method: PaymentMethod | None = None
 
     _check_amount = field_validator("amount")(integral_won)
     _check_occurred_at = field_validator("occurred_at")(_in_range)
@@ -145,6 +149,7 @@ class TransactionOut(BaseModel):
     source: TransactionSource
     confidence: float
     excluded_from_budget: bool
+    payment_method: PaymentMethod | None
 
     _stamp_occurred_at = field_validator("occurred_at", mode="before")(_as_utc)
 

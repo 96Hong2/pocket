@@ -12,6 +12,15 @@ export interface MonthStepperProps {
   minMonth?: string;
   /** 이보다 이후로 못 간다. 보통 이번 달을 넣는다. */
   maxMonth?: string;
+  /**
+   * 한 번에 돌아올 달. 지금 보는 달이 이것과 다를 때만 알약이 뜬다.
+   *
+   * 화살표로만 되짚으면 반년 전 리포트를 보고 온 사람은 여섯 번을 눌러야 한다.
+   * 안 주면 알약이 아예 없다.
+   */
+  jumpTo?: string;
+  /** 알약에 적을 말. 「이번 달로」 처럼 어디로 가는지가 보여야 한다. */
+  jumpLabel?: string;
   variant?: MonthStepperVariant;
   className?: string;
 }
@@ -21,6 +30,8 @@ export function MonthStepper({
   onChange,
   minMonth,
   maxMonth,
+  jumpTo,
+  jumpLabel = '이번 달로',
   variant = 'default',
   className,
 }: MonthStepperProps) {
@@ -59,6 +70,11 @@ export function MonthStepper({
       >
         <Chevron direction="right" />
       </button>
+      {jumpTo !== undefined && jumpTo !== value ? (
+        <button type="button" className="pk-month__jump" onClick={() => onChange(jumpTo)}>
+          {jumpLabel}
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -9,6 +9,7 @@ export { Button, type ButtonProps, type ButtonVariant } from './Button';
 export { Card, type CardPadding, type CardProps } from './Card';
 export { CategoryAvatar, type CategoryAvatarProps } from './CategoryAvatar';
 export { Chip, type ChipProps, type ChipVariant } from './Chip';
+export { isEmoji, NOT_EMOJI_MESSAGE } from './emoji';
 export { Gauge, type GaugeProps, type GaugeSize } from './Gauge';
 export {
   MonthStepper,

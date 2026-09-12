@@ -8,9 +8,11 @@ import {
   useMonthlyReport,
   type BreakdownRowOut,
   type CategoryOut,
+  type MethodRowOut,
   type MonthlyReportOut,
   type PeriodComparisonOut,
 } from '../../shared/api';
+import { paymentMethodLabel } from '../../shared/ledger';
 import {
   formatCurrency,
   formatMonthLabel,
@@ -75,7 +77,16 @@ export function MonthlyReport({
   const [mode, setMode] = useState<Mode>('expense');
 
   // 월 선택기는 어떤 상태에서도 남긴다. 지우면 오류 난 달에 갇혀 다른 달로 갈 수 없다.
-  const stepper = <MonthStepper value={month} onChange={onMonthChange} maxMonth={thisMonth} />;
+  // 반년 전 리포트를 보고 온 사람이 화살표를 여섯 번 누르지 않게 한 번에 돌아온다.
+  // 이번 달을 보고 있을 때는 갈 곳이 없어 알약이 뜨지 않는다.
+  const stepper = (
+    <MonthStepper
+      value={month}
+      onChange={onMonthChange}
+      maxMonth={thisMonth}
+      jumpTo={thisMonth}
+    />
+  );
 
   // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다. 그때 "불러오는 중" 을
   // 띄우면 영원히 도는 것처럼 보인다. 실패·미지원의 이유는 위 안내가 말한다.
@@ -236,7 +247,8 @@ export function MonthlyReport({
         <TrendBars points={data.trend} mode={mode} currentMonth={month} />
       </Card>
 
-      {/* 소비 이야기다. 수입에는 큰 지출이 없다. */}
+      {/* 소비 이야기다. 수입에는 결제 수단도 큰 지출도 없다. */}
+      {!income ? <PaymentMethods rows={data.method_breakdown} /> : null}
       {!income ? (
         <LargeExpenses rows={data.large_expenses} byId={byId} namesUnknown={namesUnknown} />
       ) : null}
@@ -254,6 +266,56 @@ function EmptyIcon() {
   return (
     <img className="report__empty-icon" src={iconUrl('26_sparkles')} alt="" aria-hidden />
   );
+}
+
+/**
+ * 무엇으로 냈나.
+ *
+ * 같은 10만원이라도 카드로 낸 것은 다음 달에 빠지고 현금은 이미 빠졌다. 그 둘을 한
+ * 숫자로 뭉개면 「이번 달에 쓴 돈」 과 「이번 달에 나간 돈」 이 구분되지 않는다.
+ *
+ * **안 고르고 적은 줄도 감추지 않는다.** 감추면 줄의 합이 그 달 지출과 안 맞는다.
+ * 대신 언제나 맨 아래에 둔다(서버가 그 순서로 준다).
+ */
+function PaymentMethods({ rows }: { rows: MethodRowOut[] }) {
+  // 한 줄도 없으면 카드째 그리지 않는다. 그 달에 지출이 없다는 말은 위에서 이미 했다.
+  if (rows.length === 0) return null;
+  // 안 고른 줄 하나뿐이면 아직 아무것도 고르지 않은 것이다. 「안 고름 100%」 한 줄은
+  // 아무것도 알려 주지 않으면서 자리만 먹는다.
+  if (rows.length === 1 && rows[0].key === 'none') return null;
+
+  const top = parseDecimal(rows[0]?.share ?? null) ?? 0;
+  return (
+    <Card>
+      <h2 className="report__section">무엇으로 냈나</h2>
+      <ul className="report__methods" data-testid={TEST_IDS.reportMethods}>
+        {rows.map((row) => {
+          const share = parseDecimal(row.share) ?? 0;
+          return (
+            <li key={row.key} className="report__method">
+              <span className="report__method-name">{paymentMethodLabel(row.key)}</span>
+              <span className="report__method-bar" aria-hidden="true">
+                {/* 가장 큰 줄이 꽉 차게 그린다. 비중 그대로 그리면 몇 %짜리 줄이 안 보인다. */}
+                <span
+                  className="report__method-fill"
+                  style={{ width: `${top > 0 ? Math.max((share / top) * 100, 3) : 0}%` }}
+                />
+              </span>
+              <Amount className="report__method-amount" value={parseDecimalOr(row.amount, 0)} />
+              <span className="report__method-share">{formatShare(share)}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
+}
+
+/** 비중 한 자리. 0.5% 를 0% 로 적으면 있는 줄이 없는 것처럼 보인다. */
+function formatShare(share: number): string {
+  if (share <= 0) return '0%';
+  const percent = share * 100;
+  return percent < 1 ? '1% 미만' : `${Math.round(percent)}%`;
 }
 
 /**

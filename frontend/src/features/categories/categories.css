@@ -216,6 +216,11 @@
     text-align: center;
   }
 
+  /* 이모지가 아닌 글자를 쳤을 때. 아래 한 줄과 같은 색이라 둘이 같은 말을 한다. */
+  .icon-picker__emoji-input[aria-invalid='true'] {
+    border-color: var(--color-amber-700);
+  }
+
   .icon-picker__photo-actions {
     display: flex;
     gap: 8px;

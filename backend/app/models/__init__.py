@@ -20,7 +20,12 @@ from app.models.preference import (
     RecordMethod,
     UserPreference,
 )
-from app.models.transaction import Transaction, TransactionSource, TransactionType
+from app.models.transaction import (
+    PaymentMethod,
+    Transaction,
+    TransactionSource,
+    TransactionType,
+)
 from app.models.user import User
 
 __all__ = [
@@ -46,6 +51,7 @@ __all__ = [
     "NotificationFrequency",
     "NotificationSetting",
     "ParseUsage",
+    "PaymentMethod",
     "RecordMethod",
     "Transaction",
     "TransactionSource",

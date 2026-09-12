@@ -137,6 +137,8 @@ export const TEST_IDS = {
   reportBudgetLine: 'report-budget-line',
   /** 조각 합이 그 달 금액과 다른 이유를 적는 줄. 환불이 더 큰 분류가 있을 때만 있다. */
   reportSliceNote: 'report-slice-note',
+  /** 결제 수단 목록. 한 번도 안 고른 달에는 아예 없다. */
+  reportMethods: 'report-methods',
   /*
     결산 입구 카드와 오버레이는 여기 없다. 버튼·다이얼로그라 이름으로 잡힌다.
     이름이 없는 안쪽 줄과 점만 아래에 둔다.

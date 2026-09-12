@@ -76,8 +76,8 @@ MAX_CANDIDATES = 20
 class _ImageKind(NamedTuple):
     """이미지 한 장을 읽는 입구가 서로 다르게 가진 것."""
 
-    prompt: Callable[[date], str]
-    """모델에게 무엇을 읽는지 알려 주는 지시."""
+    prompt: Callable[[date, list[str]], str]
+    """모델에게 무엇을 읽는지 알려 주는 지시. 날짜와 고를 수 있는 분류 이름을 받는다."""
     subject: str
     """못 읽었을 때 사용자에게 말하는 말. '지금은 OO 읽지 못했어요' 자리에 들어간다."""
     quota_label: str
@@ -152,7 +152,7 @@ def parse_text(
     read = _read_twice_if_odd(
         client,
         escalation,
-        prompt=natural_language_prompt(day),
+        prompt=natural_language_prompt(day, _category_names(session, user)),
         today=day,
         subject="문장을",
         text=cleaned.text,
@@ -193,7 +193,12 @@ def parse_image(
     # 돌리고 · 여백을 잘라내고 · 줄인 뒤에 보낸다. 위치 정보도 여기서 끊긴다.
     sent = prepare_image(image)
     read = _read_twice_if_odd(
-        client, escalation, prompt=kind.prompt(day), today=day, subject=kind.subject, image=sent
+        client,
+        escalation,
+        prompt=kind.prompt(day, _category_names(session, user)),
+        today=day,
+        subject=kind.subject,
+        image=sent,
     )
     return _build_batch(
         session,
@@ -384,6 +389,7 @@ def commit_batch(
                 "source": batch.source,
                 "confidence": row.confidence,
                 "excluded_from_budget": False,
+                "payment_method": row.payment_method,
                 # 원본은 안 남으므로 이 거래가 어느 분석에서 나왔는지는 이 값이 유일한 실마리다.
                 "import_batch_id": batch.id,
             },
@@ -580,6 +586,7 @@ def _to_row(
         merchant=merchant,
         merchant_normalized=merchant_normalized,
         category_id=category_id,
+        payment_method=candidate.payment_method,
         confidence=candidate.confidence,
         fingerprint=fingerprint.value,
         is_duplicate=is_duplicate,
@@ -623,6 +630,18 @@ def _category_for(
     if candidate.category is None:
         return None
     return _category_id_by_name(session, user, candidate.category)
+
+
+def _category_names(session: Session, user: User) -> list[str]:
+    """모델에게 보여 줄 분류 이름. **내가 만든 것이 먼저다.**
+
+    기본 목록만 주면 '데이트' 를 만들어 둔 사람이 줄글이나 캡처로 적을 때 그 이름이
+    후보에 없어 영영 안 붙는다. 앞에 세우는 이유는 목록이 길면 뒤가 잘리기 때문이다.
+    """
+    rows = categories.list_categories(session, user)
+    mine = [row.name for row in rows if row.user_id is not None]
+    shared = [row.name for row in rows if row.user_id is None]
+    return mine + shared
 
 
 def _category_id_by_name(session: Session, user: User, name: str) -> uuid.UUID | None:

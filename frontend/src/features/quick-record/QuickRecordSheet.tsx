@@ -12,10 +12,17 @@ import {
   useCreateTransaction,
   type CategoryOut,
   type FeedbackOut,
+  type PaymentMethod,
   type PreferencesOut,
   type TransactionOut,
 } from '../../shared/api';
-import { KindToggle, categoriesOfKind, kindOf, type LedgerKind } from '../../shared/ledger';
+import {
+  KindToggle,
+  PaymentMethodPicker,
+  categoriesOfKind,
+  kindOf,
+  type LedgerKind,
+} from '../../shared/ledger';
 import { formatCurrency } from '../../shared/lib/format';
 import {
   BottomSheet,
@@ -123,6 +130,13 @@ function RecordBody({
   const [digits, setDigits] = useState('');
   const [saved, setSaved] = useState<SavedState | null>(null);
   const [repeat, setRepeat] = useState<LastRecord | null>(null);
+  /*
+    무엇으로 냈나. 지출에만 선다.
+
+    지난번에 고른 것으로 열어 둔다. 대부분 한 장의 카드를 쓰는데 매번 다시 고르게 하면
+    아무도 안 고르고, 그러면 통계가 통째로 빈다.
+  */
+  const [method, setMethod] = useState<PaymentMethod | null>(null);
   // 금액보다 먼저 고른 카테고리. 화면에서 카테고리가 위에 있어 손이 먼저 그리로 간다.
   const [pickedId, setPickedId] = useState<string | null>(null);
   // 고르고 나면 목록을 접는다. 분류가 늘수록 목록이 화면을 다 먹는다.
@@ -131,7 +145,9 @@ function RecordBody({
   useEffect(() => {
     let alive = true;
     void readLastRecord(bridge.storage).then((record) => {
-      if (alive) setRepeat(record);
+      if (!alive) return;
+      setRepeat(record);
+      setMethod(record?.paymentMethod ?? null);
     });
     return () => {
       alive = false;
@@ -214,6 +230,7 @@ function RecordBody({
       categoryId: category.id,
       categoryName: category.name,
       kind: kindOf(transaction.type),
+      paymentMethod: transaction.payment_method,
     });
   }
 
@@ -233,6 +250,8 @@ function RecordBody({
         // 손으로 직접 누른 값이라 분류를 의심할 이유가 없다.
         confidence: 1,
         excluded_from_budget: false,
+        // 수입에는 뜻이 없다. 보내도 서버가 버리지만 여기서도 안 보낸다.
+        payment_method: kind === 'expense' ? method : null,
       },
       {
         onSettled: () => markBusy(false),
@@ -271,6 +290,7 @@ function RecordBody({
             categoryId: category.id,
             categoryName: category.name,
             kind,
+            paymentMethod: kind === 'expense' ? method : null,
           });
         },
       },
@@ -408,6 +428,16 @@ function RecordBody({
             setListOpen(true);
           }}
         />
+
+        {/* 수입에는 뜻이 없어 아예 안 세운다. 비활성으로 두면 무엇을 잘못했나 싶어진다. */}
+        {kind === 'expense' ? (
+          <PaymentMethodPicker
+            className="record__pay"
+            value={method}
+            disabled={create.isPending}
+            onChange={setMethod}
+          />
+        ) : null}
 
         {repeat && repeatCategory ? (
           <div className="record__repeat">

@@ -19,6 +19,7 @@ from app.domain.categories import (
     USER_CATEGORY_SORT_ORDER,
     USER_INCOME_SORT_ORDER,
 )
+from app.domain.category_icons import NOT_EMOJI_MESSAGE
 from app.models import Category, CategoryBudget, CategoryKind, MerchantRule, User
 from app.modules import ledger
 from app.modules.categories import service as category_service
@@ -554,3 +555,30 @@ def test_새로_만든_분류는_바로_기록_화면에_선다(
         json={"name": "반려동물", "icon_key": "16_paw"},
     )
     assert created.json()["is_quick"] is True
+
+
+def test_이모지가_아닌_글자는_왜_안_되는지_말해_준다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """뭉뚱그린 「요청 형식이 올바르지 않아요」 로는 무엇을 고쳐야 할지 알 수 없다."""
+    del default_categories
+    response = client.post(
+        "/api/v1/categories",
+        headers=AUTH,
+        json={"name": "데이트", "icon_key": "01_coins", "icon_custom": "emoji:ㅋ"},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["message"] == NOT_EMOJI_MESSAGE
+
+
+def test_숫자_키캡은_아이콘으로_걸린다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    del default_categories
+    response = client.post(
+        "/api/v1/categories",
+        headers=AUTH,
+        json={"name": "일곱", "icon_key": "01_coins", "icon_custom": "emoji:7️⃣"},
+    )
+    assert response.status_code == 201
+    assert response.json()["icon_custom"] == "emoji:7️⃣"

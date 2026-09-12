@@ -1,4 +1,5 @@
 import { formatCurrency } from '../../src/shared/lib/format';
+import { CAPTURE_DATA_URI, mockImagesSeeded, seedMockImages } from '../support/deviceMock';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -534,4 +535,120 @@ test('끈 것을 다시 켜면 곧바로 앞자리로 돌아온다', async ({ ca
 
   await expect(recordSheet.input.categoryChip('기타')).toBeVisible();
   await expect(recordSheet.input.moreCategoriesButton).toHaveCount(0);
+});
+
+/**
+ * 이모지가 아닌 글자.
+ *
+ * 실기기에서 나온 두 가지가 여기 있다. 숫자 하나를 넣으면 뭉뚱그린 「요청 형식이 올바르지
+ * 않아요」로 끝났고(무엇을 고쳐야 하는지 알 수 없다), 한글 자음 한 글자는 그대로 통과해
+ * 아이콘 자리에 'ㅋ' 이 박혔다. 서버까지 다녀오기 전에 그 자리에서 말해 준다.
+ */
+test('이모지가 아닌 글자는 그 자리에서 왜 안 되는지 말한다', async ({ categories }) => {
+  await categories.open();
+  await categories.waitReady();
+
+  await categories.addButton.click();
+  await categories.sheet.waitOpen();
+  await categories.sheet.nameField.fill('데이트');
+  await categories.sheet.pickIconSource('이모지');
+
+  await categories.sheet.emojiField.fill('7');
+  await expect(categories.sheet.emojiNotice).toHaveText(/이모지 형식이 아니에요/);
+
+  // 자음 한 글자도 마찬가지다. 아스키가 아니라고 통과시키던 자리다.
+  await categories.sheet.emojiField.fill('ㅋ');
+  await expect(categories.sheet.emojiNotice).toHaveText(/이모지 형식이 아니에요/);
+
+  // 숫자 키캡은 이모지다. 숫자라고 싸잡아 막으면 이것까지 막힌다.
+  await categories.sheet.emojiField.fill('7️⃣');
+  await expect(categories.sheet.emojiNotice).toHaveCount(0);
+
+  await categories.sheet.saveButton.click();
+  await categories.sheet.waitClosed();
+  await expect(
+    categories.row('데이트').getByText('7️⃣', { exact: true }),
+  ).toBeVisible();
+});
+
+/**
+ * 이미 적어 둔 기록을 고치다가 분류를 만든다.
+ *
+ * 기록할 때만 만들 수 있으면, 나중에 목록을 보다가 「이건 따로 세고 싶다」 고 생각한 순간에
+ * 갈 곳이 없다. 관리 탭까지 나갔다 오면 고쳐 둔 값이 사라진다.
+ */
+test('기록을 고치다 분류를 만들면 그 기록에 바로 붙는다', async ({ calendar, prep }) => {
+  await prep.addTransaction({ amount: 12000, merchant: '꽃집' });
+
+  await calendar.open();
+  await calendar.waitReady();
+  await calendar.list.pick('꽃집');
+  await calendar.edit.waitOpen();
+
+  await calendar.edit.newCategoryButton.click();
+  await expect(calendar.edit.newCategoryTitle).toBeVisible();
+  await calendar.edit.createCategory('선물', 'gift');
+
+  // 만들기가 끝나면 폼이 접히고 칩 자리가 돌아온다. 목록이 새로 올 때까지가 한 걸음이다.
+  await expect(calendar.edit.newCategoryTitle).toHaveCount(0);
+  await expect(calendar.edit.categoryChip('선물')).toBeVisible();
+  // 만든 것이 곧바로 이 기록의 분류가 된다. 다시 찾아 누르게 하면 만든 보람이 없다.
+  await expect(calendar.edit.pickedCategory).toHaveText(/선물/);
+  // 고쳐 둔 값은 그대로 있어야 한다. 만들기가 끝나면 이어서 저장한다.
+  await expect(calendar.edit.merchant).toHaveValue('꽃집');
+  await calendar.edit.done();
+
+  // 저장까지 갔는지 다시 열어 확인한다. 화면만 바뀌고 서버에 안 갔던 일이 실제로 있었다.
+  await calendar.list.pick('꽃집');
+  await calendar.edit.waitOpen();
+  await expect(calendar.edit.pickedCategory).toHaveText(/선물/);
+});
+
+test('분류를 만들다 그만두면 고치던 화면으로 돌아온다', async ({ calendar, prep }) => {
+  await prep.addTransaction({ amount: 9000, merchant: '문구점' });
+
+  await calendar.open();
+  await calendar.waitReady();
+  await calendar.list.pick('문구점');
+  await calendar.edit.waitOpen();
+
+  await calendar.edit.merchant.fill('문구사');
+  await calendar.edit.newCategoryButton.click();
+  await calendar.edit.newCategoryBackButton.click();
+
+  await expect(calendar.edit.newCategoryTitle).toHaveCount(0);
+  await expect(calendar.edit.merchant).toHaveValue('문구사');
+});
+
+/**
+ * 앨범 사진을 아이콘으로 건다.
+ *
+ * 실기기에서 이 길이 늘 「사진을 읽지 못했어요」로 끝났다. 같은 값이 서버로는 잘 가서
+ * (캡처 인식은 됐다) 값이 깨진 것이 아니라 **읽는 길이 막힌 것**이었다. 지금은 `<img>` 가
+ * 아니라 `createImageBitmap` 으로 읽는다.
+ *
+ * ⚠ 여기서 증명되는 것은 새 길이 끝까지 돈다는 것까지다. 웹뷰가 `data:` 그림을 막았는지는
+ * Chromium 으로 못 본다. 그 판정은 실기기에서 사람이 한다.
+ */
+test('앨범에서 고른 사진이 아이콘이 된다', async ({ categories, page }) => {
+  await seedMockImages(CAPTURE_DATA_URI)(page);
+
+  await categories.open();
+  await categories.waitReady();
+  // 다이얼이 안 걸린 채로 통과하면 목이 만든 기본 그림을 보고 있는 것이다.
+  expect(await mockImagesSeeded(page)).toBe(true);
+
+  await categories.addButton.click();
+  await categories.sheet.waitOpen();
+  await categories.sheet.nameField.fill('데이트');
+  await categories.sheet.pickIconSource('사진');
+  await categories.sheet.albumButton.click();
+
+  // 읽지 못했으면 이 자리에 빨간 한 줄이 선다. 되돌리기 버튼은 실제로 걸렸을 때만 뜬다.
+  await expect(categories.sheet.clearCustomButton).toBeVisible();
+  await expect(categories.sheet.emojiNotice).toHaveCount(0);
+
+  await categories.sheet.saveButton.click();
+  await categories.sheet.waitClosed();
+  await expect(categories.iconImageOf('데이트')).toHaveAttribute('src', /^data:image\//);
 });

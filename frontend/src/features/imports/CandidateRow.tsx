@@ -4,10 +4,11 @@ import {
   type CategoryOut,
   type ImportCandidateOut,
   type ImportCandidatePatch,
+  type PaymentMethod,
   type TransactionType,
   parseDecimalOr,
 } from '../../shared/api';
-import { categoriesOfKind, type LedgerKind } from '../../shared/ledger';
+import { PaymentMethodPicker, categoriesOfKind, type LedgerKind } from '../../shared/ledger';
 import { formatDayLabel, toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import {
@@ -282,6 +283,8 @@ function CandidateForm({
   const [day, setDay] = useState(toLedgerDate(new Date(candidate.occurred_at)));
   const [type, setType] = useState<TransactionType>(candidate.type);
   const [categoryId, setCategoryId] = useState<string | null>(candidate.category_id ?? null);
+  // 영수증에 「신용」 이 찍혀 있으면 이미 채워져 있다. 못 읽었으면 여기서 고른다.
+  const [method, setMethod] = useState<PaymentMethod | null>(candidate.payment_method);
 
   const amount = Number(digits);
   const canSave = digits !== '' && amount > 0 && day !== '' && !disabled;
@@ -299,6 +302,9 @@ function CandidateForm({
     }
     if (type !== candidate.type) body.type = type;
     if (categoryId !== (candidate.category_id ?? null)) body.category_id = categoryId;
+    // 지출이 아닌 종류에는 뜻이 없다. 서버도 버리는 값이라 여기서도 안 보낸다.
+    const nextMethod = type === 'expense' ? method : null;
+    if (nextMethod !== candidate.payment_method) body.payment_method = nextMethod;
 
     return body;
   }
@@ -360,6 +366,16 @@ function CandidateForm({
         }}
         ariaLabel="종류"
       />
+
+      {/* 지출에만 선다. 수입·이체에는 결제 수단이라는 것이 없다. */}
+      {type === 'expense' ? (
+        <PaymentMethodPicker
+          className="nl-form__pay"
+          value={method}
+          disabled={disabled}
+          onChange={setMethod}
+        />
+      ) : null}
 
       {/* 수입도 어디서 온 돈인지 고를 수 있어야 한다. 이체만 분류가 없다. */}
       {type === 'expense' || type === 'income' ? (

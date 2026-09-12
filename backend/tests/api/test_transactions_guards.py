@@ -294,3 +294,59 @@ def test_허용하지_않은_출처에는_붙이지_않는다(
     r = crashing.get("/api/v1/transactions", headers={**AUTH, "Origin": "https://evil.example"})
     assert r.status_code == 500
     assert "access-control-allow-origin" not in r.headers
+
+
+def test_수입으로_고치면_결제_수단이_비워진다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """수입에 '신용카드' 가 붙어 있으면 다시 지출로 돌렸을 때 고른 적 없는 값이 되살아난다."""
+    del default_categories
+    created = _create(client, payment_method="credit")["transaction"]
+    assert created["payment_method"] == "credit"
+
+    changed = client.patch(
+        f"/api/v1/transactions/{created['id']}",
+        json={"type": "income"},
+        headers=AUTH,
+    )
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["transaction"]["payment_method"] is None
+
+
+def test_수입으로_저장하면_결제_수단을_보내도_안_붙는다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    del default_categories
+    created = _create(client, type="income", payment_method="cash")["transaction"]
+    assert created["payment_method"] is None
+
+
+def test_결제_수단은_null_을_보내면_지워진다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """분류와 같은 규칙이다. 잘못 고른 것을 되무를 길이 있어야 한다."""
+    del default_categories
+    created = _create(client, payment_method="debit")["transaction"]
+    changed = client.patch(
+        f"/api/v1/transactions/{created['id']}",
+        json={"payment_method": None},
+        headers=AUTH,
+    )
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["transaction"]["payment_method"] is None
+
+
+def test_환불은_되돌리는_지출의_결제_수단을_따라간다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """카드로 낸 것의 환불을 현금 칸에서 빼면 두 칸이 동시에 틀린다."""
+    del default_categories
+    spent = _create(client, amount="30000", payment_method="credit")["transaction"]
+    refunded = _create(
+        client,
+        amount="30000",
+        type="refund",
+        payment_method="cash",
+        refund_of_transaction_id=spent["id"],
+    )["transaction"]
+    assert refunded["payment_method"] == "credit"

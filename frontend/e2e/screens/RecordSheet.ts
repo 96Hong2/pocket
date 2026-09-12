@@ -155,6 +155,23 @@ class RecordInput {
     await this.kindButton(label).click();
   }
 
+  /**
+   * 무엇으로 냈나. 지출일 때만 선다.
+   *
+   * 안 골라도 저장되는 값이라 `aria-pressed` 로 눌린 것을 가른다.
+   */
+  get paymentGroup(): Locator {
+    return this.root.getByRole('group', { name: '결제 수단' });
+  }
+
+  paymentButton(label: '신용카드' | '체크카드' | '현금'): Locator {
+    return this.paymentGroup.getByRole('button', { name: label, exact: true });
+  }
+
+  async pickPayment(label: '신용카드' | '체크카드' | '현금'): Promise<void> {
+    await this.paymentButton(label).click();
+  }
+
   categoryChip(name: string): Locator {
     return this.root.getByRole('button', { name, exact: true });
   }

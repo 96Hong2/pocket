@@ -325,6 +325,62 @@
   /* ── 큰 지출 다섯 건 ─────────────────────────────── */
 
   /* 분류별 합계로는 "무엇을 샀길래" 가 안 보인다. 그 달에 가장 컸던 다섯 건을 그대로 적는다. */
+  /*
+    무엇으로 냈나. 이름 · 막대 · 금액 · 비중 네 칸이 한 줄이다.
+    막대는 가장 큰 줄을 꽉 차게 그린다. 비중 그대로 그리면 몇 %짜리 줄이 안 보인다.
+  */
+  .report__methods {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .report__method {
+    display: grid;
+    grid-template-columns: 58px 1fr auto 34px;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .report__method-name {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    white-space: nowrap;
+  }
+
+  .report__method-bar {
+    display: block;
+    height: 8px;
+    min-width: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+    overflow: hidden;
+  }
+
+  .report__method-fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-300);
+  }
+
+  .report__method-amount {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    white-space: nowrap;
+  }
+
+  .report__method-share {
+    font-size: var(--text-12);
+    color: var(--color-muted);
+    text-align: right;
+    white-space: nowrap;
+  }
+
   .report__large {
     display: flex;
     flex-direction: column;

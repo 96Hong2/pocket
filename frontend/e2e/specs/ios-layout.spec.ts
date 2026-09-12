@@ -73,8 +73,25 @@ test('기록을 고치는 시트도 가로로 넘치지 않는다', async ({ pag
   await calendar.edit.waitOpen();
 
   // 여기에도 날짜 칸이 있다. 검토 화면과 같은 공용 스타일을 쓴다.
+  // 결제 수단 알약 셋도 한 줄에 나란히 선다. 가장 긴 말이 '신용카드' 라 좁은 폭에서 위험하다.
+  expect(await horizontalScrollers(page)).toEqual([]);
+
+  // 분류 만들기 자리까지 펼쳐 본다. 폼 하나가 통째로 들어오는 자리다.
+  await calendar.edit.newCategoryButton.click();
+  await expect(calendar.edit.newCategoryTitle).toBeVisible();
   expect(await horizontalScrollers(page)).toEqual([]);
   await home.open();
+});
+
+test('리포트의 결제 수단 목록이 가로로 넘치지 않는다', async ({ page, prep, report }) => {
+  // 이름 · 막대 · 금액 · 비중 네 칸이 한 줄이다. 금액이 길어지면 가장 먼저 밀린다.
+  await prep.addTransaction({ amount: 1_234_000, merchant: '전세보증금', paymentMethod: 'credit' });
+  await prep.addTransaction({ amount: 87_600, merchant: '장보기', paymentMethod: 'cash' });
+
+  await report.open();
+  await report.waitReady();
+  await expect(report.methodCard).toBeVisible();
+  expect(await horizontalScrollers(page)).toEqual([]);
 });
 
 test('카테고리 관리와 목표 시트도 가로로 넘치지 않는다', async ({ page, categories, goal }) => {

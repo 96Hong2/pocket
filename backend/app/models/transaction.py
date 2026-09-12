@@ -21,9 +21,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Entity, MoneyColumn, SoftDeleteMixin, str_enum_type
 
 # 종류·입력경로의 정의는 domain 한 곳에 있다. 여기서 다시 만들지 않는다.
-from app.domain.aggregation import TransactionSource, TransactionType
+from app.domain.aggregation import PaymentMethod, TransactionSource, TransactionType
 
-__all__ = ["Transaction", "TransactionSource", "TransactionType"]
+__all__ = ["PaymentMethod", "Transaction", "TransactionSource", "TransactionType"]
 
 
 class Transaction(Entity, SoftDeleteMixin):
@@ -65,6 +65,11 @@ class Transaction(Entity, SoftDeleteMixin):
     )
     # 0~1. 키패드처럼 사용자가 직접 넣은 값은 1.0.
     confidence: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("1.0"))
+
+    # 무엇으로 냈나. 지출에만 붙는다. 안 고르면 NULL 이고, 예전 기록도 전부 NULL 이다.
+    payment_method: Mapped[PaymentMethod | None] = mapped_column(
+        str_enum_type(PaymentMethod, name="payment_method"), nullable=True
+    )
 
     # 거래목록·리포트에는 남고 예산 계산에서만 빠진다.
     excluded_from_budget: Mapped[bool] = mapped_column(
