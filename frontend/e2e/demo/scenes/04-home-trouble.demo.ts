@@ -98,7 +98,7 @@ test('06 불러오는 중과 못 불러온 홈, 그리고 다시 시도', async 
   await expect(home.hero.monthSpent).toHaveCount(0);
   await demo.beat(2);
 
-  await demo.step('그래도 10초 기록은 남는다. 못 읽는 것이 쓰는 것을 막지 않는다');
+  await demo.step('그래도 기록하기는 남는다. 못 읽는 것이 쓰는 것을 막지 않는다');
   // 이 앱의 목적은 기록이다. 조회 실패가 기록 진입점을 지우면 앱이 통째로 멈춘 것과 같다.
   await expect(home.recordButton).toBeVisible();
   await demo.clearStep();

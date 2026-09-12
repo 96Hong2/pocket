@@ -103,7 +103,7 @@ test('40 캡처 한 장에서 고른 것만 저장한다', async ({
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(SEEDED));
   await demo.beat(2);
 
-  await demo.step('10초 기록을 눌러 캡처 탭으로 옮긴다');
+  await demo.step('기록하기를 눌러 캡처 탭으로 옮긴다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.methodTab('캡처').click();
@@ -173,7 +173,7 @@ test('41 못 읽거나 사진이 막혀도 키패드로 빠져나간다', async 
   expect(await mockImagesSeeded(page), '목에 사진이 안 심겼다').toBe(true);
   await demo.open('안 될 때의 캡처', '무슨 일인지 말하고 다른 길을 남긴다');
 
-  await demo.step('10초 기록을 눌러 캡처 탭으로 옮긴다');
+  await demo.step('기록하기를 눌러 캡처 탭으로 옮긴다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.methodTab('캡처').click();

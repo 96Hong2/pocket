@@ -441,6 +441,77 @@
     color: var(--color-amber-700);
   }
 
+  /*
+    비었을 때의 안내. **안내문이 아니라 입구다.**
+
+    아이콘·글·꺾쇠를 한 줄로 놓아 목록의 다른 줄과 같은 모양으로 세운다.
+    누르면 기록 시트가 열린다. 여기서 안내만 읽고 돌아가면 그 날은 빈 날로 남는다.
+  */
+  .home-today__empty {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    border: 0;
+    background: none;
+    text-align: left;
+  }
+
+  .home-today__empty:active {
+    opacity: 0.7;
+  }
+
+  .home-today__empty-icon {
+    width: 44px;
+    height: 44px;
+    flex: none;
+  }
+
+  .home-today__empty-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .home-today__empty-title {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .home-today__empty-desc {
+    font-size: var(--text-12);
+    color: var(--color-muted);
+    /* 「하나만 / 적어도」 처럼 어절 중간에서 끊기면 읽다가 걸린다. */
+    word-break: keep-all;
+  }
+
+  .home-today__empty-go {
+    display: flex;
+    flex: none;
+    margin-left: auto;
+    color: var(--color-placeholder);
+  }
+
+  /* 안 썼다는 표시. 기록하기와 같은 크기로 두면 어느 쪽이 기록인지 다시 고민한다. */
+  .home-today__nospend {
+    display: block;
+    width: 100%;
+    padding: 10px 0 2px;
+    border: 0;
+    background: none;
+    color: var(--color-muted);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    text-align: center;
+  }
+
+  .home-today__nospend:disabled {
+    color: var(--color-disabled);
+  }
+
   /* 화면 맨 아래가 탭바에 눌리지 않게 한 뼘 남긴다. */
   .home__tail {
     height: 16px;

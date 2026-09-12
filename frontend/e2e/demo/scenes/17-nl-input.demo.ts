@@ -18,7 +18,7 @@ test('35 줄글 한 줄에 여러 건을 적는다', async ({ demo, home, record
   await home.waitReady();
   await demo.open('줄글로 적기', '한 줄에 여러 건을 적어도 따로 읽는다');
 
-  await demo.step('홈에서 10초 기록을 누른다');
+  await demo.step('홈에서 기록하기를 누른다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await demo.beat(2);
