@@ -37,14 +37,15 @@ def test_이름이_중복되지_않는다() -> None:
     assert len(names) == len(set(names))
 
 
-def test_지출_카테고리가_열두_개다() -> None:
+def test_지출_카테고리가_열한_개다() -> None:
     """기본 지출 분류 수. 늘리거나 줄이면 PRD 도 같이 고쳐야 한다.
 
-    PRD 의 아홉에 편의점·주유·구독 셋이 더해졌다(2026-09-12). 세 갈래 다 '기타' 나
-    '쇼핑' 한 칸에 몰려 리포트에서 무엇에 썼는지 읽히지 않던 것들이다.
+    PRD 의 아홉에 편의점·구독 둘이 더해졌다(2026-09-12). 둘 다 '기타' 나 '쇼핑' 한 칸에
+    몰려 리포트에서 무엇에 썼는지 읽히지 않던 갈래다. 같은 날 넣었던 '주유' 는 다시 뺐다.
+    차가 없으면 아예 안 쓰는 갈래라 모두에게 보이는 자리에 둘 것이 아니었다.
     """
     expense = [c for c in DEFAULT_CATEGORIES if c.kind is CategoryKind.EXPENSE]
-    assert len(expense) == 12
+    assert len(expense) == 11
 
 
 @pytest.mark.skipif(not ICONS_DIR.is_dir(), reason="프론트 아이콘 폴더가 없다")
@@ -92,3 +93,30 @@ def test_json_으로_옮겨도_깨지지_않는다() -> None:
         for c in DEFAULT_CATEGORIES
     ]
     assert json.loads(json.dumps(payload, ensure_ascii=False)) == payload
+
+
+@pytest.mark.skipif(not ICONS_DIR.is_dir(), reason="프론트 아이콘 폴더가 없다")
+def test_아이콘이_다_비슷한_크기다() -> None:
+    """세트가 섞이면서 어떤 것은 크고 어떤 것은 작아 목록이 들쭉날쭉했다.
+
+    파일마다 그림이 캔버스(128px)를 차지하는 비율이 달라서 생긴 일이다. 사용자가 화면을
+    보고 신고했다(2026-09-12). 파일 자체를 다시 그려 맞췄으므로, 새 아이콘을 넣을 때도
+    같은 규격을 지키게 여기서 잰다.
+
+    긴 변 하나만 본다. 세로로 긴 것과 가로로 긴 것을 한 값으로 묶는 기준이 그것뿐이다.
+    """
+    from PIL import Image  # 아이콘 규격을 잴 때만 쓴다. 서버 코드에는 안 들어간다.
+
+    longs = {}
+    for path in sorted(ICONS_DIR.glob("*.png")):
+        with Image.open(path) as image:
+            image = image.convert("RGBA")
+            box = image.getchannel("A").point(lambda v: 255 if v > 16 else 0).getbbox()
+        assert box is not None, f"{path.name} 이 비어 있다"
+        assert image.size == (128, 128), f"{path.name} 이 128px 정사각이 아니다"
+        longs[path.name] = max(box[2] - box[0], box[3] - box[1])
+
+    small = {name: value for name, value in longs.items() if value < 92}
+    big = {name: value for name, value in longs.items() if value > 112}
+    assert small == {}, f"그림이 너무 작다(긴 변 92px 미만): {small}"
+    assert big == {}, f"캔버스를 뚫는다(긴 변 112px 초과): {big}"

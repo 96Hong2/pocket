@@ -5945,6 +5945,11 @@
             ],
             "title": "Icon Custom"
           },
+          "is_quick": {
+            "type": "boolean",
+            "title": "Is Quick",
+            "default": true
+          },
           "sort_order": {
             "type": "integer",
             "title": "Sort Order"
@@ -6004,6 +6009,17 @@
               }
             ],
             "title": "Icon Custom"
+          },
+          "is_quick": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Quick"
           }
         },
         "type": "object",

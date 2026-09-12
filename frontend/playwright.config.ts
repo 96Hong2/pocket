@@ -39,7 +39,14 @@ export default defineConfig({
       use: { ...devices['Pixel 8'] },
       // 프로젝트의 testIgnore 는 위 설정의 것을 **대체한다.** 여기 다시 적지 않으면
       // 엣지케이스가 기본 검증에 섞여 매번 돌아간다.
-      testIgnore: ['**/save-speed.spec.ts', '**/edge/**'],
+      testIgnore: ['**/save-speed.spec.ts', '**/ios-layout.spec.ts', '**/edge/**'],
+    },
+    {
+      name: 'ios-layout',
+      // 미니앱은 iOS 에서 WKWebView 로 돈다. 날짜 칸처럼 **브라우저가 그리는 부품**은
+      // Chromium 과 크기가 달라, 한쪽만 재면 넘치는 것을 못 본다.
+      use: { ...devices['iPhone 14'] },
+      testMatch: '**/ios-layout.spec.ts',
     },
     {
       name: 'perf',

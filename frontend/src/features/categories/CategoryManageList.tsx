@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { useCategories, type CategoryOut } from '../../shared/api';
+import { useCategories, useUpdateCategory, type CategoryOut } from '../../shared/api';
 import {
   Button,
   Card,
@@ -9,6 +9,7 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  Toggle,
   iconOf,
 } from '../../shared/ui';
 
@@ -51,6 +52,7 @@ const GROUPS: { kind: CategoryOut['kind']; title: string; note: string }[] = [
  */
 export function CategoryManageList() {
   const categories = useCategories();
+  const update = useUpdateCategory();
   const [target, setTarget] = useState<EditTarget | null>(null);
 
   if (categories.isError) {
@@ -97,20 +99,25 @@ export function CategoryManageList() {
           <section className="cat-group" aria-label={group.title} key={group.kind}>
             <h2 className="cat-group__title">{group.title}</h2>
             <p className="cat-group__note">{group.note}</p>
+            {group.kind === 'transfer' ? null : (
+              <p className="cat-group__note cat-group__note--quick">
+                오른쪽 스위치를 끄면 기록 화면에서 「더 보기」 뒤로 가요
+              </p>
+            )}
             <Card padding="list">
               <ul className="cat-list">
-                {rows.map((category) =>
-                  category.is_default ? (
-                    <li className="cat-row" key={category.id}>
-                      <CategoryAvatar {...iconOf(category)} size={40} />
-                      <span className="cat-row__name">{category.name}</span>
-                      <Chip variant="kind">기본</Chip>
-                    </li>
-                  ) : (
-                    <li key={category.id}>
+                {rows.map((category) => (
+                  <li className="cat-row" key={category.id}>
+                    {category.is_default ? (
+                      <span className="cat-row__main">
+                        <CategoryAvatar {...iconOf(category)} size={40} />
+                        <span className="cat-row__name">{category.name}</span>
+                        <Chip variant="kind">기본</Chip>
+                      </span>
+                    ) : (
                       <button
                         type="button"
-                        className="cat-row cat-row--hit"
+                        className="cat-row__main cat-row__main--hit"
                         aria-label={`${category.name} 고치기`}
                         onClick={() => setTarget({ category })}
                       >
@@ -118,9 +125,25 @@ export function CategoryManageList() {
                         <span className="cat-row__name">{category.name}</span>
                         <span className="cat-row__go">고치기</span>
                       </button>
-                    </li>
-                  ),
-                )}
+                    )}
+                    {/*
+                      기본 분류도 여기서는 끌 수 있다. 그 값은 카테고리 행이 아니라 내 설정에
+                      남아 남에게 번지지 않는다. 끈다고 없어지지는 않는다. 기록 시트의
+                      「더 보기」 뒤로 갈 뿐이다.
+                    */}
+                    {group.kind === 'transfer' ? null : (
+                      <Toggle
+                        className="cat-row__quick"
+                        checked={category.is_quick}
+                        ariaLabel={`${category.name} 기록 화면에 보이기`}
+                        disabled={update.isPending}
+                        onChange={(next) =>
+                          update.mutate({ id: category.id, body: { is_quick: next } })
+                        }
+                      />
+                    )}
+                  </li>
+                ))}
               </ul>
             </Card>
           </section>

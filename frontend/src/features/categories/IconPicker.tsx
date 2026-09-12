@@ -69,7 +69,9 @@ export function IconPicker({ value, custom, onChange, disabled = false }: IconPi
         <EmojiField
           glyph={picked?.kind === 'emoji' ? picked.glyph : ''}
           disabled={disabled}
-          onPick={(glyph) => onChange({ icon: value, custom: glyph === '' ? null : emojiIcon(glyph) })}
+          onPick={(glyph) =>
+            onChange({ icon: value, custom: glyph === '' ? null : emojiIcon(glyph) })
+          }
         />
       ) : (
         <PhotoField
@@ -153,7 +155,12 @@ function EmojiField({
         자판의 이모지 버튼을 눌러 골라 주세요. 하나만 들어가요
       </p>
       {glyph ? (
-        <button type="button" className="icon-picker__clear" disabled={disabled} onClick={() => onPick('')}>
+        <button
+          type="button"
+          className="icon-picker__clear"
+          disabled={disabled}
+          onClick={() => onPick('')}
+        >
           기본 아이콘으로 되돌리기
         </button>
       ) : null}

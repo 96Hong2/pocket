@@ -122,19 +122,23 @@ jobs:
         working-directory: frontend
 
       # 브라우저 내려받기가 매번 1~2분이라 캐시한다. 키는 잠금 파일이다.
+      #
+      # webkit 도 받는다. 미니앱은 iOS 에서 WKWebView 로 돌고, 날짜 칸처럼 브라우저가
+      # 직접 그리는 부품은 Chromium 과 크기가 달라 한쪽만 재면 넘치는 것을 못 본다
+      # (`e2e/specs/ios-layout.spec.ts`). 그 파일만 webkit 으로 돈다.
       - name: 브라우저 캐시
         id: browser-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}-webkit
       - name: 브라우저 설치
         if: steps.browser-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
         working-directory: frontend
       - name: 브라우저 시스템 의존성만
         if: steps.browser-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        run: npx playwright install-deps chromium webkit
         working-directory: frontend
 
       - name: 스키마 올리기

@@ -47,6 +47,9 @@ class CategoryOut(BaseModel):
     icon_key: str
     # 내가 건 이모지나 사진. 있으면 화면이 icon_key 대신 이걸 그린다.
     icon_custom: str | None = None
+    # 기록 시트의 칩에 먼저 보일지. 사람마다 다른 값이라 카테고리 행이 아니라
+    # 내 설정에서 나온다(service.quick_hidden_ids). 화면은 이것으로 칩과 「더 보기」 를 가른다.
+    is_quick: bool = True
     sort_order: int
     # 모든 사용자에게 보이는 기본 카테고리인지. 내가 만든 것은 false 다.
     is_default: bool
@@ -100,6 +103,9 @@ class CategoryUpdate(BaseModel):
     name: CategoryName | None = None
     icon_key: IconKey | None = None
     icon_custom: CustomIcon | None = None
+    # 이 값만은 false 가 뜻이 있다. null 이 '그대로 둔다' 이고 false 는 '끈다' 다.
+    # **기본 분류에도 걸린다.** 이름·아이콘과 달리 내 설정에만 남기 때문이다.
+    is_quick: bool | None = None
 
     @field_validator("icon_custom")
     @classmethod

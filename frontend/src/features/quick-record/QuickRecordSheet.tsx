@@ -15,12 +15,7 @@ import {
   type PreferencesOut,
   type TransactionOut,
 } from '../../shared/api';
-import {
-  KindToggle,
-  categoriesOfKind,
-  kindOf,
-  type LedgerKind,
-} from '../../shared/ledger';
+import { KindToggle, categoriesOfKind, kindOf, type LedgerKind } from '../../shared/ledger';
 import { formatCurrency } from '../../shared/lib/format';
 import {
   BottomSheet,
@@ -33,6 +28,7 @@ import {
   type SegmentedOption,
 } from '../../shared/ui';
 
+import { CategoryEditForm } from '../categories';
 import { ImageImportTab, NaturalLanguageTab } from '../imports';
 
 import { CategoryChips } from './CategoryChips';
@@ -152,6 +148,15 @@ function RecordBody({
     // 시트가 사는 동안 한 번이다. 탭을 옮겼다고 다시 시작한 것이 아니다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /*
+    분류 만들기 자리가 열렸나.
+
+    **시트를 하나 더 띄우지 않는다.** 적던 금액이 살아 있어야 만들고 나서 그대로 이어
+    적을 수 있다. 시트가 둘이면 닫을 때 어디로 돌아가는지도 흔들린다.
+  */
+  const [creating, setCreating] = useState(false);
+  const [creatingBusy, setCreatingBusy] = useState(false);
 
   const allCategories = categories.data?.items ?? [];
   // 고른 종류의 분류만 보여준다. 섞어 두면 수입에 '식비' 가 붙어, 목록과 리포트가 다른 말을 한다.
@@ -437,12 +442,35 @@ function RecordBody({
           />
         ) : null}
 
-        {listOpen || picked == null ? (
+        {creating ? (
+          <div className="record__new-cat">
+            <div className="record__new-cat-head">
+              <span className="record__new-cat-title">새 분류 만들기</span>
+              <button
+                type="button"
+                className="record__new-cat-back"
+                disabled={creatingBusy}
+                onClick={() => setCreating(false)}
+              >
+                기록으로 돌아가기
+              </button>
+            </div>
+            <CategoryEditForm
+              // 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다.
+              fixedKind={kind}
+              onBusyChange={setCreatingBusy}
+              onClose={() => setCreating(false)}
+              // 만들자마자 고른 것으로 둔다. 다시 찾아 누르게 하면 만든 보람이 없다.
+              onCreated={(created) => pickCategory(created)}
+            />
+          </div>
+        ) : listOpen || picked == null ? (
           <CategoryChips
             categories={pickable}
             disabled={create.isPending}
             onPick={pickCategory}
             selectedId={pickedId}
+            onCreate={() => setCreating(true)}
           />
         ) : (
           <button

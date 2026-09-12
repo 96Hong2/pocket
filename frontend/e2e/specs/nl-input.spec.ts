@@ -403,3 +403,44 @@ test('이미 저장한 것의 분류만 바꿔도 저장 대상이 되지 않는
   await expect(recordSheet.nl.chip('점심', '이미 있어요')).toBeVisible();
   await expect(recordSheet.nl.checkbox('점심')).not.toBeChecked();
 });
+
+/**
+ * **적은 것이 저장돼야 한다.**
+ *
+ * 펼친 줄의 값은 「이대로 고치기」를 눌러야만 서버로 갔다. 그래서 상호를 고치고 곧바로
+ * 아래 저장을 누르면 적은 것이 통째로 버려졌다. 사용자가 실기기에서 겪은 일이다.
+ * 「이대로 고치기」를 **일부러 안 누르고** 저장하는 것이 이 테스트의 전부다.
+ */
+test('상호를 고치고 바로 저장해도 고친 이름으로 들어간다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+
+  await recordSheet.nl.openEdit('점심');
+  await recordSheet.nl.form.merchantField.fill('토끼 키링');
+
+  await recordSheet.nl.save();
+  await recordSheet.nl.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  await home.waitReady();
+  await expect(home.today.row('토끼 키링')).toBeVisible();
+  await expect(home.today.row('점심')).toHaveCount(0);
+});
+
+test('줄을 접기만 해도 적어 둔 상호가 남는다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+
+  await recordSheet.nl.openEdit('점심');
+  await recordSheet.nl.form.merchantField.fill('토끼 키링');
+  // 「이대로 고치기」가 아니라 줄 머리를 다시 눌러 접는다.
+  await recordSheet.nl.editTrigger('점심').click();
+
+  await expect(recordSheet.nl.checkbox('토끼 키링')).toBeVisible();
+});

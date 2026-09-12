@@ -118,6 +118,14 @@ export class CategoriesScreen {
   }
 
   /**
+   * 기록 화면에 보일지 정하는 스위치. **기본 분류에도 있다.**
+   * 그 값은 카테고리 행이 아니라 내 설정에 남아 남에게 번지지 않는다.
+   */
+  quickToggle(name: string): Locator {
+    return this.page.getByRole('switch', { name: `${name} 기록 화면에 보이기`, exact: true });
+  }
+
+  /**
    * 화면을 위에서 아래로 읽은 줄 이름.
    *
    * 두 구획을 이어서 한 줄기로 본다. 줄 안에는 이름 뒤에 꼬리표가 하나 더 붙는데,

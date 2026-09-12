@@ -874,6 +874,11 @@ export interface components {
             icon_key: string;
             /** Icon Custom */
             icon_custom?: string | null;
+            /**
+             * Is Quick
+             * @default true
+             */
+            is_quick: boolean;
             /** Sort Order */
             sort_order: number;
             /** Is Default */
@@ -898,6 +903,8 @@ export interface components {
             icon_key?: string | null;
             /** Icon Custom */
             icon_custom?: string | null;
+            /** Is Quick */
+            is_quick?: boolean | null;
         };
         /**
          * ChangeOut

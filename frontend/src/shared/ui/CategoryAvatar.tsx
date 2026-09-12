@@ -27,10 +27,7 @@ export function CategoryAvatar({
   const src = picked?.kind === 'photo' ? picked.src : iconUrl(icon, size >= 120 ? 'lg' : 'sm');
 
   return (
-    <div
-      className={cx('pk-avatar', className)}
-      style={{ width: `${size}px`, height: `${size}px` }}
-    >
+    <div className={cx('pk-avatar', className)} style={{ width: `${size}px`, height: `${size}px` }}>
       {picked?.kind === 'emoji' ? (
         // 이모지는 글자다. 자리를 아이콘과 똑같이 채우려고 지름에 비례해 키운다.
         <span

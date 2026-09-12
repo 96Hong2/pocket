@@ -19,6 +19,7 @@ SEED_FILE = VERSIONS / "20260903_1200_c4a1b8f2d7e3_seed_default_categories.py"
 INCOME_FILE = VERSIONS / "20260907_1900_a3f1c07b52d4_income_categories.py"
 SIDE_JOB_FILE = VERSIONS / "20260911_1500_d4a2e8c31b70_income_side_job.py"
 THREE_MORE_FILE = VERSIONS / "20260912_1700_a8c1e3f95d20_custom_icons_and_three_categories.py"
+DROP_FUEL_FILE = VERSIONS / "20260912_2100_b5d4a71c86e3_quick_pick_and_drop_fuel.py"
 
 
 def _load(path: Path) -> ModuleType:
@@ -68,6 +69,10 @@ def _applied_categories() -> list[tuple[str, str, str, int]]:
     moved.extend(
         (name, "expense", icon_key, sort_order) for name, icon_key, sort_order in three_more.ADDED
     )
+
+    # 그중 '주유' 는 다음 리비전에서 도로 뺐다. 아이콘만 남기고 기본 목록에서 내린다.
+    drop_fuel = _load(DROP_FUEL_FILE)
+    moved = [row for row in moved if row[0] != drop_fuel.DROPPED_NAME]
     return sorted(moved, key=lambda row: row[3])
 
 

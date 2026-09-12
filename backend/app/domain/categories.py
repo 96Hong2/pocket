@@ -50,8 +50,9 @@ DEFAULT_CATEGORIES: tuple[DefaultCategory, ...] = (
     # 편의점은 식비도 쇼핑도 아니다. 한 번에 적게 쓰고 자주 찍혀 어디로 보내도 그 칸이 흐려진다.
     DefaultCategory("편의점", CategoryKind.EXPENSE, "62_convenience_store", 25),
     DefaultCategory("교통", CategoryKind.EXPENSE, "33_train", 30),
-    # 주유는 교통 옆이되 따로 센다. 대중교통과 액수 단위가 다르고, 차가 없으면 아예 안 쓴다.
-    DefaultCategory("주유", CategoryKind.EXPENSE, "61_fuel_pump", 35),
+    # 35 번은 '주유' 가 하루 썼다가 빠진 자리다(2026-09-12). 차가 없으면 아예 안 쓰는 갈래라
+    # 모두에게 보이는 기본에 두지 않는다. 아이콘 `61_fuel_pump` 는 남겨 두어 필요한 사람이
+    # 직접 만들어 쓴다.
     DefaultCategory("쇼핑", CategoryKind.EXPENSE, "34_shopping_cart", 40),
     DefaultCategory("생활", CategoryKind.EXPENSE, "18_cleaning_tools", 50),
     DefaultCategory(FIXED_COST_CATEGORY, CategoryKind.EXPENSE, "12_house", 60),
