@@ -6,7 +6,7 @@ DEV_DATABASE_URL ?= postgresql+psycopg://pocket:pocket@localhost:5434/pocket
 E2E_DATABASE_URL ?= postgresql+psycopg://pocket:pocket@localhost:5434/pocket_e2e
 
 .PHONY: dev-front dev-back test lint check e2e e2e-edge \
-        docker-check db-up db-down db-reset db-psql migrate-dev migrate-e2e migrate \
+        docker-check db-up db-down db-reset reset-dev-data db-psql migrate-dev migrate-e2e migrate \
         image image-run ait serve-public
 
 ## ── 개발 서버 ───────────────────────────────────
@@ -33,6 +33,15 @@ db-up: docker-check
 
 db-down:
 	docker compose stop db
+
+# 개발 DB 에서 내 데이터만 지운다. 스키마와 기본 카테고리는 그대로 둔다.
+# 첫 기록 흐름(홈 화면 추가 안내 등)을 다시 보려고 쓴다.
+#
+# 반드시 DELETE 다. `TRUNCATE users CASCADE` 는 테이블 단위로 돌아서
+# user_id 가 비어 있는 **전역 기본 카테고리 14개까지 지운다**(한 번 당했다).
+# FK 가 전부 ON DELETE CASCADE 라 이 한 줄이면 자식 행이 따라 지워진다.
+reset-dev-data: db-up
+	docker exec pocket-db psql -U pocket -d pocket -c "DELETE FROM users;"
 
 # 데이터를 지운다. initdb 스크립트를 고쳤을 때만 필요하다.
 # initdb 는 볼륨이 빈 첫 기동에만 돌기 때문에 볼륨을 지우지 않으면 반영되지 않는다.

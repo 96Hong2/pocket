@@ -128,6 +128,11 @@ export class SettingsScreen {
     return this.page.getByRole('switch', { name: '이 기기에서 광고 끄기' });
   }
 
+  /** 한 번만 뜨는 안내를 처음 상태로. 실기기에서 첫 기록 흐름을 다시 보려면 이게 있어야 한다. */
+  get resetMarksButton(): Locator {
+    return this.page.getByRole('button', { name: '안내를 처음 상태로', exact: true });
+  }
+
   /**
    * 화면 어디든 그 글자.
    *

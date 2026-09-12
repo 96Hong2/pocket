@@ -111,6 +111,7 @@ export const test = base.extend<PocketFixtures>({
   // 기본 page 를 감싼다. 격리 트랩 주입과 감시가 모든 테스트에 자동으로 걸린다.
   page: async ({ page, anonKey, consoleErrorAllowList }, use) => {
     await page.addInitScript(installAnonKeyTrap, anonKey);
+    await page.addInitScript(silenceHomeAddPrompt);
 
     const violations: string[] = [];
     const consoleErrors: string[] = [];
@@ -165,3 +166,24 @@ export const test = base.extend<PocketFixtures>({
 });
 
 export { expect };
+
+/**
+ * 홈 화면 추가 안내를 「이미 봤다」 로 두고 시작한다.
+ *
+ * 이 안내는 첫 기록을 마치는 순간 스스로 열린다. 실제 동작이 그렇지만, 기록으로 시작하는
+ * 다른 테스트에서는 그 시트가 다음 조작을 가로막는다(예산·달력·리포트 아홉 건이 그렇게 깨졌다).
+ * 안내 자체는 `specs/home-add.spec.ts` 가 이 표시를 지우고 확인한다.
+ *
+ * 토스 devtools 목 SDK 의 저장소는 `__ait_storage:` 접두사를 붙인 localStorage 다.
+ */
+function silenceHomeAddPrompt(): void {
+  /*
+    init script 는 about:blank 처럼 저장소를 못 여는 문서에서도 돈다.
+    거기서 던지면 그 오류가 콘솔 감시에 잡혀 관계없는 테스트가 깨진다(플랫폼 엣지 넷이 그랬다).
+  */
+  try {
+    window.localStorage.setItem('__ait_storage:home-add-prompted', '1');
+  } catch {
+    /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+  }
+}

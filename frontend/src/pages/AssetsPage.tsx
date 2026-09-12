@@ -1,4 +1,5 @@
 import { IdentityNotice } from '../app/IdentityNotice';
+import { AdSlot } from '../features/ads';
 import { AssetsBoard } from '../features/assets';
 
 /** 자산. 계좌를 연결하지 않고 대략 얼마인지만 적어 순자산을 본다. */
@@ -15,6 +16,9 @@ export default function AssetsPage() {
       <IdentityNotice />
 
       <AssetsBoard />
+
+      {/* 목록 맨 아래. 자산을 적는 흐름을 끊지 않는 자리다. */}
+      <AdSlot placement="assets" />
     </div>
   );
 }

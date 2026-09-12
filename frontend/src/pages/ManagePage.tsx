@@ -34,9 +34,6 @@ export default function ManagePage() {
 
       <BudgetSection />
 
-      {/* 예산 아래, 하위 화면 목록 위. 이 화면은 모드에 따라 갈리지 않아 늘 같은 자리다. */}
-      <AdSlot placement="manage" />
-
       <nav aria-label="관리 하위 화면">
         <Card padding="list">
           <ul className="link-rows">
@@ -51,6 +48,12 @@ export default function ManagePage() {
           </ul>
         </Card>
       </nav>
+
+      {/*
+        배너는 화면 맨 끝이다. 예산과 하위 화면 사이에 두면 할 일 흐름을 끊는다.
+        이 화면은 모드에 따라 갈리지 않아 늘 같은 자리다.
+      */}
+      <AdSlot placement="manage" />
     </div>
   );
 }

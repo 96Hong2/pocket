@@ -1,111 +1,57 @@
 /*
-  홈 화면에 추가하도록 이끄는 자리. 홈 카드 하나와 안내 시트 하나다.
+  홈 화면에 추가하도록 이끄는 안내 시트.
 
-  카드는 기록을 가리지 않는다. 홈에서 할 일은 기록이고 이것은 곁들이는 제안이라,
-  히어로·기록 버튼보다 조용한 색으로 둔다.
+  첫 기록 직후 스스로 열리고, 앱 설정의 줄에서도 같은 시트를 연다.
+  처음에는 홈 카드였는데 목록에 섞여 그냥 지나쳐져서 시트 하나로 합쳤다.
+
+  읽을 것을 줄이는 것이 이 화면의 전부다. 안내를 읽으려고 앱을 연 사람은 없다.
 */
 
 @layer components {
-  .home-add {
+  /* ── 큰 그림과 한 줄 ───────────────────────── */
+
+  .home-add-hero {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 12px;
-    margin-top: 16px;
-    padding: 14px 16px;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-card);
+    gap: 10px;
+    margin: 2px 0 20px;
   }
 
-  .home-add__icon {
-    flex: none;
-    width: 36px;
-    height: 36px;
+  /* 파일은 128px 이라 여기서 키워도 흐려지지 않는다. */
+  .home-add-hero__icon {
+    width: 76px;
+    height: 76px;
   }
 
-  /* 글자 칸이 남는 자리를 다 먹어야 버튼이 오른쪽 끝에 붙는다. */
-  .home-add__body {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .home-add__title {
+  .home-add-hero__lead {
     margin: 0;
-    font-size: var(--text-14);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-ink);
-  }
-
-  .home-add__hint {
-    margin: 2px 0 0;
-    font-size: var(--text-12);
-    color: var(--color-muted);
-  }
-
-  /*
-    버튼 둘. 좁은 화면에서는 글자 칸 아래로 내려간다.
-    한 줄에 억지로 붙이면 '추가하는 법' 이 두 줄로 접히면서 줄 높이가 튄다.
-  */
-  .home-add__actions {
-    display: flex;
-    flex: none;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .home-add__later,
-  .home-add__go {
-    min-height: 36px;
-    padding: 0 12px;
-    border-radius: var(--radius-pill);
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
-    white-space: nowrap;
-  }
-
-  .home-add__later {
-    background: transparent;
-    color: var(--color-muted);
-  }
-
-  .home-add__go {
-    background: var(--color-sage-50);
-    color: var(--color-sage-700);
-  }
-
-  @media (max-width: 360px) {
-    .home-add {
-      flex-wrap: wrap;
-    }
-
-    .home-add__actions {
-      flex: 1 0 100%;
-      justify-content: flex-end;
-    }
-  }
-
-  /* ── 안내 시트 ───────────────────────── */
-
-  .home-add-sheet__lead {
-    margin: 0 0 16px;
     font-size: var(--text-14);
     line-height: 1.55;
     color: var(--color-muted);
+    text-align: center;
+    /* 「단계 / 가 없어져요」 처럼 어절 중간에서 끊기면 읽다가 걸린다. */
+    word-break: keep-all;
   }
+
+  /* ── 세 단계 ───────────────────────── */
 
   .home-add-steps {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 4px;
     margin: 0;
-    padding: 0;
+    padding: 8px 0;
     list-style: none;
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
   }
 
   .home-add-steps__item {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
+    gap: 10px;
+    padding: 8px 14px;
   }
 
   /* 번호는 그림이다. 순서는 ol 이 이미 알려 주므로 스크린리더에서 뺀다. */
@@ -114,10 +60,12 @@
     flex: none;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
+    /* 칩 높이(28px)의 한가운데에 맞춘다. */
+    margin-top: 3px;
     border-radius: 50%;
-    background: var(--color-sage-50);
+    background: var(--color-sage-100);
     color: var(--color-sage-700);
     font-size: var(--text-12);
     font-weight: var(--font-weight-bold);
@@ -126,32 +74,58 @@
   .home-add-steps__body {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
     min-width: 0;
   }
 
-  .home-add-steps__action {
+  /*
+    눌러야 할 것과 그 앞뒤 말이 한 줄에 섞인다. 칩이 줄을 넘겨도 앞말이 따라가야 해서
+    inline-flex 로 두고 wrap 을 허용한다.
+  */
+  .home-add-steps__line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
     font-size: var(--text-15);
     font-weight: var(--font-weight-semibold);
     color: var(--color-ink);
+    word-break: keep-all;
   }
 
-  .home-add-steps__detail {
-    font-size: var(--text-13);
+  .home-add-steps__lead,
+  .home-add-steps__tail {
     color: var(--color-muted);
+    font-weight: var(--font-weight-semibold);
   }
 
-  .home-add-sheet__note {
-    margin: 16px 0 0;
-    padding: 10px 12px;
-    background: var(--color-bg);
+  /*
+    **화면에서 찾아야 할 것을 그 모양 그대로 보여 준다.**
+    글로 "휴대폰 홈 화면에 추가를 고르세요" 라고 적으면 어디까지가 메뉴 이름인지 흐려진다.
+  */
+  .home-add-steps__chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 10px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-inset);
-    font-size: var(--text-13);
-    color: var(--color-muted);
+    color: var(--color-ink);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    /* 메뉴 이름은 끊기면 못 찾는다. 좁은 화면에서는 줄을 통째로 넘긴다. */
+    white-space: nowrap;
+  }
+
+  .home-add-steps__hint {
+    font-size: var(--text-12);
+    color: var(--color-placeholder);
+    word-break: keep-all;
   }
 
   .home-add-sheet__done {
-    margin-top: 16px;
+    margin-top: 20px;
   }
 
   /* 설정 목록에서 버튼도 링크 줄과 같은 모양으로 선다. */

@@ -10,7 +10,7 @@ import type { BannerHandle } from '../../shared/toss';
 const TEST_GROUP = 'ait-ad-test-banner-id';
 
 /** 배너가 선 자리. 로그에서 어느 화면의 배너인지 가른다. */
-export type AdPlacement = 'home' | 'report' | 'manage' | 'settings';
+export type AdPlacement = 'home' | 'report' | 'manage' | 'settings' | 'assets' | 'goal';
 
 /**
  * 같은 자리에 배너를 다시 요청하기까지 두는 최소 간격.
@@ -33,7 +33,7 @@ function inCooldown(placement: AdPlacement): boolean {
   return Date.now() - (lastRequestAt.get(placement) ?? 0) < REQUEST_COOLDOWN_MS;
 }
 
-type SlotState = 'waiting' | 'shown' | 'collapsed';
+type SlotState = 'waiting' | 'shown' | 'collapsed' | 'preview';
 
 export interface AdSlotProps {
   placement: AdPlacement;
@@ -95,8 +95,14 @@ export function AdSlot({ placement }: AdSlotProps) {
       .then(([, optedOut]) => {
         if (!alive) return;
         if (optedOut) {
-          // 만든 사람 기기다. 자리까지 접는다. 테스트 배너로 바꿔 두면 그것도 노출로 센다.
-          done('collapsed', 'opted_out');
+          /*
+            만든 사람 기기다. 광고는 안 붙인다. 테스트 배너로 바꿔 두면 그것도 노출로 센다.
+
+            대신 **같은 크기의 빈 자리**를 남긴다. 접어 버리면 배너가 들어갔을 때 화면이
+            어떻게 보이는지 확인할 수 없어, 정작 광고 자리가 어색하지 않은지 못 본다.
+            이 자리는 광고가 아니라 우리가 그린 빈 칸이라 「광고 변형」 과 무관하다.
+          */
+          done('preview', 'opted_out');
           return;
         }
         /*
@@ -125,10 +131,20 @@ export function AdSlot({ placement }: AdSlotProps) {
       ref={hostRef}
       data-testid={TEST_IDS.adSlot}
       data-placement={placement}
-      className={state === 'collapsed' ? 'ad-slot ad-slot--collapsed' : 'ad-slot'}
-    />
+      data-state={state}
+      className={SLOT_CLASS[state]}
+    >
+      {state === 'preview' ? <span className="ad-slot__preview">광고 자리</span> : null}
+    </div>
   );
 }
+
+const SLOT_CLASS: Record<SlotState, string> = {
+  waiting: 'ad-slot',
+  shown: 'ad-slot',
+  collapsed: 'ad-slot ad-slot--collapsed',
+  preview: 'ad-slot ad-slot--preview',
+};
 
 /**
  * 어느 배너를 붙일지 정한다.

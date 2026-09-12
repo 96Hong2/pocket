@@ -1,6 +1,6 @@
 import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
-import { BottomSheet, Button } from '../../shared/ui';
+import { BottomSheet, Button, iconUrl } from '../../shared/ui';
 
 /**
  * 홈 화면에 추가하는 법.
@@ -9,19 +9,32 @@ import { BottomSheet, Button } from '../../shared/ui';
  * 미니앱에는 그 자리를 여는 API 가 없다. 그래서 이 시트가 하는 일은 하나다:
  * 어디를 눌러야 하는지 손가락으로 가리키듯 알려 주는 것.
  *
- * 세 단계를 넘기지 않는다. 네 단계째부터는 읽지 않고 닫는다.
+ * 처음에는 단계마다 설명을 한 줄씩 더 붙였는데, 읽을 것이 여섯 줄이 되니 읽히지 않았다.
+ * **눌러야 할 것을 글이 아니라 칩 모양으로 보여 준다.** 화면에서 그렇게 생긴 것을 찾으면
+ * 되므로, 문장을 읽지 않아도 따라 할 수 있다.
  */
 
 interface Step {
-  /** 화면에 보이는 그대로 적는다. 우리 말로 바꿔 적으면 그 메뉴를 못 찾는다. */
-  action: string;
-  detail: string;
+  /** 칩 앞에 붙는 말. 없으면 칩부터 시작한다. */
+  lead?: string;
+  /** 화면에 보이는 그대로. 우리 말로 바꿔 적으면 그 메뉴를 못 찾는다. */
+  target: string;
+  /** 칩 뒤에 붙는 말. */
+  tail: string;
+  /** 그 자리를 못 찾을 때만 필요한 한 줄. 꼭 필요한 단계에만 둔다. */
+  hint?: string;
 }
 
 const STEPS: Step[] = [
-  { action: '화면 맨 위 오른쪽 ⋯ 누르기', detail: '토스가 주는 공통 메뉴가 열려요' },
-  { action: '휴대폰 홈 화면에 추가 고르기', detail: '목록 안에 그대로 적혀 있어요' },
-  { action: '추가 누르기', detail: '홈 화면에 아이콘이 생겨요' },
+  {
+    lead: '맨 위 오른쪽',
+    target: '⋯',
+    tail: '누르기',
+    // ⋯ 는 토스가 그리는 자리라 우리 화면 어디에도 없다. 어디쯤인지만 알려 준다.
+    hint: '앱 이름 오른쪽, ✕ 바로 왼쪽',
+  },
+  { target: '휴대폰 홈 화면에 추가', tail: '고르기' },
+  { target: '추가', tail: '누르기' },
 ];
 
 export interface AddToHomeSheetProps {
@@ -37,36 +50,47 @@ export function AddToHomeSheet({ open, onClose, from }: AddToHomeSheetProps) {
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
   useOverlayBackClose(open, onClose);
 
+  // 첫 기록 직후에는 방금 한 일과 이어 붙인다. 설정에서 연 사람에게 「첫 기록」 은 남의 얘기다.
+  const firstRecord = from === 'first_record';
+
   return (
     <BottomSheet
       open={open}
       onClose={onClose}
-      title="홈 화면에 추가하면 더 빨라요"
+      title={firstRecord ? '첫 기록 끝! 홈에 두면 더 빨라요' : '홈 화면에 추가하면 더 빨라요'}
       className="home-add-sheet"
     >
-      <p className="home-add-sheet__lead">
-        토스를 열고 찾을 필요 없이, 홈 화면에서 바로 눌러 기록해요
-      </p>
+      <div className="home-add-hero">
+        <img
+          className="home-add-hero__icon"
+          src={iconUrl('04_home')}
+          alt=""
+          aria-hidden="true"
+        />
+        {/*
+          횟수를 못 박지 않는다. 「휴대폰 홈 화면에 추가」 뒤에 토스가 아니라 **운영체제가** 그리는
+          확인 단계가 더 붙고, 그 수는 기기마다 다르다. 세 번이라고 적으면 그 말부터 틀린다.
+        */}
+        <p className="home-add-hero__lead">토스를 열고 찾는 단계가 없어져요</p>
+      </div>
 
       <ol className="home-add-steps">
         {STEPS.map((step, index) => (
-          <li className="home-add-steps__item" key={step.action}>
+          <li className="home-add-steps__item" key={step.target}>
             <span className="home-add-steps__no" aria-hidden="true">
               {index + 1}
             </span>
             <span className="home-add-steps__body">
-              <span className="home-add-steps__action">{step.action}</span>
-              <span className="home-add-steps__detail">{step.detail}</span>
+              <span className="home-add-steps__line">
+                {step.lead ? <span className="home-add-steps__lead">{step.lead}</span> : null}
+                <span className="home-add-steps__chip">{step.target}</span>
+                <span className="home-add-steps__tail">{step.tail}</span>
+              </span>
+              {step.hint ? <span className="home-add-steps__hint">{step.hint}</span> : null}
             </span>
           </li>
         ))}
       </ol>
-
-      {/*
-        ⋯ 는 토스가 그리는 자리라 우리 화면 어디에도 없다. 그림으로 흉내 내면 그걸 찾다가
-        더 헤매므로, 어디쯤인지만 한 줄로 알려 준다.
-      */}
-      <p className="home-add-sheet__note">⋯ 는 앱 이름 오른쪽, ✕ 바로 왼쪽에 있어요</p>
 
       <Button
         className="home-add-sheet__done"
