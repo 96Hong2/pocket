@@ -51,7 +51,20 @@ class ImportTextIn(BaseModel):
 class ImportImageIn(BaseModel):
     """캡처 한 장. `data:image/png;base64,...` 형태의 문자열로 받는다."""
 
-    image: str = Field(min_length=32, max_length=MAX_IMAGE_DATA_URL_LENGTH)
+    # 상한을 `max_length` 로 걸지 않는다. 그쪽에 걸리면 영어 형식 오류가 나서 화면에
+    # 「요청 형식이 올바르지 않아요」 가 뜬다. 사진이 커서 막혔다는 것을 알아야 다른 사진을
+    # 고른다. 판정은 아래 검증기가 하고, 스펙에는 같은 값이 그대로 실린다.
+    image: str = Field(
+        min_length=32,
+        json_schema_extra={"maxLength": MAX_IMAGE_DATA_URL_LENGTH},
+    )
+
+    @field_validator("image")
+    @classmethod
+    def _within_limit(cls, value: str) -> str:
+        if len(value) > MAX_IMAGE_DATA_URL_LENGTH:
+            raise ValueError("사진이 너무 커요. 조금 작게 찍거나 다른 사진으로 골라 주세요.")
+        return value
 
 
 class ImportMetaOut(BaseModel):

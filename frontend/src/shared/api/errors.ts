@@ -125,8 +125,13 @@ const NO_RETRY_CODES: ReadonlySet<string> = new Set([
   CLIENT_ERROR_CODES.badResponse,
 ]);
 
-/** 요청이 잘못됐거나 대상이 없는 상태. 되돌리기 창을 재시도로 태우지 않게 여기서 끊는다. */
-const NO_RETRY_STATUS: ReadonlySet<number> = new Set([400, 401, 403, 404, 409, 422]);
+/**
+ * 요청이 잘못됐거나 대상이 없는 상태. 되돌리기 창을 재시도로 태우지 않게 여기서 끊는다.
+ *
+ * 413(보낸 것이 너무 큼)과 429(오늘 몫을 다 씀)도 같은 요청을 그대로 다시 보내 봐야
+ * 똑같이 막힌다. 429 는 다시 보낼수록 오히려 창이 늦게 열린다.
+ */
+const NO_RETRY_STATUS: ReadonlySet<number> = new Set([400, 401, 403, 404, 409, 413, 422, 429]);
 
 export interface ApiErrorInit {
   code: ApiErrorCode;

@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Callable
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from functools import partial
 from typing import NamedTuple
@@ -761,24 +761,40 @@ def _record_usage(
 
 
 def _require_quota(session: Session, user: User, today: date, *, label: str) -> None:
-    """하루에 쓸 수 있는 만큼을 넘겼는지 본다.
+    """쓸 수 있는 만큼을 넘겼는지 본다. 하루치와 **몰아치기** 둘을 함께 본다.
 
-    상한은 넉넉하다. 습관이 붙기 전에 막으면 앱을 쓸 이유가 사라진다.
+    하루 상한은 넉넉하다. 습관이 붙기 전에 막으면 앱을 쓸 이유가 사라진다.
     막혀도 키패드 기록은 그대로 돌아간다.
+
+    하루 상한만으로는 몇 초 만에 하루치를 다 태우는 것을 못 막는다. 그 한 번이 모델 비용이고
+    토스 API 한도라, 1분 창을 하나 더 둔다. **사람은 1분에 사진 열 장을 고르고 검토할 수
+    없다.** 실패한 호출은 세지 않는다(성공했을 때만 `ParseUsage` 한 줄이 남는다).
 
     줄글·캡처·영수증이 같은 상한을 나눠 쓴다. label 은 사용자에게 무엇을 다 썼는지 말해 주는
     문구일 뿐이고, 지금은 셋을 따로 세지 않는다.
     """
-    limit = get_settings().nl_parse_daily_limit
+    settings = get_settings()
     start, _ = ledger.day_bounds(today, ledger.user_tz(user))
-    used = session.scalar(
-        select(func.count())
-        .select_from(ParseUsage)
-        .where(ParseUsage.user_id == user.id, ParseUsage.created_at >= start)
-    )
-    if (used or 0) >= limit:
+    if _used_since(session, user, start) >= settings.nl_parse_daily_limit:
         raise ApiError(
             ErrorCode.USAGE_LIMIT,
             f"오늘은 {label}을 충분히 썼어요. 키패드로는 계속 기록할 수 있어요.",
             status_code=429,
         )
+
+    window = datetime.now(UTC) - timedelta(seconds=settings.nl_parse_burst_window_seconds)
+    if _used_since(session, user, window) >= settings.nl_parse_burst_limit:
+        raise ApiError(
+            ErrorCode.USAGE_LIMIT,
+            "조금 빠르게 이어서 부르고 있어요. 잠시 뒤에 다시 해 주세요.",
+            status_code=429,
+        )
+
+
+def _used_since(session: Session, user: User, since: datetime) -> int:
+    used = session.scalar(
+        select(func.count())
+        .select_from(ParseUsage)
+        .where(ParseUsage.user_id == user.id, ParseUsage.created_at >= since)
+    )
+    return used or 0
