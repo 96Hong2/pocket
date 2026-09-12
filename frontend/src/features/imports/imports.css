@@ -367,21 +367,6 @@
     border-top: 1px solid var(--color-divider);
   }
 
-  /*
-    `1fr` 은 min-content 아래로는 안 줄어든다. 금액칸이 제 내용만큼 자라면서 이 격자를
-    밀어 상호가 115px 까지 좁아졌다. `minmax(0, 1fr)` 로 두 칸을 정확히 반씩 나눈다.
-  */
-  .nl-form__fields {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 10px;
-    align-items: end;
-  }
-
-  .nl-form__fields > * {
-    min-width: 0;
-  }
-
   .nl-form__field {
     display: flex;
     min-width: 0;

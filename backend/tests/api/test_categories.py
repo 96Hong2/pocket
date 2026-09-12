@@ -21,6 +21,7 @@ from app.domain.categories import (
 )
 from app.models import Category, CategoryBudget, CategoryKind, MerchantRule, User
 from app.modules import ledger
+from app.modules.categories import service as category_service
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
 
@@ -475,3 +476,81 @@ def test_그림도_이모지도_아닌_값은_막는다(
             json={"name": f"막힘{bad[:6]}", "icon_key": "26_sparkles", "icon_custom": bad},
         )
         assert blocked.status_code == 422, bad
+
+
+# ── 기록 화면에 먼저 보일 분류 ──────────────────────────────────
+
+
+def _by_name(client: TestClient, name: str) -> dict:
+    items = client.get("/api/v1/categories", headers=AUTH).json()["items"]
+    return next(i for i in items if i["name"] == name)
+
+
+def test_처음에는_전부_기록_화면에_보인다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    del default_categories
+    items = client.get("/api/v1/categories", headers=AUTH).json()["items"]
+    assert all(i["is_quick"] for i in items)
+
+
+def test_기본_분류도_기록_화면에서_뺄_수_있다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """이름·아이콘은 못 고쳐도 이건 된다. 내 설정에만 남아 남에게 번지지 않는다."""
+    del default_categories
+    target = _by_name(client, "식비")
+
+    patched = client.patch(
+        f"/api/v1/categories/{target['id']}", headers=AUTH, json={"is_quick": False}
+    )
+    assert patched.status_code == 200
+    assert patched.json()["is_quick"] is False
+    # 이름은 그대로다. 기본 분류를 고친 것이 아니다.
+    assert patched.json()["name"] == "식비"
+
+    assert _by_name(client, "식비")["is_quick"] is False
+    assert _by_name(client, "교통")["is_quick"] is True
+
+    back = client.patch(f"/api/v1/categories/{target['id']}", headers=AUTH, json={"is_quick": True})
+    assert back.json()["is_quick"] is True
+
+
+def test_기본_분류의_이름은_여전히_못_고친다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    del default_categories
+    target = _by_name(client, "식비")
+    blocked = client.patch(
+        f"/api/v1/categories/{target['id']}", headers=AUTH, json={"name": "밥값"}
+    )
+    assert blocked.status_code == 422
+    assert _by_name(client, "식비")["name"] == "식비"
+
+
+def test_내가_끈_것이_남에게_번지지_않는다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """기본 분류는 모두가 같은 행을 본다. 끈 것이 그 행에 적히면 전부에게 꺼진다."""
+    del default_categories
+    target = _by_name(client, "식비")
+    client.patch(f"/api/v1/categories/{target['id']}", headers=AUTH, json={"is_quick": False})
+
+    other = User(anon_key_hash="other-user-hash")
+    db.add(other)
+    db.commit()
+    # 남의 눈으로 같은 목록을 본다. 화면이 읽는 그 값을 그대로 부른다.
+    assert str(target["id"]) not in category_service.quick_hidden_ids(db, other)
+
+
+def test_새로_만든_분류는_바로_기록_화면에_선다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """숨긴 것만 적으므로 목록을 따로 고치지 않아도 보인다."""
+    del default_categories
+    created = client.post(
+        "/api/v1/categories",
+        headers=AUTH,
+        json={"name": "반려동물", "icon_key": "16_paw"},
+    )
+    assert created.json()["is_quick"] is True

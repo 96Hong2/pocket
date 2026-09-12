@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   type CategoryOut,
@@ -45,6 +45,8 @@ export interface CandidateRowProps {
   onEdit: () => void;
   onEditClose: () => void;
   onSave: (body: ImportCandidatePatch) => void;
+  /** 펼친 폼이 아직 안 보낸 값을 목록이 꺼내 갈 수 있게 하는 통로. */
+  onDraftChange: (read: (() => ImportCandidatePatch) | null) => void;
 }
 
 /**
@@ -63,6 +65,7 @@ export function CandidateRow({
   onEdit,
   onEditClose,
   onSave,
+  onDraftChange,
 }: CandidateRowProps) {
   const name = candidate.merchant ?? '이름 없음';
   const category = categories.find((item) => item.id === candidate.category_id);
@@ -192,6 +195,7 @@ export function CandidateRow({
           categories={categories}
           disabled={disabled}
           onSave={onSave}
+          onDraftChange={onDraftChange}
         />
       ) : null}
     </li>
@@ -248,6 +252,14 @@ interface CandidateFormProps {
   categories: CategoryOut[];
   disabled: boolean;
   onSave: (body: ImportCandidatePatch) => void;
+  /**
+   * 아직 안 보낸 값을 꺼내 가는 통로.
+   *
+   * 여기 적은 것은 「이대로 고치기」를 눌러야 서버로 갔다. 그래서 상호를 고치고 곧바로
+   * 아래 저장 버튼을 누르면 **적은 것이 통째로 버려졌다**(실제로 겪은 일이다).
+   * 줄을 접거나 저장하기 직전에 바깥이 이 함수를 불러 마지막 값을 가져간다.
+   */
+  onDraftChange: (read: (() => ImportCandidatePatch) | null) => void;
 }
 
 /** 그 종류로 고를 수 있는 분류. 이체는 집계에서 빠지므로 분류를 두지 않는다. */
@@ -258,7 +270,13 @@ function pickableFor(type: TransactionType, categories: CategoryOut[]): Category
   return [];
 }
 
-function CandidateForm({ candidate, categories, disabled, onSave }: CandidateFormProps) {
+function CandidateForm({
+  candidate,
+  categories,
+  disabled,
+  onSave,
+  onDraftChange,
+}: CandidateFormProps) {
   const [merchant, setMerchant] = useState(candidate.merchant ?? '');
   const [digits, setDigits] = useState(String(parseDecimalOr(candidate.amount, 0)));
   const [day, setDay] = useState(toLedgerDate(new Date(candidate.occurred_at)));
@@ -268,20 +286,31 @@ function CandidateForm({ candidate, categories, disabled, onSave }: CandidateFor
   const amount = Number(digits);
   const canSave = digits !== '' && amount > 0 && day !== '' && !disabled;
 
-  function submit(): void {
+  /** 지금 칸에 적힌 것 중 원래와 달라진 것만. 아무것도 안 바꿨으면 빈 객체다. */
+  function draft(): ImportCandidatePatch {
     const body: ImportCandidatePatch = {};
     const trimmed = merchant.trim();
 
     if (trimmed !== (candidate.merchant ?? '')) body.merchant = trimmed === '' ? null : trimmed;
-    if (amount !== parseDecimalOr(candidate.amount, 0)) body.amount = String(amount);
-    if (day !== toLedgerDate(new Date(candidate.occurred_at))) {
+    // 숫자가 아니거나 0 이면 보내지 않는다. 지우다 만 칸을 저장에 실어 보내면 안 된다.
+    if (amount > 0 && amount !== parseDecimalOr(candidate.amount, 0)) body.amount = String(amount);
+    if (day !== '' && day !== toLedgerDate(new Date(candidate.occurred_at))) {
       body.occurred_at = toLedgerNoonIso(day);
     }
     if (type !== candidate.type) body.type = type;
     if (categoryId !== (candidate.category_id ?? null)) body.category_id = categoryId;
 
-    onSave(body);
+    return body;
   }
+
+  /*
+    바깥이 마지막 값을 가져갈 수 있게 함수를 걸어 둔다.
+    값이 바뀔 때마다 다시 걸어야 최신 상태를 읽는 함수가 올라간다. 폼이 사라지면 뗀다.
+  */
+  useEffect(() => {
+    onDraftChange(draft);
+    return () => onDraftChange(null);
+  });
 
   return (
     <div className="nl-form">
@@ -300,18 +329,22 @@ function CandidateForm({ candidate, categories, disabled, onSave }: CandidateFor
         />
       </label>
 
-      <div className="nl-form__fields">
-        <AmountField variant="compact" label="금액" value={digits} onChange={setDigits} />
-        <label className="nl-form__field">
-          <span className="nl-form__label">날짜</span>
-          <input
-            className="nl-form__input pk-date"
-            type="date"
-            value={day}
-            onChange={(event) => setDay(event.target.value)}
-          />
-        </label>
-      </div>
+      <AmountField variant="compact" label="금액" value={digits} onChange={setDigits} />
+
+      {/*
+        **날짜는 제 줄을 통째로 쓴다.** 금액과 나란히 반칸에 두었더니 iOS 에서 칸 밖으로
+        삐져나가 화면에 가로 스크롤이 생겼다. 날짜 칸의 폭은 브라우저가 정하는 것이라
+        우리가 깎을 수 없다. 좁은 칸에 우겨넣지 않는 쪽으로 푼다.
+      */}
+      <label className="nl-form__field">
+        <span className="nl-form__label">날짜</span>
+        <input
+          className="nl-form__input pk-date"
+          type="date"
+          value={day}
+          onChange={(event) => setDay(event.target.value)}
+        />
+      </label>
 
       <SegmentedControl
         className="nl-form__types"
@@ -346,7 +379,12 @@ function CandidateForm({ candidate, categories, disabled, onSave }: CandidateFor
         </div>
       ) : null}
 
-      <Button className="nl-form__done" fullWidth disabled={!canSave} onClick={submit}>
+      <Button
+        className="nl-form__done"
+        fullWidth
+        disabled={!canSave}
+        onClick={() => onSave(draft())}
+      >
         이대로 고치기
       </Button>
     </div>

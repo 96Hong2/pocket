@@ -159,6 +159,21 @@ class RecordInput {
     return this.root.getByRole('button', { name, exact: true });
   }
 
+  /** 꺼 둔 분류를 펼치는 칩. 꺼 둔 것이 없으면 아예 없다. */
+  get moreCategoriesButton(): Locator {
+    return this.root.getByRole('button', { name: /^\d+개 더$/ });
+  }
+
+  /** 분류를 여기서 바로 만든다. 관리 탭까지 가지 않는다. */
+  get newCategoryButton(): Locator {
+    return this.root.getByRole('button', { name: '새 분류', exact: true });
+  }
+
+  /** 「새 분류」를 누르면 칩 자리에 펼쳐지는 만들기 폼. 시트를 더 띄우지 않는다. */
+  get newCategoryForm(): RecordNewCategory {
+    return new RecordNewCategory(this.root);
+  }
+
   /**
    * 칩에 적힌 이름을 위에서 아래로 읽는다.
    *
@@ -167,7 +182,11 @@ class RecordInput {
    * 관리 화면 목록은 기본과 내 것을 구획으로 갈라 그려서, 서버 순서가 뒤집혀도 거기서는 안 드러난다.
    */
   async categoryChipNames(): Promise<string[]> {
-    const names = await this.root.locator('.cat-chips__name').allTextContents();
+    // 「더 보기」·「새 분류」는 분류가 아니다. 순서를 세는 자리에 섞이면 안 된다.
+    const names = await this.root
+      .locator('.cat-chips__item:not(.cat-chips__item--more):not(.cat-chips__item--new)')
+      .locator('.cat-chips__name')
+      .allTextContents();
     return names.map((name) => name.trim());
   }
 
@@ -204,6 +223,50 @@ class RecordInput {
 }
 
 /** 저장 후 얼굴. */
+/**
+ * 기록 시트 안의 분류 만들기 자리.
+ *
+ * 시트가 하나 더 뜨는 것이 아니라 칩 자리가 바뀌는 것이다. 그래야 적던 금액이 살아 있다.
+ */
+class RecordNewCategory {
+  private readonly root: Locator;
+
+  constructor(root: Locator) {
+    this.root = root;
+  }
+
+  get title(): Locator {
+    return this.root.getByText('새 분류 만들기', { exact: true });
+  }
+
+  get nameField(): Locator {
+    return this.root.getByLabel('이름', { exact: true });
+  }
+
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: '저장', exact: true });
+  }
+
+  /** 만들지 않고 그만둔다. 돌아갈 길이 화면에 적혀 있어야 한다. */
+  get backButton(): Locator {
+    return this.root.getByRole('button', { name: '기록으로 돌아가기', exact: true });
+  }
+
+  /** 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다. */
+  get kindToggle(): Locator {
+    return this.root.getByRole('group', { name: '분류의 종류' });
+  }
+
+  async create(name: string, iconLabel: string): Promise<void> {
+    await this.nameField.fill(name);
+    await this.root
+      .getByRole('group', { name: '아이콘' })
+      .getByRole('button', { name: iconLabel, exact: true })
+      .click();
+    await this.saveButton.click();
+  }
+}
+
 class RecordFeedback {
   private readonly root: Locator;
 
@@ -758,6 +821,23 @@ class RecordImageImport {
 
   day(name: string): Locator {
     return this.row(name).getByTestId(TEST_IDS.nlCandidateDate);
+  }
+
+  /**
+   * 줄을 통째로 누르면 고치기가 펼쳐진다. 검토 화면은 줄글과 같은 컴포넌트라 모양도 같다.
+   */
+  editTrigger(name: string): Locator {
+    return this.row(name).getByRole('button', { name: /눌러서 고치기$/ });
+  }
+
+  async openEdit(name: string): Promise<void> {
+    await this.editTrigger(name).click();
+    await expect(this.root.getByRole('button', { name: '이대로 고치기' })).toBeVisible();
+  }
+
+  /** 펼쳐 둔 고치기 폼. 한 번에 하나만 열린다. */
+  get form(): RecordNaturalLanguageForm {
+    return new RecordNaturalLanguageForm(this.root);
   }
 
   /** `이미 있어요`·`확인 필요` 같은 칩. 없으면 개수 0 이다. */

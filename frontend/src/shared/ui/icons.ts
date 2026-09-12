@@ -126,7 +126,6 @@ export const DEFAULT_CATEGORY_ICONS: Record<string, IconName> = {
   '주거·고정비': '12_house',
   '여가·취미': '35_paint_palette',
   '건강·미용': '44_dumbbell',
-  주유: '61_fuel_pump',
   편의점: '62_convenience_store',
   구독: '63_subscription',
   기타: '26_sparkles',

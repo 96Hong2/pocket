@@ -60,13 +60,32 @@ export function CategoryEditSheet({ open, category, onClose }: CategoryEditSheet
   );
 }
 
-interface CategoryEditFormProps {
+export interface CategoryEditFormProps {
   category?: CategoryOut;
   onBusyChange: (busy: boolean) => void;
   onClose: () => void;
+  /**
+   * 종류를 고르지 못하게 못 박는다. 기록 시트 안에서 만들 때 쓴다.
+   * 거기서는 이미 지출·수입을 골라 둔 상태라 다시 묻는 것이 한 단계 더다.
+   */
+  fixedKind?: LedgerKind;
+  /** 만들어진 직후. 만든 것을 그 자리에서 바로 고르게 하려고 돌려준다. */
+  onCreated?: (created: CategoryOut) => void;
 }
 
-function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormProps) {
+/**
+ * 카테고리 한 건을 만들거나 고치는 폼.
+ *
+ * 시트(`CategoryEditSheet`)와 기록 시트 안의 만들기 자리가 이 하나를 나눠 쓴다.
+ * 두 벌로 두면 한쪽에만 아이콘 탭이 붙는 식으로 갈라진다.
+ */
+export function CategoryEditForm({
+  category,
+  onBusyChange,
+  onClose,
+  fixedKind,
+  onCreated,
+}: CategoryEditFormProps) {
   const create = useCreateCategory();
   const update = useUpdateCategory();
   const remove = useDeleteCategory();
@@ -79,7 +98,7 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
   const [custom, setCustom] = useState<string | null>(category?.icon_custom ?? null);
   // 종류는 만들 때만 정한다. 나중에 바꾸면 그 분류로 적어 둔 지난 기록이 종류와 어긋난다.
   const [kind, setKind] = useState<LedgerKind>(
-    category?.kind === 'income' ? 'income' : 'expense',
+    fixedKind ?? (category?.kind === 'income' ? 'income' : 'expense'),
   );
   // 지우기는 한 단을 더 받는다. 시트를 하나 더 겹치면 포커스가 흔들려 여기서 묻는다.
   const [confirming, setConfirming] = useState(false);
@@ -103,16 +122,24 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
     if (category == null) {
       create.mutate(
         { name: trimmed, icon_key: icon, icon_custom: custom, kind },
-        { onSettled: () => onBusyChange(false), onSuccess: onClose },
+        {
+          onSettled: () => onBusyChange(false),
+          onSuccess: (created) => {
+            // 만든 것을 먼저 넘기고 닫는다. 순서가 뒤집히면 받는 쪽이 이미 사라진 뒤다.
+            onCreated?.(created);
+            onClose();
+          },
+        },
       );
     } else {
       update.mutate(
         // 아이콘은 한 번에 하나만 보낸다. 서버가 보낸 쪽을 걸고 나머지를 지운다.
         {
           id: category.id,
-          body: custom == null
-            ? { name: trimmed, icon_key: icon }
-            : { name: trimmed, icon_custom: custom },
+          body:
+            custom == null
+              ? { name: trimmed, icon_key: icon }
+              : { name: trimmed, icon_custom: custom },
         },
         { onSettled: () => onBusyChange(false), onSuccess: onClose },
       );
@@ -130,7 +157,7 @@ function CategoryEditForm({ category, onBusyChange, onClose }: CategoryEditFormP
 
   return (
     <div className="cat-sheet__body">
-      {category == null ? (
+      {category == null && fixedKind == null ? (
         <div className="cat-sheet__field">
           <span className="cat-sheet__label">종류</span>
           <KindToggle value={kind} onChange={setKind} disabled={busy} ariaLabel="분류의 종류" />

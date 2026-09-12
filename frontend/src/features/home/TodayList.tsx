@@ -154,11 +154,7 @@ export function TodayList({
             오늘 보고 있을 때는 갈 곳이 없어 자리를 비워 둔다.
           */}
           {!isToday ? (
-            <button
-              type="button"
-              className="home-today__jump"
-              onClick={() => onDayChange(today)}
-            >
+            <button type="button" className="home-today__jump" onClick={() => onDayChange(today)}>
               오늘로
             </button>
           ) : null}

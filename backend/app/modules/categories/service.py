@@ -21,13 +21,17 @@ from app.api.errors import ApiError, ErrorCode
 from app.domain.categories import user_sort_order
 from app.models import Category, CategoryBudget, MerchantRule, User
 from app.modules.categories.schemas import CategoryCreate, CategoryUpdate
+from app.modules.settings import service as settings_service
 
 __all__ = [
     "create_category",
     "delete_category",
     "list_categories",
+    "quick_hidden_ids",
     "require_own",
     "require_owned",
+    "require_seen",
+    "set_quick",
     "update_category",
 ]
 
@@ -47,6 +51,36 @@ def list_categories(session: Session, user: User) -> list[Category]:
         .order_by(Category.sort_order, Category.name)
     )
     return list(session.scalars(stmt))
+
+
+# ── 기록 화면에 먼저 보일 분류 ──────────────────────────
+#
+# 사람마다 다른 값이라 카테고리 행에 못 둔다. 기본 분류는 모두가 같은 행을 보기 때문이다.
+# 사용자 설정에 **숨긴 것**의 id 를 적는다. 비어 있는 것이 곧 「전부 보인다」 라서
+# 새로 만든 분류도 저절로 보인다.
+
+
+def quick_hidden_ids(session: Session, user: User) -> set[str]:
+    row = settings_service.get_preferences(session, user)
+    return {str(item) for item in row.quick_hidden_category_ids}
+
+
+def set_quick(session: Session, user: User, category_id: uuid.UUID, quick: bool) -> None:
+    """기록 화면에 보일지 끌지. 기본 분류에도 걸린다(내 설정에만 남는다)."""
+    row = settings_service.get_preferences(session, user)
+    hidden = [str(item) for item in row.quick_hidden_category_ids]
+    key = str(category_id)
+    if quick:
+        if key not in hidden:
+            return
+        hidden = [item for item in hidden if item != key]
+    else:
+        if key in hidden:
+            return
+        hidden = [*hidden, key]
+    # JSON 컬럼은 같은 리스트를 고쳐도 더러워졌다고 보지 않는다. 새 리스트를 넣는다.
+    row.quick_hidden_category_ids = hidden
+    session.commit()
 
 
 def require_owned(session: Session, user: User, category_id: uuid.UUID | None) -> None:
@@ -72,6 +106,15 @@ def _my_row(session: Session, user: User, category_id: uuid.UUID, *, on_default:
         raise ApiError(ErrorCode.NOT_FOUND, _NOT_FOUND, status_code=404)
     if row.user_id is None:
         raise ApiError(ErrorCode.INVALID_REQUEST, on_default, status_code=422)
+    return row
+
+
+def require_seen(session: Session, user: User, category_id: uuid.UUID) -> Category:
+    """내가 볼 수 있는 카테고리 행. 기본 분류도 통과한다. 고치지 않고 돌려줄 때만 쓴다."""
+    require_owned(session, user, category_id)
+    row = session.get(Category, category_id)
+    if row is None:
+        raise ApiError(ErrorCode.NOT_FOUND, _NOT_FOUND, status_code=404)
     return row
 
 

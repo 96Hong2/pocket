@@ -49,6 +49,12 @@
     word-break: keep-all;
   }
 
+  /* 스위치가 무엇인지 한 줄. 기본 안내보다 한 단 흐리게 둔다. */
+  .cat-group__note--quick {
+    margin-top: 2px;
+    color: var(--color-placeholder);
+  }
+
   /* ── 목록 한 줄 ─────────────────────────────────── */
 
   .cat-list {
@@ -72,12 +78,29 @@
     padding: 8px 0;
   }
 
+  /*
+    줄 안쪽. 이름까지가 「고치기」 자리이고 오른쪽 스위치는 그 밖이다.
+    한 줄을 통째로 버튼으로 두면 스위치를 누르려다 고치기 시트가 열린다.
+  */
+  .cat-row__main {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+  }
+
   /* 내가 만든 줄만 버튼이다. 기본 줄은 누를 곳이 없다. */
-  .cat-row--hit {
+  .cat-row__main--hit {
     border: 0;
     background: transparent;
     font-family: inherit;
     text-align: left;
+  }
+
+  .cat-row__quick {
+    flex: none;
   }
 
   .cat-row__name {

@@ -6,7 +6,7 @@ import uuid
 from datetime import date, time
 from enum import StrEnum
 
-from sqlalchemy import Boolean, Date, ForeignKey, String, Text, Time, text
+from sqlalchemy import JSON, Boolean, Date, ForeignKey, String, Text, Time, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Entity, str_enum_type
@@ -56,6 +56,21 @@ class UserPreference(Entity):
     # 사용자가 지키기로 한 소비 영역. 자동 감축 1순위로 추천하지 않는다.
     happy_spend_category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
+    )
+    """기록 시트의 칩에서 **뺀** 분류의 id.
+
+    보일 것이 아니라 **숨긴 것**을 적는다. 그래야 비어 있는 것이 곧 「전부 보인다」 라서
+    기본값에 손댈 일이 없고, 새로 만든 분류도 저절로 보인다. 보일 것을 적으면 분류가
+    하나 생길 때마다 이 목록을 함께 고쳐야 하고, 한 번이라도 빠뜨리면 만든 분류가
+    어디에도 안 나온다.
+
+    카테고리 행에 못 두는 이유는 기본 분류가 **모두가 같이 보는 한 행**이기 때문이다.
+    거기에 적으면 한 사람이 끈 것이 전부에게 꺼진다.
+
+    지운 분류의 id 가 남을 수 있다. 있는지만 보는 값이라 그대로 둔다.
+    """
+    quick_hidden_category_ids: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, server_default=text("'[]'")
     )
 
 

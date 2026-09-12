@@ -30,10 +30,25 @@
     폭을 우리가 못 박고 안쪽도 줄어들 수 있게 연다. 높이와 색은 각 화면이 정한다.
     날짜를 고르는 칸은 이 클래스를 반드시 함께 단다.
   */
+  /*
+    **날짜 칸은 브라우저가 그린다. 우리가 정한 폭을 안 지킨다.**
+
+    iOS(WKWebView)의 `input[type=date]` 는 안쪽 값 영역 크기만큼 넓어지려 해서, 좁은 칸에
+    넣으면 칸 밖으로 삐져나가고 그 바람에 화면에 가로 스크롤이 생겼다. 실기기 캡처로 확인했다.
+    Chromium 과 데스크탑 WebKit 에서는 안 보이는 차이라 한쪽만 재면 못 잡는다.
+
+    그래서 둘을 같이 건다. ① 기본 모양을 벗겨 제 크기를 주장하지 않게 하고
+    ② 이 칸은 폼에서 **제 줄을 통째로 쓴다**(`.nl-form__field--wide`). 좁은 칸에 우겨넣지
+    않으면 브라우저가 얼마를 요구하든 들어간다.
+  */
   .pk-date {
     display: block;
+    width: 100%;
     min-width: 0;
     max-width: 100%;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
     /* 안쪽 값 영역이 넘쳐도 칸 밖으로 나가지 않는다. */
     overflow: hidden;
   }
@@ -268,11 +283,18 @@
     background: var(--color-border);
   }
 
+  /*
+    닫기 버튼(44px)의 그림은 32px 이라, 그대로 두면 본문 오른쪽 눈금보다 안으로 들어간다.
+    예전에는 버튼에 `margin-right: -12px` 를 줘서 끌어냈는데, **그러면 버튼의 오른쪽 변이
+    헤더 밖으로 나가 가로 스크롤이 생긴다**(scrollWidth 가 12px 더 컸다).
+    버튼을 미는 대신 헤더를 시트 안쪽 여백만큼 넓힌다. 보이는 자리는 같고 넘침은 없다.
+  */
   .pk-sheet__header {
     display: flex;
     align-items: center;
     gap: 12px;
     min-height: 44px;
+    margin-right: -12px;
   }
 
   .pk-sheet__title {
@@ -287,7 +309,7 @@
     place-items: center;
     width: 44px;
     height: 44px;
-    margin-right: -12px;
+    flex: none;
     border-radius: var(--radius-pill);
     background: transparent;
     color: var(--color-muted);

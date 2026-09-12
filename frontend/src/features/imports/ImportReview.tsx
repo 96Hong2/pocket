@@ -106,6 +106,15 @@ export function ImportReview({
   */
   const touched = useRef(new Set<string>());
 
+  /*
+    펼쳐 둔 줄이 아직 안 보낸 값.
+
+    「이대로 고치기」를 눌러야만 서버로 가던 시절에는, 상호를 고치고 곧바로 아래 저장을
+    누르면 적은 것이 통째로 버려졌다. **보이는 것이 저장돼야 한다.**
+    줄을 접을 때와 저장하기 직전에 여기서 꺼내 먼저 보낸다.
+  */
+  const draft = useRef<{ id: string; read: () => ImportCandidatePatch } | null>(null);
+
   // 검토 목록을 실제로 본 순간. 읽기는 됐는데 여기서 그만두는 사람이 얼마나 되는지 본다.
   const shownRef = useRef(false);
   useEffect(() => {
@@ -221,9 +230,13 @@ export function ImportReview({
               onKindChange={(body) => {
                 sendPatch(batch.id, candidate.id, body);
               }}
-              onEdit={() => setEditing(candidate.id)}
-              onEditClose={() => setEditing(null)}
+              onEdit={() => void closeEditing(candidate.id)}
+              onEditClose={() => void closeEditing(null)}
+              onDraftChange={(read) => {
+                draft.current = read == null ? null : { id: candidate.id, read };
+              }}
               onSave={(body) => {
+                draft.current = null;
                 if (Object.keys(body).length === 0) {
                   setEditing(null);
                   return;
@@ -259,57 +272,7 @@ export function ImportReview({
             className="nl__done"
             disabled={!canSave}
             onClick={() => {
-              onBusyChange(true);
-              // 검토가 끝난 시점의 손질량. 저장 결과와 별개로 남긴다.
-              analytics.log(
-                EVENTS.reviewFinished,
-                {
-                  method,
-                  candidate_count: candidates.length,
-                  selected_count: batch.selected_count,
-                  edited_count: touched.current.size,
-                  ...editParams(edits.current),
-                },
-                { flowId },
-              );
-              analytics.log(
-                EVENTS.saveRequested,
-                { method, count: batch.selected_count },
-                { flowId, kind: 'click' },
-              );
-
-              const startedAt = Date.now();
-              commit.mutate(batch.id, {
-                onSettled: () => onBusyChange(false),
-                onSuccess: (result) => {
-                  // **서버가 몇 건을 넣었는지 답한 뒤에만** 성공이다.
-                  // 버튼을 누른 것도, 200 을 받은 것도 저장된 것이 아니다.
-                  analytics.log(
-                    EVENTS.saveResult,
-                    {
-                      method,
-                      result: 'ok',
-                      created_count: result.created_count,
-                      elapsed_ms: Date.now() - startedAt,
-                    },
-                    { flowId },
-                  );
-                  setSaved(result);
-                  onSaved?.();
-                },
-                onError: (error) => {
-                  analytics.log(
-                    EVENTS.saveResult,
-                    {
-                      method,
-                      result: 'failed',
-                      elapsed_ms: Date.now() - startedAt,
-                      error_code: error instanceof ApiError ? error.code : 'unknown',
-                    },
-                    { flowId },
-                  );
-                },
-              });
+              void saveAll();
             }}
           >
             {saveLabel(batch.selected_count, total)}
@@ -318,6 +281,76 @@ export function ImportReview({
       </div>
     </div>
   );
+
+  /**
+   * 저장.
+   *
+   * **펼쳐 둔 줄에 적어 둔 것을 먼저 보낸다.** 예전에는 「이대로 고치기」를 누른 것만
+   * 서버로 가서, 상호를 고치고 곧바로 이 버튼을 누르면 적은 것이 버려졌다.
+   * 그것부터 보내지 못하면 저장하지 않는다. 반쯤 반영된 채로 넣는 것이 가장 나쁘다.
+   */
+  async function saveAll(): Promise<void> {
+    onBusyChange(true);
+    try {
+      await flushDraft();
+    } catch {
+      // 왜 막혔는지는 patch.error 가 이미 들고 있어 안내 줄에 그대로 나온다.
+      onBusyChange(false);
+      return;
+    }
+    setEditing(null);
+
+    // 검토가 끝난 시점의 손질량. 저장 결과와 별개로 남긴다.
+    analytics.log(
+      EVENTS.reviewFinished,
+      {
+        method,
+        candidate_count: candidates.length,
+        selected_count: batch.selected_count,
+        edited_count: touched.current.size,
+        ...editParams(edits.current),
+      },
+      { flowId },
+    );
+    analytics.log(
+      EVENTS.saveRequested,
+      { method, count: batch.selected_count },
+      { flowId, kind: 'click' },
+    );
+
+    const startedAt = Date.now();
+    commit.mutate(batch.id, {
+      onSettled: () => onBusyChange(false),
+      onSuccess: (result) => {
+        // **서버가 몇 건을 넣었는지 답한 뒤에만** 성공이다.
+        // 버튼을 누른 것도, 200 을 받은 것도 저장된 것이 아니다.
+        analytics.log(
+          EVENTS.saveResult,
+          {
+            method,
+            result: 'ok',
+            created_count: result.created_count,
+            elapsed_ms: Date.now() - startedAt,
+          },
+          { flowId },
+        );
+        setSaved(result);
+        onSaved?.();
+      },
+      onError: (error) => {
+        analytics.log(
+          EVENTS.saveResult,
+          {
+            method,
+            result: 'failed',
+            elapsed_ms: Date.now() - startedAt,
+            error_code: error instanceof ApiError ? error.code : 'unknown',
+          },
+          { flowId },
+        );
+      },
+    });
+  }
 
   /**
    * 고른 줄의 분류를 한꺼번에 바꾼다.
@@ -348,6 +381,39 @@ export function ImportReview({
       // 중간에 멈춰도 서버에는 이미 바뀐 줄이 있다. 거기까지는 화면에 올려야
       // 목록이 실제와 다른 분류를 계속 보여주지 않는다.
       if (next !== batch) onBatchChange(next);
+      onBusyChange(false);
+    }
+  }
+
+  /**
+   * 펼친 줄이 들고 있는 값을 먼저 보낸다.
+   *
+   * 아무것도 안 바꿨으면 아무 일도 하지 않는다. 보내는 데 실패하면 그대로 던져서,
+   * 부르는 쪽이 저장까지 밀고 나가지 않게 한다.
+   */
+  async function flushDraft(): Promise<void> {
+    const pending = draft.current;
+    draft.current = null;
+    if (pending == null) return;
+    const body = pending.read();
+    if (Object.keys(body).length === 0) return;
+
+    const fields = fieldsOf(body);
+    for (const field of fields) {
+      edits.current[field] = (edits.current[field] ?? 0) + 1;
+    }
+    touched.current.add(pending.id);
+    const next = await patch.mutateAsync({ batchId: batch.id, candidateId: pending.id, body });
+    onBatchChange(next);
+  }
+
+  /** 펼친 줄을 접거나 다른 줄로 옮긴다. 적어 둔 것을 먼저 보낸다. */
+  async function closeEditing(next: string | null): Promise<void> {
+    onBusyChange(true);
+    try {
+      await flushDraft();
+      setEditing(next);
+    } finally {
       onBusyChange(false);
     }
   }

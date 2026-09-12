@@ -20,7 +20,6 @@ const EXPENSE_CATEGORIES = [
   '카페·간식',
   '편의점',
   '교통',
-  '주유',
   '쇼핑',
   '생활',
   '주거·고정비',
@@ -53,7 +52,6 @@ const EXPENSE_WITH_PET = [
   '카페·간식',
   '편의점',
   '교통',
-  '주유',
   '쇼핑',
   '생활',
   '주거·고정비',
@@ -434,13 +432,106 @@ test('걸어 둔 이모지는 기본 아이콘으로 되돌릴 수 있다', asyn
  * 이름만 세는 것은 위 구획 테스트가 이미 한다. 여기서는 **기록까지 닿는지**를 본다.
  * 목록에만 있고 기록 시트의 칩에 없으면 있으나 마나다.
  */
-test('편의점·주유·구독으로 바로 적을 수 있다', async ({ home, recordSheet }) => {
+test('편의점·구독으로 바로 적을 수 있고, 주유는 기본에 없다', async ({ home, recordSheet }) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  for (const name of ['편의점', '주유', '구독']) {
+  for (const name of ['편의점', '구독']) {
     await expect(recordSheet.input.categoryChip(name)).toBeVisible();
   }
+  // 하루 썼다가 뺐다. 차가 없으면 안 쓰는 갈래라 모두에게 보이는 자리에 둘 것이 아니었다.
+  await expect(recordSheet.input.categoryChip('주유')).toHaveCount(0);
+});
+
+// ── 기록 화면에서 바로 만들기 ────────────────────────────
+
+/**
+ * 분류를 만들 수 있다는 것을 관리 탭까지 들어가야 알 수 있었다.
+ *
+ * 필요한 순간은 적으려다 맞는 칸이 없을 때고, 그 순간이 바로 기록 시트다.
+ * **만들고 나서 그 기록으로 돌아와 이어 적을 수 있어야 한다.** 여기가 핵심이다.
+ */
+test('기록하다 분류를 만들면 그 자리로 돌아와 이어서 적는다', async ({ home, recordSheet }) => {
+  const NAME = '반려동물';
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  // 금액을 먼저 찍어 둔다. 만들고 돌아왔을 때 이 값이 살아 있어야 한다.
+  await recordSheet.input.enterAmount(30_000);
+  await recordSheet.input.newCategoryButton.click();
+  await expect(recordSheet.input.newCategoryForm.title).toBeVisible();
+  // 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다.
+  await expect(recordSheet.input.newCategoryForm.kindToggle).toHaveCount(0);
+
+  await recordSheet.input.newCategoryForm.create(NAME, 'paw');
+
+  // 만든 것으로 곧바로 저장된다. 금액이 살아 있었다는 증거다.
+  await recordSheet.feedback.waitSaved();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  await home.waitReady();
+  await expect(home.today.row(NAME)).toBeVisible();
+});
+
+test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.enterAmount(12_000);
+  await recordSheet.input.newCategoryButton.click();
+  await expect(recordSheet.input.newCategoryForm.title).toBeVisible();
+
+  await recordSheet.input.newCategoryForm.backButton.click();
+
+  await expect(recordSheet.input.newCategoryForm.title).toHaveCount(0);
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(12_000));
+  await expect(recordSheet.input.categoryChip('식비')).toBeVisible();
+});
+
+// ── 기록 화면에 먼저 보일 분류 고르기 ─────────────────────
+
+test('기록 화면에 보이기를 끄면 「더 보기」 뒤로 간다', async ({ categories, home, recordSheet }) => {
+  await categories.open();
+  await categories.waitReady();
+
+  // 기본 분류도 끌 수 있다. 그 값은 내 설정에만 남는다.
+  await categories.quickToggle('기타').click();
+  await expect(categories.quickToggle('기타')).toHaveAttribute('aria-checked', 'false');
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await expect(recordSheet.input.categoryChip('기타')).toHaveCount(0);
+  await expect(recordSheet.input.categoryChip('식비')).toBeVisible();
+
+  // 없애는 것이 아니라 뒤로 미는 것이다. 없애면 그 분류로 적을 길이 사라진다.
+  await recordSheet.input.moreCategoriesButton.click();
+  await expect(recordSheet.input.categoryChip('기타')).toBeVisible();
+});
+
+test('끈 것을 다시 켜면 곧바로 앞자리로 돌아온다', async ({ categories, home, recordSheet }) => {
+  await categories.open();
+  await categories.waitReady();
+  await categories.quickToggle('기타').click();
+  await expect(categories.quickToggle('기타')).toHaveAttribute('aria-checked', 'false');
+  await categories.quickToggle('기타').click();
+  await expect(categories.quickToggle('기타')).toHaveAttribute('aria-checked', 'true');
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await expect(recordSheet.input.categoryChip('기타')).toBeVisible();
+  await expect(recordSheet.input.moreCategoriesButton).toHaveCount(0);
 });
