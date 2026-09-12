@@ -252,6 +252,21 @@ def _normalized(data: dict) -> dict:
     return payload
 
 
+def _drop_method_if_not_spending(
+    payload: dict, kind: agg.TransactionType, *, current: agg.PaymentMethod | None = None
+) -> None:
+    """결제 수단은 돈이 나가는 종류에만 남긴다.
+
+    수입과 이체에는 뜻이 없다. 지출로 적었다가 수입으로 고치면 그 칸을 비운다.
+    남겨 두면 결제 수단 통계에 수입이 섞이지는 않지만, 다시 지출로 돌렸을 때 사용자가
+    고른 적 없는 값이 되살아난다.
+    """
+    if kind in (agg.TransactionType.EXPENSE, agg.TransactionType.REFUND):
+        return
+    if "payment_method" in payload or current is not None:
+        payload["payment_method"] = None
+
+
 def _stamp_identity(tx: Transaction, user: User) -> None:
     """상호 정규화와 지문을 채운다.
 
@@ -413,6 +428,11 @@ def create_transaction(
         payload["type"] = agg.TransactionType.REFUND
         payload["excluded_from_budget"] = target.excluded_from_budget
         payload["category_id"] = target.category_id
+        # 되돌리는 돈은 나갔던 곳으로 돌아간다. 카드로 낸 것의 환불을 현금 칸에서 빼면
+        # 두 칸이 동시에 틀린다.
+        payload["payment_method"] = target.payment_method
+
+    _drop_method_if_not_spending(payload, payload["type"])
 
     tx = Transaction(user_id=user.id, **payload)
     _stamp_identity(tx, user)
@@ -463,6 +483,7 @@ def update_transaction(
         )
 
     _require_refund_consistency(session, tx, payload)
+    _drop_method_if_not_spending(payload, payload.get("type", tx.type), current=tx.payment_method)
 
     for field, value in payload.items():
         setattr(tx, field, value)

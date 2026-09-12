@@ -24,7 +24,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Entity, MoneyColumn, str_enum_type
-from app.models.transaction import TransactionSource, TransactionType
+from app.models.transaction import PaymentMethod, TransactionSource, TransactionType
 
 
 class ImportBatchStatus(StrEnum):
@@ -84,6 +84,10 @@ class ImportCandidate(Entity):
     merchant_normalized: Mapped[str | None] = mapped_column(String(120), nullable=True)
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
+    )
+    # 영수증·캡처에 「신용」·「체크」·「현금」 이 찍혀 있으면 모델이 읽어 채운다. 못 읽으면 NULL.
+    payment_method: Mapped[PaymentMethod | None] = mapped_column(
+        str_enum_type(PaymentMethod, name="payment_method"), nullable=True
     )
     confidence: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("1.0"))
     fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)

@@ -1,6 +1,6 @@
 import { request, type APIRequestContext, type APIResponse } from '@playwright/test';
 
-import type { AssetGroup, TransactionType } from '../../src/shared/api/types';
+import type { AssetGroup, PaymentMethod, TransactionType } from '../../src/shared/api/types';
 import { shiftMonth, toLedgerDate } from '../../src/shared/lib/format';
 
 import { E2E_API_URL } from './env';
@@ -35,6 +35,8 @@ export interface TransactionSeed {
   /** 가맹점을 알면 행 제목이 이것이 되고 카테고리는 부제로 내려간다. */
   merchant?: string;
   categoryId?: string;
+  /** 무엇으로 냈나. 지출에만 붙는다. 없으면 안 고른 것이다. */
+  paymentMethod?: PaymentMethod;
   /** 예산 계산에서만 뺀다. 목록에는 흐려진 채로 남는다. */
   excludedFromBudget?: boolean;
 }
@@ -97,6 +99,7 @@ export class PrepApi {
         confidence: 1,
         excluded_from_budget: seed.excludedFromBudget ?? false,
         category_id: seed.categoryId ?? null,
+        payment_method: seed.paymentMethod ?? null,
       },
     });
     expectOk(response.status(), await response.text(), '거래를 심지 못했다');

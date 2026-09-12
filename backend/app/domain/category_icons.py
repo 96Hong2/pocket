@@ -23,11 +23,16 @@ import re
 __all__ = [
     "CUSTOM_ICON_MAX_LENGTH",
     "EMOJI_PREFIX",
+    "NOT_EMOJI_MESSAGE",
     "InvalidCustomIcon",
+    "is_emoji",
     "normalize_custom_icon",
 ]
 
 EMOJI_PREFIX = "emoji:"
+
+# 아이콘 자리에 글자가 왔을 때 하는 말. 화면도 같은 문구를 쓴다(frontend/src/shared/ui/emoji.ts).
+NOT_EMOJI_MESSAGE = "이모지 형식이 아니에요. 휴대폰 자판의 이모지를 골라 주세요."
 
 # 데이터 URI 길이 상한(문자 수). base64 는 원본의 4/3 이라 실제 그림은 약 190KB 까지다.
 # 256px 정사각 webp 는 보통 10~30KB 라 열 배 넘게 여유가 있다.
@@ -38,6 +43,58 @@ _DATA_URI = re.compile(r"^data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2
 
 # 이모지 하나. 살색 지정과 ZWJ 로 이어 붙인 것(가족 이모지 등)이 있어 넉넉히 잡는다.
 _EMOJI_MAX_LENGTH = 24
+
+# 이모지가 사는 자리. 유니코드가 블록으로 갈라 둔 것을 그대로 옮겼다.
+_EMOJI_RANGES: tuple[tuple[int, int], ...] = (
+    (0x00A9, 0x00A9),  # ©
+    (0x00AE, 0x00AE),  # ®
+    (0x203C, 0x203C),
+    (0x2049, 0x2049),
+    (0x2122, 0x2122),
+    (0x2139, 0x2139),
+    (0x2194, 0x21AA),
+    (0x231A, 0x231B),
+    (0x2328, 0x2328),
+    (0x23CF, 0x23CF),
+    (0x23E9, 0x23FA),
+    (0x24C2, 0x24C2),
+    (0x25AA, 0x25AB),
+    (0x25B6, 0x25B6),
+    (0x25C0, 0x25C0),
+    (0x25FB, 0x25FE),
+    (0x2600, 0x27BF),  # 기타 기호와 딩벳
+    (0x2934, 0x2935),
+    (0x2B00, 0x2BFF),
+    (0x3030, 0x3030),
+    (0x303D, 0x303D),
+    (0x3297, 0x3297),
+    (0x3299, 0x3299),
+    (0x1F000, 0x1F02F),
+    (0x1F0A0, 0x1F0FF),
+    (0x1F100, 0x1F1FF),  # 국기를 만드는 지역 표시 문자가 여기 있다
+    (0x1F200, 0x1F2FF),
+    (0x1F300, 0x1F5FF),
+    (0x1F600, 0x1F64F),
+    (0x1F650, 0x1F67F),
+    (0x1F680, 0x1F6FF),
+    (0x1F700, 0x1F7FF),
+    (0x1F800, 0x1F8FF),
+    (0x1F900, 0x1F9FF),
+    (0x1FA00, 0x1FAFF),
+)
+
+# 혼자서는 이모지가 아니고 붙어서만 뜻이 있는 것들: 살색·변형 선택자·ZWJ·국기 태그.
+_ATTACHMENT_RANGES: tuple[tuple[int, int], ...] = (
+    (0x200D, 0x200D),
+    (0xFE0E, 0xFE0F),
+    (0x1F3FB, 0x1F3FF),
+    (0xE0020, 0xE007F),
+)
+
+_KEYCAP_MARK = 0x20E3
+_VARIATION_EMOJI = 0xFE0F
+# 키캡이 될 수 있는 밑글자. 0~9 와 # 과 * 뿐이다.
+_KEYCAP_BASES = {ord(ch) for ch in "0123456789#*"}
 
 
 class InvalidCustomIcon(ValueError):
@@ -71,11 +128,47 @@ def normalize_custom_icon(value: str | None) -> str | None:
     return value
 
 
+def is_emoji(glyph: str) -> bool:
+    """이 글자가 이모지인가.
+
+    글자가 아스키인지만 보던 때가 있었는데, 그러면 `\u314b` 나 `\uac00` 처럼 아스키가 아닌
+    한글이 전부 통과했다. 아이콘 자리에 자음 한 글자가 박혔다. 반대로 `7` 은 막혔지만
+    `7\ufe0f\u20e3` 도 같이 막혔다.
+
+    그래서 코드 포인트를 하나씩 본다. **적어도 하나는 이모지여야 하고**, 나머지는 붙이는
+    것(살색·변형 선택자·ZWJ·국기 태그)만 올 수 있다. 숫자 키캡(`1\ufe0f\u20e3`)은 밑글자가
+    숫자라 따로 본다.
+    """
+    if glyph == "":
+        return False
+    codes = [ord(ch) for ch in glyph]
+    if _KEYCAP_MARK in codes:
+        return _is_keycap(codes)
+
+    found = False
+    for code in codes:
+        if _in_ranges(code, _EMOJI_RANGES):
+            found = True
+        elif not _in_ranges(code, _ATTACHMENT_RANGES):
+            return False
+    return found
+
+
 def _clean_emoji(raw: str) -> str:
     glyph = raw.strip()
     if glyph == "" or len(glyph) > _EMOJI_MAX_LENGTH:
-        raise InvalidCustomIcon("이모지 하나만 넣어 주세요.")
-    # 글자·숫자만 온 것은 이모지가 아니라 이름이다. 아이콘 자리에 'ab' 가 박히면 안 된다.
-    if glyph.isascii():
-        raise InvalidCustomIcon("이모지 하나만 넣어 주세요.")
+        raise InvalidCustomIcon(NOT_EMOJI_MESSAGE)
+    if not is_emoji(glyph):
+        raise InvalidCustomIcon(NOT_EMOJI_MESSAGE)
     return glyph
+
+
+def _is_keycap(codes: list[int]) -> bool:
+    """`3\ufe0f\u20e3` 같은 키캡. 밑글자는 숫자나 #·* 하나뿐이다."""
+    if codes[-1] != _KEYCAP_MARK or codes[0] not in _KEYCAP_BASES:
+        return False
+    return all(code in {_VARIATION_EMOJI, _KEYCAP_MARK} for code in codes[1:])
+
+
+def _in_ranges(code: int, ranges: tuple[tuple[int, int], ...]) -> bool:
+    return any(low <= code <= high for low, high in ranges)

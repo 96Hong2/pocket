@@ -7,6 +7,8 @@ import {
   SegmentedControl,
   emojiIcon,
   iconUrl,
+  isEmoji,
+  NOT_EMOJI_MESSAGE,
   parseCustomIcon,
   SM_ICONS,
   type IconName,
@@ -136,30 +138,56 @@ function EmojiField({
   disabled: boolean;
   onPick: (glyph: string) => void;
 }) {
+  /*
+    입력 칸에 보이는 글자와 실제로 걸린 이모지는 다를 수 있다.
+
+    숫자나 자음을 눌렀을 때 칸이 비어 버리면 무엇을 눌렀는지도 모른 채 다시 누르게 된다.
+    친 것은 그대로 두고, 이모지가 아닐 때만 아래에 왜 안 되는지 적는다.
+  */
+  const [typed, setTyped] = useState(glyph);
+  const rejected = typed !== '' && !isEmoji(typed);
+
+  function change(raw: string): void {
+    // 두 글자를 넣어도 마지막 하나만 남긴다. 아이콘 자리에는 하나만 들어간다.
+    const next = lastGlyph(raw);
+    setTyped(next);
+    // 이모지가 아닌 글자로 걸린 아이콘을 덮지 않는다. 지우려면 아래 되돌리기가 있다.
+    if (next === '' || isEmoji(next)) onPick(next);
+  }
+
   return (
     <div className="icon-picker__pane">
       <label className="icon-picker__emoji-row">
         <span className="icon-picker__sr">이모지</span>
         <input
           className="icon-picker__emoji-input"
-          value={glyph}
+          value={typed}
           disabled={disabled}
           inputMode="text"
-          // 두 글자를 넣어도 마지막 하나만 남긴다. 아이콘 자리에는 하나만 들어간다.
-          onChange={(event) => onPick(lastGlyph(event.target.value))}
+          onChange={(event) => change(event.target.value)}
           placeholder="🙂"
           aria-describedby="icon-picker-emoji-hint"
+          aria-invalid={rejected}
         />
       </label>
-      <p className="icon-picker__hint" id="icon-picker-emoji-hint">
-        자판의 이모지 버튼을 눌러 골라 주세요. 하나만 들어가요
-      </p>
+      {rejected ? (
+        <p className="icon-picker__notice" role="alert">
+          {NOT_EMOJI_MESSAGE}
+        </p>
+      ) : (
+        <p className="icon-picker__hint" id="icon-picker-emoji-hint">
+          자판의 이모지 버튼을 눌러 골라 주세요. 하나만 들어가요
+        </p>
+      )}
       {glyph ? (
         <button
           type="button"
           className="icon-picker__clear"
           disabled={disabled}
-          onClick={() => onPick('')}
+          onClick={() => {
+            setTyped('');
+            onPick('');
+          }}
         >
           기본 아이콘으로 되돌리기
         </button>

@@ -24,6 +24,7 @@ from app.modules.reports.schemas import (
     to_breakdown,
     to_closing,
     to_comparison,
+    to_methods,
 )
 
 router = APIRouter(prefix="/reports", tags=["reports"], responses=ERROR_RESPONSES)
@@ -64,6 +65,8 @@ def monthly(session: DbSession, user: CurrentUser, period: MonthQuery) -> Monthl
         income_breakdown=to_breakdown(report.income_rows),
         expense_breakdown_total=report.expense_total.amount,
         income_breakdown_total=report.income_total.amount,
+        method_breakdown=to_methods(report.method_rows),
+        method_breakdown_total=report.method_total.amount,
         trend=[
             TrendPointOut(
                 period_start=window.start,

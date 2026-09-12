@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     # 비용을 재기 전에 상한을 좁히지 않는다. 실제 사용량을 보고 나서 정한다.
     nl_parse_daily_limit: int = 300
 
+    # 1분 안에 몇 번까지. 하루 상한만으로는 **몰아치기**를 못 막는다. 스크립트 하나가
+    # 몇 초 만에 하루치를 다 태워 모델 비용과 토스 API 한도를 함께 밀어낼 수 있다.
+    # 사람은 1분에 사진 열 장을 고르고 검토할 수 없다. 쓰는 사람은 이 문을 볼 일이 없다.
+    nl_parse_burst_limit: int = 10
+    nl_parse_burst_window_seconds: int = 60
+
     # 어떤 모델이 읽는지. 기본은 스텁이라 키 없이 개발·검증이 돈다. 운영은 gemini 로 띄운다.
     # 키는 SecretStr 이라 설정을 통째로 찍어도 값이 가려진다.
     # 키가 비었는지는 여기서 안 본다. alembic·스크립트도 이 설정을 읽는데 그쪽은 모델을 안 부른다.
@@ -92,6 +98,16 @@ class Settings(BaseSettings):
                 return json.loads(text)
             return [item.strip() for item in text.split(",") if item.strip()]
         return value
+
+    @property
+    def expose_interactive_docs(self) -> bool:
+        """`/docs`·`/openapi.json` 을 열어 둘지.
+
+        스펙은 저장소(`docs/openapi.json`)에 있어 숨길 것이 아니다. 다만 열어 두면 처음 온
+        사람에게 엔드포인트 목록을 그대로 쥐여 주는 자리가 된다. dev 도 QR 로 여러 사람이
+        붙는 공용 서버라 로컬에서만 연다.
+        """
+        return self.environment.strip().lower() in {"local", ""}
 
     @model_validator(mode="after")
     def _reject_unverified_anon_key_outside_local(self) -> Settings:

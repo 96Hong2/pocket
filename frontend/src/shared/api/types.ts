@@ -16,6 +16,8 @@ type Schemas = components['schemas'];
 export type TransactionType = Schemas['TransactionType'];
 export type TransactionSource = Schemas['TransactionSource'];
 export type CategoryKind = Schemas['CategoryKind'];
+/** 무엇으로 냈나. 지출에만 붙고, 안 고르면 null 이다. */
+export type PaymentMethod = Schemas['PaymentMethod'];
 export type FeedbackKind = Schemas['FeedbackKind'];
 /** 서버 계약 표에 적힌 오류 code. 화면이 분기할 때는 열린 `ApiErrorCode` 를 쓴다. */
 export type ErrorCode = Schemas['ErrorCode'];
@@ -30,6 +32,7 @@ export type TransactionListOut = Schemas['TransactionListOut'];
 export type PeriodSummaryOut = Schemas['PeriodSummaryOut'];
 export type MonthlyReportOut = Schemas['MonthlyReportOut'];
 export type BreakdownRowOut = Schemas['BreakdownRowOut'];
+export type MethodRowOut = Schemas['MethodRowOut'];
 export type TrendPointOut = Schemas['TrendPointOut'];
 export type PeriodComparisonOut = Schemas['PeriodComparisonOut'];
 /** 월간 결산. 카드 넉 장이 그리는 것이 한 응답에 들어 있다. */

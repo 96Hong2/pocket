@@ -1231,6 +1231,7 @@ export interface components {
             merchant?: string | null;
             /** Category Id */
             category_id?: string | null;
+            payment_method: components["schemas"]["PaymentMethod"] | null;
             /** Confidence */
             confidence: number;
             /** Is Low Confidence */
@@ -1257,6 +1258,7 @@ export interface components {
             merchant?: string | null;
             /** Category Id */
             category_id?: string | null;
+            payment_method?: components["schemas"]["PaymentMethod"] | null;
             /** Is Selected */
             is_selected?: boolean | null;
         };
@@ -1365,6 +1367,18 @@ export interface components {
          * @enum {string}
          */
         MerchantRuleSource: "learned" | "manual";
+        /**
+         * MethodRowOut
+         * @description 결제 수단 한 줄. 화면이 이름을 붙인다.
+         */
+        MethodRowOut: {
+            /** Key */
+            key: string;
+            /** Amount */
+            amount: string;
+            /** Share */
+            share: string | null;
+        };
         /** MonthlyReportOut */
         MonthlyReportOut: {
             /**
@@ -1394,6 +1408,10 @@ export interface components {
             expense_breakdown_total: string;
             /** Income Breakdown Total */
             income_breakdown_total: string;
+            /** Method Breakdown */
+            method_breakdown: components["schemas"]["MethodRowOut"][];
+            /** Method Breakdown Total */
+            method_breakdown_total: string;
             /** Trend */
             trend: components["schemas"]["TrendPointOut"][];
             comparison: components["schemas"]["PeriodComparisonOut"] | null;
@@ -1455,6 +1473,16 @@ export interface components {
             remind_at?: string | null;
             frequency?: components["schemas"]["NotificationFrequency"] | null;
         };
+        /**
+         * PaymentMethod
+         * @description 지출을 무엇으로 냈나.
+         *
+         *     **안 고른 것은 값이 아니라 null 이다.** '모름' 을 값으로 두면 예전에 적어 둔 기록과
+         *     일부러 안 고른 기록이 한 칸에 섞여 구분되지 않는다. 쓰는 데는 지출뿐이라, 수입과
+         *     이체에는 붙이지 않는다.
+         * @enum {string}
+         */
+        PaymentMethod: "credit" | "debit" | "cash";
         /**
          * PeriodComparisonOut
          * @description 지난 기간과의 비교.
@@ -1609,6 +1637,7 @@ export interface components {
              * @default false
              */
             excluded_from_budget: boolean;
+            payment_method?: components["schemas"]["PaymentMethod"] | null;
             /** Refund Of Transaction Id */
             refund_of_transaction_id?: string | null;
         };
@@ -1656,6 +1685,7 @@ export interface components {
             confidence: number;
             /** Excluded From Budget */
             excluded_from_budget: boolean;
+            payment_method: components["schemas"]["PaymentMethod"] | null;
         };
         /**
          * TransactionSource
@@ -1688,6 +1718,7 @@ export interface components {
             category_id?: string | null;
             /** Excluded From Budget */
             excluded_from_budget?: boolean | null;
+            payment_method?: components["schemas"]["PaymentMethod"] | null;
         };
         /**
          * TransactionUpdated

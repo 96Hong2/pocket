@@ -70,6 +70,13 @@ export class ReportScreen {
     return direction === 'previous' ? buttons.first() : buttons.last();
   }
 
+  /**
+   * 여러 달 뒤로 갔다가 한 번에 돌아오는 알약. 이번 달을 보고 있으면 없다.
+   */
+  get thisMonthJump(): Locator {
+    return this.root.getByRole('button', { name: '이번 달로' });
+  }
+
   /** 월 선택기가 화면에 있나. 로딩·오류 중에도 남아야 다른 달로 갈 수 있다. */
   get monthStepper(): Locator {
     return this.root.getByRole('button', { name: /로 이동$/ });
@@ -127,6 +134,22 @@ export class ReportScreen {
 
   share(name: string | RegExp): Locator {
     return this.row(name).getByTestId(TEST_IDS.reportRowShare);
+  }
+
+  /**
+   * 무엇으로 냈나 카드. 한 번도 안 고른 달에는 아예 없다.
+   */
+  get methodCard(): Locator {
+    return this.root.getByRole('heading', { name: '무엇으로 냈나' });
+  }
+
+  /** 결제 수단 한 줄. 신용카드·체크카드·현금·안 고름 중에서 나온다. */
+  methodRows(): Locator {
+    return this.root.getByTestId(TEST_IDS.reportMethods).getByRole('listitem');
+  }
+
+  methodRow(name: string): Locator {
+    return this.methodRows().filter({ hasText: name });
   }
 
   /**

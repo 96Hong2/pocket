@@ -318,9 +318,14 @@
     margin-top: 16px;
   }
 
-  /* 종류 줄 바로 아래에 올 때는 한 덩어리로 읽히게 조금 더 붙인다. */
-  .tx-edit__kind + .tx-edit__cats {
+  /* 종류·결제 수단 줄 바로 아래에 올 때는 한 덩어리로 읽히게 조금 더 붙인다. */
+  .tx-edit__kind + .tx-edit__cats,
+  .tx-edit__pay + .tx-edit__cats {
     margin-top: 12px;
+  }
+
+  .tx-edit__pay {
+    margin-top: 14px;
   }
 
   .tx-edit__cat {
@@ -343,6 +348,63 @@
   .tx-edit__cat--on {
     background: var(--color-sage-50);
     box-shadow: inset 0 0 0 1.5px var(--color-sage-700);
+  }
+
+  /*
+    분류를 만들 수 있다는 것을 목록 화면까지 들어가야 알 수 있었다. 나중에 내역을 보다가
+    「이건 따로 세고 싶다」 고 생각하는 순간이 여기다. 이미 있는 칸과 섞이지 않게 비워 둔다.
+  */
+  .tx-edit__cat--new {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    color: var(--color-sage-700);
+  }
+
+  .tx-edit__cat-mark {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    flex: none;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg);
+    font-size: var(--text-14);
+    line-height: 1;
+  }
+
+  .tx-edit__new-cat {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 14px 12px;
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+  }
+
+  .tx-edit__new-cat-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .tx-edit__new-cat-title {
+    flex: 1;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .tx-edit__new-cat-back {
+    flex: none;
+    min-height: 36px;
+    padding: 0 10px;
+    border: 0;
+    background: none;
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
   }
 
   .tx-edit__exclude {

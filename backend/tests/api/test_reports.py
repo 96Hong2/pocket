@@ -46,6 +46,7 @@ def _add(
     kind: str = "expense",
     merchant: str | None = None,
     category_id: str | None = None,
+    payment_method: str | None = None,
 ) -> None:
     body: dict[str, object] = {
         "occurred_at": when,
@@ -59,6 +60,8 @@ def _add(
         body["merchant"] = merchant
     if category_id:
         body["category_id"] = category_id
+    if payment_method:
+        body["payment_method"] = payment_method
     response = client.post("/api/v1/transactions", json=body, headers=AUTH)
     assert response.status_code == 201, response.text
 
@@ -210,3 +213,42 @@ def test_아직_오지_않은_달은_비교하지_않는다(client: TestClient, 
     body = _report(client, THIS_MONTH.next_period())
 
     assert body["comparison"] is None
+
+
+def test_결제_수단별로_갈라_센다(client: TestClient, default_categories) -> None:
+    """같은 10만원이라도 다음 달에 빠질 돈과 이미 빠진 돈이 다르다."""
+    del default_categories
+    _add(client, amount="30000", when=_at(2, THIS_MONTH), payment_method="credit")
+    _add(client, amount="20000", when=_at(3, THIS_MONTH), payment_method="credit")
+    _add(client, amount="10000", when=_at(4, THIS_MONTH), payment_method="cash")
+    # 안 고르고 적은 것도 한 줄로 남는다. 감추면 네 줄의 합이 그 달 지출과 안 맞는다.
+    _add(client, amount="5000", when=_at(5, THIS_MONTH))
+
+    body = _report(client)
+    rows = body["method_breakdown"]
+    assert [row["key"] for row in rows] == ["credit", "cash", "none"]
+    assert [row["amount"] for row in rows] == ["50000", "10000", "5000"]
+    assert body["method_breakdown_total"] == "65000"
+
+
+def test_안_고른_줄은_금액이_제일_커도_맨_아래다(client: TestClient, default_categories) -> None:
+    """금액으로만 세우면 '모르는 것' 이 화면의 결론이 된다."""
+    del default_categories
+    _add(client, amount="90000", when=_at(2, THIS_MONTH))
+    _add(client, amount="1000", when=_at(3, THIS_MONTH), payment_method="debit")
+
+    rows = _report(client)["method_breakdown"]
+    assert [row["key"] for row in rows] == ["debit", "none"]
+
+
+def test_한_번도_안_골랐으면_안_고른_줄_하나뿐이다(client: TestClient, default_categories) -> None:
+    del default_categories
+    _add(client, amount="7000", when=_at(2, THIS_MONTH))
+    assert [row["key"] for row in _report(client)["method_breakdown"]] == ["none"]
+
+
+def test_기록이_없으면_결제_수단_자리가_비어_있다(client: TestClient, default_categories) -> None:
+    del default_categories
+    body = _report(client)
+    assert body["method_breakdown"] == []
+    assert body["method_breakdown_total"] == "0"

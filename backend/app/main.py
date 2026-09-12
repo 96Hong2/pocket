@@ -8,6 +8,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.body_limit import BodySizeLimitMiddleware
 from app.api.deps import get_verifier
 from app.api.errors import install_exception_handlers
 from app.core.config import get_settings
@@ -38,12 +39,18 @@ def create_app() -> FastAPI:
     # 어떤 모델이 도는지 기동 로그에 한 줄 남긴다. 스텁이 운영에 올라간 것을 첫 사진에서 알면 늦다.
     get_llm_client()
 
+    # 로컬에서만 대화형 문서를 연다. 판단은 Settings 가 한다.
+    interactive_docs = settings.expose_interactive_docs
+
     app = FastAPI(
         title="10초 가계부 API",
         version="0.1.0",
         description=(
             "앱인토스 미니앱의 백엔드. 인증은 X-Anon-Key 헤더 하나뿐이고 로그인 화면이 없다."
         ),
+        docs_url="/docs" if interactive_docs else None,
+        redoc_url="/redoc" if interactive_docs else None,
+        openapi_url="/openapi.json" if interactive_docs else None,
     )
 
     # 미니앱 WebView 와 QR 테스트 origin 을 모두 허용한다.
@@ -55,6 +62,10 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-Anon-Key"],
     )
+
+    # **CORS 보다 바깥에 선다.** 나중에 더한 미들웨어가 먼저 도는 구조라 이 줄이 마지막이다.
+    # 본문을 읽기 전에 끊어야 의미가 있어서, 라우팅·인증보다 앞이어야 한다.
+    app.add_middleware(BodySizeLimitMiddleware)
 
     install_exception_handlers(app)
     app.include_router(transactions_router, prefix="/api/v1")

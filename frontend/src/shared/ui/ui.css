@@ -406,6 +406,68 @@
     opacity: 0.45;
   }
 
+  /* ── PaymentMethodPicker ────────────────────────────── */
+  /*
+    안 골라도 되는 값이라 조용히 선다. 지출·수입 알약보다 한 단계 작고 옅게 두어
+    "꼭 눌러야 하는 것" 으로 읽히지 않게 한다. 고른 뒤에만 색이 든다.
+  */
+  .pk-pay {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .pk-pay__label {
+    flex: none;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .pk-pay__items {
+    display: flex;
+    flex: 1;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .pk-pay__item {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    padding: 0 6px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-muted);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+    transition:
+      background-color 0.12s ease,
+      color 0.12s ease;
+  }
+
+  /* 보이는 높이는 32px 이지만 손가락이 닿는 영역은 44px 로 넓힌다. */
+  .pk-pay__item::after {
+    content: '';
+    position: absolute;
+    inset: -6px 0;
+  }
+
+  .pk-pay__item[aria-pressed='true'] {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .pk-pay__item:disabled {
+    opacity: 0.45;
+  }
+
   /* ── Toggle ─────────────────────────────────────────── */
   .pk-toggle {
     position: relative;
@@ -450,6 +512,7 @@
 
   /* ── MonthStepper ───────────────────────────────────── */
   .pk-month {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -478,6 +541,33 @@
     font-size: var(--text-16);
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
+  }
+
+  /*
+    여러 달을 되짚고 온 사람이 한 번에 돌아오는 자리. 화살표와 같은 줄에 서되 누를 것이라는
+    게 보이게 테두리를 두른다. 홈의 「오늘로」 와 같은 모양이다.
+  */
+  .pk-month__jump {
+    /* 줄 안에 끼우면 달 이름이 한쪽으로 밀린다. 가운데는 달 이름 자리로 남겨 둔다. */
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    height: 28px;
+    padding: 0 10px;
+    flex: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    white-space: nowrap;
+  }
+
+  .pk-month__jump:active {
+    background: var(--color-sage-50);
   }
 
   .pk-month--compact .pk-month__nav {

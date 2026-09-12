@@ -97,6 +97,26 @@ class ApiError(Exception):
         self.status_code = status_code
 
 
+# 스키마 안에서 우리 손으로 raise 한 ValueError 면 pydantic 이 메시지 앞에 이걸 붙인다.
+_VALUE_ERROR_LEAD = "Value error, "
+
+
+def _validation_message(exc: RequestValidationError) -> str:
+    """422 에 실을 한 줄.
+
+    기본은 뭉뚱그린 안내다. 그런데 스키마 안에서 우리가 직접 raise 한 문구
+    (「이모지 형식이 아니에요」 같은 것)는 사용자에게 그대로 갈 말이라 그때는 그 말을 쓴다.
+    pydantic 이 스스로 짓는 형식 오류(길이·타입)는 영어라 올리지 않는다.
+    """
+    for error in exc.errors():
+        message = str(error.get("msg", ""))
+        if error.get("type") == "value_error" and message.startswith(_VALUE_ERROR_LEAD):
+            written = message.removeprefix(_VALUE_ERROR_LEAD).strip()
+            if written:
+                return written
+    return "요청 형식이 올바르지 않아요."
+
+
 def _body(code: ErrorCode, message: str) -> dict[str, dict[str, str]]:
     return {"error": {"code": code.value, "message": message}}
 
@@ -142,7 +162,7 @@ def install_exception_handlers(app: FastAPI) -> None:
     async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content=_body(ErrorCode.INVALID_REQUEST, "요청 형식이 올바르지 않아요."),
+            content=_body(ErrorCode.INVALID_REQUEST, _validation_message(exc)),
         )
 
     @app.exception_handler(StarletteHTTPException)

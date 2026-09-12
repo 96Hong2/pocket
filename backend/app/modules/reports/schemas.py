@@ -16,7 +16,7 @@ from app.api.amounts import ratio_out
 from app.domain.closing import Closing, HighlightKind, NextStepKind
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod
-from app.domain.report import BreakdownRow
+from app.domain.report import BreakdownRow, MethodRow
 from app.modules.budgets.schemas import BudgetStateOut
 
 __all__ = [
@@ -26,6 +26,7 @@ __all__ = [
     "ClosingOut",
     "HighlightOut",
     "LargeExpenseOut",
+    "MethodRowOut",
     "MonthlyReportOut",
     "NextOut",
     "PeriodComparisonOut",
@@ -33,6 +34,7 @@ __all__ = [
     "to_breakdown",
     "to_closing",
     "to_comparison",
+    "to_methods",
 ]
 
 
@@ -47,6 +49,15 @@ class BreakdownRowOut(BaseModel):
     share: Decimal | None
     # 접은 줄이 몇 개를 대신하는지. 접은 줄이 아니면 0.
     rolled_count: int
+
+
+class MethodRowOut(BaseModel):
+    """결제 수단 한 줄. 화면이 이름을 붙인다."""
+
+    # 'credit' · 'debit' · 'cash', 그리고 안 고른 줄은 'none'.
+    key: str
+    amount: Decimal
+    share: Decimal | None
 
 
 class TrendPointOut(BaseModel):
@@ -107,6 +118,11 @@ class MonthlyReportOut(BaseModel):
     expense_breakdown_total: Decimal
     income_breakdown_total: Decimal
 
+    # 무엇으로 냈나. 큰 순이고 안 고른 줄이 맨 아래다. 고른 적이 한 번도 없으면 빈 목록이라
+    # 화면이 그 자리를 통째로 감춘다.
+    method_breakdown: list[MethodRowOut]
+    method_breakdown_total: Decimal
+
     # 항상 여섯 개. 오래된 것부터. 기록이 없는 달도 0 으로 넣는다.
     # 빈 달을 빼면 막대가 밀려 다른 달로 읽힌다.
     trend: list[TrendPointOut]
@@ -130,6 +146,13 @@ def to_breakdown(rows: list[BreakdownRow]) -> list[BreakdownRowOut]:
             share=ratio_out(row.share),
             rolled_count=row.rolled_count,
         )
+        for row in rows
+    ]
+
+
+def to_methods(rows: list[MethodRow]) -> list[MethodRowOut]:
+    return [
+        MethodRowOut(key=row.key, amount=row.amount.amount, share=ratio_out(row.share))
         for row in rows
     ]
 

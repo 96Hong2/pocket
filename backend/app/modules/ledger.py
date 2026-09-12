@@ -128,6 +128,7 @@ def _to_domain(tx: Transaction, tz: ZoneInfo) -> agg.TransactionInput:
         excluded_from_budget=tx.excluded_from_budget,
         is_deleted=tx.deleted_at is not None,
         source=tx.source,
+        payment_method=tx.payment_method,
     )
 
 

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.domain import aggregation as agg, closing
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod, same_day_window, week_to_date
-from app.domain.report import BreakdownRow, rank_breakdown
+from app.domain.report import BreakdownRow, MethodRow, rank_breakdown, rank_methods
 from app.models import Transaction, User
 from app.modules import ledger
 from app.modules.budgets import service as budgets
@@ -46,6 +46,9 @@ class MonthlyReport:
     expense_total: Money
     income_rows: list[BreakdownRow]
     income_total: Money
+    # 무엇으로 냈나. 분류와 다른 질문이라 조각을 따로 센다.
+    method_rows: list[MethodRow]
+    method_total: Money
     trend: list[tuple[BudgetPeriod, agg.PeriodTotals]]
     comparison: tuple[Window, Window] | None
     weeks: tuple[Window, Window] | None
@@ -61,6 +64,7 @@ def build_monthly(
 
     expense_rows, expense_total = rank_breakdown(totals.category_spend)
     income_rows, income_total = rank_breakdown(totals.category_income)
+    method_rows, method_total = rank_methods(totals.method_spend)
 
     months = _trend_months(period)
     trend_totals = ledger.load_range_totals(session, user, months)
@@ -76,6 +80,8 @@ def build_monthly(
         expense_total=expense_total,
         income_rows=income_rows,
         income_total=income_total,
+        method_rows=method_rows,
+        method_total=method_total,
         trend=trend,
         comparison=_compare_months(session, user, period, today),
         weeks=_compare_weeks(session, user, period, today),

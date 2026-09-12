@@ -26,7 +26,7 @@ from app.integrations.llm.contracts import (
     TransactionType,
 )
 from app.integrations.llm.stub import StubLlmStructuredClient
-from app.models import ParseUsage, Transaction
+from app.models import ParseUsage, PaymentMethod, Transaction
 from app.modules import ledger
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
@@ -158,6 +158,58 @@ class _BlurryReceipt(StubLlmStructuredClient):
                     merchant=None,
                     category=None,
                     confidence=0.61,
+                )
+            ]
+        )
+
+
+def test_내가_만든_분류도_모델에게_보여_준다(client: TestClient, default_categories) -> None:
+    """기본 목록만 주면 '데이트' 를 만들어 둔 사람은 그 분류로 영영 안 들어온다."""
+    del default_categories
+    created = client.post(
+        "/api/v1/categories",
+        headers=AUTH,
+        json={"name": "데이트", "icon_key": "01_coins"},
+    )
+    assert created.status_code == 201, created.text
+
+    recorder = _PromptRecorder()
+    with _using(client, lambda: recorder):
+        _analyze(client, "receipt")
+
+    prompt = recorder.prompts[0]
+    assert "데이트" in prompt
+    # 기본 분류도 함께 남아 있어야 한다. 내가 만든 것만 주면 나머지를 전부 못 고른다.
+    assert "식비" in prompt
+
+
+def test_읽어_온_결제_수단이_저장까지_간다(
+    client: TestClient, db: Session, default_categories
+) -> None:
+    """영수증에 「신용」 이 찍혀 있으면 사람이 다시 고르지 않아도 된다."""
+    del default_categories
+    with _using(client, _CreditCardReceipt):
+        batch = _analyze(client, "receipt")
+
+    assert batch["candidates"][0]["payment_method"] == "credit"
+    committed = client.post(f"/api/v1/imports/{batch['id']}/commit", headers=AUTH)
+    assert committed.status_code == 200, committed.text
+    assert db.scalars(select(Transaction)).one().payment_method is PaymentMethod.CREDIT
+
+
+class _CreditCardReceipt(StubLlmStructuredClient):
+    """결제 수단까지 읽어 온 모델."""
+
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        del prompt, schema, text, image, today
+        return TransactionExtraction(
+            candidates=[
+                ExtractedTransaction(
+                    amount=12_000,
+                    type=TransactionType.EXPENSE,
+                    merchant="스타벅스",
+                    payment_method=PaymentMethod.CREDIT,
+                    confidence=0.95,
                 )
             ]
         )

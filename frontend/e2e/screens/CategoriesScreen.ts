@@ -100,6 +100,16 @@ export class CategoriesScreen {
     return this.allRows.filter({ has: this.page.getByText(name, { exact: true }) });
   }
 
+  /**
+   * 그 줄에 실제로 그려진 그림.
+   *
+   * 이모지는 글자라 텍스트로 잡히지만 사진은 `<img>` 다. 걸렸다는 것만이 아니라
+   * **무엇이 걸렸는지**(앱에 든 파일인지 내가 올린 사진인지)를 src 로 가른다.
+   */
+  iconImageOf(name: string): Locator {
+    return this.row(name).locator('img');
+  }
+
   /** '기본' 배지가 붙은 줄 중 그 이름. */
   basicRow(name: string): Locator {
     return this.basicRows.getByText(name, { exact: true });
@@ -312,6 +322,16 @@ class CategorySheet {
   /** 이모지 탭의 한 칸. 자판이 여는 자리라 값으로 잡는다. */
   get emojiField(): Locator {
     return this.root.getByLabel('이모지', { exact: true });
+  }
+
+  /**
+   * 이모지가 아닌 글자를 넣었을 때 그 자리에서 뜨는 한 줄.
+   *
+   * 서버까지 다녀와야 「안 돼요」를 볼 수 있으면 무엇을 넣어야 하는지 모른 채 몇 번씩
+   * 되돌아온다. 숫자 하나가 뭉뚱그린 「요청 형식이 올바르지 않아요」로 끝났던 자리다.
+   */
+  get emojiNotice(): Locator {
+    return this.root.getByRole('alert');
   }
 
   /** 사진 탭의 두 버튼. 실기기 다리가 없는 e2e 에서는 목 브릿지가 답한다. */

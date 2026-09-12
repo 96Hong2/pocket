@@ -14,7 +14,7 @@ from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_val
 
 from app.api.amounts import MAX_AMOUNT, integral_won
 from app.api.months import MAX_YEAR, MIN_YEAR
-from app.domain.aggregation import TransactionSource, TransactionType
+from app.domain.aggregation import PaymentMethod, TransactionSource, TransactionType
 from app.integrations.llm import LOW_CONFIDENCE_THRESHOLD, LlmStructuredClient
 from app.models.import_batch import ImportBatch, ImportBatchStatus, ImportCandidate
 from app.modules import ledger
@@ -51,7 +51,20 @@ class ImportTextIn(BaseModel):
 class ImportImageIn(BaseModel):
     """캡처 한 장. `data:image/png;base64,...` 형태의 문자열로 받는다."""
 
-    image: str = Field(min_length=32, max_length=MAX_IMAGE_DATA_URL_LENGTH)
+    # 상한을 `max_length` 로 걸지 않는다. 그쪽에 걸리면 영어 형식 오류가 나서 화면에
+    # 「요청 형식이 올바르지 않아요」 가 뜬다. 사진이 커서 막혔다는 것을 알아야 다른 사진을
+    # 고른다. 판정은 아래 검증기가 하고, 스펙에는 같은 값이 그대로 실린다.
+    image: str = Field(
+        min_length=32,
+        json_schema_extra={"maxLength": MAX_IMAGE_DATA_URL_LENGTH},
+    )
+
+    @field_validator("image")
+    @classmethod
+    def _within_limit(cls, value: str) -> str:
+        if len(value) > MAX_IMAGE_DATA_URL_LENGTH:
+            raise ValueError("사진이 너무 커요. 조금 작게 찍거나 다른 사진으로 골라 주세요.")
+        return value
 
 
 class ImportMetaOut(BaseModel):
@@ -71,6 +84,9 @@ class ImportCandidateOut(BaseModel):
     type: TransactionType
     merchant: str | None = None
     category_id: uuid.UUID | None = None
+    # 영수증·캡처에서 읽어 낸 결제 수단. 못 읽었으면 null 이고 화면에서 고를 수 있다.
+    # 기본값을 두지 않는다. 「안 보냄」 과 「null」 이 같아지면 화면이 undefined 를 다뤄야 한다.
+    payment_method: PaymentMethod | None
     # 확신이 낮으면 화면이 점선으로 표시하고 기본 선택에서 뺀다.
     confidence: float
     is_low_confidence: bool
@@ -106,6 +122,8 @@ class ImportCandidatePatch(BaseModel):
     type: TransactionType | None = None
     merchant: str | None = Field(default=None, max_length=120)
     category_id: uuid.UUID | None = None
+    # 분류처럼 null 이 「비운다」 다.
+    payment_method: PaymentMethod | None = None
     is_selected: bool | None = None
 
     _check_amount = field_validator("amount")(integral_won)
@@ -154,6 +172,7 @@ def to_candidate(row: ImportCandidate) -> ImportCandidateOut:
         type=row.type,
         merchant=row.merchant,
         category_id=row.category_id,
+        payment_method=row.payment_method,
         confidence=row.confidence,
         is_low_confidence=row.confidence < LOW_CONFIDENCE_THRESHOLD,
         is_duplicate=row.is_duplicate,

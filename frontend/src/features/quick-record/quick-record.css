@@ -28,6 +28,11 @@
     margin-bottom: 4px;
   }
 
+  /* 종류 알약 바로 아래. 금액을 누르기 전에 눈에 들어와야 고르고 넘어간다. */
+  .record__pay {
+    margin-top: 10px;
+  }
+
   .record__repeat {
     display: flex;
     margin-top: 12px;
@@ -174,10 +179,6 @@
   .cat-chips__item--new {
     background: transparent;
     box-shadow: inset 0 0 0 1px var(--color-border);
-    color: var(--color-muted);
-  }
-
-  .cat-chips__item--new {
     color: var(--color-sage-700);
   }
 

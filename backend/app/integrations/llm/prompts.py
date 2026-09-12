@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 
 from app.integrations.llm.contracts import DEFAULT_CATEGORY_HINTS
@@ -20,6 +21,8 @@ _RULES = """\
 - 입력에 없는 값을 지어내지 않는다. 모르면 null 로 둔다.
 - 확실하지 않을수록 confidence 를 낮게 준다. confidence 는 0~1 이다.
 - 분류 후보는 다음 중에서 고른다. 맞는 것이 없으면 null 로 둔다: {categories}
+- payment_method 는 입력에 적혀 있을 때만 고른다. '신용'·'일시불'·'할부' 는 credit,
+  '체크'·'직불' 은 debit, '현금'·'계좌이체'·'무통장' 은 cash 다. 안 적혀 있으면 null 로 둔다.
 """
 
 _TODAY_RULE = """\
@@ -45,21 +48,45 @@ _RECEIPT_TASK = (
 )
 
 
-def _base(today: date | None) -> str:
-    rules = _RULES.format(categories=", ".join(DEFAULT_CATEGORY_HINTS))
+# 프롬프트에 적는 분류 이름의 최대 개수. 사람이 분류를 수십 개 만들면 목록이 지시보다
+# 길어져 나머지 규칙이 묻힌다. 넘치면 앞에서부터 자른다(정렬 순서가 곧 자주 쓰는 순서다).
+MAX_CATEGORY_HINTS = 40
+
+
+def category_hints(names: Sequence[str] | None) -> tuple[str, ...]:
+    """모델에게 보여 줄 분류 이름.
+
+    **내가 만든 분류도 넣는다.** 기본 목록만 주면 '데이트' 를 만들어 둔 사람이 줄글이나
+    캡처로 적을 때마다 모델이 그 이름을 영영 못 고르고 '여가·취미' 로 흘린다.
+    안 주면 기본 목록으로 돌아간다(테스트와 스텁이 쓴다).
+    """
+    if not names:
+        return DEFAULT_CATEGORY_HINTS
+    seen: dict[str, None] = {}
+    for name in names:
+        cleaned = name.strip()
+        if cleaned:
+            seen.setdefault(cleaned, None)
+    return tuple(seen)[:MAX_CATEGORY_HINTS] or DEFAULT_CATEGORY_HINTS
+
+
+def _base(today: date | None, categories: Sequence[str] | None) -> str:
+    rules = _RULES.format(categories=", ".join(category_hints(categories)))
     return rules + (_TODAY_RULE.format(today=today.isoformat()) if today else _NO_DATE_RULE)
 
 
-def natural_language_prompt(today: date | None = None) -> str:
-    return f"{_base(today)}\n{_TEXT_TASK}"
+def natural_language_prompt(
+    today: date | None = None, categories: Sequence[str] | None = None
+) -> str:
+    return f"{_base(today, categories)}\n{_TEXT_TASK}"
 
 
-def screenshot_prompt(today: date | None = None) -> str:
-    return f"{_base(today)}\n{_SCREENSHOT_TASK}"
+def screenshot_prompt(today: date | None = None, categories: Sequence[str] | None = None) -> str:
+    return f"{_base(today, categories)}\n{_SCREENSHOT_TASK}"
 
 
-def receipt_prompt(today: date | None = None) -> str:
-    return f"{_base(today)}\n{_RECEIPT_TASK}"
+def receipt_prompt(today: date | None = None, categories: Sequence[str] | None = None) -> str:
+    return f"{_base(today, categories)}\n{_RECEIPT_TASK}"
 
 
 # 다시 읽어 달라고 할 때 앞에 붙인다. 무엇이 이상했는지 구체적으로 말해 줘야
