@@ -1,5 +1,5 @@
 import { parseDecimalOr, type CategoryOut, type TransactionOut } from '../api';
-import { Chip, TransactionRow, toIconName } from '../ui';
+import { Chip, TransactionRow, iconOf } from '../ui';
 
 /**
  * 거래 한 줄을 화면 형태로 옮긴다.
@@ -43,7 +43,7 @@ export function LedgerRow({
 
   return (
     <TransactionRow
-      icon={toIconName(category?.icon_key)}
+      {...iconOf(category)}
       title={transaction.merchant ?? category?.name ?? '기록'}
       subtitle={transaction.merchant ? category?.name : undefined}
       amount={parseDecimalOr(transaction.amount, 0)}

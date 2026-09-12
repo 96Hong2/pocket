@@ -19,7 +19,7 @@ import {
   Button,
   CategoryAvatar,
   Toggle,
-  toIconName,
+  iconOf,
 } from '../../shared/ui';
 
 /**
@@ -173,7 +173,7 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
   return (
     <>
       <div className="tx-edit__head">
-        <CategoryAvatar icon={toIconName(headCategory?.icon_key)} size={58} />
+        <CategoryAvatar {...iconOf(headCategory)} size={58} />
         <p className="tx-edit__title">
           {nameOf(transaction, categories)} · {formatDayLabel(new Date(transaction.occurred_at))}
         </p>
@@ -228,7 +228,7 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
             aria-pressed={category.id === categoryId}
             onClick={() => setCategoryId(category.id)}
           >
-            <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
+            <CategoryAvatar {...iconOf(category)} size={40} />
             {category.name}
           </button>
         ))}

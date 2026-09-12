@@ -18,10 +18,13 @@ import { expect, test } from '../support/fixtures';
 const EXPENSE_CATEGORIES = [
   '식비',
   '카페·간식',
+  '편의점',
   '교통',
+  '주유',
   '쇼핑',
   '생활',
   '주거·고정비',
+  '구독',
   '여가·취미',
   '건강·미용',
   '기타',
@@ -48,10 +51,13 @@ const DIVIDEND_ICON = 'cash';
 const EXPENSE_WITH_PET = [
   '식비',
   '카페·간식',
+  '편의점',
   '교통',
+  '주유',
   '쇼핑',
   '생활',
   '주거·고정비',
+  '구독',
   '여가·취미',
   '건강·미용',
   PET,
@@ -360,4 +366,81 @@ test('카테고리를 지워도 그 분류로 적어 둔 기록은 남는다', a
     // 제목은 상호라 그대로고, 분류 이름이 앉던 부제만 빈다.
     await expect(home.today.subtitle(PET)).toHaveCount(0);
   });
+});
+
+// ── 직접 건 아이콘 ──────────────────────────────────────
+
+/**
+ * 앱에 든 그림 말고 자판의 이모지도 걸 수 있다.
+ *
+ * 이모지 목록을 우리가 들고 있지 않으므로 e2e 도 자판을 열지 않는다. 칸에 값이 들어가는 것과
+ * 그것이 목록·기록 시트까지 따라가는 것만 본다.
+ */
+test('이모지를 걸면 목록과 기록 시트가 같은 이모지를 그린다', async ({
+  categories,
+  recordSheet,
+  home,
+}) => {
+  const GLYPH = '🍗';
+
+  await categories.open();
+  await categories.waitReady();
+
+  await categories.addButton.click();
+  await categories.sheet.waitOpen();
+  await categories.sheet.nameField.fill('치킨');
+  await categories.sheet.pickIconSource('이모지');
+  await categories.sheet.emojiField.fill(GLYPH);
+  await categories.sheet.saveButton.click();
+  await categories.sheet.waitClosed();
+
+  await expect(categories.row('치킨').getByText(GLYPH, { exact: true })).toBeVisible();
+
+  // 기록 시트의 분류 칩까지 같은 그림이어야 한다. 한 곳만 따라가면 목록마다 다르게 보인다.
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await expect(
+    recordSheet.input.categoryChip('치킨').getByText(GLYPH, { exact: true }),
+  ).toBeVisible();
+});
+
+test('걸어 둔 이모지는 기본 아이콘으로 되돌릴 수 있다', async ({ categories }) => {
+  await categories.open();
+  await categories.waitReady();
+
+  await categories.addButton.click();
+  await categories.sheet.waitOpen();
+  await categories.sheet.nameField.fill('치킨');
+  await categories.sheet.pickIconSource('이모지');
+  await categories.sheet.emojiField.fill('🍗');
+  await categories.sheet.saveButton.click();
+  await categories.sheet.waitClosed();
+
+  await categories.openEdit('치킨');
+  // 다시 열면 걸어 둔 그대로가 들어 있어야 한다. 비어 있으면 고치다가 실수로 지우게 된다.
+  await expect(categories.sheet.emojiField).toHaveValue('🍗');
+  await categories.sheet.clearCustomButton.click();
+  await categories.sheet.saveButton.click();
+  await categories.sheet.waitClosed();
+
+  await expect(categories.row('치킨').getByText('🍗', { exact: true })).toHaveCount(0);
+});
+
+/**
+ * 새로 들어온 기본 지출 분류 셋.
+ *
+ * 이름만 세는 것은 위 구획 테스트가 이미 한다. 여기서는 **기록까지 닿는지**를 본다.
+ * 목록에만 있고 기록 시트의 칩에 없으면 있으나 마나다.
+ */
+test('편의점·주유·구독으로 바로 적을 수 있다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  for (const name of ['편의점', '주유', '구독']) {
+    await expect(recordSheet.input.categoryChip(name)).toBeVisible();
+  }
 });

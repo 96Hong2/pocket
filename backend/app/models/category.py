@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ForeignKey, Index, Integer, String, text
+from sqlalchemy import ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Entity, SoftDeleteMixin, str_enum_type
@@ -39,4 +39,7 @@ class Category(Entity, SoftDeleteMixin):
     )
     # public/icons/sm 의 파일 이름 (확장자 제외).
     icon_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    # 내가 직접 건 이모지나 사진. 있으면 icon_key 대신 이게 그려진다.
+    # 형식은 domain.category_icons 가 정한다.
+    icon_custom: Mapped[str | None] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))

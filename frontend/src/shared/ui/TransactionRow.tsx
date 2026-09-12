@@ -11,6 +11,8 @@ import type { IconName } from './icons';
  */
 export interface TransactionRowProps {
   icon: IconName;
+  /** 직접 건 이모지·사진. 있으면 icon 대신 그려진다. */
+  custom?: string | null;
   title: string;
   subtitle?: string;
   /** 양수로 넘긴다. */
@@ -34,6 +36,7 @@ export interface TransactionRowProps {
 
 export function TransactionRow({
   icon,
+  custom,
   title,
   subtitle,
   amount,
@@ -49,7 +52,7 @@ export function TransactionRow({
 }: TransactionRowProps) {
   const content = (
     <>
-      <CategoryAvatar icon={icon} size={avatarSize} />
+      <CategoryAvatar icon={icon} custom={custom} size={avatarSize} />
       <div className="pk-tx__body">
         <div className="pk-tx__title">{title}</div>
         {subtitle ? <div className="pk-tx__subtitle">{subtitle}</div> : null}

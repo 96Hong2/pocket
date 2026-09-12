@@ -37,10 +37,14 @@ def test_이름이_중복되지_않는다() -> None:
     assert len(names) == len(set(names))
 
 
-def test_지출_카테고리가_아홉_개다() -> None:
-    """PRD 가 정한 기본 지출 분류 수. 늘리거나 줄이면 PRD 도 같이 고쳐야 한다."""
+def test_지출_카테고리가_열두_개다() -> None:
+    """기본 지출 분류 수. 늘리거나 줄이면 PRD 도 같이 고쳐야 한다.
+
+    PRD 의 아홉에 편의점·주유·구독 셋이 더해졌다(2026-09-12). 세 갈래 다 '기타' 나
+    '쇼핑' 한 칸에 몰려 리포트에서 무엇에 썼는지 읽히지 않던 것들이다.
+    """
     expense = [c for c in DEFAULT_CATEGORIES if c.kind is CategoryKind.EXPENSE]
-    assert len(expense) == 9
+    assert len(expense) == 12
 
 
 @pytest.mark.skipif(not ICONS_DIR.is_dir(), reason="프론트 아이콘 폴더가 없다")

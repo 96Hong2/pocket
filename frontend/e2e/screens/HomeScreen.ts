@@ -213,8 +213,31 @@ function gaugeFillColorOf(gauge: Locator): Promise<string> {
 class TodaySection {
   private readonly root: Locator;
 
+  /**
+   * 구획 이름이 보고 있는 날이다. 오늘에서 뒤로 넘기면 「어제」 나 「9월 6일」 이 된다.
+   * 날짜를 옮겨 다니는 테스트도 같은 객체로 보려고 이름을 묶어 잡는다.
+   */
   constructor(page: Page) {
-    this.root = page.getByRole('region', { name: '오늘' });
+    this.root = page.getByRole('region', { name: /^(오늘|어제|\d+월 \d+일)$/ });
+  }
+
+  /** 지금 보고 있는 날. 화살표로 옮긴 뒤 어디에 있는지 확인할 때 쓴다. */
+  get title(): Locator {
+    return this.root.getByRole('heading', { level: 2 });
+  }
+
+  /** 하루 뒤로. 이름에 갈 날짜가 들어 있어 이름이 아니라 자리로 잡는다. */
+  get prevDayButton(): Locator {
+    return this.root.getByRole('button', { name: /보기$/ }).first();
+  }
+
+  get nextDayButton(): Locator {
+    return this.root.getByRole('button', { name: /보기$/ }).last();
+  }
+
+  /** 오늘이 아닐 때만 뜨는 돌아오기. 오늘에서는 아예 없다. */
+  get jumpTodayButton(): Locator {
+    return this.root.getByRole('button', { name: '오늘로', exact: true });
   }
 
   /** 아직 안 적었거나, 적은 것을 되돌려 다시 비었을 때. */

@@ -50,3 +50,27 @@ test('광고가 붙으면 그 자리를 규격대로 차지한다', async ({ hom
   const box = await home.ads.slot.boundingBox();
   expect(box?.height, `광고 자리 높이가 ${box?.height}px 다`).toBe(96);
 });
+
+/**
+ * 며칠 뒤로 넘어갔다가 한 번에 오늘로 돌아온다.
+ *
+ * 화살표로만 돌아오면 지난 주를 보고 온 사람은 예닐곱 번을 눌러야 한다. 지름길이 실제로
+ * 지름길인지 보려고 세 번 뒤로 간 뒤 **한 번** 눌러 확인한다.
+ */
+test('여러 날을 넘겨 봐도 오늘로 한 번에 돌아온다', async ({ home }) => {
+  await home.open();
+  await home.waitReady();
+
+  // 오늘을 보고 있을 때는 돌아갈 곳이 없어 자리를 차지하지 않는다.
+  await expect(home.today.jumpTodayButton).toHaveCount(0);
+
+  await home.today.prevDayButton.click();
+  await expect(home.today.title).toHaveText('어제');
+  await home.today.prevDayButton.click();
+  await home.today.prevDayButton.click();
+  await expect(home.today.title).not.toHaveText(/^(오늘|어제)$/);
+
+  await home.today.jumpTodayButton.click();
+  await expect(home.today.title).toHaveText('오늘');
+  await expect(home.today.jumpTodayButton).toHaveCount(0);
+});

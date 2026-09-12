@@ -387,3 +387,91 @@ def test_지운_이름으로_이름을_바꿀_수_있다(
     assert tomb is not None
     assert tomb.deleted_at is not None
     assert tomb.name != "카페"
+
+
+# ── 직접 건 아이콘(이모지·사진) ────────────────────────────────
+
+# 1x1 png. 내용이 무엇인지는 상관없고 base64 가 실제로 풀리는지만 본다.
+TINY_PNG = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
+
+
+def test_이모지를_걸고_받아_온다(client: TestClient, default_categories: list[Category]) -> None:
+    del default_categories
+    created = client.post(
+        "/api/v1/categories",
+        headers=AUTH,
+        json={"name": "치킨", "icon_key": "26_sparkles", "icon_custom": "emoji:🍗"},
+    )
+    assert created.status_code == 201
+    assert created.json()["icon_custom"] == "emoji:🍗"
+    # 기본 아이콘도 함께 남는다. 이모지를 지웠을 때 돌아갈 자리다.
+    assert created.json()["icon_key"] == "26_sparkles"
+
+    items = client.get("/api/v1/categories", headers=AUTH).json()["items"]
+    assert [i["icon_custom"] for i in items if i["name"] == "치킨"] == ["emoji:🍗"]
+
+
+def test_사진을_걸_수_있다(client: TestClient, default_categories: list[Category]) -> None:
+    del default_categories
+    created = client.post(
+        "/api/v1/categories",
+        headers=AUTH,
+        json={"name": "우리집", "icon_key": "12_house", "icon_custom": TINY_PNG},
+    )
+    assert created.status_code == 201
+    assert created.json()["icon_custom"] == TINY_PNG
+
+
+def test_기본_아이콘을_보내면_걸어_둔_사진이_지워진다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """사진을 걸었다가 되돌리는 유일한 길이다. `icon_custom: null` 은 '그대로 둔다' 다."""
+    del default_categories
+    created = client.post(
+        "/api/v1/categories",
+        headers=AUTH,
+        json={"name": "우리집", "icon_key": "12_house", "icon_custom": TINY_PNG},
+    ).json()
+
+    updated = client.patch(
+        f"/api/v1/categories/{created['id']}",
+        headers=AUTH,
+        json={"icon_key": "16_paw"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["icon_key"] == "16_paw"
+    assert updated.json()["icon_custom"] is None
+
+
+def test_아이콘_둘을_한꺼번에_보내면_막는다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    del default_categories
+    created = client.post(
+        "/api/v1/categories",
+        headers=AUTH,
+        json={"name": "우리집", "icon_key": "12_house"},
+    ).json()
+
+    blocked = client.patch(
+        f"/api/v1/categories/{created['id']}",
+        headers=AUTH,
+        json={"icon_key": "16_paw", "icon_custom": "emoji:🐾"},
+    )
+    assert blocked.status_code == 422
+
+
+def test_그림도_이모지도_아닌_값은_막는다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    del default_categories
+    for bad in ("http://example.com/a.png", "data:image/svg+xml;base64,YQ==", "emoji:ab", "emoji:"):
+        blocked = client.post(
+            "/api/v1/categories",
+            headers=AUTH,
+            json={"name": f"막힘{bad[:6]}", "icon_key": "26_sparkles", "icon_custom": bad},
+        )
+        assert blocked.status_code == 422, bad

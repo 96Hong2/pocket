@@ -18,6 +18,7 @@ VERSIONS = Path(__file__).resolve().parents[1] / "migrations" / "versions"
 SEED_FILE = VERSIONS / "20260903_1200_c4a1b8f2d7e3_seed_default_categories.py"
 INCOME_FILE = VERSIONS / "20260907_1900_a3f1c07b52d4_income_categories.py"
 SIDE_JOB_FILE = VERSIONS / "20260911_1500_d4a2e8c31b70_income_side_job.py"
+THREE_MORE_FILE = VERSIONS / "20260912_1700_a8c1e3f95d20_custom_icons_and_three_categories.py"
 
 
 def _load(path: Path) -> ModuleType:
@@ -60,6 +61,12 @@ def _applied_categories() -> list[tuple[str, str, str, int]]:
     ]
     moved.append(
         (side_job.ADDED_NAME, "income", side_job.ADDED_ICON_KEY, side_job.ADDED_SORT_ORDER)
+    )
+
+    # 편의점·주유·구독. 빈 번호에 끼워 넣어 기존 분류의 자리는 건드리지 않았다.
+    three_more = _load(THREE_MORE_FILE)
+    moved.extend(
+        (name, "expense", icon_key, sort_order) for name, icon_key, sort_order in three_more.ADDED
     )
     return sorted(moved, key=lambda row: row[3])
 

@@ -70,6 +70,25 @@ export const SM_ICONS = [
   '58_calendar',
   '59_people',
   '60_plant',
+  // 세 번째 세트. 하루에 자주 적히는데 그림이 없던 것들을 채운다.
+  '61_fuel_pump',
+  '62_convenience_store',
+  '63_subscription',
+  '64_utility_bill',
+  '65_pacifier',
+  '66_powder_compact',
+  '67_sneaker',
+  '68_golf',
+  '69_fish',
+  '70_appliances',
+  '71_hand_wash',
+  '72_perfume',
+  '73_cart_full',
+  '74_medicine',
+  '75_cutlery',
+  '76_burger',
+  '77_movie_clapper',
+  '78_calendar_clock',
 ] as const;
 
 /** 320px. 120px 이상으로 크게 보여주는 히어로 일러스트에만 쓴다. */
@@ -107,6 +126,9 @@ export const DEFAULT_CATEGORY_ICONS: Record<string, IconName> = {
   '주거·고정비': '12_house',
   '여가·취미': '35_paint_palette',
   '건강·미용': '44_dumbbell',
+  주유: '61_fuel_pump',
+  편의점: '62_convenience_store',
+  구독: '63_subscription',
   기타: '26_sparkles',
   월급: '28_cash',
   용돈: '31_gift',
@@ -132,4 +154,37 @@ export function toIconName(iconKey: string | null | undefined): IconName {
 export function categoryIcon(categoryName: string | undefined): IconName {
   if (!categoryName) return FALLBACK_CATEGORY_ICON;
   return DEFAULT_CATEGORY_ICONS[categoryName] ?? FALLBACK_CATEGORY_ICON;
+}
+
+/**
+ * 직접 건 아이콘. 앱에 든 그림 대신 이모지나 사진을 쓸 때만 값이 있다.
+ * 형식 정본은 백엔드 `app/domain/category_icons.py` 다.
+ */
+export type CustomIcon = { kind: 'emoji'; glyph: string } | { kind: 'photo'; src: string };
+
+const EMOJI_PREFIX = 'emoji:';
+
+/** 서버가 준 `icon_custom`. 우리가 못 그리는 값이면 null 로 돌려 기본 아이콘을 쓰게 한다. */
+export function parseCustomIcon(value: string | null | undefined): CustomIcon | null {
+  if (value == null || value === '') return null;
+  if (value.startsWith(EMOJI_PREFIX)) {
+    const glyph = value.slice(EMOJI_PREFIX.length);
+    return glyph === '' ? null : { kind: 'emoji', glyph };
+  }
+  return value.startsWith('data:image/') ? { kind: 'photo', src: value } : null;
+}
+
+export function emojiIcon(glyph: string): string {
+  return `${EMOJI_PREFIX}${glyph}`;
+}
+
+/** 아바타에 그대로 펼쳐 넣는다. `<CategoryAvatar {...iconOf(category)} size={52} />` */
+export function iconOf(category: {
+  icon_key?: string | null;
+  icon_custom?: string | null;
+} | null | undefined): { icon: IconName; custom: string | null } {
+  return {
+    icon: toIconName(category?.icon_key),
+    custom: category?.icon_custom ?? null,
+  };
 }

@@ -47,10 +47,16 @@ FIXED_COST_CATEGORY = "주거·고정비"
 DEFAULT_CATEGORIES: tuple[DefaultCategory, ...] = (
     DefaultCategory("식비", CategoryKind.EXPENSE, "09_rice_bowl", 10),
     DefaultCategory("카페·간식", CategoryKind.EXPENSE, "06_coffee", 20),
+    # 편의점은 식비도 쇼핑도 아니다. 한 번에 적게 쓰고 자주 찍혀 어디로 보내도 그 칸이 흐려진다.
+    DefaultCategory("편의점", CategoryKind.EXPENSE, "62_convenience_store", 25),
     DefaultCategory("교통", CategoryKind.EXPENSE, "33_train", 30),
+    # 주유는 교통 옆이되 따로 센다. 대중교통과 액수 단위가 다르고, 차가 없으면 아예 안 쓴다.
+    DefaultCategory("주유", CategoryKind.EXPENSE, "61_fuel_pump", 35),
     DefaultCategory("쇼핑", CategoryKind.EXPENSE, "34_shopping_cart", 40),
     DefaultCategory("생활", CategoryKind.EXPENSE, "18_cleaning_tools", 50),
     DefaultCategory(FIXED_COST_CATEGORY, CategoryKind.EXPENSE, "12_house", 60),
+    # 유튜브·쿠팡 멤버십처럼 매달 같은 날 빠지는 돈. 고정비와 붙여 두어야 함께 읽힌다.
+    DefaultCategory("구독", CategoryKind.EXPENSE, "63_subscription", 65),
     DefaultCategory("여가·취미", CategoryKind.EXPENSE, "35_paint_palette", 70),
     DefaultCategory("건강·미용", CategoryKind.EXPENSE, "44_dumbbell", 80),
     DefaultCategory("기타", CategoryKind.EXPENSE, "26_sparkles", 90),

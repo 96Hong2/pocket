@@ -9,7 +9,7 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
-  toIconName,
+  iconOf,
 } from '../../shared/ui';
 
 import { CategoryEditSheet } from './CategoryEditSheet';
@@ -102,7 +102,7 @@ export function CategoryManageList() {
                 {rows.map((category) =>
                   category.is_default ? (
                     <li className="cat-row" key={category.id}>
-                      <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
+                      <CategoryAvatar {...iconOf(category)} size={40} />
                       <span className="cat-row__name">{category.name}</span>
                       <Chip variant="kind">기본</Chip>
                     </li>
@@ -114,7 +114,7 @@ export function CategoryManageList() {
                         aria-label={`${category.name} 고치기`}
                         onClick={() => setTarget({ category })}
                       >
-                        <CategoryAvatar icon={toIconName(category.icon_key)} size={40} />
+                        <CategoryAvatar {...iconOf(category)} size={40} />
                         <span className="cat-row__name">{category.name}</span>
                         <span className="cat-row__go">고치기</span>
                       </button>

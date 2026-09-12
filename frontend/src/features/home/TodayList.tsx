@@ -148,6 +148,20 @@ export function TodayList({
           >
             <Chevron direction="right" />
           </button>
+          {/*
+            **며칠 뒤로 넘어갔으면 한 번에 돌아온다.**
+            화살표로 한 칸씩 되짚으면 지난 주를 보고 온 사람은 예닐곱 번을 눌러야 한다.
+            오늘 보고 있을 때는 갈 곳이 없어 자리를 비워 둔다.
+          */}
+          {!isToday ? (
+            <button
+              type="button"
+              className="home-today__jump"
+              onClick={() => onDayChange(today)}
+            >
+              오늘로
+            </button>
+          ) : null}
         </div>
         {/* 적은 줄이 없으면 0원을 적지 않는다. 아직 아무 일도 없었다는 말이 먼저다.
             줄은 있는데 합이 0 인 날(예산 제외만 있거나 안 썼다고만 적은 날)에는 0원을 적는다. */}

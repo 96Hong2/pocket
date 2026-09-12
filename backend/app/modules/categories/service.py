@@ -197,6 +197,7 @@ def create_category(session: Session, user: User, data: CategoryCreate) -> Categ
     if revived is not None and revived.kind is data.kind:
         revived.name = name
         revived.icon_key = data.icon_key
+        revived.icon_custom = data.icon_custom
         revived.sort_order = user_sort_order(data.kind)
         revived.deleted_at = None
         session.commit()
@@ -210,6 +211,7 @@ def create_category(session: Session, user: User, data: CategoryCreate) -> Categ
         name=name,
         kind=data.kind,
         icon_key=data.icon_key,
+        icon_custom=data.icon_custom,
         sort_order=user_sort_order(data.kind),
     )
     session.add(row)
@@ -237,8 +239,13 @@ def update_category(
         _reject_duplicate(rows, key, skip_id=row.id)
         _free_name_slot(session, rows, user, key, keep_id=row.id)
         row.name = name
+    # 걸리는 아이콘은 하나다. 한쪽을 보내면 다른 쪽은 지운다.
+    # 기본 아이콘으로 되돌리는 길이 이것뿐이다.
     if "icon_key" in payload:
         row.icon_key = payload["icon_key"]
+        row.icon_custom = None
+    if "icon_custom" in payload:
+        row.icon_custom = payload["icon_custom"]
 
     try:
         session.commit()

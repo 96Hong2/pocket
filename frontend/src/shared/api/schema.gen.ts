@@ -836,12 +836,17 @@ export interface components {
          *
          *     지출이던 분류를 수입으로 바꾸면 그 분류로 적어 둔 지난 거래가 종류와 어긋나고,
          *     이미 본 리포트의 숫자가 나중에 달라진다.
+         *
+         *     `icon_key` 는 사진을 걸어도 함께 받는다. 컬럼이 NOT NULL 이기도 하고, 사진을 지웠을 때
+         *     돌아갈 자리가 있어야 한다.
          */
         CategoryCreate: {
             /** Name */
             name: string;
             /** Icon Key */
             icon_key: string;
+            /** Icon Custom */
+            icon_custom?: string | null;
             /** @default expense */
             kind: components["schemas"]["CategoryKind"];
         };
@@ -867,6 +872,8 @@ export interface components {
             kind: components["schemas"]["CategoryKind"];
             /** Icon Key */
             icon_key: string;
+            /** Icon Custom */
+            icon_custom?: string | null;
             /** Sort Order */
             sort_order: number;
             /** Is Default */
@@ -879,12 +886,18 @@ export interface components {
          *     필드를 빼는 것과 null 을 보내는 것이 같다. 둘 다 "이 값은 그대로 둔다" 는 뜻이고
          *     service 가 null 을 건너뛴다. 이름과 아이콘은 비워 둘 수 있는 값이 아니라 지우는 길을
          *     두지 않았다. 목표(`target_date`)·알림(`remind_at`)처럼 null 이 '지운다' 인 곳과 다르다.
+         *
+         *     **아이콘 둘은 한 번에 하나만 보낸다.** 걸리는 아이콘은 어차피 하나라, 한쪽을 보내면
+         *     다른 쪽이 지워진다. 사진을 걸었다가 기본 아이콘으로 되돌리는 길도 이것뿐이다
+         *     (`icon_custom: null` 은 "그대로 둔다" 라서 되돌리기가 되지 않는다).
          */
         CategoryUpdate: {
             /** Name */
             name?: string | null;
             /** Icon Key */
             icon_key?: string | null;
+            /** Icon Custom */
+            icon_custom?: string | null;
         };
         /**
          * ChangeOut

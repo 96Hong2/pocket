@@ -12,9 +12,14 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from pydantic import BaseModel, StringConstraints, field_validator
+from pydantic import BaseModel, StringConstraints, field_validator, model_validator
 
 from app.domain.categories import CategoryKind
+from app.domain.category_icons import (
+    CUSTOM_ICON_MAX_LENGTH,
+    InvalidCustomIcon,
+    normalize_custom_icon,
+)
 
 __all__ = ["CategoryCreate", "CategoryListOut", "CategoryOut", "CategoryUpdate"]
 
@@ -22,6 +27,16 @@ __all__ = ["CategoryCreate", "CategoryListOut", "CategoryOut", "CategoryUpdate"]
 # 상한은 컬럼 폭과 같다. 여기서 안 막으면 DB 가 자르거나 터진다.
 CategoryName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
 IconKey = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
+# 이모지 하나이거나 data:image URI 다. 형식 판정은 domain 이 한다.
+CustomIcon = Annotated[str, StringConstraints(max_length=CUSTOM_ICON_MAX_LENGTH)]
+
+
+def _clean_custom_icon(value: str | None) -> str | None:
+    """왜 못 쓰는지는 domain 이 안다. 화면에 그대로 갈 문구라 여기서 새로 짓지 않는다."""
+    try:
+        return normalize_custom_icon(value)
+    except InvalidCustomIcon as error:
+        raise ValueError(str(error)) from error
 
 
 class CategoryOut(BaseModel):
@@ -30,6 +45,8 @@ class CategoryOut(BaseModel):
     kind: CategoryKind
     # frontend/public/icons/sm/<icon_key>.png 와 1:1 이다.
     icon_key: str
+    # 내가 건 이모지나 사진. 있으면 화면이 icon_key 대신 이걸 그린다.
+    icon_custom: str | None = None
     sort_order: int
     # 모든 사용자에게 보이는 기본 카테고리인지. 내가 만든 것은 false 다.
     is_default: bool
@@ -44,11 +61,21 @@ class CategoryCreate(BaseModel):
 
     지출이던 분류를 수입으로 바꾸면 그 분류로 적어 둔 지난 거래가 종류와 어긋나고,
     이미 본 리포트의 숫자가 나중에 달라진다.
+
+    `icon_key` 는 사진을 걸어도 함께 받는다. 컬럼이 NOT NULL 이기도 하고, 사진을 지웠을 때
+    돌아갈 자리가 있어야 한다.
     """
 
     name: CategoryName
     icon_key: IconKey
+    # 안 보내면 앱에 든 아이콘(icon_key)을 그린다.
+    icon_custom: CustomIcon | None = None
     kind: CategoryKind = CategoryKind.EXPENSE
+
+    @field_validator("icon_custom")
+    @classmethod
+    def _valid_custom(cls, value: str | None) -> str | None:
+        return _clean_custom_icon(value)
 
     @field_validator("kind")
     @classmethod
@@ -64,7 +91,23 @@ class CategoryUpdate(BaseModel):
     필드를 빼는 것과 null 을 보내는 것이 같다. 둘 다 "이 값은 그대로 둔다" 는 뜻이고
     service 가 null 을 건너뛴다. 이름과 아이콘은 비워 둘 수 있는 값이 아니라 지우는 길을
     두지 않았다. 목표(`target_date`)·알림(`remind_at`)처럼 null 이 '지운다' 인 곳과 다르다.
+
+    **아이콘 둘은 한 번에 하나만 보낸다.** 걸리는 아이콘은 어차피 하나라, 한쪽을 보내면
+    다른 쪽이 지워진다. 사진을 걸었다가 기본 아이콘으로 되돌리는 길도 이것뿐이다
+    (`icon_custom: null` 은 "그대로 둔다" 라서 되돌리기가 되지 않는다).
     """
 
     name: CategoryName | None = None
     icon_key: IconKey | None = None
+    icon_custom: CustomIcon | None = None
+
+    @field_validator("icon_custom")
+    @classmethod
+    def _valid_custom(cls, value: str | None) -> str | None:
+        return _clean_custom_icon(value)
+
+    @model_validator(mode="after")
+    def _single_icon(self) -> CategoryUpdate:
+        if {"icon_key", "icon_custom"} <= self.model_fields_set:
+            raise ValueError("아이콘은 하나만 고를 수 있어요.")
+        return self

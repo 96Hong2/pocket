@@ -7,7 +7,7 @@ import {
 import { isCaution } from '../../shared/lib/budgetTone';
 import { formatCurrency } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
-import { Amount, CategoryAvatar, Chip, Gauge, toIconName } from '../../shared/ui';
+import { Amount, CategoryAvatar, Chip, Gauge, iconOf } from '../../shared/ui';
 
 export interface CategoryBudgetListProps {
   rows: CategoryBudgetOut[];
@@ -92,7 +92,7 @@ function CategoryBudgetRow({ row, category, editable, onPick }: CategoryBudgetRo
 
   const inner = (
     <>
-      <CategoryAvatar icon={toIconName(category?.icon_key)} size={52} />
+      <CategoryAvatar {...iconOf(category)} size={52} />
       <div className="budget-cat__body">
         <div className="budget-cat__head">
           <span className="budget-cat__name">{name}</span>
