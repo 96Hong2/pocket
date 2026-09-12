@@ -34,11 +34,6 @@
     word-break: keep-all;
   }
 
-  .home-add-hero__lead strong {
-    color: var(--color-ink);
-    font-weight: var(--font-weight-bold);
-  }
-
   /* ── 세 단계 ───────────────────────── */
 
   .home-add-steps {

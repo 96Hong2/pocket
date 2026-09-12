@@ -67,11 +67,11 @@ export function AddToHomeSheet({ open, onClose, from }: AddToHomeSheetProps) {
           alt=""
           aria-hidden="true"
         />
-        <p className="home-add-hero__lead">
-          토스를 열고 찾는 단계가 없어져요.
-          <br />
-          <strong>세 번만 누르면 끝나요.</strong>
-        </p>
+        {/*
+          횟수를 못 박지 않는다. 「휴대폰 홈 화면에 추가」 뒤에 토스가 아니라 **운영체제가** 그리는
+          확인 단계가 더 붙고, 그 수는 기기마다 다르다. 세 번이라고 적으면 그 말부터 틀린다.
+        */}
+        <p className="home-add-hero__lead">토스를 열고 찾는 단계가 없어져요</p>
       </div>
 
       <ol className="home-add-steps">
