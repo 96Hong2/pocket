@@ -105,7 +105,7 @@ test('29 지우면 목록과 합계에서 함께 빠진다', async ({ demo, cale
 
   await calendar.open();
   await calendar.waitReady();
-  await demo.open('지우기', '되돌리기와 달리 언제든');
+  await demo.open('지우기', '적어 둔 뒤 언제든');
 
   await demo.step('두 줄에 15,000원');
   await expect(calendar.totals.expense).toHaveText(formatCurrency(15_000));

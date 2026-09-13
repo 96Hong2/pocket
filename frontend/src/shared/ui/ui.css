@@ -874,6 +874,33 @@
     opacity: 0.7;
   }
 
+  /*
+    좌우를 따로 누르는 줄. 줄 모양은 그대로 두고 안쪽만 두 버튼으로 가른다.
+    가른 자국을 보이지 않게 해야 한 줄로 읽힌다.
+  */
+  .pk-tx__hit {
+    display: flex;
+    align-items: center;
+    gap: inherit;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+  }
+
+  .pk-tx__hit--head {
+    flex: 1;
+  }
+
+  .pk-tx__hit--tail {
+    flex: none;
+  }
+
+  .pk-tx__hit:active {
+    opacity: 0.7;
+  }
+
   .pk-tx__body {
     flex: 1;
     min-width: 0;

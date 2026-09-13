@@ -31,7 +31,7 @@ import { CategoryEditForm } from '../categories';
  * 저장은 `PATCH /transactions/{id}` 하나로 끝낸다. 보낸 필드만 고치는 규칙이라
  * 바뀐 것만 실어 보낸다. 아무것도 안 바뀌었으면 요청을 보내지 않는다.
  *
- * 삭제는 되돌리기와 다르다. 되돌리기는 저장 직후 짧은 시간에만 되고, 여기서는 언제든 된다.
+ * 통째로 지우는 길은 여기 하나다. 저장 직후 화면에는 고치기만 있고 지우기는 없다.
  */
 export interface EditSheetProps {
   transaction: TransactionOut | null;

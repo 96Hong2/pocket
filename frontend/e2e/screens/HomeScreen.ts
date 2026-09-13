@@ -54,7 +54,8 @@ export class HomeScreen {
   }
 
   get recordButton(): Locator {
-    return this.page.getByRole('button', { name: '기록하기' });
+    // 오늘 카드에도 「오늘 기록하기」가 있다. 위 큰 버튼만 잡으려면 정확히 맞춰야 한다.
+    return this.page.getByRole('button', { name: '기록하기', exact: true });
   }
 
   /** 홈이 그릴 것을 다 그린 뒤를 기다린다. 조회가 끝나야 히어로 숫자가 진짜다. */
@@ -242,18 +243,33 @@ class TodaySection {
     return this.root.getByRole('button', { name: '오늘로', exact: true });
   }
 
-  /** 아직 안 적었거나, 적은 것을 되돌려 다시 비었을 때. */
+  /**
+   * 아직 안 적은 날인가.
+   *
+   * 「비어 있어요」 안내는 없앴다. 빈 날 카드에 남은 것은 안 썼다는 줄과
+   * 기록하기 버튼 둘뿐이라, 그 버튼이 있으면 빈 날이다.
+   */
   get empty(): Locator {
-    return this.text('오늘은 아직 비어 있어요');
+    return this.emptyButton;
   }
 
   /**
-   * 비었다는 안내 줄 자체. 안내가 곧 기록 시트 입구다.
+   * 없앤 안내문. **자리가 비었는지 보려고만 둔다.**
    *
-   * 위 큰 버튼과 글자가 달라야 둘이 안 섞인다. 여기는 비었다는 말로 잡는다.
+   * 「비어 있어요」와 「하나만 적어도 충분해요」 둘 다 지웠다. 안 썼다는 줄과 같은 말투라
+   * 어느 쪽이 버튼인지 읽히지 않았다.
+   */
+  get emptyNotice(): Locator {
+    return this.root.getByText(/비어 있어요|하나만 적어도 충분해요/);
+  }
+
+  /**
+   * 빈 날 카드의 기록 시트 입구. 「오늘 기록하기」.
+   *
+   * 위 큰 버튼(「기록하기」)과 글자가 겹치지 않게 날 이름이 앞에 붙는다.
    */
   get emptyButton(): Locator {
-    return this.root.getByRole('button', { name: /비어 있어요/ });
+    return this.root.getByRole('button', { name: /^\S+ 기록하기$/ });
   }
 
   /** 행 제목. 가맹점을 아는 기록은 가맹점명, 아니면 카테고리 이름이다. */

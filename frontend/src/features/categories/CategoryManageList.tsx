@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
@@ -63,6 +63,36 @@ export function CategoryManageList() {
   const update = useUpdateCategory();
   const saveOrder = useSaveCategoryOrder();
   const [target, setTarget] = useState<EditTarget | null>(null);
+  /**
+   * 아직 서버에 안 보낸 순서.
+   *
+   * 예전에는 화살표를 누를 때마다 요청을 하나씩 보내고, 그 사이 화살표를 잠갔다.
+   * 맨 아래 줄을 위로 올리려면 열한 번을 눌러야 하는데 한 번 누를 때마다 왕복을 기다리니
+   * 사실상 못 옮겼다. 지금은 화면에서 먼저 옮기고 손을 뗀 뒤에 한 번만 보낸다.
+   */
+  const [draft, setDraft] = useState<string[] | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queued = useRef<string[] | null>(null);
+
+  /** 담아 둔 순서를 지금 보낸다. 보낼 것이 없으면 아무 일도 안 한다. */
+  function flushOrder(): void {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    const ids = queued.current;
+    queued.current = null;
+    if (ids == null) return;
+    saveOrder.mutate(ids, { onSuccess: () => setDraft(null) });
+  }
+
+  /*
+    화면을 떠날 때 **취소가 아니라 전송**이다. 그냥 타이머만 지우면 마지막으로 옮긴
+    순서가 조용히 사라진다. 화살표를 누르자마자 뒤로 가는 것이 오히려 흔한 손짓이다.
+    요청은 나가고 응답만 못 받는데, 순서는 서버에 남으므로 그것으로 충분하다.
+
+    첫 렌더의 함수를 그대로 쓴다. 안이 참조와 안 바뀌는 것들뿐이라 최신 것과 같다.
+  */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => flushOrder(), []);
 
   if (categories.isError) {
     return (
@@ -74,9 +104,20 @@ export function CategoryManageList() {
     return <LoadingState variant="rows" rows={4} label="카테고리를 불러오는 중이에요" />;
   }
 
-  const items = categories.data?.items ?? [];
+  const served = categories.data?.items ?? [];
+  // 화면은 손에서 먼저 움직인다. 보낼 것이 남아 있으면 그 순서로 그린다.
+  const items = draft != null ? sortByIds(served, draft) : served;
   const mineCount = items.filter((item) => !item.is_default).length;
-  const busy = update.isPending || saveOrder.isPending;
+  // 화살표는 잠그지 않는다. 잠그면 연달아 누르지 못해 먼 자리로 못 옮긴다.
+  const busy = update.isPending;
+
+  /** 옮긴 순서를 담아 두고, 손이 멈추면 한 번만 보낸다. */
+  function queueOrder(ids: string[]): void {
+    setDraft(ids);
+    queued.current = ids;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(flushOrder, 400);
+  }
 
   /**
    * 한 줄을 위나 아래로 한 칸 옮긴다.
@@ -92,18 +133,19 @@ export function CategoryManageList() {
     const moved = [...rows];
     [moved[index], moved[next]] = [moved[next], moved[index]];
     analytics.log(EVENTS.categoryOrderChanged, { how: 'step', kind }, { kind: 'click' });
-    saveOrder.mutate(orderWith(items, kind, moved).map((item) => item.id));
+    queueOrder(orderWith(items, kind, moved).map((item) => item.id));
   }
 
   /** 그 종류만 자주 쓴 순서로 다시 세운다. 나머지 종류는 지금 순서 그대로 둔다. */
   function sortByUsage(kind: CategoryOut['kind']): void {
     const sorted = byUsage(items.filter((item) => item.kind === kind));
     analytics.log(EVENTS.categoryOrderChanged, { how: 'usage', kind }, { kind: 'click' });
-    saveOrder.mutate(orderWith(items, kind, sorted).map((item) => item.id));
+    queueOrder(orderWith(items, kind, sorted).map((item) => item.id));
   }
 
   return (
-    <div className="cat-manage">
+    // 아직 안 보낸 순서가 있으면 표시해 둔다. 화면에는 안 보이고 검증만 이걸 기다린다.
+    <div className="cat-manage" data-order-dirty={draft != null ? '' : undefined}>
       <div className="cat-manage__add">
         <Button fullWidth variant="outline" onClick={() => setTarget({ category: null })}>
           카테고리 만들기
@@ -136,94 +178,90 @@ export function CategoryManageList() {
           <section className="cat-group" aria-label={group.title} key={group.kind}>
             <h2 className="cat-group__title">{group.title}</h2>
             <p className="cat-group__note">{group.note}</p>
-            {arrangeable ? (
-              <>
-                <p className="cat-group__note cat-group__note--quick">
-                  기록 화면에는 위에서 {QUICK_LIMIT}개까지 보여요. 화살표로 순서를 바꾸고, 스위치를
-                  끄면 「더 보기」 뒤로 가요
-                </p>
-                {rows.length > 1 ? (
-                  <button
-                    type="button"
-                    className="cat-group__sort"
-                    disabled={busy}
-                    onClick={() => sortByUsage(group.kind)}
-                  >
-                    자주 쓴 순서로
-                  </button>
-                ) : null}
-              </>
+            {/*
+              **규칙을 문단으로 적지 않는다.** 예전에는 열한 개 제한·화살표·스위치를 두 줄로
+              설명했는데, 넘칠 일이 없는 묶음(수입 넷)에도 그대로 떴고 글자색이 흐려 읽히지도
+              않았다. 설명이 필요한 것은 경계선 하나뿐이라, 그 선 위에 한 줄만 붙인다.
+            */}
+            {arrangeable && rows.length > 1 ? (
+              <button
+                type="button"
+                className="cat-group__sort"
+                disabled={busy}
+                onClick={() => sortByUsage(group.kind)}
+              >
+                자주 쓴 순서로
+              </button>
             ) : null}
             <Card padding="list">
               <ul className="cat-list">
                 {rows.map((category, index) => (
-                  <li
-                    className="cat-row"
-                    key={category.id}
-                    // 열한 번째 아래에 선을 긋는다. 어디까지가 기록 화면 앞자리인지 보여 준다.
-                    data-quick-edge={
-                      arrangeable && quickCount > QUICK_LIMIT && index === QUICK_LIMIT - 1
-                        ? ''
-                        : undefined
-                    }
-                  >
-                    {arrangeable ? (
-                      <span className="cat-row__move">
+                  <Fragment key={category.id}>
+                    <li className="cat-row">
+                      {arrangeable ? (
+                        <span className="cat-row__move">
+                          <button
+                            type="button"
+                            className="cat-row__arrow"
+                            aria-label={`${category.name} 위로`}
+                            disabled={busy || index === 0}
+                            onClick={() => move(group.kind, index, -1)}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="cat-row__arrow"
+                            aria-label={`${category.name} 아래로`}
+                            disabled={busy || index === rows.length - 1}
+                            onClick={() => move(group.kind, index, 1)}
+                          >
+                            ↓
+                          </button>
+                        </span>
+                      ) : null}
+                      {category.is_default ? (
+                        <span className="cat-row__main">
+                          <CategoryAvatar {...iconOf(category)} size={40} />
+                          <span className="cat-row__name">{category.name}</span>
+                          <Chip variant="kind">기본</Chip>
+                        </span>
+                      ) : (
                         <button
                           type="button"
-                          className="cat-row__arrow"
-                          aria-label={`${category.name} 위로`}
-                          disabled={busy || index === 0}
-                          onClick={() => move(group.kind, index, -1)}
+                          className="cat-row__main cat-row__main--hit"
+                          aria-label={`${category.name} 고치기`}
+                          onClick={() => setTarget({ category })}
                         >
-                          ↑
+                          <CategoryAvatar {...iconOf(category)} size={40} />
+                          <span className="cat-row__name">{category.name}</span>
+                          <span className="cat-row__go">고치기</span>
                         </button>
-                        <button
-                          type="button"
-                          className="cat-row__arrow"
-                          aria-label={`${category.name} 아래로`}
-                          disabled={busy || index === rows.length - 1}
-                          onClick={() => move(group.kind, index, 1)}
-                        >
-                          ↓
-                        </button>
-                      </span>
-                    ) : null}
-                    {category.is_default ? (
-                      <span className="cat-row__main">
-                        <CategoryAvatar {...iconOf(category)} size={40} />
-                        <span className="cat-row__name">{category.name}</span>
-                        <Chip variant="kind">기본</Chip>
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="cat-row__main cat-row__main--hit"
-                        aria-label={`${category.name} 고치기`}
-                        onClick={() => setTarget({ category })}
-                      >
-                        <CategoryAvatar {...iconOf(category)} size={40} />
-                        <span className="cat-row__name">{category.name}</span>
-                        <span className="cat-row__go">고치기</span>
-                      </button>
-                    )}
-                    {/*
+                      )}
+                      {/*
                       기본 분류도 여기서는 끌 수 있다. 그 값은 카테고리 행이 아니라 내 설정에
                       남아 남에게 번지지 않는다. 끈다고 없어지지는 않는다. 기록 시트의
                       「더 보기」 뒤로 갈 뿐이다.
                     */}
-                    {arrangeable ? (
-                      <Toggle
-                        className="cat-row__quick"
-                        checked={category.is_quick}
-                        ariaLabel={`${category.name} 기록 화면에 보이기`}
-                        disabled={busy}
-                        onChange={(next) =>
-                          update.mutate({ id: category.id, body: { is_quick: next } })
-                        }
-                      />
+                      {arrangeable ? (
+                        <Toggle
+                          className="cat-row__quick"
+                          checked={category.is_quick}
+                          ariaLabel={`${category.name} 기록 화면에 보이기`}
+                          disabled={busy}
+                          onChange={(next) =>
+                            update.mutate({ id: category.id, body: { is_quick: next } })
+                          }
+                        />
+                      ) : null}
+                    </li>
+                    {/* 어디까지가 기록 화면 앞자리인지. 선만으로는 무슨 선인지 모른다. */}
+                    {arrangeable && quickCount > QUICK_LIMIT && index === QUICK_LIMIT - 1 ? (
+                      <li className="cat-list__edge" data-quick-edge="">
+                        여기까지 기록 화면에 보여요
+                      </li>
                     ) : null}
-                  </li>
+                  </Fragment>
                 ))}
               </ul>
             </Card>
@@ -253,4 +291,15 @@ function orderWith(
 ): CategoryOut[] {
   const queue = [...ordered];
   return all.map((item) => (item.kind === kind ? (queue.shift() ?? item) : item));
+}
+
+/**
+ * 아직 안 보낸 순서대로 세운다.
+ *
+ * 그 사이 서버에서 새 줄이 왔으면(다른 화면에서 만들었을 수 있다) 목록에서 빼지 않고
+ * 뒤에 붙인다. 보내려던 순서 때문에 방금 만든 분류가 사라져 보이면 안 된다.
+ */
+function sortByIds(all: CategoryOut[], ids: string[]): CategoryOut[] {
+  const rank = new Map(ids.map((id, index) => [id, index]));
+  return [...all].sort((a, b) => (rank.get(a.id) ?? ids.length) - (rank.get(b.id) ?? ids.length));
 }

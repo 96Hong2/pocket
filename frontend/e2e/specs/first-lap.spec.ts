@@ -6,7 +6,7 @@ import { keyStrokesFor } from '../screens/RecordSheet';
 import { expect, test } from '../support/fixtures';
 
 /**
- * 첫 바퀴. 홈에서 저장하고 되돌리기까지 한 번 도는 것을 실제 화면으로 증명한다.
+ * 첫 바퀴. 홈에서 저장하고 그 자리에서 고치기까지 한 번 도는 것을 실제 화면으로 증명한다.
  *
  * 확인 항목이 곧 이 파일의 단계다. 새 컨텍스트가 곧 새 계정이라 매 실행이 빈 상태에서 시작한다.
  * 금액 기대값은 화면과 같은 포맷 함수로 만든다. 손으로 적으면 포맷을 바꿀 때 두 곳을 고쳐야 한다.
@@ -18,13 +18,6 @@ const BUDGET = 500_000;
 
 /** 저장한 뒤 피드백에서 고쳐 넣을 금액. 처음 누른 값과 자릿수가 달라 목록에서 헷갈리지 않는다. */
 const FIXED_AMOUNT = 30_000;
-
-/**
- * 되돌리기 시계가 이 초 아래로 내려간 뒤에 금액을 고친다.
- *
- * 고치고 나서도 이 값 아래여야 한다. 8초로 되돌아가 있으면 마감 시각을 다시 잡은 것이다.
- */
-const COUNTED_DOWN_TO = 6;
 
 /** 홈 CTA · 금액 · 카테고리. 금액은 몇 번을 누르든 한 단계로 센다. */
 const EXPECTED_STEPS = 3;
@@ -61,7 +54,7 @@ async function tapCount(page: Page, key: string): Promise<number> {
   return count;
 }
 
-test('처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ page, home, recordSheet }) => {
+test('처음 열어 기록하고 그 자리에서 고치기까지 한 바퀴', async ({ page, home, recordSheet }) => {
   await page.addInitScript(installTapCounter, TAP_COUNT_KEY);
 
   await test.step('질문 없이 홈이 보인다', async () => {
@@ -104,18 +97,47 @@ test('처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ page, 
     await expect(recordSheet.feedback.headline).toContainText(formatCurrency(AMOUNT));
   });
 
-  await test.step('되돌리면 홈 숫자가 원래대로 돌아온다', async () => {
-    // 되돌리기 전에 홈 숫자가 실제로 움직였는지부터 본다. 여기가 비면 왕복을 증명하지 못한다.
+  /*
+    **되돌리기는 없앴다.** 서버가 하는 일이 삭제와 똑같은데 이름만 달라, 무엇을
+    되돌린다는 것인지 읽히지 않았다. 잘못 적었으면 저장한 줄을 눌러 그 자리에서 고친다.
+    통째로 지우는 길은 기록 수정 시트에 그대로 있다(ledger.spec.ts).
+  */
+  await test.step('저장한 줄을 눌러 그 자리에서 금액을 고치면 홈도 따라온다', async () => {
+    // 고치기 전에 홈 숫자가 실제로 움직였는지부터 본다. 여기가 비면 왕복을 증명하지 못한다.
     // 시트는 포털이라 홈이 뒤에 그대로 붙어 있어 시트가 열린 채로도 잡힌다.
     await expect(home.hero.monthSpent).toHaveText(formatCurrency(AMOUNT));
 
-    await recordSheet.feedback.undo();
-    await recordSheet.waitClosed();
+    await recordSheet.feedback.changeAmountButton.click();
+    await recordSheet.feedback.enterAmount(FIXED_AMOUNT);
+    await recordSheet.feedback.applyAmountButton.click();
 
-    // 새로고침 없이 돌아와야 한다. 다시 부르면 이 단언은 배선이 빠져도 통과한다.
-    await expect(home.hero.monthSpent).toHaveText(formatCurrency(0));
+    // 새로고침 없이 따라와야 한다. 다시 부르면 이 단언은 배선이 빠져도 통과한다.
+    await expect(home.hero.monthSpent).toHaveText(formatCurrency(FIXED_AMOUNT));
+
+    await recordSheet.feedback.confirmButton.click();
+    await recordSheet.waitClosed();
     expect(new URL(page.url()).pathname).toBe(ROUTES.home);
   });
+});
+
+test('저장 직후 화면에 되돌리기와 바꾸기 버튼이 없다', async ({ home, recordSheet }) => {
+  /*
+    덜어낸 것이 실제로 사라졌는지 본다. 셋이 한 화면에서 같이 없어져야 뜻이 있다.
+    「금액 바꾸기」·「카테고리 바꾸기」 버튼은 저장한 줄 자체로 옮겼다.
+  */
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.input.enterAmount(AMOUNT);
+  await recordSheet.input.pickCategory(CATEGORY);
+  await recordSheet.feedback.waitSaved();
+
+  await expect(recordSheet.feedback.undoButton).toHaveCount(0);
+  await expect(recordSheet.feedback.legacyChangeButtons).toHaveCount(0);
+
+  // 대신 줄을 눌러 고칠 수 있다고 적혀 있다. 이 줄이 없으면 누를 수 있다는 신호가 없다.
+  await expect(recordSheet.feedback.editHint).toBeVisible();
 });
 
 test('예산을 정하면 게이지가 생기고 기록할수록 찬다', async ({ home, recordSheet }) => {
@@ -174,35 +196,6 @@ test('예산을 정하면 게이지가 생기고 기록할수록 찬다', async 
   });
 });
 
-test('되돌리기 버튼이 남은 초를 세어 보여준다', async ({ home, recordSheet, prep }) => {
-  /*
-    카운트다운 단언이 데모 녹화에만 있어서 CI 가 지키지 않았다.
-    만료(12초를 기다려 409 를 받는 것)는 여기 옮기지 않는다. 고정 대기가 필요해
-    검증 규약과 부딪히고, 그 장면은 데모 13번이 계속 보여준다.
-  */
-  const categoryId = await prep.categoryIdByName('식비');
-  await prep.addExpense({ amount: 20_000, daysAgo: 0, categoryId });
-
-  await home.open();
-  await home.waitReady();
-  await home.recordButton.click();
-
-  await recordSheet.waitOpen();
-  await recordSheet.input.enterAmount(12_000);
-  await recordSheet.input.pickCategory('식비');
-  await recordSheet.feedback.waitSaved();
-
-  const started = await recordSheet.feedback.undoSecondsLeft();
-  expect(started, '되돌리기 배지가 남은 초를 못 그렸다').not.toBeNull();
-  expect(started).toBeGreaterThan(0);
-  expect(started).toBeLessThanOrEqual(8);
-
-  // 숫자가 실제로 줄어드는지 본다. 멈춘 배지는 창이 흐르는 것을 증명하지 않는다.
-  await expect
-    .poll(() => recordSheet.feedback.undoSecondsLeft(), { timeout: 5_000 })
-    .toBeLessThan(started as number);
-});
-
 test('저장 직후 금액을 고치면 홈 숫자가 함께 바뀐다', async ({ home, recordSheet, prep }) => {
   // 확인하려는 것은 고치기다. 남은 예산이 그려지도록 예산은 심어 두고 시작한다.
   await prep.setBudget(BUDGET);
@@ -219,20 +212,10 @@ test('저장 직후 금액을 고치면 홈 숫자가 함께 바뀐다', async (
     await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - AMOUNT));
   });
 
-  await test.step('금액 바꾸기를 누르면 방금 누른 금액이 그대로 펼쳐진다', async () => {
+  await test.step('저장한 줄의 금액을 누르면 그 금액이 그대로 펼쳐진다', async () => {
     await recordSheet.feedback.changeAmountButton.click();
     await expect(recordSheet.feedback.changeAmountTitle).toBeVisible();
     await expect(recordSheet.feedback.amountText).toHaveText(formatCurrency(AMOUNT));
-  });
-
-  await test.step('고치는 동안에도 되돌리기 시계가 흐른다', async () => {
-    // 8초는 서버가 준 마감 시각이다. 키패드를 펴 두었다고 멈추면 안 된다.
-    await expect
-      .poll(() => recordSheet.feedback.undoSecondsLeft(), {
-        message: '금액을 고치는 동안 되돌리기 시계가 멈췄다',
-        timeout: 8_000,
-      })
-      .toBeLessThanOrEqual(COUNTED_DOWN_TO);
   });
 
   await test.step('고친 금액이 그 줄과 남은 예산에 함께 반영된다', async () => {
@@ -244,11 +227,6 @@ test('저장 직후 금액을 고치면 홈 숫자가 함께 바뀐다', async (
     await expect(recordSheet.feedback.savedAmount).toHaveText(formatCurrency(FIXED_AMOUNT));
     // 새로고침 없이 홈이 따라와야 한다. 다시 부르면 이 단언은 배선이 빠져도 통과한다.
     await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - FIXED_AMOUNT));
-
-    const left = await recordSheet.feedback.undoSecondsLeft();
-    expect(left, '금액을 고치자 되돌리기 시계가 처음부터 다시 셌다').toBeLessThanOrEqual(
-      COUNTED_DOWN_TO,
-    );
   });
 
   await test.step('확인하고 나가면 오늘 목록도 고친 금액이다', async () => {

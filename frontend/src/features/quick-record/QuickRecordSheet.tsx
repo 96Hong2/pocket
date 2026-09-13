@@ -41,7 +41,6 @@ import { toAmount } from './digits';
 import { AmountDisplay, Keypad } from './Keypad';
 import { readLastMethod, writeLastMethod } from './lastRecord';
 import { DEFAULT_RECORD_TAB, recordMethodOf, type RecordTab } from './recordTab';
-import { undoDeadline } from './useUndoCountdown';
 
 export type { RecordTab };
 
@@ -55,8 +54,6 @@ const TABS: SegmentedOption<RecordTab>[] = [
 interface SavedState {
   transaction: TransactionOut;
   feedback: FeedbackOut;
-  /** 되돌리기 카운트다운이 끝나는 시각. */
-  deadline: number | null;
 }
 
 /**
@@ -76,7 +73,7 @@ export function QuickRecordSheet({
   onClose: () => void;
 }) {
   // 저장 응답을 기다리는 동안에는 닫히지 않는다.
-  // 닫히면 컴포넌트가 사라져 응답이 갈 곳이 없어지고, 피드백과 되돌리기가 영구히 사라진다.
+  // 닫히면 컴포넌트가 사라져 응답이 갈 곳이 없어지고, 저장 결과 화면이 영구히 사라진다.
   // 저장 자체는 서버에 남으므로 사용자는 되돌릴 방법 없이 기록만 남게 된다.
   const [saving, setSaving] = useState(false);
 
@@ -190,7 +187,7 @@ function RecordBody({
    * 부르는 자리는 닫기가 아니라 저장 성공이다. 닫기에만 두면 피드백에서 확인을 안 누르고
    * X·딤·Esc·뒤로가기로 닫았을 때 서버 값과 캐시가 어긋나 다음에 옛 탭으로 열린다.
    *
-   * 되돌린 뒤에도 남긴다. 되돌리기가 지우는 것은 거래지 방금 무엇으로 적었나가 아니다.
+   * 그 기록을 지운 뒤에도 남긴다. 지우는 것은 거래지 방금 무엇으로 적었나가 아니다.
    */
   function rememberMethod(): void {
     queryClient.setQueryData<PreferencesOut>(queryKeys.preferences(), (prev) =>
@@ -255,11 +252,7 @@ function RecordBody({
             { flowId },
           );
           rememberMethod();
-          setSaved({
-            transaction: created.transaction,
-            feedback: created.feedback,
-            deadline: undoDeadline(created, Date.now()),
-          });
+          setSaved({ transaction: created.transaction, feedback: created.feedback });
         },
       },
     );
@@ -272,15 +265,8 @@ function RecordBody({
         transaction={saved.transaction}
         feedback={saved.feedback}
         categories={categoriesOfKind(kindOf(saved.transaction.type), allCategories)}
-        deadline={saved.deadline}
-        onUndone={finish}
         onUpdated={(updated) => {
-          setSaved({
-            transaction: updated.transaction,
-            feedback: updated.feedback,
-            // 되돌리기 창은 저장 시각부터 흐른다. 카테고리를 바꿔도 다시 늘어나지 않는다.
-            deadline: saved.deadline,
-          });
+          setSaved({ transaction: updated.transaction, feedback: updated.feedback });
         }}
         // 여기서 고른 것이 다음 기록에 조용히 채워질 값이다.
         onMethodPicked={(next) => void writeLastMethod(bridge.storage, next)}

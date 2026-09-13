@@ -74,7 +74,12 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | GET | `/transactions/calendar` | 달력 격자용 날짜별 지출·수입. 기록이 있는 날만 온다. 아래 「달력 한 칸」 참고 |
 | GET | `/transactions/summary` | 그 달의 지출·수입·차액 **+ 예산 상태** |
 | DELETE | `/transactions/{id}` | 삭제(표시만 남긴다) |
-| POST | `/transactions/{id}/undo` | 방금 저장한 것 되돌리기 |
+| POST | `/transactions/{id}/undo` | 방금 저장한 것 되돌리기. **앱은 더 이상 안 부른다**(아래) |
+
+**`/undo` 는 남겨 두지만 앱이 부르지 않는다.** 서버에서 하는 일이 삭제와 같은데(둘 다
+`deleted_at` 만 찍는다) 이름만 달라, 무엇을 되돌린다는 것인지 화면에서 읽히지 않았다.
+그래서 버튼을 걷어냈다. 엔드포인트를 지우지 않는 것은 이미 나간 판이 아직 이걸 부르기
+때문이다. 지우려면 그 판이 다 갈린 뒤에 지운다.
 
 **금액과 비율은 JSON 에서 문자열로 온다.** 부동소수 오차를 만들지 않으려고 서버가 Decimal 로
 다루기 때문이다. 화면은 `Number()` 로 바꿔 쓴다.

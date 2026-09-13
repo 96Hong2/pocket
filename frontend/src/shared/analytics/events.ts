@@ -66,6 +66,14 @@ export const EVENTS = {
    */
   dataResetResult: 'data_reset_result',
 
+  /**
+   * 안 쓴 날로 표시했다.
+   *
+   * 빈 날 카드에 남은 **유일한 한 줄**이라, 이게 안 눌리면 그 카드는 아무 일도 안 하는
+   * 자리다. 기록하기 버튼과 함께 세어야 빈 날에 사람들이 무엇을 고르는지 갈린다.
+   */
+  noSpendMarked: 'no_spend_marked',
+
   /** 배너 자리의 결과. 떴는지·채울 게 없었는지·실패했는지. */
   adResult: 'ad_result',
   /** 화면이 죽었거나 요청이 실패했다. */

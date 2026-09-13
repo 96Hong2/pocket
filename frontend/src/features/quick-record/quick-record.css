@@ -187,34 +187,13 @@
     color: var(--color-muted);
   }
 
-  .feedback__undo {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 44px;
-    padding: 0 4px;
-    border: 0;
-    background: transparent;
-    color: var(--color-sage-700);
-    font-family: inherit;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-bold);
-  }
-
-  .feedback__undo:disabled {
-    opacity: 0.45;
-  }
-
-  .feedback__undo-count {
-    display: grid;
-    place-items: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 6px;
-    border-radius: var(--radius-pill);
-    background: var(--color-sage-50);
-    font-size: var(--text-11);
-    font-weight: var(--font-weight-bold);
+  /*
+    아래 줄을 눌러 고칠 수 있다는 표시. 되돌리기가 있던 자리를 그대로 쓴다.
+    줄에는 :active 말고 신호가 없어, 이 한 줄이 없으면 누를 수 있다는 것을 모른다.
+  */
+  .feedback__hint {
+    font-size: var(--text-12);
+    color: var(--color-muted);
   }
 
   .feedback__card {
@@ -283,19 +262,9 @@
     margin-top: 10px;
   }
 
-  .feedback__actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 16px;
-  }
-
-  .feedback__actions > * {
-    flex: 1;
-  }
-
-  /* 고치는 버튼 둘 아래 한 줄을 통째로 쓴다. 여기가 이 화면을 끝내는 자리다. */
+  /* 이 화면을 끝내는 자리. 한 줄을 통째로 쓴다. */
   .feedback__confirm {
-    margin-top: 8px;
+    margin-top: 16px;
   }
 
   /* 저장 직후 내용을 적는 칸. 버튼 뒤에 숨기지 않고 늘 둔다. */

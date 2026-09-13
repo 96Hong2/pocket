@@ -15,7 +15,7 @@ export class RecordSheet {
 
   /** 저장 전. 금액·키패드·카테고리 칩. */
   readonly input: RecordInput;
-  /** 저장 후. 피드백 한마디·되돌리기·금액과 카테고리 바꾸기. */
+  /** 저장 후. 피드백 한마디와, 저장한 줄을 눌러 금액·분류 고치기. */
   readonly feedback: RecordFeedback;
   /** 줄글 탭. 적기·검토·저장이 한 자리에서 이어진다. */
   readonly nl: RecordNaturalLanguage;
@@ -362,21 +362,43 @@ class RecordFeedback {
     return this.root.getByRole('status');
   }
 
+  /**
+   * 없앤 것들. **자리가 비었는지 보려고만 둔다.**
+   *
+   * 되돌리기는 서버에서 삭제와 하는 일이 같은데 이름만 달라 걷어냈고,
+   * 「금액 바꾸기」·「카테고리 바꾸기」 버튼은 저장한 줄 자체로 옮겼다.
+   * 옛 버튼은 이름이 딱 그것뿐이라, 줄로 옮긴 새 버튼(「식비 · 카테고리 바꾸기」)과 갈린다.
+   */
   get undoButton(): Locator {
     return this.root.getByRole('button', { name: '되돌리기' });
+  }
+
+  get legacyChangeButtons(): Locator {
+    return this.root.getByRole('button', { name: /^(금액|카테고리) 바꾸기$/ });
+  }
+
+  /** 저장한 줄을 눌러 고칠 수 있다는 안내. 되돌리기가 있던 자리다. */
+  get editHint(): Locator {
+    return this.root.getByText('눌러서 고칠 수 있어요', { exact: true });
   }
 
   get confirmButton(): Locator {
     return this.root.getByRole('button', { name: '확인' });
   }
 
+  /**
+   * 저장한 줄의 왼쪽. 누르면 분류를 고친다.
+   *
+   * 예전에는 줄 아래 「카테고리 바꾸기」 버튼이 따로 있었다. 고칠 것을 직접 누르게
+   * 바꾸면서 버튼 둘이 사라졌고, 줄이 좌우 두 버튼으로 갈렸다.
+   */
   get changeCategoryButton(): Locator {
-    return this.root.getByRole('button', { name: '카테고리 바꾸기' });
+    return this.root.getByRole('button', { name: /카테고리 바꾸기$/ });
   }
 
-  /** 금액을 고치러 키패드를 펴는 버튼. */
+  /** 저장한 줄의 오른쪽 금액. 누르면 키패드가 펴진다. */
   get changeAmountButton(): Locator {
-    return this.root.getByRole('button', { name: '금액 바꾸기' });
+    return this.root.getByRole('button', { name: /금액 바꾸기$/ });
   }
 
   /** 금액 바꾸기를 눌렀을 때 키패드 위에 뜨는 제목. 접혀 있으면 없다. */
@@ -452,7 +474,7 @@ class RecordFeedback {
     return this.root.getByText(name, { exact: true });
   }
 
-  /** 되돌리기가 만료됐을 때처럼, 눌렀지만 안 된 이유를 말하는 자리. */
+  /** 눌렀지만 안 된 이유를 말하는 자리. */
   get notice(): Locator {
     return this.root.getByRole('alert');
   }
@@ -486,22 +508,6 @@ class RecordFeedback {
 
   async waitSaved(): Promise<void> {
     await expect(this.savedLabel).toBeVisible();
-  }
-
-  async undo(): Promise<void> {
-    await this.undoButton.click();
-  }
-
-  /**
-   * 되돌리기 버튼 옆 배지가 말하는 남은 초.
-   *
-   * 배지는 `aria-hidden` 이라 접근성 이름에는 안 들어가고 버튼 글자 뒤에만 붙는다.
-   * 창이 지나면 배지만 사라지므로 그때는 0 이고, 버튼 자체가 거둬졌으면 null 이다.
-   */
-  async undoSecondsLeft(): Promise<number | null> {
-    if ((await this.undoButton.count()) === 0) return null;
-    const digits = ((await this.undoButton.textContent()) ?? '').replace(/\D/g, '');
-    return digits === '' ? 0 : Number(digits);
   }
 
   /**
