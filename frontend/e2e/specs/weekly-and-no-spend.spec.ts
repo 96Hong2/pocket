@@ -89,27 +89,31 @@ function wonOf(text: string): number {
 // ── 안 쓴 날 ────────────────────────────────────────────
 
 /**
- * 빈 자리를 누르면 무엇이 열리나.
+ * 빈 날 카드에 무엇이 서 있나.
  *
- * 예전에는 이 자리의 버튼이 「오늘은 안 썼어요」 하나였다. 비었다는 안내문으로 읽고 누른
- * 사람에게 안 쓴 날 기록이 저장됐고, 적은 적도 없는데 첫 기록을 마친 화면으로 넘어갔다.
- * 처음 써 본 사람이 실제로 여기서 걸렸다. 지금은 안내 자체가 기록 시트 입구다.
+ * 예전에는 이 자리에 비었다는 안내문과 「오늘은 안 썼어요」가 같은 말투로 위아래에 섰다.
+ * 둘 다 문장이라 어느 쪽이 버튼인지 읽히지 않았고, 안내인 줄 알고 눌렀다가 안 쓴 날
+ * 기록이 저장되는 일이 있었다. 지금은 안내를 지우고, 기록은 이름이 붙은 버튼이 맡는다.
  */
-test('비었다는 안내를 누르면 기록 시트가 열리고, 안 쓴 날로 저장되지 않는다', async ({
+test('빈 날 카드에는 안 썼어요와 기록하기 둘만 서고, 비었다는 안내문은 없다', async ({
   home,
   recordSheet,
 }) => {
   await home.open();
   await home.waitReady();
 
-  await expect(home.today.emptyButton).toBeVisible();
+  // 지운 안내문. 남아 있으면 카드가 다시 세 덩어리가 된다.
+  await expect(home.today.emptyNotice).toHaveCount(0);
+
+  await expect(home.today.noSpendButton).toBeVisible();
+  await expect(home.today.emptyButton).toHaveText('오늘 기록하기');
   await home.today.emptyButton.click();
 
   await recordSheet.waitOpen();
   await recordSheet.closeButton.click();
   await recordSheet.waitClosed();
 
-  // 안내를 눌렀다고 기록이 생기면 안 된다. 빈 자리 그대로여야 한다.
+  // 기록하기를 눌렀다고 안 쓴 날 기록이 생기면 안 된다. 빈 자리 그대로여야 한다.
   await expect(home.today.empty).toBeVisible();
   await expect(home.today.noSpendCancelButton).toHaveCount(0);
 });

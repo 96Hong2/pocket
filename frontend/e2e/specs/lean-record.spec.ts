@@ -167,6 +167,59 @@ test('저장 로그는 그대로 남는다', async ({ home, page, recordSheet })
   expect(result[0]?.params.flow_id).toBe(flow);
 });
 
+/**
+ * 빈 날 카드에서 사람들이 무엇을 고르나.
+ *
+ * 카드에 남은 것이 「안 썼어요」와 「기록하기」 둘뿐이라, 둘을 함께 세야 빈 날에
+ * 무슨 일이 일어나는지 알 수 있다. 안 썼다는 표시는 여기가 유일한 입구다.
+ */
+test('안 쓴 날로 표시하면 어느 화면에서 눌렀는지 남는다', async ({ home, page }) => {
+  await home.open();
+  await home.waitReady();
+
+  await home.today.noSpendButton.click();
+  await expect(home.today.noSpendRow).toBeVisible();
+
+  const marked = await logsNamed(page, 'no_spend_marked');
+  expect(marked).toHaveLength(1);
+  expect(marked[0]?.params.where).toBe('home');
+  expect(marked[0]?.params.day).toBeTruthy();
+});
+
+/**
+ * 저장한 줄을 눌러 고치는 길.
+ *
+ * 「금액 바꾸기」·「카테고리 바꾸기」 버튼을 없애고 줄 자체를 누르게 바꿨다. 버튼이
+ * 사라지면서 로그까지 끊기면, 저장하고 나서 바로 고치는 일이 얼마나 잦은지 못 세게 된다.
+ */
+test('줄을 눌러 금액과 분류를 고쳐도 어느 칸인지 그대로 남는다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.input.enterAmount(4000);
+  await recordSheet.input.pickCategory('식비');
+  await recordSheet.feedback.waitSaved();
+
+  await recordSheet.feedback.changeAmountButton.click();
+  await recordSheet.feedback.enterAmount(7000);
+  await recordSheet.feedback.applyAmountButton.click();
+  await expect(recordSheet.feedback.savedAmount).toHaveText('7,000원');
+
+  await recordSheet.feedback.changeCategory('교통');
+
+  const changed = await logsNamed(page, 'record_changed');
+  const fields = changed.map((log) => log.params.field);
+  expect(fields).toContain('amount');
+  expect(fields).toContain('category');
+  // 저장한 흐름에 그대로 묶여야 "적자마자 고쳤다" 를 셀 수 있다.
+  expect(changed.every((log) => Boolean(log.params.flow_id))).toBe(true);
+});
+
 test('결제 수단을 고치면 어느 칸을 고쳤는지 남는다', async ({ home, page, recordSheet }) => {
   await home.open();
   await home.waitReady();

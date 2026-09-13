@@ -4,19 +4,21 @@ import { expect, test } from '../support/director';
 /**
  * 이 앱의 한 바퀴를 화면으로 찍는다.
  *
- * 01 은 처음 연 홈에서 12,000원을 식비로 남기고 되돌리기까지 간다.
+ * 01 은 처음 연 홈에서 12,000원을 식비로 남기고, 저장한 줄을 눌러 고치는 데까지 간다.
  * 홈 CTA · 금액 · 카테고리, 저장까지 세 단계뿐이라는 것이 이 영상의 볼거리다.
  * 02 는 그 뒤 이야기다. 예산을 정하면 게이지가 생기고 기록할수록 찬다.
  */
 
 const AMOUNT = 12_000;
+/** 저장한 줄을 눌러 고쳐 넣는 금액. 처음 값과 자릿수가 달라 화면에서 갈린다. */
+const FIXED_AMOUNT = 30_000;
 const SECOND_AMOUNT = 100_000;
 const CATEGORY = '식비';
 const BUDGET = 500_000;
 
-test('01 처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ demo, home, recordSheet }) => {
+test('01 처음 열어 기록하고 그 자리에서 고치기까지 한 바퀴', async ({ demo, home, recordSheet }) => {
   await home.open();
-  await demo.open('10초 기록 한 바퀴', '홈 CTA · 금액 · 카테고리, 세 단계로 저장하고 되돌리기까지');
+  await demo.open('10초 기록 한 바퀴', '홈 CTA · 금액 · 카테고리, 세 단계로 저장하고 그 줄에서 바로 고치기까지');
   await home.waitReady();
 
   // 첫 진입. 예산을 묻는 화면이 아니라 0원과 부담 덜기 한마디로 시작한다.
@@ -46,7 +48,6 @@ test('01 처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ dem
   await expect(recordSheet.input.categoryChip(CATEGORY)).toBeEnabled();
   await demo.beat(2);
 
-  // 여기부터 되돌리기 창(8초)이 흐른다. 저장과 되돌리기 사이는 짧게 붙인다.
   await demo.step('3단계 · 식비를 누르는 것이 곧 저장이에요. 저장 버튼은 없습니다');
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
@@ -60,13 +61,14 @@ test('01 처음 열어 기록하고 되돌리기까지 한 바퀴', async ({ dem
   await demo.step('뒤에 있는 홈 숫자도 새로고침 없이 따라 올라갔어요');
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(AMOUNT));
 
-  await demo.step('잘못 눌렀으면 되돌리기 한 번이면 됩니다');
-  await recordSheet.feedback.undo();
-  await recordSheet.waitClosed();
+  await demo.step('잘못 적었으면 저장한 줄을 그대로 눌러 고칩니다');
+  await recordSheet.feedback.changeAmountButton.click();
+  await recordSheet.feedback.enterAmount(FIXED_AMOUNT);
+  await recordSheet.feedback.applyAmountButton.click();
 
   await demo.clearStep();
-  await expect(home.hero.monthSpent).toHaveText(formatCurrency(0));
-  await expect(home.today.empty).toBeVisible();
+  await expect(recordSheet.feedback.savedAmount).toHaveText(formatCurrency(FIXED_AMOUNT));
+  await expect(home.hero.monthSpent).toHaveText(formatCurrency(FIXED_AMOUNT));
   await demo.beat(3);
 });
 

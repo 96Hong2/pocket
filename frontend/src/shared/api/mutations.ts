@@ -117,25 +117,8 @@ export function useUpdateTransaction(params?: MonthParams) {
 }
 
 /**
- * 되돌리기.
- *
- * 204 라 돌려받는 값이 없다. 홈 숫자를 되돌리려면 다시 받는 수밖에 없다.
- * 무효화가 끝날 때까지 `isPending` 이 유지되므로, 버튼이 먼저 사라지고 숫자가 나중에 바뀌는 일이 없다.
- */
-export function useUndoTransaction() {
-  const client = useApiClient();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (transactionId: string) => client.undoTransaction(transactionId),
-    onSuccess: () => invalidateMoney(queryClient),
-  });
-}
-
-/**
  * 거래 삭제.
  *
- * 되돌리기와 다르다. 되돌리기는 저장 직후 짧은 시간에만 되고, 이건 수정 시트에서 언제든 된다.
  * 서버는 행을 남기고 표시만 지운다. 204 라 돌려받는 값이 없어 무효화로 화면을 맞춘다.
  */
 export function useDeleteTransaction() {

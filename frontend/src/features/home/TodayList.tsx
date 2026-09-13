@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 
 import { ROUTES } from '../../app/router/routes';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   ApiError,
   parseDecimalOr,
@@ -18,7 +19,7 @@ import {
   toLedgerNoonIso,
   withTopic,
 } from '../../shared/lib/format';
-import { Card, ErrorState, LoadingState, iconUrl } from '../../shared/ui';
+import { Button, Card, ErrorState, LoadingState, iconUrl } from '../../shared/ui';
 
 interface TodayListProps {
   /** 보고 있는 날. `2026-09-08` */
@@ -111,6 +112,7 @@ export function TodayList({
   // '오늘' 은 받침이 있어 조사가 '은' 이다. 오늘 화면의 문구는 예전 그대로 「오늘은 안 썼어요」다.
   const noSpendLabel = `${withTopic(label)} 안 썼어요`;
 
+  const analytics = useAnalytics();
   const markNoSpend = useCreateTransaction();
   const cancelNoSpend = useDeleteTransaction();
   const noSpendError =
@@ -209,46 +211,23 @@ export function TodayList({
       ) : (
         <Card padding="md">
           {/*
-            **비어 있는 자리에서 할 일은 기록이다.**
+            **빈 날에 할 일은 둘뿐이다. 지금 적거나, 안 썼다고 남기거나.**
 
-            예전에는 이 자리가 안내문 하나와 「오늘은 안 썼어요」 버튼이었다. 비었다는 안내로
-            읽고 눌렀다가 안 쓴 날 기록이 저장돼, 적은 적도 없는데 첫 기록을 마친 화면으로
-            넘어가는 일이 있었다. 처음 써 본 사람이 실제로 여기서 걸렸다.
+            예전에는 「비어 있어요」 안내와 「안 썼어요」가 같은 말투로 위아래에 서 있었다.
+            둘 다 문장이라 어느 쪽이 버튼인지 읽히지 않았고, 비었다는 안내인 줄 알고
+            눌렀다가 안 쓴 날 기록이 저장되는 일이 있었다.
 
-            그래서 안내 자체를 누를 수 있게 바꿨다. 비었다는 말을 누르면 기록 시트가 열린다.
-            안 썼다는 표시는 그 아래 한 줄로 내렸다. 안 쓴 날에도 남길 것은 있어야 하니
-            없애지는 않는다. 적을 게 없다고 그냥 닫으면 그 날은 '안 적은 날' 로만 남아,
-            안 썼는데도 기록이 빈 날이 된다.
+            그래서 안내를 지우고 둘만 남긴다. 기록은 **이름이 붙은 버튼**이 맡아
+            무엇을 하는 자리인지 더 고민할 것이 없고, 남은 한 줄은 안 썼다는 표시 하나뿐이라
+            무엇을 누른 것인지 헷갈리지 않는다.
           */}
-          <button type="button" className="home-today__empty" onClick={onRecord}>
-            <img
-              className="home-today__empty-icon"
-              src={iconUrl('27_clock')}
-              alt=""
-              aria-hidden="true"
-            />
-            <span className="home-today__empty-body">
-              <span className="home-today__empty-title">
-                {isToday ? '오늘은 아직 비어 있어요' : `${withTopic(label)} 비어 있어요`}
-              </span>
-              <span className="home-today__empty-desc">
-                {isToday
-                  ? '눌러서 지금 적어 보세요. 하나만 적어도 충분해요'
-                  : '눌러서 적으면 사진과 문장은 그 날로 들어가요'}
-              </span>
-            </span>
-            <span className="home-today__empty-go" aria-hidden="true">
-              <Chevron direction="right" />
-            </span>
-          </button>
-
-          {/* 안 썼다는 것도 기록이다. 다만 기록하기보다 뒤에 선다. */}
           <button
             type="button"
             className="home-today__nospend"
             disabled={markNoSpend.isPending}
             onClick={() => {
               if (markNoSpend.isPending) return;
+              analytics.log(EVENTS.noSpendMarked, { where: 'home', day }, { kind: 'click' });
               markNoSpend.mutate({
                 occurred_at: toLedgerNoonIso(day),
                 amount: '0',
@@ -260,9 +239,18 @@ export function TodayList({
               });
             }}
           >
-            {markNoSpend.isPending ? '적는 중이에요' : noSpendLabel}
+            <img
+              className="home-today__nospend-icon"
+              src={iconUrl('27_clock')}
+              alt=""
+              aria-hidden="true"
+            />
+            <span>{markNoSpend.isPending ? '적는 중이에요' : noSpendLabel}</span>
           </button>
           {noSpendError ? <ErrorLine message={noSpendError.message} /> : null}
+          <Button className="home-today__record" variant="outline" fullWidth onClick={onRecord}>
+            {label} 기록하기
+          </Button>
           <MoreLink />
         </Card>
       )}

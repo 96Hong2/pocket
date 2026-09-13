@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ApiError,
   parseDecimalOr,
-  useUndoTransaction,
   useUpdateTransaction,
   type CategoryOut,
   type FeedbackOut,
@@ -13,19 +12,14 @@ import {
   type TransactionUpdated,
 } from '../../shared/api';
 import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
-import {
-  CategoryPicker,
-  KIND_WORDS,
-  PaymentMethodPicker,
-  kindOf,
-} from '../../shared/ledger';
+import { CategoryPicker, KIND_WORDS, PaymentMethodPicker, kindOf } from '../../shared/ledger';
+import { formatCurrency } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, iconOf, TransactionRow } from '../../shared/ui';
 
 import { toAmount } from './digits';
 import { buildFeedbackMessage } from './feedbackMessage';
 import { AmountDisplay, Keypad } from './Keypad';
-import { useUndoCountdown } from './useUndoCountdown';
 
 interface FeedbackPanelProps {
   /** 이 기록 흐름을 가리키는 값. 저장 뒤 손질까지 한 줄로 잇는다. */
@@ -33,9 +27,6 @@ interface FeedbackPanelProps {
   transaction: TransactionOut;
   feedback: FeedbackOut;
   categories: CategoryOut[];
-  /** 카운트다운이 끝나는 시각. 모르면 null 이고 그때는 초를 세지 않는다. */
-  deadline: number | null;
-  onUndone: () => void;
   onUpdated: (updated: TransactionUpdated) => void;
   /**
    * 결제 수단을 고른 그 순간. 서버 응답을 기다리지 않는다.
@@ -50,8 +41,7 @@ interface FeedbackPanelProps {
 /**
  * 지금 펼쳐 둔 고치기. 한 번에 하나만 편다.
  *
- * 둘을 함께 펼치면 시트가 길어져 되돌리기 버튼이 화면 밖으로 밀린다.
- * 되돌릴 시간이 8초뿐이라 그 버튼이 안 보이면 창이 그냥 지나간다.
+ * 둘을 함께 펼치면 시트가 길어져 확인 버튼이 화면 밖으로 밀린다.
  */
 type Editing = 'amount' | 'category' | null;
 
@@ -61,14 +51,12 @@ type UpdateTarget = 'amount' | 'category' | 'merchant' | 'payment_method';
 /** 상호는 서버가 120자까지 받는다. 화면에서 먼저 막아 422 를 왕복하지 않는다. */
 const MERCHANT_MAX = 120;
 
-/** 저장 결과와 그에 대한 한마디. 되돌리기와 금액·카테고리 다시 고르기가 여기 붙는다. */
+/** 저장 결과와 그에 대한 한마디. 금액·분류 고치기가 그 줄에 그대로 붙는다. */
 export function FeedbackPanel({
   flowId,
   transaction,
   feedback,
   categories,
-  deadline,
-  onUndone,
   onUpdated,
   onMethodPicked,
   onConfirm,
@@ -83,9 +71,7 @@ export function FeedbackPanel({
   const sentMerchant = useRef<string | null>(null);
   // 확인을 눌러 만든 요청인지. 성공하면 그때 닫고, 실패하면 닫지 않는다.
   const closeAfterUpdate = useRef(false);
-  const undo = useUndoTransaction();
   const update = useUpdateTransaction();
-  const remaining = useUndoCountdown(deadline);
 
   const category = categories.find((item) => item.id === transaction.category_id);
   const overName = categories.find((item) => item.id === feedback.over_category_id)?.name;
@@ -100,9 +86,6 @@ export function FeedbackPanel({
   // 저장이 0원을 막으니 고치기도 같다. 키패드를 다 지우면 0원이고, 그대로 보내면 서버가 되돌려보낸다.
   const amountOk = nextAmount > 0;
 
-  const undoError = undo.error instanceof ApiError ? undo.error : null;
-  // 만료는 실수가 아니라 시간이 지난 것이다. 다시 눌러도 같은 답이 오므로 버튼을 거둔다.
-  const expired = undoError?.code === 'UNDO_EXPIRED';
   const updateError = update.error instanceof ApiError ? update.error : null;
 
   let amountHint = '금액은 1원부터 넣을 수 있어요';
@@ -215,31 +198,18 @@ export function FeedbackPanel({
 
   return (
     <div className="feedback" ref={panelRef} tabIndex={-1}>
+      {/*
+        **되돌리기는 없앴다.** 서버에서 하는 일이 삭제와 똑같은데(둘 다 `deleted_at` 만
+        찍는다) 이름이 달라, 무엇을 되돌린다는 것인지 읽어 낼 수가 없었다. 8초 카운트다운도
+        단위 없는 숫자 하나라 몇 초인지 몇 건인지 알 수 없었다.
+        잘못 적었으면 아래에서 금액·분류를 고치고, 통째로 지울 일은 기록을 눌러서 지운다.
+
+        비운 오른쪽 자리에는 줄을 눌러 고칠 수 있다는 것만 적는다. 줄만 놓아 두면
+        누를 수 있다는 신호가 :active 밖에 없어 아무도 안 누른다.
+      */}
       <div className="feedback__head">
         <span className="feedback__label">저장했어요</span>
-        {expired ? null : (
-          <button
-            type="button"
-            className="feedback__undo"
-            aria-label="되돌리기"
-            disabled={undo.isPending}
-            onClick={() => {
-              analytics.log(
-                EVENTS.recordChanged,
-                { action: 'undo', method: 'keypad' },
-                { flowId, kind: 'click' },
-              );
-              undo.mutate(transaction.id, { onSuccess: onUndone });
-            }}
-          >
-            <span>되돌리기</span>
-            {remaining > 0 ? (
-              <span className="feedback__undo-count" data-numeric="" aria-hidden="true">
-                {remaining}
-              </span>
-            ) : null}
-          </button>
-        )}
+        <span className="feedback__hint">눌러서 고칠 수 있어요</span>
       </div>
 
       {/*
@@ -256,14 +226,11 @@ export function FeedbackPanel({
         tone={transaction.type}
         avatarSize={50}
         hideDivider
+        onClick={toggleCategory}
+        onAmountClick={toggleAmount}
+        clickLabel={`${category?.name ?? '분류'} · 카테고리 바꾸기`}
+        amountClickLabel={`${formatCurrency(savedAmount)} · 금액 바꾸기`}
       />
-
-      {undoError ? (
-        <p className="feedback__notice" role="alert">
-          {undoError.message}
-          {expired ? ' 카테고리는 아래에서 바꿀 수 있어요.' : ''}
-        </p>
-      ) : null}
 
       <div
         className={
@@ -375,14 +342,6 @@ export function FeedbackPanel({
         </p>
       ) : null}
 
-      <div className="feedback__actions">
-        <Button variant="outline" onClick={toggleAmount}>
-          금액 바꾸기
-        </Button>
-        <Button variant="outline" onClick={toggleCategory}>
-          카테고리 바꾸기
-        </Button>
-      </div>
       <Button className="feedback__confirm" variant="primarySmall" fullWidth onClick={confirm}>
         확인
       </Button>

@@ -106,8 +106,37 @@ export class CategoriesScreen {
 
   /** 한 구획 안에 놓인 줄 이름. 종류가 섞이지 않았는지 볼 때 쓴다. */
   async sectionNames(title: string): Promise<string[]> {
-    const texts = await this.section(title).getByRole('listitem').allTextContents();
+    const texts = await this.section(title).locator(ROW_ONLY).allTextContents();
     return texts.map(stripRowChrome);
+  }
+
+  /** 지운 문단이 남았는지 보는 자리. 화면 어디에도 없어야 한다. */
+  get quickRuleParagraph(): Locator {
+    return this.page.getByText(/개까지 보여요/);
+  }
+
+  /**
+   * 기록 화면 앞자리의 끝을 알리는 한 줄.
+   *
+   * 예전에는 목록 위에 문단으로 규칙을 적었는데, 넘칠 일이 없는 묶음에도 그대로 뜨고
+   * 글자색이 흐려 읽히지 않았다. 지금은 경계선 그 자리에 한 줄만 있다.
+   */
+  quickEdge(title: string): Locator {
+    return this.section(title).locator('[data-quick-edge]');
+  }
+
+  /**
+   * 아직 서버로 안 간 순서가 남았는가.
+   *
+   * 화살표를 누르면 화면이 먼저 움직이고 손이 멈춘 뒤에 한 번만 보낸다.
+   * 화면을 떠나기 전에 이걸 기다려야 저장된 것을 보는 것이 된다.
+   */
+  get orderPending(): Locator {
+    return this.page.locator('[data-order-dirty]');
+  }
+
+  async waitOrderSaved(): Promise<void> {
+    await expect(this.orderPending).toHaveCount(0);
   }
 
   /** 어느 구획에 있든 그 이름의 줄. 몇 개 있는지 셀 때 쓴다. */
@@ -190,7 +219,7 @@ export class CategoriesScreen {
   private get allRows(): Locator {
     return this.page
       .getByRole('region', { name: /^(지출 카테고리|수입 카테고리|이체)$/ })
-      .getByRole('listitem');
+      .locator(ROW_ONLY);
   }
 }
 
@@ -478,6 +507,13 @@ class MerchantRuleSheet {
 }
 
 /** 줄 글자에서 이름만 남긴다. 앞에는 순서 화살표, 뒤에는 배지나 안내가 붙어 있다. */
+/**
+ * 분류 줄만. 경계 안내 줄은 뺀다.
+ *
+ * 목록에 분류가 아닌 줄이 하나 섞여 있어, 그냥 세면 자리 번호가 한 칸씩 밀린다.
+ */
+const ROW_ONLY = 'li:not([data-quick-edge])';
+
 function stripRowChrome(text: string): string {
   return text
     .replace(/^[↑↓\s]+/, '')

@@ -154,10 +154,17 @@
 
   /*
     기록 화면 앞자리의 끝. 여기까지가 칩으로 서고 아래는 「더 보기」 뒤다.
-    글로 적는 대신 선으로 보여 준다. 목록을 훑는 중에 읽히는 것은 선뿐이다.
+
+    선만 그으면 무슨 선인지 모르고, 목록 위에 문단으로 적으면 훑는 중에 안 읽힌다.
+    선 위에 한 줄을 얹어 뜻이 그 자리에 있게 한다.
   */
   .cat-list > li[data-quick-edge] {
+    padding: 2px 0 10px;
     border-bottom: 2px dashed var(--color-sage-300);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    text-align: center;
   }
 
   .cat-row__name {

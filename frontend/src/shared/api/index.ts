@@ -61,7 +61,6 @@ export {
   useSaveCategoryOrder,
   useSaveNotificationSettings,
   useSavePreferences,
-  useUndoTransaction,
   useUpdateCategory,
   useUpdateGoal,
   useUpdateTransaction,

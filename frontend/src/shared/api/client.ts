@@ -153,8 +153,6 @@ export interface ApiClient extends Transport {
     options?: CallOptions,
   ): Promise<TransactionUpdated>;
   deleteTransaction(id: string, options?: CallOptions): Promise<void>;
-  /** 방금 저장한 것 되돌리기. 본문 없는 204 로 온다. */
-  undoTransaction(id: string, options?: CallOptions): Promise<void>;
   getSummary(params?: MonthParams, options?: CallOptions): Promise<PeriodSummaryOut>;
 
   /** 리포트 화면이 그리는 것 전부. 조회 하나로 끝낸다. */
@@ -332,14 +330,6 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<void>({
         method: 'DELETE',
         path: transactionPath(id),
-        signal: call?.signal,
-      });
-    },
-
-    undoTransaction(id, call) {
-      return transport.request<void>({
-        method: 'POST',
-        path: `${transactionPath(id)}/undo`,
         signal: call?.signal,
       });
     },
