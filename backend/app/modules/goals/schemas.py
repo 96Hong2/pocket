@@ -28,6 +28,7 @@ __all__ = [
     "GoalContributionCreate",
     "GoalContributionOut",
     "GoalCreate",
+    "GoalHistoryOut",
     "GoalOut",
     "GoalPatch",
     "GoalStateOut",
@@ -159,6 +160,15 @@ class GoalStateOut(BaseModel):
     """
 
     goal: GoalOut | None
+
+
+class GoalHistoryOut(BaseModel):
+    """다 모으고 마친 목표들. 최근에 마친 것이 앞에 온다.
+
+    비어 있는 것이 정상이다. 목표를 하나도 안 마친 사람이 대부분이다.
+    """
+
+    items: list[GoalOut]
 
 
 def _amount(value: Money | None) -> Decimal | None:

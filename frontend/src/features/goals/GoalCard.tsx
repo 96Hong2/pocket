@@ -6,7 +6,7 @@ import {
   toLedgerDate,
 } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
-import { Amount, Button, Chip, Gauge, iconUrl } from '../../shared/ui';
+import { Amount, Button, Gauge, iconUrl } from '../../shared/ui';
 
 export interface GoalCardProps {
   goal: GoalOut;
@@ -23,6 +23,9 @@ export interface GoalCardProps {
  *
  * **없는 값은 문장에서 통째로 뺀다.** 기한이 없으면 매달 모을 돈 줄이 아예 없고,
  * 기여가 없으면 도달 예상 자리에 숫자를 지어내지 않는다.
+ *
+ * 다 모았다는 말은 여기서 하지 않는다. 바로 위에 축하 자리(`GoalDonePanel`)가 서서
+ * 같은 말을 크게 하고 있어, 배지까지 두면 한 화면이 같은 사실을 두 번 말한다.
  */
 export function GoalCard({ goal, onEdit, onContribute }: GoalCardProps) {
   const target = parseDecimalOr(goal.target_amount, 0);
@@ -42,8 +45,6 @@ export function GoalCard({ goal, onEdit, onContribute }: GoalCardProps) {
           draggable={false}
         />
         <h2 className="goal-card__title">{goal.title}</h2>
-        {/* 달성은 계산으로 판정한다. 상태를 굳히지 않으니 기여를 지우면 이 배지도 사라진다. */}
-        {goal.is_achieved ? <Chip variant="sage">달성했어요</Chip> : null}
       </div>
 
       <p className="goal-card__sum" data-numeric="">

@@ -44,6 +44,11 @@ export function CategoryEditSheet({ open, category, onClose }: CategoryEditSheet
       open={open}
       onClose={onClose}
       dismissible={!busy}
+      /*
+        아이콘 격자만 여섯 줄이라 내용만큼 열면 아래 저장 버튼이 접힌 자리 밖으로 밀린다.
+        저장을 못 찾아 이름만 고치고 시트를 닫은 사람이 실제로 있었다.
+      */
+      size="tall"
       title={category == null ? '카테고리 만들기' : '카테고리 고치기'}
       className="cat-sheet"
     >
@@ -103,10 +108,18 @@ export function CategoryEditForm({
   );
   // 지우기는 한 단을 더 받는다. 시트를 하나 더 겹치면 포커스가 흔들려 여기서 묻는다.
   const [confirming, setConfirming] = useState(false);
+  /*
+    이모지 칸에 이모지가 아닌 글자가 남았나.
+
+    그대로 저장하면 친 글자는 버려지고 아무도 안 고른 별표가 걸린다. 아래 한 줄을 못 본
+    사람에게는 친 글자가 그대로 될 것처럼 보여, 저장하고 나서야 다른 그림을 본다.
+    **막고 왜 막혔는지 그 자리에 적는다.**
+  */
+  const [iconInvalid, setIconInvalid] = useState(false);
 
   const busy = create.isPending || update.isPending || remove.isPending;
   const trimmed = name.trim();
-  const canSave = trimmed !== '' && !busy;
+  const canSave = trimmed !== '' && !iconInvalid && !busy;
 
   // 지우기 실패 문구가 남아 있으면 그다음 저장이 왜 막혔는지 말하지 못한다.
   // 확인을 접을 때 지우기 오류를 함께 지운다.
@@ -180,12 +193,13 @@ export function CategoryEditForm({
         />
       </label>
 
-      <div className="cat-sheet__field">
+      <div className="cat-sheet__field cat-sheet__field--icon">
         <span className="cat-sheet__label">아이콘</span>
         <IconPicker
           value={icon}
           custom={custom}
           disabled={busy}
+          onInvalidChange={setIconInvalid}
           onChange={(next) => {
             setIcon(next.icon);
             setCustom(next.custom);
@@ -222,15 +236,27 @@ export function CategoryEditForm({
           </div>
         </div>
       ) : (
-        <div className="cat-sheet__actions">
-          {category != null ? (
-            <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>
-              지우기
-            </Button>
+        /* 저장은 시트 바닥에 붙는다. 아이콘 격자를 스크롤해도 늘 같은 자리에 있어야 한다. */
+        <div className="cat-sheet__foot">
+          {/*
+            저장이 왜 회색인지 그 자리에서 말한다. 이유가 위쪽 격자 아래에만 있으면,
+            버튼만 보고 있는 사람에게는 앱이 고장 난 것으로 읽힌다.
+          */}
+          {iconInvalid ? (
+            <p className="cat-sheet__notice" role="status">
+              이모지가 아닌 글자가 들어 있어요. 지우거나 이모지를 골라 주세요
+            </p>
           ) : null}
-          <Button className="cat-sheet__done" disabled={!canSave} onClick={save}>
-            저장
-          </Button>
+          <div className="cat-sheet__actions">
+            {category != null ? (
+              <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>
+                지우기
+              </Button>
+            ) : null}
+            <Button className="cat-sheet__done" disabled={!canSave} onClick={save}>
+              저장
+            </Button>
+          </div>
         </div>
       )}
     </div>

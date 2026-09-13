@@ -114,7 +114,7 @@ test('「자주 쓴 순서로」를 누르면 많이 쓴 것이 앞에 선다', 
  * 보내기 전에 화면이 사라지는데, **거기서 취소하면 방금 옮긴 것이 조용히 없어진다.**
  * 화살표를 누르자마자 뒤로 가는 것이 오히려 흔한 손짓이라 여기가 제일 위험하다.
  */
-test('옮기자마자 화면을 떠나도 그 순서가 남는다', async ({ appShell, categories }) => {
+test('옮기자마자 화면을 떠나도 그 순서가 남는다', async ({ appShell, categories, page }) => {
   await categories.open();
   await categories.waitReady();
 
@@ -123,8 +123,18 @@ test('옮기자마자 화면을 떠나도 그 순서가 남는다', async ({ app
     .poll(async () => (await categories.sectionNames('지출 카테고리'))[0])
     .toBe('카페·간식');
 
-  // 저장을 기다리지 않고 곧바로 나간다. 여기서 요청이 안 나가면 순서를 잃는다.
+  /*
+    떠나는 그 순간에 요청이 실제로 나가는지를 본다.
+
+    응답까지 기다리는 이유는 여기서 기다리지 않으면 아래 `open()` 이 **문서를 새로 로드**해
+    아직 도착 안 한 저장을 브라우저가 끊기 때문이다. 그건 우리 코드가 아니라 이 테스트가
+    만든 경합이고, 재려던 것은 「떠날 때 취소가 아니라 전송한다」다.
+  */
+  const saved = page.waitForResponse(
+    (response) => response.url().includes('/categories/order') && response.request().method() === 'PUT',
+  );
   await appShell.pressBack();
+  expect((await saved).ok(), '떠날 때 순서를 안 보냈다').toBe(true);
 
   // 서버에서 다시 받아 온다. 화면에 남은 값이 아니라 저장된 값을 보는 자리다.
   await categories.open();

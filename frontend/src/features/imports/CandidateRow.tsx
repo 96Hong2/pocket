@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
 
@@ -98,8 +98,20 @@ export function CandidateRow({
   */
   const isRefund = candidate.type === 'refund';
 
+  /*
+    펼친 줄을 화면 맨 위로 끌어올린다.
+
+    목록 다섯째 줄을 누르면 폼이 화면 밖 아래로 열려, 무엇이 열렸는지 모른 채 스크롤을
+    찾아 내려야 했다. 열리는 자리를 눈이 따라가게 해 두면 고칠 칸이 바로 앞에 온다.
+  */
+  const rowRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (!editing) return;
+    rowRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [editing]);
+
   return (
-    <li className="nl-item" data-testid={TEST_IDS.nlCandidateRow}>
+    <li className="nl-item" ref={rowRef} data-testid={TEST_IDS.nlCandidateRow}>
       <div className="nl-item__head">
         {/*
           라벨이 감싸는 것은 체크박스 하나뿐이다. 예전에는 이름과 아이콘까지 라벨 안이라

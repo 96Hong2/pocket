@@ -130,15 +130,22 @@
     color: var(--color-amber-700);
   }
 
+  /*
+    스크롤 상자를 여기 두지 않는다. 검토 화면은 시트를 크게 열어 시트 자체가 스크롤한다.
+    상자를 겹치면 목록 안에서 한 번, 시트에서 또 한 번 굴러 지금 어디를 보는지 잃는다.
+  */
   .nl__list {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-height: 46vh;
-    overflow-y: auto;
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+
+  /* 크게 연 시트에서는 목록이 남는 자리를 먹어, 아래 버튼 줄이 바닥에 붙는다. */
+  .pk-sheet--tall .nl__list {
+    flex: 1;
   }
 
   .nl__actions {

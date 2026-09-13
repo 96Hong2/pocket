@@ -18,6 +18,8 @@ export interface NaturalLanguageTabProps {
   flowId: FlowId;
   /** 요청이 도는 동안 시트가 닫히거나 탭이 옮겨지지 않게 껍데기에 알린다. */
   onBusyChange: (busy: boolean) => void;
+  /** 지금 닫으면 잃을 건수. 껍데기가 시트 크기와 닫기 확인을 이 값으로 정한다. */
+  onReviewChange?: (pending: number) => void;
   onDone: () => void;
   /** 저장이 성공한 순간. 닫기보다 앞선다. */
   onSaved?: () => void;
@@ -31,6 +33,7 @@ export interface NaturalLanguageTabProps {
 export function NaturalLanguageTab({
   flowId,
   onBusyChange,
+  onReviewChange,
   onDone,
   onSaved,
 }: NaturalLanguageTabProps) {
@@ -48,6 +51,7 @@ export function NaturalLanguageTab({
         method="text"
         onBatchChange={setBatch}
         onBusyChange={onBusyChange}
+        onReviewChange={onReviewChange}
         onRestart={() => setBatch(null)}
         onDone={onDone}
         onSaved={onSaved}

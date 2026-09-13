@@ -415,6 +415,48 @@
     line-height: 1.5;
   }
 
+  /*
+    저장이 서는 자리.
+
+    **시트로 열렸을 때만 바닥에 붙는다.** 같은 폼이 기록 시트 안의 「새 분류 만들기」로도
+    쓰이는데, 거기서 붙여 두면 회색 상자 안의 버튼이 그 상자 밖 시트 바닥에 가서 선다.
+  */
+  .cat-sheet__foot {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .cat-sheet .cat-sheet__foot {
+    position: sticky;
+    bottom: calc(-20px - var(--safe-bottom));
+    z-index: 1;
+    margin-top: auto;
+    /* 시트 아래 여백까지 덮는다. 안 덮으면 그 틈으로 아이콘 격자가 비쳐 보인다. */
+    margin-bottom: calc(-20px - var(--safe-bottom));
+    padding: 12px 0 calc(20px + var(--safe-bottom));
+    background: var(--color-surface);
+  }
+
+  /* 크게 연 시트에서는 아이콘 자리가 남는 높이를 먹어, 저장이 바닥에 붙는다. */
+  .pk-sheet--tall .cat-sheet__field--icon {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .pk-sheet--tall .cat-sheet__field--icon .icon-picker,
+  .pk-sheet--tall .cat-sheet__field--icon .icon-picker__grid {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* 시트가 커졌으니 격자를 좁은 상자에 가둘 이유가 없다. */
+  .pk-sheet--tall .icon-picker__grid {
+    max-height: none;
+  }
+
   .cat-sheet__actions {
     display: flex;
     gap: 10px;

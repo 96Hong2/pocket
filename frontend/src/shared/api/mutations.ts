@@ -495,6 +495,25 @@ export function useUpdateGoal() {
   });
 }
 
+/**
+ * 다 모은 목표를 마친다.
+ *
+ * 마친 목표는 지난 목표 목록으로 옮겨 가므로 그쪽도 함께 무효화한다. 빠뜨리면 방금 마친
+ * 것이 「지난 목표」에 없어, 사라진 것으로 보인다.
+ */
+export function useFinishGoal() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (goalId: string): Promise<GoalStateOut> => client.finishGoal(goalId),
+    onSuccess: (state) => {
+      writeGoal(queryClient, state);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.goalHistory() });
+    },
+  });
+}
+
 /** 목표 접기. 204 라 돌려받는 값이 없어 다시 받아 빈 상태로 돌아간다. */
 export function useDeleteGoal() {
   const client = useApiClient();

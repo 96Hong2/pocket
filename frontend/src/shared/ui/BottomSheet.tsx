@@ -22,6 +22,16 @@ export interface BottomSheetProps {
   children: ReactNode;
   /** 딤·Esc·손잡이로 닫을 수 있는지. 저장 중처럼 닫히면 안 될 때만 false. */
   dismissible?: boolean;
+  /**
+   * 시트 높이.
+   *
+   * - `auto`  내용만큼. 짧은 시트의 기본이다.
+   * - `tall`  화면 위쪽까지 늘 같은 높이로 연다. **고칠 것이 많은 시트에 쓴다.**
+   *
+   * 내용만큼 여는 시트에서 칸이 여럿이면, 화면에 보이는 자리가 손바닥만 해서 아래 저장
+   * 버튼이 접힌 아래로 밀린다. 그 버튼을 못 찾아 고치다 만 사람이 실제로 있었다.
+   */
+  size?: 'auto' | 'tall';
   /** 제목이 없을 때 스크린리더가 읽을 이름. */
   ariaLabel?: string;
   className?: string;
@@ -43,6 +53,7 @@ export function BottomSheet({
   title,
   children,
   dismissible = true,
+  size = 'auto',
   ariaLabel,
   className,
 }: BottomSheetProps) {
@@ -142,7 +153,12 @@ export function BottomSheet({
       <div className="pk-sheet-dim" onClick={dismissible ? onClose : undefined} />
       <div
         ref={sheetRef}
-        className={cx('pk-sheet', drag.dragging && 'pk-sheet--dragging', className)}
+        className={cx(
+          'pk-sheet',
+          size === 'tall' && 'pk-sheet--tall',
+          drag.dragging && 'pk-sheet--dragging',
+          className,
+        )}
         style={drag.offset > 0 ? { transform: `translateY(${drag.offset}px)` } : undefined}
         role="dialog"
         aria-modal="true"

@@ -1,0 +1,103 @@
+/*
+  처음 안내. 색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
+
+  화면을 통째로 덮는다. 시트로 두면 뒤에 홈이 비쳐 무엇을 먼저 봐야 하는지 갈리고,
+  아래로 밀어 닫을 수 있어 첫 장에서 사고로 사라진다.
+*/
+
+@layer components {
+  .onboard {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px calc(24px + var(--safe-right)) calc(24px + var(--safe-bottom))
+      calc(24px + var(--safe-left));
+    background: var(--color-bg);
+  }
+
+  .onboard__box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 360px;
+  }
+
+  /*
+    건너뛰기. 오른쪽 위에 작게 둔다.
+
+    끝까지 봐야 앱을 쓸 수 있게 만들면 그 순간 이 앱은 배워야 하는 앱이 된다.
+    작게 두되 흐리게 두지는 않는다. 눌러야 할 사람에게는 이게 유일한 출구다.
+  */
+  .onboard__skip {
+    align-self: flex-end;
+    min-height: 44px;
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    color: var(--color-muted);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .onboard__icon {
+    width: 96px;
+    height: 96px;
+    margin-top: 8px;
+    object-fit: contain;
+  }
+
+  .onboard__title {
+    margin: 20px 0 0;
+    font-size: 22px;
+    font-weight: var(--font-weight-extrabold);
+    letter-spacing: -0.5px;
+    line-height: 1.4;
+    color: var(--color-ink);
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  /* 한 장에 한 줄이다. 두 줄이 되면 아무도 안 읽는다. */
+  .onboard__body {
+    margin: 10px 0 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.6;
+    color: var(--color-muted);
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  .onboard__body b {
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
+  /* 몇 장 남았는지. 숫자로 적으면 읽을 것이 하나 더 는다. */
+  .onboard__dots {
+    display: flex;
+    gap: 6px;
+    margin-top: 28px;
+  }
+
+  .onboard__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: var(--color-border);
+  }
+
+  .onboard__dot--on {
+    width: 18px;
+    background: var(--color-sage-700);
+  }
+
+  .onboard__next {
+    margin-top: 20px;
+  }
+}

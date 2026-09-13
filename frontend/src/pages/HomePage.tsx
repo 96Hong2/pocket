@@ -7,6 +7,7 @@ import { AddToHomePrompt } from '../features/home-add';
 import {
   BudgetSuggestCard,
   ClosingEntryCard,
+  GoalDoneCard,
   GoalStatusCard,
   HomeHero,
   RecoveryCard,
@@ -14,10 +15,10 @@ import {
   resolveHeroLayout,
   resolveHomeView,
   toHomeViewInput,
+  useCardDismiss,
 } from '../features/home';
 import { QuickRecordSheet, type RecordTab } from '../features/quick-record';
 import { EditSheet } from '../features/transactions';
-import { toLedgerDate } from '../shared/lib/format';
 // 방식 → 탭 환산은 시트 옆에 있다. 배럴에는 시트만 나와 있어 파일을 곧장 가리킨다.
 import { DEFAULT_RECORD_TAB, resolveRecordTab } from '../features/quick-record/recordTab';
 import {
@@ -28,6 +29,7 @@ import {
   useTransactions,
   type TransactionOut,
 } from '../shared/api';
+import { shiftDay, toLedgerDate } from '../shared/lib/format';
 import { Button, ErrorState, LoadingState, iconUrl } from '../shared/ui';
 
 /**
@@ -66,6 +68,20 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
   const preferences = usePreferences();
   const goal = useGoal();
 
+  /*
+    닫아 둔 카드.
+
+    복귀 카드의 표는 **마지막으로 적은 날**이다. 닫은 뒤 하루가 더 지나도 같은 상황이라
+    다시 뜨지 않고, 다시 적고 또 며칠 비면 표가 달라져 새로 뜬다.
+    예산 카드는 가를 상황이 없다. 한 번 닫으면 예산을 정할 때까지 안 뜬다.
+  */
+  const away = budget.data?.days_since_last_transaction ?? null;
+  const recovery = useCardDismiss(
+    'recovery',
+    away == null ? '' : shiftDay(toLedgerDate(new Date()), -away),
+  );
+  const budgetSuggest = useCardDismiss('budget-suggest', '');
+
   // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다.
   // 아직 오는 중일 때만 기다리게 하고, 실패·미지원은 위 안내가 이유를 말한다.
   if (state.status !== 'ready') {
@@ -99,8 +115,12 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
       )}
 
       {/* 며칠치를 한 건씩 손으로 적는 것은 애초에 안 될 제안이라 캡처 탭으로 연다. */}
-      {view?.mode === 'recovery' && budget.data != null ? (
-        <RecoveryCard progress={budget.data.recovery} onCatchUp={() => onRecord('capture')} />
+      {view?.mode === 'recovery' && budget.data != null && !recovery.hidden ? (
+        <RecoveryCard
+          progress={budget.data.recovery}
+          onCatchUp={() => onRecord('capture')}
+          onDismiss={recovery.dismiss}
+        />
       ) : null}
 
       {/*
@@ -117,13 +137,22 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
       */}
       <ClosingEntryCard />
 
-      {view?.showBudgetSuggestion ? <BudgetSuggestCard /> : null}
+      {view?.showBudgetSuggestion && !budgetSuggest.hidden ? (
+        <BudgetSuggestCard onDismiss={budgetSuggest.dismiss} />
+      ) : null}
 
       {/*
         목표가 있을 때만 그린다. 조회가 실패하면 이 자리를 비우고 오류 자리를 만들지 않는다.
         홈에서 할 일은 기록이고, 목표는 곁들여 보는 값이다.
+
+        **다 모았으면 진행 줄 대신 축하가 선다.** 꽉 찬 게이지는 「끝났다」로 안 읽혀서,
+        다 모으고도 마치지 않은 목표가 홈에 영영 남는다.
       */}
-      {goal.data?.goal != null ? <GoalStatusCard goal={goal.data.goal} /> : null}
+      {goal.data?.goal == null ? null : goal.data.goal.is_achieved ? (
+        <GoalDoneCard goal={goal.data.goal} />
+      ) : (
+        <GoalStatusCard goal={goal.data.goal} />
+      )}
 
       {/*
         배너는 목표 카드 아래, 오늘 목록 위다. 조건부 형제들 사이에 늘 같은 자리로 서 있어

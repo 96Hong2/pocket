@@ -277,10 +277,59 @@
     transition: transform 180ms ease-out;
   }
 
+  /*
+    고칠 것이 많은 시트. 내용에 상관없이 늘 같은 높이로 선다.
+
+    내용만큼 여는 시트에 칸이 대여섯이면 보이는 자리가 손바닥만 해지고, 아래 저장 버튼이
+    접힌 아래로 밀려 못 찾는다. 높이를 고정하면 스크롤할 자리가 생기고, 아래 붙는 버튼
+    줄(.pk-sheet-foot)이 늘 같은 자리에 선다.
+  */
+  .pk-sheet--tall {
+    height: 88dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  /*
+    본문이 시트 바닥까지 뻗게 한다. 안 뻗으면 아래 붙는 버튼 줄이 내용 끝에 매달려,
+    읽을 것이 적은 날에만 화면 한가운데 떠 있다.
+  */
+  .pk-sheet--tall > .pk-sheet__body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .pk-sheet--tall > .pk-sheet__body > * {
+    flex: 1;
+    min-height: 0;
+  }
   .pk-sheet--dragging {
     transition: none;
     /* 끄는 동안 브라우저가 세로 손짓을 스크롤로 가져가지 않게 막는다. */
     touch-action: none;
+  }
+  /*
+    시트 바닥에 붙는 버튼 줄.
+
+    스크롤 상자는 시트 자체라 `bottom: 0` 이면 늘 보이는 자리에 선다. 위아래 여백과 바탕을
+    함께 둬야 아래로 지나가는 글자가 버튼에 비쳐 보이지 않는다. 좌우 음수 여백은 시트
+    안쪽 여백만큼 되밀어, 바탕이 시트 폭을 꽉 채우게 한다.
+  */
+  /*
+    바탕이 시트 **바닥까지** 내려가야 한다.
+
+    `bottom: 0` 은 스크롤 영역의 안쪽 끝, 곧 시트 아래 여백 위에 선다. 그 여백으로도
+    내용이 지나가므로 거기까지 덮지 않으면 버튼 줄 아래로 분류 칩이 비쳐 보인다.
+    아래 여백만큼 더 채우고 같은 크기의 음수 여백으로 자리를 되돌린다.
+  */
+  .pk-sheet-foot {
+    position: sticky;
+    bottom: calc(-20px - var(--safe-bottom));
+    z-index: 1;
+    margin-top: auto;
+    margin-bottom: calc(-20px - var(--safe-bottom));
+    padding: 12px 0 calc(20px + var(--safe-bottom));
+    background: var(--color-surface);
   }
 
   /*

@@ -44,6 +44,13 @@ export interface RequestSpec {
   body?: unknown;
   /** 화면이 떠나면 요청을 끊는다. TanStack Query 가 넘겨 준다. */
   signal?: AbortSignal;
+  /**
+   * 문서가 사라져도 끝까지 보낸다.
+   *
+   * 화면을 떠나는 그 순간에 마지막으로 보내는 요청에만 쓴다. 평소 요청에 붙이면
+   * 사용자가 나간 뒤에도 서버를 두드리게 된다. 본문 상한이 64KB 라 작은 것만 된다.
+   */
+  keepalive?: boolean;
   /** 이 요청만 다른 제한 시간을 쓴다. 없으면 전역값. */
   timeoutMs?: number;
 }
@@ -135,6 +142,7 @@ export function createTransport(options: TransportOptions): Transport {
           headers,
           body: spec.body === undefined ? undefined : JSON.stringify(spec.body),
           signal: controller.signal,
+          keepalive: spec.keepalive,
         });
       } catch (cause) {
         toApiError(cause, null);

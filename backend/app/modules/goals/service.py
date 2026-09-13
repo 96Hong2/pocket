@@ -43,6 +43,8 @@ __all__ = [
     "archive_goal",
     "create_goal",
     "evaluate",
+    "finish_goal",
+    "finished_goals",
     "period_contributions",
     "remove_contribution",
     "update_goal",
@@ -50,6 +52,7 @@ __all__ = [
 
 _NOT_FOUND = "목표를 찾지 못했어요."
 _ALREADY_ACTIVE = "진행 중인 목표가 이미 있어요. 먼저 마치거나 지워 주세요."
+_NOT_ACHIEVED = "아직 다 모으지 않았어요. 그만두려면 목표를 지워 주세요."
 
 
 @dataclass(frozen=True)
@@ -163,6 +166,44 @@ def update_goal(session: Session, user: User, goal_id: uuid.UUID, payload: dict)
     row = _require_goal(session, user, goal_id)
     for field, value in payload.items():
         setattr(row, field, value)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
+def finished_goals(session: Session, user: User) -> list[Goal]:
+    """다 모으고 마친 목표들. 최근에 마친 것이 앞에 온다.
+
+    **접은 것(archived)은 오지 않는다.** 그쪽은 그만둔 목표라 다시 꺼내 볼 값이 아니고,
+    지운 것을 목록에 남기면 지우기가 지우기로 안 읽힌다. 여기 오는 것은 끝까지 모은 것뿐이다.
+    """
+    return list(
+        session.scalars(
+            select(Goal)
+            .where(
+                Goal.user_id == user.id,
+                Goal.status == GoalState.ACHIEVED,
+                Goal.deleted_at.is_(None),
+            )
+            .order_by(Goal.updated_at.desc())
+            .options(selectinload(Goal.contributions))
+        )
+    )
+
+
+def finish_goal(session: Session, user: User, goal_id: uuid.UUID, today: date) -> Goal:
+    """다 모은 목표를 마친다. 상태만 achieved 로 옮기고 행은 그대로 둔다.
+
+    **다 모았을 때만 된다.** 모자란 채로 마치면 「달성한 목표」 목록에 못 채운 것이 섞여,
+    그 목록을 여는 이유 자체가 사라진다. 그만두려면 지우기(archive)를 쓴다.
+
+    지우기와 달리 `deleted_at` 을 찍지 않는다. 지난 목표 화면이 이 행을 읽어야 한다.
+    부분 유니크 인덱스가 `status = 'active'` 를 보므로 이것만으로 새 목표를 만들 수 있다.
+    """
+    row = _require_goal(session, user, goal_id)
+    if not evaluate(row, today).evaluation.is_achieved:
+        raise ApiError(ErrorCode.GOAL_NOT_ACHIEVED, _NOT_ACHIEVED, status_code=422)
+    row.status = GoalState.ACHIEVED
     session.commit()
     session.refresh(row)
     return row

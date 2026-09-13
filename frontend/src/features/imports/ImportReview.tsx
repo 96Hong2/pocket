@@ -35,7 +35,14 @@ export interface ImportReviewProps {
   onBatchChange: (batch: ImportBatchOut) => void;
   /** 요청이 도는 동안 시트가 닫히거나 탭이 옮겨지지 않게 껍데기에 알린다. */
   onBusyChange: (busy: boolean) => void;
-  /** 묶음을 버리고 입력 화면으로 되돌린다. */
+  /**
+   * 지금 닫으면 잃을 건수. 저장을 마쳤으면 0 이다.
+   *
+   * 껍데기가 이 값으로 두 가지를 정한다: 시트를 크게 열지, 그리고 닫으려 할 때 한 번
+   * 물어볼지. 손잡이를 잘못 눌러 읽어 온 것이 통째로 날아가는 일이 실제로 있었다.
+   */
+  onReviewChange?: (pending: number) => void;
+  /** 묶음을 버리고 입력 화면으로 되돌린다. 한 건도 못 읽었을 때만 쓴다. */
   onRestart: () => void;
   onDone: () => void;
   /**
@@ -47,7 +54,12 @@ export interface ImportReviewProps {
   testId: string;
   /** 고른 것의 분류를 한 번에 바꾸는 자리를 둘지. 여러 건이 한꺼번에 오는 캡처에서만 쓴다. */
   allowBulkCategory?: boolean;
-  /** 되돌리는 버튼 문구. 줄글은 다시 쓰기, 캡처는 다시 고르기다. */
+  /**
+   * 한 건도 못 읽었을 때 되돌리는 버튼 문구. 줄글은 다시 쓰기, 캡처는 다시 고르기다.
+   *
+   * 읽어 온 것이 있으면 이 버튼이 아니라 「취소」가 선다. 고칠 것이 눈앞에 있는데
+   * 「다시 쓰기」를 두면, 닫고 싶은 사람이 그걸 눌러 읽어 온 것을 통째로 버린다.
+   */
   restartLabel: string;
   /** 후보가 하나도 없을 때의 안내. 무엇을 다시 하면 되는지가 탭마다 다르다. */
   emptyMessage: ReactNode;
@@ -69,6 +81,7 @@ export function ImportReview({
   method,
   onBatchChange,
   onBusyChange,
+  onReviewChange,
   onRestart,
   onDone,
   onSaved,
@@ -135,6 +148,21 @@ export function ImportReview({
       { flowId },
     );
   }, [analytics, batch, flowId, method, saved]);
+
+  /*
+    지금 닫으면 잃을 건수.
+
+    저장을 마친 뒤에는 0 이다. 그 화면에서 닫는 것은 아무것도 버리지 않는다.
+    껍데기가 이 값으로 시트 크기와 닫기 확인을 함께 정하므로 한 곳에서만 센다.
+  */
+  const pending = saved != null ? 0 : (batch.candidates?.length ?? 0);
+  useEffect(() => {
+    onReviewChange?.(pending);
+    // 탭이 사라지면 그 탭이 들고 있던 것도 없어진다.
+    return () => onReviewChange?.(0);
+    // 부르는 쪽이 인라인 함수를 넘겨도 값이 같으면 아무것도 다시 그리지 않는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending]);
 
   // 종류에 따라 고를 수 있는 분류가 다르다. 거르는 일은 후보 줄이 한다.
   const pickable = (categories.data?.items ?? []).filter(
@@ -250,30 +278,58 @@ export function ImportReview({
         </p>
       ) : null}
 
-      <div className="nl__actions">
-        <Button
-          variant="outline"
-          disabled={busy}
-          onClick={() => {
-            // 버린 묶음은 서버에서도 지운다. 안 지우면 검토하다 만 것이 계속 쌓인다.
-            discard.mutate(batch.id);
-            onRestart();
-            setEditing(null);
-          }}
-        >
-          {restartLabel}
-        </Button>
-        {candidates.length > 0 ? (
+      {/*
+        버튼 줄은 시트 바닥에 붙는다. 목록이 길어도 저장이 늘 같은 자리에 있어야 한다.
+        아래로 밀려 안 보이면 고치다 만 채로 시트를 닫는다.
+      */}
+      <div className="nl__actions pk-sheet-foot">
+        {candidates.length === 0 ? (
           <Button
-            className="nl__done"
-            disabled={!canSave}
+            variant="outline"
+            fullWidth
+            disabled={busy}
             onClick={() => {
-              void saveAll();
+              // 버린 묶음은 서버에서도 지운다. 안 지우면 검토하다 만 것이 계속 쌓인다.
+              discard.mutate(batch.id);
+              onRestart();
+              setEditing(null);
             }}
           >
-            {saveLabel(batch.selected_count, total)}
+            {restartLabel}
           </Button>
-        ) : null}
+        ) : (
+          <>
+            {/*
+              「다시 쓰기」가 아니라 취소다. 고칠 것이 눈앞에 있는 화면에서 다시 쓰기는
+              읽어 온 것을 버리는 버튼인데, 닫고 싶은 사람이 그것을 누른다.
+            */}
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                analytics.log(
+                  EVENTS.reviewCancelled,
+                  { method, candidate_count: candidates.length },
+                  { flowId, kind: 'click' },
+                );
+                discard.mutate(batch.id);
+                setEditing(null);
+                onDone();
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              className="nl__done"
+              disabled={!canSave}
+              onClick={() => {
+                void saveAll();
+              }}
+            >
+              {saveLabel(batch.selected_count, total)}
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

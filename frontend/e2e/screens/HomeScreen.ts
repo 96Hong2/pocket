@@ -382,8 +382,12 @@ class BudgetCard {
     return this.page.getByLabel('이번 달 예산');
   }
 
+  /*
+    이름을 정확히 맞춘다. 카드 닫기가 이 이름을 품으면 둘이 함께 걸려 strict 위반이 난다.
+    실제로 닫기를 「예산 정하기 안내 닫기」로 뒀다가 관계없는 테스트 둘이 빨개졌다.
+  */
   get saveButton(): Locator {
-    return this.page.getByRole('button', { name: '예산 정하기' });
+    return this.page.getByRole('button', { name: '예산 정하기', exact: true });
   }
 
   /** 카드가 말하는 한 줄. 첫 기록을 마쳐야 뜬다. */
@@ -394,6 +398,16 @@ class BudgetCard {
   /** 저장이 실패했을 때 입력칸과 버튼 사이에 뜨는 한 줄. 홈에서 alert 는 이 자리뿐이다. */
   get saveNotice(): Locator {
     return this.page.getByRole('alert');
+  }
+
+  /** 카드 오른쪽 위의 닫기. 누르면 예산을 정할 때까지 다시 안 뜬다. */
+  get closeButton(): Locator {
+    return this.page.getByRole('button', { name: '예산 안내 닫기' });
+  }
+
+  /** 닫기 전에 어디서 다시 할 수 있는지 말하는 한 줄. 이게 없으면 닫는 순간 길이 사라진다. */
+  get aside(): Locator {
+    return this.page.getByText('하단의 「관리」 탭에서 예산을 다시 설정할 수 있어요');
   }
 
   async set(amount: number): Promise<void> {
@@ -430,6 +444,15 @@ class HomeGoalCard {
   /** 카드 오른쪽 한 줄. 남은 금액이거나 다 모았다는 말이다. */
   get foot(): Locator {
     return this.link.getByText(/^(남은 .+원|다 모았어요)$/);
+  }
+
+  /**
+   * 다 모았을 때 진행 줄 대신 서는 축하 카드.
+   *
+   * 진행 줄과 **함께 뜨지 않는다.** 둘 다 보이면 같은 목표를 두 번 말하는 것이다.
+   */
+  get doneLink(): Locator {
+    return this.page.getByRole('link', { name: /다 모았어요/ });
   }
 
   /** 게이지가 스크린리더에 알리는 진행률(%). 카드가 없으면 null. */
@@ -578,6 +601,11 @@ class RecoveryCard {
   /** 카드 안의 경고 자리. 돌아온 것을 경고할 일이 아니라 늘 비어 있어야 한다. */
   get alerts(): Locator {
     return this.card.getByRole('alert');
+  }
+
+  /** 카드 오른쪽 위의 닫기. 다시 적고 또 며칠 비면 새로 뜬다. */
+  get closeButton(): Locator {
+    return this.card.getByRole('button', { name: '밀린 내역 안내 닫기' });
   }
 
   get gauge(): Locator {

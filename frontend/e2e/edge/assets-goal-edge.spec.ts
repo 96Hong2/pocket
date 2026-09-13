@@ -80,7 +80,7 @@ test('목표보다 많이 모아도 남은 금액이 음수로 내려가지 않�
   await expect(goal.current).toHaveText(formatCurrency(1_500_000));
   // 넘긴 만큼을 음수로 적으면 「−500,000원 남았어요」가 된다.
   await expect(goal.remaining).toHaveText(formatCurrency(0));
-  await expect(goal.achievedBadge).toBeVisible();
+  await expect(goal.done).toBeVisible();
   expect(await goal.gaugePercent()).toBe(100);
 });
 

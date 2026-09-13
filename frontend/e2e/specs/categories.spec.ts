@@ -691,3 +691,66 @@ test('앨범에서 고른 사진이 아이콘이 된다', async ({ categories, h
     /^data:image\//,
   );
 });
+
+test('이모지가 아닌 글자가 남아 있으면 저장이 막힌다', async ({ categories }) => {
+  await categories.open();
+  await categories.waitReady();
+
+  await categories.addButton.click();
+  await categories.sheet.waitOpen();
+  await categories.sheet.nameField.fill('데이트');
+  await categories.sheet.pickIconSource('이모지');
+
+  /*
+    예전에는 그대로 저장됐다. 친 글자는 버려지고 아무도 안 고른 별표가 걸려서,
+    아래 한 줄을 못 본 사람은 저장하고 나서야 다른 그림을 봤다.
+  */
+  await categories.sheet.emojiField.fill('ㅋ');
+  await expect(categories.sheet.saveButton).toBeDisabled();
+  // 왜 막혔는지가 버튼 곁에도 있어야 한다. 격자 아래 한 줄만으로는 안 보인다.
+  await expect(categories.sheet.saveBlockedNotice).toBeVisible();
+
+  // 지우면 풀린다. 아무것도 안 고른 것은 막을 일이 아니다.
+  await categories.sheet.emojiField.fill('');
+  await expect(categories.sheet.saveButton).toBeEnabled();
+  await expect(categories.sheet.saveBlockedNotice).toHaveCount(0);
+
+  // 제대로 고르면 그것으로 저장된다.
+  await categories.sheet.emojiField.fill('🍰');
+  await expect(categories.sheet.saveButton).toBeEnabled();
+  await categories.sheet.saveButton.click();
+  await categories.sheet.waitClosed();
+  await expect(categories.row('데이트').getByText('🍰', { exact: true })).toBeVisible();
+});
+
+test('다른 탭으로 옮기면 안 보이는 칸 때문에 저장이 막히지 않는다', async ({ categories }) => {
+  await categories.open();
+  await categories.waitReady();
+
+  await categories.addButton.click();
+  await categories.sheet.waitOpen();
+  await categories.sheet.nameField.fill('데이트');
+  await categories.sheet.pickIconSource('이모지');
+  await categories.sheet.emojiField.fill('ㅋ');
+  await expect(categories.sheet.saveButton).toBeDisabled();
+
+  // 안 보이는 칸이 저장을 막으면 무엇이 잘못됐는지 화면 어디에도 없다.
+  await categories.sheet.pickIcon('gift');
+  await expect(categories.sheet.saveButton).toBeEnabled();
+});
+
+test('아이콘 격자를 끝까지 내려도 저장 버튼이 보인다', async ({ categories }) => {
+  await categories.open();
+  await categories.waitReady();
+
+  await categories.addButton.click();
+  await categories.sheet.waitOpen();
+  await categories.sheet.nameField.fill('데이트');
+
+  /*
+    저장을 못 찾아 이름만 고치고 시트를 닫은 사람이 있었다. 시트를 크게 열고 버튼을
+    바닥에 붙였으니, 격자를 끝까지 굴려도 같은 자리에 있어야 한다.
+  */
+  await categories.sheet.saveButton.scrollIntoViewIfNeeded();
+  await expect(categories.sheet.saveButton).toBeInViewport();
+});

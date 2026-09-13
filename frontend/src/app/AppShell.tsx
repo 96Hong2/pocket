@@ -1,6 +1,7 @@
 import { Suspense, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 
+import { OnboardingGate } from '../features/onboarding';
 import { EVENTS, useAnalytics } from '../shared/analytics';
 import { recordVisit } from '../shared/lib/visitLog';
 import { LoadingState, iconUrl, type IconName } from '../shared/ui';
@@ -109,6 +110,14 @@ export function AppShell() {
         </ErrorBoundary>
       </div>
       {showTabBar && <TabBar />}
+
+      {/*
+        처음 열었을 때 딱 한 번. 화면을 통째로 덮는다.
+
+        홈이 아니라 셸에 둔다. 딥링크로 리포트에 바로 들어온 사람도 처음이면 이 앱이
+        무엇인지부터 봐야 한다. 이미 본 사람에게는 아무것도 그리지 않는다.
+      */}
+      <OnboardingGate />
     </div>
   );
 }

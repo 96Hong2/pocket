@@ -114,6 +114,8 @@ export type AssetGroup = Schemas['AssetGroup'];
 export type GoalStateOut = Schemas['GoalStateOut'];
 /** 목표 하나. 남은 금액·진행률·필요 월저축액·도달 예상까지 서버가 센 값이 함께 온다. */
 export type GoalOut = Schemas['GoalOut'];
+/** 다 모으고 마친 목표들. 비어 있는 것이 정상이다. */
+export type GoalHistoryOut = Schemas['GoalHistoryOut'];
 export type GoalCreate = Schemas['GoalCreate'];
 export type GoalPatch = Schemas['GoalPatch'];
 /** 모은 돈 한 줄. 최근 것이 앞에 온다. */

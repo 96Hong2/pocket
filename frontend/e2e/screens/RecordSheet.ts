@@ -3,6 +3,37 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { TEST_IDS } from '../../src/shared/testIds';
 
 /**
+ * 읽어 온 것을 두고 나가려 할 때의 확인.
+ *
+ * 시트 안에 겹쳐 뜨지만 화면에 못 박혀 있어, 목록을 어디까지 내려 읽었든 같은 자리다.
+ */
+class LeaveConfirm {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('alertdialog', { name: '그만둘까요' });
+  }
+
+  get isVisible(): Promise<boolean> {
+    return this.root.isVisible();
+  }
+
+  /** `읽어 온 3건이 사라져요. 그만둘까요?` 몇 건인지가 문구에 그대로 있다. */
+  get text(): Locator {
+    return this.root.getByText(/읽어 온 \d+건이 사라져요/);
+  }
+
+  /** 머무는 쪽. 기본으로 눌리기 쉬운 자리에 크게 있다. */
+  get stayButton(): Locator {
+    return this.root.getByRole('button', { name: '계속 고치기' });
+  }
+
+  get leaveButton(): Locator {
+    return this.root.getByRole('button', { name: '그만두기' });
+  }
+}
+
+/**
  * 기록 바텀시트.
  *
  * 저장해도 시트는 닫히지 않고 안쪽이 입력에서 피드백으로 바뀐다.
@@ -32,6 +63,7 @@ export class RecordSheet {
     this.nl = new RecordNaturalLanguage(this.root);
     this.capture = new RecordImageImport(this.root, CAPTURE_LABELS);
     this.receipt = new RecordImageImport(this.root, RECEIPT_LABELS);
+    this.leave = new LeaveConfirm(page);
   }
 
   get isVisible(): Promise<boolean> {
@@ -55,6 +87,14 @@ export class RecordSheet {
   get closeButton(): Locator {
     return this.root.getByRole('button', { name: '닫기' });
   }
+
+  /**
+   * 읽어 온 것을 두고 나가려 할 때 뜨는 확인.
+   *
+   * 손잡이·딤·Esc·시스템 뒤로가기가 모두 이 확인을 지난다. 실기기에서 손잡이를 잘못 눌러
+   * 읽어 온 것이 통째로 날아가는 일이 있었다.
+   */
+  readonly leave: LeaveConfirm;
 
   /** 손잡이를 잡고 아래로 민다. 실기기에서 시트를 닫는 가장 흔한 손짓이다. */
   async dragDown(distance = 160): Promise<void> {
@@ -570,8 +610,19 @@ class RecordNaturalLanguage {
     return this.root.getByRole('button', { name: '분석' });
   }
 
+  /**
+   * 한 건도 못 읽었을 때만 서는 되돌리기.
+   *
+   * 읽어 온 것이 있는 화면에는 이 버튼이 없다. 고칠 것을 눈앞에 두고 「다시 쓰기」가
+   * 있으면, 닫고 싶은 사람이 그것을 눌러 읽어 온 것을 통째로 버린다.
+   */
   get rewriteButton(): Locator {
     return this.root.getByRole('button', { name: '다시 쓰기' });
+  }
+
+  /** 읽어 온 것을 버리고 시트를 닫는다. 검토 목록이 있을 때 서는 버튼이다. */
+  get cancelButton(): Locator {
+    return this.root.getByRole('button', { name: '취소', exact: true });
   }
 
   /**
@@ -685,8 +736,11 @@ class RecordNaturalLanguage {
   async analyze(text: string): Promise<void> {
     await this.textarea.fill(text);
     await this.analyzeButton.click();
-    // 되돌리는 버튼으로 기다린다. 한 건도 못 읽으면 `이렇게 이해했어요` 가 안 뜬다.
-    await expect(this.rewriteButton).toBeVisible();
+    /*
+      아래 버튼 줄로 기다린다. 한 건도 못 읽으면 `이렇게 이해했어요` 가 안 뜨고,
+      그때는 다시 쓰기가, 읽어 온 것이 있으면 취소가 선다. 둘 중 하나는 늘 있다.
+    */
+    await expect(this.rewriteButton.or(this.cancelButton)).toBeVisible();
   }
 
   async toggle(name: string, selected: boolean): Promise<void> {
@@ -915,8 +969,14 @@ class RecordImageImport {
     return this.root.getByText('이렇게 이해했어요', { exact: false });
   }
 
+  /** 한 건도 못 읽었을 때만 서는 되돌리기. 읽어 온 것이 있으면 대신 「취소」가 선다. */
   get restartButton(): Locator {
     return this.root.getByRole('button', { name: this.labels.restartLabel });
+  }
+
+  /** 읽어 온 것을 버리고 시트를 닫는다. 검토 목록이 있을 때 서는 버튼이다. */
+  get cancelButton(): Locator {
+    return this.root.getByRole('button', { name: '취소', exact: true });
   }
 
   get saveButton(): Locator {
@@ -1008,8 +1068,11 @@ class RecordImageImport {
   /** 사진을 가져와 검토 화면에 닿을 때까지. */
   async pick(): Promise<void> {
     await this.pickButton.click();
-    // 되돌리는 버튼으로 기다린다. 한 건도 못 읽으면 `이렇게 이해했어요` 가 안 뜬다.
-    await expect(this.restartButton).toBeVisible();
+    /*
+      아래 버튼 줄로 기다린다. 한 건도 못 읽으면 `이렇게 이해했어요` 가 안 뜨고,
+      그때는 되돌리기가, 읽어 온 것이 있으면 취소가 선다. 둘 중 하나는 늘 있다.
+    */
+    await expect(this.restartButton.or(this.cancelButton)).toBeVisible();
   }
 
   async toggle(name: string, selected: boolean): Promise<void> {

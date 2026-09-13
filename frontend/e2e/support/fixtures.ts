@@ -8,6 +8,7 @@ import { GoalScreen } from '../screens/GoalScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ManageScreen } from '../screens/ManageScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ReportScreen } from '../screens/ReportScreen';
 import { RecordSheet } from '../screens/RecordSheet';
 import { SettingsScreen } from '../screens/SettingsScreen';
@@ -26,6 +27,13 @@ interface PocketFixtures {
   anonKey: string;
   /** 콘솔 오류를 하나 눈감아 줄 때 여기에 정규식을 넣는다. 이유를 주석으로 남긴다. */
   consoleErrorAllowList: RegExp[];
+  /**
+   * 처음 안내를 띄운 채로 연다.
+   *
+   * 기본은 꺼져 있다. 안 그러면 모든 spec 이 첫 화면에서 그 오버레이에 막힌다.
+   * 안내 자체를 확인하는 spec 에서만 `test.use({ showOnboarding: true })` 로 켠다.
+   */
+  showOnboarding: boolean;
   appShell: AppShell;
   home: HomeScreen;
   recordSheet: RecordSheet;
@@ -45,6 +53,8 @@ interface PocketFixtures {
   assets: AssetsScreen;
   /** 목표. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
   goal: GoalScreen;
+  /** 처음 안내. `showOnboarding` 을 켠 spec 에서만 실제로 뜬다. */
+  onboarding: OnboardingScreen;
   /** 확인하려는 동작의 배경 상태를 심는다. 브라우저와 같은 익명키를 쓴다. */
   prep: PrepApi;
 }
@@ -57,6 +67,8 @@ export const test = base.extend<PocketFixtures>({
   consoleErrorAllowList: async ({}, use) => {
     await use([]);
   },
+
+  showOnboarding: [false, { option: true }],
 
   appShell: async ({ page }, use) => {
     await use(new AppShell(page));
@@ -102,6 +114,10 @@ export const test = base.extend<PocketFixtures>({
     await use(new GoalScreen(page));
   },
 
+  onboarding: async ({ page }, use) => {
+    await use(new OnboardingScreen(page));
+  },
+
   prep: async ({ anonKey }, use) => {
     const api = await PrepApi.create(anonKey);
     await use(api);
@@ -109,9 +125,10 @@ export const test = base.extend<PocketFixtures>({
   },
 
   // 기본 page 를 감싼다. 격리 트랩 주입과 감시가 모든 테스트에 자동으로 걸린다.
-  page: async ({ page, anonKey, consoleErrorAllowList }, use) => {
+  page: async ({ page, anonKey, consoleErrorAllowList, showOnboarding }, use) => {
     await page.addInitScript(installAnonKeyTrap, anonKey);
     await page.addInitScript(silenceHomeAddPrompt);
+    if (!showOnboarding) await page.addInitScript(silenceOnboarding);
 
     const violations: string[] = [];
     const consoleErrors: string[] = [];
@@ -183,6 +200,20 @@ function silenceHomeAddPrompt(): void {
   */
   try {
     window.localStorage.setItem('__ait_storage:home-add-prompted', '1');
+  } catch {
+    /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+  }
+}
+
+/**
+ * 처음 안내를 이미 본 것으로 둔다.
+ *
+ * 안 두면 **모든 spec 이** 첫 화면에서 이 오버레이에 막힌다. 안내 자체를 확인하는 spec 만
+ * `showOnboarding` 픽스처로 이 표시를 걷어 낸다.
+ */
+function silenceOnboarding(): void {
+  try {
+    window.localStorage.setItem('__ait_storage:onboarding-seen', '1');
   } catch {
     /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
   }

@@ -1,4 +1,5 @@
 import { formatCurrency, formatDayLabel, toLedgerDate } from '../../src/shared/lib/format';
+import { logsNamed } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -443,4 +444,108 @@ test('줄을 접기만 해도 적어 둔 상호가 남는다', async ({ home, re
   await recordSheet.nl.editTrigger('점심').click();
 
   await expect(recordSheet.nl.checkbox('토끼 키링')).toBeVisible();
+});
+
+// ── 읽어 온 것을 잃지 않기 ────────────────────────
+
+test('검토 화면에는 다시 쓰기가 아니라 창을 닫는 취소가 선다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(THREE_ITEMS);
+  await expect(recordSheet.nl.rows).toHaveCount(3);
+
+  /*
+    고칠 것을 눈앞에 두고 「다시 쓰기」가 있으면, 닫고 싶은 사람이 그것을 눌러
+    읽어 온 것을 통째로 버린다. 그 버튼은 한 건도 못 읽었을 때만 선다.
+  */
+  await expect(recordSheet.nl.rewriteButton).toHaveCount(0);
+  await expect(recordSheet.nl.cancelButton).toBeVisible();
+});
+
+test('손잡이를 잘못 눌러도 읽어 온 것이 날아가지 않는다', async ({ home, page, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(THREE_ITEMS);
+  await expect(recordSheet.nl.rows).toHaveCount(3);
+
+  // 실기기에서 이 한 번에 세 건이 통째로 사라졌다.
+  await recordSheet.closeButton.click();
+
+  await expect(recordSheet.leave.text).toContainText('읽어 온 3건이 사라져요');
+  // 아직 시트는 열려 있다. 물어보기만 하고 아무것도 버리지 않았다.
+  await expect(recordSheet.nl.rows).toHaveCount(3);
+
+  await recordSheet.leave.stayButton.click();
+  await expect(recordSheet.leave.text).toHaveCount(0);
+  // 목록이 그대로다. 고르고 고쳐 둔 것을 되돌리지 않는다.
+  await expect(recordSheet.nl.rows).toHaveCount(3);
+  await expect(recordSheet.nl.saveButton).toBeVisible();
+
+  // 무엇을 물었고 무엇을 골랐는지 로그에 남는다. 이 창이 구해 낸 기록이 여기서 세어진다.
+  const asked = await logsNamed(page, 'record_leave_asked');
+  expect(asked.map((log) => log.params.result)).toEqual(['asked', 'stayed']);
+  expect(asked[0]?.params.pending).toBe(3);
+});
+
+test('밀어서 닫아도 같은 확인을 지나고, 그만두기를 골라야 닫힌다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(THREE_ITEMS);
+
+  // 손잡이·딤·Esc·미는 손짓이 모두 같은 규칙을 지나야 한다. 하나만 새면 그리로 잃는다.
+  await recordSheet.dragDown();
+  await expect(recordSheet.leave.text).toBeVisible();
+  await expect(recordSheet.isVisible).resolves.toBe(true);
+
+  await recordSheet.leave.leaveButton.click();
+  await recordSheet.waitClosed();
+});
+
+test('저장을 마친 뒤에는 묻지 않고 그냥 닫힌다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(THREE_ITEMS);
+  await recordSheet.nl.save();
+
+  // 저장이 끝난 화면에서 닫는 것은 아무것도 버리지 않는다. 거기서 묻는 것은 방해다.
+  await recordSheet.closeButton.click();
+  await expect(recordSheet.leave.text).toHaveCount(0);
+  await recordSheet.waitClosed();
+});
+
+test('취소를 누르면 시트가 닫히고 한 건도 저장되지 않는다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(THREE_ITEMS);
+
+  await recordSheet.nl.cancelButton.click();
+  // 눌러서 그만둔 것이라 다시 묻지 않는다. 확인은 실수로 닫는 길에만 있다.
+  await expect(recordSheet.leave.text).toHaveCount(0);
+  await recordSheet.waitClosed();
+
+  await home.waitReady();
+  // 오늘 목록이 비어 있다. 취소는 서버에도 아무것도 남기지 않는다.
+  await expect(home.today.empty).toBeVisible();
+
+  // 실수로 잃은 것과 스스로 버린 것을 갈라 센다.
+  const cancelled = await logsNamed(page, 'review_cancelled');
+  expect(cancelled).toHaveLength(1);
+  expect(cancelled[0]?.params.candidate_count).toBe(3);
 });
