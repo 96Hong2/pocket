@@ -427,6 +427,17 @@ class RecordFeedback {
     return this.root.locator('.pk-tx__amount');
   }
 
+  /**
+   * 저장한 거래 한 줄의 그림.
+   *
+   * 분류에 이모지를 걸어 뒀으면 그 글자가, 사진을 걸어 뒀으면 `<img>` 가 여기 온다.
+   * **목록·칩은 맞는데 이 줄만 기본 그림으로 나온 적이 있다.** 그려 주는 컴포넌트는
+   * 같은데 넘기는 값이 한 자리만 달랐다. 이름이 없는 그림이라 클래스로 잡는다.
+   */
+  get savedRowAvatar(): Locator {
+    return this.root.locator('.pk-tx .pk-avatar');
+  }
+
   /** 카테고리 바꾸기를 눌렀을 때 칩 위에 뜨는 제목. 접혀 있으면 없다. */
   get changeTitle(): Locator {
     return this.root.getByText('어디에 넣을까요?', { exact: true });

@@ -410,6 +410,21 @@ test('이모지를 걸면 목록과 기록 시트가 같은 이모지를 그린�
   await expect(
     recordSheet.input.categoryChip('치킨').getByText(GLYPH, { exact: true }),
   ).toBeVisible();
+
+  /*
+    **저장한 뒤 확인 화면까지 따라가야 한다.** 여기가 실기기에서 빠져 있었다.
+    목록도 칩도 이모지를 그리는데 이 줄만 기본 그림이라, 「저장은 됐는데 확인 화면이
+    안 바뀐다」 로 보였다. 그리는 컴포넌트는 같고 넘기는 값이 한 자리만 달랐다.
+  */
+  await recordSheet.input.enterAmount(9_000);
+  await recordSheet.input.pickCategory('치킨');
+  await recordSheet.feedback.waitSaved();
+  await expect(recordSheet.feedback.savedRowAvatar.getByText(GLYPH, { exact: true })).toBeVisible();
+
+  // 오늘 목록도 같은 그림이다. 시트를 닫고 나서도 갈리지 않는다.
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+  await expect(home.today.rowAvatar('치킨').getByText(GLYPH, { exact: true })).toBeVisible();
 });
 
 test('걸어 둔 이모지는 기본 아이콘으로 되돌릴 수 있다', async ({ categories }) => {
@@ -638,7 +653,7 @@ test('분류를 만들다 그만두면 고치던 화면으로 돌아온다', asy
  * ⚠ 여기서 증명되는 것은 새 길이 끝까지 돈다는 것까지다. 웹뷰가 `data:` 그림을 막았는지는
  * Chromium 으로 못 본다. 그 판정은 실기기에서 사람이 한다.
  */
-test('앨범에서 고른 사진이 아이콘이 된다', async ({ categories, page }) => {
+test('앨범에서 고른 사진이 아이콘이 된다', async ({ categories, home, page, recordSheet }) => {
   await seedMockImages(CAPTURE_DATA_URI)(page);
 
   await categories.open();
@@ -659,4 +674,20 @@ test('앨범에서 고른 사진이 아이콘이 된다', async ({ categories, p
   await categories.sheet.saveButton.click();
   await categories.sheet.waitClosed();
   await expect(categories.iconImageOf('데이트')).toHaveAttribute('src', /^data:image\//);
+
+  /*
+    **사진도 저장 뒤 확인 화면까지 따라가야 한다.** 이모지와 같은 자리에서 걸렸다.
+    목록은 사진을 그리는데 그 줄만 기본 그림이면, 사용자 눈에는 사진이 저장 안 된 것이다.
+  */
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.input.enterAmount(7_000);
+  await recordSheet.input.pickCategory('데이트');
+  await recordSheet.feedback.waitSaved();
+  await expect(recordSheet.feedback.savedRowAvatar.locator('img')).toHaveAttribute(
+    'src',
+    /^data:image\//,
+  );
 });
