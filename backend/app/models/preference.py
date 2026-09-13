@@ -68,6 +68,8 @@ class UserPreference(Entity):
     거기에 적으면 한 사람이 끈 것이 전부에게 꺼진다.
 
     지운 분류의 id 가 남을 수 있다. 있는지만 보는 값이라 그대로 둔다.
+
+    왜 컬럼도 조인 표도 아닌지는 ADR-0020 에 있다.
     """
     quick_hidden_category_ids: Mapped[list[str]] = mapped_column(
         JSON, nullable=False, server_default=text("'[]'")

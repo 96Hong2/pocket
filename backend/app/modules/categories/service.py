@@ -57,7 +57,7 @@ def list_categories(session: Session, user: User) -> list[Category]:
 #
 # 사람마다 다른 값이라 카테고리 행에 못 둔다. 기본 분류는 모두가 같은 행을 보기 때문이다.
 # 사용자 설정에 **숨긴 것**의 id 를 적는다. 비어 있는 것이 곧 「전부 보인다」 라서
-# 새로 만든 분류도 저절로 보인다.
+# 새로 만든 분류도 저절로 보인다(ADR-0020).
 
 
 def quick_hidden_ids(session: Session, user: User) -> set[str]:
