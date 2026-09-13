@@ -20,7 +20,7 @@ import {
   kindOf,
 } from '../../shared/ledger';
 import { TEST_IDS } from '../../shared/testIds';
-import { Button, toIconName, TransactionRow } from '../../shared/ui';
+import { Button, iconOf, TransactionRow } from '../../shared/ui';
 
 import { toAmount } from './digits';
 import { buildFeedbackMessage } from './feedbackMessage';
@@ -242,8 +242,14 @@ export function FeedbackPanel({
         )}
       </div>
 
+      {/*
+        직접 건 이모지·사진까지 그린다. 예전에는 `icon_key` 만 넘겨서, 사진이나 이모지를
+        걸어 둔 분류로 저장하면 이 줄만 기본 그림으로 나왔다. 목록·칩은 맞고 여기만 틀려서
+        「저장은 됐는데 확인 화면이 안 바뀐다」 로 보였다.
+        분류의 그림을 그리는 자리는 전부 `iconOf` 를 편다. 두 값을 손으로 옮기지 않는다.
+      */}
       <TransactionRow
-        icon={toIconName(category?.icon_key)}
+        {...iconOf(category)}
         title={transaction.merchant ?? category?.name ?? '기록'}
         subtitle={transaction.merchant ? category?.name : undefined}
         amount={savedAmount}

@@ -8,7 +8,7 @@ import { parseDecimalOr, useCategories, type CategoryOut, type ClosingOut } from
 import { markClosingSeen } from '../../shared/lib/closingSeen';
 import { formatCurrency, formatMonthLabel, formatSignedCurrency } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
-import { iconUrl, toIconName, type IconName } from '../../shared/ui';
+import { CategoryAvatar, iconOf, type IconName } from '../../shared/ui';
 import { trapTab } from '../../shared/ui/focusTrap';
 
 import {
@@ -130,11 +130,10 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
 
       <section className="closing__card" aria-live="polite">
         {/* 카드마다 다른 그림. 넘긴 것이 글자 말고 그림으로도 보인다. */}
-        <img
+        <CategoryAvatar
           className="closing__icon"
-          src={iconUrl(cardIcon(CLOSING_CARDS[index].key, closing, byId))}
-          alt=""
-          aria-hidden
+          size={84}
+          {...cardIcon(CLOSING_CARDS[index].key, closing, byId)}
         />
         <h2 className="closing__title">{CLOSING_CARDS[index].title}</h2>
         <ClosingCardBody
@@ -167,21 +166,24 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
  *
  * 잘한 것과 돈 흐름은 늘 같은 그림이고, 변화·다음 달은 그 카드가 말하는 분류를 따라간다.
  * 분류를 모르면 폴백이 온다.
+ *
+ * **직접 건 이모지·사진도 따라온다.** 예전에는 `icon_key` 만 읽어서, 사진을 걸어 둔 분류가
+ * 여기서만 기본 그림으로 나왔다.
  */
 function cardIcon(
   card: ClosingCardKey,
   closing: ClosingOut,
   byId: Map<string, CategoryOut>,
-): IconName {
+): { icon: IconName; custom: string | null } {
   switch (card) {
     case 'highlights':
-      return '26_sparkles';
+      return { icon: '26_sparkles', custom: null };
     case 'flow':
-      return '28_cash';
+      return { icon: '28_cash', custom: null };
     case 'change':
-      return toIconName(byId.get(closing.change?.category_id ?? '')?.icon_key);
+      return iconOf(byId.get(closing.change?.category_id ?? ''));
     case 'next':
-      return toIconName(byId.get(closing.next?.category_id ?? '')?.icon_key);
+      return iconOf(byId.get(closing.next?.category_id ?? ''));
   }
 }
 

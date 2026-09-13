@@ -212,12 +212,14 @@ function gaugeFillColorOf(gauge: Locator): Promise<string> {
 /** 오늘 목록. 홈 아래쪽에 붙는 카드 하나다. */
 class TodaySection {
   private readonly root: Locator;
+  private readonly page: Page;
 
   /**
    * 구획 이름이 보고 있는 날이다. 오늘에서 뒤로 넘기면 「어제」 나 「9월 6일」 이 된다.
    * 날짜를 옮겨 다니는 테스트도 같은 객체로 보려고 이름을 묶어 잡는다.
    */
   constructor(page: Page) {
+    this.page = page;
     this.root = page.getByRole('region', { name: /^(오늘|어제|\d+월 \d+일)$/ });
   }
 
@@ -257,6 +259,20 @@ class TodaySection {
   /** 행 제목. 가맹점을 아는 기록은 가맹점명, 아니면 카테고리 이름이다. */
   row(title: string): Locator {
     return this.text(title);
+  }
+
+  /**
+   * 그 행에 그려진 그림.
+   *
+   * `row()` 는 제목 글자만 잡는다. 그림은 그 형제라 행까지 올라가야 닿는다.
+   * 분류에 걸어 둔 이모지·사진이 목록에도 따라오는지 보는 자리다.
+   * 이름이 없는 그림이라 그려진 클래스로 잡는다(금액을 잡는 방식과 같다).
+   */
+  rowAvatar(title: string): Locator {
+    return this.root
+      .locator('.pk-tx')
+      .filter({ has: this.page.getByText(title, { exact: true }) })
+      .locator('.pk-avatar');
   }
 
   /** 가맹점이 제목을 가져간 행에서 제목 아래로 내려간 카테고리 이름. */
