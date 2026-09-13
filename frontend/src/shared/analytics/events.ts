@@ -53,6 +53,19 @@ export const EVENTS = {
   /** 알림을 켜려 했을 때의 결과. 이 앱이 사람을 다시 데려오는 유일한 장치다. */
   notificationResult: 'notification_result',
 
+  /** 분류 「더 보기」를 폈다. 앞자리 열한 개로 모자란 사람이 얼마나 되는지 본다. */
+  categoryMoreOpened: 'category_more_opened',
+  /** 칩 순서를 바꿨다. 어떻게 바꿨는지(한 칸 옮기기·자주 쓴 순서)만 남긴다. */
+  categoryOrderChanged: 'category_order_changed',
+
+  /**
+   * 앱 데이터를 지웠다.
+   *
+   * 되돌릴 수 없는 자리라 **누른 것과 실제로 지워진 것을 따로 센다.** 확인 창을 열고
+   * 그만둔 사람이 많으면 경고가 아니라 문구가 무서운 것이다.
+   */
+  dataResetResult: 'data_reset_result',
+
   /** 배너 자리의 결과. 떴는지·채울 게 없었는지·실패했는지. */
   adResult: 'ad_result',
   /** 화면이 죽었거나 요청이 실패했다. */
@@ -71,4 +84,11 @@ export type PickOutcome = 'ok' | 'cancelled' | 'denied' | 'unsupported' | 'faile
 export type ParseOutcome = 'ok' | 'partial' | 'empty' | 'failed';
 
 /** 고칠 수 있는 자리. 값이 아니라 어느 칸인지만 센다. */
-export type EditField = 'amount' | 'date' | 'category' | 'type' | 'merchant' | 'selection';
+export type EditField =
+  | 'amount'
+  | 'date'
+  | 'category'
+  | 'type'
+  | 'merchant'
+  | 'payment_method'
+  | 'selection';

@@ -200,6 +200,12 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | `last_record_method` | NULL | 기록 시트를 마지막에 쓴 방식으로 열어 준다. 거래를 저장할 때 서버가 그 거래의 `source` 로 남긴다. 화면은 읽기만 한다 |
 | `report_include_income` | false | 리포트 기본은 소비만 |
 | `happy_spend_category_id` | NULL | 사용자가 지키기로 한 소비. 감축 1순위로 추천하지 않는다 |
+| `quick_hidden_category_ids` | `[]` | 기록 화면 칩에서 **뺀** 분류의 id. 빈 목록이 곧 「전부 보인다」 |
+| `quick_category_order` | `[]` | 칩이 설 순서. 여기 적힌 것이 앞이고 나머지는 `sort_order` 순으로 뒤에 붙는다. 빈 목록이 곧 「서버가 준 순서 그대로」 |
+
+**칩에 관한 값 둘이 카테고리 행이 아니라 여기 있다.** 기본 분류는 모두가 같은 행을 보기
+때문이다. 거기에 적으면 한 사람이 끄거나 옮긴 것이 전부에게 번진다. 지운 분류의 id 가
+남을 수 있는데, 둘 다 있는 것만 골라 쓰므로 그대로 둔다.
 
 | notification_settings | 기본값 | 설명 |
 |---|---|---|

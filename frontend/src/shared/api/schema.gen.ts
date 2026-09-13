@@ -124,6 +124,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/categories/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder
+         * @description 칩이 설 순서를 정한다.
+         *
+         *     `/{category_id}` 보다 **먼저** 서야 한다. 뒤에 두면 "order" 가 uuid 로 읽혀 422 가 난다.
+         */
+        put: operations["reorder_api_v1_categories_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/categories/{category_id}": {
         parameters: {
             query?: never;
@@ -525,6 +547,26 @@ export interface paths {
         patch: operations["update_api_v1_notifications_settings_patch"];
         trace?: never;
     };
+    "/api/v1/account/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset
+         * @description 넣어 둔 것을 전부 지운다. 되돌릴 수 없다.
+         */
+        post: operations["reset_api_v1_account_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -860,6 +902,17 @@ export interface components {
             /** Items */
             items: components["schemas"]["CategoryOut"][];
         };
+        /**
+         * CategoryOrderIn
+         * @description 칩이 설 순서. 화면이 보고 있는 목록 전체를 그대로 보낸다.
+         *
+         *     일부만 보내도 받는다. 목록에 없는 분류는 지금까지와 같은 자리에 서므로,
+         *     앞자리 몇 개만 정해 두는 것도 뜻이 통한다.
+         */
+        CategoryOrderIn: {
+            /** Ids */
+            ids: string[];
+        };
         /** CategoryOut */
         CategoryOut: {
             /**
@@ -883,6 +936,11 @@ export interface components {
             sort_order: number;
             /** Is Default */
             is_default: boolean;
+            /**
+             * Usage Count
+             * @default 0
+             */
+            usage_count: number;
         };
         /**
          * CategoryUpdate
@@ -1578,6 +1636,20 @@ export interface components {
             recorded_days: number;
             /** Progress */
             progress: string;
+        };
+        /**
+         * ResetIn
+         * @description 되돌릴 수 없는 요청이라 본문으로 한 번 더 못을 박는다.
+         *
+         *     화면에서 이미 동의 체크를 받지만, 그 확인은 화면에만 있다. 잘못 만든 요청 하나가
+         *     남의 몇 달치를 지우는 자리라, 서버도 뜻이 분명한 값을 요구한다.
+         */
+        ResetIn: {
+            /**
+             * Confirm
+             * @constant
+             */
+            confirm: true;
         };
         /**
          * SuggestionAmountOut
@@ -2487,6 +2559,93 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CategoryOut"];
                 };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    reorder_api_v1_categories_order_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryOrderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description 식별키가 없거나 검증에 실패 */
             401: {
@@ -5216,6 +5375,93 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["NotificationSettingsOut"];
                 };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    reset_api_v1_account_reset_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description 식별키가 없거나 검증에 실패 */
             401: {

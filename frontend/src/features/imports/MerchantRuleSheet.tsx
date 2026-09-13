@@ -2,7 +2,8 @@ import { useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
 import { ApiError, useCategories, useCreateMerchantRule } from '../../shared/api';
-import { BottomSheet, Button, CategoryAvatar, iconOf } from '../../shared/ui';
+import { CategoryPicker } from '../../shared/ledger';
+import { BottomSheet, Button } from '../../shared/ui';
 
 /** 라벨과 설명을 입력칸에 걸어 주는 id. 이 시트는 한 화면에 하나만 뜬다. */
 const MERCHANT_FIELD_ID = 'rule-merchant';
@@ -104,21 +105,16 @@ function MerchantRuleForm({
 
       <div className="rule-sheet__field">
         <span className="rule-sheet__label">분류</span>
-        <div className="nl-form__cats" role="group" aria-label="걸어 둘 분류">
-          {pickable.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={item.id === categoryId ? 'nl-form__cat nl-form__cat--on' : 'nl-form__cat'}
-              aria-pressed={item.id === categoryId}
-              disabled={busy}
-              onClick={() => setCategoryId(item.id)}
-            >
-              <CategoryAvatar {...iconOf(item)} size={32} />
-              {item.name}
-            </button>
-          ))}
-        </div>
+        {/* 기록 시트와 같은 것을 쓴다. 앞자리 열한 개만 보이고 나머지는 「더 보기」 뒤다. */}
+        <CategoryPicker
+          className="nl-form__cats"
+          ariaLabel="걸어 둘 분류"
+          size="sm"
+          categories={pickable}
+          selectedId={categoryId}
+          disabled={busy}
+          onPick={(item) => setCategoryId(item.id)}
+        />
       </div>
 
       {failure ? (

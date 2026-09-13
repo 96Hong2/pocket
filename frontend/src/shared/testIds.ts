@@ -31,6 +31,13 @@ export const TEST_IDS = {
   recoveryGauge: 'recovery-gauge',
   /** 앱 설정에서 고른 것이 홈을 어떻게 바꾸는지 되짚는 한 줄. */
   homeHeroPreview: 'home-hero-preview',
+  /**
+   * 데이터 초기화 동의 체크.
+   *
+   * 라벨 글자로 잡을 수도 있지만 그 문구는 경고문의 일부라 바뀔 수 있고,
+   * 이 칸이 확인 버튼을 여는 유일한 열쇠라 자리를 못 박아 둔다.
+   */
+  resetAgree: 'reset-agree',
   /** 홈의 광고 자리. 채울 광고가 없으면 높이가 0 이어야 한다. */
   adSlot: 'ad-slot',
   /**

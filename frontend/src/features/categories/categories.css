@@ -55,6 +55,27 @@
     color: var(--color-placeholder);
   }
 
+  /*
+    「자주 쓴 순서로」. 목록 위 오른쪽에 작게 둔다.
+    한 번 누르면 그 종류의 순서가 통째로 바뀌므로, 눌러 보고 다시 손으로 고칠 수 있게
+    화살표와 같은 화면에 둔다.
+  */
+  .cat-group__sort {
+    align-self: flex-end;
+    margin-top: -2px;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg);
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .cat-group__sort:disabled {
+    opacity: 0.4;
+  }
+
   /* ── 목록 한 줄 ─────────────────────────────────── */
 
   .cat-list {
@@ -101,6 +122,42 @@
 
   .cat-row__quick {
     flex: none;
+  }
+
+  /*
+    순서 바꾸기. 위아래 화살표를 세로로 쌓아 한 칸만 차지한다.
+    끌어서 옮기는 방식은 웹뷰에서 스크롤과 자주 부딪히고, 스크린리더로는 아예 못 쓴다.
+  */
+  .cat-row__move {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .cat-row__arrow {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-13);
+    line-height: 1;
+  }
+
+  .cat-row__arrow:disabled {
+    opacity: 0.25;
+  }
+
+  /*
+    기록 화면 앞자리의 끝. 여기까지가 칩으로 서고 아래는 「더 보기」 뒤다.
+    글로 적는 대신 선으로 보여 준다. 목록을 훑는 중에 읽히는 것은 선뿐이다.
+  */
+  .cat-list > li[data-quick-edge] {
+    border-bottom: 2px dashed var(--color-sage-300);
   }
 
   .cat-row__name {

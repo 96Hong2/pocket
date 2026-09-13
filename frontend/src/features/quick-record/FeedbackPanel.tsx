@@ -7,16 +7,21 @@ import {
   useUpdateTransaction,
   type CategoryOut,
   type FeedbackOut,
+  type PaymentMethod,
   type TransactionOut,
   type TransactionUpdate,
   type TransactionUpdated,
 } from '../../shared/api';
 import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
-import { KIND_WORDS, kindOf } from '../../shared/ledger';
+import {
+  CategoryPicker,
+  KIND_WORDS,
+  PaymentMethodPicker,
+  kindOf,
+} from '../../shared/ledger';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, toIconName, TransactionRow } from '../../shared/ui';
 
-import { CategoryChips } from './CategoryChips';
 import { toAmount } from './digits';
 import { buildFeedbackMessage } from './feedbackMessage';
 import { AmountDisplay, Keypad } from './Keypad';
@@ -32,6 +37,13 @@ interface FeedbackPanelProps {
   deadline: number | null;
   onUndone: () => void;
   onUpdated: (updated: TransactionUpdated) => void;
+  /**
+   * 결제 수단을 고른 그 순간. 서버 응답을 기다리지 않는다.
+   *
+   * 다음 기록에 조용히 채울 값이라 **고른 것 자체가 뜻**이다. 응답을 기다렸다가 남기면,
+   * 고르자마자 확인을 눌러 시트가 닫힌 경우 그 값을 잃는다(요청은 이미 나갔는데도).
+   */
+  onMethodPicked: (method: PaymentMethod | null) => void;
   onConfirm: () => void;
 }
 
@@ -44,7 +56,7 @@ interface FeedbackPanelProps {
 type Editing = 'amount' | 'category' | null;
 
 /** 마지막으로 보낸 고치기가 어느 칸이었나. 오류를 그 칸 아래에 붙이려면 알아야 한다. */
-type UpdateTarget = 'amount' | 'category' | 'merchant';
+type UpdateTarget = 'amount' | 'category' | 'merchant' | 'payment_method';
 
 /** 상호는 서버가 120자까지 받는다. 화면에서 먼저 막아 422 를 왕복하지 않는다. */
 const MERCHANT_MAX = 120;
@@ -58,6 +70,7 @@ export function FeedbackPanel({
   deadline,
   onUndone,
   onUpdated,
+  onMethodPicked,
   onConfirm,
 }: FeedbackPanelProps) {
   const analytics = useAnalytics();
@@ -187,6 +200,13 @@ export function FeedbackPanel({
     return true;
   }
 
+  /** 무엇으로 냈는지 고친다. 상호와 달리 누르는 즉시 보낸다. 되돌릴 것이 한 칸뿐이다. */
+  function changeMethod(next: PaymentMethod | null): void {
+    if (next === transaction.payment_method) return;
+    onMethodPicked(next);
+    apply('payment_method', { payment_method: next });
+  }
+
   function confirm(): void {
     analytics.log(EVENTS.feedbackAction, { action: 'confirm' }, { flowId, kind: 'click' });
     if (flushMerchant(true)) return;
@@ -275,11 +295,18 @@ export function FeedbackPanel({
       {editing === 'category' ? (
         <div className="feedback__change">
           <p className="feedback__change-title">어디에 넣을까요?</p>
-          <CategoryChips
+          <CategoryPicker
             categories={categories}
             disabled={update.isPending}
             selectedId={transaction.category_id}
             onPick={(picked) => apply('category', { category_id: picked.id })}
+            onExpand={() =>
+              analytics.log(
+                EVENTS.categoryMoreOpened,
+                { where: 'feedback', shown: categories.length },
+                { flowId, kind: 'click' },
+              )
+            }
           />
         </div>
       ) : null}
@@ -306,6 +333,31 @@ export function FeedbackPanel({
 
       {/* 상호 저장이 실패한 것은 이 칸 아래에 붙인다. 아래 오류 줄은 펼쳐 둔 칸 것만 말한다. */}
       {target === 'merchant' && updateError ? (
+        <p className="feedback__notice" role="alert">
+          {updateError.message}
+        </p>
+      ) : null}
+
+      {/*
+        무엇으로 냈나. **저장이 끝난 다음에 묻는다.**
+
+        적는 화면에 칸이 하나 더 서면 10초 약속이 깨진다. 그래서 지난번 값으로 조용히
+        저장해 두고, 무엇으로 적혔는지를 여기서 보여 준다. 눌린 것을 다시 누르면 지워진다.
+        「안 골라도 돼요」 같은 말은 붙이지 않는다. 이미 저장이 끝난 화면이라 아무것도 막고
+        있지 않고, 한 줄을 더 읽히는 것이 그 자체로 부담이다.
+
+        수입·이체에는 뜻이 없어 아예 안 세운다.
+      */}
+      {kind === 'expense' ? (
+        <PaymentMethodPicker
+          className="feedback__pay"
+          value={transaction.payment_method}
+          disabled={update.isPending}
+          onChange={changeMethod}
+        />
+      ) : null}
+
+      {target === 'payment_method' && updateError ? (
         <p className="feedback__notice" role="alert">
           {updateError.message}
         </p>

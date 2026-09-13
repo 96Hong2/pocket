@@ -1,6 +1,13 @@
 import { useState } from 'react';
 
-import { useCategories, useUpdateCategory, type CategoryOut } from '../../shared/api';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
+import {
+  useCategories,
+  useSaveCategoryOrder,
+  useUpdateCategory,
+  type CategoryOut,
+} from '../../shared/api';
+import { QUICK_LIMIT, byUsage } from '../../shared/ledger';
 import {
   Button,
   Card,
@@ -47,12 +54,14 @@ const GROUPS: { kind: CategoryOut['kind']; title: string; note: string }[] = [
  * 지출과 수입을 다른 묶음으로 나눈다. 한 목록에 섞어 두면 수입 분류를 만들어 놓고도
  * 어디서 쓰이는지 알 수 없다. 기록 시트가 종류별로 갈라 보여주는 것과 같은 모양이다.
  *
- * 한 묶음 안에서는 기본과 내가 만든 것을 다시 가르지 않는다. 순서는 서버가 준 그대로라
- * 기록 시트의 칩 순서와 같고, 고칠 수 있는 줄만 '고치기' 를 달고 있어 눈으로 갈린다.
+ * **기록 화면은 앞자리 열한 개만 보여준다.** 그래서 이 화면의 순서가 곧 "무엇이 먼저
+ * 보이나" 다. 열한 번째 줄 아래에 경계를 그려 어디까지가 앞자리인지 눈으로 보이게 한다.
  */
 export function CategoryManageList() {
+  const analytics = useAnalytics();
   const categories = useCategories();
   const update = useUpdateCategory();
+  const saveOrder = useSaveCategoryOrder();
   const [target, setTarget] = useState<EditTarget | null>(null);
 
   if (categories.isError) {
@@ -67,6 +76,31 @@ export function CategoryManageList() {
 
   const items = categories.data?.items ?? [];
   const mineCount = items.filter((item) => !item.is_default).length;
+  const busy = update.isPending || saveOrder.isPending;
+
+  /**
+   * 한 줄을 위나 아래로 한 칸 옮긴다.
+   *
+   * **목록 전체를 보낸다.** 옮긴 둘만 보내면 나머지가 뒤로 밀려, 한 칸 옮겼을 뿐인데
+   * 화면이 통째로 뒤집힌다. 서버는 받은 순서를 그대로 앞에 세운다.
+   */
+  function move(kind: CategoryOut['kind'], index: number, delta: number): void {
+    const rows = items.filter((item) => item.kind === kind);
+    const next = index + delta;
+    if (next < 0 || next >= rows.length) return;
+
+    const moved = [...rows];
+    [moved[index], moved[next]] = [moved[next], moved[index]];
+    analytics.log(EVENTS.categoryOrderChanged, { how: 'step', kind }, { kind: 'click' });
+    saveOrder.mutate(orderWith(items, kind, moved).map((item) => item.id));
+  }
+
+  /** 그 종류만 자주 쓴 순서로 다시 세운다. 나머지 종류는 지금 순서 그대로 둔다. */
+  function sortByUsage(kind: CategoryOut['kind']): void {
+    const sorted = byUsage(items.filter((item) => item.kind === kind));
+    analytics.log(EVENTS.categoryOrderChanged, { how: 'usage', kind }, { kind: 'click' });
+    saveOrder.mutate(orderWith(items, kind, sorted).map((item) => item.id));
+  }
 
   return (
     <div className="cat-manage">
@@ -94,20 +128,67 @@ export function CategoryManageList() {
       {GROUPS.map((group) => {
         const rows = items.filter((item) => item.kind === group.kind);
         if (rows.length === 0) return null;
+        // 이체는 기록 화면 칩에 서지 않는다. 순서도 켜고 끄기도 뜻이 없다.
+        const arrangeable = group.kind !== 'transfer';
+        const quickCount = rows.filter((item) => item.is_quick).length;
 
         return (
           <section className="cat-group" aria-label={group.title} key={group.kind}>
             <h2 className="cat-group__title">{group.title}</h2>
             <p className="cat-group__note">{group.note}</p>
-            {group.kind === 'transfer' ? null : (
-              <p className="cat-group__note cat-group__note--quick">
-                오른쪽 스위치를 끄면 기록 화면에서 「더 보기」 뒤로 가요
-              </p>
-            )}
+            {arrangeable ? (
+              <>
+                <p className="cat-group__note cat-group__note--quick">
+                  기록 화면에는 위에서 {QUICK_LIMIT}개까지 보여요. 화살표로 순서를 바꾸고, 스위치를
+                  끄면 「더 보기」 뒤로 가요
+                </p>
+                {rows.length > 1 ? (
+                  <button
+                    type="button"
+                    className="cat-group__sort"
+                    disabled={busy}
+                    onClick={() => sortByUsage(group.kind)}
+                  >
+                    자주 쓴 순서로
+                  </button>
+                ) : null}
+              </>
+            ) : null}
             <Card padding="list">
               <ul className="cat-list">
-                {rows.map((category) => (
-                  <li className="cat-row" key={category.id}>
+                {rows.map((category, index) => (
+                  <li
+                    className="cat-row"
+                    key={category.id}
+                    // 열한 번째 아래에 선을 긋는다. 어디까지가 기록 화면 앞자리인지 보여 준다.
+                    data-quick-edge={
+                      arrangeable && quickCount > QUICK_LIMIT && index === QUICK_LIMIT - 1
+                        ? ''
+                        : undefined
+                    }
+                  >
+                    {arrangeable ? (
+                      <span className="cat-row__move">
+                        <button
+                          type="button"
+                          className="cat-row__arrow"
+                          aria-label={`${category.name} 위로`}
+                          disabled={busy || index === 0}
+                          onClick={() => move(group.kind, index, -1)}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="cat-row__arrow"
+                          aria-label={`${category.name} 아래로`}
+                          disabled={busy || index === rows.length - 1}
+                          onClick={() => move(group.kind, index, 1)}
+                        >
+                          ↓
+                        </button>
+                      </span>
+                    ) : null}
                     {category.is_default ? (
                       <span className="cat-row__main">
                         <CategoryAvatar {...iconOf(category)} size={40} />
@@ -131,17 +212,17 @@ export function CategoryManageList() {
                       남아 남에게 번지지 않는다. 끈다고 없어지지는 않는다. 기록 시트의
                       「더 보기」 뒤로 갈 뿐이다.
                     */}
-                    {group.kind === 'transfer' ? null : (
+                    {arrangeable ? (
                       <Toggle
                         className="cat-row__quick"
                         checked={category.is_quick}
                         ariaLabel={`${category.name} 기록 화면에 보이기`}
-                        disabled={update.isPending}
+                        disabled={busy}
                         onChange={(next) =>
                           update.mutate({ id: category.id, body: { is_quick: next } })
                         }
                       />
-                    )}
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -157,4 +238,19 @@ export function CategoryManageList() {
       />
     </div>
   );
+}
+
+/**
+ * 그 종류만 새 순서로 갈아 끼운 전체 목록.
+ *
+ * 다른 종류의 줄은 있던 자리를 그대로 지킨다. 지출을 옮겼는데 수입 순서까지 흔들리면
+ * 사용자가 한 적 없는 변화가 화면에 남는다.
+ */
+function orderWith(
+  all: CategoryOut[],
+  kind: CategoryOut['kind'],
+  ordered: CategoryOut[],
+): CategoryOut[] {
+  const queue = [...ordered];
+  return all.map((item) => (item.kind === kind ? (queue.shift() ?? item) : item));
 }

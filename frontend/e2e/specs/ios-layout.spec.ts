@@ -77,7 +77,7 @@ test('기록을 고치는 시트도 가로로 넘치지 않는다', async ({ pag
   expect(await horizontalScrollers(page)).toEqual([]);
 
   // 분류 만들기 자리까지 펼쳐 본다. 폼 하나가 통째로 들어오는 자리다.
-  await calendar.edit.newCategoryButton.click();
+  await calendar.edit.openNewCategory();
   await expect(calendar.edit.newCategoryTitle).toBeVisible();
   expect(await horizontalScrollers(page)).toEqual([]);
   await home.open();

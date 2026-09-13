@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
+
 import {
   type CategoryOut,
   type ImportCandidateOut,
@@ -8,7 +10,12 @@ import {
   type TransactionType,
   parseDecimalOr,
 } from '../../shared/api';
-import { PaymentMethodPicker, categoriesOfKind, type LedgerKind } from '../../shared/ledger';
+import {
+  CategoryPicker,
+  PaymentMethodPicker,
+  categoriesOfKind,
+  type LedgerKind,
+} from '../../shared/ledger';
 import { formatDayLabel, toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import {
@@ -21,6 +28,8 @@ import {
   iconOf,
   type SegmentedOption,
 } from '../../shared/ui';
+
+import { CategoryEditForm } from '../categories';
 
 /**
  * 고를 수 있는 종류.
@@ -37,6 +46,8 @@ const TYPES: SegmentedOption<TransactionType>[] = [
 export interface CandidateRowProps {
   candidate: ImportCandidateOut;
   categories: CategoryOut[];
+  /** 이 검토가 속한 기록 흐름. 「더 보기」를 편 로그가 이 값을 물고 간다. */
+  flowId: FlowId;
   /** 지금 이 줄을 펼쳐 고치는 중인가. 한 번에 하나만 열린다. */
   editing: boolean;
   disabled: boolean;
@@ -59,6 +70,7 @@ export interface CandidateRowProps {
 export function CandidateRow({
   candidate,
   categories,
+  flowId,
   editing,
   disabled,
   onToggle,
@@ -194,6 +206,7 @@ export function CandidateRow({
           key={candidate.id}
           candidate={candidate}
           categories={categories}
+          flowId={flowId}
           disabled={disabled}
           onSave={onSave}
           onDraftChange={onDraftChange}
@@ -251,6 +264,7 @@ function kindPatch(
 interface CandidateFormProps {
   candidate: ImportCandidateOut;
   categories: CategoryOut[];
+  flowId: FlowId;
   disabled: boolean;
   onSave: (body: ImportCandidatePatch) => void;
   /**
@@ -274,10 +288,12 @@ function pickableFor(type: TransactionType, categories: CategoryOut[]): Category
 function CandidateForm({
   candidate,
   categories,
+  flowId,
   disabled,
   onSave,
   onDraftChange,
 }: CandidateFormProps) {
+  const analytics = useAnalytics();
   const [merchant, setMerchant] = useState(candidate.merchant ?? '');
   const [digits, setDigits] = useState(String(parseDecimalOr(candidate.amount, 0)));
   const [day, setDay] = useState(toLedgerDate(new Date(candidate.occurred_at)));
@@ -285,9 +301,17 @@ function CandidateForm({
   const [categoryId, setCategoryId] = useState<string | null>(candidate.category_id ?? null);
   // 영수증에 「신용」 이 찍혀 있으면 이미 채워져 있다. 못 읽었으면 여기서 고른다.
   const [method, setMethod] = useState<PaymentMethod | null>(candidate.payment_method);
+  /*
+    분류 만들기 자리가 열렸나.
+
+    읽어 온 줄을 고치다가 「맞는 칸이 없다」 를 깨닫는 순간이 여기다. 기록 시트와 같은
+    방식으로 시트를 하나 더 띄우지 않고 분류 칸이 만들기 폼으로 바뀐다.
+    적어 둔 상호·금액·날짜가 살아 있어야 만들고 나서 이어 저장한다.
+  */
+  const [creating, setCreating] = useState(false);
 
   const amount = Number(digits);
-  const canSave = digits !== '' && amount > 0 && day !== '' && !disabled;
+  const canSave = digits !== '' && amount > 0 && day !== '' && !disabled && !creating;
 
   /** 지금 칸에 적힌 것 중 원래와 달라진 것만. 아무것도 안 바꿨으면 빈 객체다. */
   function draft(): ImportCandidatePatch {
@@ -377,23 +401,50 @@ function CandidateForm({
         />
       ) : null}
 
-      {/* 수입도 어디서 온 돈인지 고를 수 있어야 한다. 이체만 분류가 없다. */}
-      {type === 'expense' || type === 'income' ? (
-        <div className="nl-form__cats" role="group" aria-label="분류">
-          {pickableFor(type, categories).map((item) => (
+      {/*
+        수입도 어디서 온 돈인지 고를 수 있어야 한다. 이체만 분류가 없다.
+        기록 시트와 같은 것을 쓴다. 앞자리 열한 개만 보이고 나머지는 「더 보기」 뒤다.
+      */}
+      {type !== 'expense' && type !== 'income' ? null : creating ? (
+        <div className="nl-form__new-cat">
+          <div className="nl-form__new-cat-head">
+            <span className="nl-form__new-cat-title">새 분류 만들기</span>
             <button
-              key={item.id}
               type="button"
-              className={item.id === categoryId ? 'nl-form__cat nl-form__cat--on' : 'nl-form__cat'}
-              aria-pressed={item.id === categoryId}
-              onClick={() => setCategoryId(item.id)}
+              className="nl-form__new-cat-back"
+              onClick={() => setCreating(false)}
             >
-              <CategoryAvatar {...iconOf(item)} size={32} />
-              {item.name}
+              고치기로 돌아가기
             </button>
-          ))}
+          </div>
+          <CategoryEditForm
+            // 종류는 위 칸이 이미 정했다. 여기서 다시 묻지 않는다.
+            fixedKind={type}
+            onClose={() => setCreating(false)}
+            onCreated={(created) => {
+              setCategoryId(created.id);
+              setCreating(false);
+            }}
+          />
         </div>
-      ) : null}
+      ) : (
+        <CategoryPicker
+          className="nl-form__cats"
+          size="sm"
+          categories={pickableFor(type, categories)}
+          selectedId={categoryId}
+          disabled={disabled}
+          onPick={(item) => setCategoryId(item.id)}
+          onCreate={() => setCreating(true)}
+          onExpand={() =>
+            analytics.log(
+              EVENTS.categoryMoreOpened,
+              { where: 'review', shown: pickableFor(type, categories).length },
+              { flowId, kind: 'click' },
+            )
+          }
+        />
+      )}
 
       <Button
         className="nl-form__done"

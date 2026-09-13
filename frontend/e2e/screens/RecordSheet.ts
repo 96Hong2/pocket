@@ -46,9 +46,30 @@ export class RecordSheet {
     await expect(this.root).toBeHidden();
   }
 
-  /** 헤더의 X. 딤을 누르거나 Esc 를 눌러도 같은 결과다. */
+  /**
+   * 시트 맨 위 손잡이. **X 버튼은 없다.**
+   *
+   * 손잡이가 곧 닫기다. 눌러도 닫히고 아래로 밀어도 닫힌다.
+   * 딤·Esc·시스템 뒤로가기도 같은 결과다. 닫을 수 없을 때는 이 버튼 자체가 없다.
+   */
   get closeButton(): Locator {
     return this.root.getByRole('button', { name: '닫기' });
+  }
+
+  /** 손잡이를 잡고 아래로 민다. 실기기에서 시트를 닫는 가장 흔한 손짓이다. */
+  async dragDown(distance = 160): Promise<void> {
+    const box = await this.closeButton.boundingBox();
+    if (box == null) throw new Error('손잡이를 찾지 못했다');
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+
+    await this.page.mouse.move(x, y);
+    await this.page.mouse.down();
+    // 한 번에 옮기면 브라우저가 중간 좌표를 안 만들어 SLOP 판정을 못 지난다.
+    for (let step = 1; step <= 6; step += 1) {
+      await this.page.mouse.move(x, y + (distance * step) / 6);
+    }
+    await this.page.mouse.up();
   }
 
   /**
@@ -114,11 +135,6 @@ class RecordInput {
     return this.root.getByRole('button', { name: '한 자리 지우기' });
   }
 
-  /** 직전에 저장한 것과 같은 기록을 한 번에 만드는 칩. 저장 이력이 있어야 뜬다. */
-  get repeatChip(): Locator {
-    return this.root.getByRole('button', { name: /^한 번 더 · / });
-  }
-
   /**
    * 카테고리를 불러오는 동안 도는 스피너.
    *
@@ -156,34 +172,60 @@ class RecordInput {
   }
 
   /**
-   * 무엇으로 냈나. 지출일 때만 선다.
+   * '한 번 더' 칩. **이제 없다.**
    *
-   * 안 골라도 저장되는 값이라 `aria-pressed` 로 눌린 것을 가른다.
+   * 직전 기록을 한 번에 다시 만드는 칩이었다. 같은 금액을 또 쓰는 일보다, 적는 화면에
+   * 칩이 하나 더 서서 무엇을 눌러야 하는지 헷갈리는 값이 컸다. 없다는 것을 지키는 자리다.
+   */
+  get repeatChip(): Locator {
+    return this.root.getByRole('button', { name: /^한 번 더/ });
+  }
+
+  /**
+   * 결제 수단 자리. **여기에는 없어야 한다.**
+   *
+   * 무엇으로 냈는지는 저장이 끝난 화면에서 묻는다. 적는 화면에 칸이 하나 더 서면
+   * 10초 약속이 깨진다. 없다는 것을 단언하려고 자리만 남겨 둔다.
    */
   get paymentGroup(): Locator {
     return this.root.getByRole('group', { name: '결제 수단' });
-  }
-
-  paymentButton(label: '신용카드' | '체크카드' | '현금'): Locator {
-    return this.paymentGroup.getByRole('button', { name: label, exact: true });
-  }
-
-  async pickPayment(label: '신용카드' | '체크카드' | '현금'): Promise<void> {
-    await this.paymentButton(label).click();
   }
 
   categoryChip(name: string): Locator {
     return this.root.getByRole('button', { name, exact: true });
   }
 
-  /** 꺼 둔 분류를 펼치는 칩. 꺼 둔 것이 없으면 아예 없다. */
+  /**
+   * 앞자리에 안 선 분류를 펼치는 칩.
+   *
+   * 앞자리는 열한 개까지다(`QUICK_LIMIT`). 그보다 많거나 꺼 둔 것이 있으면 여기 뒤로 간다.
+   * 뒤에 아무것도 없어도 「새 분류」가 이 안에 있어 칩 자체는 늘 있다.
+   */
   get moreCategoriesButton(): Locator {
-    return this.root.getByRole('button', { name: /^\d+개 더$/ });
+    return this.root.getByRole('button', { name: '더 보기', exact: true });
   }
 
-  /** 분류를 여기서 바로 만든다. 관리 탭까지 가지 않는다. */
+  /** 「더 보기」를 편 뒤 다시 접는 버튼. */
+  get foldCategoriesButton(): Locator {
+    return this.root.getByRole('button', { name: '접기', exact: true });
+  }
+
+  /** 카테고리 관리가 있다는 것을 알려 주는 한 줄. 「더 보기」 안에만 있다. */
+  get categorySettingsNote(): Locator {
+    return this.root.getByText(/카테고리 관리에서 순서를 바꾸고/);
+  }
+
+  /** 분류를 여기서 바로 만든다. 관리 탭까지 가지 않는다. 「더 보기」 안에 있다. */
   get newCategoryButton(): Locator {
     return this.root.getByRole('button', { name: '새 분류', exact: true });
+  }
+
+  /** 「더 보기」를 펴고 만들기를 연다. 두 번 누르는 것이 한 동작이다. */
+  async openNewCategory(): Promise<void> {
+    if ((await this.newCategoryButton.count()) === 0) {
+      await this.moreCategoriesButton.click();
+    }
+    await this.newCategoryButton.click();
   }
 
   /** 「새 분류」를 누르면 칩 자리에 펼쳐지는 만들기 폼. 시트를 더 띄우지 않는다. */
@@ -223,8 +265,15 @@ class RecordInput {
     }
   }
 
-  /** 금액이 이미 있으면 카테고리를 누르는 것이 곧 저장이다. */
+  /**
+   * 금액이 이미 있으면 카테고리를 누르는 것이 곧 저장이다.
+   *
+   * 앞자리는 열한 개까지라, 찾는 분류가 안 보이면 「더 보기」를 한 번 편다.
+   */
   async pickCategory(name: string): Promise<void> {
+    if ((await this.categoryChip(name).count()) === 0) {
+      await this.moreCategoriesButton.click();
+    }
     await this.categoryChip(name).click();
   }
 
@@ -401,6 +450,29 @@ class RecordFeedback {
     return this.root.getByRole('button', { name, exact: true });
   }
 
+  /**
+   * 무엇으로 냈나. **저장이 끝난 뒤에 묻는다.**
+   *
+   * 적는 화면에는 이 칸이 없다. 지난번 값으로 조용히 저장하고 여기서 보여 준다.
+   * 안 골라도 되는 값이라 `aria-pressed` 로 눌린 것을 가른다.
+   */
+  get paymentGroup(): Locator {
+    return this.root.getByRole('group', { name: '결제 수단' });
+  }
+
+  paymentButton(label: '신용카드' | '체크카드' | '현금'): Locator {
+    return this.paymentGroup.getByRole('button', { name: label, exact: true });
+  }
+
+  async pickPayment(label: '신용카드' | '체크카드' | '현금'): Promise<void> {
+    await this.paymentButton(label).click();
+  }
+
+  /** 앞자리에 안 선 분류를 펼치는 칩. 「카테고리 바꾸기」 를 편 뒤에만 있다. */
+  get moreCategoriesButton(): Locator {
+    return this.root.getByRole('button', { name: '더 보기', exact: true });
+  }
+
   async waitSaved(): Promise<void> {
     await expect(this.savedLabel).toBeVisible();
   }
@@ -421,9 +493,16 @@ class RecordFeedback {
     return digits === '' ? 0 : Number(digits);
   }
 
-  /** 저장한 뒤 분류를 고친다. 펼치기와 고르기가 한 동작이다. */
+  /**
+   * 저장한 뒤 분류를 고친다. 펼치기와 고르기가 한 동작이다.
+   *
+   * 앞자리는 열한 개까지라, 찾는 분류가 안 보이면 「더 보기」를 한 번 편다.
+   */
   async changeCategory(name: string): Promise<void> {
     await this.changeCategoryButton.click();
+    if ((await this.categoryChip(name).count()) === 0) {
+      await this.moreCategoriesButton.click();
+    }
     await this.categoryChip(name).click();
   }
 
@@ -648,8 +727,30 @@ class RecordNaturalLanguageForm {
     return this.root.getByRole('radiogroup', { name: '종류' }).getByRole('radio', { name: label });
   }
 
+  get categoryGroup(): Locator {
+    return this.root.getByRole('group', { name: '분류' });
+  }
+
   categoryChip(name: string): Locator {
-    return this.root.getByRole('group', { name: '분류' }).getByRole('button', { name });
+    return this.categoryGroup.getByRole('button', { name });
+  }
+
+  /** 앞자리에 안 선 분류를 펼치는 칩. 기록 시트와 같은 규칙이다. */
+  get moreCategoriesButton(): Locator {
+    return this.categoryGroup.getByRole('button', { name: '더 보기', exact: true });
+  }
+
+  /** 검토 화면에서도 그 자리에서 분류를 만든다. 「더 보기」 안에 있다. */
+  get newCategoryButton(): Locator {
+    return this.categoryGroup.getByRole('button', { name: '새 분류', exact: true });
+  }
+
+  /** 앞자리에 없으면 한 번 펼치고 고른다. */
+  async pickCategory(name: string): Promise<void> {
+    if ((await this.categoryChip(name).count()) === 0) {
+      await this.moreCategoriesButton.click();
+    }
+    await this.categoryChip(name).click();
   }
 
   async apply(): Promise<void> {

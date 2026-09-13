@@ -273,28 +273,54 @@
     background: var(--color-surface);
     border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
     animation: var(--animate-sheet-up);
+    /* 손을 떼면 제자리로 돌아온다. 끄는 동안에는 아래에서 이 전환을 끈다. */
+    transition: transform 180ms ease-out;
   }
 
+  .pk-sheet--dragging {
+    transition: none;
+    /* 끄는 동안 브라우저가 세로 손짓을 스크롤로 가져가지 않게 막는다. */
+    touch-action: none;
+  }
+
+  /*
+    손잡이가 곧 닫기 버튼이다. X 는 두지 않는다.
+    오른쪽 위 X 는 토스가 그리는 **미니앱 닫기**와 자리·모양이 같아, 시트를 닫으려다
+    앱을 닫는 일이 실기기에서 있었다.
+
+    보이는 것은 안쪽의 36×4 막대뿐이고, 누르는 자리는 그 위아래로 넓다.
+    `touch-action: none` 이라야 손잡이에서 시작한 세로 손짓을 우리가 받는다.
+  */
   .pk-sheet__handle {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 28px;
+    margin-bottom: 4px;
+    background: transparent;
+  }
+
+  .pk-sheet__handle--hit {
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .pk-sheet__grip {
     width: 36px;
     height: 4px;
-    margin: 0 auto 12px;
     border-radius: var(--radius-pill);
     background: var(--color-border);
   }
 
-  /*
-    닫기 버튼(44px)의 그림은 32px 이라, 그대로 두면 본문 오른쪽 눈금보다 안으로 들어간다.
-    예전에는 버튼에 `margin-right: -12px` 를 줘서 끌어냈는데, **그러면 버튼의 오른쪽 변이
-    헤더 밖으로 나가 가로 스크롤이 생긴다**(scrollWidth 가 12px 더 컸다).
-    버튼을 미는 대신 헤더를 시트 안쪽 여백만큼 넓힌다. 보이는 자리는 같고 넘침은 없다.
-  */
+  .pk-sheet__handle--hit:active .pk-sheet__grip {
+    background: var(--color-muted);
+  }
+
   .pk-sheet__header {
     display: flex;
     align-items: center;
     gap: 12px;
-    min-height: 44px;
-    margin-right: -12px;
+    min-height: 32px;
   }
 
   .pk-sheet__title {
@@ -304,19 +330,113 @@
     color: var(--color-ink);
   }
 
-  .pk-sheet__close {
+  .pk-sheet__body {
+    padding-top: 4px;
+  }
+
+  /* ── 카테고리 칩 ────────────────────────────────── */
+
+  .cat-chips {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .cat-chips__item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 44px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    transition:
+      background-color 0.12s ease,
+      opacity 0.15s ease;
+  }
+
+  .cat-chips__item:not(:disabled):active {
+    background: var(--color-sage-100);
+  }
+
+  .cat-chips__item[aria-pressed='true'] {
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+  }
+
+  .cat-chips__item:disabled {
+    opacity: 0.4;
+  }
+
+  /*
+    「더 보기」와 「새 분류」. 분류 칩과 같은 크기·같은 자리에 서되 테두리만 두른 빈 칸으로
+    둔다. 같은 모양이면 분류인 줄 알고 누르고, 아주 다른 모양이면 눌러도 되는 줄 모른다.
+  */
+  .cat-chips__item--more,
+  .cat-chips__item--new {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    color: var(--color-sage-700);
+  }
+
+  .cat-chips__more-mark {
     display: grid;
     place-items: center;
-    width: 44px;
-    height: 44px;
+    width: 26px;
+    height: 26px;
     flex: none;
     border-radius: var(--radius-pill);
-    background: transparent;
+    background: var(--color-bg);
+    font-size: var(--text-14);
+    line-height: 1;
+  }
+
+  .cat-chips__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 수정 시트·검토 목록처럼 좁은 자리. 같은 격자에 키만 낮춘다. */
+  .cat-chips--sm .cat-chips__item {
+    height: 38px;
+    font-size: var(--text-12);
+  }
+
+  .cat-chips--sm .cat-chips__more-mark {
+    width: 22px;
+    height: 22px;
+  }
+
+  /*
+    「더 보기」 안에만 있는 한 줄. 카테고리 관리가 있다는 것을 여기서 처음 안다.
+    격자 세 칸을 통째로 쓴다.
+  */
+  .cat-chips__note {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+    font-size: var(--text-12);
+    line-height: 1.5;
     color: var(--color-muted);
   }
 
-  .pk-sheet__body {
-    padding-top: 4px;
+  .cat-chips__fold {
+    grid-column: 1 / -1;
+    justify-self: center;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
   }
 
   /* ── SegmentedControl ───────────────────────────────── */
@@ -865,6 +985,10 @@
   .pk-skeleton,
   .pk-spinner {
     animation: none;
+  }
+
+  .pk-sheet {
+    transition: none;
   }
 
   .pk-gauge__fill,

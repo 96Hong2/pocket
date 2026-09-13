@@ -104,6 +104,8 @@ const PATHS = {
   merchantRules: '/api/v1/merchant-rules',
   assets: '/api/v1/assets',
   goals: '/api/v1/goals',
+  categoryOrder: '/api/v1/categories/order',
+  accountReset: '/api/v1/account/reset',
 } as const;
 
 function transactionPath(id: string): string {
@@ -173,6 +175,8 @@ export interface ApiClient extends Transport {
   updateCategory(id: string, body: CategoryUpdate, options?: CallOptions): Promise<CategoryOut>;
   /** 내 카테고리 지우기. 그 카테고리를 쓰던 거래는 남는다. 두 번 눌러도 204 다. */
   deleteCategory(id: string, options?: CallOptions): Promise<void>;
+  /** 칩이 설 순서. 화면이 보고 있는 목록 전체를 그대로 보낸다. */
+  saveCategoryOrder(ids: string[], options?: CallOptions): Promise<void>;
   getBudget(params?: MonthParams, options?: CallOptions): Promise<BudgetOut>;
   /**
    * 목표에서 거꾸로 낸 생활비 제안. **부르는 것만으로는 아무것도 저장되지 않는다.**
@@ -200,6 +204,13 @@ export interface ApiClient extends Transport {
     params?: MonthParams,
     options?: CallOptions,
   ): Promise<void>;
+  /**
+   * 앱에 넣은 것을 전부 지운다. **되돌릴 수 없다.**
+   *
+   * 본문의 `confirm` 은 서버가 요구하는 값이다. 화면의 동의 체크와 별개로,
+   * 잘못 만들어진 요청 하나가 몇 달치를 지우지 못하게 한 겹 더 둔다.
+   */
+  resetAccountData(options?: CallOptions): Promise<void>;
   getPreferences(options?: CallOptions): Promise<PreferencesOut>;
   /** 보낸 필드만 고친다. 응답은 고친 뒤 전체 설정이다. */
   savePreferences(body: PreferencesPatch, options?: CallOptions): Promise<PreferencesOut>;
@@ -399,6 +410,24 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<void>({
         method: 'DELETE',
         path: categoryPath(id),
+        signal: call?.signal,
+      });
+    },
+
+    saveCategoryOrder(ids, call) {
+      return transport.request<void>({
+        method: 'PUT',
+        path: PATHS.categoryOrder,
+        body: { ids },
+        signal: call?.signal,
+      });
+    },
+
+    resetAccountData(call) {
+      return transport.request<void>({
+        method: 'POST',
+        path: PATHS.accountReset,
+        body: { confirm: true },
         signal: call?.signal,
       });
     },
