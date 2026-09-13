@@ -21,7 +21,13 @@ from app.domain.category_icons import (
     normalize_custom_icon,
 )
 
-__all__ = ["CategoryCreate", "CategoryListOut", "CategoryOut", "CategoryUpdate"]
+__all__ = [
+    "CategoryCreate",
+    "CategoryListOut",
+    "CategoryOrderIn",
+    "CategoryOut",
+    "CategoryUpdate",
+]
 
 # 길이는 공백을 지운 뒤에 잰다. 공백만 보낸 이름이 통과하면 목록에 빈 칩이 선다.
 # 상한은 컬럼 폭과 같다. 여기서 안 막으면 DB 가 자르거나 터진다.
@@ -53,6 +59,9 @@ class CategoryOut(BaseModel):
     sort_order: int
     # 모든 사용자에게 보이는 기본 카테고리인지. 내가 만든 것은 false 다.
     is_default: bool
+    # 이 분류로 적어 둔 기록 수. 「자주 쓴 순서로」가 이 값으로 줄을 세운다.
+    # 서버가 이 값으로 순서를 정하지는 않는다. 쓸 때마다 칩이 움직이면 손이 기억한 자리가 무너진다.
+    usage_count: int = 0
 
 
 class CategoryListOut(BaseModel):
@@ -117,3 +126,13 @@ class CategoryUpdate(BaseModel):
         if {"icon_key", "icon_custom"} <= self.model_fields_set:
             raise ValueError("아이콘은 하나만 고를 수 있어요.")
         return self
+
+
+class CategoryOrderIn(BaseModel):
+    """칩이 설 순서. 화면이 보고 있는 목록 전체를 그대로 보낸다.
+
+    일부만 보내도 받는다. 목록에 없는 분류는 지금까지와 같은 자리에 서므로,
+    앞자리 몇 개만 정해 두는 것도 뜻이 통한다.
+    """
+
+    ids: list[uuid.UUID]

@@ -265,6 +265,40 @@ export function useDeleteCategory() {
 }
 
 /**
+ * 칩이 설 순서 저장.
+ *
+ * 응답이 없어서 캐시를 무효화한다. 순서는 목록 응답에 실려 오므로 다시 받아야 화면이 맞는다.
+ */
+export function useSaveCategoryOrder() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ids: string[]) => client.saveCategoryOrder(ids),
+    onSuccess: () => invalidateCategories(queryClient),
+  });
+}
+
+/**
+ * 앱 데이터 초기화.
+ *
+ * 남는 것이 없으므로 **캐시를 통째로 버린다.** 표를 하나씩 무효화하면 다음에 표가 늘었을 때
+ * 여기를 함께 고치지 않아, 지운 뒤에도 옛 숫자를 들고 있는 화면이 생긴다.
+ */
+export function useResetAccountData() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => client.resetAccountData(),
+    onSuccess: async () => {
+      queryClient.removeQueries();
+      await queryClient.invalidateQueries();
+    },
+  });
+}
+
+/**
  * 앱 설정 저장.
  *
  * 이어쓰기를 끄고 켜는 것이 다음 기간에 예산이 생기는지를 바꾼다. 그래서 그 값을 보냈을 때만

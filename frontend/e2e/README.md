@@ -28,6 +28,10 @@ e2e/
                      부모로 한 칸 올라가 잡는다(둘은 함께 그려지지 않는다)
     RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글)·capture(캡처)·receipt(영수증) 다섯이다
                      capture 와 receipt 는 같은 클래스에 문구 표만 바꿔 끼운 둘이다
+                     **X 버튼은 없다.** `closeButton` 은 시트 맨 위 손잡이이고, 눌러도 아래로 밀어도(`dragDown`) 닫힌다
+                     분류 칩은 앞자리 `QUICK_LIMIT`(11)개까지다. 그 뒤와 「새 분류」는 「더 보기」 안에 있어
+                     `pickCategory`·`openNewCategory` 가 필요할 때 알아서 한 번 펼친다
+                     결제 수단은 저장 **뒤** 화면(feedback)에 있다. input 쪽 `paymentGroup` 은 없다는 것을 단언하는 자리다
     ReportScreen     리포트 탭. 총액·도넛·조각 목록·6개월 흐름·월간 결산
                      closing 은 결산 입구와 오버레이다. 입구는 버튼, 오버레이는 다이얼로그라
                      둘 다 이름으로 잡고, 안쪽의 점·줄만 testid 를 쓴다
@@ -105,9 +109,10 @@ e2e/
 - **`waitForTimeout` 을 쓰지 않는다.** 기다릴 것이 있으면 `expect(...).toHaveText` 나 `expect.poll` 로 상태를 기다린다.
 - **`.tsx` 와 `.css` 를 e2e 에서 import 하지 않는다.** e2e 는 브라우저 밖 Node 에서 돈다.
   `src/` 에서 가져와도 되는 것은 부수효과 없는 상수·순수 함수 모듈뿐이다.
-  지금 쓰는 것은 일곱이다: `shared/testIds.ts`, `app/router/routes.ts`, `shared/lib/format.ts`,
+  지금 쓰는 것은 여덟이다: `shared/testIds.ts`, `app/router/routes.ts`, `shared/lib/format.ts`,
   `shared/api/types.ts`(거래 종류 같은 타입), `features/transactions/ledgerView.ts`(한 페이지 줄 수·달력 칸 계산),
-  `shared/lib/forbiddenWords.ts`(탓하는 말 목록과 판정), `shared/lib/closingSeen.ts`(결산 알림 창 일수).
+  `shared/lib/forbiddenWords.ts`(탓하는 말 목록과 판정), `shared/lib/closingSeen.ts`(결산 알림 창 일수),
+  `shared/ledger/quickPick.ts`(기록 화면 앞자리 개수).
   뒤의 둘은 화면 문구·표시 규칙의 정본이라 spec 이 같은 값을 다시 적지 않으려고 가져온다.
   **배럴(`features/*/index.ts`)로 가져오지 않는다.** 배럴은 `.tsx` 를 함께 내보내서,
   상수 하나만 쓰려 해도 화면 컴포넌트가 Node 로 끌려온다. 순수 모듈을 경로로 직접 가져온다.

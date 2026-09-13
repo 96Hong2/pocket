@@ -21,6 +21,7 @@ export class SettingsScreen {
   constructor(page: Page) {
     this.page = page;
     this.heroResult = new HeroResultArea(page);
+    this.dataReset = new DataResetArea(page);
   }
 
   async open(): Promise<void> {
@@ -134,6 +135,14 @@ export class SettingsScreen {
   }
 
   /**
+   * 앱 데이터 초기화. 배너 아래, 화면 맨 끝이다.
+   *
+   * 되돌릴 수 없는 자리라 여는 것과 지우는 것이 갈려 있다.
+   * 무엇이 사라지는지 읽고 동의를 눌러야 확인이 열린다.
+   */
+  readonly dataReset: DataResetArea;
+
+  /**
    * 화면 어디든 그 글자.
    *
    * 없어야 할 것을 세는 자리다. 있어야 할 것은 역할이나 testid 로 집는다.
@@ -191,5 +200,49 @@ class HeroResultArea {
   /** 이번 달 번 돈. 수입이라 `+` 가 붙는다. */
   get income(): Locator {
     return this.page.getByTestId(TEST_IDS.heroIncome);
+  }
+}
+
+/** 앱 데이터 초기화 덩어리와 그 확인 시트. */
+class DataResetArea {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  get openButton(): Locator {
+    return this.page.getByRole('button', { name: '데이터 지우기', exact: true });
+  }
+
+  get sheet(): Locator {
+    return this.page.getByRole('dialog', { name: '정말 지울까요?', exact: true });
+  }
+
+  /** 무엇이 사라지는지 이름으로 적어 둔 목록. "데이터" 한 단어로는 무엇을 잃는지 모른다. */
+  get list(): Locator {
+    return this.sheet.getByRole('listitem');
+  }
+
+  get warning(): Locator {
+    return this.sheet.getByText(/되돌릴 수 없어요/);
+  }
+
+  /** 확인 버튼을 여는 유일한 열쇠. */
+  get agree(): Locator {
+    return this.sheet.getByTestId(TEST_IDS.resetAgree);
+  }
+
+  get confirmButton(): Locator {
+    return this.sheet.getByRole('button', { name: '확인', exact: true });
+  }
+
+  /** 열고, 동의하고, 지운다. 시트가 닫히면 끝난 것이다. */
+  async run(): Promise<void> {
+    await this.openButton.click();
+    await expect(this.sheet).toBeVisible();
+    await this.agree.check();
+    await this.confirmButton.click();
+    await expect(this.sheet).toBeHidden();
   }
 }

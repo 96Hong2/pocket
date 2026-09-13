@@ -1,3 +1,4 @@
+import { QUICK_LIMIT } from '../../src/shared/ledger/quickPick';
 import { formatCurrency } from '../../src/shared/lib/format';
 import { expect, test } from '../support/fixtures';
 
@@ -145,7 +146,7 @@ test('카테고리를 지우면 그 카테고리 예산도 함께 사라진다',
   await expect(manage.categories.row(PET)).toHaveCount(0);
 });
 
-test('스무 개를 만들어도 기록 시트 칩에 다 나오고 순서가 안 뒤집힌다', async ({
+test('스무 개를 만들어도 앞자리는 열한 개뿐이고, 나머지는 순서 그대로 뒤에 있다', async ({
   home,
   prep,
   recordSheet,
@@ -159,11 +160,21 @@ test('스무 개를 만들어도 기록 시트 칩에 다 나오고 순서가 �
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(5_000);
 
-  const chips = await recordSheet.input.categoryChipNames();
+  /*
+    **분류가 늘어도 고를 것은 늘 열한 개다.** 예전에는 서른한 개가 통째로 서서 키패드가
+    화면 밖으로 밀렸고, 그 목록에서 하나를 찾는 것이 적는 일보다 오래 걸렸다.
+  */
+  const front = await recordSheet.input.categoryChipNames();
+  expect(front).toHaveLength(QUICK_LIMIT);
   // 기본이 앞, 내가 만든 것이 뒤. 서버가 정렬값을 안 넣으면 새 분류가 '식비' 앞으로 온다.
+  expect(front[0]).toBe('식비');
+
+  await recordSheet.input.moreCategoriesButton.click();
+  const all = await recordSheet.input.categoryChipNames();
+  expect(all).toHaveLength(11 + names.length);
+  // 없어지는 것이 아니라 뒤로 가는 것이다. 순서도 그대로다.
   // '기타' 는 기본이지만 맨 뒤에 둔다. 고를 것이 없을 때 마지막으로 집는 자리라서다.
-  expect(chips[0]).toBe('식비');
-  expect(chips.slice(-(names.length + 1))).toEqual([...names, '기타']);
+  expect(all.slice(-(names.length + 1))).toEqual([...names, '기타']);
 });
 
 test('지운 분류로 적어 둔 기록은 금액과 상호가 그대로 남는다', async ({

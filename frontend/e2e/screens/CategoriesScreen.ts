@@ -80,19 +80,34 @@ export class CategoriesScreen {
   }
 
   /**
-   * 기본 줄 안에서 누를 수 있는 것 전부.
+   * 기본 줄 안에서 누를 수 있는 것 중 **줄 자체를 여는 것**.
    *
    * 여기가 0 이어야 기본 카테고리에 고치기·지우기 입구가 없는 것이다.
-   * 비활성 버튼을 두는 것과 아예 두지 않는 것은 다르다.
+   * 순서 화살표는 뺀다. 그것은 이 줄을 고치는 것이 아니라 내 설정을 고치는 것이라
+   * 기본 분류에도 있다(스위치와 같은 이유다).
    */
   get basicButtons(): Locator {
-    return this.basicRows.getByRole('button');
+    return this.basicRows.getByRole('button').filter({ hasNotText: /^[↑↓]$/ });
+  }
+
+  /** 순서 바꾸기 화살표. 기본 분류에도 있다. 그 값은 내 설정에만 남는다. */
+  moveUpButton(name: string): Locator {
+    return this.page.getByRole('button', { name: `${name} 위로`, exact: true });
+  }
+
+  moveDownButton(name: string): Locator {
+    return this.page.getByRole('button', { name: `${name} 아래로`, exact: true });
+  }
+
+  /** 그 구획을 자주 쓴 순서로 다시 세운다. */
+  sortByUsageButton(title: string): Locator {
+    return this.section(title).getByRole('button', { name: '자주 쓴 순서로', exact: true });
   }
 
   /** 한 구획 안에 놓인 줄 이름. 종류가 섞이지 않았는지 볼 때 쓴다. */
   async sectionNames(title: string): Promise<string[]> {
     const texts = await this.section(title).getByRole('listitem').allTextContents();
-    return texts.map((text) => text.replace(/(기본|고치기)$/, '').trim());
+    return texts.map(stripRowChrome);
   }
 
   /** 어느 구획에 있든 그 이름의 줄. 몇 개 있는지 셀 때 쓴다. */
@@ -138,12 +153,12 @@ export class CategoriesScreen {
   /**
    * 화면을 위에서 아래로 읽은 줄 이름.
    *
-   * 두 구획을 이어서 한 줄기로 본다. 줄 안에는 이름 뒤에 꼬리표가 하나 더 붙는데,
-   * 기본 줄은 `기본` 배지이고 내 줄은 `고치기` 안내다. 이름만 남기려고 그것을 떼어 낸다.
+   * 두 구획을 이어서 한 줄기로 본다. 줄 앞에는 순서 화살표가, 이름 뒤에는 꼬리표가 붙는다
+   * (기본 줄은 `기본` 배지, 내 줄은 `고치기` 안내). 이름만 남기려고 그것들을 떼어 낸다.
    */
   async rowNames(): Promise<string[]> {
     const texts = await this.allRows.allTextContents();
-    return texts.map((text) => text.replace(/(기본|고치기)$/, '').trim());
+    return texts.map(stripRowChrome);
   }
 
   /**
@@ -460,4 +475,12 @@ class MerchantRuleSheet {
   async waitClosed(): Promise<void> {
     await expect(this.root).toHaveCount(0);
   }
+}
+
+/** 줄 글자에서 이름만 남긴다. 앞에는 순서 화살표, 뒤에는 배지나 안내가 붙어 있다. */
+function stripRowChrome(text: string): string {
+  return text
+    .replace(/^[↑↓\s]+/, '')
+    .replace(/(기본|고치기)$/, '')
+    .trim();
 }

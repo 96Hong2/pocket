@@ -285,14 +285,36 @@ export class EditSheetArea {
     return this.categoryGroup.locator('button[aria-pressed="true"]');
   }
 
+  /** 앞자리에 안 선 분류를 펼치는 칩. 기록 시트와 같은 규칙이다. */
+  get moreCategoriesButton(): Locator {
+    return this.categoryGroup.getByRole('button', { name: '더 보기', exact: true });
+  }
+
   /**
-   * 분류를 이 자리에서 바로 만든다.
+   * 분류를 이 자리에서 바로 만든다. **「더 보기」 안에 있다.**
    *
    * 나중에 내역을 보다가 「이건 따로 세고 싶다」 고 생각하는 순간이 여기다. 그때
    * 관리 탭까지 나갔다 오면 고쳐 둔 값이 사라진다.
+   * 앞자리는 고르는 자리라 만들기를 늘 세워 두지 않는다.
    */
   get newCategoryButton(): Locator {
     return this.categoryGroup.getByRole('button', { name: '새 분류', exact: true });
+  }
+
+  /** 「더 보기」를 펴고 만들기를 연다. 두 번 누르는 것이 한 동작이다. */
+  async openNewCategory(): Promise<void> {
+    if ((await this.newCategoryButton.count()) === 0) {
+      await this.moreCategoriesButton.click();
+    }
+    await this.newCategoryButton.click();
+  }
+
+  /** 앞자리에 없으면 한 번 펼치고 고른다. */
+  async pickCategory(name: string): Promise<void> {
+    if ((await this.categoryChip(name).count()) === 0) {
+      await this.moreCategoriesButton.click();
+    }
+    await this.categoryChip(name).click();
   }
 
   /** 「새 분류」를 누르면 칩 자리에 펼쳐지는 만들기 폼. */

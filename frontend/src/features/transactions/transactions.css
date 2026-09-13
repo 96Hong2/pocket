@@ -311,10 +311,8 @@
     margin-top: 16px;
   }
 
+  /* 칩 자체는 공용 분류 고르기(`cat-chips`)가 그린다. 여기서는 자리만 잡는다. */
   .tx-edit__cats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
     margin-top: 16px;
   }
 
@@ -326,50 +324,6 @@
 
   .tx-edit__pay {
     margin-top: 14px;
-  }
-
-  .tx-edit__cat {
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 0 4px;
-    border: none;
-    border-radius: var(--radius-pill);
-    background: var(--color-surface-sunken);
-    font-family: inherit;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-ink);
-    cursor: pointer;
-  }
-
-  .tx-edit__cat--on {
-    background: var(--color-sage-50);
-    box-shadow: inset 0 0 0 1.5px var(--color-sage-700);
-  }
-
-  /*
-    분류를 만들 수 있다는 것을 목록 화면까지 들어가야 알 수 있었다. 나중에 내역을 보다가
-    「이건 따로 세고 싶다」 고 생각하는 순간이 여기다. 이미 있는 칸과 섞이지 않게 비워 둔다.
-  */
-  .tx-edit__cat--new {
-    background: transparent;
-    box-shadow: inset 0 0 0 1px var(--color-border);
-    color: var(--color-sage-700);
-  }
-
-  .tx-edit__cat-mark {
-    display: grid;
-    place-items: center;
-    width: 24px;
-    height: 24px;
-    flex: none;
-    border-radius: var(--radius-pill);
-    background: var(--color-bg);
-    font-size: var(--text-14);
-    line-height: 1;
   }
 
   .tx-edit__new-cat {

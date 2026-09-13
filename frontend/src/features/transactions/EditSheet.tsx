@@ -13,6 +13,7 @@ import {
   type TransactionUpdate,
 } from '../../shared/api';
 import {
+  CategoryPicker,
   KindToggle,
   PaymentMethodPicker,
   categoriesOfKind,
@@ -20,14 +21,7 @@ import {
   type LedgerKind,
 } from '../../shared/ledger';
 import { formatDayLabel } from '../../shared/lib/format';
-import {
-  AmountField,
-  BottomSheet,
-  Button,
-  CategoryAvatar,
-  Toggle,
-  iconOf,
-} from '../../shared/ui';
+import { AmountField, BottomSheet, Button, CategoryAvatar, Toggle, iconOf } from '../../shared/ui';
 
 import { CategoryEditForm } from '../categories';
 
@@ -277,32 +271,26 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
           />
         </div>
       ) : (
-        <div className="tx-edit__cats" role="group" aria-label="카테고리">
-          {pickable.map((category) => (
-            <button
-              key={category.id}
-              type="button"
-              className={
-                category.id === categoryId ? 'tx-edit__cat tx-edit__cat--on' : 'tx-edit__cat'
-              }
-              aria-pressed={category.id === categoryId}
-              onClick={() => setCategoryId(category.id)}
-            >
-              <CategoryAvatar {...iconOf(category)} size={40} />
-              {category.name}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="tx-edit__cat tx-edit__cat--new"
-            onClick={() => setCreating(true)}
-          >
-            <span className="tx-edit__cat-mark" aria-hidden="true">
-              ＋
-            </span>
-            새 분류
-          </button>
-        </div>
+        /*
+          기록 시트와 같은 것을 쓴다. 앞자리 열한 개만 보이고 나머지는 「더 보기」 뒤다.
+          한 화면에서 배운 것이 다음 화면에서도 통해야 한다.
+        */
+        <CategoryPicker
+          className="tx-edit__cats"
+          ariaLabel="카테고리"
+          size="sm"
+          categories={pickable}
+          selectedId={categoryId}
+          disabled={busy}
+          onPick={(category) => setCategoryId(category.id)}
+          onCreate={() => setCreating(true)}
+          onExpand={() =>
+            analytics.log(EVENTS.categoryMoreOpened, {
+              where: 'edit',
+              shown: pickable.length,
+            })
+          }
+        />
       )}
 
       <div className="tx-edit__exclude">

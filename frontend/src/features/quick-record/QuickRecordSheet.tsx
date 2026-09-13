@@ -6,7 +6,6 @@ import { useBridge, useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   ApiError,
-  parseDecimalOr,
   queryKeys,
   useCategories,
   useCreateTransaction,
@@ -17,13 +16,12 @@ import {
   type TransactionOut,
 } from '../../shared/api';
 import {
+  CategoryPicker,
   KindToggle,
-  PaymentMethodPicker,
   categoriesOfKind,
   kindOf,
   type LedgerKind,
 } from '../../shared/ledger';
-import { formatCurrency } from '../../shared/lib/format';
 import {
   BottomSheet,
   Button,
@@ -38,11 +36,10 @@ import {
 import { CategoryEditForm } from '../categories';
 import { ImageImportTab, NaturalLanguageTab } from '../imports';
 
-import { CategoryChips } from './CategoryChips';
 import { FeedbackPanel } from './FeedbackPanel';
 import { toAmount } from './digits';
 import { AmountDisplay, Keypad } from './Keypad';
-import { readLastRecord, writeLastRecord, type LastRecord } from './lastRecord';
+import { readLastMethod, writeLastMethod } from './lastRecord';
 import { DEFAULT_RECORD_TAB, recordMethodOf, type RecordTab } from './recordTab';
 import { undoDeadline } from './useUndoCountdown';
 
@@ -129,12 +126,13 @@ function RecordBody({
   const [busy, setBusy] = useState(false);
   const [digits, setDigits] = useState('');
   const [saved, setSaved] = useState<SavedState | null>(null);
-  const [repeat, setRepeat] = useState<LastRecord | null>(null);
   /*
-    무엇으로 냈나. 지출에만 선다.
+    무엇으로 냈나. 지출에만 붙는다.
 
-    지난번에 고른 것으로 열어 둔다. 대부분 한 장의 카드를 쓰는데 매번 다시 고르게 하면
-    아무도 안 고르고, 그러면 통계가 통째로 빈다.
+    **여기서는 묻지 않는다.** 적는 화면에 칸이 하나 더 서면 10초 약속이 깨진다.
+    지난번에 쓴 것으로 조용히 채워 저장하고, 저장 뒤 화면에서 무엇으로 적혔는지 보여 준다.
+    거기서 바꾸거나 지울 수 있다. 대부분 한 장의 카드를 쓰므로 이 기본값이 거의 맞고,
+    매번 고르게 하면 아무도 안 골라 통계가 통째로 빈다.
   */
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   // 금액보다 먼저 고른 카테고리. 화면에서 카테고리가 위에 있어 손이 먼저 그리로 간다.
@@ -144,10 +142,8 @@ function RecordBody({
 
   useEffect(() => {
     let alive = true;
-    void readLastRecord(bridge.storage).then((record) => {
-      if (!alive) return;
-      setRepeat(record);
-      setMethod(record?.paymentMethod ?? null);
+    void readLastMethod(bridge.storage).then((last) => {
+      if (alive) setMethod(last);
     });
     return () => {
       alive = false;
@@ -213,27 +209,6 @@ function RecordBody({
     onDone();
   }
 
-  /**
-   * '한 번 더' 칩이 다음에 읽을 한 건을 남긴다.
-   *
-   * 금액이 0 이하거나 카테고리를 목록에서 못 찾으면 지난 값을 그대로 둔다.
-   * 칩은 편의 기능이라, 미덥지 않은 값으로 덮어쓰느니 안 바뀌는 편이 낫다.
-   */
-  function rememberLastRecord(transaction: TransactionOut): void {
-    const amount = parseDecimalOr(transaction.amount, 0);
-    // 고쳐 놓은 뒤라 지금 고른 종류가 아닐 수 있다. 저장된 거래의 종류로 찾는다.
-    const category = allCategories.find((item) => item.id === transaction.category_id);
-    if (amount <= 0 || category == null) return;
-
-    void writeLastRecord(bridge.storage, {
-      amount,
-      categoryId: category.id,
-      categoryName: category.name,
-      kind: kindOf(transaction.type),
-      paymentMethod: transaction.payment_method,
-    });
-  }
-
   function save(category: CategoryOut, amount: number): void {
     if (!Number.isFinite(amount) || amount <= 0) return;
 
@@ -285,13 +260,6 @@ function RecordBody({
             feedback: created.feedback,
             deadline: undoDeadline(created, Date.now()),
           });
-          void writeLastRecord(bridge.storage, {
-            amount,
-            categoryId: category.id,
-            categoryName: category.name,
-            kind,
-            paymentMethod: kind === 'expense' ? method : null,
-          });
         },
       },
     );
@@ -313,9 +281,9 @@ function RecordBody({
             // 되돌리기 창은 저장 시각부터 흐른다. 카테고리를 바꿔도 다시 늘어나지 않는다.
             deadline: saved.deadline,
           });
-          // 고친 값이 곧 마지막 기록이다. 저장 때 남긴 값만 두면 칩이 고치기 전 금액으로 저장한다.
-          rememberLastRecord(updated.transaction);
         }}
+        // 여기서 고른 것이 다음 기록에 조용히 채워질 값이다.
+        onMethodPicked={(next) => void writeLastMethod(bridge.storage, next)}
         onConfirm={finish}
       />
     );
@@ -323,11 +291,6 @@ function RecordBody({
 
   const amount = toAmount(digits);
   const saveError = create.error instanceof ApiError ? create.error : null;
-  // 종류가 다르면 칩을 감춘다. 수입을 적으러 왔는데 지출 한 건이 한 번에 저장되면 안 된다.
-  const repeatCategory =
-    repeat != null && repeat.kind === kind
-      ? pickable.find((category) => category.id === repeat.categoryId)
-      : undefined;
 
   const picked = pickable.find((category) => category.id === pickedId) ?? null;
 
@@ -429,32 +392,6 @@ function RecordBody({
           }}
         />
 
-        {/* 수입에는 뜻이 없어 아예 안 세운다. 비활성으로 두면 무엇을 잘못했나 싶어진다. */}
-        {kind === 'expense' ? (
-          <PaymentMethodPicker
-            className="record__pay"
-            value={method}
-            disabled={create.isPending}
-            onChange={setMethod}
-          />
-        ) : null}
-
-        {repeat && repeatCategory ? (
-          <div className="record__repeat">
-            <button
-              type="button"
-              className="repeat-chip"
-              disabled={create.isPending}
-              onClick={() => {
-                setDigits(String(repeat.amount));
-                save(repeatCategory, repeat.amount);
-              }}
-            >
-              한 번 더 · {repeat.categoryName} {formatCurrency(repeat.amount)}
-            </button>
-          </div>
-        ) : null}
-
         <AmountDisplay digits={digits} hint={hint} />
 
         {saveError ? (
@@ -495,12 +432,19 @@ function RecordBody({
             />
           </div>
         ) : listOpen || picked == null ? (
-          <CategoryChips
+          <CategoryPicker
             categories={pickable}
             disabled={create.isPending}
             onPick={pickCategory}
             selectedId={pickedId}
             onCreate={() => setCreating(true)}
+            onExpand={() =>
+              analytics.log(
+                EVENTS.categoryMoreOpened,
+                { where: 'record', shown: pickable.length },
+                { flowId, kind: 'click' },
+              )
+            }
           />
         ) : (
           <button

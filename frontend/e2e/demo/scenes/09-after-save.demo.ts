@@ -5,19 +5,19 @@ import { formatCurrency } from '../../../src/shared/lib/format';
 /**
  * 저장한 뒤에 고치는 흐름을 찍는다.
  *
- * 카테고리 바꾸기로 칩을 펼쳐 다른 분류로 옮기고, 확인으로 시트를 닫는다.
- * 시트를 다시 열면 '한 번 더' 칩이 떠서 같은 기록이 한 번에 만들어지는 것까지 이어 본다.
- * 그 칩은 직전 저장 이력을 읽으므로, 시트를 닫았다 다시 열어야 보인다.
+ * 카테고리 바꾸기로 칩을 펼쳐 다른 분류로 옮기고, 상세 칸 아래에서 결제 수단을 고른 뒤
+ * 확인으로 시트를 닫는다. 무엇으로 냈는지는 **저장이 끝난 다음에** 묻는다.
+ * 적는 화면에 칸이 하나 더 서면 10초 약속이 깨진다.
  */
 
 const AMOUNT = 12_000;
 const FIRST_CATEGORY = '식비';
 const MOVED_CATEGORY = '카페·간식';
 
-test('14 저장한 뒤 카테고리 고치고 한 번 더로 반복하기', async ({ demo, home, recordSheet }) => {
+test('14 저장한 뒤 카테고리와 결제 수단 고치기', async ({ demo, home, recordSheet }) => {
   await home.open();
   await home.waitReady();
-  await demo.open('저장한 뒤에 고치기', '분류를 바꾸고, 다음엔 칩 하나로 같은 기록을 만든다');
+  await demo.open('저장한 뒤에 고치기', '분류를 바꾸고, 무엇으로 냈는지도 여기서 고른다');
 
   await demo.step('먼저 12,000원을 식비로 저장한다');
   await home.recordButton.click();
@@ -55,28 +55,28 @@ test('14 저장한 뒤 카테고리 고치고 한 번 더로 반복하기', asyn
   await demo.clearStep();
   await demo.beat(2);
 
-  await demo.step('다시 열면 한 번 더 칩이 떠 있다');
+  await demo.step('무엇으로 냈는지는 저장이 끝난 뒤에 묻는다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  // 칩이 읽는 것은 고친 뒤의 기록이다. 방금 카페·간식으로 옮겼으니 칩도 그렇게 적힌다.
-  // 저장 시점 값을 들고 있으면, 고쳐 놓고도 다음번에 다시 틀린 분류로 저장된다.
-  await expect(recordSheet.input.repeatChip).toHaveText(
-    `한 번 더 · ${MOVED_CATEGORY} ${formatCurrency(AMOUNT)}`,
-  );
+  await recordSheet.input.enterAmount(AMOUNT);
+  await recordSheet.input.pickCategory(MOVED_CATEGORY);
+  await recordSheet.feedback.waitSaved();
+  // 적는 화면에는 이 칸이 없었다. 저장이 끝난 지금 상세 칸 아래에 선다.
+  await expect(recordSheet.feedback.paymentGroup).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('칩 하나로 금액·분류·저장이 한꺼번에 끝난다');
-  await recordSheet.input.repeatChip.click();
-  await recordSheet.feedback.waitSaved();
-  await expect(recordSheet.feedback.rowTitle(MOVED_CATEGORY)).toBeVisible();
-  // 키패드를 한 번도 누르지 않았는데 이번 달 지출이 한 건만큼 더 늘었다.
-  await expect(home.hero.monthSpent).toHaveText(formatCurrency(AMOUNT * 2));
+  await demo.step('신용카드를 고르면 그 자리에서 붙는다');
+  await recordSheet.feedback.pickPayment('신용카드');
+  await expect(recordSheet.feedback.paymentButton('신용카드')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await demo.beat(2);
 
   await demo.step('확인으로 닫으면 오늘 목록에 카페·간식 두 줄이 남는다');
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
-  // 고친 분류가 칩까지 따라왔으므로 두 줄 다 카페·간식이고 식비는 한 줄도 안 남는다.
+  await expect(home.hero.monthSpent).toHaveText(formatCurrency(AMOUNT * 2));
   await expect(home.today.row(MOVED_CATEGORY)).toHaveCount(2);
   await expect(home.today.row(FIRST_CATEGORY)).toHaveCount(0);
   await demo.clearStep();

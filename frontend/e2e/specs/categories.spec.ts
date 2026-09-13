@@ -1,3 +1,4 @@
+import { QUICK_LIMIT } from '../../src/shared/ledger/quickPick';
 import { formatCurrency } from '../../src/shared/lib/format';
 import { CAPTURE_DATA_URI, mockImagesSeeded, seedMockImages } from '../support/deviceMock';
 import { expect, test } from '../support/fixtures';
@@ -157,9 +158,14 @@ test('방금 만든 카테고리가 기록 시트 칩에 바로 나온다', asyn
   // 있기만 하면 되는 것이 아니라 자리도 맞아야 한다. 서버가 정렬값을 안 넣으면
   // 새 분류가 '식비' 앞으로 와 칩 첫 자리를 빼앗는다. 관리 화면은 기본과 내 것을 구획으로
   // 갈라 그려서 그 뒤집힘이 거기서는 안 보인다. 이 줄이 그 방어를 지키는 유일한 자리다.
+  //
+  // **앞자리는 열한 개까지다.** 기본 지출이 이미 열한이라, 하나를 만들면 끝자리 '기타' 가
+  // 「더 보기」 뒤로 밀린다. 만든 것은 '기타' 앞자리에 앉으므로 앞자리에 남는다.
   const chips = await recordSheet.input.categoryChipNames();
-  expect(chips.slice(-2)).toEqual([PET, '기타']);
+  expect(chips).toHaveLength(QUICK_LIMIT);
+  expect(chips.at(-1)).toBe(PET);
   expect(chips[0]).toBe('식비');
+  expect(chips).not.toContain('기타');
 
   // 보이기만 하는 것으로는 부족하다. 그 칩으로 실제 기록이 만들어져야 한다.
   await recordSheet.input.pickCategory(PET);
@@ -208,6 +214,7 @@ test('수입 카테고리를 만들어 키패드에서 수입으로 저장한다
 
   await test.step('지출로 열리고, 수입을 고르면 분류 목록이 갈린다', async () => {
     await expect(recordSheet.input.kindButton('지출')).toHaveAttribute('aria-pressed', 'true');
+    // 기본 지출이 딱 열한 개라 앞자리에 그대로 다 선다.
     expect(await recordSheet.input.categoryChipNames()).toEqual(EXPENSE_CATEGORIES);
 
     await recordSheet.input.pickKind('수입');
@@ -464,7 +471,7 @@ test('기록하다 분류를 만들면 그 자리로 돌아와 이어서 적는�
 
   // 금액을 먼저 찍어 둔다. 만들고 돌아왔을 때 이 값이 살아 있어야 한다.
   await recordSheet.input.enterAmount(30_000);
-  await recordSheet.input.newCategoryButton.click();
+  await recordSheet.input.openNewCategory();
   await expect(recordSheet.input.newCategoryForm.title).toBeVisible();
   // 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다.
   await expect(recordSheet.input.newCategoryForm.kindToggle).toHaveCount(0);
@@ -487,7 +494,7 @@ test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', as
   await recordSheet.waitOpen();
 
   await recordSheet.input.enterAmount(12_000);
-  await recordSheet.input.newCategoryButton.click();
+  await recordSheet.input.openNewCategory();
   await expect(recordSheet.input.newCategoryForm.title).toBeVisible();
 
   await recordSheet.input.newCategoryForm.backButton.click();
@@ -534,7 +541,8 @@ test('끈 것을 다시 켜면 곧바로 앞자리로 돌아온다', async ({ ca
   await recordSheet.waitOpen();
 
   await expect(recordSheet.input.categoryChip('기타')).toBeVisible();
-  await expect(recordSheet.input.moreCategoriesButton).toHaveCount(0);
+  // 「더 보기」 자체는 그대로 있다. 뒤에 아무것도 없어도 새 분류 만들기가 그 안에 있다.
+  await expect(recordSheet.input.moreCategoriesButton).toBeVisible();
 });
 
 /**
@@ -585,7 +593,7 @@ test('기록을 고치다 분류를 만들면 그 기록에 바로 붙는다', a
   await calendar.list.pick('꽃집');
   await calendar.edit.waitOpen();
 
-  await calendar.edit.newCategoryButton.click();
+  await calendar.edit.openNewCategory();
   await expect(calendar.edit.newCategoryTitle).toBeVisible();
   await calendar.edit.createCategory('선물', 'gift');
 
@@ -613,7 +621,7 @@ test('분류를 만들다 그만두면 고치던 화면으로 돌아온다', asy
   await calendar.edit.waitOpen();
 
   await calendar.edit.merchant.fill('문구사');
-  await calendar.edit.newCategoryButton.click();
+  await calendar.edit.openNewCategory();
   await calendar.edit.newCategoryBackButton.click();
 
   await expect(calendar.edit.newCategoryTitle).toHaveCount(0);

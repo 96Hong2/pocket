@@ -13,13 +13,13 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
 from app.domain.categories import user_sort_order
-from app.models import Category, CategoryBudget, MerchantRule, User
+from app.models import Category, CategoryBudget, MerchantRule, Transaction, User
 from app.modules.categories.schemas import CategoryCreate, CategoryUpdate
 from app.modules.settings import service as settings_service
 
@@ -28,11 +28,14 @@ __all__ = [
     "delete_category",
     "list_categories",
     "quick_hidden_ids",
+    "quick_order_ids",
     "require_own",
     "require_owned",
     "require_seen",
     "set_quick",
+    "set_quick_order",
     "update_category",
+    "usage_counts",
 ]
 
 _NOT_FOUND = "카테고리를 찾지 못했어요."
@@ -40,7 +43,11 @@ _DUPLICATE = "같은 이름의 카테고리가 이미 있어요."
 
 
 def list_categories(session: Session, user: User) -> list[Category]:
-    """기본 카테고리와 내 카테고리를 함께 준다. 남의 것은 보이지 않는다."""
+    """기본 카테고리와 내 카테고리를 함께 준다. 남의 것은 보이지 않는다.
+
+    사용자가 순서를 정해 뒀으면 그 순서가 앞이고, 정하지 않은 것은 뒤에 서버 순서대로 붙는다.
+    화면이 앞자리 열한 개만 칩으로 세우므로 이 순서가 곧 "무엇이 먼저 보이나" 다.
+    """
     stmt = (
         select(Category)
         .where(
@@ -50,7 +57,38 @@ def list_categories(session: Session, user: User) -> list[Category]:
         )
         .order_by(Category.sort_order, Category.name)
     )
-    return list(session.scalars(stmt))
+    return apply_order(list(session.scalars(stmt)), quick_order_ids(session, user))
+
+
+def apply_order(rows: list[Category], order: list[str]) -> list[Category]:
+    """정해 둔 순서를 앞에 세운다. 목록에 없는 것은 받은 순서 그대로 뒤에 붙는다.
+
+    지운 분류의 id 가 순서 목록에 남아 있어도 여기서 그냥 안 걸린다.
+    """
+    if not order:
+        return rows
+    rank = {value: index for index, value in enumerate(order)}
+    # 목록에 없는 것은 뒤로. 같은 칸이면 들어온 순서를 지킨다(sorted 가 안정 정렬이다).
+    return sorted(rows, key=lambda row: rank.get(str(row.id), len(rank)))
+
+
+def usage_counts(session: Session, user: User) -> dict[str, int]:
+    """분류마다 그 분류로 적어 둔 기록이 몇 건인가.
+
+    화면이 「자주 쓴 순서로」를 누를 때 쓰는 값이다. 순서를 서버가 정하지 않는 이유는
+    쓸 때마다 칩이 자리를 옮기면 손이 기억한 자리가 무너지기 때문이다.
+    옮길지 말지는 사용자가 누를 때 정한다.
+    """
+    stmt = (
+        select(Transaction.category_id, func.count())
+        .where(
+            Transaction.user_id == user.id,
+            Transaction.deleted_at.is_(None),
+            Transaction.category_id.is_not(None),
+        )
+        .group_by(Transaction.category_id)
+    )
+    return {str(category_id): count for category_id, count in session.execute(stmt)}
 
 
 # ── 기록 화면에 먼저 보일 분류 ──────────────────────────
@@ -80,6 +118,49 @@ def set_quick(session: Session, user: User, category_id: uuid.UUID, quick: bool)
         hidden = [*hidden, key]
     # JSON 컬럼은 같은 리스트를 고쳐도 더러워졌다고 보지 않는다. 새 리스트를 넣는다.
     row.quick_hidden_category_ids = hidden
+    session.commit()
+
+
+def quick_order_ids(session: Session, user: User) -> list[str]:
+    row = settings_service.get_preferences(session, user)
+    return [str(item) for item in row.quick_category_order]
+
+
+def set_quick_order(session: Session, user: User, ids: list[uuid.UUID]) -> None:
+    """칩이 설 순서. 화면이 보고 있는 목록 전체를 그대로 보낸다.
+
+    내가 볼 수 없는 분류가 섞여 오면 통째로 막는다. 조용히 걸러 내면 화면이 보낸 순서와
+    저장된 순서가 달라지고, 다음에 열었을 때 방금 옮긴 것이 제자리로 돌아가 있다.
+    """
+    seen: set[str] = set()
+    keys: list[str] = []
+    for category_id in ids:
+        require_owned(session, user, category_id)
+        key = str(category_id)
+        if key in seen:
+            raise ApiError(ErrorCode.INVALID_REQUEST, "같은 분류가 두 번 왔어요.", status_code=422)
+        seen.add(key)
+        keys.append(key)
+
+    row = settings_service.get_preferences(session, user)
+    # JSON 컬럼은 같은 리스트를 고쳐도 더러워졌다고 보지 않는다. 새 리스트를 넣는다.
+    row.quick_category_order = keys
+    session.commit()
+
+
+def promote_new(session: Session, user: User, category_id: uuid.UUID) -> None:
+    """방금 만든 분류를 순서의 맨 앞에 끼운다.
+
+    순서를 한 번이라도 정한 사람에게는 목록에 없는 분류가 전부 뒤로 밀린다. 그대로 두면
+    방금 만든 분류가 「더 보기」 뒤에서 시작해, 만들자마자 찾지 못한다.
+    아직 순서를 정한 적이 없으면 아무것도 하지 않는다. 서버 순서가 이미 제자리를 준다.
+    """
+    row = settings_service.get_preferences(session, user)
+    current = [str(item) for item in row.quick_category_order]
+    if not current:
+        return
+    key = str(category_id)
+    row.quick_category_order = [key, *(item for item in current if item != key)]
     session.commit()
 
 
@@ -245,6 +326,7 @@ def create_category(session: Session, user: User, data: CategoryCreate) -> Categ
         revived.deleted_at = None
         session.commit()
         session.refresh(revived)
+        promote_new(session, user, revived.id)
         return revived
     if revived is not None:
         _free_name_slot(session, rows, user, key)
@@ -264,6 +346,7 @@ def create_category(session: Session, user: User, data: CategoryCreate) -> Categ
         session.rollback()
         raise _duplicate_error() from None
     session.refresh(row)
+    promote_new(session, user, row.id)
     return row
 
 

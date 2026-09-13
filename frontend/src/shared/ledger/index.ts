@@ -1,3 +1,4 @@
+export { CategoryPicker, type CategoryPickerProps } from './CategoryPicker';
 export { KindToggle, type KindToggleProps } from './KindToggle';
 export {
   categoriesOfKind,
@@ -11,3 +12,4 @@ export { PaymentMethodPicker, type PaymentMethodPickerProps } from './PaymentMet
 export { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, paymentMethodLabel } from './paymentMethod';
 export { NoSpendRow, type NoSpendRowProps } from './NoSpendRow';
 export { splitNoSpend, type NoSpendSplit } from './splitNoSpend';
+export { QUICK_LIMIT, byUsage, splitQuick, type QuickSplit } from './quickPick';

@@ -62,7 +62,8 @@ export function CategoryEditSheet({ open, category, onClose }: CategoryEditSheet
 
 export interface CategoryEditFormProps {
   category?: CategoryOut;
-  onBusyChange: (busy: boolean) => void;
+  /** 저장·삭제가 도는 동안. 이 폼을 감싼 자리가 닫기를 잠그는 데 쓴다. 필요 없으면 안 넘긴다. */
+  onBusyChange?: (busy: boolean) => void;
   onClose: () => void;
   /**
    * 종류를 고르지 못하게 못 박는다. 기록 시트 안에서 만들 때 쓴다.
@@ -117,13 +118,13 @@ export function CategoryEditForm({
   function save(): void {
     if (!canSave) return;
     // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
-    onBusyChange(true);
+    onBusyChange?.(true);
 
     if (category == null) {
       create.mutate(
         { name: trimmed, icon_key: icon, icon_custom: custom, kind },
         {
-          onSettled: () => onBusyChange(false),
+          onSettled: () => onBusyChange?.(false),
           onSuccess: (created) => {
             // 만든 것을 먼저 넘기고 닫는다. 순서가 뒤집히면 받는 쪽이 이미 사라진 뒤다.
             onCreated?.(created);
@@ -141,16 +142,16 @@ export function CategoryEditForm({
               ? { name: trimmed, icon_key: icon }
               : { name: trimmed, icon_custom: custom },
         },
-        { onSettled: () => onBusyChange(false), onSuccess: onClose },
+        { onSettled: () => onBusyChange?.(false), onSuccess: onClose },
       );
     }
   }
 
   function destroy(): void {
     if (category == null) return;
-    onBusyChange(true);
+    onBusyChange?.(true);
     remove.mutate(category.id, {
-      onSettled: () => onBusyChange(false),
+      onSettled: () => onBusyChange?.(false),
       onSuccess: onClose,
     });
   }

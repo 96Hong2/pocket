@@ -20,6 +20,7 @@ from app.modules.categories import service
 from app.modules.categories.schemas import (
     CategoryCreate,
     CategoryListOut,
+    CategoryOrderIn,
     CategoryOut,
     CategoryUpdate,
 )
@@ -27,7 +28,7 @@ from app.modules.categories.schemas import (
 router = APIRouter(prefix="/categories", tags=["categories"], responses=ERROR_RESPONSES)
 
 
-def _out(row: Category, hidden: set[str]) -> CategoryOut:
+def _out(row: Category, hidden: set[str], usage: dict[str, int] | None = None) -> CategoryOut:
     return CategoryOut(
         id=row.id,
         name=row.name,
@@ -37,14 +38,26 @@ def _out(row: Category, hidden: set[str]) -> CategoryOut:
         is_quick=str(row.id) not in hidden,
         sort_order=row.sort_order,
         is_default=row.user_id is None,
+        usage_count=(usage or {}).get(str(row.id), 0),
     )
 
 
 @router.get("", response_model=CategoryListOut)
 def index(session: DbSession, user: CurrentUser) -> CategoryListOut:
     hidden = service.quick_hidden_ids(session, user)
+    usage = service.usage_counts(session, user)
     rows = service.list_categories(session, user)
-    return CategoryListOut(items=[_out(row, hidden) for row in rows])
+    return CategoryListOut(items=[_out(row, hidden, usage) for row in rows])
+
+
+@router.put("/order", status_code=status.HTTP_204_NO_CONTENT)
+def reorder(body: CategoryOrderIn, session: DbSession, user: CurrentUser) -> Response:
+    """칩이 설 순서를 정한다.
+
+    `/{category_id}` 보다 **먼저** 서야 한다. 뒤에 두면 "order" 가 uuid 로 읽혀 422 가 난다.
+    """
+    service.set_quick_order(session, user, body.ids)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)

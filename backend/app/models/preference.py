@@ -73,6 +73,21 @@ class UserPreference(Entity):
         JSON, nullable=False, server_default=text("'[]'")
     )
 
+    """기록 시트의 칩이 서는 순서. 여기 적힌 것이 앞이고, 그 뒤가 서버가 준 순서다.
+
+    칩은 앞자리 열한 개만 세우고 나머지는 「더 보기」 뒤로 간다. 그래서 무엇이 앞에
+    서는지가 값이 되고, 그 값을 사용자가 정한다.
+
+    `quick_hidden_category_ids` 와 같은 이유로 카테고리 행이 아니라 여기에 둔다.
+    기본 분류는 모두가 같은 행을 봐서, 거기에 적으면 한 사람이 옮긴 것이 전부에게 옮겨진다.
+
+    **비어 있는 것이 곧 「서버가 준 순서 그대로」다.** 목록에 없는 분류는 지금까지와 같은
+    자리에 선다. 지운 분류의 id 가 남을 수 있는데, 있는 것만 골라 쓰므로 그대로 둔다.
+    """
+    quick_category_order: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, server_default=text("'[]'")
+    )
+
 
 class NotificationSetting(Entity):
     __tablename__ = "notification_settings"

@@ -1,7 +1,7 @@
 import { IdentityNotice } from '../app/IdentityNotice';
 import { AdSlot } from '../features/ads';
 import { AddToHomeSetting } from '../features/home-add';
-import { HomeHeroSetting, PrivacyNotice } from '../features/settings';
+import { DataResetSetting, HomeHeroSetting, PrivacyNotice } from '../features/settings';
 
 /** 앱 설정. */
 export default function SettingsPage() {
@@ -18,6 +18,11 @@ export default function SettingsPage() {
       <AddToHomeSetting />
 
       <PrivacyNotice adSlot={<AdSlot placement="settings" />} />
+
+      {/*
+        되돌릴 수 없는 자리라 화면 맨 끝이다. 위쪽 설정을 만지다 손이 닿을 자리가 아니어야 한다.
+      */}
+      <DataResetSetting />
     </div>
   );
 }

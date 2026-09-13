@@ -20,7 +20,8 @@ import {
   type ImportCommitOut,
 } from '../../shared/api';
 import { formatCurrency, toLedgerDate } from '../../shared/lib/format';
-import { Button, CategoryAvatar, ErrorState, LoadingState, iconOf } from '../../shared/ui';
+import { CategoryPicker } from '../../shared/ledger';
+import { Button, ErrorState, LoadingState } from '../../shared/ui';
 
 import { CandidateRow } from './CandidateRow';
 
@@ -169,20 +170,14 @@ export function ImportReview({
             카테고리 한 번에 바꾸기
           </button>
           {bulkOpen ? (
-            <div className="nl-form__cats" role="group" aria-label="한 번에 바꿀 카테고리">
-              {pickable.map((category) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  className="nl-form__cat"
-                  disabled={busy}
-                  onClick={() => void applyBulk(category)}
-                >
-                  <CategoryAvatar {...iconOf(category)} size={32} />
-                  {category.name}
-                </button>
-              ))}
-            </div>
+            <CategoryPicker
+              className="nl-form__cats"
+              ariaLabel="한 번에 바꿀 카테고리"
+              size="sm"
+              categories={pickable}
+              disabled={busy}
+              onPick={(category) => void applyBulk(category)}
+            />
           ) : null}
         </div>
       ) : null}
@@ -222,6 +217,7 @@ export function ImportReview({
               key={candidate.id}
               candidate={candidate}
               categories={pickable}
+              flowId={flowId}
               editing={editing === candidate.id}
               disabled={busy}
               onToggle={(selected) => {
