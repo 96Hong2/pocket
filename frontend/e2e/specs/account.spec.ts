@@ -136,3 +136,40 @@ test('새 기기에서 같은 이메일로 확인하면 첫 기기의 기록이 
   await home.waitReady();
   await expect(home.today.amount(formatCurrency(12_000))).toBeVisible();
 });
+
+test('앞자리만 적고 뒷자리는 눌러서 끝내고, 메일을 안 열어도 코드가 보인다고 알려 준다', async ({
+  account,
+  prep,
+}) => {
+  const stamp = Date.now();
+
+  await account.open();
+  await account.waitReady();
+  await account.linkButton.click();
+  await expect(account.linkSheet).toBeVisible();
+
+  // 앞자리를 적기 전에는 고를 것이 없다. 칩은 보이되 눌리지 않는다.
+  await expect(account.domainChip('gmail.com')).toBeDisabled();
+
+  await account.emailField.fill(`e2e-chip-${stamp}`);
+  await account.domainChip('gmail.com').click();
+  await expect(account.emailField).toHaveValue(`e2e-chip-${stamp}@gmail.com`);
+  await expect(account.domainChip('gmail.com')).toHaveAttribute('aria-pressed', 'true');
+
+  // 잘못 골랐으면 한 번 더 눌러 고친다. 뒷자리를 갈아 끼우지, 뒤에 또 붙이지 않는다.
+  await account.domainChip('naver.com').click();
+  await expect(account.emailField).toHaveValue(`e2e-chip-${stamp}@naver.com`);
+  await expect(account.domainChip('gmail.com')).toHaveAttribute('aria-pressed', 'false');
+
+  await account.sendButton.click();
+  await expect(account.codeField).toBeVisible();
+
+  // 메일을 열지 않아도 되는 것이 이 화면의 핵심이다.
+  await expect(account.codeHint).toBeVisible();
+  await expect(account.spamHint).toBeVisible();
+
+  const address = `e2e-chip-${stamp}@naver.com`;
+  await account.submitCode(await prep.peekLoginCode(address));
+  await account.profileSkipButton.click();
+  await expect(account.email(address)).toBeVisible();
+});

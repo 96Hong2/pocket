@@ -18,6 +18,22 @@ function looksLikeEmail(value: string): boolean {
 }
 
 /**
+ * 흔한 주소 뒷자리. 앞자리만 적고 눌러서 끝낸다.
+ *
+ * 이 앱에서 이메일은 기기당 한 번뿐이라 로그인 횟수를 줄일 데가 없다. 줄일 수 있는 것은
+ * 그 한 번의 타이핑이라, 열다섯 글자를 예닐곱 글자로 만든다.
+ *
+ * 셋만 둔다. 넷을 두면 좁은 화면에서 두 줄로 넘어가 고르는 일이 오히려 커진다.
+ */
+const DOMAINS = ['naver.com', 'gmail.com', 'daum.net'];
+
+/** 앞자리는 두고 뒷자리만 갈아 끼운다. @ 를 아직 안 적었으면 붙인다. */
+export function withDomain(value: string, domain: string): string {
+  const head = value.trim().split('@')[0] ?? '';
+  return head.length > 0 ? `${head}@${domain}` : '';
+}
+
+/**
  * 이메일로 지켜 두기. 두 단이다. 주소 → 코드.
  *
  * 한 화면에서 끝낸다. 메일 앱으로 갔다 오는 사이 시트가 닫히면 처음부터다.
@@ -123,6 +139,24 @@ function LinkForm({
           onChange={(event) => setEmail(event.target.value)}
           disabled={busy}
         />
+        {/*
+          다 갖춰져도 치우지 않는다. 잘못 고른 것을 한 번 더 눌러 고칠 수 있어야 해서다.
+          치웠더니 gmail 을 잘못 누른 사람이 글자를 지워야 했다.
+        */}
+        <div className="account-form__chips" aria-label="흔한 주소 뒷자리">
+          {DOMAINS.map((domain) => (
+            <button
+              key={domain}
+              type="button"
+              className="account-chip account-chip--domain"
+              aria-pressed={email.trim().endsWith(`@${domain}`)}
+              disabled={busy || email.trim().split('@')[0].length === 0}
+              onClick={() => setEmail(withDomain(email, domain))}
+            >
+              @{domain}
+            </button>
+          ))}
+        </div>
         {startMessage ? (
           <p className="account-form__notice" role="alert">
             {startMessage}
@@ -137,8 +171,16 @@ function LinkForm({
 
   return (
     <form className="account-form" onSubmit={confirm}>
+      {/*
+        메일을 열지 않아도 되는 것이 핵심이라 제목 이야기를 먼저 한다.
+        코드가 제목에 그대로 있어서 알림 미리보기만 봐도 여섯 자리가 다 보인다.
+        조사는 받침을 안 타는 「에」를 쓴다. 주소 끝 글자를 우리가 고를 수 없다.
+      */}
       <p className="account-form__lead">
-        <b>{email.trim()}</b> 으로 보냈어요. 메일에 적힌 숫자 여섯 자리를 적어 주세요.
+        <b>{email.trim()}</b> 에 보냈어요.
+      </p>
+      <p className="account-form__hint">
+        메일 <b>제목에 코드가 그대로</b> 있어요. 알림만 봐도 괜찮아요.
       </p>
       <label className="account-form__label" htmlFor={codeId}>
         확인 코드
@@ -176,6 +218,8 @@ function LinkForm({
       >
         {verifyCode === 'LOGIN_CODE_EXPIRED' ? '새 코드 받기' : '메일이 안 왔어요 · 다시 보내기'}
       </button>
+      {/* 안 왔다는 신고의 첫 번째 원인이다. 다시 보내기 전에 여기부터 보게 한다. */}
+      <p className="account-form__aside">스팸함에 가 있을 수 있어요</p>
     </form>
   );
 }

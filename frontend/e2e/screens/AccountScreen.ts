@@ -65,6 +65,25 @@ export class AccountScreen {
     return this.linkSheet.getByRole('button', { name: '코드 받기', exact: true });
   }
 
+  /** 흔한 주소 뒷자리 칩. 앞자리만 적고 눌러서 끝낸다. */
+  domainChip(domain: string): Locator {
+    return this.linkSheet.getByRole('button', { name: `@${domain}`, exact: true });
+  }
+
+  /** 주소가 다 갖춰지면 칩은 치운다. 그것을 확인할 자리. */
+  get domainChips(): Locator {
+    return this.linkSheet.getByLabel('흔한 주소 뒷자리');
+  }
+
+  /** 코드 단계의 안내. 메일을 안 열어도 된다고 적혀 있어야 한다. */
+  get codeHint(): Locator {
+    return this.linkSheet.getByText('제목에 코드가 그대로');
+  }
+
+  get spamHint(): Locator {
+    return this.linkSheet.getByText('스팸함에 가 있을 수 있어요', { exact: true });
+  }
+
   get codeField(): Locator {
     return this.linkSheet.getByLabel('확인 코드');
   }

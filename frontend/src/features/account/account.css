@@ -194,6 +194,49 @@
     gap: 8px;
   }
 
+  /* 안내 한 줄. 앞 문장이 사실을 말하고 이것이 무엇을 하면 되는지 말한다. */
+  .account-form__hint {
+    margin: -6px 0 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.6;
+    color: var(--color-muted);
+    word-break: keep-all;
+  }
+
+  .account-form__hint b {
+    color: var(--color-ink);
+    font-weight: var(--font-weight-bold);
+  }
+
+  /* 시트 안 작은 안내 한 줄. 「다시 보내기」 아래에 붙는다. */
+  .account-form__aside {
+    margin: -4px 0 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  /* 주소 뒷자리 칩은 본문보다 작게. 고를 것이지 읽을 것이 아니다. */
+  .account-chip--domain {
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: var(--text-13);
+  }
+
+  .account-chip--domain:disabled {
+    color: var(--color-placeholder);
+  }
+
+  /* 지금 고른 뒷자리. 켜진 칩과 같은 얼굴로 둔다. */
+  .account-chip--domain[aria-pressed='true'] {
+    border-color: var(--color-sage-700);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
   .account-chip {
     min-height: 40px;
     padding: 0 14px;
