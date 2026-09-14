@@ -110,10 +110,12 @@ def suggestion(
     period: MonthQuery,
     take_home: SuggestionAmountQuery = None,
     fixed_costs: SuggestionAmountQuery = None,
+    saving: SuggestionAmountQuery = None,
 ) -> BudgetSuggestionOut:
     """목표에서 거꾸로 낸 생활비 제안. **아무것도 저장하지 않는다.**
 
     실수령과 고정비를 안 주면 지난달에서 어림한다. 화면에서 고친 값은 질의로 온다.
+    `saving` 을 주면 목표 대신 그 값을 목표저축으로 쓴다. 목표가 없는 사람도 계산할 수 있다.
     이 경로는 이어쓰기를 하지 않는다. 조회 하나가 예산을 만드는 자리는 `GET /budgets`
     한 곳이면 되고, 제안은 예산이 없을 때만 화면에 뜨므로 그 조회를 이미 지나 있다.
     """
@@ -126,12 +128,14 @@ def suggestion(
         ledger.today_for(user),
         take_home=won(take_home) if take_home is not None else None,
         fixed_costs=won(fixed_costs) if fixed_costs is not None else None,
+        saving=won(saving) if saving is not None else None,
     )
     return to_budget_suggestion(
         result.plan,
         take_home=result.take_home,
         fixed_costs=result.fixed_costs,
         basis=result.basis,
+        goal_title=result.goal_title,
     )
 
 

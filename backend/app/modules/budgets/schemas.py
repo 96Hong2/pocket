@@ -20,7 +20,12 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.api.amounts import MAX_AMOUNT, integral_won, ratio_out
 from app.domain.budget import BudgetStatus
-from app.domain.budget_plan import LivingBudgetPlan, SuggestionAmount, SuggestionBlocker
+from app.domain.budget_plan import (
+    LivingBudgetPlan,
+    SavingSource,
+    SuggestionAmount,
+    SuggestionBlocker,
+)
 from app.domain.money import Money, ratio
 from app.domain.period import BudgetPeriod
 from app.domain.recovery import RecoveryProgress
@@ -32,6 +37,7 @@ __all__ = [
     "BudgetUpsert",
     "CategoryBudgetOut",
     "RecoveryProgressOut",
+    "SavingSource",
     "SuggestionAmountOut",
     "SuggestionSource",
     "to_budget_state",
@@ -159,7 +165,12 @@ class BudgetSuggestionOut(BaseModel):
 
     available: bool
     # 목표가 이번 달에 요구하는 몫. 목표 화면의 '매달 모을 돈' 과 같은 값이다.
+    # 질의에 `saving` 을 주면 그 값이 그대로 실린다.
     goal_saving: Decimal | None
+    # `goal` 이면 목표에서 옮긴 값, `given` 이면 사용자가 적은 값. 제안이 없으면 null.
+    saving_source: SavingSource | None
+    # 진행 중인 목표 이름. 없으면 null. 화면이 「어느 목표의 몫」인지 적을 때만 쓴다.
+    goal_title: str | None
     take_home: SuggestionAmountOut
     fixed_costs: SuggestionAmountOut
     # 실수령 − 목표저축 − 고정비. 음수는 0 으로 붙인다.
@@ -219,11 +230,14 @@ def to_budget_suggestion(
     take_home: SuggestionAmount,
     fixed_costs: SuggestionAmount,
     basis: BudgetPeriod,
+    goal_title: str | None = None,
 ) -> BudgetSuggestionOut:
     """도메인 판정 결과를 응답 형태로 옮긴다. 여기서 숫자를 새로 만들지 않는다."""
     return BudgetSuggestionOut(
         available=plan.available,
         goal_saving=_amount(plan.goal_saving),
+        saving_source=plan.saving_source,
+        goal_title=goal_title,
         take_home=_suggestion_amount(take_home, basis),
         fixed_costs=_suggestion_amount(fixed_costs, basis),
         suggested=_amount(plan.suggested),

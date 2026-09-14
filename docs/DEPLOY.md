@@ -144,6 +144,16 @@ gcloud run deploy pocket-backend \
 알림은 웹 서비스가 아니라 **1분마다 도는 잡**이 보낸다. 판정이 '정한 시각과 같은 분' 이라
 더 뜸하게 부르면 그 사이에 든 시각은 그 날 아예 안 간다(ADR-0013).
 
+**`scripts/deploy-cloudrun.sh` 의 7/7 단계가 이것을 한다.** 잡이 없으면 만들고 있으면 서비스와
+같은 이미지로 갱신하며, Cloud Scheduler API 를 켜고 `pocket-reminders-tick`(매분)을 한 번 만든다.
+`POCKET_REMINDER_TEMPLATE_CODE` 로 발송 코드를 바꿀 수 있고(기본 `pocket-ledger-remind`), 비우면
+알림 잡을 건드리지 않는다. 손으로 할 때의 명령은 아래다.
+
+⚠ 2026-09-14 까지 이 잡이 **한 번도 배포된 적이 없었다.** 코드는 #30(09-11)에 들어갔지만 배포
+스크립트에 단계가 없어, 알림을 켜고 시각을 정해도 아무것도 안 갔다. 사용자가 「알림이 안 온다」
+고 신고해서 찾았다. 잡이 살아 있는지는 `gcloud run jobs executions list --job=pocket-reminders`
+로 본다. 매분 한 줄씩 쌓여야 정상이다.
+
 ```bash
 gcloud run jobs create pocket-reminders \
   --image=<이미지> \
@@ -285,6 +295,7 @@ make ait API_BASE_URL=https://<위에서 받은 주소>
       막혀 있으면 <https://aistudio.google.com/u/1/billing> 의 「선불 결제 설정」
 - [ ] 인증서 마운트 경로와 `TOSS_MTLS_*_PATH` 가 같다
 - [ ] 프론트 빌드에 운영 `VITE_AD_GROUP_ID` 가 들어갔다. 빠뜨리면 오류 없이 네 자리가 조용히 접힌다
+- [ ] 프론트 빌드에 운영 `VITE_AD_FULLSCREEN_GROUP_ID` 가 들어갔다. 빠뜨리면 생활비 계산기가 광고 없이 열린다(`budget_calc_opened` 에 `no_group` 이 쌓인다)
 - [ ] **판을 먼저 확인했다.** QR 로 연 뒤 앱 설정 → 버전 줄 → 「앱 정보」 의 `판` 을 본다.
       `운영 (toss)` 이면 그 자리에서 보는 배너가 실광고다. **광고 ID 를 넣기 전에 이걸 먼저 본다**
 - [ ] 만든 사람과 테스트를 부탁한 사람이 **앱 정보 시트에서 「이 기기에서 광고 끄기」 를 켰다.**

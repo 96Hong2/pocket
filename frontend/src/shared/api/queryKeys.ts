@@ -87,6 +87,7 @@ export const queryKeys = {
       ),
       params?.takeHome ?? '',
       params?.fixedCosts ?? '',
+      params?.saving ?? '',
     ] as const,
 
   summaries: () => [ROOT, 'summary'] as const,

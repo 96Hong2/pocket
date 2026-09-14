@@ -1997,7 +1997,7 @@
           "budgets"
         ],
         "summary": "Suggestion",
-        "description": "목표에서 거꾸로 낸 생활비 제안. **아무것도 저장하지 않는다.**\n\n실수령과 고정비를 안 주면 지난달에서 어림한다. 화면에서 고친 값은 질의로 온다.\n이 경로는 이어쓰기를 하지 않는다. 조회 하나가 예산을 만드는 자리는 `GET /budgets`\n한 곳이면 되고, 제안은 예산이 없을 때만 화면에 뜨므로 그 조회를 이미 지나 있다.",
+        "description": "목표에서 거꾸로 낸 생활비 제안. **아무것도 저장하지 않는다.**\n\n실수령과 고정비를 안 주면 지난달에서 어림한다. 화면에서 고친 값은 질의로 온다.\n`saving` 을 주면 목표 대신 그 값을 목표저축으로 쓴다. 목표가 없는 사람도 계산할 수 있다.\n이 경로는 이어쓰기를 하지 않는다. 조회 하나가 예산을 만드는 자리는 `GET /budgets`\n한 곳이면 되고, 제안은 예산이 없을 때만 화면에 뜨므로 그 조회를 이미 지나 있다.",
         "operationId": "suggestion_api_v1_budgets_suggestion_get",
         "parameters": [
           {
@@ -2034,6 +2034,24 @@
                 }
               ],
               "title": "Fixed Costs"
+            }
+          },
+          {
+            "name": "saving",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 99999999999999,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saving"
             }
           },
           {
@@ -6131,6 +6149,27 @@
             ],
             "title": "Goal Saving"
           },
+          "saving_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SavingSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "goal_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Title"
+          },
           "take_home": {
             "$ref": "#/components/schemas/SuggestionAmountOut"
           },
@@ -6164,6 +6203,8 @@
         "required": [
           "available",
           "goal_saving",
+          "saving_source",
+          "goal_title",
           "take_home",
           "fixed_costs",
           "suggested",
@@ -7151,6 +7192,23 @@
             },
             "type": "array",
             "title": "Contributions"
+          },
+          "started_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Started On"
+          },
+          "finished_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished On"
           }
         },
         "type": "object",
@@ -7170,7 +7228,9 @@
           "required_monthly_saving",
           "eta_months",
           "monthly_pace",
-          "contributions"
+          "contributions",
+          "started_on",
+          "finished_on"
         ],
         "title": "GoalOut",
         "description": "목표 화면과 홈 카드가 그리는 것 전부.\n\n계산값은 전부 `app.domain.goals` 가 낸다. 화면은 이 값을 그대로 그리고,\n`목표 - 모은 돈` 처럼 스스로 다시 계산하지 않는다."
@@ -8322,6 +8382,16 @@
         "title": "ResetIn",
         "description": "되돌릴 수 없는 요청이라 본문으로 한 번 더 못을 박는다.\n\n화면에서 이미 동의 체크를 받지만, 그 확인은 화면에만 있다. 잘못 만든 요청 하나가\n남의 몇 달치를 지우는 자리라, 서버도 뜻이 분명한 값을 요구한다."
       },
+      "SavingSource": {
+        "type": "string",
+        "enum": [
+          "goal",
+          "given",
+          "none"
+        ],
+        "title": "SavingSource",
+        "description": "목표저축 칸의 출처. 목표에서 옮긴 값인지, 사용자가 직접 적은 값인지, 낼 수 없어 0 인지."
+      },
       "SuggestionAmountOut": {
         "properties": {
           "amount": {
@@ -8376,7 +8446,7 @@
           "no_monthly_saving"
         ],
         "title": "SuggestionBlocker",
-        "description": "제안을 낼 수 없는 이유. 화면은 이 값을 보고 카드를 아예 그리지 않는다."
+        "description": "제안을 낼 수 없거나(끝난 달) 목표에서 몫을 못 낸 이유.\n\n끝난 달만 `available` 을 끈다. 나머지 셋은 목표저축을 0 으로 두고 제안은 낸다.\n화면은 이 값으로 목표저축 칸 아래 한 줄을 고른다."
       },
       "SuggestionSource": {
         "type": "string",

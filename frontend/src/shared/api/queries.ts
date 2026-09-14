@@ -93,14 +93,18 @@ export function useBudget(params?: MonthParams) {
  * 사라지지 않게 앞 응답을 자리에 남겨 둔다(`placeholderData`). 안 그러면 한 글자 고칠 때마다
  * 카드가 빈 자리로 깜빡이고, 고치던 입력칸이 포커스를 잃는다.
  */
-export function useBudgetSuggestion(params?: BudgetSuggestionParams) {
+export function useBudgetSuggestion(
+  params?: BudgetSuggestionParams,
+  options?: { enabled?: boolean },
+) {
   const client = useApiClient();
   const isReady = useApiReady();
 
   return useQuery({
     queryKey: queryKeys.budgetSuggestion(params),
     queryFn: ({ signal }) => client.getBudgetSuggestion(params, { signal }),
-    enabled: isReady,
+    // 계산기를 열기 전에는 묻지 않는다. 시트 하나 열 때마다 서버를 부를 이유가 없다.
+    enabled: isReady && (options?.enabled ?? true),
     placeholderData: keepPreviousData,
   });
 }

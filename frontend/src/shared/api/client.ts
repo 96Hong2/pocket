@@ -64,6 +64,8 @@ export interface MonthParams {
 export interface BudgetSuggestionParams extends Partial<MonthParams> {
   takeHome?: number;
   fixedCosts?: number;
+  /** 매달 모을 돈을 직접 준다. 주면 목표 대신 이 값을 뺀다. */
+  saving?: number;
 }
 
 export interface TransactionListParams extends Partial<MonthParams> {
@@ -457,6 +459,7 @@ export function createApiClient(options: TransportOptions): ApiClient {
           month: params?.month,
           take_home: params?.takeHome,
           fixed_costs: params?.fixedCosts,
+          saving: params?.saving,
         },
         signal: call?.signal,
       });

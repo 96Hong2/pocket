@@ -322,6 +322,8 @@ class LivingBudgetSuggestion:
     take_home: budget_plan.SuggestionAmount
     fixed_costs: budget_plan.SuggestionAmount
     basis: BudgetPeriod
+    # 진행 중인 목표 이름. 화면이 「어느 목표의 몫」인지 적는 데만 쓴다.
+    goal_title: str | None = None
 
 
 def _fixed_cost_spend(session: Session, totals: agg.PeriodTotals) -> Money:
@@ -355,6 +357,7 @@ def _goal_saving(session: Session, user: User, today: date) -> budget_plan.GoalS
     return budget_plan.GoalSavingBasis(
         has_deadline=goal.target_date is not None,
         monthly_saving=view.evaluation.required_monthly_saving,
+        title=goal.title,
     )
 
 
@@ -367,25 +370,31 @@ def living_budget_suggestion(
     *,
     take_home: Money | None,
     fixed_costs: Money | None,
+    saving: Money | None = None,
 ) -> LivingBudgetSuggestion:
     """저장하지 않는 제안. 사용자가 버튼을 누르기 전에는 아무것도 남기지 않는다.
 
     실수령과 고정비는 안 주면 지난달에서 어림한다. 실수령은 지난달 수입 합, 고정비는
     지난달 '주거·고정비' 지출이다. 어림값이 0 이어도 그대로 0 으로 둔다. 지난달에
     수입을 안 적은 것을 짐작으로 메우면 근거 없는 예산이 나온다.
+
+    목표저축(`saving`)은 안 주면 진행 중인 목표에서 옮기고, 주면 그 값이 목표를 대신한다.
     """
     take = take_home if take_home is not None else previous_totals.month_income
     fixed = fixed_costs if fixed_costs is not None else _fixed_cost_spend(session, previous_totals)
+    goal = _goal_saving(session, user, today)
     return LivingBudgetSuggestion(
         plan=budget_plan.suggest_living_budget(
             take_home=take,
             fixed_costs=fixed,
-            goal=_goal_saving(session, user, today),
+            goal=goal,
             is_period_open=is_period_editable(period, today),
+            saving=saving,
         ),
         take_home=budget_plan.SuggestionAmount(take, is_given=take_home is not None),
         fixed_costs=budget_plan.SuggestionAmount(fixed, is_given=fixed_costs is not None),
         basis=period.previous_period(),
+        goal_title=goal.title if goal is not None else None,
     )
 
 

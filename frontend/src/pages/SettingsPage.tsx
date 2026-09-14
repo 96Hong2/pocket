@@ -20,7 +20,8 @@ export default function SettingsPage() {
       <PrivacyNotice adSlot={<AdSlot placement="settings" />} />
 
       {/*
-        되돌릴 수 없는 자리라 화면 맨 끝이다. 위쪽 설정을 만지다 손이 닿을 자리가 아니어야 한다.
+        되돌릴 수 없는 자리라 화면 맨 끝, 회색 글자 한 줄이다.
+        위쪽 설정을 만지다 손이 닿을 자리가 아니어야 하고, 카드로 서 있으면 설정으로 읽힌다.
       */}
       <DataResetSetting />
     </div>

@@ -12,10 +12,25 @@ export interface BudgetAmountSheetProps {
   /** 이미 정해 둔 금액. 없으면 빈 칸으로 연다. */
   amount: number | null;
   onClose: () => void;
+  /**
+   * 「계산해서 정하기」. 얼마로 할지 모르는 사람이 여는 부가기능이다.
+   *
+   * 처음 정할 때만 둔다. 이미 정한 예산을 고치는 사람은 얼마로 할지 아는 사람이다.
+   * `calcBusy` 는 광고를 불러오는 동안이다. 그동안 버튼이 죽어 있어야 두 번 눌리지 않는다.
+   */
+  onCalc?: () => void;
+  calcBusy?: boolean;
 }
 
 /** 전체 예산 금액을 정하는 시트. 처음 정할 때와 고칠 때가 같은 화면이다. */
-export function BudgetAmountSheet({ open, month, amount, onClose }: BudgetAmountSheetProps) {
+export function BudgetAmountSheet({
+  open,
+  month,
+  amount,
+  onClose,
+  onCalc,
+  calcBusy = false,
+}: BudgetAmountSheetProps) {
   // 저장 응답을 기다리는 동안에는 닫히지 않는다.
   // 닫히면 폼이 사라져 실패를 그릴 자리가 없어진다. 적어 둔 금액도 함께 사라진다.
   const [saving, setSaving] = useState(false);
@@ -38,6 +53,8 @@ export function BudgetAmountSheet({ open, month, amount, onClose }: BudgetAmount
           amount={amount}
           onSavingChange={setSaving}
           onClose={onClose}
+          onCalc={amount == null ? onCalc : undefined}
+          calcBusy={calcBusy}
         />
       ) : null}
     </BottomSheet>
@@ -49,9 +66,18 @@ interface BudgetAmountFormProps {
   amount: number | null;
   onSavingChange: (saving: boolean) => void;
   onClose: () => void;
+  onCalc?: () => void;
+  calcBusy: boolean;
 }
 
-function BudgetAmountForm({ month, amount, onSavingChange, onClose }: BudgetAmountFormProps) {
+function BudgetAmountForm({
+  month,
+  amount,
+  onSavingChange,
+  onClose,
+  onCalc,
+  calcBusy,
+}: BudgetAmountFormProps) {
   const analytics = useAnalytics();
   const save = useSaveBudget(month);
   const [digits, setDigits] = useState(amount == null ? '' : String(amount));
@@ -91,6 +117,27 @@ function BudgetAmountForm({ month, amount, onSavingChange, onClose }: BudgetAmou
       >
         저장
       </Button>
+
+      {/*
+        얼마로 할지 모르는 사람을 위한 다른 길. 저장 아래 한 단 낮게 둔다.
+        광고 한 편을 지나야 열리는 부가기능이라 그 사실을 버튼 곁에 적는다. 눌러 보고
+        광고가 뜨면 속은 기분이 든다.
+      */}
+      {onCalc ? (
+        <div className="budget-sheet__calc">
+          <Button
+            variant="outline"
+            fullWidth
+            disabled={save.isPending || calcBusy}
+            onClick={onCalc}
+          >
+            {calcBusy ? '광고를 불러오는 중이에요' : '얼마로 할지 모르겠어요 · 계산해서 정하기'}
+          </Button>
+          <p className="budget-sheet__calc-note">
+            월급·고정비·모을 돈으로 생활비를 내 드려요 · 짧은 광고 한 편을 보면 열려요
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

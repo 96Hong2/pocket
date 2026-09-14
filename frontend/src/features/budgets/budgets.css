@@ -368,98 +368,143 @@
     flex: 2;
   }
 
-  /* ── 목표 기반 생활비 제안 ───────────────────────── */
+  /* ── 예산 시트의 「계산해서 정하기」 ──────────────── */
 
-  .budget-suggest > * {
+  .budget-sheet__calc {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-divider);
   }
 
-  .budget-suggest__title {
-    margin: 0;
-    font-size: var(--text-15);
-    font-weight: var(--font-weight-extrabold);
-    color: var(--color-ink);
-  }
-
-  .budget-suggest__lead,
-  .budget-suggest__foot {
+  .budget-sheet__calc-note {
     margin: 0;
     font-size: var(--text-12);
     font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
     color: var(--color-muted);
+    text-align: center;
+    word-break: keep-all;
   }
 
-  .budget-suggest__form {
+  /* ── 생활비 계산기 ─────────────────────────────── */
+
+  .budget-calc__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 18px;
+  }
+
+  .budget-calc__lead {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--color-sage-50);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-sage-700);
+    word-break: keep-all;
+  }
+
+  .budget-calc__step {
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
 
-  /* 식이 한 열로 읽히게 기호 자리를 고정한다. 좁은 화면에서도 열이 흔들리지 않는다. */
-  .budget-suggest__row,
-  .budget-suggest__line {
-    display: grid;
-    grid-template-columns: 16px 1fr auto;
+  .budget-calc__step-title {
+    display: flex;
     align-items: center;
     gap: 8px;
-  }
-
-  .budget-suggest__row {
-    align-items: start;
-  }
-
-  .budget-suggest__field {
-    grid-column: 2 / -1;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .budget-suggest__op {
-    font-size: var(--text-15);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-muted);
-    text-align: center;
-  }
-
-  .budget-suggest__label {
-    min-width: 0;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-muted);
-  }
-
-  .budget-suggest__basis {
     margin: 0;
-    font-size: var(--text-11);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-muted);
-  }
-
-  .budget-suggest__line--total {
-    padding-top: 10px;
-    border-top: 1px solid var(--color-border);
-  }
-
-  .budget-suggest__line--total .budget-suggest__label {
-    font-size: var(--text-13);
+    font-size: var(--text-14);
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
   }
 
-  /* 서버에 다시 묻는 동안 합계 자리. 옛 숫자를 남기면 식이 어긋난 채로 읽힌다. */
-  .budget-suggest__pending {
+  /* 순서를 숫자로. 「무엇부터 적나」 가 제목만으로는 안 읽힌다. */
+  .budget-calc__num {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--color-sage-700);
+    color: var(--color-surface);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-extrabold);
+  }
+
+  .budget-calc__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .budget-calc__sum {
+    margin: 0;
     font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .budget-calc__basis {
+    margin: 0;
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-muted);
+    word-break: keep-all;
+  }
+
+  .budget-calc__result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+  }
+
+  .budget-calc__result-label {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  /* 서버에 다시 묻는 동안. 옛 숫자를 남기면 식이 어긋난 채로 읽힌다. */
+  .budget-calc__pending {
+    font-size: var(--text-14);
     font-weight: var(--font-weight-bold);
     color: var(--color-muted);
   }
 
-  .budget-suggest__note {
+  .budget-calc__note {
     margin: 0;
     font-size: var(--text-12);
     font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
     color: var(--color-amber-700);
+    word-break: keep-all;
+  }
+
+  .budget-calc__foot {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .budget-calc__aside {
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    text-align: center;
   }
 }

@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -152,6 +153,11 @@ class GoalOut(BaseModel):
     monthly_pace: Decimal | None
     contributions: list[GoalContributionOut]
 
+    # 목표를 정한 날. 지난 목표 상세가 「어느 기간 동안 모았나」를 적을 때 쓴다.
+    started_on: date
+    # 마친 날. 마친 목표(`achieved`)에만 있고 진행 중이면 null.
+    finished_on: date | None
+
 
 class GoalStateOut(BaseModel):
     """목표 조회·저장 응답.
@@ -182,8 +188,10 @@ def to_goal_out(
     current_amount: Money,
     monthly_pace: Money | None,
     contributions: Sequence[GoalContribution],
+    tz: ZoneInfo,
 ) -> GoalOut:
     """도메인 판정 결과를 응답 형태로 옮긴다. 여기서 숫자를 새로 만들지 않는다."""
+    finished = goal.status == GoalState.ACHIEVED
     return GoalOut(
         id=goal.id,
         title=goal.title,
@@ -205,4 +213,13 @@ def to_goal_out(
             GoalContributionOut(id=row.id, occurred_on=row.occurred_on, amount=row.amount)
             for row in contributions
         ],
+        started_on=_local_date(goal.created_at, tz),
+        # 마치는 것이 이 행의 마지막 갱신이다. 마친 뒤에는 고칠 자리가 없다.
+        finished_on=_local_date(goal.updated_at, tz) if finished else None,
     )
+
+
+def _local_date(value: datetime, tz: ZoneInfo) -> date:
+    """저장된 시각을 사용자 날짜로. SQLite 는 시간대 없이 돌려주므로 그때는 UTC 로 본다."""
+    aware = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    return aware.astimezone(tz).date()

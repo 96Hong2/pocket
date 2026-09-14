@@ -134,6 +134,30 @@ export async function setAgreementFailure(page: Page, code: string | undefined):
   }, code);
 }
 
+/**
+ * 전면 광고 불러오기를 실패로 돌린다. 화면을 연 채로 부른다.
+ *
+ * 광고가 안 떠도 계산기는 열려야 한다. 그 갈래를 보려면 목이 `onError` 를 주게 해야 한다.
+ * `code` 가 없으면 실패를 푼다.
+ */
+export async function setFullScreenAdFailure(page: Page, code: string | undefined): Promise<void> {
+  await page.evaluate((next) => {
+    (window as unknown as { __ait?: AitManager }).__ait?.patch?.('failureModes', {
+      loadFullScreenAd: next,
+    });
+  }, code);
+}
+
+/** 전면 광고 실패 다이얼이 실제로 켜졌는지. 안 켜졌으면 광고를 본 갈래를 보고 있는 것이다. */
+export async function fullScreenAdFailureForced(page: Page, code: string): Promise<boolean> {
+  return page.evaluate(
+    (expected) =>
+      (window as unknown as { __ait?: AitManager }).__ait?.state?.failureModes?.loadFullScreenAd ===
+      expected,
+    code,
+  );
+}
+
 /** 실패 다이얼이 실제로 켜졌는지. 안 켜졌으면 실패가 아니라 성공을 보고 있는 것이다. */
 export async function agreementFailureForced(page: Page, code: string): Promise<boolean> {
   return page.evaluate(

@@ -380,3 +380,31 @@ test('아직 다 못 모았으면 마치는 자리가 아예 없다', async ({ g
   // 마친 것이 하나도 없으면 지난 목표 자리도 안 그린다. 못 한 일을 하나 더 만들지 않는다.
   await expect(goal.past).toHaveCount(0);
 });
+
+test('지난 목표를 누르면 언제부터 언제까지 어떻게 모았는지 펼쳐 보인다', async ({ goal, prep }) => {
+  const goalId = await prep.setGoal({ title: TITLE, targetAmount: TARGET, initialAmount: 100_000 });
+  const lastMonthDay = `${shiftMonth(toLedgerDate(new Date()).slice(0, 7), -1)}-10`;
+  await prep.addContribution(goalId, { amount: 200_000, on: lastMonthDay });
+  await prep.addContribution(goalId, { amount: TARGET - 300_000, on: toLedgerDate(new Date()) });
+
+  await goal.open();
+  await goal.waitReady();
+  await goal.finishButton.click();
+  await goal.form.waitOpen();
+  await goal.form.dialog.getByRole('button', { name: '닫기' }).click();
+  await goal.form.waitClosed();
+
+  await goal.pastRow(TITLE).click();
+  await expect(goal.pastSheet).toBeVisible();
+
+  // 얼마를, 언제부터 언제까지. 오늘 만들고 오늘 마쳤으니 한 달짜리 기간이다.
+  await expect(goal.pastSheet).toContainText(formatCurrency(TARGET));
+  await expect(goal.pastSheet.getByText(/개월 동안$/)).toBeVisible();
+  await expect(goal.pastSheet.getByText('처음에 있던 돈')).toBeVisible();
+  await expect(goal.pastSheet.getByText('2번', { exact: true })).toBeVisible();
+  // 어떻게 모았나는 달별 한 줄이다. 지난달 한 번, 이번 달 한 번.
+  const rows = goal.pastSheet.getByRole('region', { name: '달별로 모은 돈' }).getByRole('listitem');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toContainText(formatCurrency(TARGET - 300_000));
+  await expect(rows.last()).toContainText(formatCurrency(200_000));
+});

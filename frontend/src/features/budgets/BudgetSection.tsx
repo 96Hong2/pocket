@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   ApiError,
   parseDecimal,
@@ -10,13 +11,14 @@ import {
 } from '../../shared/api';
 import { shiftMonth, toLedgerDate } from '../../shared/lib/format';
 import { Card, ErrorState, LoadingState, MonthStepper, RetryButton } from '../../shared/ui';
+import { useFullScreenAd } from '../ads';
 
 import { BudgetAmountSheet } from './BudgetAmountSheet';
+import { BudgetCalcSheet } from './BudgetCalcSheet';
 import { BudgetTotalCard } from './BudgetTotalCard';
 import { CarryoverSetting } from './CarryoverSetting';
 import { CategoryBudgetList } from './CategoryBudgetList';
 import { CategoryBudgetSheet, type CategoryBudgetTarget } from './CategoryBudgetSheet';
-import { GoalBudgetSuggestCard } from './GoalBudgetSuggestCard';
 
 /** 달력 화면과 같게 3년 전까지 본다. */
 const MONTHS_BACK = 36;
@@ -34,7 +36,10 @@ export function BudgetSection() {
   const thisMonth = toLedgerDate(new Date()).slice(0, 7);
   const [month, setMonth] = useState(thisMonth);
   const [amountOpen, setAmountOpen] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
   const [categoryTarget, setCategoryTarget] = useState<CategoryBudgetTarget | null>(null);
+  const analytics = useAnalytics();
+  const fullScreenAd = useFullScreenAd();
 
   const monthParams = useMemo(() => {
     const [year, monthNumber] = month.split('-').map(Number);
@@ -61,10 +66,28 @@ export function BudgetSection() {
         ? '예산을 지우지 못했어요.'
         : null;
 
+  /**
+   * 계산기는 광고 한 편 뒤에 연다.
+   *
+   * 광고가 안 떠도 연다. 광고 서버 사정으로 예산을 못 정하게 두지 않는다. 대신 어느 쪽으로
+   * 열렸는지를 남겨, 광고를 본 사람이 예산까지 정하는 비율을 따로 볼 수 있게 한다.
+   */
+  async function openCalc(): Promise<void> {
+    const outcome = await fullScreenAd.show();
+    analytics.log(
+      EVENTS.budgetCalcOpened,
+      outcome.result === 'watched' ? { ad: 'watched' } : { ad: 'skipped', reason: outcome.reason },
+      { kind: 'click' },
+    );
+    setAmountOpen(false);
+    setCalcOpen(true);
+  }
+
   function moveMonth(next: string): void {
     setMonth(next);
     // 달을 옮기면 열려 있던 시트의 대상이 그 달에 없을 수 있다. 먼저 닫는다.
     setAmountOpen(false);
+    setCalcOpen(false);
     setCategoryTarget(null);
     // 지우기 실패 안내는 그 달의 것이다. 다른 달까지 따라가면 안 된다.
     removeBudget.reset();
@@ -127,13 +150,6 @@ export function BudgetSection() {
             </div>
           ) : null}
 
-          {/*
-            예산이 아직 없는 달에만 제안을 묻는다. 이미 정한 예산 위에 다른 금액을 얹어
-            보여주면, 지금 예산이 무엇인지 화면에 두 개가 된다. 제안할 근거가 없으면
-            카드 스스로 아무것도 그리지 않는다.
-          */}
-          {amount == null && editable ? <GoalBudgetSuggestCard month={monthParams} /> : null}
-
           <BudgetTotalCard
             state={state}
             editable={editable}
@@ -173,7 +189,15 @@ export function BudgetSection() {
         month={monthParams}
         amount={amount}
         onClose={() => setAmountOpen(false)}
+        onCalc={() => void openCalc()}
+        calcBusy={fullScreenAd.busy}
       />
+      {/*
+        생활비 계산기. 예산 시트에서 「계산해서 정하기」 로만 열린다.
+        예산이 없는 달의 관리 탭에 늘 카드로 서 있던 것을 여기로 옮겼다. 실수령·고정비가
+        무슨 기간의 얼마인지 안 적혀 있어, 보는 사람마다 기준을 다르게 읽었다.
+      */}
+      <BudgetCalcSheet open={calcOpen} month={monthParams} onClose={() => setCalcOpen(false)} />
       <CategoryBudgetSheet
         target={categoryTarget}
         month={monthParams}
