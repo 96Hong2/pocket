@@ -205,6 +205,12 @@ def test_연령대_성별은_건너뛰어도_물었다고_남는다(client: Test
     assert only.json()["gender"] == "undisclosed"
 
 
+def test_코드_보내기는_익명키_없이는_안_된다(unauthenticated_client: TestClient) -> None:
+    """주소를 아는 누구나 아무 메일함에나 코드를 쏠 수 있으면 안 된다."""
+    res = unauthenticated_client.post("/api/v1/account/email/start", json={"email": EMAIL})
+    assert res.status_code == 401, res.text
+
+
 def test_모르는_연령대는_거절한다(client: TestClient) -> None:
     res = client.patch("/api/v1/account/profile", json={"age_band": "90s"}, headers=AUTH)
     assert res.status_code == 422

@@ -34,9 +34,18 @@ def me(user: CurrentUser, settings: AppSettings) -> MeOut:
 
 @router.post("/email/start", status_code=status.HTTP_204_NO_CONTENT)
 def email_start(
-    body: EmailStartIn, session: DbSession, settings: AppSettings, sender: EmailSenderDep
+    body: EmailStartIn,
+    session: DbSession,
+    settings: AppSettings,
+    sender: EmailSenderDep,
+    user: CurrentUser,
 ) -> Response:
-    """여섯 자리 코드를 메일로 보낸다. 보낼 수단이 없으면 503."""
+    """여섯 자리 코드를 메일로 보낸다. 보낼 수단이 없으면 503.
+
+    익명키 검증을 지난 사람만 부를 수 있다. 안 그러면 주소를 아는 누구나 아무 메일함에나
+    코드를 쏠 수 있다. 한 이메일 상한(10분 3통)은 메일함 하나를 지키지 여러 메일함은 못 지킨다.
+    """
+    del user  # 검증을 지났다는 사실만 쓴다.
     login.start_email_login(session, settings, sender, body.email)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
