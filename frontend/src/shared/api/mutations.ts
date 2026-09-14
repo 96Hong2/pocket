@@ -460,12 +460,20 @@ function writeGoal(queryClient: QueryClient, state: GoalStateOut): void {
   void queryClient.invalidateQueries({ queryKey: queryKeys.reports() });
 }
 
-function invalidateGoal(queryClient: QueryClient): Promise<void> {
-  return Promise.all([
-    queryClient.invalidateQueries({ queryKey: queryKeys.goal() }),
-    invalidateBudgetSuggestions(queryClient),
-    queryClient.invalidateQueries({ queryKey: queryKeys.reports() }),
-  ]).then(() => undefined);
+/**
+ * 목표가 바뀌었으니 걸린 조회를 다시 받는다.
+ *
+ * **기다리지 않는다.** `onSuccess` 가 Promise 를 돌려주면 react-query 는 그것이 끝날
+ * 때까지 `mutate()` 의 콜백을 미룬다. 그러면 지우기를 눌렀는데 시트가 서버 왕복 몇 번이
+ * 끝날 때까지 열려 있다. `queryKeys.goal()` 아래에 지난 목표 조회까지 들어와 왕복이
+ * 하나 더 늘면서 CI 에서 실제로 5초를 넘겼다.
+ *
+ * 화면은 그 사이 잠깐 옛 값을 보여 주는데, 지운 뒤 빈 상태로 바뀌는 것은 곧 도착한다.
+ */
+function invalidateGoal(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.goal() });
+  void invalidateBudgetSuggestions(queryClient);
+  void queryClient.invalidateQueries({ queryKey: queryKeys.reports() });
 }
 
 function invalidateBudgetSuggestions(queryClient: QueryClient): Promise<void> {
@@ -492,6 +500,25 @@ export function useUpdateGoal() {
     mutationFn: (input: { goalId: string; body: GoalPatch }): Promise<GoalStateOut> =>
       client.updateGoal(input.goalId, input.body),
     onSuccess: (state) => writeGoal(queryClient, state),
+  });
+}
+
+/**
+ * 다 모은 목표를 마친다.
+ *
+ * 마친 목표는 지난 목표 목록으로 옮겨 가므로 그쪽도 함께 무효화한다. 빠뜨리면 방금 마친
+ * 것이 「지난 목표」에 없어, 사라진 것으로 보인다.
+ */
+export function useFinishGoal() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (goalId: string): Promise<GoalStateOut> => client.finishGoal(goalId),
+    onSuccess: (state) => {
+      writeGoal(queryClient, state);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.goalHistory() });
+    },
   });
 }
 

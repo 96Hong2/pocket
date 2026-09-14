@@ -343,3 +343,33 @@ test('홈에서 정한 예산이 관리 탭에 같은 금액으로 뜬다', asyn
   expect(await manage.total.gaugePercent(), '관리 탭 게이지가 홈과 다른 값을 그렸다').toBe(5);
   await expect(manage.total.caption).toHaveText(runningCaption(5, 380_000));
 });
+
+test('예산 카드를 닫으면 사라지고, 어디서 다시 정하는지 알려 준다', async ({
+  appShell,
+  home,
+  manage,
+  prep,
+}) => {
+  await prep.addExpense({ amount: 20_000, daysAgo: 0 });
+
+  await home.open();
+  await home.waitReady();
+  await expect(home.budget.suggestLead).toBeVisible();
+
+  // 닫기 전에 길이 화면에 있어야 한다. 이 줄이 없으면 닫는 순간 예산 기능이 사라진 것으로 보인다.
+  await expect(home.budget.aside).toBeVisible();
+
+  await home.budget.closeButton.click();
+  await expect(home.budget.suggestLead).toHaveCount(0);
+  await expect(home.budget.saveButton).toHaveCount(0);
+
+  // 다시 들어와도 안 뜬다. 예산을 정할 때까지 조르지 않는다.
+  await home.open();
+  await home.waitReady();
+  await expect(home.budget.suggestLead).toHaveCount(0);
+
+  // 그리고 카드가 가리킨 그 자리에 실제로 예산을 정하는 길이 있다.
+  await appShell.goToTab('관리');
+  await manage.waitReady();
+  await expect(manage.total.emptyTitle).toBeVisible();
+});

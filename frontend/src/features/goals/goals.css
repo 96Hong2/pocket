@@ -330,4 +330,132 @@
     color: var(--color-muted);
     text-align: center;
   }
+
+  /* ── 다 모았을 때 ───────────────────────────────── */
+
+  /*
+    축하 자리. 목표 카드보다 위에 서고, 결산 카드와 같은 짙은 면을 쓴다.
+    게이지가 꽉 찬 것만으로는 「끝났다」가 안 읽혀서, 이 순간에만 한 면을 통째로 준다.
+  */
+  .goal-done {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 24px 18px 18px;
+    background: var(--color-sage-50);
+    border-radius: var(--radius-card);
+  }
+
+  .goal-done__icon {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+  }
+
+  .goal-done__title {
+    margin: 4px 0 0;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  .goal-done__sum {
+    margin: 0;
+    font-size: 26px;
+    font-weight: var(--font-weight-extrabold);
+    letter-spacing: -0.5px;
+    color: var(--color-sage-700);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .goal-done__notice {
+    margin: 6px 0 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  .goal-done__finish {
+    margin-top: 12px;
+  }
+
+  /* 마치기가 지우기와 무엇이 다른지 한 줄. 이 줄이 없으면 눌러야 알 수 있다. */
+  .goal-done__aside {
+    margin: 8px 0 0;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  /* ── 지난 목표 ──────────────────────────────────── */
+
+  /* 마친 것이 하나도 없으면 화면이 이 자리를 아예 안 그린다. */
+  .goal-past {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .goal-past__title {
+    margin: 0;
+    padding: 0 2px;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .goal-past__list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .goal-past__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    padding: 8px 16px;
+  }
+
+  .goal-past__row + .goal-past__row {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .goal-past__icon {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+  }
+
+  .goal-past__name {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .goal-past__amount {
+    flex: none;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+    font-variant-numeric: tabular-nums;
+  }
 }

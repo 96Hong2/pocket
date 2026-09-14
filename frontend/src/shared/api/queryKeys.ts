@@ -60,6 +60,9 @@ export const queryKeys = {
    */
   goal: () => [ROOT, 'goal'] as const,
 
+  /** 다 모으고 마친 목표들. 목표 화면에서만 읽는다. */
+  goalHistory: () => [ROOT, 'goal', 'history'] as const,
+
   /** 달을 가리지 않는 예산 전부. 무효화할 때 쓴다. 아래 제안까지 함께 걸린다. */
   budgets: () => [ROOT, 'budget'] as const,
   budget: (params?: MonthParams) => [ROOT, 'budget', monthPart(params)] as const,

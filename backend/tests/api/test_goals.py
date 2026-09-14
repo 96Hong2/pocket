@@ -275,3 +275,64 @@ def test_기여_금액이_0_이면_거절한다(client: TestClient) -> None:
 
 def test_식별키가_없으면_401_이다(unauthenticated_client: TestClient) -> None:
     assert unauthenticated_client.get(GOALS).status_code == 401
+
+
+def test_다_모으기_전에는_마칠_수_없다(client: TestClient) -> None:
+    """모자란 채로 마치면 「달성한 목표」 목록에 못 채운 것이 섞인다.
+
+    그러면 그 목록을 여는 이유 자체가 사라진다. 그만두는 길은 지우기다.
+    화면에는 다 모았을 때만 버튼이 서므로, 이 규칙을 지키는 곳은 서버뿐이다.
+    """
+    goal = _create(client)
+    client.post(f"{GOALS}/{goal['id']}/contributions", json={"amount": "1000"}, headers=AUTH)
+
+    res = client.post(f"{GOALS}/{goal['id']}/finish", headers=AUTH)
+
+    assert res.status_code == 422, res.text
+    assert res.json()["error"]["code"] == "GOAL_NOT_ACHIEVED"
+    # 막혔으면 아무것도 안 바뀌어야 한다. 진행 중인 목표가 그대로 남는다.
+    assert _show(client) is not None
+
+
+def test_다_모으면_마칠_수_있고_지난_목표에_남는다(client: TestClient) -> None:
+    """마친 뒤 새 목표를 만드는 것은 e2e 가 본다.
+
+    여기 DB(SQLite)는 부분 유니크 인덱스를 조건 없이 만들어서, 마친 목표가 남아 있으면
+    두 번째 목표를 못 만든다. PostgreSQL 은 `status='active'` 인 행만 막으므로 실제로는
+    만들어진다. 위 `test_목표를_지우면_조회가_빈다` 와 같은 한계다.
+    """
+    goal = _create(client, target_amount="1000")
+    client.post(f"{GOALS}/{goal['id']}/contributions", json={"amount": "1000"}, headers=AUTH)
+
+    res = client.post(f"{GOALS}/{goal['id']}/finish", headers=AUTH)
+
+    assert res.status_code == 200, res.text
+    # 마치면 진행 중인 목표가 없어진다. 그래야 새 목표를 만들 수 있다.
+    assert res.json()["goal"] is None
+    assert _show(client) is None
+
+    history = client.get(f"{GOALS}/history", headers=AUTH)
+    assert history.status_code == 200, history.text
+    items = history.json()["items"]
+    assert [item["title"] for item in items] == ["제주도 여행"]
+    assert items[0]["status"] == "achieved"
+    assert items[0]["is_achieved"] is True
+
+
+def test_지운_목표는_지난_목표에_오지_않는다(client: TestClient) -> None:
+    """접기와 마치기는 다른 일이다. 그만둔 것을 목록에 남기면 지우기가 지우기로 안 읽힌다."""
+    goal = _create(client, target_amount="1000")
+    client.post(f"{GOALS}/{goal['id']}/contributions", json={"amount": "1000"}, headers=AUTH)
+
+    assert client.delete(f"{GOALS}/{goal['id']}", headers=AUTH).status_code == 204
+
+    history = client.get(f"{GOALS}/history", headers=AUTH)
+    assert history.json()["items"] == []
+
+
+def test_마친_목표가_없으면_빈_목록이다(client: TestClient) -> None:
+    """하나도 안 마친 것이 정상이다. 404 가 아니다."""
+    res = client.get(f"{GOALS}/history", headers=AUTH)
+
+    assert res.status_code == 200, res.text
+    assert res.json()["items"] == []

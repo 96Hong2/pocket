@@ -76,15 +76,96 @@ export function QuickRecordSheet({
   // 닫히면 컴포넌트가 사라져 응답이 갈 곳이 없어지고, 저장 결과 화면이 영구히 사라진다.
   // 저장 자체는 서버에 남으므로 사용자는 되돌릴 방법 없이 기록만 남게 된다.
   const [saving, setSaving] = useState(false);
+  /*
+    지금 닫으면 잃을 건수와, 보고 있는 탭이 검토 중인가.
 
-  // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 미니앱이 닫힌다.
-  // 저장·분석 중에는 삼키기만 한다.
-  useOverlayBackClose(open, onClose, saving);
+    읽어 온 것을 눈앞에 두고 손잡이를 잘못 눌러 통째로 날아가는 일이 실제로 있었다.
+    한두 번만 겪어도 이 앱을 안 쓰게 되는 자리라, **닫기를 한 번 되묻는다.**
+  */
+  const [pending, setPending] = useState(0);
+  const [reviewing, setReviewing] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const analytics = useAnalytics();
+
+  /** 닫으려는 모든 길이 여기를 지난다. 손잡이·딤·Esc·시스템 뒤로가기가 같은 규칙을 탄다. */
+  function requestClose(): void {
+    if (pending > 0) {
+      analytics.log(EVENTS.recordLeaveAsked, { result: 'asked', pending }, { kind: 'impression' });
+      setAsking(true);
+      return;
+    }
+    onClose();
+  }
+
+  function answer(result: 'stayed' | 'left'): void {
+    analytics.log(EVENTS.recordLeaveAsked, { result, pending }, { kind: 'click' });
+    setAsking(false);
+    if (result === 'left') onClose();
+  }
+
+  useOverlayBackClose(open, requestClose, saving);
 
   return (
-    <BottomSheet open={open} onClose={onClose} dismissible={!saving} ariaLabel="10초 기록">
-      <RecordBody initialTab={initialTab} onDone={onClose} onSavingChange={setSaving} />
+    <BottomSheet
+      open={open}
+      onClose={requestClose}
+      dismissible={!saving}
+      // 검토 화면은 고칠 칸이 많다. 내용만큼 열면 저장 버튼이 접힌 아래로 밀린다.
+      size={reviewing ? 'tall' : 'auto'}
+      ariaLabel="10초 기록"
+    >
+      <RecordBody
+        initialTab={initialTab}
+        onDone={onClose}
+        onSavingChange={setSaving}
+        onPendingChange={setPending}
+        onReviewingChange={setReviewing}
+      />
+      {asking ? (
+        <LeaveConfirm
+          pending={pending}
+          onStay={() => answer('stayed')}
+          onLeave={() => answer('left')}
+        />
+      ) : null}
     </BottomSheet>
+  );
+}
+
+/**
+ * 읽어 온 것을 두고 나가려 할 때 한 번 묻는다.
+ *
+ * 시트를 하나 더 띄우지 않고 이 시트 위에 겹친다. 시트가 둘이면 닫을 때 어디로 돌아가는지
+ * 흔들리고, 화면에 dialog 가 둘이 된다.
+ *
+ * **머무는 쪽이 기본이다.** 실수로 누른 사람이 한 번 더 실수해도 잃지 않게, 남는 버튼을
+ * 크고 오른쪽에 둔다.
+ */
+function LeaveConfirm({
+  pending,
+  onStay,
+  onLeave,
+}: {
+  pending: number;
+  onStay: () => void;
+  onLeave: () => void;
+}) {
+  return (
+    <div className="record-leave" role="alertdialog" aria-label="그만둘까요">
+      <div className="record-leave__box">
+        <p className="record-leave__text">
+          읽어 온 {pending}건이 사라져요. 그만둘까요?
+        </p>
+        <div className="record-leave__actions">
+          <Button variant="outline" onClick={onLeave}>
+            그만두기
+          </Button>
+          <Button className="record-leave__stay" onClick={onStay}>
+            계속 고치기
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -96,10 +177,16 @@ function RecordBody({
   initialTab,
   onDone,
   onSavingChange,
+  onPendingChange,
+  onReviewingChange,
 }: {
   initialTab?: RecordTab;
   onDone: () => void;
   onSavingChange: (saving: boolean) => void;
+  /** 어느 탭에서든 읽어 두고 아직 저장 안 한 건수의 합. */
+  onPendingChange: (pending: number) => void;
+  /** 지금 보고 있는 탭이 검토 중인가. 시트 크기가 이 값을 따라간다. */
+  onReviewingChange: (reviewing: boolean) => void;
 }) {
   const bridge = useBridge();
   const analytics = useAnalytics();
@@ -136,6 +223,30 @@ function RecordBody({
   const [pickedId, setPickedId] = useState<string | null>(null);
   // 고르고 나면 목록을 접는다. 분류가 늘수록 목록이 화면을 다 먹는다.
   const [listOpen, setListOpen] = useState(true);
+  /*
+    탭마다 읽어 두고 아직 저장 안 한 건수.
+
+    탭 넷은 감춰진 채 함께 살아 있어, 캡처에서 읽어 두고 줄글 탭으로 옮겨도 그 결과는
+    그대로 있다. 닫으면 다 날아가므로 **합으로** 세고, 시트를 크게 열지는 지금 보이는
+    탭만 보고 정한다.
+  */
+  const [reviewCounts, setReviewCounts] = useState<Partial<Record<RecordTab, number>>>({});
+  const pending = Object.values(reviewCounts).reduce((sum, count) => sum + (count ?? 0), 0);
+  const reviewing = (reviewCounts[tab] ?? 0) > 0;
+
+  useEffect(() => {
+    onPendingChange(pending);
+  }, [onPendingChange, pending]);
+
+  useEffect(() => {
+    onReviewingChange(reviewing);
+  }, [onReviewingChange, reviewing]);
+
+  /** 그 탭이 지금 몇 건을 들고 있는지 적어 둔다. 같은 값이면 그대로 두어 다시 그리지 않는다. */
+  function trackReview(key: RecordTab) {
+    return (count: number) =>
+      setReviewCounts((prev) => (prev[key] === count ? prev : { ...prev, [key]: count }));
+  }
 
   useEffect(() => {
     let alive = true;
@@ -329,6 +440,7 @@ function RecordBody({
         <NaturalLanguageTab
           flowId={flowId}
           onBusyChange={markBusy}
+          onReviewChange={trackReview('nl')}
           onDone={finish}
           onSaved={rememberMethod}
         />
@@ -339,6 +451,7 @@ function RecordBody({
           kind="capture"
           flowId={flowId}
           onBusyChange={markBusy}
+          onReviewChange={trackReview('capture')}
           onDone={finish}
           onSaved={rememberMethod}
         />
@@ -349,6 +462,7 @@ function RecordBody({
           kind="receipt"
           flowId={flowId}
           onBusyChange={markBusy}
+          onReviewChange={trackReview('receipt')}
           onDone={finish}
           onSaved={rememberMethod}
           // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.

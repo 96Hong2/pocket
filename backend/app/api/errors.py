@@ -57,6 +57,9 @@ class ErrorCode(StrEnum):
     NO_SPEND_EXISTS = "NO_SPEND_EXISTS"
     # 진행 중인 목표가 이미 있는 것. 목표는 하나뿐이라 먼저 마치거나 지워야 한다.
     GOAL_ALREADY_ACTIVE = "GOAL_ALREADY_ACTIVE"
+    # 아직 다 못 모았는데 마치려 한 것. 접는 것(DELETE)과 갈라 둔다.
+    # 마치기는 다 모은 것을 갈무리하는 일이고, 접기는 그만두는 일이라 조언이 반대다.
+    GOAL_NOT_ACHIEVED = "GOAL_NOT_ACHIEVED"
     PERIOD_CLOSED = "PERIOD_CLOSED"
     USAGE_LIMIT = "USAGE_LIMIT"
     PARSE_UNAVAILABLE = "PARSE_UNAVAILABLE"

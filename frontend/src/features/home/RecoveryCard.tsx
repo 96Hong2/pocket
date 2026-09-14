@@ -2,10 +2,14 @@ import { parseDecimalOr, type RecoveryProgressOut } from '../../shared/api';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, CategoryAvatar, Gauge, SageCard } from '../../shared/ui';
 
+import { CardClose } from './CardClose';
+
 interface RecoveryCardProps {
   /** 최근 며칠 중 며칠 정리했나. 빠진 날 수는 받지 않는다. */
   progress: RecoveryProgressOut;
   onCatchUp: () => void;
+  /** 닫기. 다시 적고 또 며칠 비면 새로 뜬다. */
+  onDismiss: () => void;
 }
 
 /**
@@ -17,8 +21,11 @@ interface RecoveryCardProps {
  * 문구는 시안(`docs/design/mockup-v2.1.dc.html`)의 것을 그대로 쓴다.
  * '며칠' 은 세지 않는 말이고, 둘째 줄이 **무엇을 하면 되는지**를 알려 준다.
  * 버튼만 있으면 그 버튼이 무엇을 여는지는 눌러 봐야 안다.
+ *
+ * **닫을 수 있다.** 밀린 것을 정리할 생각이 없는 날에도 홈 맨 위에 계속 서 있으면,
+ * 도와주는 카드가 아니라 치워야 하는 카드가 된다. 닫아도 다시 적고 또 며칠 비면 새로 뜬다.
  */
-export function RecoveryCard({ progress, onCatchUp }: RecoveryCardProps) {
+export function RecoveryCard({ progress, onCatchUp, onDismiss }: RecoveryCardProps) {
   return (
     <SageCard className="home-card">
       <div className="home-card__head">
@@ -28,6 +35,7 @@ export function RecoveryCard({ progress, onCatchUp }: RecoveryCardProps) {
           <br />
           캡처 한 장이면 다시 정리할 수 있어요.
         </p>
+        <CardClose label="밀린 내역 안내 닫기" onClick={onDismiss} />
       </div>
 
       {/* 할 수 있는 다음 한 걸음을 진행 표시보다 위에 둔다. 시안의 순서다. */}

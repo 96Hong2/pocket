@@ -4,8 +4,9 @@
 쓰기 응답도 모두 조회와 같은 모양이라, 화면이 받은 것을 그대로 캐시에 넣어 다시 그린다.
 따로 조립하면 필드가 늘 때 한쪽만 빠진다.
 
-진행 중인 목표는 하나뿐이라 목록 경로를 두지 않는다. 접은 목표를 다시 꺼내 보는 화면도
-아직 없어서, 지운 것은 `GET /goals` 에 오지 않는다.
+진행 중인 목표는 하나뿐이라 목록 경로를 두지 않는다. 대신 **다 모으고 마친 것**은
+`GET /goals/history` 로 따로 본다. 접은 것(지운 것)은 어느 쪽에도 오지 않는다.
+그만둔 목표를 목록에 남기면 지우기가 지우기로 안 읽힌다.
 """
 
 from __future__ import annotations
@@ -22,6 +23,8 @@ from app.modules.goals import service
 from app.modules.goals.schemas import (
     GoalContributionCreate,
     GoalCreate,
+    GoalHistoryOut,
+    GoalOut,
     GoalPatch,
     GoalStateOut,
     to_goal_out,
@@ -33,22 +36,34 @@ router = APIRouter(prefix="/goals", tags=["goals"], responses=ERROR_RESPONSES)
 def _view(user: CurrentUser, goal: Goal | None) -> GoalStateOut:
     if goal is None:
         return GoalStateOut(goal=None)
+    return GoalStateOut(goal=_out(user, goal))
 
+
+def _out(user: CurrentUser, goal: Goal) -> GoalOut:
     view = service.evaluate(goal, ledger.today_for(user))
-    return GoalStateOut(
-        goal=to_goal_out(
-            view.goal,
-            view.evaluation,
-            current_amount=view.current_amount,
-            monthly_pace=view.monthly_pace,
-            contributions=view.contributions,
-        )
+    return to_goal_out(
+        view.goal,
+        view.evaluation,
+        current_amount=view.current_amount,
+        monthly_pace=view.monthly_pace,
+        contributions=view.contributions,
     )
 
 
 @router.get("", response_model=GoalStateOut)
 def show(session: DbSession, user: CurrentUser) -> GoalStateOut:
     return _view(user, service.active_goal(session, user))
+
+
+@router.get("/history", response_model=GoalHistoryOut)
+def history(session: DbSession, user: CurrentUser) -> GoalHistoryOut:
+    """다 모으고 마친 목표들. 비어 있는 것이 정상이다.
+
+    `/{goal_id}` 보다 위에 둔다. 아래에 두면 `history` 가 목표 id 로 읽혀 422 가 난다.
+    """
+    return GoalHistoryOut(
+        items=[_out(user, goal) for goal in service.finished_goals(session, user)]
+    )
 
 
 @router.post("", response_model=GoalStateOut, status_code=status.HTTP_201_CREATED)
@@ -66,6 +81,17 @@ def update(
     """
     payload = body.model_dump(exclude_unset=True)
     return _view(user, service.update_goal(session, user, goal_id, payload))
+
+
+@router.post("/{goal_id}/finish", response_model=GoalStateOut)
+def finish(goal_id: uuid.UUID, session: DbSession, user: CurrentUser) -> GoalStateOut:
+    """다 모은 목표를 마친다. 마치고 나면 새 목표를 만들 수 있다.
+
+    응답은 조회와 같은 모양이고, 마친 뒤에는 진행 중인 것이 없어 `goal: null` 이다.
+    아직 다 못 모았으면 422 다. 그만두려면 지우기를 쓴다.
+    """
+    service.finish_goal(session, user, goal_id, ledger.today_for(user))
+    return _view(user, service.active_goal(session, user))
 
 
 @router.delete("/{goal_id}", status_code=status.HTTP_204_NO_CONTENT)

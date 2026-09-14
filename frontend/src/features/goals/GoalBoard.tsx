@@ -6,7 +6,9 @@ import { Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui';
 import { ContributionList } from './ContributionList';
 import { ContributionSheet } from './ContributionSheet';
 import { GoalCard } from './GoalCard';
+import { GoalDonePanel } from './GoalDonePanel';
 import { GoalFormSheet } from './GoalFormSheet';
+import { GoalHistoryList } from './GoalHistoryList';
 
 /**
  * 목표 화면 본문.
@@ -59,6 +61,13 @@ export function GoalBoard() {
         </Card>
       ) : (
         <>
+          {/*
+            다 모았으면 축하가 카드보다 위다. 게이지가 꽉 찬 것만으로는 끝났다는 것이
+            안 읽히고, 그러면 마치지도 새로 정하지도 않은 채 그 목표가 영영 남는다.
+          */}
+          {goal.is_achieved ? (
+            <GoalDonePanel goal={goal} onFinished={() => setFormOpen(true)} />
+          ) : null}
           <GoalCard
             goal={goal}
             onEdit={() => setFormOpen(true)}
@@ -68,6 +77,9 @@ export function GoalBoard() {
           <p className="goal__closing">목표는 언제든 바꿔도, 지워도 괜찮아요</p>
         </>
       )}
+
+      {/* 마친 것이 하나도 없으면 이 자리는 아예 안 그린다. */}
+      <GoalHistoryList />
 
       <GoalFormSheet open={formOpen} goal={goal} onClose={() => setFormOpen(false)} />
       <ContributionSheet

@@ -32,6 +32,20 @@ export const EVENTS = {
   reviewShown: 'review_shown',
   /** 검토를 끝냈다. 무엇을 몇 건 고쳤는지 필드 이름까지만. */
   reviewFinished: 'review_finished',
+  /**
+   * 읽어 온 것을 저장하지 않고 「취소」로 스스로 버렸다.
+   *
+   * 닫으려다 잃을 뻔한 것(`record_leave_asked`)과 갈라 센다. 이건 눌러서 그만둔 것이다.
+   */
+  reviewCancelled: 'review_cancelled',
+  /**
+   * 읽어 온 것을 두고 시트를 닫으려 해서 한 번 물었다. 그리고 무엇을 골랐나.
+   *
+   * **이 로그가 이번 확인 창의 유일한 성적표다.** 물었을 때 「계속 고치기」를 고른 비율이
+   * 곧 이 창이 구해 낸 기록이다. 그 비율이 높으면 그만큼 실수로 날아가고 있었다는 뜻이고,
+   * 낮으면 사람들이 정말로 닫으려던 것이라 창이 방해만 한 것이다.
+   */
+  recordLeaveAsked: 'record_leave_asked',
 
   /** 저장 버튼을 눌렀다. */
   saveRequested: 'save_requested',
@@ -48,8 +62,23 @@ export const EVENTS = {
 
   /** 예산을 저장했다. 처음인지 아닌지. */
   budgetSaved: 'budget_saved',
+  /**
+   * 다 모은 목표를 마쳤다.
+   *
+   * 이 앱에서 사람이 끝까지 해낸 유일한 일이다. 다 모으고도 안 마친 사람이 많으면
+   * 축하 화면이 안 읽히는 것이고, 마친 뒤 새 목표를 안 정하면 거기서 관계가 끝난 것이다.
+   */
+  goalFinished: 'goal_finished',
   /** 홈 화면에 추가하라는 안내의 결과. 실제 추가 여부는 앱이 알 수 없다. */
   homeAddResult: 'home_add_result',
+  /**
+   * 처음 안내를 끝냈나 건너뛰었나, 그리고 어느 장에서.
+   *
+   * 이 앱은 배우기 싫은 사람을 위한 것이라 **안내가 길면 그 자체로 실패다.**
+   * 첫 장에서 건너뛰는 사람이 많으면 장 수가 아니라 첫 장이 잘못된 것이고,
+   * 끝까지 본 사람의 첫 기록 성공률이 건너뛴 사람보다 낮으면 안내가 방해가 된 것이다.
+   */
+  onboardingResult: 'onboarding_result',
   /** 알림을 켜려 했을 때의 결과. 이 앱이 사람을 다시 데려오는 유일한 장치다. */
   notificationResult: 'notification_result',
 

@@ -256,3 +256,20 @@ export function useGoal() {
     enabled: isReady,
   });
 }
+
+/**
+ * 다 모으고 마친 목표들.
+ *
+ * 접은 것(지운 것)은 오지 않는다. 비어 있는 것이 정상이고, 그때 화면은 이 자리를 아예
+ * 그리지 않는다. 하나도 안 마친 사람에게 「지난 목표 없음」을 보여 줄 이유가 없다.
+ */
+export function useGoalHistory(options?: { enabled?: boolean }) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.goalHistory(),
+    queryFn: ({ signal }) => client.getGoalHistory({ signal }),
+    enabled: isReady && (options?.enabled ?? true),
+  });
+}

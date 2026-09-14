@@ -88,9 +88,33 @@ export class GoalScreen {
     return this.page.getByTestId(TEST_IDS.goalEta);
   }
 
-  /** 목표액에 닿았을 때 붙는 배지. */
-  get achievedBadge(): Locator {
-    return this.card.getByText('달성했어요', { exact: true });
+  /**
+   * 다 모았을 때 카드 위에 서는 축하.
+   *
+   * 게이지가 꽉 찬 것만으로는 「끝났다」 가 안 읽혀, 다 모으고도 마치지 않은 목표가
+   * 영영 남는다. 여기서 마치면 지난 목표로 옮겨 가고 새 목표를 정할 수 있다.
+   */
+  get done(): Locator {
+    return this.page.getByRole('region', { name: '목표 달성', exact: true });
+  }
+
+  get finishButton(): Locator {
+    return this.done.getByRole('button', { name: '이 목표 마치기' });
+  }
+
+  /** 마치기가 지우기와 무엇이 다른지 말하는 한 줄. */
+  get doneAside(): Locator {
+    return this.done.getByText('마친 목표는 아래 「지난 목표」에 남아요');
+  }
+
+  /** 다 모으고 마친 목표들. 하나도 없으면 이 자리가 아예 없다. */
+  get past(): Locator {
+    return this.page.getByRole('region', { name: '지난 목표', exact: true });
+  }
+
+  /** 지난 목표 한 줄. 이름으로 고른다. */
+  pastRow(name: string): Locator {
+    return this.past.getByRole('listitem').filter({ hasText: name });
   }
 
   /** 기한이 지났을 때의 한 줄. 탓하지 않고 바꿀 수 있다는 것만 알린다. */

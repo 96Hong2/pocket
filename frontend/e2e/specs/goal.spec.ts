@@ -125,14 +125,16 @@ test('기한이 없는 목표에는 매달 모을 돈 줄이 아예 없다', asy
   await expect(goal.remaining).toHaveText(formatCurrency(2_000_000));
 });
 
-test('목표액에 닿으면 달성으로 표시하고 예상 줄을 걷는다', async ({ goal, prep }) => {
+test('목표액에 닿으면 축하가 서고 예상 줄을 걷는다', async ({ goal, prep }) => {
   const goalId = await prep.setGoal({ title: '에어팟', targetAmount: 300_000 });
   await prep.addContribution(goalId, { amount: 300_000 });
 
   await goal.open();
   await goal.waitReady();
 
-  await expect(goal.achievedBadge).toBeVisible();
+  // 다 모았다는 말은 축하 자리가 한 번만 한다. 카드에 배지까지 두면 같은 사실을 두 번 말한다.
+  await expect(goal.done).toBeVisible();
+  await expect(goal.card.getByText('달성했어요')).toHaveCount(0);
   await expect(goal.remaining).toHaveText(formatCurrency(0));
   expect(await goal.gaugePercent()).toBe(100);
   // 다 모은 사람에게 '이 속도면 0달 뒤' 를 적을 이유가 없다.
@@ -305,4 +307,76 @@ test('긴 이름과 큰 금액에도 화면이 가로로 넘치지 않는다', a
   expect(box.content, `${JSON.stringify(box)} 긴 이름이 화면을 가로로 밀었다`).toBeLessThanOrEqual(
     box.visible + 1,
   );
+});
+
+test('다 모으면 축하가 뜨고, 마치면 지난 목표로 남는다', async ({ goal, home, prep }) => {
+  const goalId = await prep.setGoal({ title: TITLE, targetAmount: TARGET });
+  await prep.addContribution(goalId, { amount: TARGET, on: toLedgerDate(new Date()) });
+
+  // 홈에서 먼저 알려 준다. 목표 화면에 들어가야만 아는 것은 아무도 모른다.
+  await home.open();
+  await home.waitReady();
+  await expect(home.goal.doneLink).toContainText(`${TITLE}, 다 모았어요`);
+  // 진행 줄과 함께 뜨면 같은 목표를 두 번 말하는 것이다.
+  await expect(home.goal.link).toHaveCount(0);
+
+  await home.goal.doneLink.click();
+  await goal.waitReady();
+
+  await expect(goal.done).toBeVisible();
+  await expect(goal.finishButton).toBeVisible();
+  // 마치기가 지우기와 무엇이 다른지 화면에 적혀 있어야 한다.
+  await expect(goal.doneAside).toBeVisible();
+
+  await goal.finishButton.click();
+
+  /*
+    마치면 진행 중인 목표가 없어져 새 목표를 정하는 시트가 열린다.
+    닫고 나면 빈 상태이고, 마친 것은 아래 지난 목표에 남는다.
+  */
+  await goal.form.waitOpen();
+  await goal.form.dialog.getByRole('button', { name: '닫기' }).click();
+  await goal.form.waitClosed();
+
+  await expect(goal.emptyTitle).toBeVisible();
+  await expect(goal.pastRow(TITLE)).toContainText(formatCurrency(TARGET));
+
+  // 홈에서도 축하가 걷힌다. 할 일이 끝났으니 남을 이유가 없다.
+  // 목표는 관리 탭 아래 하위 화면이라 탭바가 없다. 홈으로 곧장 간다.
+  await home.open();
+  await home.waitReady();
+  await expect(home.goal.doneLink).toHaveCount(0);
+  await expect(home.goal.link).toHaveCount(0);
+});
+
+test('마친 뒤에 새 목표를 정할 수 있다', async ({ goal, prep }) => {
+  const goalId = await prep.setGoal({ title: TITLE, targetAmount: TARGET });
+  await prep.addContribution(goalId, { amount: TARGET, on: toLedgerDate(new Date()) });
+
+  await goal.open();
+  await goal.waitReady();
+  await goal.finishButton.click();
+  await goal.form.waitOpen();
+
+  // 진행 중인 목표가 이미 있다며 서버가 막으면 여기서 빨개진다.
+  await goal.form.fill({ title: '노트북', amount: 2_000_000 });
+  await goal.form.save();
+  await goal.form.waitClosed();
+
+  await expect(goal.title).toHaveText('노트북');
+  // 새로 정한 것과 마친 것이 함께 있다. 하나가 다른 하나를 밀어내지 않는다.
+  await expect(goal.pastRow(TITLE)).toBeVisible();
+});
+
+test('아직 다 못 모았으면 마치는 자리가 아예 없다', async ({ goal, prep }) => {
+  const goalId = await prep.setGoal({ title: TITLE, targetAmount: TARGET });
+  await prep.addContribution(goalId, { amount: TARGET - 1, on: toLedgerDate(new Date()) });
+
+  await goal.open();
+  await goal.waitReady();
+
+  await expect(goal.done).toHaveCount(0);
+  await expect(goal.finishButton).toHaveCount(0);
+  // 마친 것이 하나도 없으면 지난 목표 자리도 안 그린다. 못 한 일을 하나 더 만들지 않는다.
+  await expect(goal.past).toHaveCount(0);
 });

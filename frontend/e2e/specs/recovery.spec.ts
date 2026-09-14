@@ -152,3 +152,41 @@ test('이틀만 비면 복구 카드가 뜨지 않는다', async ({ home, prep }
   await expect(home.hero.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 쓴 돈`);
   await expect(home.hero.monthSpent).toBeVisible();
 });
+
+test('복구 카드를 닫으면 사라지고, 다시 열어도 안 뜬다', async ({ home, prep }) => {
+  await prep.addExpense({ amount: 12_000, daysAgo: AWAY_DAYS });
+
+  await home.open();
+  await home.waitReady();
+  await expect(home.recovery.card).toBeVisible();
+
+  await home.recovery.closeButton.click();
+  await expect(home.recovery.card).toHaveCount(0);
+
+  // 카드만 사라지고 나머지는 그대로다. 닫기가 홈을 망가뜨리지 않는다.
+  await expect(home.recordButton).toBeVisible();
+
+  // 표시가 기기에 남는다. 다시 들어와도 같은 상황이면 안 뜬다.
+  await home.open();
+  await home.waitReady();
+  await expect(home.recovery.card).toHaveCount(0);
+});
+
+test('닫은 뒤 다시 적고 또 비면 복구 카드가 새로 뜬다', async ({ home, prep }) => {
+  await prep.addExpense({ amount: 12_000, daysAgo: AWAY_DAYS });
+
+  await home.open();
+  await home.waitReady();
+  await home.recovery.closeButton.click();
+  await expect(home.recovery.card).toHaveCount(0);
+
+  /*
+    사흘 전에 한 건 더 적는다. 마지막으로 적은 날이 달라졌으니 「이 상황」이 아니다.
+    여전히 사흘째라 카드가 뜰 조건은 그대로이고, 닫아 둔 것만 풀려야 한다.
+  */
+  await prep.addExpense({ amount: 5_000, daysAgo: 3 });
+
+  await home.open();
+  await home.waitReady();
+  await expect(home.recovery.card).toBeVisible();
+});

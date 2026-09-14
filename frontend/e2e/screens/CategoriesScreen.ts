@@ -378,6 +378,16 @@ class CategorySheet {
     return this.root.getByRole('alert');
   }
 
+  /**
+   * 저장이 왜 회색인지 버튼 곁에서 말하는 한 줄.
+   *
+   * 이유가 위쪽 격자 아래에만 있으면, 저장만 보고 있는 사람에게는 앱이 고장 난 것으로
+   * 읽힌다. 아이콘 격자를 스크롤한 뒤에도 이 줄은 버튼과 함께 보인다.
+   */
+  get saveBlockedNotice(): Locator {
+    return this.root.getByText('이모지가 아닌 글자가 들어 있어요', { exact: false });
+  }
+
   /** 사진 탭의 두 버튼. 실기기 다리가 없는 e2e 에서는 목 브릿지가 답한다. */
   get albumButton(): Locator {
     return this.root.getByRole('button', { name: '앨범에서 고르기', exact: true });

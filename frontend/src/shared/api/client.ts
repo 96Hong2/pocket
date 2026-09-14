@@ -24,6 +24,7 @@ import type {
   CategoryUpdate,
   GoalContributionCreate,
   GoalCreate,
+  GoalHistoryOut,
   GoalPatch,
   GoalStateOut,
   ImportBatchOut,
@@ -173,7 +174,13 @@ export interface ApiClient extends Transport {
   updateCategory(id: string, body: CategoryUpdate, options?: CallOptions): Promise<CategoryOut>;
   /** 내 카테고리 지우기. 그 카테고리를 쓰던 거래는 남는다. 두 번 눌러도 204 다. */
   deleteCategory(id: string, options?: CallOptions): Promise<void>;
-  /** 칩이 설 순서. 화면이 보고 있는 목록 전체를 그대로 보낸다. */
+  /**
+   * 칩이 설 순서. 화면이 보고 있는 목록 전체를 그대로 보낸다.
+   *
+   * **문서가 사라져도 끝까지 보낸다.** 화살표를 누르고 곧바로 화면을 떠나거나 앱을 닫는
+   * 것이 오히려 흔한 손짓인데, 보통 요청은 그때 브라우저가 끊어 방금 옮긴 순서를 잃는다.
+   * 순서 배열은 작아 `keepalive` 의 64KB 상한에 걸리지 않는다.
+   */
   saveCategoryOrder(ids: string[], options?: CallOptions): Promise<void>;
   getBudget(params?: MonthParams, options?: CallOptions): Promise<BudgetOut>;
   /**
@@ -270,6 +277,15 @@ export interface ApiClient extends Transport {
    * `target_date: null` 을 보내면 기한이 없어진다. 필드를 빼는 것과 다르다.
    */
   updateGoal(goalId: string, body: GoalPatch, options?: CallOptions): Promise<GoalStateOut>;
+  /**
+   * 다 모은 목표를 마친다. 마치고 나면 새 목표를 만들 수 있다.
+   *
+   * 지우기와 다르다. 마친 것은 「지난 목표」에 남고, 지운 것은 어디에도 안 남는다.
+   * 아직 다 못 모았으면 422 `GOAL_NOT_ACHIEVED` 다.
+   */
+  finishGoal(goalId: string, options?: CallOptions): Promise<GoalStateOut>;
+  /** 다 모으고 마친 목표들. 접은 것은 오지 않는다. */
+  getGoalHistory(options?: CallOptions): Promise<GoalHistoryOut>;
   /** 목표 접기. 접고 나면 새 목표를 만들 수 있다. 없어도 404 라 두 번 부르지 않는다. */
   deleteGoal(goalId: string, options?: CallOptions): Promise<void>;
   /** 모은 돈 한 번 남기기. 응답은 조회와 같은 모양이라 그대로 캐시에 넣는다. */
@@ -410,6 +426,7 @@ export function createApiClient(options: TransportOptions): ApiClient {
         path: PATHS.categoryOrder,
         body: { ids },
         signal: call?.signal,
+        keepalive: true,
       });
     },
 
@@ -635,6 +652,22 @@ export function createApiClient(options: TransportOptions): ApiClient {
         method: 'PATCH',
         path: goalPath(goalId),
         body,
+        signal: call?.signal,
+      });
+    },
+
+    finishGoal(goalId, call) {
+      return transport.request<GoalStateOut>({
+        method: 'POST',
+        path: `${goalPath(goalId)}/finish`,
+        signal: call?.signal,
+      });
+    },
+
+    getGoalHistory(call) {
+      return transport.request<GoalHistoryOut>({
+        method: 'GET',
+        path: `${PATHS.goals}/history`,
         signal: call?.signal,
       });
     },

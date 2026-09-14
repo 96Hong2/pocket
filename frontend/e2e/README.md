@@ -20,6 +20,7 @@ e2e/
     fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다. spec 은 여기서 시작한다
   fixtures/    테스트가 쓰는 파일. 지금은 사진용 PNG 한 장(capture.png). 캡처와 영수증이 함께 쓴다
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
+    OnboardingScreen 처음 안내. `showOnboarding` 을 켠 spec 에서만 실제로 뜬다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
     HomeScreen       홈. 안쪽을 hero·today·budget·goal·closing·ads·addToHome·recovery 로 나눠 들고 있다
                      addToHome 은 첫 기록 뒤 한 번만 뜨는 카드다. 기기에 표시를 남기므로
@@ -32,6 +33,9 @@ e2e/
                      분류 칩은 앞자리 `QUICK_LIMIT`(11)개까지다. 그 뒤와 「새 분류」는 「더 보기」 안에 있어
                      `pickCategory`·`openNewCategory` 가 필요할 때 알아서 한 번 펼친다
                      결제 수단은 저장 **뒤** 화면(feedback)에 있다. input 쪽 `paymentGroup` 은 없다는 것을 단언하는 자리다
+                     읽어 온 것이 있는 채로 닫으려 하면 `leave` 확인이 먼저 뜬다. 손잡이·딤·Esc·미는 손짓이
+                     모두 그 확인을 지난다. 검토 화면의 아래 버튼은 「다시 쓰기」가 아니라 `cancelButton` 이고,
+                     되돌리기(`restartButton`·`rewriteButton`)는 한 건도 못 읽었을 때만 선다
     ReportScreen     리포트 탭. 총액·도넛·조각 목록·6개월 흐름·월간 결산
                      closing 은 결산 입구와 오버레이다. 입구는 버튼, 오버레이는 다이얼로그라
                      둘 다 이름으로 잡고, 안쪽의 점·줄만 testid 를 쓴다
@@ -215,6 +219,12 @@ base64 로 만든 data URL 이고, `addInitScript` 인자는 모든 문서마다
 
 개발 DB 에서 **내 데이터만** 지우려면 `make reset-dev-data` 다. 스키마와 기본 카테고리는 남는다.
 `TRUNCATE users CASCADE` 를 쓰면 안 된다. 테이블 단위로 돌아 **전역 기본 카테고리 14개까지 지운다.**
+
+## 처음 안내와 홈 화면 추가 안내를 꺼 두고 시작한다
+
+**처음 안내(온보딩)는 화면을 통째로 덮는다.** 켜 둔 채로는 모든 테스트가 첫 화면에서 막힌다.
+그래서 `support/fixtures.ts` 가 「이미 봤다」 표시를 미리 넣는다. 그 화면을 확인하는
+`specs/onboarding.spec.ts` 만 `test.use({ showOnboarding: true })` 로 켠다.
 
 ## 홈 화면 추가 안내를 꺼 두고 시작한다
 
