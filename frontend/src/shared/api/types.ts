@@ -127,6 +127,11 @@ export type GoalStatus = Schemas['GoalStatus'];
 
 // ── 설정 ──────────────────────────────────────
 export type PreferencesOut = Schemas['PreferencesOut'];
+export type MeOut = Schemas['MeOut'];
+export type EmailVerifyOut = Schemas['EmailVerifyOut'];
+export type ProfilePatch = Schemas['ProfilePatch'];
+export type AgeBand = Schemas['AgeBand'];
+export type Gender = Schemas['Gender'];
 export type PreferencesPatch = Schemas['PreferencesPatch'];
 /** 홈 맨 위에 무엇을 크게 보여줄지. */
 export type HomeHero = Schemas['HomeHero'];

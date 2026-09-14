@@ -184,6 +184,29 @@ provider 로 나간다.** 감출 것이 아니라 알고 여는 구멍이다.
 
 ---
 
+## 4.5 로그인 코드 메일 (SMTP)
+
+이메일로 지켜 두기는 여섯 자리 코드를 메일로 보낸다. 보낼 수단이 없으면 서버가 `email_login_available: false`
+로 답하고 화면은 입구를 「준비 중」 으로 잠근다. **키가 없어도 앱은 그대로 돈다.**
+
+| 변수 | 어디서 | 비고 |
+| --- | --- | --- |
+| `SMTP_HOST` · `SMTP_PORT` | 메일 서비스 | Gmail 이면 `smtp.gmail.com` · `587`. 비면 로그 스텁(로컬 전용) |
+| `SMTP_USER` · `SMTP_PASSWORD` | 메일 계정 | Gmail 은 **앱 비밀번호**(2단계 인증 뒤 발급). 비밀번호는 Secret Manager `pocket-smtp-password` |
+| `LOGIN_EMAIL_FROM` | 보내는 사람 | 비면 `SMTP_USER` |
+
+Cloud Run 에 붙이는 법. 시크릿을 한 번 만들어 두고, 배포 스크립트에 호스트·계정을 환경변수로 준다.
+스크립트가 시크릿이 있을 때만 붙인다. **`gcloud run services update` 로 손으로 붙이지 않는다.**
+배포 스크립트의 `--set-secrets` 가 통째로 갈아 끼워 다음 배포에 떨어진다.
+
+```bash
+printf '%s' '<앱 비밀번호>' | gcloud secrets create pocket-smtp-password --data-file=-
+POCKET_SMTP_HOST=smtp.gmail.com POCKET_SMTP_USER=<메일> ./scripts/deploy-cloudrun.sh
+```
+
+로컬에서는 아무것도 안 넣는다. 스텁이 「보낸」 코드를 `GET /api/v1/account/email/peek?email=` 로 읽는다.
+그 경로는 `ENVIRONMENT=local` 이고 SMTP 가 없을 때만 열린다.
+
 ## 5. 광고 ID
 
 - 개발·테스트는 공식 테스트 ID `ait-ad-test-banner-id` 를 쓴다. 이건 공개 상수라 비밀이 아니다.

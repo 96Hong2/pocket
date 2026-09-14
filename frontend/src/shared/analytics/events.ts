@@ -80,6 +80,15 @@ export const EVENTS = {
   /** 홈 화면에 추가하라는 안내의 결과. 실제 추가 여부는 앱이 알 수 없다. */
   homeAddResult: 'home_add_result',
   /**
+   * 이메일 연결의 한 걸음. 코드를 보냈나, 붙었나, 다른 기기로 옮겨 갔나, 어디서 막혔나.
+   *
+   * 로그인 화면이 사람을 내보내는 자리가 되면 안 된다. `sent` 대비 `linked`·`switched`·
+   * `merged` 의 비율이 곧 이 흐름의 성적표다. 이메일 주소·코드는 싣지 않는다.
+   */
+  accountLinkResult: 'account_link_result',
+  /** 연령대·성별을 답했나 건너뛰었나. 답했으면 그 갈래까지. 분석용 표본이 얼마나 되나. */
+  profileResult: 'profile_result',
+  /**
    * 처음 안내를 끝냈나 건너뛰었나, 그리고 어느 장에서.
    *
    * 이 앱은 배우기 싫은 사람을 위한 것이라 **안내가 길면 그 자체로 실패다.**

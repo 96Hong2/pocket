@@ -62,6 +62,12 @@ class ErrorCode(StrEnum):
     GOAL_NOT_ACHIEVED = "GOAL_NOT_ACHIEVED"
     PERIOD_CLOSED = "PERIOD_CLOSED"
     USAGE_LIMIT = "USAGE_LIMIT"
+    # 로그인 코드가 틀렸거나(틀린 횟수 상한 포함) 없다. 다시 적으면 된다.
+    LOGIN_CODE_INVALID = "LOGIN_CODE_INVALID"
+    # 코드가 만료됐다. 새로 받아야 한다. 틀린 것과 조언이 달라 따로 둔다.
+    LOGIN_CODE_EXPIRED = "LOGIN_CODE_EXPIRED"
+    # 메일을 보낼 수단이 없다(운영에 SMTP 가 없다). 사용자가 할 수 있는 일이 없다.
+    EMAIL_LOGIN_UNAVAILABLE = "EMAIL_LOGIN_UNAVAILABLE"
     PARSE_UNAVAILABLE = "PARSE_UNAVAILABLE"
     HTTP_ERROR = "HTTP_ERROR"
     INTERNAL_ERROR = "INTERNAL_ERROR"

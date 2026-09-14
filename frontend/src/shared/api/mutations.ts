@@ -36,8 +36,10 @@ import type {
   ImportBatchOut,
   ImportCandidatePatch,
   ImportCommitOut,
+  MeOut,
   MerchantRuleCreate,
   PreferencesPatch,
+  ProfilePatch,
   TransactionCreate,
   TransactionUpdate,
 } from './types';
@@ -277,6 +279,49 @@ export function useResetAccountData() {
     onSuccess: async () => {
       queryClient.removeQueries();
       await queryClient.invalidateQueries();
+    },
+  });
+}
+
+/** 로그인 코드 보내기. 화면은 보낸 뒤 코드 칸을 연다. */
+export function useStartEmailLogin() {
+  const client = useApiClient();
+  return useMutation({ mutationFn: (email: string) => client.startEmailLogin(email) });
+}
+
+/**
+ * 코드 확인.
+ *
+ * 다른 사람에게 옮겨 갔을 수 있다(`switched`·`merged`). 그러면 지금 캐시는 전부 남의 것이라
+ * 통째로 비운다. 붙이기만 한 것(`linked`)도 me 는 바뀌었으니 같이 새로 받는다.
+ */
+export function useVerifyEmailLogin() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { email: string; code: string }) =>
+      client.verifyEmailLogin(input.email, input.code),
+    onSuccess: (result) => {
+      if (result.result === 'linked') {
+        queryClient.setQueryData<MeOut>(queryKeys.me(), result.me);
+        return;
+      }
+      queryClient.removeQueries();
+      void queryClient.invalidateQueries();
+    },
+  });
+}
+
+/** 연령대·성별. 응답이 고친 뒤 전체 계정이라 그대로 캐시에 넣는다. */
+export function useSaveProfile() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: ProfilePatch) => client.saveProfile(body),
+    onSuccess: (me) => {
+      queryClient.setQueryData<MeOut>(queryKeys.me(), me);
     },
   });
 }

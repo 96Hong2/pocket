@@ -26,9 +26,10 @@ from app.models.transaction import (
     TransactionSource,
     TransactionType,
 )
-from app.models.user import User
+from app.models.user import AgeBand, Gender, LoginCode, User, UserDevice
 
 __all__ = [
+    "AgeBand",
     "AssetGroup",
     "AssetItem",
     "AssetSnapshot",
@@ -38,6 +39,7 @@ __all__ = [
     "Category",
     "CategoryBudget",
     "CategoryKind",
+    "Gender",
     "Goal",
     "GoalContribution",
     "GoalContributionSource",
@@ -46,6 +48,7 @@ __all__ = [
     "ImportBatch",
     "ImportBatchStatus",
     "ImportCandidate",
+    "LoginCode",
     "MerchantRule",
     "MerchantRuleSource",
     "NotificationFrequency",
@@ -57,5 +60,6 @@ __all__ = [
     "TransactionSource",
     "TransactionType",
     "User",
+    "UserDevice",
     "UserPreference",
 ]

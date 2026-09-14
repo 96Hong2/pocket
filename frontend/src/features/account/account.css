@@ -1,0 +1,215 @@
+/*
+  내 계정. 색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
+  카드·시트·버튼은 shared/ui 가 그리고, 여기에는 이 화면의 배치와 입력칸·칩만 둔다.
+*/
+
+@layer components {
+  .account {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .account-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .account-card__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .account-card__text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .account-card__title {
+    margin: 0;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .account-card__lead {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+    color: var(--color-muted);
+    word-break: keep-all;
+  }
+
+  .account-card__email {
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+    overflow-wrap: anywhere;
+  }
+
+  .account-card__note {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  .account-card__aside {
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-muted);
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  /* 연령대·성별 한 줄. 눌러서 고친다. */
+  .account-card__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    margin: 0 -6px;
+    padding: 0 6px;
+    border: 0;
+    border-top: 1px solid var(--color-divider);
+    background: none;
+    font: inherit;
+    text-align: left;
+  }
+
+  .account-card__row-label {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .account-card__row-value {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  /* ── 시트 안 폼 ─────────────────────────────────── */
+
+  .account-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .account-form__lead {
+    margin: 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.55;
+    color: var(--color-ink);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .account-form__label {
+    padding: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .account-form__group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+
+  .account-form__input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 48px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    outline: none;
+    font-family: inherit;
+    /* 16px 아래로 두면 사파리가 칸을 누를 때 화면을 확대한다. */
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .account-form__input:focus {
+    border-color: var(--color-sage-700);
+  }
+
+  .account-form__input::placeholder {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-placeholder);
+  }
+
+  /* 코드 칸. 숫자 여섯이 한눈에 세어지게 자간을 벌린다. */
+  .account-form__input--code {
+    font-size: 24px;
+    font-weight: var(--font-weight-extrabold);
+    letter-spacing: 8px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .account-form__notice {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-expense);
+  }
+
+  /* 두 번째 길. 「다시 보내기」·「건너뛰기」. 저장 아래 한 단 낮게. */
+  .account-form__again {
+    min-height: 44px;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .account-form__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .account-chip {
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .account-chip--on {
+    border-color: var(--color-sage-700);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+}

@@ -9,6 +9,7 @@ export const ROUTES = {
   categories: '/manage/categories',
   settings: '/settings',
   privacy: '/settings/privacy',
+  account: '/settings/account',
   notifications: '/settings/notifications',
 } as const;
 
@@ -32,6 +33,7 @@ export const PARENT_OF: Record<string, string> = {
   [ROUTES.categories]: ROUTES.manage,
   [ROUTES.settings]: ROUTES.manage,
   [ROUTES.privacy]: ROUTES.settings,
+  [ROUTES.account]: ROUTES.settings,
   [ROUTES.notifications]: ROUTES.settings,
   [DEMO_PATH]: ROUTES.home,
 };
@@ -47,6 +49,7 @@ export const SCREEN_TITLES: Record<string, string> = {
   [ROUTES.categories]: '카테고리 관리',
   [ROUTES.settings]: '앱 설정',
   [ROUTES.privacy]: '개인정보처리방침',
+  [ROUTES.account]: '내 계정',
   [ROUTES.notifications]: '알림 설정',
   [DEMO_PATH]: '공용 UI',
 };

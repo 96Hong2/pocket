@@ -345,6 +345,31 @@ export class PrepApi {
   }
 
   /** 기본 카테고리 목록. 이름으로 id 를 찾을 때 쓴다. */
+  /** 로컬 스텁이 마지막으로 보낸 로그인 코드. 메일함 대신이다. */
+  async peekLoginCode(email: string): Promise<string> {
+    const response = await this.context.get(
+      `/api/v1/account/email/peek?email=${encodeURIComponent(email)}`,
+    );
+    expectOk(response.status(), await response.text(), '로그인 코드를 읽지 못했다');
+    const body = (await response.json()) as { code: string };
+    return body.code;
+  }
+
+  /** 코드를 보내 둔다. 다른 기기가 먼저 이메일을 붙여 둔 상태를 만들 때 쓴다. */
+  async startEmailLogin(email: string): Promise<void> {
+    const response = await this.context.post('/api/v1/account/email/start', {
+      data: { email },
+    });
+    expectOk(response.status(), await response.text(), '로그인 코드를 보내지 못했다');
+  }
+
+  async verifyEmailLogin(email: string, code: string): Promise<void> {
+    const response = await this.context.post('/api/v1/account/email/verify', {
+      data: { email, code },
+    });
+    expectOk(response.status(), await response.text(), '이메일을 붙이지 못했다');
+  }
+
   async categoryIdByName(name: string): Promise<string> {
     const response = await this.context.get('/api/v1/categories');
     const body = (await response.json()) as { items: { id: string; name: string }[] };

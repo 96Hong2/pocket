@@ -31,6 +31,12 @@ export function PrivacyNotice({ adSlot }: { adSlot?: ReactNode }) {
         <Card padding="list">
           <ul className="link-rows">
             <li>
+              <Link className="link-row" to={ROUTES.account}>
+                <CategoryAvatar icon="57_smartphone" size={48} />
+                <span className="link-row__label">내 계정</span>
+              </Link>
+            </li>
+            <li>
               <Link className="link-row" to={ROUTES.notifications}>
                 <CategoryAvatar icon="30_bell" size={48} />
                 <span className="link-row__label">알림 설정</span>

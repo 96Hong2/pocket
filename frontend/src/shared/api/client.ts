@@ -25,6 +25,9 @@ import type {
   GoalContributionCreate,
   GoalCreate,
   GoalHistoryOut,
+  EmailVerifyOut,
+  MeOut,
+  ProfilePatch,
   GoalPatch,
   GoalStateOut,
   ImportBatchOut,
@@ -109,6 +112,10 @@ const PATHS = {
   goals: '/api/v1/goals',
   categoryOrder: '/api/v1/categories/order',
   accountReset: '/api/v1/account/reset',
+  accountMe: '/api/v1/account/me',
+  accountEmailStart: '/api/v1/account/email/start',
+  accountEmailVerify: '/api/v1/account/email/verify',
+  accountProfile: '/api/v1/account/profile',
 } as const;
 
 function transactionPath(id: string): string {
@@ -218,6 +225,14 @@ export interface ApiClient extends Transport {
    * 잘못 만들어진 요청 하나가 몇 달치를 지우지 못하게 한 겹 더 둔다.
    */
   resetAccountData(options?: CallOptions): Promise<void>;
+  /** 내 계정. 연결 전에는 email 이 null 이고 그것이 정상이다. */
+  getMe(options?: CallOptions): Promise<MeOut>;
+  /** 여섯 자리 코드를 메일로 보낸다. 보낼 수단이 없으면 503 `EMAIL_LOGIN_UNAVAILABLE`. */
+  startEmailLogin(email: string, options?: CallOptions): Promise<void>;
+  /** 코드를 확인하고 이 기기를 그 이메일의 사람에게 붙인다. */
+  verifyEmailLogin(email: string, code: string, options?: CallOptions): Promise<EmailVerifyOut>;
+  /** 연령대·성별. 빈 본문을 보내면 건너뛴 것으로 남는다. */
+  saveProfile(body: ProfilePatch, options?: CallOptions): Promise<MeOut>;
   getPreferences(options?: CallOptions): Promise<PreferencesOut>;
   /** 보낸 필드만 고친다. 응답은 고친 뒤 전체 설정이다. */
   savePreferences(body: PreferencesPatch, options?: CallOptions): Promise<PreferencesOut>;
@@ -499,6 +514,41 @@ export function createApiClient(options: TransportOptions): ApiClient {
         method: 'DELETE',
         path: categoryBudgetPath(categoryId),
         query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
+    getMe(call) {
+      return transport.request<MeOut>({
+        method: 'GET',
+        path: PATHS.accountMe,
+        signal: call?.signal,
+      });
+    },
+
+    startEmailLogin(email, call) {
+      return transport.request<void>({
+        method: 'POST',
+        path: PATHS.accountEmailStart,
+        body: { email },
+        signal: call?.signal,
+      });
+    },
+
+    verifyEmailLogin(email, code, call) {
+      return transport.request<EmailVerifyOut>({
+        method: 'POST',
+        path: PATHS.accountEmailVerify,
+        body: { email, code },
+        signal: call?.signal,
+      });
+    },
+
+    saveProfile(body, call) {
+      return transport.request<MeOut>({
+        method: 'PATCH',
+        path: PATHS.accountProfile,
+        body,
         signal: call?.signal,
       });
     },

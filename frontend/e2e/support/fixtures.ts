@@ -1,5 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 
+import { AccountScreen } from '../screens/AccountScreen';
 import { AppShell } from '../screens/AppShell';
 import { AssetsScreen } from '../screens/AssetsScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
@@ -35,6 +36,8 @@ interface PocketFixtures {
    */
   showOnboarding: boolean;
   appShell: AppShell;
+  /** 내 계정. 앱 설정 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
+  account: AccountScreen;
   home: HomeScreen;
   recordSheet: RecordSheet;
   /** 월간 달력. 달력·선택한 날 목록·검색·수정 시트를 한 화면이 가진다. */
@@ -72,6 +75,10 @@ export const test = base.extend<PocketFixtures>({
 
   appShell: async ({ page }, use) => {
     await use(new AppShell(page));
+  },
+
+  account: async ({ page }, use) => {
+    await use(new AccountScreen(page));
   },
 
   home: async ({ page }, use) => {

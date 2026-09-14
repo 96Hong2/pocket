@@ -30,8 +30,14 @@ function makeClient() {
 }
 
 const IMAGE_CALLS = [
-  { label: '캡처', run: (client: ReturnType<typeof makeClient>) => client.analyzeCapture(DATA_URI) },
-  { label: '영수증', run: (client: ReturnType<typeof makeClient>) => client.analyzeReceipt(DATA_URI) },
+  {
+    label: '캡처',
+    run: (client: ReturnType<typeof makeClient>) => client.analyzeCapture(DATA_URI),
+  },
+  {
+    label: '영수증',
+    run: (client: ReturnType<typeof makeClient>) => client.analyzeReceipt(DATA_URI),
+  },
 ];
 
 describe('요청별 제한 시간', () => {
