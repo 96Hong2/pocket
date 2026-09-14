@@ -43,6 +43,8 @@ export const queryKeys = {
    * 홈이 설정을 받을 때마다 안 쓸 알림 값까지 받는다.
    */
   notificationSettings: () => [ROOT, 'notification-settings'] as const,
+  /** 내 계정. 이메일 연결과 연령대·성별. */
+  me: () => [ROOT, 'me'] as const,
 
   /**
    * 자산 목록과 순자산. 달과 무관하다.

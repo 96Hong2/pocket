@@ -169,6 +169,7 @@ test('예산 시작일 자리가 없고, 하위 화면은 둘뿐이다', async (
   // 목록을 통째로 못 박는다. 입구가 하나 늘거나 순서가 바뀌면 이 줄이 먼저 깨진다.
   // 알림 설정 화면 자체는 specs/notifications.spec.ts 가 본다.
   await expect(appShell.subScreenLinks('설정 하위 화면')).toHaveText([
+    '내 계정',
     '알림 설정',
     '개인정보처리방침',
   ]);

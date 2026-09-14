@@ -25,14 +25,16 @@ from app.integrations.apps_in_toss.anon_key import (
     create_anon_key_verifier,
 )
 from app.integrations.llm import LlmStructuredClient, get_escalation_client, get_llm_client
-from app.models import User, UserPreference
+from app.models import User, UserDevice, UserPreference
 
 __all__ = [
+    "AppSettings",
     "CurrentIdentity",
     "CurrentUser",
     "DbSession",
     "EscalationLlmClient",
     "LlmClient",
+    "anon_key_hash",
     "get_current_user",
     "get_verifier",
 ]
@@ -74,9 +76,12 @@ def get_verifier(settings: AppSettings) -> AnonKeyVerifier:
     )
 
 
-def _hash(anon_key: str) -> str:
+def anon_key_hash(anon_key: str) -> str:
     """식별키 원문을 저장하지 않고 해시만 남긴다."""
     return hashlib.sha256(anon_key.encode("utf-8")).hexdigest()
+
+
+_hash = anon_key_hash
 
 
 async def get_verified_identity(
@@ -94,7 +99,17 @@ def get_current_user(
     identity: Annotated[VerifiedIdentity, Depends(get_verified_identity)],
 ) -> User:
     key_hash = _hash(identity.anon_key)
-    user = session.scalar(select(User).where(User.anon_key_hash == key_hash))
+    # 이메일로 확인해 다른 사람에게 이어 둔 기기가 먼저다. 그 줄이 있으면 그 사람이다.
+    linked = session.scalar(
+        select(User)
+        .join(UserDevice, UserDevice.user_id == User.id)
+        .where(UserDevice.anon_key_hash == key_hash, User.deleted_at.is_(None))
+    )
+    if linked is not None:
+        return linked
+    user = session.scalar(
+        select(User).where(User.anon_key_hash == key_hash, User.deleted_at.is_(None))
+    )
     if user is not None:
         return user
 

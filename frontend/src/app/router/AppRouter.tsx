@@ -19,6 +19,7 @@ const CategoriesPage = lazy(() => import('../../pages/CategoriesPage'));
 const SettingsPage = lazy(() => import('../../pages/SettingsPage'));
 const PrivacyPage = lazy(() => import('../../pages/PrivacyPage'));
 const NotificationSettingsPage = lazy(() => import('../../pages/NotificationSettingsPage'));
+const AccountPage = lazy(() => import('../../pages/AccountPage'));
 
 export function AppRouter() {
   return (
@@ -36,6 +37,7 @@ export function AppRouter() {
           <Route path={ROUTES.settings} element={<SettingsPage />} />
           <Route path={ROUTES.privacy} element={<PrivacyPage />} />
           <Route path={ROUTES.notifications} element={<NotificationSettingsPage />} />
+          <Route path={ROUTES.account} element={<AccountPage />} />
           {DemoGallery != null && <Route path={DEMO_PATH} element={<DemoGallery />} />}
           <Route path="*" element={<NotFoundPage />} />
         </Route>

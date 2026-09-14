@@ -249,6 +249,20 @@ deploy_args=(
 # provider 를 바꿀 때 환경변수 한 줄만 고치면 된다.
 [[ "$HAVE_GEMINI" == "1" ]] && secrets+=",GEMINI_API_KEY=pocket-gemini-api-key:latest"
 [[ "$HAVE_OPENAI" == "1" ]] && secrets+=",OPENAI_API_KEY=pocket-openai-api-key:latest"
+# 로그인 코드 메일. 시크릿(pocket-smtp-password)과 호스트·계정이 있을 때만 붙인다(SECRETS.md §4.5).
+# --set-secrets 는 통째로 갈아 끼우므로, 여기서 안 붙이면 손으로 붙여 둔 SMTP 가 다음 배포에 떨어진다.
+SMTP_HOST="${POCKET_SMTP_HOST:-}"
+SMTP_USER="${POCKET_SMTP_USER:-}"
+if [[ -n "$SMTP_HOST" && -n "$SMTP_USER" ]] \
+  && gcloud secrets describe pocket-smtp-password --project="$PROJECT" >/dev/null 2>&1; then
+  secrets+=",SMTP_PASSWORD=pocket-smtp-password:latest"
+  deploy_args+=(--set-env-vars=SMTP_HOST="$SMTP_HOST")
+  deploy_args+=(--set-env-vars=SMTP_PORT="${POCKET_SMTP_PORT:-587}")
+  deploy_args+=(--set-env-vars=SMTP_USER="$SMTP_USER")
+  deploy_args+=(--set-env-vars=LOGIN_EMAIL_FROM="${POCKET_LOGIN_EMAIL_FROM:-$SMTP_USER}")
+else
+  echo "  SMTP 는 안 붙인다(POCKET_SMTP_HOST·POCKET_SMTP_USER·시크릿 pocket-smtp-password 가 다 있어야 한다). 이메일 연결은 「준비 중」으로 잠긴다"
+fi
 if [[ -n "$LLM_PROVIDER" ]]; then
   deploy_args+=(--set-env-vars=LLM_PROVIDER="$LLM_PROVIDER")
 fi

@@ -87,6 +87,27 @@ class Settings(BaseSettings):
     # 한 번 부르는 데 기다리는 시간. 한 번 재시도하므로 최악은 두 배다.
     llm_timeout_seconds: float = 20.0
 
+    # 로그인 코드를 실어 보낼 메일. SMTP 호스트가 비면 발송기가 로그 스텁으로 돈다.
+    # local 에서는 그것으로 화면을 끝까지 눌러 볼 수 있고(코드를 /account/email/peek 로 읽는다),
+    # 운영에서는 「이메일 연결을 지금은 못 쓴다」 로 화면이 답한다. 조용히 안 보내지 않는다.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: SecretStr | None = None
+    # 보내는 사람. 비우면 smtp_user 를 쓴다.
+    login_email_from: str | None = None
+    # 코드가 사는 시간과 한 코드에 틀려도 되는 횟수.
+    login_code_ttl_minutes: int = 10
+    login_code_max_attempts: int = 5
+    # 한 이메일에 이 시간 동안 이 횟수까지만 보낸다. 남의 메일함을 코드로 채우지 못하게.
+    login_code_send_limit: int = 3
+    login_code_send_window_minutes: int = 10
+
+    @property
+    def email_login_available(self) -> bool:
+        """이메일 연결을 쓸 수 있나. 로컬은 스텁으로 늘 되고, 그 밖에서는 SMTP 가 있어야 한다."""
+        return self.environment == "local" or bool(self.smtp_host)
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_cors_origins(cls, value: object) -> object:

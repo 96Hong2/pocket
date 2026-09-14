@@ -17,6 +17,7 @@
 @import './features/reports/reports.css';
 @import './features/categories/categories.css';
 @import './features/settings/settings.css';
+@import './features/account/account.css';
 @import './features/assets/assets.css';
 @import './features/goals/goals.css';
 @import './features/notifications/notifications.css';

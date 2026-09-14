@@ -49,6 +49,19 @@ export function usePreferences() {
   });
 }
 
+/** 내 계정. 연결 전에는 email 이 null 이고 그것이 정상이다. */
+export function useMe() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.me(),
+    queryFn: ({ signal }) => client.getMe({ signal }),
+    enabled: isReady,
+    staleTime: 30 * 60_000,
+  });
+}
+
 /**
  * 기록 알림 설정.
  *

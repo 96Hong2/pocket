@@ -45,6 +45,7 @@ test('알림 설정은 앱 설정 아래에 있고, 처음 열면 꺼져 있다'
 
   await test.step('설정 하위 목록에서 알림 설정으로 들어간다', async () => {
     await expect(appShell.subScreenLinks('설정 하위 화면')).toHaveText([
+      '내 계정',
       '알림 설정',
       '개인정보처리방침',
     ]);
