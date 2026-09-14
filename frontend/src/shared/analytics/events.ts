@@ -63,6 +63,14 @@ export const EVENTS = {
   /** 예산을 저장했다. 처음인지 아닌지. */
   budgetSaved: 'budget_saved',
   /**
+   * 생활비 계산기를 열었다. 광고를 보고 열었나, 광고 없이 지나갔나.
+   *
+   * 광고가 안 떠서 그냥 연 비율이 높으면 광고 자리 사정이지 사람 탓이 아니다.
+   * 광고를 본 사람 중 예산까지 정한 비율(`budget_saved` 의 `from: 'calculator'`)이
+   * 이 부가기능이 5초를 받을 값어치가 있는지 말해 준다.
+   */
+  budgetCalcOpened: 'budget_calc_opened',
+  /**
    * 다 모은 목표를 마쳤다.
    *
    * 이 앱에서 사람이 끝까지 해낸 유일한 일이다. 다 모으고도 안 마친 사람이 많으면
@@ -122,10 +130,4 @@ export type ParseOutcome = 'ok' | 'partial' | 'empty' | 'failed';
 
 /** 고칠 수 있는 자리. 값이 아니라 어느 칸인지만 센다. */
 export type EditField =
-  | 'amount'
-  | 'date'
-  | 'category'
-  | 'type'
-  | 'merchant'
-  | 'payment_method'
-  | 'selection';
+  'amount' | 'date' | 'category' | 'type' | 'merchant' | 'payment_method' | 'selection';

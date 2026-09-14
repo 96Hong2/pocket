@@ -421,16 +421,38 @@
     box-shadow: var(--shadow-card);
   }
 
+  /* 줄이 곧 버튼이다. 누르면 시트로 펼쳐진다. */
   .goal-past__row {
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%;
     min-height: 56px;
     padding: 8px 16px;
+    border: 0;
+    background: none;
+    font: inherit;
+    text-align: left;
   }
 
-  .goal-past__row + .goal-past__row {
+  .goal-past__row:active {
+    background: var(--color-surface-sunken);
+  }
+
+  .goal-past__list > li + li .goal-past__row {
     border-top: 1px solid var(--color-divider);
+  }
+
+  /* 줄 끝의 화살표. 눌러서 펼칠 수 있다는 유일한 표시다. */
+  .goal-past__row::after {
+    content: '';
+    flex: none;
+    width: 7px;
+    height: 7px;
+    margin-left: 2px;
+    border-top: 1.5px solid var(--color-muted);
+    border-right: 1.5px solid var(--color-muted);
+    transform: rotate(45deg);
   }
 
   .goal-past__icon {
@@ -454,6 +476,135 @@
   .goal-past__amount {
     flex: none;
     font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── 지난 목표 자세히 ────────────────────────────── */
+
+  .goal-history {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .goal-history__head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 0 2px;
+  }
+
+  .goal-history__icon {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+  }
+
+  .goal-history__title {
+    margin: 4px 0 0;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+
+  .goal-history__sum {
+    margin: 0;
+    font-size: 26px;
+    font-weight: var(--font-weight-extrabold);
+    letter-spacing: -0.5px;
+    color: var(--color-sage-700);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .goal-history__period {
+    margin: 2px 0 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  .goal-history__facts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+  }
+
+  .goal-history__fact {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: var(--text-13);
+  }
+
+  .goal-history__fact dt {
+    color: var(--color-muted);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .goal-history__fact dd {
+    margin: 0;
+    color: var(--color-ink);
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .goal-history__months {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .goal-history__months-title {
+    margin: 0;
+    padding: 0 2px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .goal-history__list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .goal-history__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    font-size: var(--text-13);
+  }
+
+  .goal-history__row + .goal-history__row {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .goal-history__month {
+    flex: 1;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .goal-history__count {
+    color: var(--color-muted);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .goal-history__amount {
     font-weight: var(--font-weight-bold);
     color: var(--color-sage-700);
     font-variant-numeric: tabular-nums;

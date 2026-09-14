@@ -475,7 +475,9 @@ class MerchantRuleArea {
   }
 
   async remove(merchant: string): Promise<void> {
-    await this.row(merchant).getByRole('button', { name: /지우기$/ }).click();
+    await this.row(merchant)
+      .getByRole('button', { name: /지우기$/ })
+      .click();
     await expect(this.row(merchant)).toHaveCount(0);
   }
 }

@@ -78,6 +78,8 @@ export const TEST_IDS = {
   budgetCaption: 'budget-caption',
   /** 생활비 제안 카드의 목표저축. 목표가 이번 달에 요구하는 몫이다. */
   budgetSuggestSaving: 'budget-suggest-saving',
+  /** 생활비 계산기의 고정비 합계. 항목 여섯을 더한 값이라 이름이 없다. */
+  budgetCalcFixedSum: 'budget-calc-fixed-sum',
   /** 생활비 제안 카드의 제안액. 실수령 − 목표저축 − 고정비를 서버가 센 값이다. */
   budgetSuggestAmount: 'budget-suggest-amount',
   /** 카테고리 예산 한 줄. 어느 카테고리인지는 줄 안의 이름으로 가른다. */

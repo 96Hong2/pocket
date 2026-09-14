@@ -11,6 +11,7 @@ import {
   type BridgeEnvironment,
   type BridgePlatform,
   type CaptureOptions,
+  type FullScreenAdResult,
   type Identity,
   type KeyValueStore,
   type MiniAppBridge,
@@ -45,7 +46,12 @@ export interface MockScenario {
   /** 지원하지 않는다고 답할 기능들. */
   unsupported?: BridgeCapability[];
   ads?: 'ok' | 'noFill' | 'failed' | 'unsupported';
+  /** 전면 광고. `ok` 면 잠깐 덮었다가 「봤다」 로 끝난다. */
+  fullScreenAd?: 'ok' | 'failed' | 'unsupported';
 }
+
+/** 목 전면 광고가 화면을 덮고 있는 시간. 실광고처럼 몇 초를 끌지 않는다. */
+const MOCK_FULL_SCREEN_MS = 300;
 
 /** 1x1 투명 PNG. 실제 이미지 없이 파이프라인을 태우기 위한 자리표시자다. */
 const BLANK_PNG =
@@ -115,6 +121,24 @@ class MockAdsBridge implements AdsBridge {
     queueMicrotask(() => options.onRendered?.('mock-slot-1'));
     return { destroy: () => node.remove() };
   }
+
+  showFullScreen(): Promise<FullScreenAdResult> {
+    const mode = this.scenario.fullScreenAd ?? 'ok';
+    if (mode !== 'ok') return Promise.resolve('failed');
+
+    // 실광고처럼 화면을 통째로 덮는다. e2e 가 「광고가 떴다」 를 이 자리로 본다.
+    const node = document.createElement('div');
+    node.dataset.testid = 'mock-fullscreen-ad';
+    node.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#111;color:#fff';
+    node.textContent = '광고 (목)';
+    document.body.appendChild(node);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        node.remove();
+        resolve('watched');
+      }, MOCK_FULL_SCREEN_MS);
+    });
+  }
 }
 
 /** 브라우저·테스트용 로그 수집. 창에 쌓아 두고 e2e 가 읽는다. */
@@ -148,6 +172,7 @@ export class MockMiniAppBridge implements MiniAppBridge {
   supports(capability: BridgeCapability): boolean {
     if (this.scenario.unsupported?.includes(capability)) return false;
     if (capability === 'ads') return this.scenario.ads !== 'unsupported';
+    if (capability === 'fullScreenAd') return this.scenario.fullScreenAd !== 'unsupported';
     return true;
   }
 

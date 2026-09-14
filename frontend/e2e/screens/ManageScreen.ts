@@ -17,8 +17,8 @@ export class ManageScreen {
 
   /** 전체 예산 카드와 금액 입력 시트. */
   readonly total: BudgetTotalArea;
-  /** 목표 기반 생활비 제안 카드. 예산이 없는 달에, 기한이 있는 목표가 있을 때만 뜬다. */
-  readonly suggest: GoalBudgetSuggestArea;
+  /** 생활비 계산기. 예산 시트의 「계산해서 정하기」 로만 열린다. */
+  readonly calc: BudgetCalcArea;
   /** 카테고리 예산 목록과 추가·수정 시트. */
   readonly categories: CategoryBudgetArea;
   /** 지난달 예산을 그대로 가져왔을 때 뜨는 안내 띠. */
@@ -31,7 +31,7 @@ export class ManageScreen {
     // '카테고리 예산' 도 region 이라 이름을 정확히 맞춰야 바깥 섹션만 잡힌다.
     this.section = page.getByRole('region', { name: '예산', exact: true });
     this.total = new BudgetTotalArea(page, this.section);
-    this.suggest = new GoalBudgetSuggestArea(page);
+    this.calc = new BudgetCalcArea(page);
     this.categories = new CategoryBudgetArea(page);
     this.banner = new CarryoverBannerArea(page);
     this.settings = new BudgetSettingArea(page);
@@ -93,34 +93,44 @@ export class ManageScreen {
 }
 
 /**
- * 목표 기반 생활비 제안 카드.
+ * 생활비 계산기 시트.
  *
- * 식(실수령 − 목표저축 − 고정비 = 제안액)이 그대로 보이고, 실수령·고정비는 그 자리에서
- * 고칠 수 있다. 금액은 서버가 센 값이라 여기서는 읽어 오기만 한다.
+ * 예산 시트의 「계산해서 정하기」 를 눌러 광고 한 편을 지난 뒤에 열린다.
+ * 손에 쥐는 돈 → 꼭 나가는 돈 → 모을 돈 순서로 적고, 빼기는 서버가 한다.
  */
-class GoalBudgetSuggestArea {
+class BudgetCalcArea {
+  private readonly page: Page;
   private readonly root: Locator;
 
   constructor(page: Page) {
-    this.root = page.getByRole('region', { name: '목표 기반 생활비 제안' });
+    this.page = page;
+    this.root = page.getByRole('dialog', { name: '생활비 계산하기', exact: true });
   }
 
-  /** 카드 자체. 떴는지 아예 없는지를 이걸로 본다. */
-  get card(): Locator {
+  get sheet(): Locator {
     return this.root;
   }
 
+  /** 목 브릿지가 실광고처럼 화면을 덮는 자리. 광고를 지났는지를 이것으로 본다. */
+  get mockAd(): Locator {
+    return this.page.getByTestId('mock-fullscreen-ad');
+  }
+
   get takeHomeField(): Locator {
-    return this.root.getByLabel('실수령');
+    return this.root.getByLabel('실수령 (세후 월급 등)');
   }
 
-  get fixedCostsField(): Locator {
-    return this.root.getByLabel('고정비');
+  /** 매달 꼭 나가는 돈의 한 칸. 라벨로 고른다. */
+  fixedField(label: string): Locator {
+    return this.root.getByLabel(label);
   }
 
-  /** 목표가 이번 달에 요구하는 몫. 목표 화면의 '매달 모을 돈' 과 같은 값이다. */
-  get saving(): Locator {
-    return this.root.getByTestId(TEST_IDS.budgetSuggestSaving);
+  get fixedSum(): Locator {
+    return this.root.getByTestId(TEST_IDS.budgetCalcFixedSum);
+  }
+
+  get savingField(): Locator {
+    return this.root.getByLabel('목표 저축');
   }
 
   /** 제안액. 화면이 계산하지 않고 서버가 준 값을 그린다. */
@@ -132,43 +142,41 @@ class GoalBudgetSuggestArea {
     return this.root.getByRole('button', { name: '이 금액으로 예산 정하기' });
   }
 
-  /** 어림한 칸 아래에 붙는 한 줄. 사용자가 고친 칸에는 없다. */
+  /** 어림한 값이라는 한 줄들. 지난달에서 가져온 칸에만 붙는다. */
   get basisNotes(): Locator {
-    return this.root.getByText('지난달 기준 · 추정값', { exact: true });
+    return this.root.getByText(/어림했어요/);
   }
 
-  /** 제안일 뿐이라는 한 줄. 강요하지 않는 자리다. */
-  get foot(): Locator {
-    return this.root.getByText('제안일 뿐이에요 · 목표는 언제든 바꿔도 괜찮아요', { exact: true });
+  /** 목표 저축 칸 아래 한 줄. 어디서 온 숫자인지 말한다. */
+  get savingNote(): Locator {
+    return this.root.getByText(/^(목표 「.+」|직접 적은 값이에요|목표가 없으면)/);
   }
 
-  async waitVisible(): Promise<void> {
+  async waitOpen(): Promise<void> {
+    await expect(this.root).toBeVisible();
     await expect(this.amount).toBeVisible();
   }
 
-  /** 제안액을 원 단위 숫자로. 서버가 센 값을 spec 이 견주기 위한 것이다. */
+  async waitClosed(): Promise<void> {
+    await expect(this.root).toHaveCount(0);
+  }
+
   suggestedWon(): Promise<number> {
     return wonOf(this.amount);
   }
 
-  /** 목표저축을 원 단위 숫자로. */
-  savingWon(): Promise<number> {
-    return wonOf(this.saving);
-  }
-
-  /** 실수령을 고친다. 고치면 서버에 다시 물어 제안액이 바뀐다. */
   async setTakeHome(amount: number): Promise<void> {
     await this.takeHomeField.fill(String(amount));
   }
 
-  /** 고정비를 고친다. */
-  async setFixedCosts(amount: number): Promise<void> {
-    await this.fixedCostsField.fill(String(amount));
+  async setSaving(amount: number): Promise<void> {
+    await this.savingField.fill(String(amount));
   }
 
-  /** 제안액을 이번 달 예산으로 정한다. 누르기 전에는 아무것도 저장되지 않는다. */
+  /** 제안액을 이번 달 예산으로 정한다. 시트가 닫히면 저장이 끝난 것이다. */
   async apply(): Promise<void> {
     await this.applyButton.click();
+    await this.waitClosed();
   }
 }
 
@@ -305,6 +313,16 @@ class AmountSheetArea {
 
   get saveButton(): Locator {
     return this.root.getByRole('button', { name: '저장' });
+  }
+
+  /** 얼마로 할지 모르는 사람의 길. 처음 정할 때만 있고, 광고 한 편 뒤에 계산기가 열린다. */
+  get calcButton(): Locator {
+    return this.root.getByRole('button', { name: /계산해서 정하기|광고를 불러오는 중이에요/ });
+  }
+
+  /** 광고 한 편을 봐야 열린다는 한 줄. 눌러 보고 알면 속은 기분이 든다. */
+  get calcNote(): Locator {
+    return this.root.getByText(/짧은 광고 한 편을 보면 열려요/);
   }
 
   async waitOpen(): Promise<void> {

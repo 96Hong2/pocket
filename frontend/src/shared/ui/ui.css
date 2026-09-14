@@ -138,6 +138,19 @@
     background: var(--color-surface-sunken);
   }
 
+  /* 지우는 버튼. 초록 저장 버튼과 같은 모양이면 손이 습관대로 누른다. */
+  .pk-btn--danger {
+    height: 48px;
+    padding: 0 16px;
+    background: var(--color-expense);
+    color: var(--color-surface);
+    font-size: var(--text-15);
+  }
+
+  .pk-btn--danger:not(:disabled):active {
+    opacity: 0.85;
+  }
+
   /* ── Card ───────────────────────────────────────────── */
   .pk-card {
     background: var(--color-surface);

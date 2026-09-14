@@ -198,6 +198,7 @@ export interface paths {
          * @description 목표에서 거꾸로 낸 생활비 제안. **아무것도 저장하지 않는다.**
          *
          *     실수령과 고정비를 안 주면 지난달에서 어림한다. 화면에서 고친 값은 질의로 온다.
+         *     `saving` 을 주면 목표 대신 그 값을 목표저축으로 쓴다. 목표가 없는 사람도 계산할 수 있다.
          *     이 경로는 이어쓰기를 하지 않는다. 조회 하나가 예산을 만드는 자리는 `GET /budgets`
          *     한 곳이면 되고, 제안은 예산이 없을 때만 화면에 뜨므로 그 조회를 이미 지나 있다.
          */
@@ -845,6 +846,9 @@ export interface components {
             available: boolean;
             /** Goal Saving */
             goal_saving: string | null;
+            saving_source: components["schemas"]["SavingSource"] | null;
+            /** Goal Title */
+            goal_title: string | null;
             take_home: components["schemas"]["SuggestionAmountOut"];
             fixed_costs: components["schemas"]["SuggestionAmountOut"];
             /** Suggested */
@@ -1234,6 +1238,13 @@ export interface components {
             monthly_pace: string | null;
             /** Contributions */
             contributions: components["schemas"]["GoalContributionOut"][];
+            /**
+             * Started On
+             * Format: date
+             */
+            started_on: string;
+            /** Finished On */
+            finished_on: string | null;
         };
         /**
          * GoalPatch
@@ -1707,6 +1718,12 @@ export interface components {
             confirm: true;
         };
         /**
+         * SavingSource
+         * @description 목표저축 칸의 출처. 목표에서 옮긴 값인지, 사용자가 직접 적은 값인지, 낼 수 없어 0 인지.
+         * @enum {string}
+         */
+        SavingSource: "goal" | "given" | "none";
+        /**
          * SuggestionAmountOut
          * @description 제안식의 한 칸. 값만 주면 화면이 그것을 사실로 적어 버려서 출처를 함께 준다.
          */
@@ -1721,7 +1738,10 @@ export interface components {
         };
         /**
          * SuggestionBlocker
-         * @description 제안을 낼 수 없는 이유. 화면은 이 값을 보고 카드를 아예 그리지 않는다.
+         * @description 제안을 낼 수 없거나(끝난 달) 목표에서 몫을 못 낸 이유.
+         *
+         *     끝난 달만 `available` 을 끈다. 나머지 셋은 목표저축을 0 으로 두고 제안은 낸다.
+         *     화면은 이 값으로 목표저축 칸 아래 한 줄을 고른다.
          * @enum {string}
          */
         SuggestionBlocker: "closed_period" | "no_goal" | "no_deadline" | "no_monthly_saving";
@@ -3214,6 +3234,7 @@ export interface operations {
             query?: {
                 take_home?: number | null;
                 fixed_costs?: number | null;
+                saving?: number | null;
                 year?: number | null;
                 month?: number | null;
             };

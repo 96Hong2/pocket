@@ -211,8 +211,9 @@ class DataResetArea {
     this.page = page;
   }
 
+  /** 화면 맨 끝의 회색 글자 한 줄. 카드가 아니라 눈에 안 띄는 것이 맞다. */
   get openButton(): Locator {
-    return this.page.getByRole('button', { name: '데이터 지우기', exact: true });
+    return this.page.getByRole('button', { name: '앱 데이터 초기화', exact: true });
   }
 
   get sheet(): Locator {
@@ -233,8 +234,9 @@ class DataResetArea {
     return this.sheet.getByTestId(TEST_IDS.resetAgree);
   }
 
+  /** 실제로 지우는 버튼. 저장 버튼과 같은 초록이면 손이 습관대로 누른다. */
   get confirmButton(): Locator {
-    return this.sheet.getByRole('button', { name: '확인', exact: true });
+    return this.sheet.getByRole('button', { name: '전부 지우기', exact: true });
   }
 
   /** 열고, 동의하고, 지운다. 시트가 닫히면 끝난 것이다. */

@@ -112,9 +112,14 @@ export class GoalScreen {
     return this.page.getByRole('region', { name: '지난 목표', exact: true });
   }
 
-  /** 지난 목표 한 줄. 이름으로 고른다. */
+  /** 지난 목표 한 줄. 이름으로 고른다. 줄이 곧 버튼이라 누르면 시트가 열린다. */
   pastRow(name: string): Locator {
-    return this.past.getByRole('listitem').filter({ hasText: name });
+    return this.past.getByRole('button').filter({ hasText: name });
+  }
+
+  /** 지난 목표 하나를 펼친 시트. 기간·목표액·달별로 모은 돈이 적혀 있다. */
+  get pastSheet(): Locator {
+    return this.page.getByRole('dialog', { name: '지난 목표 자세히', exact: true });
   }
 
   /** 기한이 지났을 때의 한 줄. 탓하지 않고 바꿀 수 있다는 것만 알린다. */

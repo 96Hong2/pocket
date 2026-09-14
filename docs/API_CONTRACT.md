@@ -437,17 +437,21 @@ ADR-0006 이다.
 - **복구 카드를 띄울지는 서버가 정하지 않는다.** 며칠부터 복구로 볼지(사흘)는 화면이 안다.
   서버는 사실만 준다.
 
-### 목표 기반 생활비 제안
+### 목표 기반 생활비 제안 (생활비 계산기)
 
-`GET /budgets/suggestion` 은 **아무것도 저장하지 않는다.** 목표에 넣을 돈과 고정비를 먼저 떼고
-남는 만큼을 그 달 생활비로 제안하기만 한다. 사용자가 화면에서 '이 금액으로 예산 정하기' 를
+`GET /budgets/suggestion` 은 **아무것도 저장하지 않는다.** 손에 쥐는 돈에서 모을 돈과 고정비를
+먼저 떼고 남는 만큼을 그 달 생활비로 제안하기만 한다. 사용자가 화면에서 '이 금액으로 예산 정하기' 를
 누르면 그때 `PUT /budgets` 가 따로 간다. 조회가 예산을 만들면 화면을 열어 본 것만으로 정하지
 않은 숫자가 굳는다. 산식의 정본은 `backend/app/domain/budget_plan.py` 다.
+
+화면에서는 예산 시트의 「계산해서 정하기」 로만 열린다(전면 광고 한 편 뒤). 값은 전부 **한 달 기준**이다.
 
 ```json
 {
   "available": true,
   "goal_saving": "1000000",
+  "saving_source": "goal",
+  "goal_title": "제주도 여행",
   "take_home": {
     "amount": "3000000", "source": "estimated",
     "basis_start": "2026-08-01", "basis_end": "2026-08-31"
@@ -460,23 +464,32 @@ ADR-0006 이다.
 
 - `suggested = max(0, take_home − goal_saving − fixed_costs)` 다. **화면이 빼지 않는다.**
   실수령보다 목표와 고정비가 크면 0 이다. 생활비로 쓸 돈이 없다는 뜻이지 마이너스가 아니다.
-- `goal_saving` 은 진행 중인 목표의 `required_monthly_saving` 을 그대로 옮긴 값이다.
-  목표 화면의 '기한까지 매달' 과 같은 숫자여야 해서 여기서 다시 나누지 않는다.
+- **`goal_saving` 의 출처는 `saving_source` 가 말한다.**
+
+  | `saving_source` | 뜻 |
+  | --- | --- |
+  | `goal` | 진행 중인 목표의 `required_monthly_saving` 을 그대로 옮겼다. 목표 화면의 '기한까지 매달' 과 같은 숫자다 |
+  | `given` | 질의 `saving` 으로 사용자가 직접 준 값이다. 목표가 있어도 이 값이 이긴다 |
+  | `none` | 목표에서 몫을 낼 수 없어 **0 으로 두었다.** 왜인지는 `reason` 이 함께 온다 |
+
+- `goal_title` 은 진행 중인 목표 이름이다. 없으면 `null`. 화면이 「어느 목표의 몫」인지 적을 때만 쓴다.
 - **추정 규칙.** `take_home` 을 안 주면 지난달 수입 합, `fixed_costs` 를 안 주면 지난달 기본
   분류 '주거·고정비' 의 예산 반영 지출이다. 그때 `source` 가 `estimated` 이고 어림한 기간이
   `basis_start`·`basis_end` 로 함께 온다. 질의로 준 값은 `given` 이고 근거 기간이 `null` 이다.
   값이 0 이어도 `estimated` 다. 지난달에 안 적은 것을 짐작으로 메우지 않는다.
-- 질의 금액은 **원 단위 정수**만 받는다(0 이상). 소수를 보내면 422 다. 제안액이 소수가 되면
-  그 값으로 예산을 저장할 때 저장 쪽이 거절해, 눌러 보고서야 막힌 이유를 알게 된다.
-- **`available` 이 false 면 `suggested` 와 `goal_saving` 이 `null` 이고 `reason` 에 이유가 온다.**
-  화면은 그때 카드를 아예 그리지 않는다. `take_home`·`fixed_costs` 는 그대로 실린다.
+- 질의 금액(`take_home`·`fixed_costs`·`saving`)은 **원 단위 정수**만 받는다(0 이상). 소수를 보내면 422 다.
+  화면은 고정비 항목 여섯(월세·관리비 / 통신·공과금 / 구독·보험 / 대출·할부 / 교통 / 그 밖)을 더해
+  `fixed_costs` 하나로 보낸다. 더하기만 화면이 하고 빼기는 서버가 한다.
+- **`available` 이 false 인 것은 끝난 달뿐이다.** 그때 `suggested`·`goal_saving`·`saving_source` 가
+  `null` 이고 `reason` 은 `closed_period` 다. 목표가 없거나 기한이 없는 것은 막지 않는다.
+  목표부터 만들라는 말이 되면 예산을 정하러 온 사람이 돌아간다.
 
-| `reason` | 언제 |
-| --- | --- |
-| `closed_period` | 그 달이 이미 끝났다. 지난달 예산은 지금 정할 수 없다 |
-| `no_goal` | 진행 중인 목표가 없다 |
-| `no_deadline` | 목표에 기한이 없어 한 달 몫으로 나눌 수 없다 |
-| `no_monthly_saving` | 기한은 있는데 이번 달 몫이 없다. 이미 다 모았거나 기한이 지났다 |
+| `reason` | 언제 | `available` |
+| --- | --- | --- |
+| `closed_period` | 그 달이 이미 끝났다. 지난달 예산은 지금 정할 수 없다 | false |
+| `no_goal` | 진행 중인 목표가 없다. 목표저축 0 | true |
+| `no_deadline` | 목표에 기한이 없어 한 달 몫으로 나눌 수 없다. 목표저축 0 | true |
+| `no_monthly_saving` | 기한은 있는데 이번 달 몫이 없다. 이미 다 모았거나 기한이 지났다. 목표저축 0 | true |
 
 ### 예산 자동 이어쓰기
 
@@ -887,10 +900,15 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
     "required_monthly_saving": "950000",
     "eta_months": null,
     "monthly_pace": null,
-    "contributions": []
+    "contributions": [],
+    "started_on": "2026-09-14",
+    "finished_on": null
   }
 }
 ```
+
+`started_on` 은 목표를 정한 날, `finished_on` 은 마친 날이다(사용자 시간대). 마친 목표에만
+`finished_on` 이 있다. 지난 목표 상세가 「어느 기간 동안 어떻게 모았나」를 적는 근거다.
 
 **목표를 정하지 않은 것은 정상 상태다.** 조회는 404 가 아니라 200 에 `goal: null` 로 답한다.
 쓰기 응답(POST·PATCH·기여 POST)도 모두 이 모양이라 화면이 받은 것을 그대로 캐시에 넣는다.

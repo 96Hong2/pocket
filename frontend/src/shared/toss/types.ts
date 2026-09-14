@@ -19,6 +19,8 @@ export type BridgeCapability =
   | 'safeArea'
   | 'navigationAccessory'
   | 'ads'
+  /** 전면(보상형) 광고. 배너와 지원 여부가 따로 갈린다. */
+  | 'fullScreenAd'
   | 'notification'
   | 'analytics';
 
@@ -43,15 +45,7 @@ export interface SafeAreaInsets {
   left: number;
 }
 
-export type NetworkStatus =
-  | 'OFFLINE'
-  | 'WIFI'
-  | '2G'
-  | '3G'
-  | '4G'
-  | '5G'
-  | 'WWAN'
-  | 'UNKNOWN';
+export type NetworkStatus = 'OFFLINE' | 'WIFI' | '2G' | '3G' | '4G' | '5G' | 'WWAN' | 'UNKNOWN';
 
 /** 익명 사용자 식별키. 로그인 화면 없이 사용자를 구분하는 유일한 수단이다. */
 export interface Identity {
@@ -120,14 +114,25 @@ export interface AttachBannerOptions {
   onFailed?(message: string): void;
 }
 
+/**
+ * 전면 광고를 끝까지 본 결과.
+ *
+ * `watched` 는 광고가 뜨고 닫힌 것이다. 보상형이면 보상 이벤트 뒤에, 전면형이면 닫힘 뒤에
+ * 온다. 둘 다 「봤다」로 친다. `failed` 는 못 불러왔거나 못 띄운 것이라 사용자 탓이 아니다.
+ */
+export type FullScreenAdResult = 'watched' | 'failed';
+
 export interface AdsBridge {
   /** 배너를 붙이기 전에 한 번 호출한다. 멱등이다. */
   initialize(): Promise<void>;
-  attachBanner(
-    adGroupId: string,
-    target: HTMLElement,
-    options?: AttachBannerOptions,
-  ): BannerHandle;
+  attachBanner(adGroupId: string, target: HTMLElement, options?: AttachBannerOptions): BannerHandle;
+  /**
+   * 전면 광고를 불러와서 띄우고, 닫힐 때까지 기다린다.
+   *
+   * 던지지 않는다. 못 띄운 것은 `failed` 로 돌려주고 부르는 쪽이 갈래를 정한다.
+   * 광고가 안 떴다고 기능을 막으면 광고 서버 사정으로 사람이 돌아간다.
+   */
+  showFullScreen(adGroupId: string): Promise<FullScreenAdResult>;
 }
 
 /**

@@ -8,4 +8,4 @@ export {
   type CategoryBudgetSheetProps,
   type CategoryBudgetTarget,
 } from './CategoryBudgetSheet';
-export { GoalBudgetSuggestCard, type GoalBudgetSuggestCardProps } from './GoalBudgetSuggestCard';
+export { BudgetCalcSheet, type BudgetCalcSheetProps } from './BudgetCalcSheet';

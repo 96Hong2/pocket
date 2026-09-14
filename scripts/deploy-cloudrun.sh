@@ -29,7 +29,12 @@ GEMINI_KEY_FILE="${POCKET_GEMINI_KEY_FILE:-}"
 OPENAI_KEY_FILE="${POCKET_OPENAI_KEY_FILE:-}"
 # 어느 provider 로 띄울지. 비우면 아래에서 있는 키를 보고 고른다.
 LLM_PROVIDER_WANT="${POCKET_LLM_PROVIDER:-}"
+# 스마트발송 코드. 프론트의 VITE_NOTIFICATION_TEMPLATE_CODE 와 같은 값이어야 한다.
+# 비우면 알림 잡을 건드리지 않는다(만들지도 갱신하지도 않는다).
+REMINDER_CODE="${POCKET_REMINDER_TEMPLATE_CODE:-pocket-ledger-remind}"
 SERVICE="pocket-backend"
+REMINDER_JOB="pocket-reminders"
+REMINDER_TICK="pocket-reminders-tick"
 DB_NAME=pocket
 DB_USER=pocket
 DRY=0
@@ -84,16 +89,16 @@ SQL_CONN="${PROJECT}:${REGION}:${SQL_INSTANCE}"
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)' 2>/dev/null || echo '<번호>')"
 RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
-say "0/6  쓸 값"
+say "0/7  쓸 값"
 printf '  프로젝트 %s\n  리전     %s\n  이미지   %s\n  Cloud SQL %s (%s, %s)\n' \
   "$PROJECT" "$REGION" "$IMAGE" "$SQL_CONN" "$SQL_VERSION" "$SQL_TIER"
 
-say "1/6  필요한 API 를 켠다"
+say "1/7  필요한 API 를 켠다"
 run gcloud services enable run.googleapis.com sqladmin.googleapis.com \
   artifactregistry.googleapis.com secretmanager.googleapis.com cloudbuild.googleapis.com \
   --project="$PROJECT"
 
-say "2/6  데이터베이스와 시크릿을 만든다 (없을 때만)"
+say "2/7  데이터베이스와 시크릿을 만든다 (없을 때만)"
 have_secret() {
   gcloud secrets describe "$1" --project="$PROJECT" >/dev/null 2>&1
 }
@@ -188,7 +193,7 @@ else
   printf '  provider: %s\n' "$LLM_PROVIDER"
 fi
 
-say "3/6  서비스 계정에 필요한 권한을 준다"
+say "3/7  서비스 계정에 필요한 권한을 준다"
 # 새로 만든 프로젝트에는 예전의 Cloud Build 전용 계정이 없다. 빌드도 이 기본 계정으로 도는데,
 # 갓 만든 계정은 소스 올린 버킷을 읽지도 못한다. builds.builder 가 버킷·이미지·로그를 함께 연다.
 # cloudsql.client 이 없으면 소켓 자체가 안 생긴다. 로그에는 "No such file or directory" 만 남아
@@ -199,14 +204,14 @@ for role in roles/secretmanager.secretAccessor roles/cloudbuild.builds.builder r
     --member="serviceAccount:${RUNTIME_SA}" --role="$role" --condition=None --format=none
 done
 
-say "4/6  이미지를 만들어 올린다"
+say "4/7  이미지를 만들어 올린다"
 run gcloud artifacts repositories create pocket --repository-format=docker \
   --location="$REGION" --project="$PROJECT" 2>/dev/null || true
 # Dockerfile 자리와 빌드 맥락이 달라서 --tag 를 못 쓴다. 까닭은 cloudbuild.yaml 머리말에 적었다.
 run gcloud builds submit . --config=cloudbuild.yaml \
   --substitutions=_IMAGE="$IMAGE" --project="$PROJECT" --region="$REGION"
 
-say "5/6  스키마를 먼저 올린다 (잡). 기본 카테고리 시드가 여기 딸려 온다"
+say "5/7  스키마를 먼저 올린다 (잡). 기본 카테고리 시드가 여기 딸려 온다"
 if gcloud run jobs describe pocket-migrate --region="$REGION" --project="$PROJECT" >/dev/null 2>&1; then
   run gcloud run jobs update pocket-migrate --image="$IMAGE" --region="$REGION" --project="$PROJECT"
 else
@@ -217,7 +222,7 @@ else
 fi
 run gcloud run jobs execute pocket-migrate --region="$REGION" --project="$PROJECT" --wait
 
-say "6/6  리비전을 띄운다"
+say "6/7  리비전을 띄운다"
 # mTLS 인증서는 Secret Manager 에서 파일로 마운트한다. 없으면 기동 자체가 막힌다(의도한 가드).
 #
 # 인증서와 개인키를 한 폴더에 못 넣는다. Cloud Run 은 시크릿 한 건을 폴더 하나로 붙이는데,
@@ -249,6 +254,47 @@ if [[ -n "$LLM_PROVIDER" ]]; then
 fi
 deploy_args+=(--set-secrets="$secrets")
 run gcloud run deploy "$SERVICE" "${deploy_args[@]}"
+
+say "7/7  기록 알림 잡 (1분마다)"
+# 알림은 웹 서비스가 아니라 잡이 보낸다(ADR-0013). 이미지는 서비스와 같은 것을 쓰므로
+# 리비전을 올릴 때마다 여기도 같은 이미지로 갱신해야 한다. 안 그러면 잡만 옛 코드로 남는다.
+#
+# --max-retries=0 을 빼지 않는다. 기본값 3회면 잡이 비정상 종료할 때 같은 분에 네 번 돌고,
+# 그때마다 아직 보낸 표시가 안 남은 사람에게 알림이 다시 간다(ADR-0017).
+if [[ -z "$REMINDER_CODE" ]]; then
+  echo "  POCKET_REMINDER_TEMPLATE_CODE 가 비어 있어 알림 잡은 건드리지 않는다"
+else
+  job_env="ENVIRONMENT=prod,TOSS_MTLS_CERT_PATH=${CERT_PATH},TOSS_MTLS_KEY_PATH=${KEY_PATH}"
+  job_env+=",TOSS_REMINDER_TEMPLATE_SET_CODE=${REMINDER_CODE}"
+  job_secrets="DATABASE_URL=pocket-database-url:latest"
+  job_secrets+=",${CERT_PATH}=pocket-toss-client-crt:latest"
+  job_secrets+=",${KEY_PATH}=pocket-toss-client-key:latest"
+  if gcloud run jobs describe "$REMINDER_JOB" --region="$REGION" --project="$PROJECT" >/dev/null 2>&1; then
+    run gcloud run jobs update "$REMINDER_JOB" --image="$IMAGE" --region="$REGION" --project="$PROJECT" \
+      --set-env-vars="$job_env" --set-secrets="$job_secrets" --max-retries=0
+  else
+    run gcloud run jobs create "$REMINDER_JOB" --image="$IMAGE" --region="$REGION" --project="$PROJECT" \
+      --command=python --args=scripts/send_reminders.py \
+      --set-cloudsql-instances="$SQL_CONN" \
+      --set-env-vars="$job_env" --set-secrets="$job_secrets" --max-retries=0
+  fi
+  # 판정이 「정한 시각과 같은 분」이라 1분보다 뜸하면 그 시각은 그 날 아예 안 간다.
+  # 스케줄러는 서비스 계정의 OIDC 토큰으로 Run Admin API 의 jobs:run 을 부른다. 그 권한이 run.invoker 다.
+  run gcloud services enable cloudscheduler.googleapis.com --project="$PROJECT"
+  SA="$(gcloud run jobs describe "$REMINDER_JOB" --region="$REGION" --project="$PROJECT" \
+    --format='value(spec.template.spec.template.spec.serviceAccountName)' 2>/dev/null || true)"
+  [[ -n "$SA" ]] || SA="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
+  run gcloud run jobs add-iam-policy-binding "$REMINDER_JOB" --region="$REGION" --project="$PROJECT" \
+    --member="serviceAccount:${SA}" --role=roles/run.invoker >/dev/null
+  TICK_URI="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT}/jobs/${REMINDER_JOB}:run"
+  if gcloud scheduler jobs describe "$REMINDER_TICK" --location="$REGION" --project="$PROJECT" >/dev/null 2>&1; then
+    skip "스케줄러 $REMINDER_TICK"
+  else
+    run gcloud scheduler jobs create http "$REMINDER_TICK" --location="$REGION" --project="$PROJECT" \
+      --schedule="* * * * *" --uri="$TICK_URI" --http-method=POST \
+      --oauth-service-account-email="$SA"
+  fi
+fi
 
 say "연기 검사"
 if [[ "$DRY" == "1" ]]; then

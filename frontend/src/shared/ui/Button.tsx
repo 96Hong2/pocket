@@ -2,13 +2,15 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 import { cx } from '../lib/cx';
 
-export type ButtonVariant = 'primary' | 'primarySmall' | 'ghost' | 'outline';
+export type ButtonVariant = 'primary' | 'primarySmall' | 'ghost' | 'outline' | 'danger';
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
   primary: 'pk-btn--primary',
   primarySmall: 'pk-btn--primary-small',
   ghost: 'pk-btn--ghost',
   outline: 'pk-btn--outline',
+  /** 되돌릴 수 없는 일을 실제로 하는 버튼. 앱에서 한 곳(데이터 지우기)뿐이다. */
+  danger: 'pk-btn--danger',
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -31,12 +33,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={cx(
-        'pk-btn',
-        VARIANT_CLASS[variant],
-        fullWidth && 'pk-btn--block',
-        className,
-      )}
+      className={cx('pk-btn', VARIANT_CLASS[variant], fullWidth && 'pk-btn--block', className)}
       {...rest}
     >
       {leadingIcon}

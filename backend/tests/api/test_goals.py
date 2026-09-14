@@ -317,6 +317,10 @@ def test_다_모으면_마칠_수_있고_지난_목표에_남는다(client: Test
     assert [item["title"] for item in items] == ["제주도 여행"]
     assert items[0]["status"] == "achieved"
     assert items[0]["is_achieved"] is True
+    # 지난 목표 상세가 「어느 기간 동안」을 적는 근거. 마친 날은 마친 것에만 있다.
+    assert items[0]["started_on"] == str(date.today()) or items[0]["started_on"] is not None
+    assert items[0]["finished_on"] is not None
+    assert goal["finished_on"] is None
 
 
 def test_지운_목표는_지난_목표에_오지_않는다(client: TestClient) -> None:

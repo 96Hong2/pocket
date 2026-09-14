@@ -21,7 +21,8 @@
 | 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드 |
 | 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움, 고친 칸 이름, 그 기록의 입력 방식 |
 | 저장 뒤 뜻이 전달됐나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것 |
-| 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지, 유도한 자리(첫 기록 직후·앱 설정), 동의·거절·미지원 |
+| 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`), 유도한 자리(첫 기록 직후·앱 설정), 동의·거절·미지원 |
+| 광고 뒤의 부가기능이 값어치가 있나 | `budget_calc_opened` | 광고를 보고 열었나(`watched`), 광고 없이 지나갔나와 그 이유(`no_group`·`unsupported`·`failed`) |
 | 첫 안내가 방해가 되나 | `onboarding_result` | 끝까지 봤나·건너뛰었나, 그때 몇 번째 장 |
 | 목표를 끝까지 해내나 | `goal_finished` | 마친 화면 |
 | 고를 것이 너무 많나 | `category_more_opened` · `category_order_changed` | 「더 보기」를 편 화면과 그때 보이던 칩 수, 순서를 바꾼 방식(한 칸 옮기기·자주 쓴 순서)와 종류 |
@@ -48,6 +49,12 @@
 **`onboarding_result` 는 안내의 길이를 재는 자리다.** 이 앱을 고르는 사람은 배우기 싫어서
 고른다. 첫 장에서 건너뛰는 사람이 많으면 장 수가 아니라 첫 장이 잘못된 것이고, 끝까지
 본 사람의 첫 기록 성공률이 건너뛴 사람보다 낮으면 안내 자체가 방해가 된 것이다.
+
+**`budget_calc_opened` 는 광고 한 편이 값어치가 있는지 재는 자리다.** 생활비 계산기는 전면
+광고를 지나야 열리는데, 광고가 안 떠도 연다(광고 서버 사정으로 예산을 막지 않는다). 그래서
+`watched` 로 연 사람 중 예산까지 정한 비율(`budget_saved` 의 `from: 'calculator'`)과 `skipped`
+로 연 사람의 그 비율을 견줘야 한다. 둘이 같으면 광고가 방해가 아니고, `watched` 쪽이 낮으면
+5초가 사람을 돌려보내는 것이다. `skipped` 의 `reason` 이 `failed` 로 몰리면 광고 자리 사정이다.
 
 **되돌리기 로그는 없앴다.** 서버에서 하는 일이 삭제와 같은데 이름만 달라 화면에서 걷어냈다.
 저장 직후 잘못을 찾은 것은 `record_changed` 의 `field` 로 남는다.

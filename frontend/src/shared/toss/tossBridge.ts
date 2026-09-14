@@ -10,7 +10,9 @@ import {
   TossAds,
   User,
   graniteEvent,
+  loadFullScreenAd,
   partner,
+  showFullScreenAd,
   tdsEvent,
 } from '@apps-in-toss/web-framework';
 
@@ -27,6 +29,7 @@ import {
   type BridgeEnvironment,
   type BridgePlatform,
   type CaptureOptions,
+  type FullScreenAdResult,
   type Identity,
   type KeyValueStore,
   type MiniAppBridge,
@@ -59,10 +62,7 @@ function toBridgeError(error: unknown, fallback: string): BridgeError {
   return new BridgeError('UNKNOWN', fallback, error);
 }
 
-const UNSUPPORTED_ERROR_NAMES = new Set([
-  'UNSUPPORTED_APP_VERSION',
-  'UNSUPPORTED_OS_VERSION',
-]);
+const UNSUPPORTED_ERROR_NAMES = new Set(['UNSUPPORTED_APP_VERSION', 'UNSUPPORTED_OS_VERSION']);
 
 class TossStorage implements KeyValueStore {
   get(key: string) {
@@ -93,6 +93,15 @@ class TossAnalyticsBridge implements AnalyticsBridge {
       .catch(() => {});
   }
 }
+
+/**
+ * 전면 광고를 불러오는 데 주는 시간.
+ *
+ * 개발자 커뮤니티에 `loaded` 도 `onError` 도 없이 90초를 기다린 사례가 여럿이다.
+ * 그동안 버튼이 죽어 있으면 사람은 앱이 멈춘 줄 안다. 이 시간이 지나면 못 띄운 것으로 치고
+ * 부르는 쪽이 광고 없이 지나가게 둔다.
+ */
+const FULL_SCREEN_LOAD_TIMEOUT_MS = 8_000;
 
 class TossAdsBridge implements AdsBridge {
   private initialized: Promise<void> | null = null;
@@ -140,6 +149,48 @@ class TossAdsBridge implements AdsBridge {
       },
     });
   }
+
+  showFullScreen(adGroupId: string): Promise<FullScreenAdResult> {
+    if (!loadFullScreenAd.isSupported() || !showFullScreenAd.isSupported()) {
+      return Promise.resolve('failed');
+    }
+    return new Promise<FullScreenAdResult>((resolve) => {
+      let settled = false;
+      const finish = (result: FullScreenAdResult) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(result);
+      };
+      const timer = setTimeout(() => finish('failed'), FULL_SCREEN_LOAD_TIMEOUT_MS);
+
+      const show = () => {
+        let shown = false;
+        showFullScreenAd({
+          options: { adGroupId },
+          onEvent: (event) => {
+            // 보상형은 보상 이벤트가 먼저 오고, 전면형은 닫힘만 온다. 어느 쪽이든 「봤다」.
+            // 눌렀다는 것도 떠 있었다는 뜻이다. 목 SDK 는 뜸·노출 없이 눌림만 보낸다.
+            if (event.type === 'show' || event.type === 'impression' || event.type === 'clicked') {
+              shown = true;
+            }
+            if (event.type === 'userEarnedReward') finish('watched');
+            if (event.type === 'dismissed') finish(shown ? 'watched' : 'failed');
+            if (event.type === 'failedToShow') finish('failed');
+          },
+          onError: () => finish('failed'),
+        });
+      };
+
+      loadFullScreenAd({
+        options: { adGroupId },
+        onEvent: (event) => {
+          if (event.type === 'loaded') show();
+        },
+        onError: () => finish('failed'),
+      });
+    });
+  }
 }
 
 export class TossMiniAppBridge implements MiniAppBridge {
@@ -179,6 +230,8 @@ export class TossMiniAppBridge implements MiniAppBridge {
         return true;
       case 'ads':
         return TossAds.attachBanner.isSupported();
+      case 'fullScreenAd':
+        return loadFullScreenAd.isSupported() && showFullScreenAd.isSupported();
       case 'notification':
         return Notification.requestAgreement.isSupported();
       case 'analytics':

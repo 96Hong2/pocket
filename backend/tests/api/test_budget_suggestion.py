@@ -141,21 +141,23 @@ def test_제안을_조회해도_예산이_생기지_않는다(
     assert budget["amount"] is None
 
 
-def test_목표가_없으면_제안하지_않지만_어림값은_그대로_알려준다(
+def test_목표가_없으면_목표저축_0_으로_제안하고_이유를_알려준다(
     client: TestClient, db: Session, default_categories: list[Category], pinned_today: date
 ) -> None:
     _seed_last_month(client, db)
 
     body = _show(client)
 
-    assert body["available"] is False
+    assert body["available"] is True
     assert body["reason"] == "no_goal"
-    assert body["suggested"] is None
-    assert body["goal_saving"] is None
+    assert body["saving_source"] == "none"
+    assert body["goal_title"] is None
+    assert body["goal_saving"] == "0"
+    assert body["suggested"] == str(TAKE_HOME - FIXED_COSTS)
     assert body["take_home"]["amount"] == str(TAKE_HOME)
 
 
-def test_기한이_없는_목표면_한_달_몫을_나눌_수_없어_제안하지_않는다(
+def test_기한이_없는_목표면_한_달_몫을_나눌_수_없어_0_으로_두고_이유를_알려준다(
     client: TestClient, db: Session, default_categories: list[Category], pinned_today: date
 ) -> None:
     _seed_last_month(client, db)
@@ -163,8 +165,11 @@ def test_기한이_없는_목표면_한_달_몫을_나눌_수_없어_제안하�
 
     body = _show(client)
 
-    assert body["available"] is False
+    assert body["available"] is True
     assert body["reason"] == "no_deadline"
+    assert body["saving_source"] == "none"
+    assert body["goal_title"] == "제주도 여행"
+    assert body["goal_saving"] == "0"
 
 
 def test_끝난_달은_목표가_있어도_제안하지_않는다(client: TestClient) -> None:
@@ -201,3 +206,33 @@ def test_원_단위가_아닌_금액은_받지_않는다(client: TestClient) -> 
     res = client.get(f"{SUGGESTION}?{PERIOD}&take_home=1000.5", headers=AUTH)
 
     assert res.status_code == 422, res.text
+
+
+def test_목표저축을_직접_주면_목표가_없어도_제안한다(
+    client: TestClient, db: Session, default_categories: list[Category], pinned_today: date
+) -> None:
+    _seed_last_month(client, db)
+
+    body = _show(client, "&saving=500000")
+
+    assert body["available"] is True
+    assert body["goal_saving"] == "500000"
+    assert body["saving_source"] == "given"
+    assert body["goal_title"] is None
+    assert body["suggested"] == str(TAKE_HOME - 500_000 - FIXED_COSTS)
+
+
+def test_목표가_있으면_이름과_함께_그_몫을_옮기고_직접_준_값이_있으면_그것이_이긴다(
+    client: TestClient, db: Session, default_categories: list[Category], pinned_today: date
+) -> None:
+    _seed_last_month(client, db)
+    _goal(client)
+
+    from_goal = _show(client)
+    assert from_goal["saving_source"] == "goal"
+    assert from_goal["goal_title"] == "제주도 여행"
+
+    given = _show(client, "&saving=0")
+    assert given["saving_source"] == "given"
+    assert given["goal_saving"] == "0"
+    assert given["suggested"] == str(TAKE_HOME - FIXED_COSTS)

@@ -4,7 +4,7 @@ import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { ApiError, useResetAccountData } from '../../shared/api';
 import { TEST_IDS } from '../../shared/testIds';
-import { BottomSheet, Button, Card } from '../../shared/ui';
+import { BottomSheet, Button } from '../../shared/ui';
 
 /** 동의 문구. 화면과 e2e 가 같은 값을 본다. */
 const AGREE_LABEL = '전부 삭제에 동의합니다';
@@ -12,7 +12,8 @@ const AGREE_LABEL = '전부 삭제에 동의합니다';
 /**
  * 앱 데이터 초기화.
  *
- * 설정 화면 맨 아래, 배너보다 뒤에 둔다. 실수로 스치는 자리가 아니어야 한다.
+ * 설정 화면 맨 아래, 배너보다 뒤에 **회색 글자 한 줄**로 둔다. 카드로 세우면 설정 하나로
+ * 읽혀 눌러 보게 된다. 찾는 사람만 찾으면 되는 자리라 눈에 띌 이유가 없다.
  *
  * **두 단이다.** 여는 것과 지우는 것을 가른다. 한 번에 지우면 잘못 누른 사람이 되돌릴 길이
  * 없다. 되돌리기도 휴지통도 두지 않았다. 서버에서 실제로 지우는 것이라 되살릴 자리가 없다.
@@ -22,18 +23,10 @@ export function DataResetSetting() {
   const [open, setOpen] = useState(false);
 
   return (
-    <section className="setting-block">
-      <Card>
-        <div className="reset-block">
-          <h2 className="reset-block__title">앱 데이터 초기화</h2>
-          <p className="reset-block__note">
-            적어 둔 기록·예산·목표·자산·내가 만든 분류가 모두 사라져요. 되돌릴 수 없어요.
-          </p>
-          <Button variant="outline" fullWidth onClick={() => setOpen(true)}>
-            데이터 지우기
-          </Button>
-        </div>
-      </Card>
+    <section className="setting-block reset-block" aria-label="앱 데이터 초기화">
+      <button type="button" className="reset-block__link" onClick={() => setOpen(true)}>
+        앱 데이터 초기화
+      </button>
 
       <ResetSheet open={open} onClose={() => setOpen(false)} />
     </section>
@@ -143,13 +136,13 @@ function ResetForm({ analytics, reset, agreed, onAgreedChange, onDone }: ResetFo
 
       <Button
         className="reset-sheet__go"
-        variant="primarySmall"
+        variant="danger"
         fullWidth
         // 동의를 누르기 전에는 아예 못 누른다. 확인 버튼만으로는 한 단이 아니다.
         disabled={!agreed || reset.isPending}
         onClick={run}
       >
-        {reset.isPending ? '지우는 중이에요' : '확인'}
+        {reset.isPending ? '지우는 중이에요' : '전부 지우기'}
       </Button>
     </div>
   );

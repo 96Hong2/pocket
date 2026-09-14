@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from app.domain.budget_plan import (
     GoalSavingBasis,
+    SavingSource,
     SuggestionBlocker,
     suggest_living_budget,
 )
@@ -46,7 +47,8 @@ def test_목표와_고정비가_실수령보다_크면_0_이지_음수가_아니
     assert result.suggested == Money.zero()
 
 
-def test_목표가_없으면_제안하지_않고_이유를_남긴다():
+def test_목표가_없으면_목표저축_0_으로_제안하고_이유를_남긴다():
+    """목표부터 만들라는 말이 되면 예산을 정하러 온 사람이 돌아간다. 0 으로 두고 적게 한다."""
     result = suggest_living_budget(
         take_home=won(3_000_000),
         fixed_costs=won(900_000),
@@ -54,13 +56,14 @@ def test_목표가_없으면_제안하지_않고_이유를_남긴다():
         is_period_open=True,
     )
 
-    assert result.available is False
-    assert result.suggested is None
-    assert result.goal_saving is None
+    assert result.available is True
+    assert result.suggested == won(2_100_000)
+    assert result.goal_saving == Money.zero()
+    assert result.saving_source is SavingSource.NONE
     assert result.reason is SuggestionBlocker.NO_GOAL
 
 
-def test_기한이_없는_목표는_한_달_몫을_나눌_수_없어_제안하지_않는다():
+def test_기한이_없는_목표는_한_달_몫을_나눌_수_없어_0_으로_두고_이유를_남긴다():
     result = suggest_living_budget(
         take_home=won(3_000_000),
         fixed_costs=won(900_000),
@@ -68,7 +71,9 @@ def test_기한이_없는_목표는_한_달_몫을_나눌_수_없어_제안하�
         is_period_open=True,
     )
 
-    assert result.available is False
+    assert result.available is True
+    assert result.goal_saving == Money.zero()
+    assert result.saving_source is SavingSource.NONE
     assert result.reason is SuggestionBlocker.NO_DEADLINE
 
 
@@ -81,7 +86,8 @@ def test_기한은_있는데_이번_달_몫이_없으면_기한_탓으로_돌리
         is_period_open=True,
     )
 
-    assert result.available is False
+    assert result.available is True
+    assert result.goal_saving == Money.zero()
     assert result.reason is SuggestionBlocker.NO_MONTHLY_SAVING
 
 
@@ -96,3 +102,44 @@ def test_끝난_달은_목표가_있어도_제안하지_않는다():
 
     assert result.available is False
     assert result.reason is SuggestionBlocker.CLOSED_PERIOD
+
+
+def test_목표저축을_직접_주면_목표가_없어도_제안한다():
+    """목표부터 만들라는 말이 되면 예산을 정하러 온 사람이 돌아간다."""
+    result = suggest_living_budget(
+        take_home=won(3_000_000),
+        fixed_costs=won(900_000),
+        goal=None,
+        is_period_open=True,
+        saving=won(500_000),
+    )
+
+    assert result.available is True
+    assert result.goal_saving == won(500_000)
+    assert result.saving_source is SavingSource.GIVEN
+    assert result.suggested == won(1_600_000)
+
+
+def test_직접_준_목표저축이_목표의_몫보다_앞선다():
+    result = suggest_living_budget(
+        take_home=won(3_000_000),
+        fixed_costs=won(900_000),
+        goal=deadline_goal(1_000_000),
+        is_period_open=True,
+        saving=won(0),
+    )
+
+    assert result.goal_saving == Money.zero()
+    assert result.saving_source is SavingSource.GIVEN
+    assert result.suggested == won(2_100_000)
+
+
+def test_목표에서_옮긴_몫은_출처가_goal_이다():
+    result = suggest_living_budget(
+        take_home=won(3_000_000),
+        fixed_costs=won(900_000),
+        goal=deadline_goal(1_000_000),
+        is_period_open=True,
+    )
+
+    assert result.saving_source is SavingSource.GOAL

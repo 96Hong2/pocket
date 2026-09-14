@@ -299,25 +299,24 @@
     설정 맨 끝. 위험한 자리라 눈에 띄되 유혹하지 않아야 해서, 카드 안에 두고 버튼은
     테두리만 두른다. 빨간 버튼을 세우면 화면에서 가장 먼저 보이는 것이 「지우기」가 된다.
   */
+  /* 화면 맨 끝의 회색 한 줄. 카드가 아니라 글자라 설정으로 안 읽힌다. */
   .reset-block {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    justify-content: center;
+    padding: 8px 0 4px;
   }
 
-  .reset-block__title {
-    margin: 0;
-    font-size: var(--text-15);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-ink);
-  }
-
-  .reset-block__note {
-    margin: 0;
+  .reset-block__link {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    background: none;
+    font-family: inherit;
     font-size: var(--text-12);
-    line-height: 1.6;
+    font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
-    word-break: keep-all;
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   .reset-sheet {

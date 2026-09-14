@@ -103,18 +103,27 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await manage.waitReady();
   await demo.beat(2);
 
-  await demo.step('목표를 정했더니 예산 자리에 생활비 제안이 생겼다');
-  await manage.suggest.waitVisible();
+  await demo.step(
+    '예산 정하기를 열면 「계산해서 정하기」 가 있다. 광고 한 편 뒤에 계산기가 열린다',
+  );
+  await manage.total.startButton.click();
+  await manage.total.sheet.waitOpen();
+  await expect(manage.total.sheet.calcNote).toBeVisible();
+  await demo.beat(2);
+  await manage.total.sheet.calcButton.click();
+  await manage.calc.waitOpen();
   await demo.beat(2);
 
   await demo.step(
-    '실수령에서 목표에 넣을 돈과 고정비를 먼저 뗀 금액이다. 누르지 않으면 저장되지 않는다',
+    '손에 쥐는 돈에서 목표에 넣을 돈과 고정비를 먼저 뗀 금액이다. 누르지 않으면 저장되지 않는다',
   );
   // 지난달에 아무것도 안 적은 계정이라 실수령·고정비가 0 으로 어림된다.
   // 그래서 남는 생활비도 0 이고, 그 사실을 숫자로 지어내지 않고 그대로 보여준다.
-  await expect(manage.suggest.basisNotes).toHaveCount(2);
-  await expect(manage.suggest.foot).toBeVisible();
+  await expect(manage.calc.basisNotes).toHaveCount(2);
+  await expect(manage.calc.savingNote).toContainText(GOAL_TITLE);
   await demo.beat(3);
+  await manage.calc.sheet.getByRole('button', { name: '닫기' }).click();
+  await manage.calc.waitClosed();
 
   await demo.step('이번에는 자산으로 들어간다. 점선 카드가 걷히고 실제로 적는 화면이 들어왔다');
   await manage.assetsEntry.click();

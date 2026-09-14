@@ -130,15 +130,18 @@ test('실수령보다 목표저축과 고정비가 크면 제안액을 0원으�
 
   await manage.open();
   await manage.waitReady();
-  await manage.suggest.waitVisible();
+  await manage.total.startButton.click();
+  await manage.total.sheet.calcButton.click();
+  await manage.calc.waitOpen();
 
-  await manage.suggest.setTakeHome(2_000_000);
-  await manage.suggest.setFixedCosts(1_000_000);
+  await manage.calc.setTakeHome(2_000_000);
+  await manage.calc.fixedField('월세·관리비').fill('1000000');
 
   // 음수로 그리면 「−3,000,000원으로 사세요」가 된다. 0 으로 자르고 왜인지는 식이 말한다.
-  await expect(manage.suggest.amount).toHaveText(formatCurrency(0));
-  expect(await manage.suggest.savingWon()).toBeGreaterThan(2_000_000);
+  await expect(manage.calc.amount).toHaveText(formatCurrency(0));
+  const saving = Number((await manage.calc.savingField.inputValue()).replace(/[^0-9]/g, ''));
+  expect(saving).toBeGreaterThan(2_000_000);
 
   // 0 원이어도 그 값으로 예산을 정하게 두면 남은 예산이 처음부터 0 이 된다.
-  await expect(manage.suggest.applyButton).toBeDisabled();
+  await expect(manage.calc.applyButton).toBeDisabled();
 });

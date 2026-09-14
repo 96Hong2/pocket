@@ -47,6 +47,7 @@ def _out(user: CurrentUser, goal: Goal) -> GoalOut:
         current_amount=view.current_amount,
         monthly_pace=view.monthly_pace,
         contributions=view.contributions,
+        tz=ledger.user_tz(user),
     )
 
 
