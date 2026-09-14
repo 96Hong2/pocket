@@ -10,10 +10,22 @@
  */
 
 import { markHomeAddReplay } from './homeAddSeen';
+import { markOnboardingReplay } from './onboardingSeen';
 import type { KeyValueStore } from '../toss';
 
-/** 지우는 키. 값은 각 모듈의 `KEY` 와 같아야 한다. */
-const MARKS = ['home-add-prompted', 'visit-log'] as const;
+/**
+ * 지우는 키. 값은 각 모듈의 `KEY` 와 같아야 한다.
+ *
+ * 카드 닫기 표시(`card-dismissed-*`)도 함께 지운다. 그것도 「이미 봤다」 의 한 갈래라,
+ * 남겨 두면 실기기에서 복구·예산 카드를 다시 볼 길이 없다.
+ */
+const MARKS = [
+  'home-add-prompted',
+  'visit-log',
+  'onboarding-seen',
+  'card-dismissed-recovery',
+  'card-dismissed-budget-suggest',
+] as const;
 
 /** 결산은 달마다 키가 따로다. 지금 달과 지난 열두 달을 훑는다. */
 function closingKeys(now: Date): string[] {
@@ -45,5 +57,10 @@ export async function clearDeviceMarks(store: KeyValueStore, now: Date): Promise
     그래서 「다음 홈 진입에서 한 번 열어라」 를 따로 남긴다.
   */
   await markHomeAddReplay(store);
+  /*
+    처음 안내는 표시만 지워도 다시 뜬다(첫 진입 조건이 「본 적 없음」 하나뿐이다).
+    그래도 재생 표시를 함께 남긴다. 지우기가 하나라도 실패했을 때 이쪽이 받아 준다.
+  */
+  await markOnboardingReplay(store);
   return results.every(Boolean);
 }

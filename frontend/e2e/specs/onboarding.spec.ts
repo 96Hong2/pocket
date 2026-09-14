@@ -90,3 +90,23 @@ test('안내가 홈 화면 추가를 말했으니 첫 기록 뒤에 또 말하�
   // 같은 말을 두 번 들으면 안내가 아니라 잔소리다.
   await expect(home.addToHome.sheet).toHaveCount(0);
 });
+
+test('안내를 처음 상태로 되돌리면 처음 안내가 다시 뜬다', async ({
+  home,
+  onboarding,
+  settings,
+}) => {
+  await home.open();
+  await onboarding.skipButton.click();
+  await home.waitReady();
+
+  // 실기기에서 이 화면을 다시 볼 유일한 길이다. 없으면 앱 데이터를 통째로 지워야 한다.
+  await settings.open();
+  await settings.waitReady();
+  await settings.versionRow.click();
+  await settings.resetMarksButton.click();
+  await expect(settings.text(/되돌렸어요/)).toBeVisible();
+
+  await home.open();
+  await expect(onboarding.title('사진 한 장이면 끝나요')).toBeVisible();
+});

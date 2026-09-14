@@ -107,8 +107,8 @@ export function AppDiagnosticsSheet({ open, onClose }: AppDiagnosticsSheetProps)
 
       <div className="diag-reset">
         <p className="diag-reset__desc">
-          한 번만 뜨는 안내(홈 화면 추가·지난달 결산)를 이 기기에서 처음 상태로 되돌려요. 적어 둔
-          기록은 지우지 않아요.
+          한 번만 뜨는 안내(처음 안내·홈 화면 추가·지난달 결산)와 닫아 둔 카드를 이 기기에서
+          처음 상태로 되돌려요. 적어 둔 기록은 지우지 않아요.
         </p>
         <Button
           variant="outline"
