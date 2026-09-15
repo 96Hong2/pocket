@@ -54,7 +54,7 @@ function RecordButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
+function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) => void }) {
   const { state } = useIdentity();
   // 홈에서 바로 고친다. 여기서 못 고치면 달력까지 들어가야 해서 아무도 안 고친다.
   const [editing, setEditing] = useState<TransactionOut | null>(null);
@@ -173,7 +173,13 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
           if (categories.isError) void categories.refetch();
         }}
         onPick={setEditing}
-        onRecord={() => onRecord(resolveRecordTab(preferences.data?.last_record_method))}
+        /*
+          빈 날 카드의 「N 기록하기」 만 날을 들고 간다. 버튼에 날 이름이 적혀 있어서다.
+          위의 큰 「기록하기」 는 날 이름이 없으니 늘 오늘이다. 이름과 동작을 맞춘다.
+        */
+        onRecord={(pickedDay) =>
+          onRecord(resolveRecordTab(preferences.data?.last_record_method), pickedDay)
+        }
       />
 
       {/*
@@ -191,7 +197,7 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab) => void }) {
 }
 
 export default function HomePage() {
-  const [sheet, setSheet] = useState<{ open: boolean; tab: RecordTab }>({
+  const [sheet, setSheet] = useState<{ open: boolean; tab: RecordTab; day?: string }>({
     open: false,
     tab: DEFAULT_RECORD_TAB,
   });
@@ -201,11 +207,12 @@ export default function HomePage() {
   return (
     <div className="page home">
       <IdentityNotice />
-      <HomeContent onRecord={(tab) => setSheet({ open: true, tab })} />
+      <HomeContent onRecord={(tab, day) => setSheet({ open: true, tab, day })} />
       <div className="home__tail" />
       <QuickRecordSheet
         open={sheet.open}
         initialTab={sheet.tab}
+        day={sheet.day}
         onClose={() => setSheet((prev) => ({ ...prev, open: false }))}
       />
 

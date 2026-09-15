@@ -35,7 +35,13 @@ interface TodayListProps {
   /** 한 줄을 누르면 고치기로 간다. 안 넘기면 줄이 눌리지 않는다. */
   onPick?: (transaction: TransactionOut) => void;
   /** 비었을 때 여는 기록 시트. 위 큰 버튼과 같은 자리로 간다. */
-  onRecord: () => void;
+  /**
+   * 빈 날 카드의 기록 입구.
+   *
+   * **보고 있는 날을 함께 넘긴다.** 「어제 기록하기」 를 눌렀는데 오늘에 적히면
+   * 사람은 적은 것이 사라진 줄 안다. 버튼 이름이 곧 적힐 날이어야 한다.
+   */
+  onRecord: (day: string) => void;
 }
 
 /**
@@ -248,7 +254,12 @@ export function TodayList({
             <span>{markNoSpend.isPending ? '적는 중이에요' : noSpendLabel}</span>
           </button>
           {noSpendError ? <ErrorLine message={noSpendError.message} /> : null}
-          <Button className="home-today__record" variant="outline" fullWidth onClick={onRecord}>
+          <Button
+            className="home-today__record"
+            variant="outline"
+            fullWidth
+            onClick={() => onRecord(day)}
+          >
             {label} 기록하기
           </Button>
           <MoreLink />

@@ -44,6 +44,20 @@
   }
 
   /* 종류 알약 바로 아래. 금액을 누르기 전에 눈에 들어와야 고르고 넘어간다. */
+  /* 오늘이 아닌 날에 적는 중이라는 한 줄. 금액 위에 조용히 선다. */
+  .record__day {
+    margin: 0 0 -4px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  .record__day b {
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
   .record__notice {
     margin: 10px 0 0;
     padding: 9px 13px;
