@@ -328,6 +328,21 @@
     border-radius: var(--radius-inset);
   }
 
+  /* 앞날 날짜로 읽힌 줄. 날짜 글자와 안내 한 줄이 같은 색으로 묶인다. */
+  .nl-item__date--future {
+    color: var(--color-expense);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .nl-item__future {
+    margin: 6px 0 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-expense);
+    word-break: keep-all;
+  }
+
   .nl-item__refund-text {
     margin: 0;
     font-size: var(--text-13);

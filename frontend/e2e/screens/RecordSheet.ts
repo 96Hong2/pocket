@@ -644,6 +644,16 @@ class RecordNaturalLanguage {
     return this.root.getByRole('button', { name: /^\d+건 저장/ });
   }
 
+  /**
+   * 앞날 날짜로 읽힌 줄에만 붙는 확인 안내.
+   *
+   * 가계부는 이미 쓴 돈을 적는 곳이라 앞날은 거의 다 잘못 읽은 것이다.
+   * 막지는 않고 눈에 띄게만 해 둔다. 없는 것이 정상이라 개수로 본다.
+   */
+  get futureNotices(): Locator {
+    return this.root.getByTestId(TEST_IDS.nlCandidateFuture);
+  }
+
   get confirmButton(): Locator {
     return this.root.getByRole('button', { name: '확인' });
   }

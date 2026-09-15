@@ -75,6 +75,24 @@ export async function recordVisit(store: KeyValueStore, now: number): Promise<Vi
   };
 }
 
+/**
+ * 세지 않고 읽기만 한다.
+ *
+ * `recordVisit` 은 앱을 연 그 한 자리에서만 부른다(부를 때마다 한 번으로 센다).
+ * 화면이 「이 사람이 몇 번째로 오는 사람인가」 를 알고 싶을 뿐일 때는 이쪽을 쓴다.
+ * 저장소가 막혀 있거나 처음이면 `null` 이다.
+ */
+export async function peekVisit(store: KeyValueStore, now: Date): Promise<VisitFacts | null> {
+  const previous = await read(store);
+  if (previous == null) return null;
+  return {
+    isFirstOpen: false,
+    daysSinceFirstOpen: daysBetween(previous.first, now.getTime()),
+    daysSinceLastOpen: daysBetween(previous.last, now.getTime()),
+    openBucket: bucketOf(previous.count),
+  };
+}
+
 async function read(store: KeyValueStore): Promise<StoredVisit | null> {
   try {
     const raw = await store.get(KEY);

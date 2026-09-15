@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
 import { ROUTES } from '../app/router/routes';
+import { KeepDataCard } from '../features/account';
 import { AdSlot } from '../features/ads';
 import { AssetsEntryCard } from '../features/assets';
 import { BudgetSection } from '../features/budgets';
@@ -34,6 +35,12 @@ export default function ManagePage() {
       <AssetsEntryCard />
 
       <BudgetSection />
+
+      {/*
+        「내 계정」 은 아래 목록 안에 있어 아무도 스스로 들어가지 않는다. 쌓아 둔 것이
+        있는 사람에게만, 이 기기에서 한 번만, 목록 바로 위에서 말한다.
+      */}
+      <KeepDataCard />
 
       <nav aria-label="관리 하위 화면">
         <Card padding="list">

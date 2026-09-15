@@ -99,6 +99,17 @@ export function toLedgerDate(date: Date): string {
  * 날짜만 고른 값을 서버에 보낼 때 쓴다. 자정에 가까운 시각을 고르면 시간대를 옮기는
  * 순간 하루가 밀린다. 정오는 어느 쪽으로 옮겨도 같은 날에 남는다.
  */
+/**
+ * 그 날이 오늘보다 뒤인가.
+ *
+ * 가계부는 **이미 쓴 돈**을 적는 곳이라 앞날 날짜는 거의 다 잘못 읽은 것이다.
+ * 줄글에 '내일' 이라 적었거나, '9/16' 을 올해로 읽어 앞날이 된 경우가 그렇다.
+ * 막지는 않는다. 사람이 정말 그렇게 적고 싶을 수도 있어서 **확인만 시킨다.**
+ */
+export function isFutureDay(day: string, today: Date = new Date()): boolean {
+  return day > toLedgerDate(today);
+}
+
 export function toLedgerNoonIso(day: string): string {
   return `${day}T12:00:00${LEDGER_UTC_OFFSET}`;
 }

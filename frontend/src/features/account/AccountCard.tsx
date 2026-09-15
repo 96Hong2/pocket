@@ -4,7 +4,8 @@ import { useMe, type MeOut } from '../../shared/api';
 import { Button, Card, CategoryAvatar, ErrorState, LoadingState } from '../../shared/ui';
 
 import { EmailLinkSheet } from './EmailLinkSheet';
-import { ProfileSheet, describeProfile } from './ProfileSheet';
+import { ProfileSheet } from './ProfileSheet';
+import { describeProfile } from './profileOptions';
 
 /**
  * 내 계정.
@@ -46,8 +47,21 @@ export function AccountCard() {
       {data.email == null ? (
         <NotLinked available={data.email_login_available} onLink={() => setLinkOpen(true)} />
       ) : (
-        <Linked me={data} onProfile={() => setProfileOpen(true)} />
+        <Linked me={data} />
       )}
+
+      {/*
+        연령대·성별은 **이메일과 상관없다.** 익명키만으로 보내는 값이고 처음 안내에서 이미
+        물었다. 붙인 사람에게만 보여 주면, 안 붙인 사람은 자기가 무엇을 골랐는지 볼 수도
+        고칠 수도 없다. 그래서 카드 밖에 따로 세운다.
+      */}
+      <Card padding="lg" className="account-card">
+        <button type="button" className="account-card__row" onClick={() => setProfileOpen(true)}>
+          <span className="account-card__row-label">연령대·성별</span>
+          <span className="account-card__row-value">{describeProfile(data)}</span>
+        </button>
+        <p className="account-card__aside">회원가입과 상관없어요. 통계에만 써요</p>
+      </Card>
 
       <EmailLinkSheet
         open={linkOpen}
@@ -88,7 +102,7 @@ function NotLinked({ available, onLink }: { available: boolean; onLink: () => vo
   );
 }
 
-function Linked({ me, onProfile }: { me: MeOut; onProfile: () => void }) {
+function Linked({ me }: { me: MeOut }) {
   return (
     <Card padding="lg" className="account-card">
       <div className="account-card__head">
@@ -101,10 +115,6 @@ function Linked({ me, onProfile }: { me: MeOut; onProfile: () => void }) {
       <p className="account-card__aside">
         다른 기기에서 같은 이메일로 확인하면 이 기록이 그대로 이어져요
       </p>
-      <button type="button" className="account-card__row" onClick={onProfile}>
-        <span className="account-card__row-label">연령대·성별</span>
-        <span className="account-card__row-value">{describeProfile(me)}</span>
-      </button>
     </Card>
   );
 }

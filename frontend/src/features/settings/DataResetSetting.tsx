@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useBridge, useOverlayBackClose } from '../../app/providers';
+import { ROUTES } from '../../app/router/routes';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { ApiError, useResetAccountData } from '../../shared/api';
 import { clearDeviceMarks } from '../../shared/lib/deviceMarks';
@@ -90,20 +91,27 @@ function ResetForm({ analytics, storage, reset, agreed, onAgreedChange, onDone }
     const startedAt = Date.now();
     reset.mutate(undefined, {
       onSuccess: () => {
-        /*
-          **서버만 지우면 첫 실행 상태가 아니다.** 한 번만 뜨는 안내(처음 안내·홈 추가·
-          지난달 결산)와 닫아 둔 카드는 기기에 남아 있어서, 지우고 다시 열어도 아무 안내가
-          안 뜬다. 지운 사람은 앱을 처음 쓰는 사람과 같은 자리에 서야 한다.
-
-          이 지우기가 실패해도 초기화는 성공으로 둔다. 서버 기록은 이미 사라졌고,
-          안내가 다시 안 뜨는 것보다 결과를 잘못 알리는 쪽이 더 나쁘다.
-        */
-        void clearDeviceMarks(storage, new Date());
         analytics.log(EVENTS.dataResetResult, {
           result: 'ok',
           elapsed_ms: Date.now() - startedAt,
         });
-        onDone();
+        /*
+          **서버만 지우면 첫 실행 상태가 아니다.** 한 번만 뜨는 안내(처음 안내·홈 추가·
+          지난달 결산)와 닫아 둔 카드는 기기에 남아 있어서, 지우고 나서도 아무 안내가 안 뜬다.
+          지운 사람은 앱을 처음 쓰는 사람과 같은 자리에 서야 한다.
+
+          표시를 지운 **다음에 앱을 처음부터 다시 연다.** 화면만 바꾸면 처음 안내를 띄우는
+          문지기가 이미 「봤다」 로 판단을 끝낸 뒤라, 앱을 껐다 켜야만 안내가 돌아왔다.
+          다시 여는 김에 들고 있던 조회 캐시도 통째로 사라져 지운 값이 남지 않는다.
+
+          지우기가 실패해도 다시 연다. 서버 기록은 이미 사라졌고, 표시 몇 개 때문에
+          지운 사람을 옛 화면에 남겨 두는 쪽이 더 나쁘다.
+        */
+        void clearDeviceMarks(storage, new Date()).finally(() => {
+          // 먼저 닫는다. 다시 여는 것이 막히더라도 시트가 남아 있으면 안 된다.
+          onDone();
+          window.location.assign(ROUTES.home);
+        });
       },
       onError: (cause) => {
         analytics.log(EVENTS.dataResetResult, {

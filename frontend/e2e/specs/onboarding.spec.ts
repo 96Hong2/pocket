@@ -13,7 +13,7 @@ import { expect, test } from '../support/fixtures';
 
 test.use({ showOnboarding: true });
 
-test('처음 열면 세 장을 지나 바로 시작한다', async ({ home, onboarding, page }) => {
+test('처음 열면 네 장을 지나 바로 시작한다', async ({ home, onboarding, page }) => {
   await home.open();
 
   await expect(onboarding.title('사진 한 장이면 끝나요')).toBeVisible();
@@ -22,8 +22,11 @@ test('처음 열면 세 장을 지나 바로 시작한다', async ({ home, onboa
   await expect(onboarding.title('아래 탭 두 개만 기억해요')).toBeVisible();
   await onboarding.nextButton.click();
 
-  // 마지막 장은 다시 오기 쉽게 해 두는 자리다. 여기서는 「다음」이 아니라 「시작하기」다.
   await expect(onboarding.title('홈 화면에 두면 더 빨라요')).toBeVisible();
+  await onboarding.nextButton.click();
+
+  // 마지막 장에서 두 가지를 묻는다. 여기서는 「다음」이 아니라 「시작하기」다.
+  await expect(onboarding.title('마지막으로 두 가지만')).toBeVisible();
   await expect(onboarding.nextButton).toHaveCount(0);
   await onboarding.startButton.click();
 
@@ -34,7 +37,77 @@ test('처음 열면 세 장을 지나 바로 시작한다', async ({ home, onboa
   const result = await logsNamed(page, 'onboarding_result');
   expect(result).toHaveLength(1);
   expect(result[0]?.params.result).toBe('done');
-  expect(result[0]?.params.slide).toBe('home_add');
+  expect(result[0]?.params.slide).toBe('profile');
+});
+
+/*
+  마지막 장의 연령대·성별.
+
+  **회원가입이 아니다.** 익명키만으로 보내는 값이라 여기서 물을 수 있다. 예전에는 이메일을
+  붙인 사람에게만 물어서, 메일 발송이 안 붙어 있는 동안에는 아무도 답할 수 없었다.
+  여기서 지키는 것은 하나다. **안 고르고 그냥 시작할 수 있어야 한다.**
+*/
+
+test('아무것도 안 골라도 그냥 시작되고, 건너뛴 것으로 남는다', async ({
+  home,
+  onboarding,
+  page,
+}) => {
+  await home.open();
+  await onboarding.nextButton.click();
+  await onboarding.nextButton.click();
+  await onboarding.nextButton.click();
+  await expect(onboarding.title('마지막으로 두 가지만')).toBeVisible();
+
+  // 고르라고 막지 않는다. 막으면 그 순간 이 앱은 가입해야 쓰는 앱이 된다.
+  await expect(onboarding.startButton).toBeEnabled();
+  await expect(onboarding.askNote).toHaveText('회원가입이 아니에요. 통계에만 쓰고, 안 고르셔도 돼요');
+  await onboarding.startButton.click();
+
+  await home.waitReady();
+  const profile = await logsNamed(page, 'profile_result');
+  expect(profile.map((log) => [log.params.result, log.params.where])).toEqual([
+    ['skipped', 'onboarding'],
+  ]);
+});
+
+test('고른 연령대·성별이 내 계정에 그대로 남는다', async ({ account, home, onboarding, page }) => {
+  await home.open();
+  await onboarding.nextButton.click();
+  await onboarding.nextButton.click();
+  await onboarding.nextButton.click();
+
+  await onboarding.ageChip('30대').click();
+  await onboarding.genderChip('여성').click();
+  await onboarding.startButton.click();
+  await home.waitReady();
+
+  const profile = await logsNamed(page, 'profile_result');
+  expect(profile.map((log) => [log.params.result, log.params.where, log.params.age_band])).toEqual([
+    ['saved', 'onboarding', '30s'],
+  ]);
+
+  // 로그만 남고 서버에 안 갔으면 반쪽이다. 화면으로 확인한다.
+  await account.open();
+  await account.waitReady();
+  await expect(account.profileRow).toContainText('30대 · 여성');
+});
+
+test('다시 누르면 고른 것을 무를 수 있다', async ({ home, onboarding, page }) => {
+  await home.open();
+  await onboarding.nextButton.click();
+  await onboarding.nextButton.click();
+  await onboarding.nextButton.click();
+
+  await onboarding.ageChip('20대').click();
+  await expect(onboarding.ageChip('20대')).toHaveAttribute('aria-checked', 'true');
+  await onboarding.ageChip('20대').click();
+  await expect(onboarding.ageChip('20대')).toHaveAttribute('aria-checked', 'false');
+
+  await onboarding.startButton.click();
+  await home.waitReady();
+  const profile = await logsNamed(page, 'profile_result');
+  expect(profile[0]?.params.result).toBe('skipped');
 });
 
 test('첫 장에서 건너뛰면 바로 홈이고, 어느 장에서 나갔는지 남는다', async ({

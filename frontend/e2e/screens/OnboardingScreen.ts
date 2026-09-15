@@ -35,4 +35,19 @@ export class OnboardingScreen {
   get skipButton(): Locator {
     return this.root.getByRole('button', { name: '건너뛰기', exact: true });
   }
+
+  // ── 마지막 장의 연령대·성별 ───────────────────────
+
+  ageChip(label: string): Locator {
+    return this.root.getByRole('radiogroup', { name: '연령대' }).getByRole('radio', { name: label, exact: true });
+  }
+
+  genderChip(label: string): Locator {
+    return this.root.getByRole('radiogroup', { name: '성별' }).getByRole('radio', { name: label, exact: true });
+  }
+
+  /** 무엇이 아닌지부터 말하는 한 줄. 「가입인가?」 가 가장 먼저 드는 생각이다. */
+  get askNote(): Locator {
+    return this.root.getByText(/회원가입이 아니에요/);
+  }
 }

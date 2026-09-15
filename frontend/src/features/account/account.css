@@ -255,4 +255,63 @@
     color: var(--color-sage-700);
     font-weight: var(--font-weight-bold);
   }
+
+  /* 「기록을 지켜 두세요」 한 줄. 목록 위에 조용히 선다. 광고 카드처럼 보이면 안 된다. */
+  .keep-data {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .keep-data__text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .keep-data__title {
+    margin: 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .keep-data__body {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.55;
+    color: var(--color-muted);
+    word-break: keep-all;
+  }
+
+  .keep-data__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .keep-data__go {
+    flex: 1;
+    min-height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-sm);
+    background: var(--color-sage-50);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+    text-decoration: none;
+  }
+
+  .keep-data__close {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
 }
