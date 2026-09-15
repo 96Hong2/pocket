@@ -82,6 +82,12 @@ export function AmountField({
           autoComplete="off"
           placeholder={placeholder}
           disabled={disabled}
+          /*
+            칸 너비를 CSS 가 안 박아 둔 자리(기록 수정 시트)에서 쓰인다.
+            안 주면 브라우저 기본값(20자)이라 짧은 금액에도 칸이 통째로 넓어져
+            옆 칸을 밀어낸다. 실제로 아이폰 세로에서 상호 칸이 19px 로 눌렸다.
+          */
+          size={Math.max(6, text.length || placeholder.length)}
           value={text}
           onChange={handleChange}
         />

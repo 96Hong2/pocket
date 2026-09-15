@@ -108,6 +108,20 @@ class CalendarGridArea {
   }
 
   /**
+   * 일곱 열의 너비. 서로 다르면 날짜가 요일 머리글 아래에서 어긋나 있다는 뜻이다.
+   *
+   * 글자로는 안 잡히는 자리다. 금액이 길어지면 그 열만 넓어지고 나머지가 눌리는데,
+   * 단언은 전부 초록이고 화면만 틀어진다. 실측: 40.9px 여섯에 94.6px 하나였다.
+   */
+  async columnWidths(): Promise<number[]> {
+    return this.root.evaluate((node) =>
+      getComputedStyle(node)
+        .gridTemplateColumns.split(' ')
+        .map((value) => Math.round(Number.parseFloat(value))),
+    );
+  }
+
+  /**
    * 그 날 칸이 스크린리더에 읽히는 이름.
    *
    * 문구는 화면이 쓰는 함수를 그대로 부른다. 베껴 적으면 화면만 바뀌어도 눈치채지 못한다.

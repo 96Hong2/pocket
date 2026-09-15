@@ -604,7 +604,7 @@ function RecordBody({
           {/* 오늘이 아니면 어느 날에 적는지 먼저 말한다. 금액을 누르기 전에 보여야 한다. */}
           {backfillLabel ? (
             <p className="record__day">
-              <b>{backfillLabel}</b> 에 적어요
+              <b>{backfillLabel}</b>에 적어요
             </p>
           ) : null}
 

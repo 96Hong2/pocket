@@ -173,7 +173,7 @@ class RecordInput {
   }
 
   /**
-   * 오늘이 아닌 날에 적는 중이라는 한 줄. 「어제 에 적어요」.
+   * 오늘이 아닌 날에 적는 중이라는 한 줄. 「어제에 적어요」.
    *
    * 오늘에 적을 때는 **아예 없다.** 있으면 늘 붙는 안내가 되어 아무도 안 읽는다.
    */
@@ -713,7 +713,7 @@ class RecordNaturalLanguage {
     return this.root.getByTestId(TEST_IDS.nlCandidateRow);
   }
 
-  /** 이름으로 잡는다. 상호가 비면 화면이 '이름 없음' 으로 그린다. */
+  /** 이름으로 잡는다. 상호가 비면 화면이 분류 이름으로, 분류도 없으면 '기록' 으로 그린다. */
   row(name: string): Locator {
     return this.rows.filter({ has: this.root.page().getByRole('checkbox', { name, exact: true }) });
   }
@@ -1084,7 +1084,7 @@ class RecordImageImport {
     return this.root.getByTestId(TEST_IDS.nlCandidateRow);
   }
 
-  /** 이름으로 잡는다. 상호가 비면 화면이 '이름 없음' 으로 그린다. */
+  /** 이름으로 잡는다. 상호가 비면 화면이 분류 이름으로, 분류도 없으면 '기록' 으로 그린다. */
   row(name: string): Locator {
     return this.rows.filter({ has: this.root.page().getByRole('checkbox', { name, exact: true }) });
   }

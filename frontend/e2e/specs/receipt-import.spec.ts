@@ -27,7 +27,7 @@ const RECEIPT_ANALYZE = '**/api/v1/imports/receipt';
 /** 스텁이 영수증에 대해 늘 내는 한 건. 상호를 못 읽은 모양이다. */
 const RECEIPT_AMOUNT = 23_500;
 /** 상호가 비면 검토 화면이 이 이름으로 그린다. */
-const NO_NAME = '이름 없음';
+const NO_NAME = '식비';
 /** 상호가 없으니 달력·홈은 분류 이름으로 줄 제목을 만든다. */
 const ROW_TITLE = '식비';
 

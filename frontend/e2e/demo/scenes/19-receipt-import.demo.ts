@@ -17,7 +17,7 @@ import { expect, test } from '../support/director';
 /** 스텁이 영수증에 대해 늘 내는 총액. */
 const RECEIPT_AMOUNT = 23_500;
 /** 상호가 비면 검토 화면이 이 이름으로 그린다. */
-const NO_NAME = '이름 없음';
+const NO_NAME = '식비';
 /** 상호가 없으니 달력은 분류 이름으로 줄 제목을 만든다. */
 const ROW_TITLE = '식비';
 
@@ -52,7 +52,7 @@ test('42 영수증을 찍으면 총액 한 건이 나오고 상호는 비어 있
   await expect(recordSheet.receipt.stubNotice).toBeVisible();
   await demo.beat(3);
 
-  await demo.step('총액 한 건을 읽었는데 상호 자리는 이름 없음이다');
+  await demo.step('총액 한 건을 읽었는데 상호를 못 읽어 분류 이름으로 선다');
   await expect(recordSheet.receipt.amount(NO_NAME)).toHaveText(formatCurrency(RECEIPT_AMOUNT));
   await demo.beat(3);
 

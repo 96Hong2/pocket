@@ -118,6 +118,8 @@
     font-weight: var(--font-weight-semibold);
     color: var(--color-sage-700);
     line-height: 1.6;
+    /* 한국어는 기본값이면 낱말 가운데서도 끊긴다. '분류처 / 럼' 으로 갈려 있었다. */
+    word-break: keep-all;
   }
 
   /* 플랫폼 안내처럼 한 번 읽고 마는 줄. 박스 없이 맨 글로 둬 본문보다 뒤로 물린다. */

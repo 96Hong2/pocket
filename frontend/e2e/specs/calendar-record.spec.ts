@@ -30,7 +30,7 @@ test('고른 날에 적으면 그 날에 남고, 다른 날에는 안 보인다'
   await calendar.list.recordButton.click();
   await recordSheet.waitOpen();
   // 어느 날에 적는지 금액을 누르기 전에 화면이 말한다.
-  await expect(recordSheet.input.dayNotice).toHaveText(`${label} 에 적어요`);
+  await expect(recordSheet.input.dayNotice).toHaveText(`${label}에 적어요`);
 
   await recordSheet.input.enterAmount(4300);
   await recordSheet.input.pickCategory('식비');
@@ -69,7 +69,7 @@ test('오늘 칸에서 적으면 지난 날 안내 없이 오늘에 적힌다', 
   await expect(calendar.list.recordButton).toHaveText('오늘 기록하기');
   await calendar.list.recordButton.click();
   await recordSheet.waitOpen();
-  // 오늘은 지난 날이 아니다. 「오늘 에 적어요」 같은 군말을 세우지 않는다.
+  // 오늘은 지난 날이 아니다. 「오늘에 적어요」 같은 군말을 세우지 않는다.
   await expect(recordSheet.input.dayNotice).toHaveCount(0);
 
   await recordSheet.input.enterAmount(1500);

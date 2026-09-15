@@ -268,6 +268,24 @@ deploy_args=(
 # --set-secrets 는 통째로 갈아 끼우므로, 여기서 안 붙이면 손으로 붙여 둔 SMTP 가 다음 배포에 떨어진다.
 SMTP_HOST="${POCKET_SMTP_HOST:-}"
 SMTP_USER="${POCKET_SMTP_USER:-}"
+# 안 주면 지금 떠 있는 리비전에서 그대로 물려받는다. 사람이 환경변수를 깜빡했다는 이유로
+# 이미 켜 둔 이메일 로그인이 조용히 꺼지면, 그 사실은 사용자가 「준비 중」 을 보고서야 드러난다.
+live_env() {
+  gcloud run services describe "$SERVICE" --region="$REGION" --project="$PROJECT" \
+    --format="value(spec.template.spec.containers[0].env.filter(\"name:$1\").extract(value).flatten())" \
+    2>/dev/null || true
+}
+if [[ -z "$SMTP_HOST" || -z "$SMTP_USER" ]]; then
+  live_host=$(live_env SMTP_HOST)
+  live_user=$(live_env SMTP_USER)
+  if [[ -n "$live_host" && -n "$live_user" ]]; then
+    SMTP_HOST="$live_host"
+    SMTP_USER="$live_user"
+    POCKET_SMTP_PORT="${POCKET_SMTP_PORT:-$(live_env SMTP_PORT)}"
+    POCKET_LOGIN_EMAIL_FROM="${POCKET_LOGIN_EMAIL_FROM:-$(live_env LOGIN_EMAIL_FROM)}"
+    echo "  SMTP 는 지금 떠 있는 리비전에서 물려받는다: $SMTP_USER ($SMTP_HOST)"
+  fi
+fi
 if [[ -n "$SMTP_HOST" && -n "$SMTP_USER" ]] \
   && gcloud secrets describe pocket-smtp-password --project="$PROJECT" >/dev/null 2>&1; then
   secrets+=",SMTP_PASSWORD=pocket-smtp-password:latest"
