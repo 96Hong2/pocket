@@ -67,7 +67,13 @@ test('지우면 기록도 예산도 목표도 사라지고, 첫 화면으로 돌
   await expect(goal.emptyTitle).toBeVisible();
 });
 
-test('지운 뒤에도 곧바로 다시 적을 수 있다', async ({ home, prep, recordSheet, settings }) => {
+test('지운 뒤에도 곧바로 다시 적을 수 있다', async ({
+  home,
+  onboarding,
+  prep,
+  recordSheet,
+  settings,
+}) => {
   await prep.addTransaction({ amount: 8_000, merchant: '분식' });
 
   await settings.open();
@@ -75,6 +81,8 @@ test('지운 뒤에도 곧바로 다시 적을 수 있다', async ({ home, prep,
   await settings.dataReset.run();
 
   await home.open();
+  // 지우면 처음 쓰는 사람과 같은 자리라 안내가 다시 뜬다. 건너뛰고 적으러 간다.
+  if (await onboarding.isVisible) await onboarding.skipButton.click();
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
@@ -86,4 +94,34 @@ test('지운 뒤에도 곧바로 다시 적을 수 있다', async ({ home, prep,
   await recordSheet.waitClosed();
 
   await expect(home.today.amount(formatCurrency(5_000))).toBeVisible();
+});
+
+test('지우면 한 번만 뜨는 안내도 처음 상태로 돌아간다', async ({
+  home,
+  onboarding,
+  page,
+  prep,
+  settings,
+}) => {
+  // 처음 안내를 한 번 보고 지나간 사람이다.
+  await prep.addTransaction({ amount: 6_000, merchant: '분식' });
+  await home.open();
+  if (await onboarding.isVisible) await onboarding.skipButton.click();
+  await home.waitReady();
+
+  // 다시 열어도 안 뜬다. 여기까지가 정상이다.
+  await home.open();
+  await home.waitReady();
+  expect(await onboarding.isVisible).toBe(false);
+
+  await settings.open();
+  await settings.waitReady();
+  await settings.dataReset.run();
+
+  /*
+    서버만 지우면 반쪽이다. 한 번만 뜨는 표시는 기기에 남아 있어서, 지운 사람이 앱을 다시
+    열어도 아무 안내가 안 떴다. 지운 사람은 처음 쓰는 사람과 같은 자리에 서야 한다.
+  */
+  await page.goto('/');
+  await expect.poll(async () => onboarding.isVisible, { timeout: 10_000 }).toBe(true);
 });

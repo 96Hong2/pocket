@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useBridge, useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
+import { formatRelativeDay, toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
 import {
   ApiError,
   queryKeys,
@@ -65,11 +66,19 @@ interface SavedState {
 export function QuickRecordSheet({
   open,
   initialTab,
+  day,
   onClose,
 }: {
   open: boolean;
   /** 열 때 켜 둘 탭. 안 주면 키패드로 연다. */
   initialTab?: RecordTab;
+  /**
+   * 키패드로 적을 날. 안 주면 오늘이다.
+   *
+   * 「어제 기록하기」 처럼 **버튼에 날 이름이 붙은 자리**에서만 넘어온다.
+   * 줄글·캡처·영수증은 읽은 내용에서 날짜가 나오므로 이 값을 쓰지 않는다.
+   */
+  day?: string;
   onClose: () => void;
 }) {
   // 저장 응답을 기다리는 동안에는 닫히지 않는다.
@@ -116,6 +125,7 @@ export function QuickRecordSheet({
     >
       <RecordBody
         initialTab={initialTab}
+        day={day}
         onDone={onClose}
         onSavingChange={setSaving}
         onPendingChange={setPending}
@@ -175,12 +185,15 @@ function LeaveConfirm({
  */
 function RecordBody({
   initialTab,
+  day,
   onDone,
   onSavingChange,
   onPendingChange,
   onReviewingChange,
 }: {
   initialTab?: RecordTab;
+  /** 키패드로 적을 날. 안 주면 오늘. */
+  day?: string;
   onDone: () => void;
   onSavingChange: (saving: boolean) => void;
   /** 어느 탭에서든 읽어 두고 아직 저장 안 한 건수의 합. */
@@ -193,6 +206,15 @@ function RecordBody({
   const queryClient = useQueryClient();
   const categories = useCategories();
   const create = useCreateTransaction();
+
+  /*
+    지난 날에 적는 중인가.
+
+    「어제 기록하기」 로 열었을 때만 참이다. 참이면 저장이 그 날 정오로 가고,
+    화면에도 어느 날에 적는지 적는다. **말없이 다른 날에 적는 것이 이 버그의 원인이었다.**
+  */
+  const isBackfill = day != null && day !== toLedgerDate(new Date());
+  const backfillLabel = isBackfill ? formatRelativeDay(day) : null;
 
   /*
     이 시트가 사는 동안이 기록 흐름 하나다.
@@ -325,7 +347,11 @@ function RecordBody({
     const startedAt = Date.now();
     create.mutate(
       {
-        occurred_at: new Date().toISOString(),
+        /*
+          「어제 기록하기」 로 열었으면 그 날 정오에 적는다. 오늘이면 지금 시각 그대로 둔다.
+          정오로 두는 것은 시간대가 달라져도 날이 안 넘어가게 하려는 것이다(달력 수정과 같은 규칙).
+        */
+        occurred_at: isBackfill ? toLedgerNoonIso(day) : new Date().toISOString(),
         amount,
         type: kind,
         category_id: category.id,
@@ -491,6 +517,13 @@ function RecordBody({
             setListOpen(true);
           }}
         />
+
+        {/* 오늘이 아니면 어느 날에 적는지 먼저 말한다. 금액을 누르기 전에 보여야 한다. */}
+        {backfillLabel ? (
+          <p className="record__day">
+            <b>{backfillLabel}</b> 에 적어요
+          </p>
+        ) : null}
 
         <AmountDisplay digits={digits} hint={hint} />
 

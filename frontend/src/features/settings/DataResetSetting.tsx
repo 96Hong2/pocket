@@ -1,8 +1,9 @@
 import { useState } from 'react';
 
-import { useOverlayBackClose } from '../../app/providers';
+import { useBridge, useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { ApiError, useResetAccountData } from '../../shared/api';
+import { clearDeviceMarks } from '../../shared/lib/deviceMarks';
 import { TEST_IDS } from '../../shared/testIds';
 import { BottomSheet, Button } from '../../shared/ui';
 
@@ -41,6 +42,7 @@ export function DataResetSetting() {
  */
 function ResetSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const analytics = useAnalytics();
+  const bridge = useBridge();
   const reset = useResetAccountData();
   const [agreed, setAgreed] = useState(false);
 
@@ -59,6 +61,7 @@ function ResetSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
       {open ? (
         <ResetForm
           analytics={analytics}
+          storage={bridge.storage}
           reset={reset}
           agreed={agreed}
           onAgreedChange={setAgreed}
@@ -71,13 +74,15 @@ function ResetSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
 
 interface ResetFormProps {
   analytics: ReturnType<typeof useAnalytics>;
+  /** 기기에만 있는 표시를 지우려고 받는다. 서버 초기화가 여기까지는 못 닿는다. */
+  storage: ReturnType<typeof useBridge>['storage'];
   reset: ReturnType<typeof useResetAccountData>;
   agreed: boolean;
   onAgreedChange: (next: boolean) => void;
   onDone: () => void;
 }
 
-function ResetForm({ analytics, reset, agreed, onAgreedChange, onDone }: ResetFormProps) {
+function ResetForm({ analytics, storage, reset, agreed, onAgreedChange, onDone }: ResetFormProps) {
   const error = reset.error instanceof ApiError ? reset.error : null;
   const failed = reset.isError;
 
@@ -85,6 +90,15 @@ function ResetForm({ analytics, reset, agreed, onAgreedChange, onDone }: ResetFo
     const startedAt = Date.now();
     reset.mutate(undefined, {
       onSuccess: () => {
+        /*
+          **서버만 지우면 첫 실행 상태가 아니다.** 한 번만 뜨는 안내(처음 안내·홈 추가·
+          지난달 결산)와 닫아 둔 카드는 기기에 남아 있어서, 지우고 다시 열어도 아무 안내가
+          안 뜬다. 지운 사람은 앱을 처음 쓰는 사람과 같은 자리에 서야 한다.
+
+          이 지우기가 실패해도 초기화는 성공으로 둔다. 서버 기록은 이미 사라졌고,
+          안내가 다시 안 뜨는 것보다 결과를 잘못 알리는 쪽이 더 나쁘다.
+        */
+        void clearDeviceMarks(storage, new Date());
         analytics.log(EVENTS.dataResetResult, {
           result: 'ok',
           elapsed_ms: Date.now() - startedAt,
@@ -113,6 +127,7 @@ function ResetForm({ analytics, reset, agreed, onAgreedChange, onDone }: ResetFo
         <li>자산 목록</li>
         <li>내가 만든 분류와 기억한 상호</li>
         <li>홈 표시 방식·알림 같은 설정</li>
+        <li>한 번만 뜨는 안내와 닫아 둔 카드(처음 상태로 돌아가요)</li>
       </ul>
 
       <p className="reset-sheet__warn">되돌릴 수 없어요. 지운 뒤에는 되살릴 방법이 없어요.</p>
