@@ -313,6 +313,9 @@ test.describe('지우기가 실패할 때', () => {
 
     // 지운 사람은 처음 쓰는 사람과 같은 자리에 선다. 앱이 스스로 홈부터 다시 연다.
     await expect.poll(() => appShell.pathname, { timeout: 15_000 }).toBe(ROUTES.home);
+    // 주소만 보고 끝내면 아직 문서를 새로 띄우는 중이다. 그 틈에 테스트가 끝나면
+    // 격리 가드가 목이 사라진 창을 읽는다(CI 에서만 빨개졌다). 다 뜬 것을 보고 나간다.
+    await home.waitReady();
   });
 });
 
