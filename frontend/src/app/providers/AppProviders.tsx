@@ -6,6 +6,7 @@ import { AnalyticsProvider } from './AnalyticsProvider';
 import { ApiProvider } from './ApiProvider';
 import { BridgeProvider } from './BridgeProvider';
 import { IdentityProvider } from './IdentityProvider';
+import { OnboardingProvider } from './OnboardingProvider';
 import { OverlayProvider } from './OverlayProvider';
 import { QueryProvider } from './QueryProvider';
 import { SafeAreaProvider } from './SafeAreaProvider';
@@ -29,7 +30,9 @@ export function AppProviders({ children, bridge }: AppProvidersProps) {
           <SafeAreaProvider>
             <IdentityProvider>
               <ApiProvider>
-                <OverlayProvider>{children}</OverlayProvider>
+                <OverlayProvider>
+                  <OnboardingProvider>{children}</OnboardingProvider>
+                </OverlayProvider>
               </ApiProvider>
             </IdentityProvider>
           </SafeAreaProvider>

@@ -4,8 +4,6 @@ import { useMe, type MeOut } from '../../shared/api';
 import { Button, Card, CategoryAvatar, ErrorState, LoadingState } from '../../shared/ui';
 
 import { EmailLinkSheet } from './EmailLinkSheet';
-import { ProfileSheet } from './ProfileSheet';
-import { describeProfile } from './profileOptions';
 
 /**
  * 내 계정.
@@ -19,7 +17,6 @@ import { describeProfile } from './profileOptions';
 export function AccountCard() {
   const me = useMe();
   const [linkOpen, setLinkOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
 
   if (me.isError) {
     return (
@@ -51,28 +48,14 @@ export function AccountCard() {
       )}
 
       {/*
-        연령대·성별은 **이메일과 상관없다.** 익명키만으로 보내는 값이고 처음 안내에서 이미
-        물었다. 붙인 사람에게만 보여 주면, 안 붙인 사람은 자기가 무엇을 골랐는지 볼 수도
-        고칠 수도 없다. 그래서 카드 밖에 따로 세운다.
-      */}
-      <Card padding="lg" className="account-card">
-        <button type="button" className="account-card__row" onClick={() => setProfileOpen(true)}>
-          <span className="account-card__row-label">연령대·성별</span>
-          <span className="account-card__row-value">{describeProfile(data)}</span>
-        </button>
-        <p className="account-card__aside">회원가입과 상관없어요. 통계에만 써요</p>
-      </Card>
+        **연령대·성별은 여기 안 세운다.** 처음 안내에서 한 번 묻고 끝이다.
 
-      <EmailLinkSheet
-        open={linkOpen}
-        onClose={() => setLinkOpen(false)}
-        // 붙이자마자 연령대·성별을 한 번 묻는다. 아직 안 물었을 때만이고, 건너뛰어도 된다.
-        onLinked={(next) => {
-          setLinkOpen(false);
-          if (!next.profile_asked) setProfileOpen(true);
-        }}
-      />
-      <ProfileSheet open={profileOpen} me={data} onClose={() => setProfileOpen(false)} />
+        이 화면은 「기록을 지켜 두기」 하나만 하는 자리다. 통계용으로 받아 둔 값을 굳이
+        다시 보여 주면, 가입과 상관없다고 적어 놔도 계정에 딸린 개인정보로 읽힌다.
+        고칠 일이 거의 없는 값을 위해 이 화면을 두 가지 이야기로 만들 이유가 없다.
+      */}
+
+      <EmailLinkSheet open={linkOpen} onClose={() => setLinkOpen(false)} onLinked={() => setLinkOpen(false)} />
     </div>
   );
 }

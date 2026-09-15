@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 import { ROUTES } from '../../src/app/router/routes';
+import { withTopic } from '../../src/shared/lib/format';
 import { TEST_IDS } from '../../src/shared/testIds';
 
 import { EditSheetArea } from './CalendarScreen';
@@ -277,6 +278,16 @@ class TodaySection {
     return this.root.getByRole('button', { name: /기록하기$/ });
   }
 
+  /**
+   * 카드 제목 오른쪽에 붙는 그 날 합계. `4,500원 씀`.
+   *
+   * 적은 줄이 하나도 없는 날에는 0원을 적지 않고 자리째 없다.
+   * 달력의 같은 날 합계와 견주는 자리라, 숫자만이 아니라 `씀` 까지 통째로 잡는다.
+   */
+  get spentTotal(): Locator {
+    return this.root.getByText(/^[\d,]+원 씀$/);
+  }
+
   /** 행 제목. 가맹점을 아는 기록은 가맹점명, 아니면 카테고리 이름이다. */
   row(title: string): Locator {
     return this.text(title);
@@ -318,6 +329,20 @@ class TodaySection {
    */
   get noSpendButton(): Locator {
     return this.root.getByRole('button', { name: '오늘은 안 썼어요' });
+  }
+
+  /**
+   * 날 이름이 붙은 안 썼어요 버튼. 「어제는 안 썼어요」·「9월 6일은 안 썼어요」.
+   *
+   * 위 `noSpendButton` 은 오늘 문구로 못 박혀 있어 화살표로 옮긴 날을 못 잡는다.
+   * 이 버튼도 「N 기록하기」 처럼 이름에 날을 달고 그 날에 저장하는 자리라,
+   * 오늘 말고도 밟아 볼 수 있게 이름을 열어 둔다.
+   *
+   * 조사는 화면이 쓰는 함수를 그대로 부른다. 여기에 「는」 을 적어 두면
+   * 「어제은 안 썼어요」 같은 것이 나와도 잡히지 않는다.
+   */
+  noSpendButtonFor(dayLabel: string): Locator {
+    return this.root.getByRole('button', { name: `${withTopic(dayLabel)} 안 썼어요` });
   }
 
   /**

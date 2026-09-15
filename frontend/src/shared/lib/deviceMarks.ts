@@ -9,7 +9,6 @@
  * 설정이고, 여기서 같이 지우면 자기 기기에 실광고가 다시 뜬다.
  */
 
-import { markHomeAddReplay } from './homeAddSeen';
 import { markOnboardingReplay } from './onboardingSeen';
 import type { KeyValueStore } from '../toss';
 
@@ -52,14 +51,12 @@ export async function clearDeviceMarks(store: KeyValueStore, now: Date): Promise
     }),
   );
   /*
-    표시를 지우는 것만으로는 홈 추가 안내가 다시 안 뜬다. 그 안내는 「기록 없음 → 있음」
-    으로 바뀌는 순간에만 열리는데, 이미 적어 둔 기록이 있으면 그 전이가 다시 없다.
-    그래서 「다음 홈 진입에서 한 번 열어라」 를 따로 남긴다.
-  */
-  await markHomeAddReplay(store);
-  /*
     처음 안내는 표시만 지워도 다시 뜬다(첫 진입 조건이 「본 적 없음」 하나뿐이다).
     그래도 재생 표시를 함께 남긴다. 지우기가 하나라도 실패했을 때 이쪽이 받아 준다.
+
+    **홈 추가 안내에는 재생 표시를 안 남긴다.** 처음 안내가 다시 뜨고, 그 마지막 장이
+    홈 화면 추가를 이미 말한다. 재생 표시까지 남기면 안내를 마치자마자 같은 말을 한 번 더
+    듣고, 아무것도 안 적은 사람이 「첫 기록 끝!」 을 본다. 실제로 그렇게 떴다.
   */
   await markOnboardingReplay(store);
   return results.every(Boolean);

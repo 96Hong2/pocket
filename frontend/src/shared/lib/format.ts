@@ -182,14 +182,18 @@ export function formatWeekday(date: string | Date): string {
   return WEEKDAYS[value.getDay()];
 }
 
-/** 오늘·어제만 말로 바꾸고 그보다 지난 날짜는 `9월 1일` 로 적는다. */
+/**
+ * 오늘·어제만 말로 바꾸고 그보다 지난 날짜는 `9월 1일` 로 적는다.
+ *
+ * **오늘을 가계부 시간대로 센다.** 기기 시간대로 세면 한국 밖에서 앱을 여는 사람에게
+ * 하루가 어긋나, 「오늘 기록하기」 가 날짜로 바뀌거나 어제가 오늘로 읽힌다.
+ * 날짜를 옮기는 것도 `Date` 가 아니라 문자열로 한다(자정 근처에서 하루가 밀린다).
+ */
 export function formatRelativeDay(date: string | Date, today: Date = new Date()): string {
-  const target = typeof date === 'string' ? parseIsoDate(date) : date;
-  const targetIso = toIsoDate(target);
-  if (targetIso === toIsoDate(today)) return '오늘';
+  const targetIso = typeof date === 'string' ? date : toLedgerDate(date);
+  const todayIso = toLedgerDate(today);
+  if (targetIso === todayIso) return '오늘';
+  if (targetIso === shiftDay(todayIso, -1)) return '어제';
 
-  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
-  if (targetIso === toIsoDate(yesterday)) return '어제';
-
-  return formatDayLabel(target);
+  return formatDayLabel(targetIso);
 }

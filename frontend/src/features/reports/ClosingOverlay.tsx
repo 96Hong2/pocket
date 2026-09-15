@@ -247,17 +247,17 @@ function FlowCard({ month, closing }: { month: string; closing: ClosingOut }) {
   return (
     <>
       <dl className="closing__flow" data-testid={TEST_IDS.closingFlow}>
-        <div className="closing__flow-row">
+        <div className="closing__flow-row" data-testid={TEST_IDS.closingFlowRow} data-row="income">
           <dt>번 돈</dt>
           <dd className="closing__flow-value is-income">
             {formatCurrency(parseDecimalOr(flow.income, 0))}
           </dd>
         </div>
-        <div className="closing__flow-row">
+        <div className="closing__flow-row" data-testid={TEST_IDS.closingFlowRow} data-row="expense">
           <dt>쓴 돈</dt>
           <dd className="closing__flow-value">{formatCurrency(parseDecimalOr(flow.expense, 0))}</dd>
         </div>
-        <div className="closing__flow-row">
+        <div className="closing__flow-row" data-testid={TEST_IDS.closingFlowRow} data-row="delta">
           <dt>{deltaLabel(month)}</dt>
           <dd className="closing__flow-value">
             {formatSignedCurrency(parseDecimalOr(flow.delta, 0))}
@@ -266,7 +266,11 @@ function FlowCard({ month, closing }: { month: string; closing: ClosingOut }) {
         {/* 옮기기만 한 돈은 지출도 수입도 아니다. 한 번도 안 옮겼으면 줄을 아예 빼서
             무슨 말인지 모를 0원을 두지 않는다. */}
         {transfer !== 0 ? (
-          <div className="closing__flow-row">
+          <div
+            className="closing__flow-row"
+            data-testid={TEST_IDS.closingFlowRow}
+            data-row="transfer"
+          >
             <dt>옮긴 돈</dt>
             <dd className="closing__flow-value is-muted">{formatCurrency(transfer)}</dd>
           </div>

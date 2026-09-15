@@ -31,6 +31,8 @@ export const TEST_IDS = {
   recoveryGauge: 'recovery-gauge',
   /** 앱 설정에서 고른 것이 홈을 어떻게 바꾸는지 되짚는 한 줄. */
   homeHeroPreview: 'home-hero-preview',
+  /** 예산을 안 정한 채 예산 갈래를 고른 사람에게만 뜨는 버튼. */
+  homeHeroBudget: 'home-hero-budget',
   /**
    * 데이터 초기화 동의 체크.
    *
@@ -158,6 +160,8 @@ export const TEST_IDS = {
   closingHighlight: 'closing-highlight',
   /** 돈 흐름 카드 한 덩어리. 번 돈·쓴 돈·차액이 여기 있다. */
   closingFlow: 'closing-flow',
+  /** 돈 흐름 카드의 한 줄. `data-row` 가 income·expense·delta·transfer 중 무엇인지 말한다. */
+  closingFlowRow: 'closing-flow-row',
   /** 살펴볼 변화 한 줄. 지난달과 견줄 것이 없으면 숫자가 없다. */
   closingChange: 'closing-change',
   /** 다음 달에 해 볼 것 한 줄. 권할 것이 없으면 숫자가 없다. */

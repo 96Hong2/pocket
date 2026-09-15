@@ -45,6 +45,16 @@ import { DEFAULT_RECORD_TAB, recordMethodOf, type RecordTab } from './recordTab'
 
 export type { RecordTab };
 
+/**
+ * 기록 시트를 어디서 열었나.
+ *
+ * 입구가 셋이라 어느 자리가 실제로 쓰이는지 모르면 덜어낼 곳도 못 고른다.
+ * - `home`         홈 가운데 큰 버튼. 언제나 오늘에 적는다
+ * - `home_day`     홈 목록의 빈 날 버튼
+ * - `calendar_day` 월간 달력에서 고른 날
+ */
+export type RecordFrom = 'home' | 'home_day' | 'calendar_day';
+
 const TABS: SegmentedOption<RecordTab>[] = [
   { value: 'keypad', label: '키패드' },
   { value: 'nl', label: '줄글' },
@@ -67,6 +77,7 @@ export function QuickRecordSheet({
   open,
   initialTab,
   day,
+  from = 'home',
   onClose,
 }: {
   open: boolean;
@@ -79,6 +90,8 @@ export function QuickRecordSheet({
    * 줄글·캡처·영수증은 읽은 내용에서 날짜가 나오므로 이 값을 쓰지 않는다.
    */
   day?: string;
+  /** 어느 자리에서 열었나. 로그에만 쓴다. */
+  from?: RecordFrom;
   onClose: () => void;
 }) {
   // 저장 응답을 기다리는 동안에는 닫히지 않는다.
@@ -126,6 +139,7 @@ export function QuickRecordSheet({
       <RecordBody
         initialTab={initialTab}
         day={day}
+        from={from}
         onDone={onClose}
         onSavingChange={setSaving}
         onPendingChange={setPending}
@@ -186,6 +200,7 @@ function LeaveConfirm({
 function RecordBody({
   initialTab,
   day,
+  from,
   onDone,
   onSavingChange,
   onPendingChange,
@@ -194,6 +209,7 @@ function RecordBody({
   initialTab?: RecordTab;
   /** 키패드로 적을 날. 안 주면 오늘. */
   day?: string;
+  from: RecordFrom;
   onDone: () => void;
   onSavingChange: (saving: boolean) => void;
   /** 어느 탭에서든 읽어 두고 아직 저장 안 한 건수의 합. */
@@ -225,7 +241,21 @@ function RecordBody({
   */
   const [flowId] = useState(() => analytics.startFlow());
 
-  const [tab, setTab] = useState<RecordTab>(initialTab ?? DEFAULT_RECORD_TAB);
+  /*
+    지난 날에 적을 때는 **키패드 하나만 연다.**
+
+    고른 날은 키패드에만 붙는다. 줄글·캡처·영수증은 읽은 내용에서 날짜가 나오기 때문이다.
+    그런데 시트가 마지막에 쓴 방식으로 열려서, 줄글을 마지막에 썼으면 「9월 5일 기록하기」
+    를 눌러도 줄글 탭이 열리고 고른 날이 말없이 버려졌다. 사용자가 신고한 그 버그가
+    다른 길로 살아 있었다.
+
+    방식을 고를 수 있게 두고 「여기서는 안 붙어요」 라고 적는 길도 있었지만, 읽을 것이
+    늘고 고른 날을 잃을 길이 그대로 남는다. 이름에 날이 붙은 버튼은 그 날에 적는 것
+    하나만 한다. 지난 날을 줄글로 적고 싶으면 글에 날짜를 적으면 된다.
+  */
+  const [tab, setTab] = useState<RecordTab>(
+    isBackfill ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB),
+  );
   // 지출인가 수입인가. 이 값이 고를 수 있는 분류와 저장할 종류를 함께 정한다.
   const [kind, setKind] = useState<LedgerKind>('expense');
   // 무언가 도는 중에는 탭을 옮기지 못한다. 옮기면 응답이 돌아올 자리가 사라진다.
@@ -280,11 +310,21 @@ function RecordBody({
     };
   }, [bridge]);
 
-  // 어느 방식으로 시작했나. 마지막에 쓴 방식으로 열리므로 시작 방식과 끝낸 방식이 다를 수 있다.
+  /*
+    어느 방식으로, **어느 자리에서** 시작했나.
+
+    마지막에 쓴 방식으로 열리므로 시작 방식과 끝낸 방식이 다를 수 있다.
+    자리를 안 남기면 달력에서 적는 길을 새로 냈는데 쓰는 사람이 있는지조차 모른다.
+    지난 날에 적는 것인지(`backfill`)도 함께 남긴다. 그 길에서만 나는 실수가 있다.
+  */
   useEffect(() => {
     analytics.log(
       EVENTS.recordStarted,
-      { method: recordMethodOf(initialTab ?? DEFAULT_RECORD_TAB) },
+      {
+        method: recordMethodOf(isBackfill ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB)),
+        from,
+        backfill: isBackfill,
+      },
       { flowId },
     );
     // 시트가 사는 동안 한 번이다. 탭을 옮겼다고 다시 시작한 것이 아니다.
@@ -333,9 +373,25 @@ function RecordBody({
    *
    * 방식은 저장 성공 때 이미 심었지만 여기서도 부른다. 아무것도 저장하지 않고 탭만 옮긴 뒤
    * 확인으로 닫는 길이 남아 있다. 두 번 불려도 같은 값이라 문제없다.
+   *
+   * **다른 탭에 읽어 둔 것이 남아 있으면 닫지 않는다.** 캡처로 여섯 건을 읽어 두고 한 건만
+   * 따로 적은 사람이, 저장 뒤 「확인」 을 누르면 그 여섯이 말없이 사라졌다. 손잡이로 닫을
+   * 때는 한 번 묻는데 이 길만 안 물었다. 대신 그 건들이 있는 자리로 돌려보낸다.
+   * 아무 일도 안 일어난 것처럼 보이면 안 되므로 탭까지 옮겨 준다.
+   *
+   * **보고 있는 탭은 세지 않는다.** 그 탭에서 저장하거나 취소해 여기까지 온 것이라,
+   * 자기 줄을 세면 취소를 눌러도 시트가 안 닫힌다(실제로 그렇게 막혔다).
    */
   function finish(): void {
     rememberMethod();
+    const waiting = TABS.map((option) => option.value).find(
+      (key) => key !== tab && (reviewCounts[key] ?? 0) > 0,
+    );
+    if (waiting != null) {
+      setSaved(null);
+      setTab(waiting);
+      return;
+    }
     onDone();
   }
 
@@ -444,61 +500,72 @@ function RecordBody({
 
   return (
     <div className="record">
-      <SegmentedControl
-        className="record__tabs"
-        options={TABS.map((option) =>
-          option.value === tab ? option : { ...option, disabled: option.disabled || busy },
-        )}
-        value={tab}
-        onChange={(next) => {
-          analytics.log(
-            EVENTS.inputMethodChanged,
-            { from: recordMethodOf(tab), to: recordMethodOf(next) },
-            { flowId, kind: 'click' },
-          );
-          setTab(next);
-        }}
-        ariaLabel="기록 방법"
-      />
-
-      {/* 감추기만 하고 남겨 둔다. 언마운트하면 적어 둔 줄글과 검토 목록이 사라진다. */}
-      <div className="record__panel" hidden={tab !== 'nl'}>
-        <NaturalLanguageTab
-          flowId={flowId}
-          onBusyChange={markBusy}
-          onReviewChange={trackReview('nl')}
-          onDone={finish}
-          onSaved={rememberMethod}
+      {/* 지난 날에 적는 중에는 방식을 고르지 않는다. 고른 날을 잃을 길을 아예 두지 않는다. */}
+      {isBackfill ? null : (
+        <SegmentedControl
+          className="record__tabs"
+          options={TABS.map((option) =>
+            option.value === tab ? option : { ...option, disabled: option.disabled || busy },
+          )}
+          value={tab}
+          onChange={(next) => {
+            analytics.log(
+              EVENTS.inputMethodChanged,
+              { from: recordMethodOf(tab), to: recordMethodOf(next) },
+              { flowId, kind: 'click' },
+            );
+            setTab(next);
+          }}
+          ariaLabel="기록 방법"
         />
-      </div>
+      )}
 
-      <div className="record__panel" hidden={tab !== 'capture'}>
-        <ImageImportTab
-          kind="capture"
-          flowId={flowId}
-          onBusyChange={markBusy}
-          onReviewChange={trackReview('capture')}
-          onDone={finish}
-          onSaved={rememberMethod}
-        />
-      </div>
+      {/*
+        감추기만 하고 남겨 둔다. 언마운트하면 적어 둔 줄글과 검토 목록이 사라진다.
+        **지난 날에 적는 중에는 아예 안 그린다.** 갈 수 없는 자리를 DOM 에 두면
+        읽는 프로그램에는 잡히고, 나중에 누군가 그 자리를 다시 열어 놓기 쉽다.
+      */}
+      {isBackfill ? null : (
+        <>
+        <div className="record__panel" hidden={tab !== 'nl'}>
+          <NaturalLanguageTab
+            flowId={flowId}
+            onBusyChange={markBusy}
+            onReviewChange={trackReview('nl')}
+            onDone={finish}
+            onSaved={rememberMethod}
+          />
+        </div>
 
-      <div className="record__panel" hidden={tab !== 'receipt'}>
-        <ImageImportTab
-          kind="receipt"
-          flowId={flowId}
-          onBusyChange={markBusy}
-          onReviewChange={trackReview('receipt')}
-          onDone={finish}
-          onSaved={rememberMethod}
-          // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
-          fallbackAction={
-            <Button variant="ghost" onClick={() => setTab('keypad')}>
-              키패드로 입력
-            </Button>
-          }
-        />
-      </div>
+        <div className="record__panel" hidden={tab !== 'capture'}>
+          <ImageImportTab
+            kind="capture"
+            flowId={flowId}
+            onBusyChange={markBusy}
+            onReviewChange={trackReview('capture')}
+            onDone={finish}
+            onSaved={rememberMethod}
+          />
+        </div>
+
+        <div className="record__panel" hidden={tab !== 'receipt'}>
+          <ImageImportTab
+            kind="receipt"
+            flowId={flowId}
+            onBusyChange={markBusy}
+            onReviewChange={trackReview('receipt')}
+            onDone={finish}
+            onSaved={rememberMethod}
+            // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
+            fallbackAction={
+              <Button variant="ghost" onClick={() => setTab('keypad')}>
+                키패드로 입력
+              </Button>
+            }
+          />
+        </div>
+        </>
+      )}
 
       <div className="record__panel" hidden={tab !== 'keypad'}>
         {/*

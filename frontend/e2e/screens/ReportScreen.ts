@@ -307,6 +307,17 @@ export class ClosingArea {
     return this.overlay.getByTestId(TEST_IDS.closingFlow);
   }
 
+  /**
+   * 돈 흐름 카드의 한 줄. 이름표와 금액이 한 덩어리로 들어 있다.
+   *
+   * 값만 따로 잡으면 번 돈 자리에 쓴 돈 금액이 들어가도 통과한다. 줄째로 잡아
+   * 어느 이름표 옆에 붙은 숫자인지까지 본다.
+   * 한 번도 안 옮긴 달에는 `transfer` 줄이 아예 없다.
+   */
+  flowRow(row: 'income' | 'expense' | 'delta' | 'transfer'): Locator {
+    return this.page.locator(`[data-testid="${TEST_IDS.closingFlowRow}"][data-row="${row}"]`);
+  }
+
   get change(): Locator {
     return this.overlay.getByTestId(TEST_IDS.closingChange);
   }

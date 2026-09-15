@@ -3,9 +3,23 @@
  *
  * 개발 스택(프론트 5173 · 백엔드 8000 · DB pocket)과 포트도 DB 도 갈라 둔다.
  * 손으로 띄워 둔 개발 서버를 테스트가 주워 쓰면 개발 데이터에 테스트가 쓴다.
+ *
+ * **다른 개인 프로젝트가 같은 포트를 쓰면 비켜 간다.** 5183 은 부처의 말 프론트와 겹친다.
+ * 그쪽을 죽이지 않고 이쪽이 옮긴다(남의 작업을 끊는 것이 더 나쁘다).
+ *   POCKET_E2E_WEB_PORT=5283 POCKET_E2E_API_PORT=8200 npm run e2e
  */
-export const E2E_WEB_PORT = 5183;
-export const E2E_API_PORT = 8100;
+function portFrom(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw == null || raw === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1024 || value > 65535) {
+    throw new Error(`${name} 이 포트 번호가 아니에요: ${raw}`);
+  }
+  return value;
+}
+
+export const E2E_WEB_PORT = portFrom('POCKET_E2E_WEB_PORT', 5183);
+export const E2E_API_PORT = portFrom('POCKET_E2E_API_PORT', 8100);
 
 export const E2E_WEB_URL = `http://localhost:${E2E_WEB_PORT}`;
 export const E2E_API_URL = `http://localhost:${E2E_API_PORT}`;

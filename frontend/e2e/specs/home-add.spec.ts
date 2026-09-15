@@ -116,8 +116,18 @@ test('한 번을 놓쳐도 앱 설정에서 같은 안내를 연다', async ({ p
   await expect(settings.addToHomeSheet).toHaveCount(0);
 });
 
-test('안내를 처음 상태로 되돌리면 다음에 홈을 열 때 다시 뜬다', async ({
+/*
+  「안내를 처음 상태로」 를 누른 뒤.
+
+  **홈 추가 안내는 따라 뜨지 않는다.** 되돌리기는 처음 안내부터 다시 띄우는데, 그
+  마지막 장이 홈 화면 추가를 이미 말한다. 그 위에 같은 시트를 또 얹으면 안내를 두 번
+  듣고, 아무것도 안 적은 사람이 「첫 기록 끝!」 을 보게 된다. 실기기에서 그렇게 떴다.
+
+  그래도 길이 막히지는 않는다. 앱 설정의 「휴대폰 홈 화면에 추가」 줄이 같은 시트를 연다.
+*/
+test('안내를 처음 상태로 되돌려도 홈 추가 안내가 따라 뜨지 않는다', async ({
   home,
+  onboarding,
   recordSheet,
   settings,
 }) => {
@@ -132,12 +142,17 @@ test('안내를 처음 상태로 되돌리면 다음에 홈을 열 때 다시 �
   await settings.resetMarksButton.click();
   await expect(settings.text(/되돌렸어요/)).toBeVisible();
 
-  /*
-    **표시만 지워서는 다시 못 본다.** 안내는 「기록 없음 → 있음」 으로 바뀌는 순간에만 열리는데,
-    이미 적어 둔 기록이 있으면 그 전이가 다시 일어나지 않는다.
-    그래서 되돌리기가 「다음 홈 진입에서 한 번 열어라」 를 따로 남긴다.
-  */
   await home.open();
+  // 되돌아온 것은 처음 안내다. 그 마지막 장이 홈 화면 추가를 말한다.
+  await expect(onboarding.isVisible).resolves.toBe(true);
+  await onboarding.skipButton.click();
+
   await home.waitReady();
-  await expect(home.addToHome.sheet).toBeVisible();
+  await expect(home.addToHome.sheet).toHaveCount(0);
+
+  // 보고 싶으면 앱 설정에 늘 있다. 길이 사라진 것이 아니다.
+  await settings.open();
+  await settings.waitReady();
+  await settings.addToHomeRow.click();
+  await expect(settings.addToHomeSheet).toBeVisible();
 });

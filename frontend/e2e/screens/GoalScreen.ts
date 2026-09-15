@@ -68,6 +68,15 @@ export class GoalScreen {
     return this.page.getByText('목표를 불러오지 못했어요', { exact: true });
   }
 
+  /**
+   * 못 불러온 자리의 다시 시도.
+   *
+   * 빈 상태와 오류가 같은 `status` 블록을 쓰지만 둘이 함께 뜨지 않아, 그 안에서만 찾는다.
+   */
+  get retryButton(): Locator {
+    return this.page.getByRole('status').getByRole('button', { name: '다시 시도', exact: true });
+  }
+
   /** 지금까지 모은 돈. 처음 적어 둔 금액 + 더한 돈이고 서버가 센다. */
   get current(): Locator {
     return this.page.getByTestId(TEST_IDS.goalCurrent);

@@ -20,6 +20,13 @@ export interface BudgetAmountSheetProps {
    */
   onCalc?: () => void;
   calcBusy?: boolean;
+  /**
+   * 어느 자리에서 열었나. 로그에만 쓴다.
+   *
+   * 앱 설정에서 「남은 예산」 을 고른 사람에게만 뜨는 입구가 따로 있다. 그 길로 정하는
+   * 사람이 몇인지 못 보면, 버튼을 더 눌러 볼 가치가 있는지 판단할 수 없다.
+   */
+  from?: 'sheet' | 'settings';
 }
 
 /** 전체 예산 금액을 정하는 시트. 처음 정할 때와 고칠 때가 같은 화면이다. */
@@ -30,6 +37,7 @@ export function BudgetAmountSheet({
   onClose,
   onCalc,
   calcBusy = false,
+  from = 'sheet',
 }: BudgetAmountSheetProps) {
   // 저장 응답을 기다리는 동안에는 닫히지 않는다.
   // 닫히면 폼이 사라져 실패를 그릴 자리가 없어진다. 적어 둔 금액도 함께 사라진다.
@@ -51,6 +59,7 @@ export function BudgetAmountSheet({
         <BudgetAmountForm
           month={month}
           amount={amount}
+          from={from}
           onSavingChange={setSaving}
           onClose={onClose}
           onCalc={amount == null ? onCalc : undefined}
@@ -64,6 +73,7 @@ export function BudgetAmountSheet({
 interface BudgetAmountFormProps {
   month: MonthParams;
   amount: number | null;
+  from: 'sheet' | 'settings';
   onSavingChange: (saving: boolean) => void;
   onClose: () => void;
   onCalc?: () => void;
@@ -73,6 +83,7 @@ interface BudgetAmountFormProps {
 function BudgetAmountForm({
   month,
   amount,
+  from,
   onSavingChange,
   onClose,
   onCalc,
@@ -108,7 +119,7 @@ function BudgetAmountForm({
               onSettled: () => onSavingChange(false),
               onSuccess: () => {
                 // 금액은 남기지 않는다. 처음 정한 것인지가 알고 싶은 전부다.
-                analytics.log(EVENTS.budgetSaved, { first: amount == null, from: 'sheet' });
+                analytics.log(EVENTS.budgetSaved, { first: amount == null, from });
                 onClose();
               },
             },

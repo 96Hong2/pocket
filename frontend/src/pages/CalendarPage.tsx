@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { IdentityNotice } from '../app/IdentityNotice';
+import { QuickRecordSheet } from '../features/quick-record';
 import {
   CalendarGrid,
   EditSheet,
@@ -21,19 +22,23 @@ import { NoSpendRow, splitNoSpend } from '../shared/ledger';
 import {
   formatCurrency,
   formatDayLabel,
+  formatRelativeDay,
   formatWeekday,
   shiftMonth,
   toLedgerDate,
 } from '../shared/lib/format';
 import { useDebounced } from '../shared/lib/useDebounced';
 import { TEST_IDS } from '../shared/testIds';
-import { Card, EmptyState, ErrorState, LoadingState, MonthStepper } from '../shared/ui';
+import { Button, Card, EmptyState, ErrorState, LoadingState, MonthStepper } from '../shared/ui';
 
 /**
- * 월간 달력. 기록한 것을 다시 보는 화면이다.
+ * 월간 달력. 기록한 것을 다시 보고, 그 날에 바로 적는 화면이다.
  *
  * 한 화면이 달력·선택한 날 목록·검색을 다 가진다. 시안이 그렇게 그려져 있고,
  * 달을 옮기는 자리가 하나여야 어느 달을 보고 있는지 헷갈리지 않는다.
+ *
+ * **고른 날에 적고·고치고·지우는 일이 여기서 다 끝난다.** 지난 날 하나를 빠뜨린 것을
+ * 여기서 발견하는데, 적으려고 홈으로 돌아가면 그 날이 아니라 오늘에 적힌다.
  *
  * 검색 중에는 달력과 선택한 날 목록을 감춘다. 결과가 달력 아래에 따로 붙으면
  * 지금 보는 것이 무엇인지 읽히지 않는다.
@@ -50,6 +55,8 @@ export default function CalendarPage() {
   const [selected, setSelected] = useState(today);
   const [typed, setTyped] = useState('');
   const [editing, setEditing] = useState<TransactionOut | null>(null);
+  // 고른 날에 적는 시트. 이름에 날이 붙은 버튼만 그 날에 적는 규칙을 여기서도 지킨다.
+  const [recording, setRecording] = useState(false);
 
   const query = useDebounced(typed, SEARCH_DEBOUNCE_MS).trim();
   const searching = query.length > 0;
@@ -197,6 +204,22 @@ export default function CalendarPage() {
                 <NoSpendRow />
               </Card>
             ) : null}
+
+            {/*
+              **버튼 이름에 그 날을 적는다.** 「기록하기」 라고만 쓰면 오늘에 적히는 홈의
+              버튼과 구분이 안 되고, 실제로 그렇게 오늘에 적힌 적이 있다.
+              앞날은 아직 쓰지 않은 돈이라 적을 자리를 열지 않는다.
+            */}
+            {selected <= today ? (
+              <Button
+                className="tx-list__record"
+                variant="outline"
+                fullWidth
+                onClick={() => setRecording(true)}
+              >
+                {formatRelativeDay(selected)} 기록하기
+              </Button>
+            ) : null}
           </section>
         </>
       )}
@@ -206,6 +229,13 @@ export default function CalendarPage() {
         categories={categoryItems}
         month={monthParams}
         onClose={() => setEditing(null)}
+      />
+
+      <QuickRecordSheet
+        open={recording}
+        day={selected}
+        from="calendar_day"
+        onClose={() => setRecording(false)}
       />
     </div>
   );

@@ -154,6 +154,7 @@ export function BudgetSection() {
             state={state}
             editable={editable}
             busy={removeBudget.isPending}
+            categoryCount={rows.length}
             onEdit={() => setAmountOpen(true)}
             // 전체 예산이 없어지면 카테고리 한도를 붙일 자리도 사라진다. 재조회를 기다리는 사이
             // 열어 둔 시트를 함께 닫는다. 남겨 두면 저장을 눌러야 막힌 이유를 알게 된다.

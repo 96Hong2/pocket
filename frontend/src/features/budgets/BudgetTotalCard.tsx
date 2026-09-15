@@ -1,7 +1,9 @@
+import { useState } from 'react';
+
 import { parseDecimal, parseDecimalOr, type BudgetStateOut } from '../../shared/api';
 import { formatCurrency, formatPercent } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
-import { Amount, Card, EmptyState, Gauge } from '../../shared/ui';
+import { Amount, Button, Card, EmptyState, Gauge } from '../../shared/ui';
 
 export interface BudgetTotalCardProps {
   state: BudgetStateOut;
@@ -12,6 +14,13 @@ export interface BudgetTotalCardProps {
   onDelete: () => void;
   /** 지우는 중. 두 번 눌리지 않게 잠근다. */
   busy: boolean;
+  /**
+   * 딸려 사라지는 카테고리 한도가 몇 개인가.
+   *
+   * 전체 예산을 지우면 서버가 카테고리 한도까지 함께 지운다. 그 말을 안 하면
+   * 한 번 누르고 여러 개를 잃는다. 없으면 굳이 말하지 않는다.
+   */
+  categoryCount: number;
 }
 
 /** `2026-09-01` → `9` */
@@ -31,9 +40,18 @@ export function BudgetTotalCard({
   onEdit,
   onDelete,
   busy,
+  categoryCount,
 }: BudgetTotalCardProps) {
   const amount = parseDecimal(state.amount);
   const month = monthNumber(state.period_start);
+  /*
+    지우기 전에 한 번 묻는다.
+
+    **되돌릴 수 없고 딸려 사라지는 것이 있다.** 전체 예산을 지우면 카테고리 한도까지
+    서버가 함께 지운다. 한 번 눌러 여러 개를 잃는 자리라 내역 지우기와 같은 모양을 쓴다.
+    시트를 겹치지 않고 카드 안에서 버튼 줄만 물음으로 바뀐다.
+  */
+  const [asking, setAsking] = useState(false);
 
   if (amount == null) {
     return (
@@ -119,15 +137,41 @@ export function BudgetTotalCard({
         </p>
       ) : null}
 
-      {editable ? (
+      {editable && !asking ? (
         <button
           type="button"
           className="budget-total__delete"
-          onClick={onDelete}
+          onClick={() => setAsking(true)}
           disabled={busy}
         >
           예산 지우기
         </button>
+      ) : null}
+
+      {editable && asking ? (
+        <div className="budget-total__confirm" role="group" aria-label="지우기 확인">
+          <p className="budget-total__confirm-text">
+            <b>이번 달 예산을 지울까요?</b>{' '}
+            {categoryCount > 0
+              ? `카테고리 한도 ${categoryCount}개도 함께 사라져요`
+              : '지우면 되돌릴 수 없어요'}
+          </p>
+          <div className="budget-total__confirm-actions">
+            <Button variant="outline" disabled={busy} onClick={() => setAsking(false)}>
+              그대로 둘래요
+            </Button>
+            <Button
+              variant="danger"
+              disabled={busy}
+              onClick={() => {
+                setAsking(false);
+                onDelete();
+              }}
+            >
+              지울게요
+            </Button>
+          </div>
+        </div>
       ) : null}
     </Card>
   );

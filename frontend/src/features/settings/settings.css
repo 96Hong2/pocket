@@ -378,4 +378,9 @@
     font-size: var(--text-13);
     color: var(--color-expense);
   }
+
+  /* 고른 갈래가 예산을 필요로 하는데 아직 없을 때만 선다. */
+  .setting-block__go {
+    margin-top: 12px;
+  }
 }

@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 import { TEST_IDS } from '../../src/shared/testIds';
+import { horizontalScrollersIn } from '../support/overflow';
 
 /**
  * 읽어 온 것을 두고 나가려 할 때의 확인.
@@ -124,6 +125,11 @@ export class RecordSheet {
   /** 기록 방법 탭 전체. 몇 개가 놓여 있는지 셀 때 쓴다. */
   get methodTabs(): Locator {
     return this.root.getByRole('radiogroup', { name: '기록 방법' }).getByRole('radio');
+  }
+
+  /** 시트 안에서 가로로 구르는 자리. 판정은 support/overflow.ts 한 곳이 한다. */
+  async horizontalScrollers(): Promise<string[]> {
+    return horizontalScrollersIn(this.root);
   }
 
   async closeByEsc(): Promise<void> {
@@ -752,6 +758,15 @@ class RecordNaturalLanguage {
     return this.row(name).getByRole('button', { name: '수입으로 바꾸기' });
   }
 
+  /**
+   * 여러 줄의 분류를 한꺼번에 바꾸는 칩. **줄글에는 없다.**
+   *
+   * 문장은 한 번에 한두 건이라 줄마다 고치는 편이 빠르다. 없다는 것을 단언하는 자리다.
+   */
+  get bulkCategoryButton(): Locator {
+    return this.root.getByRole('button', { name: '카테고리 한 번에 바꾸기', exact: true });
+  }
+
   async analyze(text: string): Promise<void> {
     await this.textarea.fill(text);
     await this.analyzeButton.click();
@@ -841,6 +856,24 @@ class RecordNaturalLanguageForm {
       await this.moreCategoriesButton.click();
     }
     await this.categoryChip(name).click();
+  }
+
+  /**
+   * 무엇으로 냈나. **지출일 때만 선다.**
+   *
+   * 영수증에 「신용」 이 찍혀 있으면 이미 채워져 있고, 못 읽었으면 여기서 고른다.
+   * 안 골라도 되는 값이라 `aria-pressed` 로 눌린 것을 가른다.
+   */
+  get paymentGroup(): Locator {
+    return this.root.getByRole('group', { name: '결제 수단' });
+  }
+
+  paymentButton(label: '신용카드' | '체크카드' | '현금'): Locator {
+    return this.paymentGroup.getByRole('button', { name: label, exact: true });
+  }
+
+  async pickPayment(label: '신용카드' | '체크카드' | '현금'): Promise<void> {
+    await this.paymentButton(label).click();
   }
 
   async apply(): Promise<void> {
@@ -1082,6 +1115,32 @@ class RecordImageImport {
   /** 그 자리에서 한 번에 고치는 길. 카드 캐시백은 실제로 들어온 돈이다. */
   refundToIncome(name: string): Locator {
     return this.row(name).getByRole('button', { name: '수입으로 바꾸기' });
+  }
+
+  /**
+   * 여러 줄의 분류를 한꺼번에 바꾸는 칩. **캡처에만 선다.**
+   *
+   * 한 장에서 여섯 건이 쏟아지는 탭이라, 줄마다 펴서 고치게 두면 거기서 저장을 포기한다.
+   */
+  get bulkCategoryButton(): Locator {
+    return this.root.getByRole('button', { name: '카테고리 한 번에 바꾸기', exact: true });
+  }
+
+  /** 칩을 누르면 목록 위에 펼쳐지는 분류들. 줄마다 있는 분류 칸과 이름으로 갈린다. */
+  get bulkCategoryPicker(): Locator {
+    return this.root.getByRole('group', { name: '한 번에 바꿀 카테고리' });
+  }
+
+  /** 펼치기와 고르기가 한 동작이다. 앞자리에 없으면 「더 보기」를 한 번 편다. */
+  async bulkPickCategory(name: string): Promise<void> {
+    await this.bulkCategoryButton.click();
+    await expect(this.bulkCategoryPicker).toBeVisible();
+
+    const chip = this.bulkCategoryPicker.getByRole('button', { name, exact: true });
+    if ((await chip.count()) === 0) {
+      await this.bulkCategoryPicker.getByRole('button', { name: '더 보기', exact: true }).click();
+    }
+    await chip.click();
   }
 
   /** 사진을 가져와 검토 화면에 닿을 때까지. */
