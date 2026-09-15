@@ -409,6 +409,23 @@
     color: var(--color-amber-700);
   }
 
+  /*
+    고정 높이 시트의 속. 위는 굴러가고 아래 버튼 줄은 바닥에 붙는다.
+    생활비 계산기와 같은 규약이라 두 시트가 같은 자리에 버튼을 세운다.
+  */
+  .tx-edit__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .tx-edit__scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
   .tx-edit__actions {
     display: flex;
     gap: 8px;

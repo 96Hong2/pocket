@@ -16,6 +16,7 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  RetryButton,
   Toggle,
   iconOf,
 } from '../../shared/ui';
@@ -81,6 +82,10 @@ export function CategoryManageList() {
     const ids = queued.current;
     queued.current = null;
     if (ids == null) return;
+    /*
+      **실패하면 화면에 옮겨 둔 순서를 그대로 둔다.** 되돌리면 방금 옮긴 것이 눈앞에서
+      튀어 올라 무슨 일이 난 건지 알 수 없다. 대신 못 보냈다고 적고 다시 보낼 길을 준다.
+    */
     saveOrder.mutate(ids, { onSuccess: () => setDraft(null) });
   }
 
@@ -159,6 +164,19 @@ export function CategoryManageList() {
         </p>
       </div>
 
+      {/*
+        순서를 못 보냈다.
+
+        화살표는 누르는 즉시 화면을 옮긴다. 저장이 실패한 것을 여기서 말하지 않으면
+        옮긴 사람은 다 된 줄 알고 나가고, 다음에 열면 전부 원래대로다.
+      */}
+      {saveOrder.isError ? (
+        <p className="cat-list__order-fail" role="alert">
+          <span>순서를 저장하지 못했어요. 화면에 옮겨 둔 것은 그대로 있어요.</span>{' '}
+          <RetryButton variant="ghost" onRetry={() => flushOrder()} />
+        </p>
+      ) : null}
+
       {mineCount === 0 ? (
         <EmptyState
           size="inline"
@@ -173,6 +191,18 @@ export function CategoryManageList() {
         // 이체는 기록 화면 칩에 서지 않는다. 순서도 켜고 끄기도 뜻이 없다.
         const arrangeable = group.kind !== 'transfer';
         const quickCount = rows.filter((item) => item.is_quick).length;
+        /*
+          경계선을 그을 자리.
+
+          **줄 번호가 아니라 켜 둔 줄의 수로 센다.** 기록 화면 앞자리는 켜 둔 분류에서만
+          열한 개를 가져가는데, 선을 열한 번째 「줄」 뒤에 그으면 앞자리 안에서 하나를 꺼
+          둔 사람에게 한 칸 어긋난다. 선을 믿고 순서를 맞춘 사람이 화면에서 다른 것을 본다.
+          켜 둔 것이 열한 개 이하면 넘칠 것이 없어 선을 안 긋는다.
+        */
+        let quickSeen = 0;
+        const edgeIndex = quickCount > QUICK_LIMIT
+          ? rows.findIndex((item) => item.is_quick && (quickSeen += 1) === QUICK_LIMIT)
+          : -1;
 
         return (
           <section className="cat-group" aria-label={group.title} key={group.kind}>
@@ -256,7 +286,7 @@ export function CategoryManageList() {
                       ) : null}
                     </li>
                     {/* 어디까지가 기록 화면 앞자리인지. 선만으로는 무슨 선인지 모른다. */}
-                    {arrangeable && quickCount > QUICK_LIMIT && index === QUICK_LIMIT - 1 ? (
+                    {arrangeable && edgeIndex >= 0 && index === edgeIndex ? (
                       <li className="cat-list__edge" data-quick-edge="">
                         여기까지 기록 화면에 보여요
                       </li>

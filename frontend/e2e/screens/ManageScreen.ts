@@ -152,6 +152,31 @@ class BudgetCalcArea {
     return this.root.getByText(/^(목표 「.+」|직접 적은 값이에요|목표가 없으면)/);
   }
 
+  /** 제안액 자리에 아직 숫자가 없을 때 대신 서는 글자. */
+  get pending(): Locator {
+    return this.root.getByText('계산 중', { exact: true });
+  }
+
+  /**
+   * 무엇이 안 됐는지 알리는 한 줄.
+   *
+   * 저장이 막힌 것은 `alert` 자리로, 불러오기가 막힌 것은 다른 화면처럼 `status` 자리로
+   * 온다. 사람이 읽는 것은 어느 쪽이든 한 줄이라 둘을 함께 잡는다.
+   */
+  get failureNotice(): Locator {
+    return this.root.getByRole('alert').or(this.root.getByRole('status'));
+  }
+
+  /** 못 받은 자리에서 다시 받는 입구. */
+  get retryButton(): Locator {
+    return this.root.getByRole('button', { name: '다시 시도' });
+  }
+
+  /** 시트가 열린 것까지만 기다린다. 제안을 못 받는 때를 보는 자리는 이걸 쓴다. */
+  async waitSheetOpen(): Promise<void> {
+    await expect(this.root).toBeVisible();
+  }
+
   async waitOpen(): Promise<void> {
     await expect(this.root).toBeVisible();
     await expect(this.amount).toBeVisible();
@@ -269,6 +294,25 @@ class BudgetTotalArea {
     return this.section.getByRole('button', { name: '예산 지우기' });
   }
 
+  /**
+   * 지우기를 누른 뒤 그 자리에 펼쳐지는 확인.
+   *
+   * 시트를 겹치지 않고 카드 안에서 버튼 줄만 물음으로 바뀐다. 목표 시트와 같은 모양이다.
+   */
+  get deleteConfirm(): Locator {
+    return this.section.getByRole('group', { name: '지우기 확인' });
+  }
+
+  /** 확인 안의 지우기. 카드의 「예산 지우기」와 섞이지 않게 확인 안에서만 찾는다. */
+  get confirmDeleteButton(): Locator {
+    return this.deleteConfirm.getByRole('button', { name: '지울게요', exact: true });
+  }
+
+  /** 잘못 눌렀을 때 빠져나오는 자리. */
+  get keepButton(): Locator {
+    return this.deleteConfirm.getByRole('button', { name: '그대로 둘래요', exact: true });
+  }
+
   /** 게이지가 스크린리더에 알리는 사용률(%). 게이지가 없으면 null. */
   async gaugePercent(): Promise<number | null> {
     if ((await this.gauge.count()) === 0) return null;
@@ -294,8 +338,11 @@ class BudgetTotalArea {
     await this.sheet.save(amount);
   }
 
+  /** 지우기를 끝까지. 묻는 한 걸음을 지나야 실제로 지워진다. */
   async remove(): Promise<void> {
     await this.deleteButton.click();
+    await expect(this.deleteConfirm).toBeVisible();
+    await this.confirmDeleteButton.click();
   }
 }
 
@@ -478,6 +525,43 @@ class CategoryBudgetSheetArea {
   /** 고를 수 있는 카테고리 칩. 이미 한도가 있는 것은 여기 없다. */
   categoryChip(name: string): Locator {
     return this.picker.getByRole('button', { name });
+  }
+
+  /** 지금 고를 수 있는 칩 전부. 무엇이 빠졌는지 셀 때 쓴다. */
+  get categoryChips(): Locator {
+    return this.picker.getByRole('button');
+  }
+
+  /** 칩에 적힌 이름들. 화면에 그려진 순서 그대로다. */
+  async chipNames(): Promise<string[]> {
+    return (await this.categoryChips.allInnerTexts()).map((name) => name.trim());
+  }
+
+  /**
+   * 고를 것이 하나도 남지 않았을 때 칩 대신 서는 안내.
+   *
+   * 앞뒤를 다 못 박는다. 앞머리만 잡으면 닫기까지 품은 조상 요소가 함께 잡힌다.
+   */
+  get emptyNotice(): Locator {
+    return this.root.getByText(/^고를 수 있는 카테고리가 없어요\..*불러오지 못했어요\.$/);
+  }
+
+  /**
+   * 그 안내 아래 닫기. 저장할 것이 없는 시트에서 빠져나오는 자리다.
+   *
+   * 시트 손잡이도 접근성 이름이 「닫기」 라 이름만으로는 둘이 잡힌다.
+   * 글자가 보이는 쪽이 본문 버튼이다.
+   */
+  get closeButton(): Locator {
+    return this.root
+      .getByRole('button', { name: '닫기', exact: true })
+      .filter({ hasText: '닫기' });
+  }
+
+  /** 아무것도 정하지 않고 닫는다. 시트는 딤·Esc·손잡이를 다 받는다. */
+  async dismiss(): Promise<void> {
+    await this.root.press('Escape');
+    await this.waitClosed();
   }
 
   async waitOpen(): Promise<void> {

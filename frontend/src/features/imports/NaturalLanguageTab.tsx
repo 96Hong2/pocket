@@ -4,6 +4,7 @@ import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
 import { ApiError, useAnalyzeText, type ImportBatchOut } from '../../shared/api';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, LoadingState } from '../../shared/ui';
+import { parseOutcome } from './parseOutcome';
 
 import { ImportReview } from './ImportReview';
 
@@ -124,7 +125,8 @@ export function NaturalLanguageTab({
                 EVENTS.parseFinished,
                 {
                   method: 'text',
-                  result: (result.candidates?.length ?? 0) === 0 ? 'empty' : 'ok',
+                  // 캡처·영수증과 같은 함수로 판정한다. 화면이 한 말과 로그가 같아야 한다.
+                  result: parseOutcome(result),
                   elapsed_ms: Date.now() - startedAt,
                   candidate_count: result.candidates?.length ?? 0,
                 },

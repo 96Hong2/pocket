@@ -1,6 +1,5 @@
-import type { Page } from '@playwright/test';
-
 import { expect, test } from '../support/fixtures';
+import { horizontalScrollers } from '../support/overflow';
 
 /**
  * iOS 웹뷰 폭에서 화면이 가로로 넘치지 않는지 본다.
@@ -16,20 +15,6 @@ import { expect, test } from '../support/fixtures';
  * 자리를 하나씩 재지 않는다. **가로로 구르는 것이 있는지**만 본다. 자리마다 값을 박아
  * 두면 여백을 고칠 때마다 여기가 깨지고, 정작 새로 생긴 넘침은 못 잡는다.
  */
-
-/** 가로로 구르는 요소의 목록. 비어 있어야 한다. */
-async function horizontalScrollers(page: Page): Promise<string[]> {
-  return page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('*')]
-      .filter((el) => {
-        // 1px 은 반올림이다. 넓이가 없는 것(숨긴 글)은 애초에 화면을 밀지 못한다.
-        if (el.clientWidth <= 4 || el.scrollWidth <= el.clientWidth + 1) return false;
-        // 표·코드처럼 일부러 가로로 굴리는 자리는 여기서 빼 준다. 지금은 없다.
-        return !el.closest('[data-scroll-x]');
-      })
-      .map((el) => `<${el.tagName} class="${el.className}"> ${el.clientWidth} < ${el.scrollWidth}`),
-  );
-}
 
 test('홈과 기록 시트가 가로로 넘치지 않는다', async ({ page, home, recordSheet }) => {
   await home.open();

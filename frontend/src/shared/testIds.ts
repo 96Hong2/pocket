@@ -160,6 +160,8 @@ export const TEST_IDS = {
   closingHighlight: 'closing-highlight',
   /** 돈 흐름 카드 한 덩어리. 번 돈·쓴 돈·차액이 여기 있다. */
   closingFlow: 'closing-flow',
+  /** 돈 흐름 카드의 한 줄. `data-row` 가 income·expense·delta·transfer 중 무엇인지 말한다. */
+  closingFlowRow: 'closing-flow-row',
   /** 살펴볼 변화 한 줄. 지난달과 견줄 것이 없으면 숫자가 없다. */
   closingChange: 'closing-change',
   /** 다음 달에 해 볼 것 한 줄. 권할 것이 없으면 숫자가 없다. */

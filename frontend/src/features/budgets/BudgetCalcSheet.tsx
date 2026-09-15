@@ -13,7 +13,7 @@ import {
 import { formatCurrency } from '../../shared/lib/format';
 import { useDebounced } from '../../shared/lib/useDebounced';
 import { TEST_IDS } from '../../shared/testIds';
-import { Amount, AmountField, BottomSheet, Button } from '../../shared/ui';
+import { Amount, AmountField, BottomSheet, Button, RetryButton } from '../../shared/ui';
 
 export interface BudgetCalcSheetProps {
   open: boolean;
@@ -124,7 +124,16 @@ function CalcForm({ month, onSavingChange, onClose }: CalcFormProps) {
     suggestion.isFetching;
 
   const suggested = data?.suggested == null ? null : parseDecimalOr(data.suggested, 0);
-  const canSave = !stale && suggested != null && suggested > 0 && !saveBudget.isPending;
+  /*
+    제안을 못 받았다.
+
+    **이 자리는 광고 한 편을 지나 들어온다.** 그런데 조회 실패를 아무도 안 읽어서, 값이
+    안 오면 「계산 중」 이 영영 그대로 있고 저장 버튼도 죽어 있었다. 닫는 것 말고 할 일이
+    없는 화면이 된다. 같은 화면의 예산·목표는 둘 다 오류 한 줄과 다시 시도를 둔다.
+  */
+  const loadFailed = suggestion.isError && !suggestion.isFetching;
+  const canSave =
+    !stale && !loadFailed && suggested != null && suggested > 0 && !saveBudget.isPending;
   const failure =
     saveBudget.error instanceof ApiError
       ? saveBudget.error.message
@@ -193,9 +202,14 @@ function CalcForm({ month, onSavingChange, onClose }: CalcFormProps) {
         <p className="budget-calc__basis">{savingNote(data, saving)}</p>
       </section>
 
-      <div className="budget-calc__result" aria-busy={stale}>
+      <div className="budget-calc__result" aria-busy={stale && !loadFailed}>
         <span className="budget-calc__result-label">이번 달 생활비</span>
-        {stale || suggested == null ? (
+        {loadFailed ? (
+          <span className="budget-calc__failed" role="status">
+            계산에 쓸 값을 못 받았어요{' '}
+            <RetryButton variant="ghost" onRetry={() => void suggestion.refetch()} />
+          </span>
+        ) : stale || suggested == null ? (
           <span className="budget-calc__pending">계산 중</span>
         ) : (
           <Amount
@@ -208,7 +222,7 @@ function CalcForm({ month, onSavingChange, onClose }: CalcFormProps) {
       </div>
 
       {/* 0원은 예산으로 저장할 수 없다. 눌러 보고 422 를 만나기 전에 이유를 알린다. */}
-      {!stale && suggested === 0 ? (
+      {!stale && !loadFailed && suggested === 0 ? (
         <p className="budget-calc__note">
           지금 값으로는 생활비로 남는 돈이 없어요. 위 칸을 고쳐 볼 수 있어요
         </p>

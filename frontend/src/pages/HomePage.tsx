@@ -177,9 +177,12 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
           빈 날 카드의 「N 기록하기」 만 날을 들고 간다. 버튼에 날 이름이 적혀 있어서다.
           위의 큰 「기록하기」 는 날 이름이 없으니 늘 오늘이다. 이름과 동작을 맞춘다.
         */
-        onRecord={(pickedDay) =>
-          onRecord(resolveRecordTab(preferences.data?.last_record_method), pickedDay)
-        }
+        /*
+          **날 이름이 붙은 버튼은 키패드로 연다.** 마지막에 쓴 방식으로 열면, 줄글을
+          마지막에 쓴 사람이 「9월 5일 기록하기」 를 눌러도 줄글 탭이 열리고 고른 날이
+          말없이 버려졌다. 큰 「기록하기」 는 지금처럼 마지막에 쓴 방식으로 연다.
+        */
+        onRecord={(pickedDay) => onRecord('keypad', pickedDay)}
       />
 
       {/*

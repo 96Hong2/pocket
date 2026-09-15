@@ -139,6 +139,45 @@ export class CategoriesScreen {
     await expect(this.orderPending).toHaveCount(0);
   }
 
+  /**
+   * 경계 줄 위에 놓인 이름들.
+   *
+   * 그 선이 약속하는 묶음이 곧 기록 화면 칩이라, 둘을 견주려면 위쪽만 따로 읽어야 한다.
+   * 선이 없는 구획에서는 그 구획의 이름이 전부 나온다.
+   */
+  async namesAboveQuickEdge(title: string): Promise<string[]> {
+    const names = await this.sectionNames(title);
+    const below = await this.section(title).locator(`[data-quick-edge] ~ ${ROW_ONLY}`).count();
+    return names.slice(0, names.length - below);
+  }
+
+  /**
+   * 선 위에서 **켜 둔** 줄의 이름들.
+   *
+   * 선은 「여기까지 기록 화면에 보여요」 인데, 꺼 둔 줄은 선 위에 있어도 기록 화면에
+   * 안 선다. 선이 약속하는 묶음은 「선 위」 가 아니라 「선 위에서 켜 둔 것」 이다.
+   */
+  async quickNamesAboveQuickEdge(title: string): Promise<string[]> {
+    const above = await this.namesAboveQuickEdge(title);
+    const off: string[] = [];
+    for (const name of above) {
+      const toggle = this.quickToggle(name);
+      if ((await toggle.getAttribute('aria-checked')) === 'false') off.push(name);
+    }
+    return above.filter((name) => !off.includes(name));
+  }
+
+  /**
+   * 순서를 서버에 못 보냈다고 알리는 줄.
+   *
+   * 화살표는 누르는 즉시 화면을 옮긴다. 저장이 실패한 것을 여기서 말하지 않으면 옮긴 사람은
+   * 다 된 줄 알고 나가고, 다음에 열면 전부 원래대로다. 시트 안의 알림과 섞이지 않게
+   * 시트가 닫혀 있는 자리에서만 쓴다.
+   */
+  get orderSaveError(): Locator {
+    return this.page.getByRole('alert');
+  }
+
   /** 어느 구획에 있든 그 이름의 줄. 몇 개 있는지 셀 때 쓴다. */
   row(name: string): Locator {
     return this.allRows.filter({ has: this.page.getByText(name, { exact: true }) });
@@ -292,6 +331,11 @@ class CategorySheet {
   /** 확인 자리 안의 지우기. 바깥의 같은 이름과 섞이지 않게 여기서만 찾는다. */
   get confirmDeleteButton(): Locator {
     return this.confirmArea.getByRole('button', { name: '지우기', exact: true });
+  }
+
+  /** 확인 자리에서 물러나는 버튼. 지우지 않고 원래 버튼 줄로 돌아간다. */
+  get keepButton(): Locator {
+    return this.confirmArea.getByRole('button', { name: '그대로 둘게요', exact: true });
   }
 
   /** 왜 막혔는지 말하는 한 줄. 문구는 서버가 정한다. */

@@ -1,5 +1,6 @@
 import { useId, useMemo, useState } from 'react';
 
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   ApiError,
   parseDecimal,
@@ -12,7 +13,8 @@ import { toLedgerDate } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, RetryButton, SegmentedControl, type SegmentedOption } from '../../shared/ui';
 
-import { BudgetAmountSheet } from '../budgets';
+import { useFullScreenAd } from '../ads';
+import { BudgetAmountSheet, BudgetCalcSheet } from '../budgets';
 import { resolveHeroLayout, type HeroLayout } from '../home/homeMode';
 
 const OPTIONS: SegmentedOption<HomeHero>[] = [
@@ -59,6 +61,35 @@ export function HomeHeroSetting() {
   const budget = useBudget();
   const save = useSavePreferences();
   const [budgetOpen, setBudgetOpen] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
+  const [calcBusy, setCalcBusy] = useState(false);
+  const analytics = useAnalytics();
+  const fullScreenAd = useFullScreenAd();
+
+  /*
+    「계산해서 정하기」 는 여기에도 둔다.
+
+    이 버튼은 **예산이 아예 없는 사람에게만** 선다. 곧 여기 오는 사람은 전부 처음 정하는
+    사람이고, 얼마로 할지 모르는 사람이 가장 많은 자리다. 그 길이 관리 탭에만 있으면
+    「남은 예산」 을 고른 사람이 금액 칸 앞에서 멈춘다. 관리 탭이 쓰는 그 시트를 그대로 쓴다.
+  */
+  async function openCalc(): Promise<void> {
+    setCalcBusy(true);
+    try {
+      const outcome = await fullScreenAd.show();
+      analytics.log(
+        EVENTS.budgetCalcOpened,
+        outcome.result === 'watched'
+          ? { ad: 'watched', where: 'settings' }
+          : { ad: 'skipped', reason: outcome.reason, where: 'settings' },
+        { kind: 'click' },
+      );
+    } finally {
+      setCalcBusy(false);
+    }
+    setBudgetOpen(false);
+    setCalcOpen(true);
+  }
 
   // 예산은 달마다 따로다. 이 화면에서 정하는 것은 언제나 이번 달이다.
   const thisMonth = useMemo(() => {
@@ -164,8 +195,12 @@ export function HomeHeroSetting() {
         month={thisMonth}
         amount={amount}
         from="settings"
+        onCalc={() => void openCalc()}
+        calcBusy={calcBusy}
         onClose={() => setBudgetOpen(false)}
       />
+
+      <BudgetCalcSheet open={calcOpen} month={thisMonth} onClose={() => setCalcOpen(false)} />
     </section>
   );
 }

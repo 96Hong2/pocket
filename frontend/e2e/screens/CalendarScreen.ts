@@ -3,6 +3,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { ROUTES } from '../../src/app/router/routes';
 import { dayCellLabel } from '../../src/features/transactions/ledgerView';
 import { TEST_IDS } from '../../src/shared/testIds';
+import { horizontalScrollersIn } from '../support/overflow';
 
 /**
  * 월간 달력 화면. 달력·선택한 날 목록·검색·수정 시트를 한 화면이 다 가진다.
@@ -23,6 +24,8 @@ export class CalendarScreen {
   readonly search: SearchArea;
   /** 행을 누르면 열리는 수정 시트. */
   readonly edit: EditSheetArea;
+  /** 합계·달력 조회가 실패했거나 아직 오지 않았을 때 그 자리에 서는 것. */
+  readonly trouble: LoadTroubleArea;
 
   constructor(page: Page) {
     this.page = page;
@@ -31,6 +34,7 @@ export class CalendarScreen {
     this.list = new LedgerListArea(page);
     this.search = new SearchArea(page);
     this.edit = new EditSheetArea(page);
+    this.trouble = new LoadTroubleArea(page);
   }
 
   async open(): Promise<void> {
@@ -301,6 +305,16 @@ export class EditSheetArea {
   }
 
   /**
+   * 펼친 목록을 다시 접는 버튼.
+   *
+   * 지금 걸린 분류가 앞자리 밖에 있을 때는 없어야 한다. 접는 순간 눌러 둔 표시가
+   * 화면에서 사라져, 아무것도 안 고른 것처럼 보인다.
+   */
+  get foldCategoriesButton(): Locator {
+    return this.categoryGroup.getByRole('button', { name: '접기', exact: true });
+  }
+
+  /**
    * 분류를 이 자리에서 바로 만든다. **「더 보기」 안에 있다.**
    *
    * 나중에 내역을 보다가 「이건 따로 세고 싶다」 고 생각하는 순간이 여기다. 그때
@@ -402,6 +416,11 @@ export class EditSheetArea {
     return this.root.getByText('금액은 1원부터 넣을 수 있어요', { exact: true });
   }
 
+  /** 시트 안에서 가로로 구르는 자리. 판정은 support/overflow.ts 한 곳이 한다. */
+  async horizontalScrollers(): Promise<string[]> {
+    return horizontalScrollersIn(this.root);
+  }
+
   async done(): Promise<void> {
     await this.doneButton.click();
     await this.waitClosed();
@@ -413,5 +432,61 @@ export class EditSheetArea {
     await expect(this.deleteConfirm).toBeVisible();
     await this.confirmDeleteButton.click();
     await this.waitClosed();
+  }
+
+  /**
+   * 묻는 데까지만 간다. 지우지는 않는다.
+   *
+   * 지우기가 실패했을 때 물음이 어떻게 되는지 보려면 `remove` 를 못 쓴다.
+   * 그쪽은 시트가 닫히기를 기다려서, 안 닫히는 것이 맞는 자리에서는 항상 실패한다.
+   */
+  async askDelete(): Promise<void> {
+    await this.deleteButton.click();
+    await expect(this.deleteConfirm).toBeVisible();
+  }
+}
+
+/**
+ * 조회가 실패했거나 아직 안 왔을 때 달력이 하는 말.
+ *
+ * 합계와 달력이 따로 실패한다. 한 덩어리로 묶으면 무엇을 못 불러왔는지 알 수 없어서
+ * 카드도 둘이다. 카드는 제목으로 가르고, 그 안에서만 「다시 시도」를 찾는다.
+ * 둘이 함께 실패하면 같은 이름의 버튼이 화면에 둘이라 바깥에서 찾으면 못 가린다.
+ */
+class LoadTroubleArea {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  /** 제목으로 가른 실패 카드. 상태 알림 상자 하나가 카드 하나다. */
+  private card(title: string): Locator {
+    return this.page.getByRole('status').filter({ hasText: title });
+  }
+
+  get totalsError(): Locator {
+    return this.card('이번 달 합계를 불러오지 못했어요');
+  }
+
+  get totalsRetryButton(): Locator {
+    return this.totalsError.getByRole('button', { name: '다시 시도' });
+  }
+
+  /**
+   * 합계를 기다리는 동안의 자리표시자.
+   *
+   * 글자는 화면에 안 그리고 스크린리더에만 읽힌다. 그래서 이름으로 잡는다.
+   */
+  get totalsLoading(): Locator {
+    return this.page.getByRole('status', { name: '이번 달 합계를 불러오는 중이에요' });
+  }
+
+  get gridError(): Locator {
+    return this.card('달력을 불러오지 못했어요');
+  }
+
+  get gridRetryButton(): Locator {
+    return this.gridError.getByRole('button', { name: '다시 시도' });
   }
 }

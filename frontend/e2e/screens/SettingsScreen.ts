@@ -90,6 +90,22 @@ export class SettingsScreen {
     return this.budgetSheet.getByRole('button', { name: '저장', exact: true });
   }
 
+  /**
+   * 얼마로 할지 모르는 사람의 다른 길. 관리 탭 쪽 화면 객체와 같은 이름을 쓴다.
+   *
+   * 여기 오는 사람은 예산이 아직 없는 사람뿐이라, 이 길이 가장 필요한 자리다.
+   */
+  get budgetCalcButton(): Locator {
+    return this.budgetSheet.getByRole('button', {
+      name: /계산해서 정하기|광고를 불러오는 중이에요/,
+    });
+  }
+
+  /** 광고 한 편을 봐야 열린다는 한 줄. 눌러 보고 알면 속은 기분이 든다. */
+  get budgetCalcNote(): Locator {
+    return this.budgetSheet.getByText(/짧은 광고 한 편을 보면 열려요/);
+  }
+
   /** 금액을 적고 저장까지. 시트가 닫히면 정해진 것이다. */
   async setBudget(amount: number): Promise<void> {
     await this.budgetButton.click();

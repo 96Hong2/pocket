@@ -5,11 +5,11 @@ import {
   EVENTS,
   useAnalytics,
   type FlowId,
-  type ParseOutcome,
   type PickOutcome,
 } from '../../shared/analytics';
 import { ApiError, useAnalyzeImage, type ImportBatchOut } from '../../shared/api';
 import { TEST_IDS } from '../../shared/testIds';
+import { parseOutcome } from './parseOutcome';
 import {
   BridgeError,
   type BridgeCapability,
@@ -325,11 +325,6 @@ function pickOutcome(code: BridgeErrorCode): PickOutcome {
   return 'failed';
 }
 
-/** 읽기 결과를 한 낱말로. 상한을 넘겨 일부를 버렸으면 온전한 성공이 아니다. */
-function parseOutcome(batch: ImportBatchOut): ParseOutcome {
-  if ((batch.candidates?.length ?? 0) === 0) return 'empty';
-  return batch.error_code?.startsWith('TRUNCATED:') ? 'partial' : 'ok';
-}
 
 /** 스텁이 지어낸 결과인지. provider 가 붙으면 이 코드값이 사라져 안내도 함께 사라진다. */
 function isStub(batch: ImportBatchOut): boolean {

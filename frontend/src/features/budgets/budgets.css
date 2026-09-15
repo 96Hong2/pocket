@@ -161,6 +161,31 @@
     color: var(--color-disabled);
   }
 
+  /* 지우기 전 물음. 카드 안에서 버튼 줄만 바뀐다. 내역 지우기와 같은 모양이다. */
+  .budget-total__confirm {
+    margin-top: 4px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    background: var(--color-amber-50);
+  }
+
+  .budget-total__confirm-text {
+    margin: 0;
+    font-size: var(--text-13);
+    color: var(--color-amber-700);
+  }
+
+  .budget-total__confirm-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .budget-total__confirm-actions > * {
+    flex: 1;
+  }
+
+
   /* ── 카테고리 예산 ──────────────────────────────── */
 
   .budget-cats {
@@ -484,6 +509,18 @@
     font-weight: var(--font-weight-bold);
     color: var(--color-muted);
   }
+
+  /* 제안을 못 받았을 때. 「계산 중」 자리에 이유와 다시 받을 입구를 둔다. */
+  .budget-calc__failed {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    font-size: var(--text-13);
+    color: var(--color-expense);
+  }
+
 
   .budget-calc__note {
     margin: 0;

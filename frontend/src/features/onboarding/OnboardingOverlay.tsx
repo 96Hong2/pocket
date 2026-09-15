@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 
+import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { useSaveProfile, type AgeBand, type Gender } from '../../shared/api';
 import { cx } from '../../shared/lib/cx';
@@ -97,9 +98,13 @@ export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
     analytics.log(EVENTS.onboardingResult, { result, slide: slide.key }, { kind: 'click' });
     /*
       고른 것이 있으면 보낸다. **답을 기다리지 않는다.**
-      이 값 때문에 홈이 늦게 열리면 안 된다. 실패해도 「내 계정」 에서 다시 고를 수 있다.
+      이 값 때문에 홈이 늦게 열리면 안 된다.
+
+      **건너뛴 사람의 값은 안 보낸다.** 마지막 장에서 눌러 봤다가 「역시 말하기 싫다」 싶어
+      건너뛴 것인데 그대로 나가면 「건너뛰기」 라는 말이 거짓이 된다. 회원가입이 아니라고
+      적어 둔 화면이라 더 그렇다.
     */
-    const answered = ageBand != null || gender != null;
+    const answered = result === 'done' && (ageBand != null || gender != null);
     if (answered) {
       saveProfile.mutate({ age_band: ageBand, gender });
     }
@@ -112,6 +117,24 @@ export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
     );
     onDone();
   }
+
+  /*
+    시스템 뒤로가기를 안내가 가져간다.
+
+    **안 가져가면 미니앱이 통째로 닫힌다.** 안내는 여는 순간 「봤다」 로 적히므로, 그렇게
+    나간 사람은 다시 들어와도 안내를 못 본다. 처음 온 사람이 아무것도 못 본 채 앱 밖으로
+    나가는 길이 하나 열려 있었다.
+
+    둘째 장부터는 앞 장으로 돌아가고, 첫 장에서는 건너뛰기와 같이 홈으로 보낸다.
+    되돌아갈 곳이 없는데 삼키기만 하면 뒤로가기가 죽은 것처럼 보인다.
+  */
+  useOverlayBackClose(true, () => {
+    if (index > 0) {
+      setIndex((current) => current - 1);
+      return;
+    }
+    finish('skipped');
+  });
 
   return (
     <div className="onboard" role="dialog" aria-modal="true" aria-label="처음 안내">
