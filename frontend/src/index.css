@@ -165,6 +165,13 @@
     font-size: var(--text-15);
     font-weight: var(--font-weight-medium);
     line-height: 1.45;
+    /*
+      한국어는 기본값이면 낱말 가운데서도 끊긴다. 지금까지 컴포넌트마다 따로 적어 왔고
+      그래서 빠뜨린 자리가 계속 나왔다(앱 설정 안내가 '분류처 / 럼' 으로 갈려 있었다).
+      한 곳에서 건다. 한 낱말이 줄보다 길 때만 끊어 넘침을 막는다.
+    */
+    word-break: keep-all;
+    overflow-wrap: break-word;
     font-synthesis-weight: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

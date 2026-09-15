@@ -37,3 +37,6 @@ class ParseUsage(Entity):
     model: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # 비싼 모델까지 갔나. 「되도록 안 부른다」를 지키고 있는지 이 값으로 센다.
     escalated: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    # 모델을 부르고 답을 못 받았나. **실패도 돈이 나간다.** 안 세면 실패하는 동안 상한이
+    # 줄지 않아 같은 사람이 무제한으로 유료 호출을 낼 수 있다.
+    failed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))

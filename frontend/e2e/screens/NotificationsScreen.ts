@@ -62,6 +62,21 @@ export class NotificationsScreen {
     return this.page.getByRole('alert');
   }
 
+  /**
+   * 지금 값을 못 받았을 때.
+   *
+   * 이 자리에는 토글도 시각 칸도 두지 않는다. 기본값으로 그려 두면 꺼져 있는 것을
+   * 켜져 있다고 말하게 된다.
+   */
+  get loadFailure(): Locator {
+    return this.page.getByText('알림 설정을 불러오지 못했어요', { exact: true });
+  }
+
+  /** 못 받은 자리의 다시 시도. 이 화면에서 다시 시도는 여기뿐이다. */
+  get retryButton(): Locator {
+    return this.page.getByRole('button', { name: '다시 시도', exact: true });
+  }
+
   /** 낮은 토스 앱 버전에서 이 자리를 대신하는 안내. devtools 목에서는 뜨지 않는다. */
   get unsupported(): Locator {
     return this.page.getByText('이 버전에서는 아직 안 되는 기능이에요', { exact: true });

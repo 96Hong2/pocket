@@ -97,7 +97,12 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
     capability: 'camera',
     permission: 'camera',
     feature: '영수증 촬영',
-    guide: '영수증이 잘 보이게 찍어주세요. 총액이 나오면 돼요.',
+    // 한 줄에 안 들어가면 문장 사이에서 갈려야 한다. 그냥 두면 '총액이 / 나오면 돼요' 로 갈렸다.
+    guide: (
+      <>
+        영수증이 잘 보이게 찍어주세요. <span className="capture__unit">총액이 나오면 돼요.</span>
+      </>
+    ),
     intro: { icon: '43_camera', note: '원본 이미지는 정리 후 바로 지워져요' },
     pickLabel: '영수증 찍기',
     pickAlert: '카메라를 열지 못했어요',

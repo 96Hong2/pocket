@@ -111,6 +111,21 @@ export class GoalScreen {
     return this.done.getByRole('button', { name: '이 목표 마치기' });
   }
 
+  /**
+   * 마치기 버튼을 이름과 상관없이 잡는다.
+   *
+   * 누르는 동안 이름이 「마치는 중이에요」로 바뀐다. `finishButton` 으로는 그 사이가 안 잡혀,
+   * 눌린 뒤에 돌아왔는지 아직 돌고 있는지를 가를 수 없다.
+   */
+  get finishAction(): Locator {
+    return this.done.getByRole('button', { name: /^(이 목표 마치기|마치는 중이에요)$/ });
+  }
+
+  /** 마치기가 막혔을 때 축하 자리에 서는 한 줄. */
+  get finishFailure(): Locator {
+    return this.done.getByRole('alert');
+  }
+
   /** 마치기가 지우기와 무엇이 다른지 말하는 한 줄. */
   get doneAside(): Locator {
     return this.done.getByText('마친 목표는 아래 「지난 목표」에 남아요');
@@ -306,6 +321,12 @@ class GoalFormSheet {
     await expect(this.root).toHaveCount(0);
   }
 
+  /** 아무것도 저장하지 않고 닫는다. 시트는 딤·Esc·손잡이를 다 받는다. */
+  async dismiss(): Promise<void> {
+    await this.root.press('Escape');
+    await this.waitClosed();
+  }
+
   async fill(input: GoalFormInput): Promise<void> {
     if (input.title != null) await this.titleField.fill(input.title);
     if (input.amount != null) await this.amountField.fill(String(input.amount));
@@ -345,6 +366,11 @@ class ContributionSheet {
 
   get dayField(): Locator {
     return this.root.getByLabel('날짜', { exact: true });
+  }
+
+  /** 더하기가 막혔을 때 시트 안에 서는 한 줄. 적어 둔 금액을 지우지 않고 여기서 말한다. */
+  get failureNotice(): Locator {
+    return this.root.getByRole('alert');
   }
 
   get saveButton(): Locator {

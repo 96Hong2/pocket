@@ -124,7 +124,18 @@ def get_current_user(
         session.commit()
     except IntegrityError:
         session.rollback()
-        user = session.scalar(select(User).where(User.anon_key_hash == key_hash))
+        # 경쟁에서 진 것이 아니라, 접힌 계정이 그 키를 쥐고 있을 수도 있다(이메일 합치기).
+        # 그때 정답은 이어 둔 기기 줄이 가리키는 사람이다. 접힌 행을 그대로 돌려주면
+        # 그 기기는 빈 가계부를 본다.
+        user = session.scalar(
+            select(User)
+            .join(UserDevice, UserDevice.user_id == User.id)
+            .where(UserDevice.anon_key_hash == key_hash, User.deleted_at.is_(None))
+        )
+        if user is None:
+            user = session.scalar(
+                select(User).where(User.anon_key_hash == key_hash, User.deleted_at.is_(None))
+            )
         if user is None:
             raise
         return user

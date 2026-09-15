@@ -113,7 +113,10 @@
   .tx-cal__week,
   .tx-cal__grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    /* `1fr` 은 `minmax(auto, 1fr)` 이라 칸 안의 글자가 길면 그 열만 넓어진다.
+       십만 원대만 돼도 토요일 열이 두 배가 되어 날짜가 요일 머리글과 어긋났다.
+       실측: 40.9px 여섯 + 94.6px 하나. 0 을 최소로 박아 일곱 열을 같게 둔다. */
+    grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 
   .tx-cal__week {
@@ -137,6 +140,8 @@
 
   .tx-cal__cell {
     min-height: 46px;
+    /* 열을 0 까지 줄여 놔도 이 칸이 내용만큼 다시 벌어지면 소용이 없다. */
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -172,14 +177,22 @@
        잘려도 칸의 접근성 이름이 금액을 그대로 말한다. */
     min-width: 0;
     max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     gap: 1px;
     font-size: var(--text-10);
     font-weight: var(--font-weight-semibold);
     font-variant-numeric: tabular-nums;
     line-height: 1.25;
+  }
+
+  /* 자르는 것은 글자를 든 줄이다. 바깥 세로 flex 에 걸어 두면 아무 데도 안 먹어
+     「123,456,」 처럼 쉼표에서 뚝 끊긴 채로 보인다. */
+  .tx-cal__spend,
+  .tx-cal__income,
+  .tx-cal__no-spend {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .tx-cal__spend {
@@ -285,10 +298,13 @@
     gap: 5px;
   }
 
-  /* 금액칸은 공용 AmountField 라 안쪽 모양은 그쪽이 정하고, 여기서는 자리 폭만 잡는다. */
+  /* 금액칸은 공용 AmountField 라 안쪽 모양은 그쪽이 정하고, 여기서는 자리 폭만 잡는다.
+     116px 에 못 박아 두면 백만 원만 넘어도 앞자리가 칸 밖으로 밀려 「56,789,01원」 처럼
+     보인다. 짧을 때는 그대로 116px 이고, 길어지면 상호 칸에서 자리를 빌린다. */
   .tx-edit__field--amount {
-    flex: none;
-    width: 116px;
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 116px;
   }
 
   .tx-edit__label {

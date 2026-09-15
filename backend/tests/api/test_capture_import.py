@@ -409,3 +409,32 @@ def _string_values(db: Session, *models: type) -> list[str]:
         for row in db.scalars(select(model)):
             values.extend(value for name in names if isinstance(value := getattr(row, name), str))
     return values
+
+
+def test_읽기가_실패해도_그_호출은_사용량에_남는다(
+    client: TestClient, db: Session, default_categories
+) -> None:
+    """돈이 나가는 것은 답이 아니라 호출이다.
+
+    성공한 것만 세면, 답이 안 나오는 사진 한 장으로 하루 상한을 안 깎으며 유료 호출을
+    끝없이 낼 수 있다.
+    """
+    del default_categories
+    with _using(client, _BrokenClient):
+        assert (
+            client.post("/api/v1/imports/capture", json={"image": IMAGE}, headers=AUTH).status_code
+            == 503
+        )
+        assert (
+            client.post(
+                "/api/v1/imports/text", json={"text": "점심 12000"}, headers=AUTH
+            ).status_code
+            == 503
+        )
+
+    rows = db.scalars(select(ParseUsage)).all()
+    assert len(rows) == 2, rows
+    assert all(row.failed for row in rows)
+    assert all(row.candidate_count == 0 for row in rows)
+    # 어느 길에서 죽었는지는 남아야 한다. 둘을 못 가르면 어디를 고칠지 모른다.
+    assert sorted(row.source.value for row in rows) == ["nl", "screenshot"]

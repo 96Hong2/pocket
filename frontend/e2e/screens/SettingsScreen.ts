@@ -275,7 +275,7 @@ class DataResetArea {
   }
 
   get warning(): Locator {
-    return this.sheet.getByText(/되돌릴 수 없어요/);
+    return this.sheet.getByText(/서버에서 바로 없애지는 않아요/);
   }
 
   /** 확인 버튼을 여는 유일한 열쇠. */
@@ -286,6 +286,11 @@ class DataResetArea {
   /** 실제로 지우는 버튼. 저장 버튼과 같은 초록이면 손이 습관대로 누른다. */
   get confirmButton(): Locator {
     return this.sheet.getByRole('button', { name: '전부 지우기', exact: true });
+  }
+
+  /** 지우지 못했을 때 그 자리에 뜨는 한 줄. 시트를 닫아 버리면 실패를 말할 자리가 없다. */
+  get notice(): Locator {
+    return this.sheet.getByRole('alert');
   }
 
   /** 열고, 동의하고, 지운다. 시트가 닫히면 끝난 것이다. */

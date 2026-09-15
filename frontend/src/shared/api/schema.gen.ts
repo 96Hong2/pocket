@@ -707,7 +707,9 @@ export interface paths {
         put?: never;
         /**
          * Reset
-         * @description 넣어 둔 것을 전부 지운다. 되돌릴 수 없다. 이메일 연결은 남는다.
+         * @description 넣어 둔 것을 화면에서 전부 치운다. 되살릴 수 있게 행은 접어만 둔다.
+         *
+         *     이메일 연결과 연령대·성별은 남는다. 무엇을 접고 무엇을 진짜로 지우는지는 service 에 있다.
          */
         post: operations["reset_api_v1_account_reset_post"];
         delete?: never;

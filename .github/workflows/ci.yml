@@ -151,6 +151,12 @@ jobs:
         run: npx playwright test
         working-directory: frontend
 
+      # 엣지는 오래 갈라 두었는데, 그러다 출시 판에서 한 번도 안 돈 채 나갈 뻔했다.
+      # 한 바퀴가 1분 남짓이라 여기 붙여 두는 값이 갈라 두는 값보다 크다.
+      - name: e2e 엣지
+        run: npm run e2e:edge
+        working-directory: frontend
+
       # 실패했을 때 무엇이 어떻게 보였는지 없으면 원인을 못 찾는다.
       - name: 리포트 올리기
         if: failure()
@@ -159,5 +165,6 @@ jobs:
           name: playwright-report
           path: |
             frontend/playwright-report
+            frontend/playwright-report-edge
             frontend/test-results
           retention-days: 7

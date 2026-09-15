@@ -86,8 +86,13 @@ export function CandidateRow({
   onSave,
   onDraftChange,
 }: CandidateRowProps) {
-  const name = candidate.merchant ?? '이름 없음';
   const category = categories.find((item) => item.id === candidate.category_id);
+  /*
+    상호를 못 읽었을 때 「이름 없음」 이라고 적지 않는다. 읽히기로는 사용자가 뭔가
+    빠뜨린 것처럼 들리는데 실제로는 영수증에 총액만 있던 것이다. 저장하고 나면
+    같은 줄이 원장에서 분류 이름으로 불리므로, 여기서도 같은 이름을 쓴다.
+  */
+  const name = candidate.merchant ?? category?.name ?? '기록';
   const amount = parseDecimalOr(candidate.amount, 0);
   // 이체는 여기서 못 바꾼다. 분류가 없는 종류라 한 번 누르는 것으로 오갈 수 없다.
   const swap: LedgerKind | null =
@@ -181,10 +186,18 @@ export function CandidateRow({
         >
           {formatDayLabel(toLedgerDate(new Date(candidate.occurred_at)))}
         </span>
-        <span className="nl-item__dot" aria-hidden="true">
-          ·
-        </span>
-        <span>{category?.name ?? '분류 없음'}</span>
+        {/*
+          제목이 이미 분류 이름일 때(상호를 못 읽은 줄) 여기 또 적지 않는다.
+          「식비 · 식비」 로 두 번 읽힌다. 원장 줄도 같은 규칙으로 부제를 비운다.
+        */}
+        {candidate.merchant != null || category == null ? (
+          <>
+            <span className="nl-item__dot" aria-hidden="true">
+              ·
+            </span>
+            <span>{category?.name ?? '분류 없음'}</span>
+          </>
+        ) : null}
         {/*
           읽어 온 종류를 겉으로 드러내고 한 번에 바꾼다. 예전에는 '고치기' 를 펴야 보였는데,
           사진과 문장에서 가장 자주 틀리는 값이 이것이라 그 자리가 너무 멀었다.

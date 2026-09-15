@@ -212,3 +212,50 @@ test.describe('달력을 못 불러올 때', () => {
     await expect(calendar.grid.selected).toBeVisible();
   });
 });
+
+test.describe('큰 금액이 달력과 수정 시트를 밀어낼 때', () => {
+  /** 전세금·차·보증금처럼 실제로 적히는 큰 돈. 열두 자리는 입력칸 상한이다. */
+  const HUGE = 123_456_789_012;
+
+  test('억대 지출이 있어도 달력 일곱 열의 너비가 같다', async ({ calendar, prep }) => {
+    await prep.addTransaction({ amount: HUGE, daysAgo: 2, merchant: '전세금' });
+
+    await calendar.open();
+    await calendar.waitReady();
+
+    /*
+      `1fr` 은 `minmax(auto, 1fr)` 이라 칸 안의 글자가 길면 그 열만 넓어진다.
+      요일 머리글은 내용이 없어 그대로라, 날짜가 머리글 아래에서 어긋난다.
+      글자 단언으로는 안 잡히고 화면을 봐야 보이는 자리다.
+    */
+    const widths = await calendar.grid.columnWidths();
+    expect(widths, '달력 열이 일곱이 아니다').toHaveLength(7);
+    expect(new Set(widths).size, `열 너비가 갈렸다: ${widths.join(' · ')}`).toBe(1);
+  });
+
+  test('억대 금액을 고칠 때 앞자리가 칸 밖으로 밀리지 않는다', async ({ calendar, prep }) => {
+    await prep.addTransaction({ amount: HUGE, daysAgo: 2, merchant: '전세금' });
+
+    /*
+      가계부 시간대(KST)로 센 그저께. spec 은 러너의 시간대로 도는데 CI 는 UTC 라,
+      `new Date()` 로 날을 세면 한국 시간으로 오전 9시 전에는 하루가 어긋난다.
+      실제로 여기서 CI 만 빨갰다.
+    */
+    const ledgerToday = toLedgerDate(new Date());
+    const twoDaysAgo = toLedgerDate(
+      new Date(Date.parse(`${ledgerToday}T12:00:00+09:00`) - 2 * 86_400_000),
+    );
+
+    await calendar.open();
+    await calendar.waitReady();
+    await calendar.grid.select(new RegExp(`${Number(twoDaysAgo.slice(8, 10))}일`));
+    await calendar.list.pick('전세금');
+    await calendar.edit.waitOpen();
+
+    // 칸을 116px 에 못 박아 두면 「56,789,01원」 처럼 앞자리가 잘려 보인다.
+    const fits = await calendar.edit.amount.evaluate(
+      (node: HTMLInputElement) => node.scrollWidth <= node.clientWidth + 1,
+    );
+    expect(fits, '금액 칸에서 앞자리가 잘린다').toBe(true);
+  });
+});

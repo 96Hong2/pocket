@@ -61,6 +61,23 @@ export class ManageScreen {
     return this.page.getByRole('link', { name: /^자산관리/ });
   }
 
+  /**
+   * 「기록을 지켜 두세요」 줄의 본문.
+   *
+   * 제목은 내 계정 카드와 글자가 같아 이 줄로 가른다.
+   * 몇 번 와 본 사람에게만, 그리고 메일을 보낼 수단이 있을 때만 선다.
+   */
+  get keepDataNote(): Locator {
+    return this.page.getByText('지금은 이 기기에만 있어요. 이메일 하나면 기기를 바꿔도 따라와요', {
+      exact: true,
+    });
+  }
+
+  /** 그 줄에서 내 계정으로 가는 입구. */
+  get keepDataLink(): Locator {
+    return this.page.getByRole('link', { name: '지켜 두기', exact: true });
+  }
+
   /** 지금 보고 있는 달. `2026년 9월`. */
   get monthLabel(): Locator {
     return this.section.getByText(/^\d{4}년 \d{1,2}월$/);
@@ -69,6 +86,21 @@ export class ManageScreen {
   /** 끝난 달에 뜨는 안내. 이 달은 보기만 한다는 말이다. */
   get closedNotice(): Locator {
     return this.section.getByText('끝난 달이에요 · 보기만 할 수 있어요', { exact: true });
+  }
+
+  /** 그 달 예산을 아예 못 불러왔을 때. 카드 자리를 이 안내가 대신한다. */
+  get loadFailure(): Locator {
+    return this.section.getByText('예산을 불러오지 못했어요', { exact: true });
+  }
+
+  /**
+   * 못 받은 자리의 다시 시도.
+   *
+   * 카테고리 목록이 따로 실패해도 같은 이름의 버튼이 이 섹션 안에 선다.
+   * 둘을 한꺼번에 막으면 어느 쪽을 눌렀는지 말할 수 없어진다.
+   */
+  get retryButton(): Locator {
+    return this.section.getByRole('button', { name: '다시 시도' });
   }
 
   /** 달을 옮긴다. 버튼 이름에 갈 달이 적혀 있어 그것으로 집는다. */
@@ -313,6 +345,15 @@ class BudgetTotalArea {
     return this.deleteConfirm.getByRole('button', { name: '그대로 둘래요', exact: true });
   }
 
+  /**
+   * 지우기가 막혔을 때 카드 아래 서는 한 줄.
+   *
+   * 이어쓰기 설정 저장이 막힐 때도 같은 자리를 쓴다. 둘을 함께 만들지 않는다.
+   */
+  get deleteFailure(): Locator {
+    return this.section.getByRole('alert');
+  }
+
   /** 게이지가 스크린리더에 알리는 사용률(%). 게이지가 없으면 null. */
   async gaugePercent(): Promise<number | null> {
     if ((await this.gauge.count()) === 0) return null;
@@ -370,6 +411,11 @@ class AmountSheetArea {
   /** 광고 한 편을 봐야 열린다는 한 줄. 눌러 보고 알면 속은 기분이 든다. */
   get calcNote(): Locator {
     return this.root.getByText(/짧은 광고 한 편을 보면 열려요/);
+  }
+
+  /** 저장이 막혔을 때 시트 안에 서는 한 줄. 시트를 닫지 않고 여기서 말한다. */
+  get failureNotice(): Locator {
+    return this.root.getByRole('alert');
   }
 
   async waitOpen(): Promise<void> {
@@ -530,6 +576,11 @@ class CategoryBudgetSheetArea {
   /** 지금 고를 수 있는 칩 전부. 무엇이 빠졌는지 셀 때 쓴다. */
   get categoryChips(): Locator {
     return this.picker.getByRole('button');
+  }
+
+  /** 저장·지우기가 막혔을 때 시트 안에 서는 한 줄. 적어 둔 한도를 지우지 않고 여기서 말한다. */
+  get failureNotice(): Locator {
+    return this.root.getByRole('alert');
   }
 
   /** 칩에 적힌 이름들. 화면에 그려진 순서 그대로다. */

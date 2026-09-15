@@ -63,16 +63,16 @@ test('36 확신이 낮은 것은 스스로 켜지지 않는다', async ({ demo, 
 
   await demo.step('분석하면 확인 필요로 표시된다');
   await recordSheet.nl.analyzeButton.click();
-  await expect(recordSheet.nl.chip('이름 없음', '확인 필요')).toBeVisible();
+  await expect(recordSheet.nl.chip('기록', '확인 필요')).toBeVisible();
   await demo.beat(3);
 
   await demo.step('체크가 꺼져 있어 그대로는 저장되지 않는다');
-  await expect(recordSheet.nl.checkbox('이름 없음')).not.toBeChecked();
+  await expect(recordSheet.nl.checkbox('기록')).not.toBeChecked();
   await expect(recordSheet.nl.saveButton).toBeDisabled();
   await demo.beat(3);
 
   await demo.step('상호를 적어 주면 표시가 사라지고 저장 대상이 된다');
-  await recordSheet.nl.openEdit('이름 없음');
+  await recordSheet.nl.openEdit('기록');
   await recordSheet.nl.form.merchantField.fill('택시');
   await recordSheet.nl.form.apply();
   await expect(recordSheet.nl.checkbox('택시')).toBeChecked();

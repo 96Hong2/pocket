@@ -231,3 +231,60 @@ def _record(client: TestClient, headers: dict[str, str], amount: int) -> None:
         headers=headers,
     )
     assert res.status_code == 201, res.text
+
+
+THIRD = {"X-Anon-Key": "third-device-key"}
+EMAIL2 = "other@example.com"
+
+
+def _start_as(client: TestClient, headers: dict[str, str], email: str) -> None:
+    res = client.post("/api/v1/account/email/start", json={"email": email}, headers=headers)
+    assert res.status_code == 204, res.text
+
+
+def _peek_as(client: TestClient, headers: dict[str, str], email: str) -> str:
+    res = client.get(f"/api/v1/account/email/peek?email={email}", headers=headers)
+    assert res.status_code == 200, res.text
+    return str(res.json()["code"])
+
+
+def _verify_as(client: TestClient, headers: dict[str, str], email: str, code: str) -> dict:
+    return client.post(
+        "/api/v1/account/email/verify", json={"email": email, "code": code}, headers=headers
+    ).json()
+
+
+def test_합치기를_두_번_거쳐도_처음_기기가_빈_가계부를_보지_않는다(
+    two_devices: TestClient, default_categories: list[Category]
+) -> None:
+    """계정을 처음 만든 기기는 UserDevice 줄이 없다. 그 계정이 나중에 접히면 길을 잃는다.
+
+    접힌 행이 익명키 자리를 그대로 쥐고 있어, 새로 만들려던 시도가 unique 위반으로 돌아오고
+    그 접힌 행이 그대로 돌아왔다. 화면에는 지금까지 적은 것이 하나도 없는 가계부가 뜬다.
+    """
+    del default_categories
+    client = two_devices
+
+    # 기기 A 가 계정을 만들고 메일 하나를 붙인다.
+    _record(client, AUTH, 12_000)
+    _start_as(client, AUTH, EMAIL)
+    _verify_as(client, AUTH, EMAIL, _peek_as(client, AUTH, EMAIL))
+
+    # 기기 B 가 다른 메일로 자기 계정을 만든다.
+    _record(client, OTHER, 7_000)
+    _start_as(client, OTHER, EMAIL2)
+    _verify_as(client, OTHER, EMAIL2, _peek_as(client, OTHER, EMAIL2))
+
+    # 기기 C 가 A 의 메일로 들어와 A 의 계정에 붙는다.
+    _start_as(client, THIRD, EMAIL)
+    joined = _verify_as(client, THIRD, EMAIL, _peek_as(client, THIRD, EMAIL))
+    assert joined["me"]["email"] == "someone@example.com", joined
+
+    # 기기 C 가 다시 B 의 메일로 옮겨 간다. 이때 A 가 만든 계정이 접힌다.
+    _start_as(client, THIRD, EMAIL2)
+    moved = _verify_as(client, THIRD, EMAIL2, _peek_as(client, THIRD, EMAIL2))
+    assert moved["me"]["email"] == EMAIL2, moved
+
+    # 기기 A 가 돌아온다. 접힌 계정이 아니라 옮겨 간 곳을 봐야 한다.
+    items = client.get("/api/v1/transactions", headers=AUTH).json()["items"]
+    assert sorted(item["amount"] for item in items) == ["12000", "7000"], items

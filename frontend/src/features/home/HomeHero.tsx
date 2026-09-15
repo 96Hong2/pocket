@@ -151,7 +151,14 @@ export function HomeHero({
               ) : null}
             </span>
             <span className="home-hero__daily" data-numeric="">
-              남은 <span data-testid={TEST_IDS.remainingDays}>{state.remaining_days}</span>일 · 하루{' '}
+              {/*
+                글자를 한 덩이로 묶는다. 바깥이 inline-flex + gap 이라 낱낱이 두면 조각마다
+                간격이 붙어 「16 일」 처럼 숫자와 단위가 벌어진다. 화면을 봐야 보이는 자리다.
+              */}
+              <span>
+                남은 <span data-testid={TEST_IDS.remainingDays}>{state.remaining_days}</span>일 ·
+                하루
+              </span>
               <Amount
                 data-testid={TEST_IDS.dailyAllowance}
                 value={daily ?? 0}

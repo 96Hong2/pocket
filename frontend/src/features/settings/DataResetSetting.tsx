@@ -138,7 +138,9 @@ function ResetForm({ analytics, storage, reset, agreed, onAgreedChange, onDone }
         <li>한 번만 뜨는 안내와 닫아 둔 카드(처음 상태로 돌아가요)</li>
       </ul>
 
-      <p className="reset-sheet__warn">되돌릴 수 없어요. 지운 뒤에는 되살릴 방법이 없어요.</p>
+      <p className="reset-sheet__warn">
+        잘못 눌렀을 때를 위해 서버에서 바로 없애지는 않아요. 연령대·성별도 그대로 둬요.
+      </p>
 
       <label className="reset-sheet__agree">
         <input

@@ -16,7 +16,7 @@ import { expect, test } from '../support/fixtures';
 const THIS_MONTH = toLedgerDate(new Date()).slice(0, 7);
 
 /** 영수증 스텁이 늘 내는 한 건. 상호가 비어 화면이 이 이름으로 그린다. */
-const NO_NAME = '이름 없음';
+const NO_NAME = '식비';
 const RECEIPT_AMOUNT = 23_500;
 
 /** 캡처 스텁 6건 중 오늘 자로 읽히는 둘. 달이 바뀌어도 이 둘은 늘 이번 달이다. */

@@ -84,8 +84,8 @@ test('확신이 낮으면 확인 필요로 표시하고 스스로 켜지지 않�
   await recordSheet.methodTab('줄글').click();
   await recordSheet.nl.analyze('9000');
 
-  await expect(recordSheet.nl.chip('이름 없음', '확인 필요')).toBeVisible();
-  await expect(recordSheet.nl.checkbox('이름 없음')).not.toBeChecked();
+  await expect(recordSheet.nl.chip('기록', '확인 필요')).toBeVisible();
+  await expect(recordSheet.nl.checkbox('기록')).not.toBeChecked();
   // 하나도 고르지 않았으니 저장할 수 없다. 조용히 저장되는 길이 없다.
   await expect(recordSheet.nl.saveButton).toBeDisabled();
 });
@@ -178,7 +178,7 @@ test('고치면 확인 필요 표시가 사라지고 저장 대상에 들어온�
   await recordSheet.methodTab('줄글').click();
   await recordSheet.nl.analyze('9000');
 
-  await recordSheet.nl.openEdit('이름 없음');
+  await recordSheet.nl.openEdit('기록');
   await recordSheet.nl.form.merchantField.fill('택시');
   await recordSheet.nl.form.apply();
 

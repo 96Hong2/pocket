@@ -223,11 +223,18 @@ gcloud run services update-traffic pocket-backend --to-revisions=<이전 리비�
 
 자동 백업을 켜 두는 것은 백업이 있다는 말이 아니다. **한 번은 실제로 복원해 봐야** 있다고 말할 수 있다.
 
+**2026-09-15 에 켰다.** 그전까지 `backupConfiguration.enabled` 가 false 였고 백업이 0건이었다.
+처음 인스턴스를 만들 때 플래그가 빠져 있었고, 문서에 켜는 명령만 적혀 있을 뿐 부르는 곳이
+없었다. 이제 `scripts/deploy-cloudrun.sh` 가 만들 때 넣고, 이미 있는 인스턴스도 꺼져 있으면
+켠다. 손으로 켤 일이 생기면 아래를 쓴다.
+
 ```bash
-# 켜기
-gcloud sql instances patch <인스턴스> --backup-start-time=18:00 --retained-backups-count=14
-gcloud sql instances patch <인스턴스> --enable-point-in-time-recovery
+gcloud sql instances patch <인스턴스> --backup-start-time=18:00 --retained-backups-count=14 --deletion-protection
+gcloud sql instances patch <인스턴스> --enable-point-in-time-recovery --retained-transaction-log-days=7
+gcloud sql backups create --instance=<인스턴스> --description="무엇 때문에"   # 지금 당장 한 벌
 ```
+
+지금 켜져 있는 값: 매일 18:00 UTC(03:00 KST) · 14벌 보관 · PITR 7일 · 삭제 보호 켜짐.
 
 ### 복원 연습 (분기에 한 번)
 
@@ -253,6 +260,9 @@ gcloud sql instances delete pocket-restore-check      # 확인이 끝나면 지�
 | 확인한 날 | 복원 시점 | 결과 |
 |---|---|---|
 | (아직 없음) | | |
+
+⚠️ **복원 연습은 아직 안 했다.** 백업은 2026-09-15 부터 쌓이고 있지만, 그것을 되살려 본 적은
+없다. 되는지 모르는 백업은 있다고 말할 수 없다.
 
 ---
 
@@ -284,7 +294,10 @@ make ait API_BASE_URL=https://<위에서 받은 주소>
 
 - [ ] `make check` 초록 (린트·타입·단위)
 - [ ] `make e2e` 초록
-- [ ] `docs/openapi.json` 과 `frontend/src/shared/api/schema.gen.ts` 에 차이 없음
+- [ ] `docs/openapi.json` 과 `frontend/src/shared/api/schema.gen.ts` 에 차이 없음.
+      **로컬에서 다시 뽑을 때는 `LLM_PROVIDER=stub` 을 붙인다.** 안 붙이면 `.env` 의 provider
+      키를 찾다 죽는데, 출력을 버리면 조용히 안 바뀐 채 지나간다(CI 에서만 빨개진다):
+      `cd backend && ALLOW_UNVERIFIED_ANON_KEY=true LLM_PROVIDER=stub uv run python scripts/export_openapi.py`
 - [ ] 마이그레이션 잡이 먼저 끝났다
 - [ ] `ENVIRONMENT=prod`, 두 스위치 모두 `false`
 - [ ] `LLM_PROVIDER` 와 그 provider 의 키 시크릿이 짝이 맞다. 결제가 열려 있다 (`SECRETS.md` §4)
@@ -302,5 +315,9 @@ make ait API_BASE_URL=https://<위에서 받은 주소>
       말로 부탁하는 것만으로는 안 된다. 한 번 스쳐 본 노출도 무효 트래픽으로 쌓인다
 - [ ] SMTP 시크릿·환경변수를 붙였다(`SECRETS.md` §4.5). 안 붙이면 「이메일로 지켜 두기」 가 「준비 중」 으로 잠긴다(오류는 아니다)
 - [ ] 프론트 빌드에 `VITE_NOTIFICATION_TEMPLATE_CODE` 가 들어갔다. **알림 잡의 `TOSS_REMINDER_TEMPLATE_SET_CODE` 와 같은 값이다** (다르면 동의는 받고 발송은 0통)
+- [ ] **운영 DB 백업이 켜져 있다.** 되돌릴 수 없는 것 중 유일하게 점검표에 없던 항목이었고,
+      실제로 꺼진 채 배포가 열다섯 번 돌았다. 한 줄로 확인한다:
+      `gcloud sql instances describe pocket-sql --format='value(settings.backupConfiguration.enabled)'`
+      → `True` 여야 한다. 아니면 `scripts/deploy-cloudrun.sh` 가 켠다(§8)
 - [ ] 배포 뒤 연기 검사 두 줄을 실제로 돌렸다
 - [ ] 콘솔 로고·스크린샷·문안이 최신인가 (`docs/store/`)

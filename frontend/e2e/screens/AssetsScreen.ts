@@ -69,6 +69,33 @@ export class AssetsScreen {
     return this.page.getByText('자산을 불러오지 못했어요', { exact: true });
   }
 
+  /** 못 불러온 자리에 함께 적는 한 줄. 왜 지금 적으면 안 되는지 여기서 말한다. */
+  get loadFailureHint(): Locator {
+    return this.page.getByText(
+      '지금 적으면 이미 적어 둔 것이 지워질 수 있어서, 먼저 다시 받아 볼게요.',
+      { exact: true },
+    );
+  }
+
+  /**
+   * 못 불러온 자리의 다시 시도.
+   *
+   * 빈 상태와 오류가 같은 `status` 블록을 쓰지만 둘이 함께 뜨지 않아, 그 안에서만 찾는다.
+   */
+  get retryButton(): Locator {
+    return this.page.getByRole('status').getByRole('button', { name: '다시 시도', exact: true });
+  }
+
+  /**
+   * 시트를 여는 입구 전부. 빈 상태의 「자산 적기」와 구획마다의 「... 항목 추가」다.
+   *
+   * 저장이 목록을 통째로 보내는 PUT 하나라, 목록을 못 받은 채로 한 줄을 더하면 있던 줄이
+   * 함께 사라진다. 그래서 못 받았을 때 여기가 0 인지를 세는 자리가 필요하다.
+   */
+  get addEntries(): Locator {
+    return this.page.getByRole('button', { name: /^자산 적기$|항목 추가$/ });
+  }
+
   /** 그 그룹 구획. 항목이 없어도 구획은 그려진다. */
   group(label: AssetGroupLabel): Locator {
     return this.page.getByRole('region', { name: label, exact: true });
@@ -205,6 +232,11 @@ class AssetItemSheet {
   /** 고치는 시트에만 있다. */
   get deleteButton(): Locator {
     return this.root.getByRole('button', { name: '지우기', exact: true });
+  }
+
+  /** 저장이 막힌 이유를 시트 안에서 적는 한 줄. 문구는 서버가 정한다. */
+  get errorText(): Locator {
+    return this.root.getByRole('alert');
   }
 
   /** 그룹 갈래 하나. 지금 고른 것은 `aria-checked` 로 알린다. */

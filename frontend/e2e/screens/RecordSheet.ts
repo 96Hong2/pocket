@@ -173,7 +173,7 @@ class RecordInput {
   }
 
   /**
-   * 오늘이 아닌 날에 적는 중이라는 한 줄. 「어제 에 적어요」.
+   * 오늘이 아닌 날에 적는 중이라는 한 줄. 「어제에 적어요」.
    *
    * 오늘에 적을 때는 **아예 없다.** 있으면 늘 붙는 안내가 되어 아무도 안 읽는다.
    */
@@ -595,6 +595,17 @@ class RecordFeedback {
     await this.clearAmount();
     for (const key of keyStrokesFor(amount)) await this.numberKey(key).click();
   }
+
+  /**
+   * 저장한 줄의 제목 칸. 줄 안에서만 찾는다.
+   *
+   * `rowTitle` 은 시트 전체에서 글자를 찾는다. 감춘 키패드 탭은 트리에 그대로 남아 있고
+   * 거기 분류 칩이 같은 이름을 달고 있어, 옮겨 간 분류 이름으로 찾으면 둘이 잡힌다.
+   * 금액 자리와 같은 이유로 이름이 없는 칸이라 그려진 클래스로 잡는다.
+   */
+  get savedRowTitle(): Locator {
+    return this.root.locator('.pk-tx .pk-tx__title');
+  }
 }
 
 /**
@@ -702,7 +713,7 @@ class RecordNaturalLanguage {
     return this.root.getByTestId(TEST_IDS.nlCandidateRow);
   }
 
-  /** 이름으로 잡는다. 상호가 비면 화면이 '이름 없음' 으로 그린다. */
+  /** 이름으로 잡는다. 상호가 비면 화면이 분류 이름으로, 분류도 없으면 '기록' 으로 그린다. */
   row(name: string): Locator {
     return this.rows.filter({ has: this.root.page().getByRole('checkbox', { name, exact: true }) });
   }
@@ -880,6 +891,31 @@ class RecordNaturalLanguageForm {
     await this.doneButton.click();
     await expect(this.doneButton).toHaveCount(0);
   }
+
+  /**
+   * 「새 분류」를 누르면 분류 칸 자리에 펼쳐지는 만들기 폼의 제목.
+   *
+   * 시트를 하나 더 띄우지 않고 그 자리가 바뀐다. 적어 둔 상호·금액·날짜가 살아 있는지
+   * 보려면 이 폼이 열렸다 닫힌 것을 가려야 한다.
+   */
+  get newCategoryTitle(): Locator {
+    return this.root.getByText('새 분류 만들기', { exact: true });
+  }
+
+  /** 만들지 않고 고치던 줄로 돌아간다. 기록 시트와 돌아갈 곳이 달라 말도 다르다. */
+  get newCategoryBackButton(): Locator {
+    return this.root.getByRole('button', { name: '고치기로 돌아가기', exact: true });
+  }
+
+  /** 이름과 그림을 정해 분류를 만든다. 종류는 위 칸이 이미 정했다. */
+  async createCategory(name: string, iconLabel: string): Promise<void> {
+    await this.root.getByLabel('이름', { exact: true }).fill(name);
+    await this.root
+      .getByRole('group', { name: '아이콘' })
+      .getByRole('button', { name: iconLabel, exact: true })
+      .click();
+    await this.root.getByRole('button', { name: '저장', exact: true }).click();
+  }
 }
 
 export function keyStrokesFor(amount: number): string[] {
@@ -1048,7 +1084,7 @@ class RecordImageImport {
     return this.root.getByTestId(TEST_IDS.nlCandidateRow);
   }
 
-  /** 이름으로 잡는다. 상호가 비면 화면이 '이름 없음' 으로 그린다. */
+  /** 이름으로 잡는다. 상호가 비면 화면이 분류 이름으로, 분류도 없으면 '기록' 으로 그린다. */
   row(name: string): Locator {
     return this.rows.filter({ has: this.root.page().getByRole('checkbox', { name, exact: true }) });
   }

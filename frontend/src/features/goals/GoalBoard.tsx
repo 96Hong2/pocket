@@ -54,7 +54,7 @@ export function GoalBoard() {
           <EmptyState
             icon="32_piggybank"
             title="아직 정한 목표가 없어요"
-            description="모으고 싶은 것 하나만 정해 봐요"
+            description="기한까지 정하면 한 달에 얼마씩 모을지 알려 드려요"
             actionLabel="목표 만들기"
             onAction={() => setFormOpen(true)}
           />

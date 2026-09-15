@@ -52,7 +52,7 @@ test('줄글을 마지막에 썼어도 어제 기록하기는 키패드로 열�
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
 
-  await expect(recordSheet.input.dayNotice).toHaveText('어제 에 적어요');
+  await expect(recordSheet.input.dayNotice).toHaveText('어제에 적어요');
   await expect(recordSheet.methodTabs).toHaveCount(0);
   await expect(recordSheet.nl.textarea).toHaveCount(0);
 });

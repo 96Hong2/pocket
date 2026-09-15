@@ -49,7 +49,7 @@ test('어제보다 더 전인 날도 그 날에 남는다', async ({ home, recor
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
   // 안내에도 그 날 이름이 그대로 적힌다. 「어제」 로 뭉뚱그리지 않는다.
-  await expect(recordSheet.input.dayNotice).toHaveText(`${label} 에 적어요`);
+  await expect(recordSheet.input.dayNotice).toHaveText(`${label}에 적어요`);
 
   await recordSheet.input.enterAmount(9000);
   await recordSheet.input.pickCategory('식비');
