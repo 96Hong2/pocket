@@ -275,7 +275,7 @@ class DataResetArea {
   }
 
   get warning(): Locator {
-    return this.sheet.getByText(/앱에서는 전부 사라져요/);
+    return this.sheet.getByText(/서버에서 바로 없애지는 않아요/);
   }
 
   /** 확인 버튼을 여는 유일한 열쇠. */

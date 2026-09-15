@@ -139,8 +139,7 @@ function ResetForm({ analytics, storage, reset, agreed, onAgreedChange, onDone }
       </ul>
 
       <p className="reset-sheet__warn">
-        앱에서는 전부 사라져요. 실수로 눌렀을 때를 대비해 지웠다는 표시만 남겨 두고,
-        연령대·성별은 그대로 둬요.
+        잘못 눌렀을 때를 위해 서버에서 바로 없애지는 않아요. 연령대·성별도 그대로 둬요.
       </p>
 
       <label className="reset-sheet__agree">
