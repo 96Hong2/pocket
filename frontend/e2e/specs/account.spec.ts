@@ -80,16 +80,17 @@ test('연령대·성별을 고르면 카드 한 줄에 남고, 다시 열어 고
   await account.requestCode(address);
   await account.submitCode(await prep.peekLoginCode(address));
 
-  await account.ageChoice('30대').click();
+  await account.ageSelect.selectOption('30s');
   await account.genderChoice('여성').click();
   await account.profileSaveButton.click();
   await expect(account.profileSheet).toHaveCount(0);
   await expect(account.profileRow).toContainText('30대 · 여성');
 
-  // 다시 열면 고른 것이 켜져 있고, 바꿀 수 있다.
+  // 다시 열면 고른 것이 그대로 있고, 바꿀 수 있다.
   await account.profileRow.click();
-  await expect(account.ageChoice('30대')).toHaveAttribute('aria-checked', 'true');
-  await account.genderChoice('말하지 않을래요').click();
+  await expect(account.ageSelect).toHaveValue('30s');
+  // 다시 누르면 꺼진다. 「말하지 않을래요」 라는 보기를 따로 두지 않는 이유다.
+  await account.genderChoice('여성').click();
   await account.profileSaveButton.click();
   await expect(account.profileRow).toContainText('30대');
   await expect(account.profileRow).not.toContainText('여성');

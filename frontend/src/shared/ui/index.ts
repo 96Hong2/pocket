@@ -42,3 +42,4 @@ export {
 } from './icons';
 
 export * from './states';
+export { Select, type SelectOption, type SelectProps } from './Select';

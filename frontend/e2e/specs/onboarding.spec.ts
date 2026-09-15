@@ -61,6 +61,11 @@ test('아무것도 안 골라도 그냥 시작되고, 건너뛴 것으로 남는
 
   // 고르라고 막지 않는다. 막으면 그 순간 이 앱은 가입해야 쓰는 앱이 된다.
   await expect(onboarding.startButton).toBeEnabled();
+  /*
+    **「말하지 않을래요」 는 두지 않는다.** 그 버튼이 있으면 안 고르고 넘어가면 될 것을
+    굳이 누르게 된다. 안 고르는 것이 곧 말하지 않는 것이다.
+  */
+  await expect(onboarding.genderChip('말하지 않을래요')).toHaveCount(0);
   await expect(onboarding.askNote).toHaveText('회원가입이 아니에요. 통계에만 쓰고, 안 고르셔도 돼요');
   await onboarding.startButton.click();
 
@@ -77,7 +82,7 @@ test('고른 연령대·성별이 내 계정에 그대로 남는다', async ({ a
   await onboarding.nextButton.click();
   await onboarding.nextButton.click();
 
-  await onboarding.ageChip('30대').click();
+  await onboarding.ageSelect.selectOption('30s');
   await onboarding.genderChip('여성').click();
   await onboarding.startButton.click();
   await home.waitReady();
@@ -99,10 +104,16 @@ test('다시 누르면 고른 것을 무를 수 있다', async ({ home, onboardi
   await onboarding.nextButton.click();
   await onboarding.nextButton.click();
 
-  await onboarding.ageChip('20대').click();
-  await expect(onboarding.ageChip('20대')).toHaveAttribute('aria-checked', 'true');
-  await onboarding.ageChip('20대').click();
-  await expect(onboarding.ageChip('20대')).toHaveAttribute('aria-checked', 'false');
+  // 고른 것을 무를 수 있어야 한다. 칸에는 「안 고를래요」 가 늘 있고, 칩은 다시 누르면 꺼진다.
+  await onboarding.ageSelect.selectOption('20s');
+  await expect(onboarding.ageSelect).toHaveValue('20s');
+  await onboarding.ageSelect.selectOption('');
+  await expect(onboarding.ageSelect).toHaveValue('');
+
+  await onboarding.genderChip('남성').click();
+  await expect(onboarding.genderChip('남성')).toHaveAttribute('aria-checked', 'true');
+  await onboarding.genderChip('남성').click();
+  await expect(onboarding.genderChip('남성')).toHaveAttribute('aria-checked', 'false');
 
   await onboarding.startButton.click();
   await home.waitReady();

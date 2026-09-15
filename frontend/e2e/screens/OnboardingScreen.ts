@@ -38,8 +38,13 @@ export class OnboardingScreen {
 
   // ── 마지막 장의 연령대·성별 ───────────────────────
 
-  ageChip(label: string): Locator {
-    return this.root.getByRole('radiogroup', { name: '연령대' }).getByRole('radio', { name: label, exact: true });
+  /**
+   * 연령대는 고르는 칸이다.
+   *
+   * 보기가 여섯이라 칩으로 두면 두 줄이 된다. 기기가 그리는 선택기를 그대로 쓴다.
+   */
+  get ageSelect(): Locator {
+    return this.root.getByLabel('연령대');
   }
 
   genderChip(label: string): Locator {

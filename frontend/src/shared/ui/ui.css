@@ -1066,6 +1066,80 @@
     align-items: center;
     gap: 12px;
   }
+
+  /* ── 고르는 칸 ─────────────────────────────────── */
+
+  .pk-select {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    text-align: left;
+  }
+
+  .pk-select__label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .pk-select__box {
+    position: relative;
+    width: 100%;
+  }
+
+  .pk-select__input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 52px;
+    padding: 0 42px 0 16px;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: inherit;
+    /* 16px 아래로 두면 사파리가 칸을 누를 때 화면을 확대한다. */
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  /* 아직 안 골랐으면 값이 아니라 안내다. 본문과 같은 굵기로 두면 고른 것처럼 읽힌다. */
+  .pk-select__input--empty {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-placeholder);
+  }
+
+  .pk-select__input:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--color-sage-700);
+  }
+
+  .pk-select__input:disabled {
+    color: var(--color-placeholder);
+  }
+
+  /* 아래를 가리키는 작은 화살표. 선 두 개를 돌려 만든다. */
+  .pk-select__caret {
+    position: absolute;
+    top: 50%;
+    right: 18px;
+    width: 9px;
+    height: 9px;
+    margin-top: -6px;
+    border-right: 2px solid var(--color-muted);
+    border-bottom: 2px solid var(--color-muted);
+    transform: rotate(45deg);
+    pointer-events: none;
+  }
+
+  .pk-select__hint {
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

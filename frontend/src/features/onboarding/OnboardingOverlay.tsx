@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { useSaveProfile, type AgeBand, type Gender } from '../../shared/api';
 import { cx } from '../../shared/lib/cx';
-import { Button, iconUrl, type IconName } from '../../shared/ui';
+import { Button, Select, iconUrl, type IconName } from '../../shared/ui';
 import { AGE_BANDS, GENDERS } from '../account';
 
 interface Slide {
@@ -126,12 +126,22 @@ export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
 
         {slide.asks === 'profile' ? (
           <div className="onboard__ask">
-            <Chips
+            {/*
+              보기가 여섯이라 칩으로 두면 두 줄이 되고, 그만큼 읽을 것이 는다.
+              기기가 그리는 선택기는 손가락 하나로 돌리면 끝난다.
+            */}
+            <Select
               label="연령대"
+              placeholder="안 고를래요"
               options={AGE_BANDS}
-              picked={ageBand}
-              onPick={(next) => setAgeBand(next === ageBand ? null : next)}
+              value={ageBand}
+              onChange={setAgeBand}
             />
+            {/*
+              성별은 보기가 둘뿐이라 칩이 빠르다. 한 번 누르면 켜지고 다시 누르면 꺼진다.
+              **「말하지 않을래요」 는 두지 않는다.** 그 버튼이 있으면 안 고르고 넘어가면 될 것을
+              굳이 누르게 된다. 안 고르는 것이 곧 말하지 않는 것이다.
+            */}
             <Chips
               label="성별"
               options={GENDERS}

@@ -123,10 +123,9 @@ export class AccountScreen {
     return this.page.getByRole('dialog', { name: '두 가지만 알려 주세요', exact: true });
   }
 
-  ageChoice(label: string): Locator {
-    return this.profileSheet
-      .getByRole('radiogroup', { name: '연령대' })
-      .getByRole('radio', { name: label, exact: true });
+  /** 연령대는 고르는 칸이다. 처음 안내와 같은 모양을 쓴다. */
+  get ageSelect(): Locator {
+    return this.profileSheet.getByLabel('연령대');
   }
 
   genderChoice(label: string): Locator {
