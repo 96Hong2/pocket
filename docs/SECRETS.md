@@ -200,9 +200,21 @@ Cloud Run 에 붙이는 법. 시크릿을 한 번 만들어 두고, 배포 스�
 배포 스크립트의 `--set-secrets` 가 통째로 갈아 끼워 다음 배포에 떨어진다.
 
 ```bash
+./scripts/enable-login-email.sh <보내는-메일주소>
+```
+
+스크립트가 앱 비밀번호를 **화면에 안 찍고** 물어서, 붙는지 먼저 확인한 뒤 시크릿에 넣고 배포까지 한다.
+앱 비밀번호를 만드는 일만 사람이 한다(그 계정의 자격 증명이라 자동화가 쥐고 있을 값이 아니다).
+2단계 인증을 켜고 <https://myaccount.google.com/apppasswords> 에서 만든다.
+
+손으로 할 때는 이렇게 한다. 결과는 같다.
+
+```bash
 printf '%s' '<앱 비밀번호>' | gcloud secrets create pocket-smtp-password --data-file=-
 POCKET_SMTP_HOST=smtp.gmail.com POCKET_SMTP_USER=<메일> ./scripts/deploy-cloudrun.sh
 ```
+
+**다음 배포부터도 그 환경변수를 줘야 한다.** 안 주면 `--set-secrets` 가 통째로 갈아 끼우며 떨어진다.
 
 로컬에서는 아무것도 안 넣는다. 스텁이 「보낸」 코드를 `GET /api/v1/account/email/peek?email=` 로 읽는다.
 그 경로는 `ENVIRONMENT=local` 이고 SMTP 가 없을 때만 열린다.

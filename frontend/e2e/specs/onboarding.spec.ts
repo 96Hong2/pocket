@@ -62,6 +62,14 @@ test('아무것도 안 골라도 그냥 시작되고, 건너뛴 것으로 남는
   // 고르라고 막지 않는다. 막으면 그 순간 이 앱은 가입해야 쓰는 앱이 된다.
   await expect(onboarding.startButton).toBeEnabled();
   /*
+    **거절을 보기로 세우지 않는다.** 칸의 기본은 「선택하기」 다. 예전에는 「안 고를래요」
+    였는데, 안 골라도 된다는 안내가 칸 아래에 이미 있는데 보기로까지 세우면 그냥 넘어가면
+    될 것을 굳이 고르게 된다.
+  */
+  await expect(onboarding.ageSelect).toHaveValue('');
+  await expect(onboarding.ageSelect.getByRole('option').first()).toHaveText('선택하기');
+  await expect(onboarding.ageSelect.getByRole('option', { name: '안 고를래요' })).toHaveCount(0);
+  /*
     **「말하지 않을래요」 는 두지 않는다.** 그 버튼이 있으면 안 고르고 넘어가면 될 것을
     굳이 누르게 된다. 안 고르는 것이 곧 말하지 않는 것이다.
   */
@@ -76,26 +84,31 @@ test('아무것도 안 골라도 그냥 시작되고, 건너뛴 것으로 남는
   ]);
 });
 
-test('고른 연령대·성별이 내 계정에 그대로 남는다', async ({ account, home, onboarding, page }) => {
+test('고른 연령대·성별이 실제로 서버까지 간다', async ({ home, onboarding, page }) => {
   await home.open();
   await onboarding.nextButton.click();
   await onboarding.nextButton.click();
   await onboarding.nextButton.click();
+
+  /*
+    **로그만 보고 끝내지 않는다.** 로그는 남는데 요청이 안 나간 적이 있다.
+    화면에는 되비쳐 볼 자리가 없으니(「내 계정」 에서 뺐다) 나가는 요청을 직접 본다.
+  */
+  const sent = page.waitForRequest(
+    (request) => request.url().includes('/account/profile') && request.method() === 'PATCH',
+  );
 
   await onboarding.ageSelect.selectOption('30s');
   await onboarding.genderChip('여성').click();
   await onboarding.startButton.click();
   await home.waitReady();
 
+  expect((await sent).postDataJSON()).toEqual({ age_band: '30s', gender: 'female' });
+
   const profile = await logsNamed(page, 'profile_result');
   expect(profile.map((log) => [log.params.result, log.params.where, log.params.age_band])).toEqual([
     ['saved', 'onboarding', '30s'],
   ]);
-
-  // 로그만 남고 서버에 안 갔으면 반쪽이다. 화면으로 확인한다.
-  await account.open();
-  await account.waitReady();
-  await expect(account.profileRow).toContainText('30대 · 여성');
 });
 
 test('다시 누르면 고른 것을 무를 수 있다', async ({ home, onboarding, page }) => {
@@ -104,7 +117,7 @@ test('다시 누르면 고른 것을 무를 수 있다', async ({ home, onboardi
   await onboarding.nextButton.click();
   await onboarding.nextButton.click();
 
-  // 고른 것을 무를 수 있어야 한다. 칸에는 「안 고를래요」 가 늘 있고, 칩은 다시 누르면 꺼진다.
+  // 고른 것을 무를 수 있어야 한다. 칸은 「선택하기」 로 되돌아가고, 칩은 다시 누르면 꺼진다.
   await onboarding.ageSelect.selectOption('20s');
   await expect(onboarding.ageSelect).toHaveValue('20s');
   await onboarding.ageSelect.selectOption('');
@@ -193,4 +206,55 @@ test('안내를 처음 상태로 되돌리면 처음 안내가 다시 뜬다', a
 
   await home.open();
   await expect(onboarding.title('사진 한 장이면 끝나요')).toBeVisible();
+});
+
+
+/*
+  **처음 안내가 끝난 바로 뒤에 다른 안내가 겹치지 않는다.**
+
+  실기기에서 났다. 안내를 마치고 「시작하기」 를 누르자마자 「첫 기록 끝! 홈에 두면 더
+  빨라요」 가 떴다. 아무것도 안 적은 사람에게 적었다고 말한 것이다.
+
+  원인은 순서였다. 홈 추가 안내가 처음 안내가 떠 있는 동안 저장소를 미리 읽어 두고,
+  안내가 끝나며 적는 「봤다」 표시를 못 본 채 지난 값으로 열었다.
+*/
+test('처음 안내를 마쳐도 홈 추가 안내가 따라 뜨지 않는다', async ({ home, onboarding, page }) => {
+  await home.open();
+  await onboarding.nextButton.click();
+  await onboarding.nextButton.click();
+  await onboarding.nextButton.click();
+  await onboarding.startButton.click();
+
+  await home.waitReady();
+  await expect(page.getByText('첫 기록 끝!')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  // 마지막 장이 홈 화면 추가를 이미 말했다. 그래서 「봤다」 로 적고 넘어간다.
+  const homeAdd = await logsNamed(page, 'home_add_result');
+  expect(homeAdd).toHaveLength(0);
+});
+
+test('안내를 건너뛴 사람에게도 첫 기록 뒤 홈 추가 안내가 안 뜬다', async ({
+  home,
+  onboarding,
+  page,
+  recordSheet,
+}) => {
+  await home.open();
+  await onboarding.skipButton.click();
+  await home.waitReady();
+
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.input.enterAmount(5000);
+  await recordSheet.input.pickCategory('식비');
+  await recordSheet.feedback.waitSaved();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  /*
+    건너뛴 사람은 안내 자체를 원하지 않았다. 그 사람에게 다른 안내를 대신 밀어 넣지 않는다.
+    끝까지 본 사람은 마지막 장에서 같은 말을 이미 들었다. 어느 쪽이든 안 뜬다.
+  */
+  await expect(page.getByText('첫 기록 끝!')).toHaveCount(0);
 });

@@ -174,3 +174,58 @@ test('예산 시작일 자리가 없고, 하위 화면은 둘뿐이다', async (
     '개인정보처리방침',
   ]);
 });
+
+/*
+  예산이 걸린 갈래를 골랐는데 예산이 없을 때.
+
+  「남은 예산」 을 고른 사람은 남은 예산을 보고 싶다고 말한 것이다. 그런데 예산이 없으면
+  홈은 다른 것으로 떨어뜨린다. 예산을 정하는 자리는 관리 탭에 있고, 「관리 탭에 가서
+  정하세요」 라고 적어 두면 대부분 안 간다. 그래서 그 자리에서 바로 연다.
+*/
+
+test('예산 없이 남은 예산을 고르면 그 자리에서 예산을 정할 수 있다', async ({
+  home,
+  settings,
+}) => {
+  await settings.open();
+  await settings.waitReady();
+  await settings.chooseHero('남은 예산');
+
+  // 왜 다르게 보이는지 먼저 말하고, 바로 정할 길을 연다.
+  await expect(settings.preview).toHaveText('아직 예산을 안 정해서, 홈 맨 위에 이번 달 쓴 돈이 보여요.');
+  await expect(settings.budgetButton).toBeVisible();
+
+  await settings.setBudget(BUDGET);
+
+  // 정하고 나면 안내가 바뀌고 버튼은 사라진다. 할 일이 없는 버튼을 남겨 두지 않는다.
+  await expect(settings.preview).toHaveText('홈 맨 위에 남은 예산이 먼저 보여요.');
+  await expect(settings.budgetButton).toHaveCount(0);
+
+  // 화면 밖까지 갔는지 홈에서 본다.
+  await home.open();
+  await home.waitReady();
+  await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 남은 예산`);
+});
+
+test('수입·예산을 골라도 같은 길이 열리고, 왜 그렇게 보이는지 적는다', async ({ settings }) => {
+  await settings.open();
+  await settings.waitReady();
+  await settings.chooseHero('수입·예산');
+
+  await expect(settings.preview).toHaveText('아직 예산을 안 정해서, 홈 맨 위에 이번 달 차액이 보여요.');
+  await expect(settings.budgetButton).toBeVisible();
+
+  await settings.setBudget(BUDGET);
+  await expect(settings.preview).toHaveText('홈 맨 위에 번 돈과 남은 예산이 함께 보여요.');
+  await expect(settings.budgetButton).toHaveCount(0);
+});
+
+test('예산이 필요 없는 갈래에는 그 버튼을 안 세운다', async ({ settings }) => {
+  await settings.open();
+  await settings.waitReady();
+  await settings.chooseHero('수입·지출');
+
+  // 예산 없이도 그대로 성립하는 갈래다. 버튼이 서면 안 해도 될 일을 시키는 셈이다.
+  await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 차액이 먼저 보여요.');
+  await expect(settings.budgetButton).toHaveCount(0);
+});

@@ -182,6 +182,16 @@ class LedgerListArea {
   async pick(title: string): Promise<void> {
     await this.row(title).click();
   }
+
+  /**
+   * 고른 날에 적는 버튼. **이름에 그 날이 적혀 있다.**
+   *
+   * 「기록하기」 라고만 쓰면 오늘에 적히는 홈의 버튼과 구분이 안 된다.
+   * 띄어쓰기가 든 이름(「9월 12일 기록하기」)도 잡아야 하므로 끝만 못 박는다.
+   */
+  get recordButton(): Locator {
+    return this.root.getByRole('button', { name: /기록하기$/ });
+  }
 }
 
 /** 검색 입력과 결과 안내. */
@@ -361,6 +371,23 @@ export class EditSheetArea {
     return this.root.getByRole('button', { name: '삭제' });
   }
 
+  /**
+   * 지우기 전 물음. 시트를 하나 더 겹치지 않고 버튼 줄 자체가 이 자리로 바뀐다.
+   *
+   * 되돌릴 수 없는 유일한 동작이라 한 걸음을 둔다.
+   */
+  get deleteConfirm(): Locator {
+    return this.root.getByRole('group', { name: '삭제 확인' });
+  }
+
+  get confirmDeleteButton(): Locator {
+    return this.deleteConfirm.getByRole('button', { name: '지울게요', exact: true });
+  }
+
+  get keepButton(): Locator {
+    return this.deleteConfirm.getByRole('button', { name: '그대로 둘래요', exact: true });
+  }
+
   get doneButton(): Locator {
     return this.root.getByRole('button', { name: '완료' });
   }
@@ -380,8 +407,11 @@ export class EditSheetArea {
     await this.waitClosed();
   }
 
+  /** 지우기를 끝까지. 묻는 한 걸음을 지나야 실제로 지워진다. */
   async remove(): Promise<void> {
     await this.deleteButton.click();
+    await expect(this.deleteConfirm).toBeVisible();
+    await this.confirmDeleteButton.click();
     await this.waitClosed();
   }
 }

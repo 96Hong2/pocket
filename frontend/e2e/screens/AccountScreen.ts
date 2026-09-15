@@ -5,7 +5,8 @@ import { ROUTES } from '../../src/app/router/routes';
 /**
  * 내 계정 화면.
  *
- * 앱 설정 아래 하위 화면이라 URL 이 달라 별도 객체다. 카드 하나와 시트 둘(이메일·연령대)뿐이다.
+ * 앱 설정 아래 하위 화면이라 URL 이 달라 별도 객체다. 카드 하나와 이메일 시트뿐이다.
+ * 연령대·성별은 여기 없다. 처음 안내에서 한 번 묻고 끝이라, 이 화면은 「기록 지켜 두기」 하나만 한다.
  * 셀렉터는 이 파일 안에만 두고, 무엇이 맞는지는 spec 이 정한다.
  */
 export class AccountScreen {
@@ -44,11 +45,6 @@ export class AccountScreen {
   /** 연결된 이메일. 카드 머리에 초록으로 적힌다. */
   email(address: string): Locator {
     return this.page.getByText(address, { exact: true });
-  }
-
-  /** 연령대·성별 한 줄. 눌러서 고친다. */
-  get profileRow(): Locator {
-    return this.page.getByRole('button', { name: /^연령대·성별/ });
   }
 
   // ── 이메일 시트 ───────────────────────────────────
@@ -117,28 +113,18 @@ export class AccountScreen {
     await expect(this.linkSheet).toHaveCount(0);
   }
 
-  // ── 연령대·성별 시트 ──────────────────────────────
-
-  get profileSheet(): Locator {
-    return this.page.getByRole('dialog', { name: '두 가지만 알려 주세요', exact: true });
+  /**
+   * 화면 어디든 그 글자.
+   *
+   * **없어야 할 것을 세는 자리다.** 연령대·성별이 이 화면에 다시 서지 않는지 확인한다.
+   * 있어야 할 것은 역할이나 testid 로 집는다.
+   */
+  text(value: string | RegExp): Locator {
+    return this.page.getByText(value);
   }
 
-  /** 연령대는 고르는 칸이다. 처음 안내와 같은 모양을 쓴다. */
-  get ageSelect(): Locator {
-    return this.profileSheet.getByLabel('연령대');
-  }
-
-  genderChoice(label: string): Locator {
-    return this.profileSheet
-      .getByRole('radiogroup', { name: '성별' })
-      .getByRole('radio', { name: label, exact: true });
-  }
-
-  get profileSaveButton(): Locator {
-    return this.profileSheet.getByRole('button', { name: '저장', exact: true });
-  }
-
-  get profileSkipButton(): Locator {
-    return this.profileSheet.getByRole('button', { name: '건너뛰기', exact: true });
+  /** 화면에 떠 있는 대화상자 전부. 붙인 뒤에 아무것도 더 안 묻는 것을 세는 데 쓴다. */
+  get anyDialog(): Locator {
+    return this.page.getByRole('dialog');
   }
 }

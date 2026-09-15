@@ -132,7 +132,7 @@ export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
             */}
             <Select
               label="연령대"
-              placeholder="안 고를래요"
+              placeholder="선택하기"
               options={AGE_BANDS}
               value={ageBand}
               onChange={setAgeBand}

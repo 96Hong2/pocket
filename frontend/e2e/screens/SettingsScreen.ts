@@ -67,6 +67,39 @@ export class SettingsScreen {
   }
 
   /**
+   * 예산을 안 정한 채 예산이 걸린 갈래를 고른 사람에게만 서는 버튼.
+   *
+   * 예산은 관리 탭에 있는데, 「관리 탭에 가서 정하세요」 라고 적어 두면 대부분 안 간다.
+   * 여기서 바로 연다.
+   */
+  get budgetButton(): Locator {
+    return this.page.getByTestId(TEST_IDS.homeHeroBudget);
+  }
+
+  /** 그 버튼이 여는 시트. 관리 탭이 쓰는 것과 같은 시트다. */
+  get budgetSheet(): Locator {
+    return this.page.getByRole('dialog', { name: '전체 예산', exact: true });
+  }
+
+  /** 시트 안 금액 칸과 저장. 관리 탭 쪽 화면 객체와 같은 이름을 쓴다. */
+  get budgetAmountField(): Locator {
+    return this.budgetSheet.getByLabel('금액');
+  }
+
+  get budgetSaveButton(): Locator {
+    return this.budgetSheet.getByRole('button', { name: '저장', exact: true });
+  }
+
+  /** 금액을 적고 저장까지. 시트가 닫히면 정해진 것이다. */
+  async setBudget(amount: number): Promise<void> {
+    await this.budgetButton.click();
+    await expect(this.budgetSheet).toBeVisible();
+    await this.budgetAmountField.fill(String(amount));
+    await this.budgetSaveButton.click();
+    await expect(this.budgetSheet).toHaveCount(0);
+  }
+
+  /**
    * 저장이 막혔을 때 그 자리에 뜨는 한 줄.
    *
    * 고른 자리가 원래대로 돌아가는데, 왜 돌아갔는지 말하지 않으면 눌리지 않은 것으로 보인다.

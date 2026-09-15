@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { IdentityNotice } from '../app/IdentityNotice';
-import { useIdentity } from '../app/providers';
+import { useIdentity, useOnboardingShowing } from '../app/providers';
 import { AdSlot } from '../features/ads';
 import { AddToHomePrompt } from '../features/home-add';
 import {
@@ -203,6 +203,7 @@ export default function HomePage() {
   });
   // 아래 화면과 같은 조회다. 캐시를 함께 읽으므로 요청이 늘지 않는다.
   const budget = useBudget();
+  const onboardingShowing = useOnboardingShowing();
 
   return (
     <div className="page home">
@@ -213,16 +214,18 @@ export default function HomePage() {
         open={sheet.open}
         initialTab={sheet.tab}
         day={sheet.day}
+        from={sheet.day == null ? 'home' : 'home_day'}
         onClose={() => setSheet((prev) => ({ ...prev, open: false }))}
       />
 
       {/*
         첫 기록을 마친 그 순간 스스로 열리는 안내. 한 번뿐이다.
         기록 시트 위에 겹치지 않게, 시트가 닫힌 뒤에만 연다.
+        처음 안내가 떠 있는 동안에도 기다린다(아직 모르는 동안도 기다린다).
       */}
       <AddToHomePrompt
         hasAnyTransaction={budget.data == null ? null : budget.data.has_any_transaction}
-        paused={sheet.open}
+        paused={sheet.open || onboardingShowing !== false}
       />
     </div>
   );

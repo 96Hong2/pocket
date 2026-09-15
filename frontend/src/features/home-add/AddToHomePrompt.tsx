@@ -2,11 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
-import {
-  markHomeAddPrompted,
-  readHomeAddPrompted,
-  takeHomeAddReplay,
-} from '../../shared/lib/homeAddSeen';
+import { markHomeAddPrompted, readHomeAddPrompted } from '../../shared/lib/homeAddSeen';
 
 import { AddToHomeSheet } from './AddToHomeSheet';
 
@@ -24,7 +20,13 @@ import { AddToHomeSheet } from './AddToHomeSheet';
 export function AddToHomePrompt({
   /** 기록이 하나라도 있나. 아직 모르는 동안은 null. */
   hasAnyTransaction,
-  /** 기록 시트가 열려 있는 동안. 그 위에 겹쳐 띄우면 방금 적은 결과를 가린다. */
+  /**
+   * 지금 열면 안 되는 상태인가.
+   *
+   * 기록 시트가 열려 있는 동안(방금 적은 결과를 가린다)과 **처음 안내가 떠 있는 동안**이다.
+   * 처음 안내는 마지막 장에서 홈 화면 추가를 이미 말하므로, 그 위에 같은 말을 또 얹으면
+   * 안내를 두 번 듣는다.
+   */
   paused,
 }: {
   hasAnyTransaction: boolean | null;
@@ -51,19 +53,13 @@ export function AddToHomePrompt({
     if (before === false && hasAnyTransaction === true) setJustRecorded(true);
   }, [hasAnyTransaction]);
 
-  // 앱 정보에서 「안내를 처음 상태로」 를 누른 다음이면, 전이 없이도 한 번 연다.
+  /*
+    **열 수 있게 된 다음에 읽는다.** 처음 안내가 떠 있는 동안 미리 읽어 두면, 안내가
+    끝나며 적는 「봤다」 표시를 못 보고 지난 값으로 열어 버린다. 초기화 뒤 처음 안내를
+    마치자마자 「첫 기록 끝!」 이 뜬 것이 이 순서 때문이었다.
+  */
   useEffect(() => {
-    let alive = true;
-    void takeHomeAddReplay(bridge.storage).then((replay) => {
-      if (alive && replay) setJustRecorded(true);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [bridge]);
-
-  useEffect(() => {
-    if (!justRecorded) return;
+    if (!justRecorded || paused) return;
     let alive = true;
     void readHomeAddPrompted(bridge.storage).then((value) => {
       if (alive) setPrompted(value);
@@ -71,7 +67,7 @@ export function AddToHomePrompt({
     return () => {
       alive = false;
     };
-  }, [bridge, justRecorded]);
+  }, [bridge, justRecorded, paused]);
 
   useEffect(() => {
     if (paused || prompted !== false) return;

@@ -31,6 +31,8 @@ export const TEST_IDS = {
   recoveryGauge: 'recovery-gauge',
   /** 앱 설정에서 고른 것이 홈을 어떻게 바꾸는지 되짚는 한 줄. */
   homeHeroPreview: 'home-hero-preview',
+  /** 예산을 안 정한 채 예산 갈래를 고른 사람에게만 뜨는 버튼. */
+  homeHeroBudget: 'home-hero-budget',
   /**
    * 데이터 초기화 동의 체크.
    *

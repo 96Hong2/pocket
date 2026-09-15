@@ -13,15 +13,15 @@
 | 알고 싶은 것 | 이벤트 | 남기는 값 |
 | --- | --- | --- |
 | 들어와서 어디로 가나 | `app_open` · `screen_view` | 진입 화면, 화면 이름, 토스 앱 버전, **첫 실행인지 · 처음 연 지 며칠째 · 직전 실행 이후 며칠 · 실행 횟수 구간** |
-| 어떤 방식을 고르나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향 |
+| 어떤 방식을 고르나, 어디서 여나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향, 연 자리(`home`·`home_day`·`calendar_day`)와 지난 날에 적는 것인지 |
 | 사진 고르기에서 막히나 | `image_pick_result` | 성공·취소·권한 거절·미지원, 장수 |
 | 인식이 얼마나 걸리고 왜 실패하나 | `parse_started` · `parse_finished` | 방식, 성공·부분·0건·실패, 소요 시간, 후보 수, 오류 코드 |
 | 결과를 얼마나 고치나 | `review_shown` · `review_finished` | 후보 수, 고른 수, 손댄 건수, **칸별 고친 횟수** |
 | 읽어 온 것을 잃나 | `record_leave_asked` · `review_cancelled` | 물었나·머물렀나·나갔나와 그때 몇 건, 스스로 버린 건수 |
 | 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드 |
-| 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움, 고친 칸 이름, 그 기록의 입력 방식 |
+| 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움과 **지우려다 그만둠**(`delete_asked`·`delete_cancelled`·`delete`), 고친 칸 이름, 그 기록의 입력 방식 |
 | 저장 뒤 뜻이 전달됐나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것 |
-| 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`), 유도한 자리(첫 기록 직후·앱 설정), 동의·거절·미지원 |
+| 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(첫 기록 직후·앱 설정), 동의·거절·미지원 |
 | 이메일 연결에서 어디서 빠지나 | `account_link_result` · `profile_result` | 코드를 보냈나(`sent`)·붙었나(`linked`·`switched`·`merged`)·어디서 막혔나(`send_failed`·`verify_failed` 와 오류 코드), 연령대·성별을 답했나 건너뛰었나와 그 갈래. **이메일 주소와 코드는 싣지 않는다** |
 | 광고 뒤의 부가기능이 값어치가 있나 | `budget_calc_opened` | 광고를 보고 열었나(`watched`), 광고 없이 지나갔나와 그 이유(`no_group`·`unsupported`·`failed`) |
 | 첫 안내가 방해가 되나 | `onboarding_result` | 끝까지 봤나·건너뛰었나, 그때 몇 번째 장 |
@@ -56,6 +56,15 @@
 `watched` 로 연 사람 중 예산까지 정한 비율(`budget_saved` 의 `from: 'calculator'`)과 `skipped`
 로 연 사람의 그 비율을 견줘야 한다. 둘이 같으면 광고가 방해가 아니고, `watched` 쪽이 낮으면
 5초가 사람을 돌려보내는 것이다. `skipped` 의 `reason` 이 `failed` 로 몰리면 광고 자리 사정이다.
+
+**`record_started` 의 `from` 이 입구 셋의 성적표다.** 홈 가운데 큰 버튼(`home`), 홈 목록의
+빈 날 버튼(`home_day`), 월간 달력에서 고른 날(`calendar_day`) 셋이 있다. 달력에서 적는 길은
+「지난 날 하나를 빠뜨린 것을 달력에서 발견한다」 는 가정으로 낸 것이라, 그 가정이 틀렸으면
+버튼 하나를 덜어낼 수 있다. `backfill` 이 함께 있어야 지난 날에만 나는 실수를 가려낸다.
+
+**`record_changed` 의 `delete_asked` 대비 `delete` 가 삭제 확인의 성적표다.** 되돌릴 수 없는
+유일한 동작이라 한 번 묻는데, `delete_cancelled` 가 잦으면 그 물음이 실제로 사고를 막고 있는
+것이고, 거의 없으면 한 걸음을 괜히 얹은 것이다.
 
 **되돌리기 로그는 없앴다.** 서버에서 하는 일이 삭제와 같은데 이름만 달라 화면에서 걷어냈다.
 저장 직후 잘못을 찾은 것은 `record_changed` 의 `field` 로 남는다.

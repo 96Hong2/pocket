@@ -10,7 +10,12 @@ export interface SelectOption<T extends string> {
 export interface SelectProps<T extends string> {
   /** 칸 위에 붙는 이름. 안 고른 상태에서도 무엇을 고르는 칸인지 알아야 한다. */
   label: string;
-  /** 아직 안 골랐을 때 보이는 말. 「고르세요」 같은 명령형은 쓰지 않는다. */
+  /**
+   * 아직 안 골랐을 때 보이는 말.
+   *
+   * 「안 고를래요」 처럼 **거절을 보기로 세우지 않는다.** 그러면 그냥 넘어가면 될 것을
+   * 굳이 고르게 되고, 안 골라도 된다는 안내는 어차피 칸 아래에 따로 있다.
+   */
   placeholder: string;
   options: SelectOption<T>[];
   value: T | null;

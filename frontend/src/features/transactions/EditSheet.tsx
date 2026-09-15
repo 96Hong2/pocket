@@ -32,6 +32,7 @@ import { CategoryEditForm } from '../categories';
  * 바뀐 것만 실어 보낸다. 아무것도 안 바뀌었으면 요청을 보내지 않는다.
  *
  * 통째로 지우는 길은 여기 하나다. 저장 직후 화면에는 고치기만 있고 지우기는 없다.
+ * **지우기는 한 번 묻는다.** 되돌릴 수 없는 유일한 동작이라 잘못 눌렀을 때 치르는 값이 크다.
  */
 export interface EditSheetProps {
   transaction: TransactionOut | null;
@@ -119,6 +120,14 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
   */
   const [creating, setCreating] = useState(false);
   const [creatingBusy, setCreatingBusy] = useState(false);
+  /*
+    지우기 전에 한 번 묻는다.
+
+    **시트를 하나 더 겹치지 않는다.** 화면에 dialog 가 둘이 되면 뒤로가기가 어느 것을
+    닫는지 흔들리고, 포커스가 돌아갈 자리를 잃는다. 대신 버튼 줄 자체가 물음으로 바뀐다.
+    묻는 동안 위쪽 칸은 그대로 보여, 무엇을 지우려는지 보면서 답한다.
+  */
+  const [asking, setAsking] = useState(false);
 
   const busy = update.isPending || remove.isPending;
   const switchable = canSwitchKind(transaction.type);
@@ -175,6 +184,17 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
     }
   }
 
+  function ask(): void {
+    setAsking(true);
+    // 지우려다 마는 비율을 봐야 이 물음이 방해인지 안전장치인지 가른다.
+    analytics.log(EVENTS.recordChanged, { action: 'delete_asked', source: transaction.source });
+  }
+
+  function cancelAsk(): void {
+    setAsking(false);
+    analytics.log(EVENTS.recordChanged, { action: 'delete_cancelled', source: transaction.source });
+  }
+
   async function destroy(): Promise<void> {
     try {
       setFailed(false);
@@ -182,6 +202,8 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
       analytics.log(EVENTS.recordChanged, { action: 'delete', source: transaction.source });
       onClose();
     } catch {
+      // 물음을 닫아 「지울게요」 가 다시 눌리지 않게 한다. 실패 문구는 아래에 남는다.
+      setAsking(false);
       setFailed(true);
     }
   }
@@ -313,19 +335,40 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
         </p>
       ) : null}
 
-      <div className="tx-edit__actions">
-        <Button variant="outline" onClick={() => void destroy()} disabled={busy || creating}>
-          삭제
-        </Button>
-        <Button
-          variant="primarySmall"
-          className="tx-edit__done"
-          onClick={() => void submit()}
-          disabled={busy || creating || !amountOk}
-        >
-          완료
-        </Button>
-      </div>
+      {asking ? (
+        <div className="tx-edit__confirm" role="group" aria-label="삭제 확인">
+          <p className="tx-edit__confirm-text">
+            <b>이 기록을 지울까요?</b> 지우면 되돌릴 수 없어요
+          </p>
+          <div className="tx-edit__actions">
+            <Button variant="outline" onClick={cancelAsk} disabled={busy}>
+              그대로 둘래요
+            </Button>
+            <Button
+              variant="danger"
+              className="tx-edit__done"
+              onClick={() => void destroy()}
+              disabled={busy}
+            >
+              지울게요
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="tx-edit__actions">
+          <Button variant="outline" onClick={ask} disabled={busy || creating}>
+            삭제
+          </Button>
+          <Button
+            variant="primarySmall"
+            className="tx-edit__done"
+            onClick={() => void submit()}
+            disabled={busy || creating || !amountOk}
+          >
+            완료
+          </Button>
+        </div>
+      )}
     </>
   );
 }

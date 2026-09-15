@@ -1,10 +1,11 @@
-import type { AgeBand, Gender, MeOut } from '../../shared/api';
+import type { AgeBand, Gender } from '../../shared/api';
 
 /**
  * 연령대·성별의 보기와 이름.
  *
- * 온보딩 마지막 장과 「내 계정」 시트가 같은 목록을 쓴다. 두 벌로 두면 한쪽만 고쳐져
- * 같은 사람이 자리에 따라 다른 보기를 본다.
+ * **묻는 자리는 처음 안내 마지막 장 하나뿐이다.** 「내 계정」 에서 다시 보여 주지 않는다.
+ * 통계용으로 받아 둔 값을 계정 화면에 세우면, 가입과 상관없다고 적어 놔도 계정에 딸린
+ * 개인정보로 읽힌다.
  */
 export const AGE_BANDS: { value: AgeBand; label: string }[] = [
   { value: '10s', label: '10대' },
@@ -26,12 +27,3 @@ export const GENDERS: { value: Gender; label: string }[] = [
   { value: 'female', label: '여성' },
   { value: 'male', label: '남성' },
 ];
-
-/** 카드 한 줄에 적을 요약. 둘 다 없으면 「아직 안 적었어요」. */
-export function describeProfile(me: MeOut): string {
-  const age = AGE_BANDS.find((item) => item.value === me.age_band)?.label;
-  // 목록에 없는 값(예전의 `undisclosed`)은 못 찾아 그대로 빠진다. 「말하지 않음」 을 적지 않는다.
-  const gender = GENDERS.find((item) => item.value === me.gender)?.label;
-  const parts = [age, gender].filter(Boolean);
-  return parts.length > 0 ? parts.join(' · ') : '아직 안 적었어요';
-}

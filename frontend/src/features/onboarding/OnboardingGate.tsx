@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { useBridge } from '../../app/providers';
+import { useBridge, useOnboardingReport } from '../../app/providers';
 import { markHomeAddPrompted } from '../../shared/lib/homeAddSeen';
 import {
   markOnboardingSeen,
@@ -21,6 +21,7 @@ import { OnboardingOverlay } from './OnboardingOverlay';
  */
 export function OnboardingGate() {
   const bridge = useBridge();
+  const report = useOnboardingReport();
   const [open, setOpen] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -33,24 +34,31 @@ export function OnboardingGate() {
       if (!alive) return;
       const show = replay || !seen;
       setOpen(show);
+      // 다른 한 번뿐인 안내들이 이 값을 보고 자기 차례를 기다린다.
+      report(show);
       if (show) void markOnboardingSeen(bridge.storage);
     })();
     return () => {
       alive = false;
     };
-  }, [bridge]);
+  }, [bridge, report]);
 
   if (open !== true) return null;
 
   return (
     <OnboardingOverlay
       onDone={() => {
-        setOpen(false);
         /*
           마지막 장이 홈 화면 추가를 이미 말했다. 첫 기록 뒤 안내까지 뜨면 같은 말을 두 번
           듣는다. 안내를 건너뛴 사람도 마찬가지다: 그 사람은 안내 자체를 원하지 않았다.
+
+          **다 적은 뒤에 닫는다.** 닫고 나서 적으면, 홈 추가 안내가 「안 봤다」 인 채로
+          먼저 읽어 버려 안내를 마치자마자 「첫 기록 끝!」 이 떴다.
         */
-        void markHomeAddPrompted(bridge.storage);
+        void markHomeAddPrompted(bridge.storage).finally(() => {
+          setOpen(false);
+          report(false);
+        });
       }}
     />
   );

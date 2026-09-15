@@ -232,6 +232,11 @@
     color: var(--color-muted);
   }
 
+  /* 고른 날에 적는 버튼. 목록 바로 아래에 붙어 그 날 이야기의 끝이 된다. */
+  .tx-list__record {
+    margin-top: 10px;
+  }
+
   /*
     목록 아바타는 원 48px 에 그림 40px 이다. 공용 값(78%)으로는 그림이 작아
     무엇인지 알아보기 어려워 이 화면 목록에서만 키운다.
@@ -416,5 +421,23 @@
 
   .tx-edit__done {
     flex: 2;
+  }
+
+  /* 지우기 전 물음. 버튼 줄이 통째로 이 자리로 바뀐다. */
+  .tx-edit__confirm {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    background: var(--color-amber-50);
+  }
+
+  .tx-edit__confirm-text {
+    margin: 0;
+    font-size: var(--text-14);
+    color: var(--color-amber-700);
+  }
+
+  .tx-edit__confirm .tx-edit__actions {
+    margin-top: 10px;
   }
 }

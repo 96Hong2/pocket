@@ -28,21 +28,15 @@ test('안 해도 된다고 먼저 말하고, 주소와 코드 두 단으로 붙�
   const code = await prep.peekLoginCode(address);
   await account.submitCode(code);
 
-  // 붙자마자 연령대·성별을 한 번 묻는다. 건너뛸 수 있다.
-  await expect(account.profileSheet).toBeVisible();
-  await account.profileSkipButton.click();
-  await expect(account.profileSheet).toHaveCount(0);
-
+  // 코드를 맞히면 그걸로 끝이다. 뒤에 아무것도 더 묻지 않는다.
   await expect(account.linkedTitle).toBeVisible();
   await expect(account.email(address)).toBeVisible();
-  await expect(account.profileRow).toContainText('아직 안 적었어요');
+  await expect(account.anyDialog).toHaveCount(0);
 
   const link = await logsNamed(page, 'account_link_result');
   expect(link.map((log) => log.params.result)).toEqual(['sent', 'linked']);
-  const profile = await logsNamed(page, 'profile_result');
-  expect(profile.map((log) => log.params.result)).toEqual(['skipped']);
   // 주소는 어느 로그에도 실리지 않는다.
-  expect(JSON.stringify([...link, ...profile])).not.toContain(address);
+  expect(JSON.stringify(link)).not.toContain(address);
 });
 
 test.describe('틀린 코드', () => {
@@ -63,43 +57,32 @@ test.describe('틀린 코드', () => {
     await expect(account.linkNotice).toContainText('코드가 맞지 않아요');
 
     await account.submitCode(code);
-    await account.profileSkipButton.click();
     await expect(account.linkedTitle).toBeVisible();
   });
 });
 
-test('연령대·성별을 고르면 카드 한 줄에 남고, 다시 열어 고칠 수 있다', async ({
-  account,
-  page,
-  prep,
-}) => {
-  const address = `e2e-profile-${Date.now()}@example.com`;
+/*
+  **연령대·성별은 이 화면에 없다.**
+
+  처음 안내 마지막 장에서 한 번 묻고 끝이다. 통계용으로 받아 둔 값을 계정 화면에 다시
+  세우면, 가입과 상관없다고 적어 놔도 계정에 딸린 개인정보로 읽힌다. 이 화면이 하는
+  이야기는 「기록 지켜 두기」 하나여야 한다.
+*/
+test('내 계정은 연령대·성별을 보여주지도 묻지도 않는다', async ({ account, prep }) => {
+  const address = `e2e-noprofile-${Date.now()}@example.com`;
 
   await account.open();
   await account.waitReady();
+  await expect(account.text('연령대')).toHaveCount(0);
+  await expect(account.text('성별')).toHaveCount(0);
+
   await account.requestCode(address);
   await account.submitCode(await prep.peekLoginCode(address));
 
-  await account.ageSelect.selectOption('30s');
-  await account.genderChoice('여성').click();
-  await account.profileSaveButton.click();
-  await expect(account.profileSheet).toHaveCount(0);
-  await expect(account.profileRow).toContainText('30대 · 여성');
-
-  // 다시 열면 고른 것이 그대로 있고, 바꿀 수 있다.
-  await account.profileRow.click();
-  await expect(account.ageSelect).toHaveValue('30s');
-  // 다시 누르면 꺼진다. 「말하지 않을래요」 라는 보기를 따로 두지 않는 이유다.
-  await account.genderChoice('여성').click();
-  await account.profileSaveButton.click();
-  await expect(account.profileRow).toContainText('30대');
-  await expect(account.profileRow).not.toContainText('여성');
-
-  const profile = await logsNamed(page, 'profile_result');
-  expect(profile.map((log) => [log.params.result, log.params.age_band])).toEqual([
-    ['saved', '30s'],
-    ['saved', '30s'],
-  ]);
+  // 붙인 뒤에도 마찬가지다. 예전에는 붙자마자 한 번 물었다.
+  await expect(account.linkedTitle).toBeVisible();
+  await expect(account.text('연령대')).toHaveCount(0);
+  await expect(account.text('성별')).toHaveCount(0);
 });
 
 test('새 기기에서 같은 이메일로 확인하면 첫 기기의 기록이 그대로 이어진다', async ({
@@ -128,8 +111,6 @@ test('새 기기에서 같은 이메일로 확인하면 첫 기기의 기록이 
   await account.waitReady();
   await account.requestCode(address);
   await account.submitCode(await prep.peekLoginCode(address));
-  // 첫 기기에서 이미 물었으면 다시 안 묻는다. 여기서는 안 물었으니 뜬다.
-  await account.profileSkipButton.click();
   await expect(account.email(address)).toBeVisible();
 
   // 이제 이 기기는 그 사람이다. 첫 기기의 기록이 홈에 있다.
@@ -171,6 +152,5 @@ test('앞자리만 적고 뒷자리는 눌러서 끝내고, 메일을 안 열어
 
   const address = `e2e-chip-${stamp}@naver.com`;
   await account.submitCode(await prep.peekLoginCode(address));
-  await account.profileSkipButton.click();
   await expect(account.email(address)).toBeVisible();
 });

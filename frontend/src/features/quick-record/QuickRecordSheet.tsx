@@ -45,6 +45,16 @@ import { DEFAULT_RECORD_TAB, recordMethodOf, type RecordTab } from './recordTab'
 
 export type { RecordTab };
 
+/**
+ * 기록 시트를 어디서 열었나.
+ *
+ * 입구가 셋이라 어느 자리가 실제로 쓰이는지 모르면 덜어낼 곳도 못 고른다.
+ * - `home`         홈 가운데 큰 버튼. 언제나 오늘에 적는다
+ * - `home_day`     홈 목록의 빈 날 버튼
+ * - `calendar_day` 월간 달력에서 고른 날
+ */
+export type RecordFrom = 'home' | 'home_day' | 'calendar_day';
+
 const TABS: SegmentedOption<RecordTab>[] = [
   { value: 'keypad', label: '키패드' },
   { value: 'nl', label: '줄글' },
@@ -67,6 +77,7 @@ export function QuickRecordSheet({
   open,
   initialTab,
   day,
+  from = 'home',
   onClose,
 }: {
   open: boolean;
@@ -79,6 +90,8 @@ export function QuickRecordSheet({
    * 줄글·캡처·영수증은 읽은 내용에서 날짜가 나오므로 이 값을 쓰지 않는다.
    */
   day?: string;
+  /** 어느 자리에서 열었나. 로그에만 쓴다. */
+  from?: RecordFrom;
   onClose: () => void;
 }) {
   // 저장 응답을 기다리는 동안에는 닫히지 않는다.
@@ -126,6 +139,7 @@ export function QuickRecordSheet({
       <RecordBody
         initialTab={initialTab}
         day={day}
+        from={from}
         onDone={onClose}
         onSavingChange={setSaving}
         onPendingChange={setPending}
@@ -186,6 +200,7 @@ function LeaveConfirm({
 function RecordBody({
   initialTab,
   day,
+  from,
   onDone,
   onSavingChange,
   onPendingChange,
@@ -194,6 +209,7 @@ function RecordBody({
   initialTab?: RecordTab;
   /** 키패드로 적을 날. 안 주면 오늘. */
   day?: string;
+  from: RecordFrom;
   onDone: () => void;
   onSavingChange: (saving: boolean) => void;
   /** 어느 탭에서든 읽어 두고 아직 저장 안 한 건수의 합. */
@@ -280,11 +296,17 @@ function RecordBody({
     };
   }, [bridge]);
 
-  // 어느 방식으로 시작했나. 마지막에 쓴 방식으로 열리므로 시작 방식과 끝낸 방식이 다를 수 있다.
+  /*
+    어느 방식으로, **어느 자리에서** 시작했나.
+
+    마지막에 쓴 방식으로 열리므로 시작 방식과 끝낸 방식이 다를 수 있다.
+    자리를 안 남기면 달력에서 적는 길을 새로 냈는데 쓰는 사람이 있는지조차 모른다.
+    지난 날에 적는 것인지(`backfill`)도 함께 남긴다. 그 길에서만 나는 실수가 있다.
+  */
   useEffect(() => {
     analytics.log(
       EVENTS.recordStarted,
-      { method: recordMethodOf(initialTab ?? DEFAULT_RECORD_TAB) },
+      { method: recordMethodOf(initialTab ?? DEFAULT_RECORD_TAB), from, backfill: isBackfill },
       { flowId },
     );
     // 시트가 사는 동안 한 번이다. 탭을 옮겼다고 다시 시작한 것이 아니다.

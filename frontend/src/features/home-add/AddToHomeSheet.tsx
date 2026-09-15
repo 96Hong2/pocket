@@ -40,7 +40,12 @@ const STEPS: Step[] = [
 export interface AddToHomeSheetProps {
   open: boolean;
   onClose: () => void;
-  /** 어디서 열었는지. 안내를 어느 자리에서 봤을 때 실제로 따라 하는지 보려고 남긴다. */
+  /**
+   * 어디서 열었는지. 안내를 어느 자리에서 봤을 때 실제로 따라 하는지 보려고 남긴다.
+   *
+   * `first_record` 는 **정말로 방금 첫 기록이 생긴 순간만**이다. 그 말을 제목에 쓰기
+   * 때문에, 전이 없이 열 수 있는 길을 만들면 안 한 일을 했다고 말하게 된다.
+   */
   from: 'first_record' | 'settings';
 }
 
