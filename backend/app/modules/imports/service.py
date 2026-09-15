@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from functools import partial
@@ -149,14 +150,22 @@ def parse_text(
 
     # 저장하지 않는 것만으로는 부족하다. 보내기 전에 가린다.
     cleaned = redact(text)
-    read = _read_twice_if_odd(
-        client,
-        escalation,
-        prompt=natural_language_prompt(day, _category_names(session, user)),
-        today=day,
-        subject="문장을",
-        text=cleaned.text,
-    )
+    with _counted(
+        session,
+        user,
+        client=client,
+        source=TransactionSource.NL,
+        input_length=len(text),
+        redacted_count=cleaned.count,
+    ):
+        read = _read_twice_if_odd(
+            client,
+            escalation,
+            prompt=natural_language_prompt(day, _category_names(session, user)),
+            today=day,
+            subject="문장을",
+            text=cleaned.text,
+        )
     return _build_batch(
         session,
         user,
@@ -192,14 +201,22 @@ def parse_image(
 
     # 돌리고 · 여백을 잘라내고 · 줄인 뒤에 보낸다. 위치 정보도 여기서 끊긴다.
     sent = prepare_image(image)
-    read = _read_twice_if_odd(
-        client,
-        escalation,
-        prompt=kind.prompt(day, _category_names(session, user)),
-        today=day,
-        subject=kind.subject,
-        image=sent,
-    )
+    with _counted(
+        session,
+        user,
+        client=client,
+        source=source,
+        input_length=len(sent.data),
+        redacted_count=0,
+    ):
+        read = _read_twice_if_odd(
+            client,
+            escalation,
+            prompt=kind.prompt(day, _category_names(session, user)),
+            today=day,
+            subject=kind.subject,
+            image=sent,
+        )
     return _build_batch(
         session,
         user,
@@ -732,6 +749,42 @@ def _learn_rule(session: Session, user: User, row: ImportCandidate) -> None:
     existing.applied_count += 1
 
 
+@contextmanager
+def _counted(
+    session: Session,
+    user: User,
+    *,
+    client: LlmStructuredClient,
+    source: TransactionSource,
+    input_length: int,
+    redacted_count: int,
+) -> Iterator[None]:
+    """모델을 부르다 죽으면 그 한 번을 사용량에 남긴다.
+
+    성공한 호출만 세면 실패하는 동안 하루 상한·1분 상한이 줄지 않는다. 그러면 답이 계속
+    안 나오는 사진 한 장으로 같은 사람이 유료 호출을 무제한으로 낼 수 있다.
+    **돈이 나가는 것은 답이 아니라 호출이다.**
+
+    성공한 경우는 여기서 세지 않는다. 뽑힌 후보 수·실제 모델까지 아는 자리가 따로 있다.
+    """
+    try:
+        yield
+    except ApiError:
+        _record_usage(
+            session,
+            user,
+            client=client,
+            source=source,
+            input_length=input_length,
+            redacted_count=redacted_count,
+            candidate_count=0,
+            model=None,
+            escalated=False,
+            failed=True,
+        )
+        raise
+
+
 def _record_usage(
     session: Session,
     user: User,
@@ -741,8 +794,9 @@ def _record_usage(
     input_length: int,
     redacted_count: int,
     candidate_count: int,
-    model: str,
+    model: str | None,
     escalated: bool,
+    failed: bool = False,
 ) -> None:
     session.add(
         ParseUsage(
@@ -755,6 +809,7 @@ def _record_usage(
             candidate_count=candidate_count,
             model=model,
             escalated=escalated,
+            failed=failed,
         )
     )
     session.commit()

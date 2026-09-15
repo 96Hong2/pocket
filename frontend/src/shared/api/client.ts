@@ -89,6 +89,15 @@ export interface TransactionListParams extends Partial<MonthParams> {
  */
 const IMAGE_TIMEOUT_MS = 30_000;
 
+/**
+ * 줄글 한 덩이를 읽는 요청에 주는 제한 시간.
+ *
+ * 서버는 모델을 한 번 부르는 데 20초까지 기다리고, 줄이 홀수로 끊기면 **한 번 더** 부른다.
+ * 전역 10초로 끊으면 정상 응답이 오는 중에 화면만 「응답이 늦어요」 로 바뀌고, 그 호출은
+ * 값을 치른 채 버려진다. 서버가 포기하는 지점보다 뒤에 서 있어야 한다.
+ */
+const TEXT_TIMEOUT_MS = 45_000;
+
 /** 요청 하나에 붙이는 것. 지금은 취소 신호뿐이다. */
 export interface CallOptions {
   signal?: AbortSignal;
@@ -593,6 +602,7 @@ export function createApiClient(options: TransportOptions): ApiClient {
         path: `${PATHS.imports}/text`,
         body: { text },
         signal: call?.signal,
+        timeoutMs: TEXT_TIMEOUT_MS,
       });
     },
 

@@ -94,7 +94,10 @@ def profile(
 
 @router.post("/reset", status_code=status.HTTP_204_NO_CONTENT)
 def reset(body: ResetIn, session: DbSession, user: CurrentUser) -> Response:
-    """넣어 둔 것을 전부 지운다. 되돌릴 수 없다. 이메일 연결은 남는다."""
+    """넣어 둔 것을 화면에서 전부 치운다. 되살릴 수 있게 행은 접어만 둔다.
+
+    이메일 연결과 연령대·성별은 남는다. 무엇을 접고 무엇을 진짜로 지우는지는 service 에 있다.
+    """
     del body  # 값은 Literal[True] 하나뿐이라 검증이 곧 뜻이다.
     service.reset_data(session, user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

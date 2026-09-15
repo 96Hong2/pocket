@@ -119,7 +119,22 @@ else
   # edition 을 안 적으면 ENTERPRISE_PLUS 로 잡히고, 거기서는 db-f1-micro 를 안 받아 준다.
   run gcloud sql instances create "$SQL_INSTANCE" \
     --database-version="$SQL_VERSION" --edition="$SQL_EDITION" --tier="$SQL_TIER" \
-    --region="$REGION" --storage-size=10 --storage-auto-increase --project="$PROJECT"
+    --region="$REGION" --storage-size=10 --storage-auto-increase --project="$PROJECT" \
+    --backup-start-time=18:00 --retained-backups-count=14 \
+    --enable-point-in-time-recovery --retained-transaction-log-days=7 \
+    --deletion-protection
+fi
+
+# 이미 있는 인스턴스도 매번 맞춘다. 처음 만들 때 이 값들이 빠져 있었고, 그대로 두면
+# **백업이 하나도 없는 상태로 운영이 돈다.** 사람이 손으로 쌓은 가계부라 한 번 잃으면 끝이다.
+# patch 는 값이 이미 같으면 아무것도 바꾸지 않는다.
+if [[ "$(gcloud sql instances describe "$SQL_INSTANCE" --project="$PROJECT" \
+         --format='value(settings.backupConfiguration.enabled)')" != "True" ]]; then
+  run gcloud sql instances patch "$SQL_INSTANCE" --project="$PROJECT" --quiet \
+    --backup-start-time=18:00 --retained-backups-count=14 --deletion-protection
+  # PITR 은 인스턴스를 다시 띄운다. 그래서 백업을 켜는 것과 따로 부른다.
+  run gcloud sql instances patch "$SQL_INSTANCE" --project="$PROJECT" --quiet \
+    --enable-point-in-time-recovery --retained-transaction-log-days=7
 fi
 
 if gcloud sql databases describe "$DB_NAME" --instance="$SQL_INSTANCE" \
@@ -317,6 +332,22 @@ fi
 BASE="$(gcloud run services describe "$SERVICE" --region="$REGION" --project="$PROJECT" \
   --format='value(status.url)')"
 echo "  주소 $BASE"
+
+# 안 식게 5분마다 깨워 둔다.
+#
+# 쉰 지 15분이면 인스턴스가 내려가고, 그다음 첫 요청은 컨테이너를 새로 띄우느라 **5초** 걸린다
+# (실측: 요청 4.9초 중 4.4초가 부팅). 그날 처음 연 사람이 그 5초를 본다. 이름이 10초 가계부다.
+#
+# min-instances=1 이면 확실하지만 유휴 인스턴스 요금이 붙는다. 이쪽은 0.2초짜리 요청
+# 288번/일이라 Cloud Run 무료 한도 안에서 끝난다.
+WARM_JOB="pocket-backend-warm"
+if gcloud scheduler jobs describe "$WARM_JOB" --location="$REGION" --project="$PROJECT" >/dev/null 2>&1; then
+  skip "스케줄러 $WARM_JOB"
+else
+  run gcloud scheduler jobs create http "$WARM_JOB" --location="$REGION" --project="$PROJECT" \
+    --schedule="*/5 * * * *" --time-zone="Asia/Seoul" \
+    --uri="${BASE}/health" --http-method=GET --attempt-deadline=30s
+fi
 curl -fsS "$BASE/health"; echo ""
 # 운영에서는 아무 키나 넣어 목록을 받아 볼 수 없다. 익명키를 토스에 되물어 확인하기 때문이다.
 # 그래서 「목록이 오나」가 아니라 「가짜 키를 제대로 막나」를 본다. 둘 다 401 이어야 정상이다.

@@ -24,18 +24,38 @@ export default function PrivacyPage() {
             <li className="privacy__item">상호명</li>
             <li className="privacy__item">분류</li>
             <li className="privacy__item">직접 정한 예산과 앱 설정</li>
+            <li className="privacy__item">골랐을 때만: 연령대와 성별</li>
           </ul>
+          <p className="privacy__text">
+            연령대와 성별은 안 골라도 돼요. 어떤 분들이 쓰는지 보는 데만 쓰고, 누구인지 알아내는
+            데는 쓰지 않아요.
+          </p>
         </Card>
 
         <Card>
           <h2 className="privacy__title">저장하지 않는 것</h2>
           <ul className="privacy__list">
             <li className="privacy__item">카드번호와 계좌번호. 뒷자리도 남기지 않아요</li>
-            <li className="privacy__item">이름, 전화번호, 이메일</li>
+            <li className="privacy__item">이름과 전화번호</li>
             <li className="privacy__item">캡처와 영수증 원본 이미지</li>
             <li className="privacy__item">분석에 보낸 글과 돌려받은 답의 원문</li>
           </ul>
           <p className="privacy__text">기록(로그)과 통계에도 같은 것들을 남기지 않아요.</p>
+        </Card>
+
+        <Card>
+          <h2 className="privacy__title">밖으로 나가는 것</h2>
+          <p className="privacy__text">
+            사진과 줄글을 읽는 일은 저희가 직접 하지 못해서, <b>OpenAI</b>의 모델에 맡기고 있어요.
+            그래서 읽어 달라고 보낼 때만 그 글과 사진이 <b>미국</b>에 있는 OpenAI 서버로 나가요.
+          </p>
+          <p className="privacy__text">
+            나가는 것은 읽어 달라고 보낸 그 글과 사진뿐이에요. 누구인지 알 수 있는 값은 함께
+            보내지 않고, 보낸 것을 저쪽 서버에 남겨 두지 않도록 꺼서 보내요.
+          </p>
+          <p className="privacy__text">
+            직접 적어 넣는 방식(키패드)만 쓰면 아무것도 밖으로 나가지 않아요.
+          </p>
         </Card>
 
         <Card>

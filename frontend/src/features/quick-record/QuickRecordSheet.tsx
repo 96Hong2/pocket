@@ -451,22 +451,14 @@ function RecordBody({
     );
   }
 
-  if (saved != null) {
-    return (
-      <FeedbackPanel
-        flowId={flowId}
-        transaction={saved.transaction}
-        feedback={saved.feedback}
-        categories={categoriesOfKind(kindOf(saved.transaction.type), allCategories)}
-        onUpdated={(updated) => {
-          setSaved({ transaction: updated.transaction, feedback: updated.feedback });
-        }}
-        // 여기서 고른 것이 다음 기록에 조용히 채워질 값이다.
-        onMethodPicked={(next) => void writeLastMethod(bridge.storage, next)}
-        onConfirm={finish}
-      />
-    );
-  }
+  /**
+   * 키패드로 한 건을 저장해 확인 화면이 떠 있나.
+   *
+   * **이 자리에서 다른 탭을 언마운트하지 않는다.** 예전에는 저장되자마자 확인 화면만
+   * 돌려주고 나머지를 트리에서 뺐다. 그러면 사진으로 읽어 둔 검토 목록이 말없이 사라지고,
+   * 그것을 세던 값까지 0 으로 덮여 「아직 검토할 것이 있다」 는 판단도 같이 죽었다.
+   */
+  const done = saved != null;
 
   const amount = toAmount(digits);
   const saveError = create.error instanceof ApiError ? create.error : null;
@@ -501,7 +493,7 @@ function RecordBody({
   return (
     <div className="record">
       {/* 지난 날에 적는 중에는 방식을 고르지 않는다. 고른 날을 잃을 길을 아예 두지 않는다. */}
-      {isBackfill ? null : (
+      {isBackfill || done ? null : (
         <SegmentedControl
           className="record__tabs"
           options={TABS.map((option) =>
@@ -527,7 +519,7 @@ function RecordBody({
       */}
       {isBackfill ? null : (
         <>
-        <div className="record__panel" hidden={tab !== 'nl'}>
+        <div className="record__panel" hidden={done || tab !== 'nl'}>
           <NaturalLanguageTab
             flowId={flowId}
             onBusyChange={markBusy}
@@ -537,7 +529,7 @@ function RecordBody({
           />
         </div>
 
-        <div className="record__panel" hidden={tab !== 'capture'}>
+        <div className="record__panel" hidden={done || tab !== 'capture'}>
           <ImageImportTab
             kind="capture"
             flowId={flowId}
@@ -548,7 +540,7 @@ function RecordBody({
           />
         </div>
 
-        <div className="record__panel" hidden={tab !== 'receipt'}>
+        <div className="record__panel" hidden={done || tab !== 'receipt'}>
           <ImageImportTab
             kind="receipt"
             flowId={flowId}
@@ -567,7 +559,28 @@ function RecordBody({
         </>
       )}
 
-      <div className="record__panel" hidden={tab !== 'keypad'}>
+      {/*
+        저장 뒤 확인 화면. 다른 탭과 나란히 서서, 여기 떠 있는 동안에도 그쪽이 들고 있는
+        것을 잃지 않는다. 「확인」 을 누르면 finish() 가 남은 검토 목록으로 데려간다.
+      */}
+      {saved != null ? (
+        <div className="record__panel">
+          <FeedbackPanel
+            flowId={flowId}
+            transaction={saved.transaction}
+            feedback={saved.feedback}
+            categories={categoriesOfKind(kindOf(saved.transaction.type), allCategories)}
+            onUpdated={(updated) => {
+              setSaved({ transaction: updated.transaction, feedback: updated.feedback });
+            }}
+            // 여기서 고른 것이 다음 기록에 조용히 채워질 값이다.
+            onMethodPicked={(next) => void writeLastMethod(bridge.storage, next)}
+            onConfirm={finish}
+          />
+        </div>
+      ) : null}
+
+      <div className="record__panel" hidden={done || tab !== 'keypad'}>
         {/*
           금액보다 먼저 정해야 하는 값이다. 아래 분류 칩과 저장할 종류가 이 하나를 따라간다.
           바꾸면 골라 둔 분류를 버리고 목록을 다시 편다. 지출 분류가 수입에 남으면 안 된다.

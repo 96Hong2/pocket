@@ -211,8 +211,11 @@ def _attach_device(
     session.execute(
         update(UserDevice).where(UserDevice.user_id == source.id).values(user_id=target.id)
     )
-    session.execute(delete(UserDevice).where(UserDevice.anon_key_hash == anon_key_hash))
-    session.add(UserDevice(anon_key_hash=anon_key_hash, user_id=target.id))
+    # source 를 처음 만든 기기는 UserDevice 줄이 없다. 신원이 users.anon_key_hash 하나뿐이라,
+    # 그 줄을 안 만들어 두면 그 기기가 다음에 열 때 접힌 계정에 떨어져 빈 가계부를 본다.
+    for key in {anon_key_hash, source.anon_key_hash}:
+        session.execute(delete(UserDevice).where(UserDevice.anon_key_hash == key))
+        session.add(UserDevice(anon_key_hash=key, user_id=target.id))
     # 접은 계정은 조회에 안 걸린다. 이메일은 target 것이라 여기서 비운다.
     source.email = None
     source.deleted_at = now
@@ -258,7 +261,8 @@ def _absorb(session: Session, *, source: User, target: User) -> None:
     )
     for rule in session.scalars(select(MerchantRule).where(MerchantRule.user_id == source.id)):
         if rule.merchant_normalized in target_merchants:
-            session.delete(rule)
+            # 접기만 한다. 옮기면 (user_id, merchant_normalized) 자리가 겹쳐 터진다.
+            rule.deleted_at = _now()
         else:
             rule.user_id = target.id
     session.flush()
@@ -269,8 +273,16 @@ def _absorb(session: Session, *, source: User, target: User) -> None:
     )
     for budget in session.scalars(select(Budget).where(Budget.user_id == source.id)):
         if budget.period_start in target_periods:
-            session.execute(delete(CategoryBudget).where(CategoryBudget.budget_id == budget.id))
-            session.delete(budget)
+            # **지우지 않고 접는다.** 겹치는 달은 target 것을 쓰지만, 이쪽이 정해 둔 금액과
+            # 카테고리 한도가 통째로 사라지면 합치기 한 번에 몇 달치가 없던 일이 된다.
+            # 옮기지도 않는다. 같은 달 자리를 둘이 잡으면 unique 가 막는다.
+            now = _now()
+            session.execute(
+                update(CategoryBudget)
+                .where(CategoryBudget.budget_id == budget.id, CategoryBudget.deleted_at.is_(None))
+                .values(deleted_at=now)
+            )
+            budget.deleted_at = now
         else:
             budget.user_id = target.id
     session.flush()
@@ -287,8 +299,9 @@ def _absorb(session: Session, *, source: User, target: User) -> None:
             and goal.status == GoalStatus.ACTIVE
             and goal.deleted_at is None
         ):
+            # 지난 목표로 접는다. **deleted_at 은 찍지 않는다.** 찍으면 「지난 목표」
+            # 화면에서도 안 보여, 몇 달을 모은 것이 통째로 없던 일이 된다.
             goal.status = GoalStatus.ARCHIVED
-            goal.deleted_at = _now()
         goal.user_id = target.id
     session.flush()
 
