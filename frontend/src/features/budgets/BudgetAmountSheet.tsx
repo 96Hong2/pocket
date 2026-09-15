@@ -107,6 +107,16 @@ function BudgetAmountForm({
         </p>
       ) : null}
 
+      {/*
+        저장이 왜 회색인지 그 자리에서 말한다. 0 원 예산을 서버가 막는 데는 이유가 있는데
+        (예산 없음과 구분이 안 되고 게이지 분모가 0 이 된다) 화면은 아무 말도 안 했다.
+      */}
+      {message == null && digits !== '' && next <= 0 ? (
+        <p className="budget-sheet__notice" role="status">
+          1원부터 정할 수 있어요
+        </p>
+      ) : null}
+
       <Button
         fullWidth
         disabled={!canSave}

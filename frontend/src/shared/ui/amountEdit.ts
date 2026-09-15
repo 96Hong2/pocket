@@ -37,8 +37,19 @@ export interface AmountEditResult {
 }
 
 export function editAmount({ previous, next, caret }: AmountEditInput): AmountEditResult {
+  /*
+    붙여넣기일 때만 소수점 아래를 버린다.
+
+    은행·카드 앱에서 복사한 금액은 `12,000.00` 인 경우가 많다. 숫자만 남기면 점이 사라져
+    **1,200,000 원이 된다. 100배다.** 서버는 정수를 받았으니 422 도 안 나고, 화면에도
+    이상하다는 단서가 하나도 없다. 실제로 달력 합계까지 1,200,000 으로 저장되는 것을 봤다.
+
+    한 글자씩 치는 중에는 손대지 않는다. `inputMode="numeric"` 이라 기기 자판에 점이 없고,
+    그래도 점이 들어왔다면 그건 사람이 자리를 옮겨 가며 고치는 중이라 앞자리를 버리면 안 된다.
+  */
+  const pasted = next.length > previous.length + 1;
   const typedBefore = countDigits(next.slice(0, caret));
-  let digits = onlyDigits(next);
+  let digits = onlyDigits(pasted ? dropDecimalFraction(next) : next);
 
   // 한 글자가 줄었는데 숫자는 그대로다. 지워진 것이 콤마 하나라는 뜻이다.
   // 사용자가 지우려던 것은 그 앞의 숫자 한 자리다.
@@ -55,8 +66,14 @@ export function editAmount({ previous, next, caret }: AmountEditInput): AmountEd
   const capped = digits.slice(0, MAX_DIGITS);
   kept = Math.min(kept, capped.length);
 
-  // 앞자리 0 은 버린다. 버린 만큼 커서도 함께 당겨진다.
-  const trimmed = capped.replace(/^0+/, '');
+  /*
+    앞자리 0 은 버린다. 버린 만큼 커서도 함께 당겨진다.
+
+    **0 하나만 남는 경우는 살린다.** 예전에는 `0` 을 치면 칸이 그대로 비어, 왜 사라졌는지
+    알 수 없었다. 잔액 0 원인 계좌를 자산에 얹으려는 사람은 서버가 허락(ge=0)하는데도 막혔다.
+    1원 이상만 받는 자리(예산·목표)는 저장 버튼이 따로 막으니 여기서 지울 이유가 없다.
+  */
+  const trimmed = capped.replace(/^0+(?=\d)/, '');
   kept = Math.max(kept - (capped.length - trimmed.length), 0);
 
   return { digits: trimmed, caret: caretAfterDigits(formatAmountInput(trimmed), kept) };
@@ -64,6 +81,11 @@ export function editAmount({ previous, next, caret }: AmountEditInput): AmountEd
 
 function onlyDigits(text: string): string {
   return text.replace(/\D/g, '');
+}
+
+/** 끝에 붙은 `.00` · `.5` 같은 소수점 아래를 턴다. 뒤에 `원` 이 붙어 있어도 본다. */
+function dropDecimalFraction(text: string): string {
+  return text.replace(/[.]\d{1,2}\s*원?\s*$/, '');
 }
 
 function countDigits(text: string): number {

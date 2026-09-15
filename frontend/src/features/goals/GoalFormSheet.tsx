@@ -10,6 +10,7 @@ import {
   type GoalOut,
 } from '../../shared/api';
 import { AmountField, BottomSheet, Button, iconUrl } from '../../shared/ui';
+import { DAY_MAX, DAY_MIN, isDayInRange } from '../../shared/lib/limits';
 
 export interface GoalFormSheetProps {
   open: boolean;
@@ -85,7 +86,10 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
   const [confirming, setConfirming] = useState(false);
 
   const busy = create.isPending || update.isPending || remove.isPending;
-  const canSave = title.trim() !== '' && target !== '' && Number(target) > 0 && !busy;
+  // 연도 오타(`0202`)는 칸의 min·max 로 안 막힌다. 여기서 막고 왜 막혔는지 아래에 적는다.
+  const dayOk = isDayInRange(deadline);
+  const canSave =
+    title.trim() !== '' && target !== '' && Number(target) > 0 && dayOk && !busy;
   // 세 요청이 한 시트를 나눠 쓰므로 실패도 한 자리에 모아 그린다.
   const failure = [create.error, update.error, remove.error].find(
     (error): error is ApiError => error instanceof ApiError,
@@ -132,6 +136,8 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
         <input
           className="goal-sheet__input pk-date"
           type="date"
+          min={DAY_MIN}
+          max={DAY_MAX}
           value={deadline}
           onChange={(event) => setDeadline(event.target.value)}
         />
@@ -180,16 +186,24 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
           </div>
         </div>
       ) : (
-        <div className="goal-sheet__actions">
-          {goal != null ? (
-            <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>
-              지우기
+        <>
+      {/* 저장이 왜 회색인지 그 자리에서 말한다. 연도 오타는 칸만 봐서는 안 보인다. */}
+      {!dayOk ? (
+        <p className="goal-sheet__notice" role="status">
+          날짜는 2000년부터 2100년 사이로 골라 주세요
+        </p>
+      ) : null}
+          <div className="goal-sheet__actions">
+            {goal != null ? (
+              <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>
+                지우기
+              </Button>
+            ) : null}
+            <Button className="goal-sheet__done" disabled={!canSave} onClick={save}>
+              저장
             </Button>
-          ) : null}
-          <Button className="goal-sheet__done" disabled={!canSave} onClick={save}>
-            저장
-          </Button>
-        </div>
+          </div>
+        </>
       )}
 
       <p className="goal-sheet__closing">목표는 언제든 바꿔도 괜찮아요 · 재촉하지 않을게요</p>

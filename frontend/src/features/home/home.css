@@ -138,6 +138,11 @@
     color: var(--color-ink);
     /* 긴 목표 이름이 화면을 가로로 밀지 않게 줄 안에서 끊는다. */
     overflow-wrap: anywhere;
+    /* 60자를 다 적으면 네 줄이 되어 카드가 기록 버튼만큼 커졌다. 두 줄에서 끊는다. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
   }
 
   .home-goal__foot {

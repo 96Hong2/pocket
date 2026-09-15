@@ -156,6 +156,22 @@
     color: var(--color-ink);
     /* 아주 긴 이름이 화면을 가로로 밀지 않게 줄 안에서 끊는다. */
     overflow-wrap: anywhere;
+    /* 아주 긴 이름이 카드를 세로로 부풀리지 않게 두 줄에서 끊는다.
+       80자를 다 적으면 여섯 줄이 되어 금액과 버튼이 이름에 밀렸다. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  /* 상한에 닿았을 때 더하기 버튼 자리에 서는 한 줄. 버튼과 높이를 맞춘다. */
+  .asset-group__full {
+    margin: 0;
+    padding: 12px 0;
+    text-align: center;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
   }
 
   .asset-row__go {

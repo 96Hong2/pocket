@@ -247,6 +247,12 @@ export function CategoryEditForm({
               이모지가 아닌 글자가 들어 있어요. 지우거나 이모지를 골라 주세요
             </p>
           ) : null}
+          {/* 같은 규칙이 이름에도 걸린다. 이쪽만 이유 없이 회색이면 앱이 고장 난 것으로 읽힌다. */}
+          {!iconInvalid && trimmed === '' ? (
+            <p className="cat-sheet__notice" role="status">
+              이름을 적어 주세요
+            </p>
+          ) : null}
           <div className="cat-sheet__actions">
             {category != null ? (
               <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>

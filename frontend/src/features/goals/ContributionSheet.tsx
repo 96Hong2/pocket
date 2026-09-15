@@ -4,6 +4,7 @@ import { useOverlayBackClose } from '../../app/providers';
 import { ApiError, useAddGoalContribution } from '../../shared/api';
 import { toLedgerDate } from '../../shared/lib/format';
 import { AmountField, BottomSheet, Button } from '../../shared/ui';
+import { DAY_MAX, DAY_MIN, isDayInRange } from '../../shared/lib/limits';
 
 export interface ContributionSheetProps {
   open: boolean;
@@ -47,7 +48,9 @@ function ContributionForm({ goalId, onSavingChange, onClose }: ContributionFormP
   // 기기 시간대로 오늘을 만들지 않는다. 서버가 가계부 시간대로 날짜를 세므로 같은 기준을 쓴다.
   const [day, setDay] = useState(() => toLedgerDate(new Date()));
 
-  const canSave = digits !== '' && Number(digits) > 0 && day !== '' && !add.isPending;
+  // 연도 오타(`0202`)는 칸의 min·max 로 안 막힌다.
+  const dayOk = isDayInRange(day);
+  const canSave = digits !== '' && Number(digits) > 0 && day !== '' && dayOk && !add.isPending;
   const message = add.error instanceof ApiError ? add.error.message : null;
 
   return (
@@ -59,6 +62,8 @@ function ContributionForm({ goalId, onSavingChange, onClose }: ContributionFormP
         <input
           className="goal-sheet__input pk-date"
           type="date"
+          min={DAY_MIN}
+          max={DAY_MAX}
           value={day}
           onChange={(event) => setDay(event.target.value)}
         />
@@ -67,6 +72,13 @@ function ContributionForm({ goalId, onSavingChange, onClose }: ContributionFormP
       {message ? (
         <p className="goal-sheet__notice" role="alert">
           {message}
+        </p>
+      ) : null}
+
+      {/* 저장이 왜 회색인지 그 자리에서 말한다. 연도 오타는 칸만 봐서는 안 보인다. */}
+      {!dayOk ? (
+        <p className="goal-sheet__notice" role="status">
+          날짜는 2000년부터 2100년 사이로 골라 주세요
         </p>
       ) : null}
 

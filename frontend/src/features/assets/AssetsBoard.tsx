@@ -77,6 +77,7 @@ export function AssetsBoard() {
               group={row.group}
               total={row.total}
               items={items.filter((item) => item.group === row.group)}
+              totalCount={items.length}
               onPick={pick}
               onAdd={add}
             />
