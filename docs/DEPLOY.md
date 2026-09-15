@@ -294,7 +294,10 @@ make ait API_BASE_URL=https://<위에서 받은 주소>
 
 - [ ] `make check` 초록 (린트·타입·단위)
 - [ ] `make e2e` 초록
-- [ ] `docs/openapi.json` 과 `frontend/src/shared/api/schema.gen.ts` 에 차이 없음
+- [ ] `docs/openapi.json` 과 `frontend/src/shared/api/schema.gen.ts` 에 차이 없음.
+      **로컬에서 다시 뽑을 때는 `LLM_PROVIDER=stub` 을 붙인다.** 안 붙이면 `.env` 의 provider
+      키를 찾다 죽는데, 출력을 버리면 조용히 안 바뀐 채 지나간다(CI 에서만 빨개진다):
+      `cd backend && ALLOW_UNVERIFIED_ANON_KEY=true LLM_PROVIDER=stub uv run python scripts/export_openapi.py`
 - [ ] 마이그레이션 잡이 먼저 끝났다
 - [ ] `ENVIRONMENT=prod`, 두 스위치 모두 `false`
 - [ ] `LLM_PROVIDER` 와 그 provider 의 키 시크릿이 짝이 맞다. 결제가 열려 있다 (`SECRETS.md` §4)
