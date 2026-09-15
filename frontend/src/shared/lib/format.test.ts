@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatCompactCurrency } from './format';
+import { formatCompactCurrency,
+  isFutureDay,
+} from './format';
 
 /**
  * 짧게 적는 자리의 규칙.
@@ -42,5 +44,30 @@ describe('formatCompactCurrency', () => {
         `${value.toLocaleString('ko-KR')}원`.length,
       );
     }
+  });
+});
+
+describe('isFutureDay', () => {
+  const today = new Date('2026-09-15T12:00:00+09:00');
+
+  it('오늘은 앞날이 아니다', () => {
+    expect(isFutureDay('2026-09-15', today)).toBe(false);
+  });
+
+  it('지난 날은 앞날이 아니다', () => {
+    expect(isFutureDay('2026-09-14', today)).toBe(false);
+    expect(isFutureDay('2025-12-31', today)).toBe(false);
+  });
+
+  it('내일과 그 뒤는 앞날이다', () => {
+    expect(isFutureDay('2026-09-16', today)).toBe(true);
+    expect(isFutureDay('2026-10-01', today)).toBe(true);
+    expect(isFutureDay('2027-01-01', today)).toBe(true);
+  });
+
+  it('달과 해 경계를 글자 비교로 넘긴다', () => {
+    const lastDay = new Date('2026-12-31T23:00:00+09:00');
+    expect(isFutureDay('2027-01-01', lastDay)).toBe(true);
+    expect(isFutureDay('2026-12-31', lastDay)).toBe(false);
   });
 });

@@ -16,7 +16,13 @@ import {
   categoriesOfKind,
   type LedgerKind,
 } from '../../shared/ledger';
-import { formatDayLabel, toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
+import { cx } from '../../shared/lib/cx';
+import {
+  formatDayLabel,
+  isFutureDay,
+  toLedgerDate,
+  toLedgerNoonIso,
+} from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import {
   Amount,
@@ -99,6 +105,15 @@ export function CandidateRow({
   const isRefund = candidate.type === 'refund';
 
   /*
+    앞날 날짜로 읽힌 줄.
+
+    가계부는 이미 쓴 돈을 적는 곳이라 앞날은 거의 다 잘못 읽은 것이다. 줄글에 '내일' 이라
+    적었거나, '9/16' 을 올해로 읽어 앞날이 된 경우다. **막지는 않는다.** 정말 그렇게 적고
+    싶을 수도 있어서, 저장 전에 눈에 띄게 해 두고 한 줄로 확인만 시킨다.
+  */
+  const futureDay = isFutureDay(toLedgerDate(new Date(candidate.occurred_at)));
+
+  /*
     펼친 줄을 화면 맨 위로 끌어올린다.
 
     목록 다섯째 줄을 누르면 폼이 화면 밖 아래로 열려, 무엇이 열렸는지 모른 채 스크롤을
@@ -156,7 +171,14 @@ export function CandidateRow({
       </div>
 
       <div className="nl-item__meta">
-        <span data-testid={TEST_IDS.nlCandidateDate}>
+        {/*
+          앞날 날짜는 거의 다 잘못 읽은 것이다('내일' 이라 적었거나 '9/16' 을 올해로 읽었거나).
+          막지는 않는다. 정말 그렇게 적고 싶을 수도 있어 **눈에 띄게만** 해 둔다.
+        */}
+        <span
+          data-testid={TEST_IDS.nlCandidateDate}
+          className={cx(futureDay && 'nl-item__date--future')}
+        >
           {formatDayLabel(toLedgerDate(new Date(candidate.occurred_at)))}
         </span>
         <span className="nl-item__dot" aria-hidden="true">
@@ -188,7 +210,15 @@ export function CandidateRow({
         )}
         {candidate.is_duplicate ? <Chip variant="caution">이미 있어요</Chip> : null}
         {candidate.is_low_confidence && !isRefund ? <Chip variant="caution">확인 필요</Chip> : null}
+        {futureDay ? <Chip variant="caution">앞날</Chip> : null}
       </div>
+
+      {/* 칩만으로는 무엇을 하라는 말인지 모른다. 할 일을 한 줄로 적는다. */}
+      {futureDay ? (
+        <p className="nl-item__future" data-testid={TEST_IDS.nlCandidateFuture}>
+          아직 오지 않은 날이에요. 날짜가 맞는지 확인해 주세요
+        </p>
+      ) : null}
 
       {isRefund ? (
         <div className="nl-item__refund">

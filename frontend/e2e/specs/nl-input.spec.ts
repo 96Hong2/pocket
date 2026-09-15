@@ -549,3 +549,87 @@ test('취소를 누르면 시트가 닫히고 한 건도 저장되지 않는다'
   expect(cancelled).toHaveLength(1);
   expect(cancelled[0]?.params.candidate_count).toBe(3);
 });
+
+// ── 앞날 날짜 ────────────────────────────────────
+
+/*
+  가계부는 이미 쓴 돈을 적는 곳이라 앞날 날짜는 거의 다 잘못 읽은 것이다.
+  실기기에서 「내일」·「9/16」 으로 적었는데 그대로 저장되는 것을 신고받았다.
+
+  방어가 두 겹이다. **서버**는 오늘보다 하루 넘게 뒤인 줄을 자동 선택에서 빼고(시간대 차이로
+  하루가 앞설 수 있어 하루는 봐준다), **화면**은 내일부터 「날짜를 확인해 주세요」 를 적는다.
+  막지는 않는다. 정말 그렇게 적고 싶은 사람이 켜서 저장할 수 있어야 한다.
+*/
+
+function isoInDays(days: number): string {
+  const now = new Date();
+  now.setDate(now.getDate() + days);
+  return toLedgerDate(now);
+}
+
+test('한참 뒤 날짜는 스스로 켜지지 않고, 날짜를 확인하라고 알려 준다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+
+  // 연·월·일을 다 적으면 그대로 읽는다. 지난해로 돌려 주지 않는다.
+  await recordSheet.nl.analyze(`${isoInDays(30)} 커피 4500`);
+
+  await expect(recordSheet.nl.rows).toHaveCount(1);
+  await expect(recordSheet.nl.futureNotices).toHaveText(
+    '아직 오지 않은 날이에요. 날짜가 맞는지 확인해 주세요',
+  );
+
+  // 스스로 켜지지 않는다. 그대로 두면 아무것도 저장되지 않는다.
+  await expect(recordSheet.nl.saveButton).toBeDisabled();
+
+  // 그래도 막지는 않는다. 사람이 켜면 저장할 수 있다.
+  await recordSheet.nl.toggle('커피', true);
+  await expect(recordSheet.nl.saveButton).toBeEnabled();
+});
+
+test('내일 날짜는 켜져 있어도 확인하라고 알려 준다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(`${isoInDays(1)} 커피 4500`);
+
+  await expect(recordSheet.nl.rows).toHaveCount(1);
+  // 서버는 시간대 때문에 하루를 봐준다. 그래서 켜져 있다.
+  await expect(recordSheet.nl.saveButton).toBeEnabled();
+  // 화면은 그래도 알려 준다. 켜져 있다고 맞는 날짜인 것은 아니다.
+  await expect(recordSheet.nl.futureNotices).toHaveCount(1);
+});
+
+test('오늘과 지난 날에는 그 안내가 없다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(THREE_ITEMS);
+
+  await expect(recordSheet.nl.rows).toHaveCount(3);
+  // 오늘 둘과 어제 하나. 하나도 앞날이 아니다.
+  await expect(recordSheet.nl.futureNotices).toHaveCount(0);
+});
+
+test('연도 없이 적은 9/16 은 앞날이 아니라 지난해로 읽는다', async ({ home, recordSheet }) => {
+  const ahead = new Date();
+  ahead.setDate(ahead.getDate() + 30);
+  const slash = `${ahead.getMonth() + 1}/${ahead.getDate()}`;
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(`${slash} 커피 4500`);
+
+  await expect(recordSheet.nl.rows).toHaveCount(1);
+  // 올해로 읽으면 앞날이 되니 지난해로 돌린다. 그래서 안내가 없다.
+  await expect(recordSheet.nl.futureNotices).toHaveCount(0);
+});

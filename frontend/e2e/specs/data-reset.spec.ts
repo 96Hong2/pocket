@@ -99,7 +99,6 @@ test('지운 뒤에도 곧바로 다시 적을 수 있다', async ({
 test('지우면 한 번만 뜨는 안내도 처음 상태로 돌아간다', async ({
   home,
   onboarding,
-  page,
   prep,
   settings,
 }) => {
@@ -121,7 +120,9 @@ test('지우면 한 번만 뜨는 안내도 처음 상태로 돌아간다', asyn
   /*
     서버만 지우면 반쪽이다. 한 번만 뜨는 표시는 기기에 남아 있어서, 지운 사람이 앱을 다시
     열어도 아무 안내가 안 떴다. 지운 사람은 처음 쓰는 사람과 같은 자리에 서야 한다.
+
+    **앱이 스스로 처음부터 다시 열어야 한다.** 여기서 `page.goto` 를 부르면 사람이 앱을
+    껐다 켠 것과 같아, 정작 확인하려던 것을 테스트가 대신해 주는 꼴이 된다.
   */
-  await page.goto('/');
-  await expect.poll(async () => onboarding.isVisible, { timeout: 10_000 }).toBe(true);
+  await expect.poll(async () => onboarding.isVisible, { timeout: 15_000 }).toBe(true);
 });

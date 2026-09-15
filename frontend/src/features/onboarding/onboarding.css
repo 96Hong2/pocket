@@ -79,6 +79,51 @@
   }
 
   /* 몇 장 남았는지. 숫자로 적으면 읽을 것이 하나 더 는다. */
+  /* 마지막 장의 연령대·성별. 안 고르고 넘어가도 되는 자리라 조용하게 둔다. */
+  .onboard__ask {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    margin-top: 18px;
+  }
+
+  .onboard__chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 7px;
+  }
+
+  .onboard__chip {
+    min-height: 38px;
+    padding: 0 13px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .onboard__chip--on {
+    border-color: var(--color-sage-700);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .onboard__ask-note {
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-muted);
+    text-align: center;
+    word-break: keep-all;
+  }
+
   .onboard__dots {
     display: flex;
     gap: 6px;

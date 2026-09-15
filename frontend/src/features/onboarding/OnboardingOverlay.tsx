@@ -1,7 +1,10 @@
 import { useState, type ReactNode } from 'react';
 
 import { EVENTS, useAnalytics } from '../../shared/analytics';
+import { useSaveProfile, type AgeBand, type Gender } from '../../shared/api';
+import { cx } from '../../shared/lib/cx';
 import { Button, iconUrl, type IconName } from '../../shared/ui';
+import { AGE_BANDS, GENDERS } from '../account';
 
 interface Slide {
   /** 로그에 남는 이름. 어느 장에서 그만두는지 이 값으로 센다. */
@@ -10,6 +13,8 @@ interface Slide {
   title: string;
   /** 한 줄. 두 줄이 되면 아무도 안 읽는다. */
   body: ReactNode;
+  /** 마지막 장에만 붙는 연령대·성별 칸. 안 고르고 넘어가도 된다. */
+  asks?: 'profile';
 }
 
 /**
@@ -51,6 +56,23 @@ const SLIDES: Slide[] = [
       </>
     ),
   },
+  /*
+    마지막 장에서 딱 두 가지를 묻는다.
+
+    **회원가입이 아니다.** 익명키만으로 보내는 값이라 이름도 연락처도 오가지 않는다.
+    그래서 여기서 물어야 한다. 예전에는 이메일을 붙인 사람에게만 물어서, 메일 발송이
+    안 붙어 있는 동안에는 **아무도 답할 수 없었다.**
+
+    안 고르고 「시작하기」 를 눌러도 그냥 시작된다. 고르라고 막으면 그 순간 이 앱은
+    가입해야 쓰는 앱이 된다.
+  */
+  {
+    key: 'profile',
+    icon: '03_growth_chart',
+    title: '마지막으로 두 가지만',
+    body: <>또래끼리 어디에 얼마나 쓰는지 알려 드릴 때 써요</>,
+    asks: 'profile',
+  },
 ];
 
 /**
@@ -64,12 +86,30 @@ const SLIDES: Slide[] = [
  */
 export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
   const analytics = useAnalytics();
+  const saveProfile = useSaveProfile();
   const [index, setIndex] = useState(0);
+  const [ageBand, setAgeBand] = useState<AgeBand | null>(null);
+  const [gender, setGender] = useState<Gender | null>(null);
   const slide = SLIDES[index];
   const last = index === SLIDES.length - 1;
 
   function finish(result: 'done' | 'skipped'): void {
     analytics.log(EVENTS.onboardingResult, { result, slide: slide.key }, { kind: 'click' });
+    /*
+      고른 것이 있으면 보낸다. **답을 기다리지 않는다.**
+      이 값 때문에 홈이 늦게 열리면 안 된다. 실패해도 「내 계정」 에서 다시 고를 수 있다.
+    */
+    const answered = ageBand != null || gender != null;
+    if (answered) {
+      saveProfile.mutate({ age_band: ageBand, gender });
+    }
+    analytics.log(
+      EVENTS.profileResult,
+      answered
+        ? { result: 'saved', where: 'onboarding', age_band: ageBand ?? 'none', gender: gender ?? 'none' }
+        : { result: 'skipped', where: 'onboarding' },
+      { kind: 'click' },
+    );
     onDone();
   }
 
@@ -83,6 +123,27 @@ export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
         <img className="onboard__icon" src={iconUrl(slide.icon)} alt="" aria-hidden="true" />
         <p className="onboard__title">{slide.title}</p>
         <p className="onboard__body">{slide.body}</p>
+
+        {slide.asks === 'profile' ? (
+          <div className="onboard__ask">
+            <Chips
+              label="연령대"
+              options={AGE_BANDS}
+              picked={ageBand}
+              onPick={(next) => setAgeBand(next === ageBand ? null : next)}
+            />
+            <Chips
+              label="성별"
+              options={GENDERS}
+              picked={gender}
+              onPick={(next) => setGender(next === gender ? null : next)}
+            />
+            {/* 무엇이 아닌지부터 말한다. 「가입인가?」 가 가장 먼저 드는 생각이다. */}
+            <p className="onboard__ask-note">
+              회원가입이 아니에요. 통계에만 쓰고, 안 고르셔도 돼요
+            </p>
+          </div>
+        ) : null}
 
         {/* 몇 장 남았는지. 숫자로 적으면 읽을 것이 하나 더 는다. */}
         <div className="onboard__dots" aria-hidden="true">
@@ -108,6 +169,36 @@ export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
           {last ? '시작하기' : '다음'}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** 한 줄짜리 보기 묶음. 다시 누르면 꺼진다(고른 것을 무를 수 있어야 한다). */
+function Chips<T extends string>({
+  label,
+  options,
+  picked,
+  onPick,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  picked: T | null;
+  onPick: (value: T) => void;
+}) {
+  return (
+    <div className="onboard__chips" role="radiogroup" aria-label={label}>
+      {options.map((item) => (
+        <button
+          key={item.value}
+          type="button"
+          role="radio"
+          aria-checked={picked === item.value}
+          className={cx('onboard__chip', picked === item.value && 'onboard__chip--on')}
+          onClick={() => onPick(item.value)}
+        >
+          {item.label}
+        </button>
+      ))}
     </div>
   );
 }
