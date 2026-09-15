@@ -166,6 +166,15 @@ class RecordInput {
     return this.root.getByTestId(TEST_IDS.recordHint);
   }
 
+  /**
+   * 오늘이 아닌 날에 적는 중이라는 한 줄. 「어제 에 적어요」.
+   *
+   * 오늘에 적을 때는 **아예 없다.** 있으면 늘 붙는 안내가 되어 아무도 안 읽는다.
+   */
+  get dayNotice(): Locator {
+    return this.root.getByText(/에 적어요$/);
+  }
+
   /** 저장이 실패했을 때 뜨는 안내. */
   get notice(): Locator {
     return this.root.getByRole('alert');

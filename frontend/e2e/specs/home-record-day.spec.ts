@@ -18,7 +18,7 @@ test('어제 기록하기로 적으면 어제에 남는다', async ({ home, reco
 
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.root.getByText('에 적어요')).toBeVisible();
+  await expect(recordSheet.input.dayNotice).toBeVisible();
   await recordSheet.input.enterAmount(7000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
@@ -41,7 +41,7 @@ test('오늘 기록하기는 오늘에 남고 날짜 안내가 없다', async ({
 
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.root.getByText('에 적어요')).toHaveCount(0);
+  await expect(recordSheet.input.dayNotice).toHaveCount(0);
   await recordSheet.input.enterAmount(5000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
@@ -60,7 +60,7 @@ test('위의 큰 기록하기는 어제를 보고 있어도 오늘에 적는다'
 
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.root.getByText('에 적어요')).toHaveCount(0);
+  await expect(recordSheet.input.dayNotice).toHaveCount(0);
   await recordSheet.input.enterAmount(3000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
