@@ -154,6 +154,11 @@
     margin-top: 8px;
   }
 
+  /* 목록 뒤에 오는 한 줄. 여백이 없으면 마지막 항목의 둘째 줄처럼 읽힌다. */
+  .privacy__list + .privacy__text {
+    margin-top: 8px;
+  }
+
   .privacy__list {
     display: flex;
     flex-direction: column;

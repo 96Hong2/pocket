@@ -64,7 +64,7 @@ test('알림 설정은 앱 설정 아래에 있고, 처음 열면 꺼져 있다'
   await test.step('며칠 밀렸다거나 놓쳤다는 말을 하지 않는다', async () => {
     await expect(notifications.text(/밀렸|밀린|놓쳤|놓친/)).toHaveCount(0);
     await expect(
-      notifications.text('매일 정한 시간에 기록을 떠올릴 수 있게 알려요.'),
+      notifications.text('매일 정한 시간에 한 번 알려 드려요.'),
     ).toBeVisible();
   });
 

@@ -160,7 +160,7 @@ export function NotificationSettingCard() {
           <span id={titleId} className="notify__title">
             기록 알림
           </span>
-          <span className="notify__desc">매일 정한 시간에 기록을 떠올릴 수 있게 알려요.</span>
+          <span className="notify__desc">매일 정한 시간에 한 번 알려 드려요.</span>
         </div>
         <Toggle
           checked={enabled}
