@@ -236,9 +236,19 @@ test.describe('큰 금액이 달력과 수정 시트를 밀어낼 때', () => {
   test('억대 금액을 고칠 때 앞자리가 칸 밖으로 밀리지 않는다', async ({ calendar, prep }) => {
     await prep.addTransaction({ amount: HUGE, daysAgo: 2, merchant: '전세금' });
 
+    /*
+      가계부 시간대(KST)로 센 그저께. spec 은 러너의 시간대로 도는데 CI 는 UTC 라,
+      `new Date()` 로 날을 세면 한국 시간으로 오전 9시 전에는 하루가 어긋난다.
+      실제로 여기서 CI 만 빨갰다.
+    */
+    const ledgerToday = toLedgerDate(new Date());
+    const twoDaysAgo = toLedgerDate(
+      new Date(Date.parse(`${ledgerToday}T12:00:00+09:00`) - 2 * 86_400_000),
+    );
+
     await calendar.open();
     await calendar.waitReady();
-    await calendar.grid.select(new RegExp(`${new Date(Date.now() - 2 * 86_400_000).getDate()}일`));
+    await calendar.grid.select(new RegExp(`${Number(twoDaysAgo.slice(8, 10))}일`));
     await calendar.list.pick('전세금');
     await calendar.edit.waitOpen();
 
