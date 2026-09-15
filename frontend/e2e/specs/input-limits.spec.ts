@@ -1,4 +1,4 @@
-import { SEARCH_MAX_LENGTH } from '../../src/shared/lib/limits';
+import { NL_TEXT_MAX_LENGTH, SEARCH_MAX_LENGTH } from '../../src/shared/lib/limits';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -128,4 +128,25 @@ test('메일 주소가 아직 모양이 아닐 때 왜 회색인지 적힌다', 
   await account.emailField.fill('hong@example.com');
   await expect(account.formatNotice).toHaveCount(0);
   await expect(account.sendButton).toBeEnabled();
+});
+
+test('줄글을 상한까지 채워도 서버가 받는다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.methodTab('줄글').click();
+
+  // 상한에 닿으면 안내가 바뀐다. 예전에는 말없이 잘렸다.
+  const filler = '점심 12000 스벅 4500 어제 택시 9000 ';
+  await recordSheet.nl.textarea.fill(filler.repeat(120).slice(0, NL_TEXT_MAX_LENGTH));
+  expect(await recordSheet.nl.textarea.inputValue()).toHaveLength(NL_TEXT_MAX_LENGTH);
+  await expect(recordSheet.nl.hint).toContainText(`${NL_TEXT_MAX_LENGTH}자까지 읽어요`);
+
+  /*
+    화면만 올리고 서버를 안 올리면 여기서 422 가 난다. 그 오류는 pydantic 형식 오류라
+    화면에 「요청 형식이 올바르지 않아요」 계열로 떠서 사용자는 무엇이 문제인지 모른다.
+  */
+  await recordSheet.nl.analyzeButton.click();
+  await expect(recordSheet.nl.rows.first()).toBeVisible({ timeout: 30_000 });
 });

@@ -636,6 +636,11 @@ class RecordNaturalLanguage {
     return this.root.getByRole('button', { name: '분석' });
   }
 
+  /** 칸 아래 한 줄. 상한에 닿으면 문구가 바뀐다. */
+  get hint(): Locator {
+    return this.root.getByText(/여러 건을 적어도 돼요|자까지 읽어요/);
+  }
+
   /**
    * 한 건도 못 읽었을 때만 서는 되돌리기.
    *
