@@ -288,6 +288,11 @@ class DataResetArea {
     return this.sheet.getByRole('button', { name: '전부 지우기', exact: true });
   }
 
+  /** 지우지 못했을 때 그 자리에 뜨는 한 줄. 시트를 닫아 버리면 실패를 말할 자리가 없다. */
+  get notice(): Locator {
+    return this.sheet.getByRole('alert');
+  }
+
   /** 열고, 동의하고, 지운다. 시트가 닫히면 끝난 것이다. */
   async run(): Promise<void> {
     await this.openButton.click();

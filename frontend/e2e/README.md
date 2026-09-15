@@ -217,6 +217,14 @@ base64 로 만든 data URL 이고, `addInitScript` 인자는 모든 문서마다
 익명키가 테스트마다 다르므로 매 실행이 새 사용자를 만든다. 남의 데이터를 건드리지 않아 따로 지우지 않는다.
 `pocket_e2e` DB 가 지저분해지면 `make db-reset` 으로 비운다(개발용 `pocket` DB 도 같이 비워진다).
 
+**마이그레이션을 새로 만들었으면 이 DB 에도 올린다.** 안 올리면 그 표를 건드리는 요청이
+전부 500 이 되고, 화면에는 그냥 「읽지 못했어요」로 보여 원인을 한참 찾는다. CI 는 e2e 전에
+스스로 올리므로 초록인데 로컬만 빨개진다.
+
+```bash
+cd backend && DATABASE_URL='postgresql+psycopg://pocket:pocket@localhost:5434/pocket_e2e' uv run alembic upgrade head
+```
+
 개발 DB 에서 **내 데이터만** 지우려면 `make reset-dev-data` 다. 스키마와 기본 카테고리는 남는다.
 `TRUNCATE users CASCADE` 를 쓰면 안 된다. 테이블 단위로 돌아 **전역 기본 카테고리 14개까지 지운다.**
 

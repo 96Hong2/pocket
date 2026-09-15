@@ -114,6 +114,30 @@ export class AccountScreen {
   }
 
   /**
+   * 버튼 자리에 대신 서는 한 줄. 서버에 메일 보낼 수단이 없을 때다.
+   *
+   * 이 줄이 섰으면 「이메일로 지켜 두기」 는 없어야 한다. 눌러 보고 막히면 고장으로 읽힌다.
+   */
+  get preparingNote(): Locator {
+    return this.page.getByText('지금은 준비 중이에요. 곧 열려요.', { exact: true });
+  }
+
+  /** 계정을 아예 못 받았을 때. 카드를 빈 채로 두지 않고 이 줄로 바꿔 그린다. */
+  get loadFailure(): Locator {
+    return this.page.getByText('계정을 불러오지 못했어요', { exact: true });
+  }
+
+  /** 못 받은 자리의 다시 시도. 이 화면에서 다시 시도는 여기뿐이다. */
+  get retryButton(): Locator {
+    return this.page.getByRole('button', { name: '다시 시도', exact: true });
+  }
+
+  /** 코드 단계 맨 위 한 줄. 어느 주소로 보냈는지 적혀 있다. */
+  sentTo(address: string): Locator {
+    return this.linkSheet.getByText(`${address} 에 보냈어요.`);
+  }
+
+  /**
    * 화면 어디든 그 글자.
    *
    * **없어야 할 것을 세는 자리다.** 연령대·성별이 이 화면에 다시 서지 않는지 확인한다.

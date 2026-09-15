@@ -69,6 +69,30 @@ export class CategoriesScreen {
     return this.page.getByText('아직 만든 카테고리가 없어요', { exact: true });
   }
 
+  /** 목록을 못 받았을 때. 이 자리에는 만들기 입구도 구획도 두지 않는다. */
+  get loadFailure(): Locator {
+    return this.page.getByText('카테고리를 불러오지 못했어요', { exact: true });
+  }
+
+  /** 못 받은 자리에 함께 적는 한 줄. */
+  get loadFailureHint(): Locator {
+    return this.page.getByText('잠깐 연결이 흔들렸을 수 있어요. 다시 시도해 주세요.', {
+      exact: true,
+    });
+  }
+
+  /**
+   * 못 받은 자리의 다시 시도.
+   *
+   * 같은 화면 아래 기억한 분류도 실패하면 같은 이름의 버튼을 세우므로, 이 블록 안에서만 찾는다.
+   */
+  get retryButton(): Locator {
+    return this.page
+      .getByRole('status')
+      .filter({ hasText: '카테고리를 불러오지 못했어요' })
+      .getByRole('button', { name: '다시 시도', exact: true });
+  }
+
   /** '기본' 배지가 붙은 줄. 처음부터 있던 분류다. */
   get basicRows(): Locator {
     return this.allRows.filter({ has: this.page.getByText('기본', { exact: true }) });
@@ -473,8 +497,31 @@ class MerchantRuleArea {
     return this.root.getByText('아직 기억한 분류가 없어요');
   }
 
+  /** 목록을 못 받았을 때. 위 카테고리 목록과 따로 실패한다. */
+  get loadFailure(): Locator {
+    return this.root.getByText('기억한 분류를 불러오지 못했어요', { exact: true });
+  }
+
+  /** 이 구획 안의 다시 시도. 카테고리 쪽 같은 이름과 섞이지 않게 구획 안에서만 찾는다. */
+  get retryButton(): Locator {
+    return this.root.getByRole('button', { name: '다시 시도', exact: true });
+  }
+
+  /** 지우기가 막힌 이유를 적는 한 줄. */
+  get failureNotice(): Locator {
+    return this.root.getByRole('alert');
+  }
+
   row(merchant: string): Locator {
     return this.rows.filter({ hasText: merchant });
+  }
+
+  /** 그 줄의 기억을 지우는 버튼. 눌러도 안 지워지는 자리를 볼 때 따로 쓴다. */
+  deleteButton(merchant: string): Locator {
+    return this.row(merchant).getByRole('button', {
+      name: `${merchant} 기억 지우기`,
+      exact: true,
+    });
   }
 
   /** 손으로 건 줄에만 붙는 배지. 앱이 기억한 줄에는 없다. */

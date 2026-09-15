@@ -56,12 +56,20 @@ describe('요청별 제한 시간', () => {
     vi.useRealTimers();
   });
 
-  it('대조군: 줄글 분석은 전역 10초 그대로다', async () => {
+  /*
+    줄글도 전역 10초로는 모자란다. 서버가 모델을 한 번 부르는 데 20초까지 기다리고,
+    줄이 홀수로 끊기면 한 번 더 부른다. 10초에 끊으면 답이 오는 중에 화면만 「응답이
+    늦어요」로 바뀌고 그 호출은 값을 치른 채 버려진다. 서버가 포기하는 40초보다 뒤에 선다.
+  */
+  it('줄글 분석은 전역 10초에 안 걸리고 서버가 포기하는 40초보다 뒤까지 기다린다', async () => {
     vi.useFakeTimers();
     const settled = vi.fn();
     const call = makeClient().analyzeText('점심 12000').catch(settled);
 
-    await vi.advanceTimersByTimeAsync(10_500);
+    await vi.advanceTimersByTimeAsync(40_500);
+    expect(settled).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5_000);
     await call;
     expect(settled).toHaveBeenCalledWith(expect.objectContaining({ code: 'CLIENT_TIMEOUT' }));
     vi.useRealTimers();

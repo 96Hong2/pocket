@@ -177,9 +177,7 @@ function LeaveConfirm({
   return (
     <div className="record-leave" role="alertdialog" aria-label="그만둘까요">
       <div className="record-leave__box">
-        <p className="record-leave__text">
-          읽어 온 {pending}건이 사라져요. 그만둘까요?
-        </p>
+        <p className="record-leave__text">읽어 온 {pending}건이 사라져요. 그만둘까요?</p>
         <div className="record-leave__actions">
           <Button variant="outline" onClick={onLeave}>
             그만두기
@@ -519,43 +517,43 @@ function RecordBody({
       */}
       {isBackfill ? null : (
         <>
-        <div className="record__panel" hidden={done || tab !== 'nl'}>
-          <NaturalLanguageTab
-            flowId={flowId}
-            onBusyChange={markBusy}
-            onReviewChange={trackReview('nl')}
-            onDone={finish}
-            onSaved={rememberMethod}
-          />
-        </div>
+          <div className="record__panel" hidden={done || tab !== 'nl'}>
+            <NaturalLanguageTab
+              flowId={flowId}
+              onBusyChange={markBusy}
+              onReviewChange={trackReview('nl')}
+              onDone={finish}
+              onSaved={rememberMethod}
+            />
+          </div>
 
-        <div className="record__panel" hidden={done || tab !== 'capture'}>
-          <ImageImportTab
-            kind="capture"
-            flowId={flowId}
-            onBusyChange={markBusy}
-            onReviewChange={trackReview('capture')}
-            onDone={finish}
-            onSaved={rememberMethod}
-          />
-        </div>
+          <div className="record__panel" hidden={done || tab !== 'capture'}>
+            <ImageImportTab
+              kind="capture"
+              flowId={flowId}
+              onBusyChange={markBusy}
+              onReviewChange={trackReview('capture')}
+              onDone={finish}
+              onSaved={rememberMethod}
+            />
+          </div>
 
-        <div className="record__panel" hidden={done || tab !== 'receipt'}>
-          <ImageImportTab
-            kind="receipt"
-            flowId={flowId}
-            onBusyChange={markBusy}
-            onReviewChange={trackReview('receipt')}
-            onDone={finish}
-            onSaved={rememberMethod}
-            // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
-            fallbackAction={
-              <Button variant="ghost" onClick={() => setTab('keypad')}>
-                키패드로 입력
-              </Button>
-            }
-          />
-        </div>
+          <div className="record__panel" hidden={done || tab !== 'receipt'}>
+            <ImageImportTab
+              kind="receipt"
+              flowId={flowId}
+              onBusyChange={markBusy}
+              onReviewChange={trackReview('receipt')}
+              onDone={finish}
+              onSaved={rememberMethod}
+              // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
+              fallbackAction={
+                <Button variant="ghost" onClick={() => setTab('keypad')}>
+                  키패드로 입력
+                </Button>
+              }
+            />
+          </div>
         </>
       )}
 
@@ -580,110 +578,116 @@ function RecordBody({
         </div>
       ) : null}
 
-      <div className="record__panel" hidden={done || tab !== 'keypad'}>
-        {/*
+      {/*
+        키패드는 저장이 끝나면 접는다. 다른 탭과 달리 잃을 것이 없고(적은 숫자는 이미
+        저장됐다), 남겨 두면 확인 화면이 여는 금액 칸과 testid 가 겹친다.
+      */}
+      {done ? null : (
+        <div className="record__panel" hidden={tab !== 'keypad'}>
+          {/*
           금액보다 먼저 정해야 하는 값이다. 아래 분류 칩과 저장할 종류가 이 하나를 따라간다.
           바꾸면 골라 둔 분류를 버리고 목록을 다시 편다. 지출 분류가 수입에 남으면 안 된다.
         */}
-        <KindToggle
-          className="record__kind"
-          value={kind}
-          disabled={create.isPending}
-          ariaLabel="지출인지 수입인지"
-          onChange={(next) => {
-            if (next === kind) return;
-            setKind(next);
-            setPickedId(null);
-            setListOpen(true);
-          }}
-        />
-
-        {/* 오늘이 아니면 어느 날에 적는지 먼저 말한다. 금액을 누르기 전에 보여야 한다. */}
-        {backfillLabel ? (
-          <p className="record__day">
-            <b>{backfillLabel}</b> 에 적어요
-          </p>
-        ) : null}
-
-        <AmountDisplay digits={digits} hint={hint} />
-
-        {saveError ? (
-          <p className="record__notice" role="alert">
-            {saveError.message}
-          </p>
-        ) : null}
-
-        {categories.isPending ? <LoadingState size="inline" /> : null}
-        {categories.isError ? (
-          <ErrorState
-            size="inline"
-            title="카테고리를 불러오지 못했어요"
-            onRetry={() => void categories.refetch()}
+          <KindToggle
+            className="record__kind"
+            value={kind}
+            disabled={create.isPending}
+            ariaLabel="지출인지 수입인지"
+            onChange={(next) => {
+              if (next === kind) return;
+              setKind(next);
+              setPickedId(null);
+              setListOpen(true);
+            }}
           />
-        ) : null}
 
-        {creating ? (
-          <div className="record__new-cat">
-            <div className="record__new-cat-head">
-              <span className="record__new-cat-title">새 분류 만들기</span>
-              <button
-                type="button"
-                className="record__new-cat-back"
-                disabled={creatingBusy}
-                onClick={() => setCreating(false)}
-              >
-                기록으로 돌아가기
-              </button>
-            </div>
-            <CategoryEditForm
-              // 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다.
-              fixedKind={kind}
-              onBusyChange={setCreatingBusy}
-              onClose={() => setCreating(false)}
-              // 만들자마자 고른 것으로 둔다. 다시 찾아 누르게 하면 만든 보람이 없다.
-              onCreated={(created) => pickCategory(created)}
+          {/* 오늘이 아니면 어느 날에 적는지 먼저 말한다. 금액을 누르기 전에 보여야 한다. */}
+          {backfillLabel ? (
+            <p className="record__day">
+              <b>{backfillLabel}</b> 에 적어요
+            </p>
+          ) : null}
+
+          <AmountDisplay digits={digits} hint={hint} />
+
+          {saveError ? (
+            <p className="record__notice" role="alert">
+              {saveError.message}
+            </p>
+          ) : null}
+
+          {categories.isPending ? <LoadingState size="inline" /> : null}
+          {categories.isError ? (
+            <ErrorState
+              size="inline"
+              title="카테고리를 불러오지 못했어요"
+              onRetry={() => void categories.refetch()}
             />
-          </div>
-        ) : listOpen || picked == null ? (
-          <CategoryPicker
-            categories={pickable}
-            disabled={create.isPending}
-            onPick={pickCategory}
-            selectedId={pickedId}
-            onCreate={() => setCreating(true)}
-            onExpand={() =>
-              analytics.log(
-                EVENTS.categoryMoreOpened,
-                { where: 'record', shown: pickable.length },
-                { flowId, kind: 'click' },
-              )
-            }
-          />
-        ) : (
-          <button
-            type="button"
-            className="record__picked"
-            disabled={create.isPending}
-            onClick={() => setListOpen(true)}
-          >
-            <CategoryAvatar {...iconOf(picked)} size={40} />
-            <span className="record__picked-name">{picked.name}</span>
-            <span className="record__picked-more">다시 고르기</span>
-          </button>
-        )}
+          ) : null}
 
-        {saveTarget != null ? (
-          <Button
-            className="record__save"
-            disabled={amount <= 0 || create.isPending}
-            onClick={() => save(saveTarget, amount)}
-          >
-            저장
-          </Button>
-        ) : null}
+          {creating ? (
+            <div className="record__new-cat">
+              <div className="record__new-cat-head">
+                <span className="record__new-cat-title">새 분류 만들기</span>
+                <button
+                  type="button"
+                  className="record__new-cat-back"
+                  disabled={creatingBusy}
+                  onClick={() => setCreating(false)}
+                >
+                  기록으로 돌아가기
+                </button>
+              </div>
+              <CategoryEditForm
+                // 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다.
+                fixedKind={kind}
+                onBusyChange={setCreatingBusy}
+                onClose={() => setCreating(false)}
+                // 만들자마자 고른 것으로 둔다. 다시 찾아 누르게 하면 만든 보람이 없다.
+                onCreated={(created) => pickCategory(created)}
+              />
+            </div>
+          ) : listOpen || picked == null ? (
+            <CategoryPicker
+              categories={pickable}
+              disabled={create.isPending}
+              onPick={pickCategory}
+              selectedId={pickedId}
+              onCreate={() => setCreating(true)}
+              onExpand={() =>
+                analytics.log(
+                  EVENTS.categoryMoreOpened,
+                  { where: 'record', shown: pickable.length },
+                  { flowId, kind: 'click' },
+                )
+              }
+            />
+          ) : (
+            <button
+              type="button"
+              className="record__picked"
+              disabled={create.isPending}
+              onClick={() => setListOpen(true)}
+            >
+              <CategoryAvatar {...iconOf(picked)} size={40} />
+              <span className="record__picked-name">{picked.name}</span>
+              <span className="record__picked-more">다시 고르기</span>
+            </button>
+          )}
 
-        <Keypad digits={digits} onChange={setDigits} />
-      </div>
+          {saveTarget != null ? (
+            <Button
+              className="record__save"
+              disabled={amount <= 0 || create.isPending}
+              onClick={() => save(saveTarget, amount)}
+            >
+              저장
+            </Button>
+          ) : null}
+
+          <Keypad digits={digits} onChange={setDigits} />
+        </div>
+      )}
     </div>
   );
 }

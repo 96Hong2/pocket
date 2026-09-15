@@ -169,6 +169,15 @@ class HomeHero {
   }
 
   /**
+   * 큰 숫자 옆의 달력 아이콘. 선으로 그린 그림뿐이라 화면에 글자가 없다.
+   *
+   * 오늘 목록 끝의 「전체 내역 보기」와 같은 곳으로 간다. 이름으로만 잡을 수 있다.
+   */
+  get calendarLink(): Locator {
+    return this.page.getByRole('link', { name: '월간 달력 보기', exact: true });
+  }
+
+  /**
    * 하루 가용액과 함께 그리는 남은 일수. 없으면 null.
    *
    * 하루 가용액이 이 일수로 나눈 값인지 spec 이 되짚는 데 쓴다.
@@ -373,6 +382,11 @@ class TodaySection {
   /** 카드 안의 다시 시도. 본문 오류의 것과 섞이지 않게 카드 안에서만 찾는다. */
   get retryButton(): Locator {
     return this.root.getByRole('button', { name: '다시 시도' });
+  }
+
+  /** 카드 마지막 줄. 달력으로 가는 입구다. 적은 줄이 하나도 없는 날에도 있다. */
+  get moreLink(): Locator {
+    return this.root.getByRole('link', { name: '전체 내역 보기', exact: true });
   }
 
   /** 목록이 화면에 들어오게 굴린다. 화면 밖에 있으면 영상에 안 찍힌다. */
