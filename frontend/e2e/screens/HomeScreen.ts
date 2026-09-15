@@ -269,7 +269,12 @@ class TodaySection {
    * 위 큰 버튼(「기록하기」)과 글자가 겹치지 않게 날 이름이 앞에 붙는다.
    */
   get emptyButton(): Locator {
-    return this.root.getByRole('button', { name: /^\S+ 기록하기$/ });
+    /*
+      날 이름이 앞에 붙는다. **「오늘」·「어제」 뿐 아니라 「9월 12일」 도 온다.**
+      예전에는 `\S+` 로 잡아 띄어쓰기가 든 날짜를 못 찾았다. 며칠 전으로 되짚은
+      테스트가 버튼이 없다고 죽었다(제품은 멀쩡했다).
+    */
+    return this.root.getByRole('button', { name: /기록하기$/ });
   }
 
   /** 행 제목. 가맹점을 아는 기록은 가맹점명, 아니면 카테고리 이름이다. */

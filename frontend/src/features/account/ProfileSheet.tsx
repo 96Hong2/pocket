@@ -4,7 +4,7 @@ import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { ApiError, useSaveProfile, type AgeBand, type Gender, type MeOut } from '../../shared/api';
 import { cx } from '../../shared/lib/cx';
-import { BottomSheet, Button } from '../../shared/ui';
+import { BottomSheet, Button, Select } from '../../shared/ui';
 
 import { AGE_BANDS, GENDERS } from './profileOptions';
 
@@ -70,19 +70,15 @@ function ProfileForm({
         또래는 어디에 얼마나 쓰는지 알려 드릴 때 써요. 안 알려 주셔도 괜찮아요.
       </p>
 
-      <fieldset className="account-form__group">
-        <legend className="account-form__label">연령대</legend>
-        <div className="account-form__chips" role="radiogroup" aria-label="연령대">
-          {AGE_BANDS.map((item) => (
-            <ChoiceChip
-              key={item.value}
-              label={item.label}
-              on={ageBand === item.value}
-              onPick={() => setAgeBand(ageBand === item.value ? null : item.value)}
-            />
-          ))}
-        </div>
-      </fieldset>
+      {/* 처음 안내와 같은 모양이어야 한다. 같은 값을 고치는 자리가 둘인데 생김새가 다르면 헷갈린다. */}
+      <Select
+        label="연령대"
+        placeholder="안 고를래요"
+        options={AGE_BANDS}
+        value={ageBand}
+        disabled={save.isPending}
+        onChange={setAgeBand}
+      />
 
       <fieldset className="account-form__group">
         <legend className="account-form__label">성별</legend>
