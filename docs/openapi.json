@@ -158,7 +158,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "maxLength": 60
+                  "maxLength": 120
                 },
                 {
                   "type": "null"
@@ -8399,7 +8399,7 @@
         "properties": {
           "text": {
             "type": "string",
-            "maxLength": 1000,
+            "maxLength": 2000,
             "minLength": 1,
             "title": "Text"
           }

@@ -3,6 +3,7 @@ import { TEST_IDS } from '../../shared/testIds';
 import { Amount, Card, CategoryAvatar } from '../../shared/ui';
 
 import { ASSET_GROUP_VIEWS, assetItemName } from './assetGroups';
+import { ASSET_ITEM_MAX_COUNT } from '../../shared/lib/limits';
 
 export interface AssetGroupSectionProps {
   group: AssetGroup;
@@ -10,6 +11,8 @@ export interface AssetGroupSectionProps {
   total: string;
   /** 이 그룹의 항목. 목록에서의 자리(`sort_order`)를 그대로 들고 온다. */
   items: AssetItemOut[];
+  /** 목록 전체 항목 수. 상한은 구획이 아니라 전체에 걸린다. */
+  totalCount: number;
   onPick: (item: AssetItemOut) => void;
   onAdd: (group: AssetGroup) => void;
 }
@@ -20,7 +23,17 @@ export interface AssetGroupSectionProps {
  * 항목이 없는 그룹도 그린다. 감추면 어디에 무엇을 적을 수 있는지 알 수 없고,
  * 부채 구획이 사라지면 순자산에서 빠지는 것이 무엇인지도 보이지 않는다.
  */
-export function AssetGroupSection({ group, total, items, onPick, onAdd }: AssetGroupSectionProps) {
+export function AssetGroupSection({
+  group,
+  total,
+  items,
+  totalCount,
+  onPick,
+  onAdd,
+}: AssetGroupSectionProps) {
+  // 상한은 목록 전체에 걸린다. 구획별이 아니다.
+  const full = totalCount >= ASSET_ITEM_MAX_COUNT;
+
   const view = ASSET_GROUP_VIEWS[group];
 
   return (
@@ -63,15 +76,23 @@ export function AssetGroupSection({ group, total, items, onPick, onAdd }: AssetG
         </Card>
       ) : null}
 
-      {/* 구획마다 이름이 달라야 어느 그룹에 더하는 것인지 스크린리더로도 갈린다. */}
-      <button
-        type="button"
-        className="asset-group__add"
-        aria-label={`${view.label} 항목 추가`}
-        onClick={() => onAdd(group)}
-      >
-        ＋ 항목 추가
-      </button>
+      {/*
+        더 넣을 자리가 없으면 버튼 대신 그 사실을 적는다. 전에는 버튼이 그대로 있고
+        저장할 때 서버가 막아서, 금액을 잘못 적었다고 읽혔다.
+      */}
+      {full ? (
+        <p className="asset-group__full">자산은 {ASSET_ITEM_MAX_COUNT}개까지 적을 수 있어요</p>
+      ) : (
+        /* 구획마다 이름이 달라야 어느 그룹에 더하는 것인지 스크린리더로도 갈린다. */
+        <button
+          type="button"
+          className="asset-group__add"
+          aria-label={`${view.label} 항목 추가`}
+          onClick={() => onAdd(group)}
+        >
+          ＋ 항목 추가
+        </button>
+      )}
     </section>
   );
 }

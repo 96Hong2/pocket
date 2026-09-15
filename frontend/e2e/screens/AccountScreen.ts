@@ -57,6 +57,11 @@ export class AccountScreen {
     return this.linkSheet.getByLabel('이메일');
   }
 
+  /** 주소가 아직 모양이 아닐 때 버튼 위에 서는 한 줄. */
+  get formatNotice(): Locator {
+    return this.page.getByText('메일 주소를 다시 봐 주세요');
+  }
+
   get sendButton(): Locator {
     return this.linkSheet.getByRole('button', { name: '코드 받기', exact: true });
   }

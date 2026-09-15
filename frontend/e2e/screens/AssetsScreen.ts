@@ -96,6 +96,21 @@ export class AssetsScreen {
     return this.page.getByRole('button', { name: /^자산 적기$|항목 추가$/ });
   }
 
+  /**
+   * 목록의 한 줄에 적힌 이름.
+   *
+   * 아주 긴 이름은 두 줄에서 끊기는데 잘리는 것은 보이는 쪽뿐이라 글자는 그대로다.
+   * 그래서 이름 전체로 찾는다.
+   */
+  entryRow(name: string): Locator {
+    return this.page.locator('.asset-row__name').filter({ hasText: name });
+  }
+
+  /** 항목을 더 넣을 수 없을 때 더하기 버튼 자리에 서는 한 줄. */
+  get fullNotice(): Locator {
+    return this.page.getByText(/자산은 \d+개까지 적을 수 있어요$/);
+  }
+
   /** 그 그룹 구획. 항목이 없어도 구획은 그려진다. */
   group(label: AssetGroupLabel): Locator {
     return this.page.getByRole('region', { name: label, exact: true });

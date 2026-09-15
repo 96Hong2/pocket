@@ -4,6 +4,7 @@ import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
 import { ApiError, useAnalyzeText, type ImportBatchOut } from '../../shared/api';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, LoadingState } from '../../shared/ui';
+import { NL_TEXT_MAX_LENGTH } from '../../shared/lib/limits';
 import { parseOutcome } from './parseOutcome';
 
 import { ImportReview } from './ImportReview';
@@ -82,14 +83,21 @@ export function NaturalLanguageTab({
             className="nl__input"
             aria-describedby={HINT_ID}
             value={text}
-            rows={3}
-            maxLength={1000}
+            rows={4}
+            maxLength={NL_TEXT_MAX_LENGTH}
             placeholder={PLACEHOLDER}
             disabled={analyze.isPending}
             onChange={(event) => setText(event.target.value)}
           />
           <p id={HINT_ID} className="nl__hint">
-            한 번에 여러 건을 적어도 돼요. 날짜를 적으면 그 날로 넣어요
+            {/*
+              상한에 닿으면 브라우저가 말없이 자른다. 붙여넣은 사람은 뒤쪽이 사라진 것을
+              알 길이 없다. 20건 상한은 몇 건이 남았는지 적어 주면서 길이만 조용히 자르면
+              같은 상황을 다르게 다루는 셈이라, 여기서도 닿았다는 것을 말한다.
+            */}
+            {text.length >= NL_TEXT_MAX_LENGTH
+              ? `${NL_TEXT_MAX_LENGTH}자까지 읽어요. 뒷부분은 나눠서 적어 주세요`
+              : '한 번에 여러 건을 적어도 돼요. 날짜를 적으면 그 날로 넣어요'}
           </p>
         </div>
       </div>

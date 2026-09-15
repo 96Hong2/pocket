@@ -36,6 +36,7 @@ import {
 } from '../../shared/ui';
 
 import { CategoryEditForm } from '../categories';
+import { DAY_MAX, DAY_MIN, isDayInRange } from '../../shared/lib/limits';
 
 /**
  * 고를 수 있는 종류.
@@ -366,7 +367,9 @@ function CandidateForm({
   const [creating, setCreating] = useState(false);
 
   const amount = Number(digits);
-  const canSave = digits !== '' && amount > 0 && day !== '' && !disabled && !creating;
+  // 연도 오타(`0202`)는 칸의 min·max 로 안 막힌다. 서버는 422 로 돌려보낸다.
+  const dayOk = isDayInRange(day);
+  const canSave = digits !== '' && amount > 0 && day !== '' && dayOk && !disabled && !creating;
 
   /** 지금 칸에 적힌 것 중 원래와 달라진 것만. 아무것도 안 바꿨으면 빈 객체다. */
   function draft(): ImportCandidatePatch {
@@ -426,6 +429,8 @@ function CandidateForm({
         <input
           className="nl-form__input pk-date"
           type="date"
+          min={DAY_MIN}
+          max={DAY_MAX}
           value={day}
           onChange={(event) => setDay(event.target.value)}
         />

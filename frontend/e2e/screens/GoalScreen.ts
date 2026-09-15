@@ -284,6 +284,11 @@ class GoalFormSheet {
     return this.root.getByLabel('시작할 때 이미 있던 돈 (선택)');
   }
 
+  /** 연도를 잘못 쳤을 때 저장 버튼 위에 서는 한 줄. */
+  get dayRangeNotice(): Locator {
+    return this.root.getByText('날짜는 2000년부터 2100년 사이로 골라 주세요');
+  }
+
   get saveButton(): Locator {
     return this.root.getByRole('button', { name: '저장', exact: true });
   }

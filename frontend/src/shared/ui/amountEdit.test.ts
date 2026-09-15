@@ -51,11 +51,29 @@ describe('editAmount', () => {
     });
   });
 
-  it('앞자리 0 은 버리고 커서도 함께 당긴다', () => {
-    expect(editAmount({ previous: '', next: '0', caret: 1 })).toEqual({ digits: '', caret: 0 });
+  it('앞자리 0 은 버리되 0 하나는 남긴다', () => {
+    // 0 을 쳤는데 칸이 비면 왜 사라졌는지 알 수 없다. 잔액 0 원 계좌를 자산에 얹는 길이기도 하다.
+    expect(editAmount({ previous: '', next: '0', caret: 1 })).toEqual({ digits: '0', caret: 1 });
     expect(editAmount({ previous: '5', next: '05', caret: 1 })).toEqual({
       digits: '5',
       caret: 0,
+    });
+  });
+
+  it('붙여넣은 금액의 소수점 아래를 버린다', () => {
+    // 은행 앱에서 복사하면 `12,000.00` 이다. 점을 그냥 지우면 1,200,000 원이 된다.
+    expect(editAmount({ previous: '', next: '12,000.00', caret: 9 })).toEqual({
+      digits: '12000',
+      caret: 6,
+    });
+    expect(editAmount({ previous: '', next: '4,500.5원', caret: 9 })).toEqual({
+      digits: '4500',
+      caret: 5,
+    });
+    // 소수점이 없는 붙여넣기는 그대로다.
+    expect(editAmount({ previous: '', next: '1,200,000원', caret: 11 })).toEqual({
+      digits: '1200000',
+      caret: 9,
     });
   });
 
