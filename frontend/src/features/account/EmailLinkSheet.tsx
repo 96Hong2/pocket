@@ -162,6 +162,16 @@ function LinkForm({
             {startMessage}
           </p>
         ) : null}
+        {/*
+          저장이 왜 회색인지 그 자리에서 말한다. 다만 치는 중에는 늘 형식이 안 맞으니
+          **주소를 다 쳤다고 볼 만할 때만** 띄운다. `@` 를 넣고도 아직 모양이 아닐 때다.
+          그 전에는 아래 도메인 칩이 무엇을 적어야 하는지 이미 보여 준다.
+        */}
+        {startMessage == null && email.includes('@') && !looksLikeEmail(email) ? (
+          <p className="account-form__notice" role="status">
+            메일 주소를 다시 봐 주세요
+          </p>
+        ) : null}
         <Button type="submit" fullWidth disabled={!looksLikeEmail(email) || busy}>
           {start.isPending ? '보내는 중이에요' : '코드 받기'}
         </Button>

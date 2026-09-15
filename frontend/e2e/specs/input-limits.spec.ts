@@ -109,3 +109,23 @@ async function lineCount(locator: import('@playwright/test').Locator): Promise<n
     return Math.round(node.getBoundingClientRect().height / lineHeight);
   });
 }
+
+test('메일 주소가 아직 모양이 아닐 때 왜 회색인지 적힌다', async ({ account }) => {
+  await account.open();
+  await account.waitReady();
+  await account.linkButton.click();
+  await expect(account.linkSheet).toBeVisible();
+
+  // 치는 중에는 말이 없다. 아래 도메인 칩이 이미 무엇을 적어야 하는지 보여 준다.
+  await account.emailField.fill('hong');
+  await expect(account.formatNotice).toHaveCount(0);
+
+  // `@` 를 넣고도 모양이 아니면 그때 말한다.
+  await account.emailField.fill('hong@');
+  await expect(account.formatNotice).toBeVisible();
+  await expect(account.sendButton).toBeDisabled();
+
+  await account.emailField.fill('hong@example.com');
+  await expect(account.formatNotice).toHaveCount(0);
+  await expect(account.sendButton).toBeEnabled();
+});
