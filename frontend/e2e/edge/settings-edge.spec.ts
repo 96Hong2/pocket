@@ -18,7 +18,14 @@ test.describe('저장이 실패했을 때', () => {
     consoleErrorAllowList: [/Failed to load resource[\s\S]*500/],
   });
 
-  test('고른 자리가 되돌아오고 왜 안 됐는지 말한다', async ({ page, settings }) => {
+  test('고른 자리가 되돌아오고 왜 안 됐는지 말한다', async ({ page, prep, settings }) => {
+    /*
+      예산을 먼저 심는다. 예산이 없으면 「남은 예산」 을 눌러 둘 수 없어서(홈이 그 갈래를
+      못 쓰고 수입·지출로 떨어진다) 되돌아온 자리를 볼 수 없다. 여기서 보려는 것은
+      폴백 규칙이 아니라 **저장이 실패했을 때 고른 자리가 되돌아오는가** 다.
+    */
+    await prep.setBudget(500_000);
+
     await settings.open();
     await settings.waitReady();
     await expect(settings.heroChoice('남은 예산')).toHaveAttribute('aria-checked', 'true');
@@ -79,7 +86,7 @@ test.describe('설정 조회가 실패했을 때', () => {
 });
 
 test('예산이 없으면 미리보기가 실제로 보일 화면을 말한다', async ({ prep, settings }) => {
-  // 예산 없이 '남은 예산' 을 골라 둔 사람. 홈은 그 갈래를 못 쓰고 쓴 돈으로 떨어진다.
+  // 예산 없이 '남은 예산' 을 골라 둔 사람. 홈은 그 갈래를 못 쓰고 수입·지출로 떨어진다.
   await prep.setHomeHero('remaining_budget');
 
   await settings.open();
@@ -88,8 +95,10 @@ test('예산이 없으면 미리보기가 실제로 보일 화면을 말한다',
   // 고른 라벨만 되풀이하면 홈과 다른 말을 하는 안내가 된다.
   // 예산 미설정은 예외가 아니라 새로 온 사람의 기본 상태다.
   await expect(settings.preview).toHaveText(
-    '아직 예산을 안 정해서, 홈 맨 위에 이번 달 쓴 돈이 보여요.',
+    '아직 예산을 안 정해서, 홈 맨 위에 이번 달 남은 돈이 보여요.',
   );
+  // 칸도 같은 말을 한다. 눌린 자리와 보이는 화면이 어긋나면 설정이 거짓말을 한다.
+  await expect(settings.heroChoice('수입·지출')).toHaveAttribute('aria-checked', 'true');
 });
 
 test('예산을 정하면 같은 설정에서 미리보기 문구가 바뀐다', async ({ prep, settings }) => {

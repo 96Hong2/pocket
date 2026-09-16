@@ -131,7 +131,7 @@ test('실수령보다 목표저축과 고정비가 크면 제안액을 0원으�
   await manage.open();
   await manage.waitReady();
   await manage.total.startButton.click();
-  await manage.total.sheet.calcButton.click();
+  await manage.total.sheet.openCalc();
   await manage.calc.waitOpen();
 
   await manage.calc.setTakeHome(2_000_000);
