@@ -386,6 +386,13 @@
     color: var(--color-expense);
   }
 
+  /* 빨간 줄 아래 붙는 나갈 길. 경고가 아니라 안내라 색을 낮춘다. */
+  .reset-sheet__notice-hint {
+    display: block;
+    margin-top: 4px;
+    color: var(--color-muted);
+  }
+
   /* 고른 갈래가 예산을 필요로 하는데 아직 없을 때만 선다. */
   .setting-block__go {
     margin-top: 12px;

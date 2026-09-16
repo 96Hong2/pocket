@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useBridge, useOverlayBackClose } from '../../app/providers';
 import { ROUTES } from '../../app/router/routes';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
-import { ApiError, useResetAccountData } from '../../shared/api';
+import { ApiError, CLIENT_ERROR_CODES, useResetAccountData } from '../../shared/api';
 import { clearDeviceMarks } from '../../shared/lib/deviceMarks';
 import { TEST_IDS } from '../../shared/testIds';
 import { BottomSheet, Button } from '../../shared/ui';
@@ -83,6 +83,15 @@ interface ResetFormProps {
   onDone: () => void;
 }
 
+/** 지울 대상을 정하지 못한 실패인가. 같은 버튼을 다시 눌러도 결과가 같다. */
+function isIdentityError(error: ApiError | null): boolean {
+  return (
+    error?.code === CLIENT_ERROR_CODES.identityFailed ||
+    error?.code === CLIENT_ERROR_CODES.identityPending ||
+    error?.code === CLIENT_ERROR_CODES.identityUnsupported
+  );
+}
+
 function ResetForm({ analytics, storage, reset, agreed, onAgreedChange, onDone }: ResetFormProps) {
   const error = reset.error instanceof ApiError ? reset.error : null;
   const failed = reset.isError;
@@ -156,6 +165,15 @@ function ResetForm({ analytics, storage, reset, agreed, onAgreedChange, onDone }
       {failed ? (
         <p className="reset-sheet__notice" role="alert">
           {error?.message ?? '지우지 못했어요. 잠시 뒤에 다시 해 주세요.'}
+          {/*
+            식별키가 없으면 서버에 '누구의 것' 인지가 없어서 지울 대상이 정해지지 않는다.
+            여기서는 같은 버튼을 아무리 눌러도 같은 줄만 다시 뜬다. 나갈 길을 적어 준다.
+          */}
+          {isIdentityError(error) ? (
+            <span className="reset-sheet__notice-hint">
+              토스 앱을 완전히 닫았다 다시 열면 풀리는 경우가 많아요.
+            </span>
+          ) : null}
         </p>
       ) : null}
 

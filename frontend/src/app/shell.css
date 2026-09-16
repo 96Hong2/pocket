@@ -255,4 +255,15 @@
   .shell-crash--inline {
     padding: 48px 20px;
   }
+
+  /*
+    식별키를 못 받았을 때 SDK 가 준 오류 이름.
+    사람이 읽을 말이 아니라 물어볼 단서라, 안내문 아래 한 줄로 작게 둔다.
+  */
+  .identity-notice__code {
+    display: block;
+    margin-top: 8px;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
 }
