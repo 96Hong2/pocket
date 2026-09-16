@@ -18,7 +18,14 @@ export function IdentityNotice() {
     return (
       <ErrorState
         title="사용자 확인을 마치지 못했어요"
-        description={state.message}
+        description={
+          <>
+            {state.message} 토스 앱을 완전히 닫았다 다시 열면 풀리는 경우가 많아요.
+            {state.detail == null ? null : (
+              <span className="identity-notice__code">코드 {state.detail}</span>
+            )}
+          </>
+        }
         onRetry={retry}
       />
     );
