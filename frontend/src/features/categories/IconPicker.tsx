@@ -40,6 +40,13 @@ export interface IconPickerProps {
    */
   onInvalidChange?: (invalid: boolean) => void;
   disabled?: boolean;
+  /**
+   * 기본 아이콘 격자를 펼친 채로 열까.
+   *
+   * 새로 만들 때는 펼친다. 아직 아무것도 안 골랐으니 고를 것이 바로 보여야 한다.
+   * 이미 있는 분류를 고칠 때는 접는다. 그 사람은 아이콘을 이미 고른 사람이다.
+   */
+  startOpen?: boolean;
 }
 
 /**
@@ -57,9 +64,18 @@ export function IconPicker({
   onChange,
   onInvalidChange,
   disabled = false,
+  startOpen = true,
 }: IconPickerProps) {
   const picked = parseCustomIcon(custom);
   const [source, setSource] = useState<Source>(picked?.kind ?? 'basic');
+  /*
+    격자는 고르는 순간 접힌다.
+
+    아이콘이 예순 칸을 넘어 격자가 화면을 다 먹었다. 그 아래 저장 버튼이 안 보여서,
+    이름까지 다 적고도 어디를 눌러야 저장인지 못 찾았다는 신고가 왔다.
+    고르고 나면 더 볼 일이 없는 목록이라 접고, 다시 고를 길만 남긴다.
+  */
+  const [gridOpen, setGridOpen] = useState(startOpen);
 
   /*
     이모지 탭을 떠나면 막힌 것도 함께 풀린다.
@@ -89,11 +105,27 @@ export function IconPicker({
       </div>
 
       {source === 'basic' ? (
-        <BasicGrid
-          value={custom == null ? value : null}
-          disabled={disabled}
-          onPick={(icon) => onChange({ icon, custom: null })}
-        />
+        gridOpen ? (
+          <BasicGrid
+            value={custom == null ? value : null}
+            disabled={disabled}
+            onPick={(icon) => {
+              onChange({ icon, custom: null });
+              setGridOpen(false);
+            }}
+          />
+        ) : (
+          <div className="icon-picker__pane">
+            <button
+              type="button"
+              className="icon-picker__reopen"
+              disabled={disabled}
+              onClick={() => setGridOpen(true)}
+            >
+              아이콘 다시 고르기
+            </button>
+          </div>
+        )
       ) : source === 'emoji' ? (
         <EmojiField
           glyph={picked?.kind === 'emoji' ? picked.glyph : ''}

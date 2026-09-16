@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useBridge, useOverlayBackClose } from '../../app/providers';
+import { bumpRecordCount } from '../../shared/lib/homeAddSeen';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { formatRelativeDay, toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
 import {
@@ -367,6 +368,16 @@ function RecordBody({
   }
 
   /**
+   * 한 번 적었다고 기기에 센다.
+   *
+   * 「홈 화면에 추가」 안내를 몇 번 써 본 뒤 한 번 더 띄우는 데만 쓴다. 저장이 실제로
+   * 끝난 자리에서만 부른다. 탭만 옮기고 닫는 길(`finish`)에서는 세지 않는다.
+   */
+  function markRecorded(): void {
+    void bumpRecordCount(bridge.storage);
+  }
+
+  /**
    * 시트를 닫는다.
    *
    * 방식은 저장 성공 때 이미 심었지만 여기서도 부른다. 아무것도 저장하지 않고 탭만 옮긴 뒤
@@ -443,6 +454,7 @@ function RecordBody({
             { flowId },
           );
           rememberMethod();
+          markRecorded();
           setSaved({ transaction: created.transaction, feedback: created.feedback });
         },
       },
@@ -523,7 +535,10 @@ function RecordBody({
               onBusyChange={markBusy}
               onReviewChange={trackReview('nl')}
               onDone={finish}
-              onSaved={rememberMethod}
+              onSaved={() => {
+                rememberMethod();
+                markRecorded();
+              }}
             />
           </div>
 
@@ -534,7 +549,10 @@ function RecordBody({
               onBusyChange={markBusy}
               onReviewChange={trackReview('capture')}
               onDone={finish}
-              onSaved={rememberMethod}
+              onSaved={() => {
+                rememberMethod();
+                markRecorded();
+              }}
             />
           </div>
 
@@ -545,7 +563,10 @@ function RecordBody({
               onBusyChange={markBusy}
               onReviewChange={trackReview('receipt')}
               onDone={finish}
-              onSaved={rememberMethod}
+              onSaved={() => {
+                rememberMethod();
+                markRecorded();
+              }}
               // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
               fallbackAction={
                 <Button variant="ghost" onClick={() => setTab('keypad')}>

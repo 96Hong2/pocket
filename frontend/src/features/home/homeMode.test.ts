@@ -105,8 +105,13 @@ describe('resolveHeroLayout', () => {
     expect(resolveHeroLayout('remaining_budget', true)).toBe('remainingBudget');
   });
 
-  it('남은 예산 설정인데 예산이 없으면 이번 달 쓴 돈으로 떨어진다', () => {
-    expect(resolveHeroLayout('remaining_budget', false)).toBe('monthSpent');
+  /*
+    예전에는 「이번 달 쓴 돈」 으로 떨어졌다. 그런데 앱 설정에는 그런 갈래가 아예 없어서,
+    「남은 예산」 이 눌려 있는데 홈은 다른 것을 보여 주는 상태가 됐다. 고를 수 있는 것
+    중 가장 가까운 쪽으로 떨어뜨린다.
+  */
+  it('남은 예산 설정인데 예산이 없으면 고를 수 있는 수입·지출로 떨어진다', () => {
+    expect(resolveHeroLayout('remaining_budget', false)).toBe('incomeAndSpent');
   });
 
   it('번 돈과 쓴 돈은 예산이 있든 없든 같은 화면이다', () => {

@@ -92,6 +92,8 @@ function BudgetAmountForm({
   const analytics = useAnalytics();
   const save = useSaveBudget(month);
   const [digits, setDigits] = useState(amount == null ? '' : String(amount));
+  /** 「얼마로 할지 모르겠어요」 를 누른 뒤, 광고를 틀기 전에 한 번 묻는 자리. */
+  const [confirmCalc, setConfirmCalc] = useState(false);
 
   const next = Number(digits);
   const canSave = digits !== '' && next > 0 && !save.isPending;
@@ -141,22 +143,37 @@ function BudgetAmountForm({
 
       {/*
         얼마로 할지 모르는 사람을 위한 다른 길. 저장 아래 한 단 낮게 둔다.
-        광고 한 편을 지나야 열리는 부가기능이라 그 사실을 버튼 곁에 적는다. 눌러 보고
-        광고가 뜨면 속은 기분이 든다.
+
+        예전에는 버튼 하나에 두 문장을 가운뎃점으로 이어 붙이고, 그 아래 또 한 줄을 달아
+        무엇을 누르는 것인지 읽기 전에는 알 수 없었다. 버튼은 한마디로 줄이고, 광고 이야기는
+        누른 뒤 한 번 묻는 자리로 옮긴다. 눌렀는데 곧장 광고가 뜨면 속은 기분이 든다.
       */}
       {onCalc ? (
         <div className="budget-sheet__calc">
-          <Button
-            variant="outline"
-            fullWidth
-            disabled={save.isPending || calcBusy}
-            onClick={onCalc}
-          >
-            {calcBusy ? '광고를 불러오는 중이에요' : '얼마로 할지 모르겠어요 · 계산해서 정하기'}
-          </Button>
-          <p className="budget-sheet__calc-note">
-            월급·고정비·모을 돈으로 생활비를 내 드려요 · 짧은 광고 한 편을 보면 열려요
-          </p>
+          {confirmCalc ? (
+            <div className="budget-sheet__ask" role="group" aria-label="계산해서 정하기">
+              <p className="budget-sheet__ask-text">
+                광고 한 편을 보면 예산을 대신 잡아 드려요. 월급과 매달 나가는 돈만 적으면 돼요
+              </p>
+              <div className="budget-sheet__ask-actions">
+                <Button variant="ghost" disabled={calcBusy} onClick={() => setConfirmCalc(false)}>
+                  닫기
+                </Button>
+                <Button variant="outline" disabled={calcBusy} onClick={onCalc}>
+                  {calcBusy ? '광고를 불러오는 중이에요' : '확인'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              fullWidth
+              disabled={save.isPending || calcBusy}
+              onClick={() => setConfirmCalc(true)}
+            >
+              얼마로 할지 모르겠어요
+            </Button>
+          )}
         </div>
       ) : null}
     </div>

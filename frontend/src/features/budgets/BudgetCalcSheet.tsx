@@ -29,7 +29,7 @@ export interface BudgetCalcSheetProps {
  * 적을 수 있고, 안 나가는 항목은 비워 두면 된다. 전부 **한 달 기준**이다.
  */
 const FIXED_ITEMS = [
-  { key: 'housing', label: '월세·관리비' },
+  { key: 'housing', label: '주거·고정비' },
   { key: 'utilities', label: '통신·공과금' },
   { key: 'subscriptions', label: '구독·보험' },
   { key: 'loans', label: '대출·할부' },

@@ -621,7 +621,14 @@ test('기록을 고치다 분류를 만들면 그 기록에 바로 붙는다', a
   await expect(calendar.edit.merchant).toHaveValue('꽃집');
   await calendar.edit.done();
 
-  // 저장까지 갔는지 다시 열어 확인한다. 화면만 바뀌고 서버에 안 갔던 일이 실제로 있었다.
+  /*
+    저장까지 갔는지 다시 열어 확인한다. 화면만 바뀌고 서버에 안 갔던 일이 실제로 있었다.
+
+    **목록이 새 값으로 온 뒤에 연다.** 수정 시트는 열릴 때 그 줄의 값으로 한 번 채워지고
+    나중에 오는 조회를 다시 읽지 않는다. 그래서 목록이 아직 옛 값일 때 열면, 서버에는
+    제대로 저장됐는데도 시트에는 분류가 비어 보인다(붐빌 때만 가끔 그랬다).
+  */
+  await expect(calendar.list.rowSubtitle('꽃집')).toHaveText('선물');
   await calendar.list.pick('꽃집');
   await calendar.edit.waitOpen();
   await expect(calendar.edit.pickedCategory).toHaveText(/선물/);

@@ -261,6 +261,8 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    /* 아래 목록과 붙어 보인다는 말이 있어 이 카드만 조금 더 띄운다. */
+    margin-bottom: 8px;
   }
 
   .keep-data__text {

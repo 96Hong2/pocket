@@ -404,14 +404,30 @@
     border-top: 1px solid var(--color-divider);
   }
 
-  .budget-sheet__calc-note {
+  /* 광고를 틀기 전에 한 번 묻는 자리. 시트를 또 겹치지 않고 같은 자리에서 갈린다. */
+  .budget-sheet__ask {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .budget-sheet__ask-text {
     margin: 0;
-    font-size: var(--text-12);
-    font-weight: var(--font-weight-semibold);
-    line-height: 1.5;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.55;
     color: var(--color-muted);
     text-align: center;
     word-break: keep-all;
+  }
+
+  .budget-sheet__ask-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .budget-sheet__ask-actions > * {
+    flex: 1;
   }
 
   /* ── 생활비 계산기 ─────────────────────────────── */

@@ -173,7 +173,7 @@ export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
             />
             {/* 무엇이 아닌지부터 말한다. 「가입인가?」 가 가장 먼저 드는 생각이다. */}
             <p className="onboard__ask-note">
-              회원가입이 아니에요. 통계에만 쓰고, 안 고르셔도 돼요
+              앱 통계에서만 사용해요
             </p>
           </div>
         ) : null}

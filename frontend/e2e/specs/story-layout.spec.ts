@@ -109,6 +109,8 @@ test('앱 설정에서 연 예산 시트에도 계산해서 정하는 길이 있
   await expect(settings.budgetSheet).toBeVisible();
 
   await expect(settings.budgetCalcButton).toBeVisible();
+  // 광고 이야기는 누른 뒤에 한 번 묻는 자리에 있다. 버튼 곁에 늘 적어 두지 않는다.
+  await settings.budgetCalcButton.click();
   await expect(settings.budgetCalcNote).toBeVisible();
 
   // 관리 탭에서 여는 것과 같은 시트여야 한다. 견줄 것이 없으면 무엇이 맞는지 알 수 없다.

@@ -74,7 +74,7 @@ test('아무것도 안 골라도 그냥 시작되고, 건너뛴 것으로 남는
     굳이 누르게 된다. 안 고르는 것이 곧 말하지 않는 것이다.
   */
   await expect(onboarding.genderChip('말하지 않을래요')).toHaveCount(0);
-  await expect(onboarding.askNote).toHaveText('회원가입이 아니에요. 통계에만 쓰고, 안 고르셔도 돼요');
+  await expect(onboarding.askNote).toHaveText('앱 통계에서만 사용해요');
   await onboarding.startButton.click();
 
   await home.waitReady();

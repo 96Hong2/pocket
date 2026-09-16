@@ -365,7 +365,7 @@ class RecordNewCategory {
   }
 
   get saveButton(): Locator {
-    return this.root.getByRole('button', { name: '저장', exact: true });
+    return this.root.getByRole('button', { name: '새 카테고리 저장', exact: true });
   }
 
   /** 만들지 않고 그만둔다. 돌아갈 길이 화면에 적혀 있어야 한다. */
@@ -919,7 +919,8 @@ class RecordNaturalLanguageForm {
       .getByRole('group', { name: '아이콘' })
       .getByRole('button', { name: iconLabel, exact: true })
       .click();
-    await this.root.getByRole('button', { name: '저장', exact: true }).click();
+    // 아이콘을 고르면 격자가 접힌다. 그래야 그 아래 저장 버튼이 화면에 들어온다.
+    await this.root.getByRole('button', { name: '새 카테고리 저장', exact: true }).click();
   }
 }
 

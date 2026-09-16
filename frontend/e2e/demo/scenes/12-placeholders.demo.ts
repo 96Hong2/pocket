@@ -104,13 +104,14 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await demo.beat(2);
 
   await demo.step(
-    '예산 정하기를 열면 「계산해서 정하기」 가 있다. 광고 한 편 뒤에 계산기가 열린다',
+    '예산 정하기를 열면 「얼마로 할지 모르겠어요」 가 있다. 확인하면 광고 한 편 뒤에 계산기가 열린다',
   );
   await manage.total.startButton.click();
   await manage.total.sheet.waitOpen();
+  await manage.total.sheet.calcButton.click();
   await expect(manage.total.sheet.calcNote).toBeVisible();
   await demo.beat(2);
-  await manage.total.sheet.calcButton.click();
+  await manage.total.sheet.calcConfirmButton.click();
   await manage.calc.waitOpen();
   await demo.beat(2);
 
@@ -202,7 +203,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
 
   await demo.step('수입·지출로 바꾸면 아래 한 줄이 결과를 말로 되짚어 준다');
   await settings.chooseHero('수입·지출');
-  await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 차액이 먼저 보여요.');
+  await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 남은 돈이 먼저 보여요.');
   await demo.beat(2);
 
   await demo.step('설정 아래에는 하위 화면이 둘 있다. 먼저 알림 설정으로 들어간다');

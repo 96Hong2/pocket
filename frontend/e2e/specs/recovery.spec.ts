@@ -148,8 +148,8 @@ test('이틀만 비면 복구 카드가 뜨지 않는다', async ({ home, prep }
   await expect(home.recovery.catchUpButton).toHaveCount(0);
   await expect(home.recovery.gauge).toHaveCount(0);
 
-  // 카드만 없고 나머지는 평소 그대로다. 예산을 안 정했으니 히어로는 쓴 돈을 말한다.
-  await expect(home.hero.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 쓴 돈`);
+  // 카드만 없고 나머지는 평소 그대로다. 예산을 안 정했으니 히어로는 남은 돈을 말한다.
+  await expect(home.hero.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 남은 돈`);
   await expect(home.hero.monthSpent).toBeVisible();
 });
 
