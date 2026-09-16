@@ -409,13 +409,13 @@ class AmountSheetArea {
   }
 
   /**
-   * 광고 한 편을 봐야 열린다는 한 줄.
+   * 광고를 봐야 열린다는 한 줄.
    *
-   * 예전에는 버튼 아래 늘 적혀 있었다. 지금은 **누른 뒤 한 번 묻는 자리**로 옮겼다.
-   * 버튼에 두 문장을 가운뎃점으로 이어 붙여 두면 무엇을 누르는 것인지 읽기 전에는 모른다.
+   * 예전에는 버튼 아래 늘 적혀 있었다. 지금은 **누른 뒤 한 번 묻는 자리**로 옮겼고,
+   * 그 자리에서는 금액 칸과 저장 버튼이 사라진다.
    */
   get calcNote(): Locator {
-    return this.root.getByText(/광고 한 편을 보면 예산을 대신 잡아 드려요/);
+    return this.root.getByText(/광고 5초만 보면 예산을 대신 잡아 드려요/);
   }
 
   /** 묻는 자리의 「확인」. 이걸 눌러야 광고가 뜬다. */
@@ -428,6 +428,17 @@ class AmountSheetArea {
     await this.calcButton.click();
     await expect(this.calcNote).toBeVisible();
     await this.calcConfirmButton.click();
+  }
+
+  /**
+   * 묻는 자리의 「닫기」. 금액을 적는 화면으로 돌아온다.
+   *
+   * 시트 손잡이의 이름도 「닫기」라 시트 전체에서 찾으면 둘이 걸린다. 묻는 자리 안에서만 찾는다.
+   */
+  get calcCloseButton(): Locator {
+    return this.root
+      .getByRole('group', { name: '예산 대신 잡아 드리기' })
+      .getByRole('button', { name: '닫기', exact: true });
   }
 
   /** 저장이 막혔을 때 시트 안에 서는 한 줄. 시트를 닫지 않고 여기서 말한다. */
@@ -621,9 +632,7 @@ class CategoryBudgetSheetArea {
    * 글자가 보이는 쪽이 본문 버튼이다.
    */
   get closeButton(): Locator {
-    return this.root
-      .getByRole('button', { name: '닫기', exact: true })
-      .filter({ hasText: '닫기' });
+    return this.root.getByRole('button', { name: '닫기', exact: true }).filter({ hasText: '닫기' });
   }
 
   /** 아무것도 정하지 않고 닫는다. 시트는 딤·Esc·손잡이를 다 받는다. */

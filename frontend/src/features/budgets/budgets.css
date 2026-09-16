@@ -404,29 +404,47 @@
     border-top: 1px solid var(--color-divider);
   }
 
-  /* 광고를 틀기 전에 한 번 묻는 자리. 시트를 또 겹치지 않고 같은 자리에서 갈린다. */
-  .budget-sheet__ask {
+  /*
+    광고를 틀기 전에 한 번 묻는 자리. 금액 칸과 저장 버튼을 지우고 이 한 장만 남긴다.
+    가운데로 모으는 것은 고를 것이 둘뿐이라는 표시다.
+  */
+  .budget-ask {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px 2px;
   }
 
-  .budget-sheet__ask-text {
+  .budget-ask__text {
     margin: 0;
+    max-width: 17ch;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.45;
+    color: var(--color-ink);
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  .budget-ask__sub {
+    margin: -4px 0 0;
     font-size: var(--text-13);
     font-weight: var(--font-weight-medium);
-    line-height: 1.55;
+    line-height: 1.5;
     color: var(--color-muted);
     text-align: center;
     word-break: keep-all;
   }
 
-  .budget-sheet__ask-actions {
+  .budget-ask__actions {
     display: flex;
     gap: 8px;
+    width: 100%;
+    margin-top: 4px;
   }
 
-  .budget-sheet__ask-actions > * {
+  .budget-ask__actions > * {
     flex: 1;
   }
 
@@ -536,7 +554,6 @@
     font-size: var(--text-13);
     color: var(--color-expense);
   }
-
 
   .budget-calc__note {
     margin: 0;
