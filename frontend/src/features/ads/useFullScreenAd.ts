@@ -2,8 +2,14 @@ import { useCallback, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
 
-/** 개발과 QR 테스트에서 쓰는 공식 테스트 전면 광고. 운영 값은 코드에 두지 않는다. */
-const TEST_GROUP = 'ait-ad-test-interstitial-id';
+/**
+ * 개발에서 쓰는 공식 테스트 전면 광고.
+ *
+ * **운영 번들에는 이 문자열이 실리면 안 된다.** 콘솔 검토가 번들 안을 훑어 테스트 광고 ID 를
+ * 찾아내고, 나오면 반려한다(2026-09-16 에 실제로 반려됐다). 실행할 때 갈라서는 늦다.
+ * `import.meta.env.DEV` 는 vite 가 빌드 때 `false` 로 갈아 끼우므로 이 가지가 통째로 지워진다.
+ */
+const TEST_GROUP = import.meta.env.DEV ? 'ait-ad-test-interstitial-id' : null;
 
 /**
  * 전면 광고를 지나온 결과.
@@ -17,8 +23,9 @@ export type FullScreenAdOutcome =
 /**
  * 어느 전면 광고를 띄울지.
  *
- * 배너와 같은 규칙이다. sandbox 는 공식 테스트 광고로 고정하고, 운영 값은 빌드 환경변수로만
- * 들어온다. 비어 있으면 null 이고 광고 없이 지나간다.
+ * 배너와 같은 규칙이다. 운영 값은 빌드 환경변수로만 들어오고, 비어 있으면 null 이라
+ * 광고 없이 지나간다. `toss` 가 아닌 판은 개발 빌드에서만 테스트 광고로 간다.
+ * 운영 번들에서는 `TEST_GROUP` 이 null 이라 그 자리도 광고 없이 지나간다.
  */
 function resolveGroup(environment: string): string | null {
   if (environment !== 'toss') return TEST_GROUP;

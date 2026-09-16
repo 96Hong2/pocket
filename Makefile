@@ -110,6 +110,10 @@ ait:
 	@grep -q '^VITE_NOTIFICATION_TEMPLATE_CODE=.' frontend/.env.local 2>/dev/null || \
 		{ echo "frontend/.env.local 에 VITE_NOTIFICATION_TEMPLATE_CODE 가 없다. 이대로 빌드하면 아무도 알림을 못 켠다(docs/SECRETS.md §6)."; exit 1; }
 	cd frontend && VITE_API_BASE_URL='$(API_BASE_URL)' npm run build
+	@grep -q 'ait\.v2\.live\.' frontend/dist/assets/*.js || \
+		{ echo "실제 광고 그룹 ID 가 번들에 없다. frontend/.env.local 의 VITE_AD_GROUP_ID·VITE_AD_FULLSCREEN_GROUP_ID 를 확인한다."; exit 1; }
+	@! grep -q 'ait-ad-test-' frontend/dist/assets/*.js || \
+		{ echo "테스트 광고 그룹 ID 가 번들에 들었다. 이대로 올리면 콘솔 검토가 반려한다(2026-09-16 에 실제로 반려됐다)."; exit 1; }
 	@echo "frontend/pocket-ledger.ait 를 콘솔에 올린다."
 
 # 운영 서버가 서기 전까지 쓰는 임시 공개 주소. 자세한 것은 스크립트 맨 위 주석.

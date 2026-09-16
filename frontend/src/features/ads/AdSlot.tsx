@@ -6,8 +6,12 @@ import { readAdOptOut } from '../../shared/lib/adOptOut';
 import { TEST_IDS } from '../../shared/testIds';
 import type { BannerHandle } from '../../shared/toss';
 
-/** 개발과 QR 테스트에서 쓰는 공식 테스트 배너. 운영 값은 코드에 두지 않는다. */
-const TEST_GROUP = 'ait-ad-test-banner-id';
+/**
+ * 개발에서 쓰는 공식 테스트 배너.
+ *
+ * **운영 번들에는 이 문자열이 실리면 안 된다.** 자세한 것은 `useFullScreenAd.ts` 의 같은 자리.
+ */
+const TEST_GROUP = import.meta.env.DEV ? 'ait-ad-test-banner-id' : null;
 
 /** 배너가 선 자리. 로그에서 어느 화면의 배너인지 가른다. */
 export type AdPlacement = 'home' | 'report' | 'manage' | 'settings' | 'assets' | 'goal';
@@ -53,9 +57,7 @@ export function AdSlot({ placement }: AdSlotProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   // 쿨다운까지 여기서 본다. 첫 값이 이미 접힘이면 effect 가 다시 그리지 않아도 된다.
   const [state, setState] = useState<SlotState>(() =>
-    resolveGroup(bridge.environment) != null &&
-    bridge.supports('ads') &&
-    !inCooldown(placement)
+    resolveGroup(bridge.environment) != null && bridge.supports('ads') && !inCooldown(placement)
       ? 'waiting'
       : 'collapsed',
   );
@@ -149,10 +151,13 @@ const SLOT_CLASS: Record<SlotState, string> = {
 /**
  * 어느 배너를 붙일지 정한다.
  *
- * **테스트로 열었으면 실광고를 붙이지 않는다.** QR 테스트와 심사용으로 여는 판은
- * `sandbox` 다. 거기서 우리가 만든 앱을 우리가 눌러 보는 동안 실광고가 뜨면, 같은 아이피에서
- * 반복 노출·클릭이 쌓여 무효 트래픽으로 잡힌다. 계정이 막히면 되돌리는 데 오래 걸린다.
- * 그래서 sandbox 는 공식 테스트 배너로 고정한다. 자리와 크기는 똑같이 확인할 수 있다.
+ * **테스트로 열었으면 실광고를 붙이지 않는다.** 우리가 만든 앱을 우리가 눌러 보는 동안
+ * 실광고가 뜨면 같은 아이피에서 반복 노출·클릭이 쌓여 무효 트래픽으로 잡힌다.
+ * 계정이 막히면 되돌리는 데 오래 걸린다.
+ *
+ * 개발 빌드에서는 `toss` 가 아닌 판을 공식 테스트 배너로 돌려 자리와 크기를 확인한다.
+ * 운영 번들에는 그 ID 가 아예 안 실려서(`TEST_GROUP` 이 null) 슬롯이 접힌다.
+ * 실기기에서 자기 광고를 막는 것은 판이 아니라 앱 설정의 「이 기기에서 광고 끄기」 가 한다.
  *
  * 운영 값은 빌드 환경변수로만 들어온다. 비어 있으면 null 이고 슬롯은 접힌다.
  * `import.meta.env.VITE_...` 는 vite 가 빌드 때 문자열로 갈아 끼우므로 키를 변수로 만들지 않는다.
