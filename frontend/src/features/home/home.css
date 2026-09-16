@@ -409,6 +409,13 @@
     color: var(--color-ink);
   }
 
+  /* 「예산 정하기」 아래 한 단 낮게. 같은 무게로 두면 무엇부터 할지 정해지지 않는다. */
+  .home-card__calc {
+    margin-top: 6px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
   /* 닫기 전에 어디서 다시 할 수 있는지. 카드의 마지막 줄이다. */
   .home-card__aside {
     margin: 10px 0 0;

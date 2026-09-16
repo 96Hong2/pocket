@@ -204,3 +204,60 @@ test('이미 정해 둔 예산을 고칠 때는 계산기 입구가 없다', asy
   // 얼마로 할지 아는 사람이다. 광고를 지나는 길을 또 보여 줄 이유가 없다.
   await expect(manage.total.sheet.calcButton).toHaveCount(0);
 });
+
+test('묻는 자리에서는 금액 칸과 저장이 사라지고, 닫기를 누르면 적던 금액이 그대로 있다', async ({
+  manage,
+  prep,
+}) => {
+  await seedLastMonth(prep);
+
+  await manage.open();
+  await manage.waitReady();
+  await manage.total.startButton.click();
+  await manage.total.sheet.waitOpen();
+  await manage.total.sheet.amountField.fill('300000');
+
+  await manage.total.sheet.calcButton.click();
+
+  /*
+    모르겠다고 말한 사람 옆에 금액 칸과 저장 버튼이 그대로 서 있으면 눈이 그쪽으로 간다.
+    묻는 동안에는 고를 것이 닫기와 확인 둘뿐이어야 한다.
+  */
+  await expect(manage.total.sheet.calcNote).toBeVisible();
+  await expect(manage.total.sheet.amountField).toHaveCount(0);
+  await expect(manage.total.sheet.saveButton).toHaveCount(0);
+  await expect(manage.total.sheet.calcButton).toHaveCount(0);
+
+  // 닫기는 예산을 정하던 자리로 돌려보낸다. 적어 둔 금액까지 그대로다.
+  await manage.total.sheet.calcCloseButton.click();
+  await expect(manage.total.sheet.amountField).toHaveValue(formatNumber(300_000));
+  await expect(manage.total.sheet.saveButton).toBeVisible();
+});
+
+test('홈의 예산 제안 카드에서도 계산기로 갈 수 있다', async ({ home, page, prep }) => {
+  await seedLastMonth(prep);
+  // 카드는 기록이 하나라도 있고 예산이 없을 때만 뜬다.
+  await prep.addExpense({ amount: 20_000, daysAgo: 0 });
+
+  await home.open();
+  await home.waitReady();
+  await expect(home.budget.suggestLead).toBeVisible();
+
+  // 누르기 전에는 광고 이야기가 카드에 없다. 있으면 안내가 아니라 광고로 읽힌다.
+  await expect(home.budget.calcNote).toHaveCount(0);
+
+  await home.budget.calcButton.click();
+  await expect(home.budget.calcAsk).toBeVisible();
+  await expect(home.budget.calcNote).toBeVisible();
+
+  // 닫기는 예산을 정하던 카드로 그대로 돌아온다.
+  await home.budget.calcCloseButton.click();
+  await expect(home.budget.calcAsk).toHaveCount(0);
+  await expect(home.budget.input).toBeVisible();
+
+  await home.budget.openCalc();
+  await expect(page.getByRole('dialog', { name: '생활비 계산하기' })).toBeVisible();
+
+  const opened = await logsNamed(page, 'budget_calc_opened');
+  expect(opened.map((log) => [log.params.ad, log.params.where])).toEqual([['watched', 'home']]);
+});

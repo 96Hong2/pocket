@@ -32,7 +32,8 @@ export function AddToHomeSetting() {
                 setOpen(true);
               }}
             >
-              <CategoryAvatar icon="57_smartphone" size={48} />
+              {/* 폰이 아니라 집이다. 안내 시트·온보딩이 이미 이 그림으로 같은 말을 한다. */}
+              <CategoryAvatar icon="04_home" size={48} />
               <span className="link-row__label">휴대폰 홈 화면에 추가</span>
               <span className="link-row__value" aria-hidden="true">
                 방법 보기

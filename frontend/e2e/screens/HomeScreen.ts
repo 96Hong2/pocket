@@ -449,6 +449,46 @@ class BudgetCard {
     return this.page.getByRole('button', { name: '예산 안내 닫기' });
   }
 
+  /**
+   * 얼마로 할지 모르는 사람의 길. 첫 기록을 막 끝낸 사람이 금액을 가장 모른다.
+   *
+   * 관리 탭·앱 설정의 예산 시트와 같은 이름을 쓴다. 자리에 따라 다른 말을 하면 안 된다.
+   */
+  get calcButton(): Locator {
+    return this.page.getByRole('button', { name: '얼마로 할지 모르겠어요' });
+  }
+
+  /** 카드 위에 따로 뜨는 모달. 이 안에서는 금액 칸과 저장 버튼이 안 보인다. */
+  get calcAsk(): Locator {
+    return this.page.getByRole('dialog', { name: '예산 대신 잡아 드리기' });
+  }
+
+  get calcNote(): Locator {
+    return this.calcAsk.getByText(/광고 5초만 보면 예산을 대신 잡아 드려요/);
+  }
+
+  get calcConfirmButton(): Locator {
+    return this.calcAsk.getByRole('button', { name: /^(확인|광고를 불러오는 중이에요)$/ });
+  }
+
+  /**
+   * 묻는 자리의 「닫기」. 예산을 정하던 카드로 그대로 돌아온다.
+   *
+   * 시트 손잡이의 이름도 「닫기」라 모달 전체에서 찾으면 둘이 걸린다.
+   */
+  get calcCloseButton(): Locator {
+    return this.calcAsk
+      .getByRole('group', { name: '예산 대신 잡아 드리기' })
+      .getByRole('button', { name: '닫기', exact: true });
+  }
+
+  /** 계산기까지 가는 두 단. 물어보는 자리를 거쳐야 광고가 뜬다. */
+  async openCalc(): Promise<void> {
+    await this.calcButton.click();
+    await expect(this.calcNote).toBeVisible();
+    await this.calcConfirmButton.click();
+  }
+
   /** 닫기 전에 어디서 다시 할 수 있는지 말하는 한 줄. 이게 없으면 닫는 순간 길이 사라진다. */
   get aside(): Locator {
     return this.page.getByText('하단의 「관리」 탭에서 예산을 다시 설정할 수 있어요');
