@@ -5,7 +5,8 @@
 
 @layer components {
   .home {
-    padding-top: 8px;
+    /* 상단바 바로 아래 붙어 보인다는 말이 있어 아주 살짝만 띄웠다(8 → 14). */
+    padding-top: 14px;
     display: flex;
     flex-direction: column;
   }

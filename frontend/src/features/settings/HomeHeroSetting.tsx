@@ -32,10 +32,23 @@ const OPTIONS: SegmentedOption<HomeHero>[] = [
  */
 const PREVIEW: Record<HeroLayout, string> = {
   remainingBudget: '홈 맨 위에 남은 예산이 먼저 보여요.',
+  // 지금은 어느 갈래도 여기로 안 떨어진다. 타입이 네 칸을 다 요구해서 남겨 둔다.
   monthSpent: '아직 예산을 안 정해서, 홈 맨 위에 이번 달 쓴 돈이 보여요.',
-  incomeAndSpent: '홈 맨 위에 이번 달 차액이 먼저 보여요.',
+  incomeAndSpent: '홈 맨 위에 이번 달 남은 돈이 먼저 보여요.',
   incomeAndBudget: '홈 맨 위에 번 돈과 남은 예산이 함께 보여요.',
 };
+
+/**
+ * 칸에 눌러 둘 값.
+ *
+ * **고른 것이 아니라 지금 홈에 보이는 것을 누른다.** 서버가 새 사람에게 주는 기본값이
+ * 「남은 예산」 인데 예산은 아직 없다. 그대로 누르면 「남은 예산」 이 골라져 있는데 홈에는
+ * 다른 것이 뜨는 상태가 되고, 설정 화면이 거짓말을 한다.
+ * 예산을 정하는 순간 이 값은 저절로 「남은 예산」 으로 돌아온다.
+ */
+function shownHero(hero: HomeHero, hasBudget: boolean): HomeHero {
+  return hero === 'remaining_budget' && !hasBudget ? 'income_expense' : hero;
+}
 
 /**
  * 고른 것이 예산을 필요로 하는가.
@@ -63,6 +76,13 @@ export function HomeHeroSetting() {
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [calcBusy, setCalcBusy] = useState(false);
+  /*
+    이 화면에서 직접 눌렀나.
+
+    안 눌렀으면 「지금 홈에 보이는 것」 을 눌러 둔다(`shownHero`). 눌렀으면 누른 그대로 둔다.
+    안 그러면 예산이 없는 사람이 「남은 예산」 을 골랐을 때 칸이 도로 튕겨 나온다.
+  */
+  const [touched, setTouched] = useState(false);
   const analytics = useAnalytics();
   const fullScreenAd = useFullScreenAd();
 
@@ -134,11 +154,11 @@ export function HomeHeroSetting() {
   const needsBudget = budget.isSuccess && wantsBudget(hero) && !hasBudget;
   /*
     예산이 없어 다른 것으로 떨어진 경우에는 **왜 그렇게 보이는지**까지 적는다.
-    「차액이 먼저 보여요」 만 적으면, 남은 예산을 고른 사람은 자기가 잘못 골랐다고 읽는다.
+    「남은 돈이 먼저 보여요」 만 적으면, 남은 예산을 고른 사람은 자기가 잘못 골랐다고 읽는다.
   */
   const preview =
     needsBudget && layout === 'incomeAndSpent'
-      ? '아직 예산을 안 정해서, 홈 맨 위에 이번 달 차액이 보여요.'
+      ? '아직 예산을 안 정해서, 홈 맨 위에 이번 달 남은 돈이 보여요.'
       : PREVIEW[layout];
 
   return (
@@ -149,9 +169,12 @@ export function HomeHeroSetting() {
 
       <SegmentedControl
         options={options}
-        value={hero}
+        value={touched ? hero : shownHero(hero, hasBudget)}
         ariaLabel="홈 표시 방식"
-        onChange={(next) => save.mutate({ home_hero: next })}
+        onChange={(next) => {
+          setTouched(true);
+          save.mutate({ home_hero: next });
+        }}
       />
 
       {budget.isSuccess ? (

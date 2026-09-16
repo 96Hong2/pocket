@@ -54,7 +54,7 @@ test('48 홈 맨 위에 무엇을 보여줄지 고른다', async ({
 
   await demo.step('수입·지출로 옮기면 그 한 줄이 먼저 바뀐다');
   await settings.chooseHero('수입·지출');
-  await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 차액이 먼저 보여요.');
+  await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 남은 돈이 먼저 보여요.');
   await demo.beat(3);
 
   await demo.step('홈으로 돌아오면 새로고침 없이 차액이 크게 온다');

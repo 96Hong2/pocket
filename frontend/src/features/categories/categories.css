@@ -280,9 +280,36 @@
     text-align: center;
   }
 
+  /*
+    자리 표시용 이모지는 회색으로 죽인다.
+
+    이모지는 글자색을 안 따르고 제 색으로 그려져서, 안내로 넣어 둔 🙂 가 이미 골라 둔
+    것처럼 보였다. 색을 빼고 흐리게 해서 「여기에 넣어야 하는 자리」 로 읽히게 한다.
+  */
+  .icon-picker__emoji-input::placeholder {
+    filter: grayscale(1);
+    opacity: 0.35;
+  }
+
   /* 이모지가 아닌 글자를 쳤을 때. 아래 한 줄과 같은 색이라 둘이 같은 말을 한다. */
   .icon-picker__emoji-input[aria-invalid='true'] {
     border-color: var(--color-amber-700);
+  }
+
+  /* 격자를 접어 둔 자리. 사진 버튼과 같은 생김새라 같은 무게로 읽힌다. */
+  .icon-picker__reopen {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .icon-picker__reopen:disabled {
+    color: var(--color-muted);
   }
 
   .icon-picker__photo-actions {

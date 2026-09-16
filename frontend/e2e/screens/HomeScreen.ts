@@ -549,6 +549,19 @@ class AddToHomeArea {
     return this.page.getByRole('dialog', { name: '첫 기록 끝! 홈에 두면 더 빨라요', exact: true });
   }
 
+  /**
+   * 제목이 무엇이든 이 안내 시트.
+   *
+   * 첫 기록 직후에는 「첫 기록 끝!」 로 열리고, 몇 번 더 적은 뒤 한 번 더 물을 때는
+   * 담백한 제목으로 열린다. 안 한 일을 했다고 말하지 않으려고 갈라 둔 것이라,
+   * 「떴나 안 떴나」 만 볼 때는 이쪽을 쓴다.
+   */
+  get anySheet(): Locator {
+    return this.page.getByRole('dialog', {
+      name: /^(첫 기록 끝! 홈에 두면 더 빨라요|홈 화면에 추가하면 더 빨라요)$/,
+    });
+  }
+
   /** 안내 시트 안의 단계 셋. 넷째 단계부터는 읽지 않는다. */
   get steps(): Locator {
     return this.sheet.getByRole('listitem');

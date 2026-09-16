@@ -167,6 +167,18 @@ class LedgerListArea {
   }
 
   /**
+   * 행 제목 아래 붙는 한 줄. 가맹점을 아는 기록은 여기에 분류 이름이 온다.
+   *
+   * 저장이 목록까지 왔는지 기다릴 때 쓴다. 제목만 보면 분류가 바뀌어도 그대로라
+   * 아직 옛 값인 줄을 눌러 열게 된다.
+   */
+  rowSubtitle(title: string): Locator {
+    return this.root
+      .getByText(title, { exact: true })
+      .locator('xpath=following-sibling::div[contains(@class,"pk-tx__subtitle")]');
+  }
+
+  /**
    * 안 쓴 날로 적어 둔 줄.
    *
    * 홈은 '오늘은 안 썼어요' 라고 적고 달력은 고른 날이라 날짜를 말하지 않는다.
@@ -365,7 +377,7 @@ export class EditSheetArea {
   }
 
   get newCategorySaveButton(): Locator {
-    return this.root.getByRole('button', { name: '저장', exact: true });
+    return this.root.getByRole('button', { name: '새 카테고리 저장', exact: true });
   }
 
   get newCategoryBackButton(): Locator {

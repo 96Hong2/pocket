@@ -131,11 +131,11 @@ test('실수령보다 목표저축과 고정비가 크면 제안액을 0원으�
   await manage.open();
   await manage.waitReady();
   await manage.total.startButton.click();
-  await manage.total.sheet.calcButton.click();
+  await manage.total.sheet.openCalc();
   await manage.calc.waitOpen();
 
   await manage.calc.setTakeHome(2_000_000);
-  await manage.calc.fixedField('월세·관리비').fill('1000000');
+  await manage.calc.fixedField('주거·고정비').fill('1000000');
 
   // 음수로 그리면 「−3,000,000원으로 사세요」가 된다. 0 으로 자르고 왜인지는 식이 말한다.
   await expect(manage.calc.amount).toHaveText(formatCurrency(0));

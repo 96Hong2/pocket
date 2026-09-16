@@ -28,13 +28,15 @@ test('홈 표시 방식을 바꾸면 홈이 그대로 바뀐다', async ({
 }) => {
   await prep.addTransaction({ amount: INCOME, daysAgo: 0, type: 'income' });
   await prep.addExpense({ amount: EXPENSE, daysAgo: 0 });
+  // 예산이 있어야 세 갈래가 서로 다른 화면이 된다. 없으면 둘이 같은 그림이라 바뀐 것을 못 본다.
+  await prep.setBudget(BUDGET);
 
-  await test.step('예산을 정하기 전이라 홈은 쓴 돈을 먼저 보여준다', async () => {
+  await test.step('예산이 있으니 홈은 남은 예산을 먼저 보여준다', async () => {
     await home.open();
     await home.waitReady();
 
-    await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 쓴 돈`);
-    await expect(home.hero.monthSpent).toHaveText(formatCurrency(EXPENSE));
+    await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 남은 예산`);
+    await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - EXPENSE));
     await expect(settings.heroResult.delta).toHaveCount(0);
   });
 
@@ -44,20 +46,17 @@ test('홈 표시 방식을 바꾸면 홈이 그대로 바뀐다', async ({
     await appShell.followLink('앱 설정');
     await settings.waitReady();
 
-    // 예산을 아직 안 정한 상태다. 미리보기가 그 사실까지 말해야 홈과 같은 말이 된다.
-    await expect(settings.preview).toHaveText(
-      '아직 예산을 안 정해서, 홈 맨 위에 이번 달 쓴 돈이 보여요.',
-    );
+    await expect(settings.preview).toHaveText('홈 맨 위에 남은 예산이 먼저 보여요.');
     await settings.chooseHero('수입·지출');
-    await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 차액이 먼저 보여요.');
+    await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 남은 돈이 먼저 보여요.');
   });
 
-  await test.step('새로고침 없이 홈으로 돌아와도 차액이 먼저 보인다', async () => {
+  await test.step('새로고침 없이 홈으로 돌아와도 남은 돈이 먼저 보인다', async () => {
     await appShell.pressBack();
     await appShell.goToTab('홈');
     await home.waitReady();
 
-    await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 차액`);
+    await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 남은 돈`);
     // 부분일치로 보면 안 된다. `500,000원` 이 `+1,500,000원` 안에 들어 있어 틀린 값도 통과한다.
     await expect(settings.heroResult.delta).toHaveText(formatSignedCurrency(DELTA));
     await expect(settings.heroResult.income).toHaveText(formatSignedCurrency(INCOME));
@@ -71,19 +70,59 @@ test('홈 표시 방식을 바꾸면 홈이 그대로 바뀐다', async ({
     await settings.waitReady();
 
     await settings.chooseHero('남은 예산');
-    await expect(settings.preview).toHaveText(
-      '아직 예산을 안 정해서, 홈 맨 위에 이번 달 쓴 돈이 보여요.',
-    );
+    await expect(settings.preview).toHaveText('홈 맨 위에 남은 예산이 먼저 보여요.');
 
     await appShell.pressBack();
     await appShell.goToTab('홈');
     await home.waitReady();
 
-    // 아직 예산을 정하지 않았으므로 남은 예산 자리에는 쓴 돈이 그대로 온다.
-    await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 쓴 돈`);
-    await expect(home.hero.monthSpent).toHaveText(formatCurrency(EXPENSE));
+    await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 남은 예산`);
+    await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - EXPENSE));
     await expect(settings.heroResult.delta).toHaveCount(0);
   });
+});
+
+/**
+ * 예산이 없으면 「남은 예산」 을 눌러 둘 수 없다.
+ *
+ * 서버가 새 사람에게 주는 기본값은 「남은 예산」 인데 그 사람에게는 예산이 없다. 그대로
+ * 누르면 설정 화면은 「남은 예산」 이라 말하고 홈은 다른 것을 보여 준다. 실기기에서
+ * 그 어긋남이 그대로 신고로 왔다(2026-09-16).
+ */
+test('예산이 없으면 수입·지출이 눌려 있고, 예산을 정하면 남은 예산으로 돌아온다', async ({
+  home,
+  manage,
+  prep,
+  settings,
+}) => {
+  await prep.addTransaction({ amount: INCOME, daysAgo: 0, type: 'income' });
+  await prep.addExpense({ amount: EXPENSE, daysAgo: 0 });
+
+  await settings.open();
+  await settings.waitReady();
+  await expect(settings.heroChoice('수입·지출')).toHaveAttribute('aria-checked', 'true');
+  await expect(settings.heroChoice('남은 예산')).toHaveAttribute('aria-checked', 'false');
+
+  await home.open();
+  await home.waitReady();
+  await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 남은 돈`);
+  await expect(settings.heroResult.delta).toHaveText(formatSignedCurrency(DELTA));
+
+  // 예산을 정하는 순간, 아무것도 안 골랐던 사람은 저절로 남은 예산으로 간다.
+  await manage.open();
+  await manage.waitReady();
+  await manage.total.startButton.click();
+  await manage.total.sheet.waitOpen();
+  await manage.total.sheet.save(BUDGET);
+
+  await settings.open();
+  await settings.waitReady();
+  await expect(settings.heroChoice('남은 예산')).toHaveAttribute('aria-checked', 'true');
+
+  await home.open();
+  await home.waitReady();
+  await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 남은 예산`);
+  await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - EXPENSE));
 });
 
 test('예산을 정해 두면 수입·예산 갈래가 홈에 그대로 나온다', async ({
@@ -124,8 +163,8 @@ test('첫 사용 때 홈 표시 방식을 묻지 않는다', async ({ home, sett
   await expect(settings.anyDialog).toHaveCount(0);
   await expect(settings.anyChoiceGroup).toHaveCount(0);
 
-  // 설정 화면을 한 번도 거치지 않았고, 서버가 주는 기본값 그대로 쓴 돈을 그린다.
-  await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 쓴 돈`);
+  // 설정 화면을 한 번도 거치지 않았다. 예산이 없으니 고를 수 있는 것 중 가까운 쪽으로 온다.
+  await expect(settings.heroResult.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 남은 돈`);
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(0));
   await expect(home.hero.remainingBudget).toHaveCount(0);
   // 설정을 **받아서** 이 화면인지 못 받아서 떨어진 것인지 갈라 본다. 폴백 화면이 서버
@@ -192,7 +231,9 @@ test('예산 없이 남은 예산을 고르면 그 자리에서 예산을 정할
   await settings.chooseHero('남은 예산');
 
   // 왜 다르게 보이는지 먼저 말하고, 바로 정할 길을 연다.
-  await expect(settings.preview).toHaveText('아직 예산을 안 정해서, 홈 맨 위에 이번 달 쓴 돈이 보여요.');
+  await expect(settings.preview).toHaveText(
+    '아직 예산을 안 정해서, 홈 맨 위에 이번 달 남은 돈이 보여요.',
+  );
   await expect(settings.budgetButton).toBeVisible();
 
   await settings.setBudget(BUDGET);
@@ -212,7 +253,9 @@ test('수입·예산을 골라도 같은 길이 열리고, 왜 그렇게 보이�
   await settings.waitReady();
   await settings.chooseHero('수입·예산');
 
-  await expect(settings.preview).toHaveText('아직 예산을 안 정해서, 홈 맨 위에 이번 달 차액이 보여요.');
+  await expect(settings.preview).toHaveText(
+    '아직 예산을 안 정해서, 홈 맨 위에 이번 달 남은 돈이 보여요.',
+  );
   await expect(settings.budgetButton).toBeVisible();
 
   await settings.setBudget(BUDGET);
@@ -226,6 +269,6 @@ test('예산이 필요 없는 갈래에는 그 버튼을 안 세운다', async (
   await settings.chooseHero('수입·지출');
 
   // 예산 없이도 그대로 성립하는 갈래다. 버튼이 서면 안 해도 될 일을 시키는 셈이다.
-  await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 차액이 먼저 보여요.');
+  await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 남은 돈이 먼저 보여요.');
   await expect(settings.budgetButton).toHaveCount(0);
 });

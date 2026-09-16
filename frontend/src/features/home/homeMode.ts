@@ -74,8 +74,8 @@ export function toHomeViewInput(budget: BudgetOut): HomeViewInput {
  * 히어로가 무엇을 크게 보여줄지.
  *
  * - remainingBudget  남은 예산과 예산 총액. 게이지와 하루 가용액이 함께 붙는다.
- * - monthSpent       이번 달 쓴 돈 하나. 예산을 정하기 전 화면이다.
- * - incomeAndSpent   이번 달 차액. 번 돈과 쓴 돈을 아래에 나란히 둔다.
+ * - monthSpent       이번 달 쓴 돈 하나. 지금은 아무 갈래도 이것으로 떨어지지 않는다.
+ * - incomeAndSpent   이번 달 남은 돈. 번 돈과 쓴 돈을 아래에 나란히 둔다.
  * - incomeAndBudget  남은 예산에 번 돈을 곁들인다.
  */
 export type HeroLayout = 'remainingBudget' | 'monthSpent' | 'incomeAndSpent' | 'incomeAndBudget';
@@ -93,8 +93,15 @@ export function resolveHeroLayout(hero: HomeHero | undefined, hasBudget: boolean
     case 'income_and_budget':
       return hasBudget ? 'incomeAndBudget' : 'incomeAndSpent';
     default:
-      // 아직 못 받은 경우도 여기로 온다. 설정 행이 없는 사람에게 서버가 주는 값이 이것이라
-      // 임의 기본값을 고르는 것이 아니다.
-      return hasBudget ? 'remainingBudget' : 'monthSpent';
+      /*
+        아직 못 받은 경우도 여기로 온다. 설정 행이 없는 사람에게 서버가 주는 값이 이것이라
+        임의 기본값을 고르는 것이 아니다.
+
+        예산이 없으면 「이번 달 쓴 돈」 하나만 떴었다. 그런데 앱 설정에는 그런 갈래가
+        아예 없어서, 「남은 예산」 이 골라져 있는데 홈은 다른 것을 보여 주는 상태가 됐다.
+        고른 것과 보이는 것이 어긋나면 설정 화면이 거짓말을 한다. 예산이 없을 때는
+        고를 수 있는 것 중 가장 가까운 「수입·지출」 로 떨어뜨린다.
+      */
+      return hasBudget ? 'remainingBudget' : 'incomeAndSpent';
   }
 }

@@ -47,9 +47,10 @@ test('예산 시트의 「계산해서 정하기」 는 광고 한 편을 지나
   await manage.total.startButton.click();
   await manage.total.sheet.waitOpen();
 
-  // 광고를 봐야 열린다는 것이 버튼 곁에 적혀 있다. 눌러 보고 알면 속은 기분이 든다.
-  await expect(manage.total.sheet.calcNote).toBeVisible();
+  // 누르면 곧장 광고가 뜨지 않는다. 무엇을 하려는지 한 번 묻고, 확인해야 광고로 간다.
   await manage.total.sheet.calcButton.click();
+  await expect(manage.total.sheet.calcNote).toBeVisible();
+  await manage.total.sheet.calcConfirmButton.click();
 
   // 목 SDK 의 전면 광고는 1.5초 뒤에 닫힌다. 그 뒤에 예산 시트가 계산기로 바뀐다.
   await manage.calc.waitOpen();
@@ -74,7 +75,7 @@ test('광고를 못 불러와도 계산기는 열린다. 광고 서버 사정으
 
   await manage.total.startButton.click();
   await manage.total.sheet.waitOpen();
-  await manage.total.sheet.calcButton.click();
+  await manage.total.sheet.openCalc();
 
   await manage.calc.waitOpen();
 
@@ -89,7 +90,7 @@ test('지난달에서 어림한 값이 채워져 있고 제안액이 그 식과 
   await manage.open();
   await manage.waitReady();
   await manage.total.startButton.click();
-  await manage.total.sheet.calcButton.click();
+  await manage.total.sheet.openCalc();
   await manage.calc.waitOpen();
 
   await expect(manage.calc.takeHomeField).toHaveValue(formatNumber(INCOME));
@@ -115,7 +116,7 @@ test('계산기를 열어 보기만 해도 예산이 생기지는 않는다', as
   await manage.open();
   await manage.waitReady();
   await manage.total.startButton.click();
-  await manage.total.sheet.calcButton.click();
+  await manage.total.sheet.openCalc();
   await manage.calc.waitOpen();
   await manage.calc.sheet.getByRole('button', { name: '닫기' }).click();
   await manage.calc.waitClosed();
@@ -136,7 +137,7 @@ test('버튼을 누르면 그 금액이 이번 달 예산이 되고 홈 남은 �
   await manage.open();
   await manage.waitReady();
   await manage.total.startButton.click();
-  await manage.total.sheet.calcButton.click();
+  await manage.total.sheet.openCalc();
   await manage.calc.waitOpen();
 
   const suggested = await manage.calc.suggestedWon();
@@ -160,12 +161,12 @@ test('고정비 항목을 적으면 합계가 어림값을 대신하고 제안�
   await manage.open();
   await manage.waitReady();
   await manage.total.startButton.click();
-  await manage.total.sheet.calcButton.click();
+  await manage.total.sheet.openCalc();
   await manage.calc.waitOpen();
   const before = await manage.calc.suggestedWon();
 
   // 항목 둘을 적는다. 그 둘의 합이 어림한 고정비를 통째로 대신한다.
-  await manage.calc.fixedField('월세·관리비').fill('600000');
+  await manage.calc.fixedField('주거·고정비').fill('600000');
   await manage.calc.fixedField('통신·공과금').fill('100000');
 
   await expect(manage.calc.fixedSum).toHaveText(formatCurrency(700_000));
@@ -180,7 +181,7 @@ test('목표가 없어도 모을 돈을 직접 적어 생활비를 낼 수 있�
   await manage.open();
   await manage.waitReady();
   await manage.total.startButton.click();
-  await manage.total.sheet.calcButton.click();
+  await manage.total.sheet.openCalc();
   await manage.calc.waitOpen();
 
   // 목표가 없으면 0 으로 두고 그렇게 말한다. 목표부터 만들라고 하지 않는다.

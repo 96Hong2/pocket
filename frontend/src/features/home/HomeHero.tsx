@@ -26,7 +26,7 @@ interface HomeHeroProps {
 const LAYOUT_LABEL: Record<HeroLayout, string> = {
   remainingBudget: '남은 예산',
   monthSpent: '이번 달 쓴 돈',
-  incomeAndSpent: '이번 달 차액',
+  incomeAndSpent: '이번 달 남은 돈',
   incomeAndBudget: '번 돈과 남은 예산',
 };
 

@@ -405,12 +405,29 @@ class AmountSheetArea {
 
   /** 얼마로 할지 모르는 사람의 길. 처음 정할 때만 있고, 광고 한 편 뒤에 계산기가 열린다. */
   get calcButton(): Locator {
-    return this.root.getByRole('button', { name: /계산해서 정하기|광고를 불러오는 중이에요/ });
+    return this.root.getByRole('button', { name: '얼마로 할지 모르겠어요' });
   }
 
-  /** 광고 한 편을 봐야 열린다는 한 줄. 눌러 보고 알면 속은 기분이 든다. */
+  /**
+   * 광고 한 편을 봐야 열린다는 한 줄.
+   *
+   * 예전에는 버튼 아래 늘 적혀 있었다. 지금은 **누른 뒤 한 번 묻는 자리**로 옮겼다.
+   * 버튼에 두 문장을 가운뎃점으로 이어 붙여 두면 무엇을 누르는 것인지 읽기 전에는 모른다.
+   */
   get calcNote(): Locator {
-    return this.root.getByText(/짧은 광고 한 편을 보면 열려요/);
+    return this.root.getByText(/광고 한 편을 보면 예산을 대신 잡아 드려요/);
+  }
+
+  /** 묻는 자리의 「확인」. 이걸 눌러야 광고가 뜬다. */
+  get calcConfirmButton(): Locator {
+    return this.root.getByRole('button', { name: /^(확인|광고를 불러오는 중이에요)$/ });
+  }
+
+  /** 계산기까지 가는 두 단. 물어보는 자리를 거쳐야 광고가 뜬다. */
+  async openCalc(): Promise<void> {
+    await this.calcButton.click();
+    await expect(this.calcNote).toBeVisible();
+    await this.calcConfirmButton.click();
   }
 
   /** 저장이 막혔을 때 시트 안에 서는 한 줄. 시트를 닫지 않고 여기서 말한다. */

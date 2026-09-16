@@ -9,6 +9,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     try {
       window.localStorage.removeItem('__ait_storage:home-add-prompted');
+      window.localStorage.removeItem('__ait_storage:home-add-prompted-again');
     } catch {
       /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
     }
@@ -19,8 +20,9 @@ test.beforeEach(async ({ page }) => {
  * 홈 화면에 추가하도록 이끄는 자리.
  *
  * 우리가 대신 눌러 줄 수 없는 일이라, 이 기능이 하는 것은 안내뿐이다.
- * 확인할 것은 넷이다: 첫 기록 전에는 조르지 않는다, **첫 기록을 마친 그 순간** 한 번 뜬다,
- * 기록이 이미 있는 채로 열었을 때는 안 뜬다, 놓친 사람이 앱 설정에서 다시 연다.
+ * 확인할 것은 다섯이다: 첫 기록 전에는 조르지 않는다, **첫 기록을 마친 그 순간** 한 번 뜬다,
+ * 기록이 이미 있는 채로 열었을 때는 안 뜬다, **세 번 적으면 한 번 더 묻는다**,
+ * 놓친 사람이 앱 설정에서 다시 연다.
  */
 
 /** 홈에서 키패드로 한 건 적는다. 첫 기록 「직후」 를 만드는 유일한 방법이다. */
@@ -155,4 +157,37 @@ test('안내를 처음 상태로 되돌려도 홈 추가 안내가 따라 뜨지
   await settings.waitReady();
   await settings.addToHomeRow.click();
   await expect(settings.addToHomeSheet).toBeVisible();
+});
+
+/**
+ * 첫 기록 한 번으로 끝내지 않는다.
+ *
+ * 첫 기록 때는 이 앱을 계속 쓸지 아직 모르는 사람이라 대부분 그냥 닫는다. 세 번 적은
+ * 사람은 다르다. 그때 한 번만 더 묻고, 그 뒤로는 앱 설정에만 남긴다.
+ */
+test('세 번 적으면 홈 화면 추가를 한 번만 더 묻는다', async ({ home, page, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+
+  await recordOnce(home, recordSheet);
+  // 첫 기록 안내다. 제목이 방금 한 일과 이어져 있다.
+  await expect(home.addToHome.sheet).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(home.addToHome.anySheet).toHaveCount(0);
+
+  await recordOnce(home, recordSheet);
+  // 두 번째로는 안 뜬다. 적을 때마다 물으면 그건 안내가 아니라 방해다.
+  await expect(home.addToHome.anySheet).toHaveCount(0);
+
+  await recordOnce(home, recordSheet);
+  await expect(home.addToHome.anySheet).toBeVisible();
+  // 첫 기록이 아니므로 제목이 담백한 쪽으로 바뀐다. 안 한 일을 했다고 말하지 않는다.
+  await expect(home.addToHome.sheet).toHaveCount(0);
+
+  await page.keyboard.press('Escape');
+  await expect(home.addToHome.anySheet).toHaveCount(0);
+
+  // 네 번째부터는 다시 안 묻는다. 두 번이 끝이다.
+  await recordOnce(home, recordSheet);
+  await expect(home.addToHome.anySheet).toHaveCount(0);
 });

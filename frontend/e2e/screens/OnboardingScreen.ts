@@ -53,6 +53,6 @@ export class OnboardingScreen {
 
   /** 무엇이 아닌지부터 말하는 한 줄. 「가입인가?」 가 가장 먼저 드는 생각이다. */
   get askNote(): Locator {
-    return this.root.getByText(/회원가입이 아니에요/);
+    return this.root.getByText(/앱 통계에서만/);
   }
 }

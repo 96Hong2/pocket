@@ -97,13 +97,18 @@ export class SettingsScreen {
    */
   get budgetCalcButton(): Locator {
     return this.budgetSheet.getByRole('button', {
-      name: /계산해서 정하기|광고를 불러오는 중이에요/,
+      name: '얼마로 할지 모르겠어요',
     });
   }
 
-  /** 광고 한 편을 봐야 열린다는 한 줄. 눌러 보고 알면 속은 기분이 든다. */
+  /** 광고 한 편을 봐야 열린다는 한 줄. 버튼을 누른 뒤 묻는 자리에 적힌다. */
   get budgetCalcNote(): Locator {
-    return this.budgetSheet.getByText(/짧은 광고 한 편을 보면 열려요/);
+    return this.budgetSheet.getByText(/광고 한 편을 보면 예산을 대신 잡아 드려요/);
+  }
+
+  /** 묻는 자리의 「확인」. 이걸 눌러야 광고가 뜬다. */
+  get budgetCalcConfirmButton(): Locator {
+    return this.budgetSheet.getByRole('button', { name: /^(확인|광고를 불러오는 중이에요)$/ });
   }
 
   /** 금액을 적고 저장까지. 시트가 닫히면 정해진 것이다. */
@@ -230,14 +235,14 @@ class HeroResultArea {
   }
 
   /**
-   * 큰 숫자 위 한 줄. `9월 · 이번 달 차액` 처럼 지금 무엇을 보여주는지 적혀 있다.
+   * 큰 숫자 위 한 줄. `9월 · 이번 달 남은 돈` 처럼 지금 무엇을 보여주는지 적혀 있다.
    *
    * 네 갈래를 다 받아 두고 어느 것인지는 spec 이 못 박는다.
    * 여기서 하나로 좁히면 화면이 다른 것을 그려도 로케이터가 비어 조용히 넘어간다.
    */
   get label(): Locator {
     return this.page.getByText(
-      /^\d{1,2}월 · (남은 예산|이번 달 쓴 돈|이번 달 차액|번 돈과 남은 예산)$/,
+      /^\d{1,2}월 · (남은 예산|이번 달 쓴 돈|이번 달 남은 돈|번 돈과 남은 예산)$/,
     );
   }
 

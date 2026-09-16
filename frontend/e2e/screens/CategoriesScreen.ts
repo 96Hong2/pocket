@@ -329,7 +329,8 @@ class CategorySheet {
   }
 
   get saveButton(): Locator {
-    return this.root.getByRole('button', { name: '저장', exact: true });
+    // 만들 때는 「새 카테고리 저장」, 고칠 때는 「저장」 이다. 무엇이 저장되는지를 적어 둔다.
+    return this.root.getByRole('button', { name: /^(새 카테고리 저장|저장)$/ });
   }
 
   /** 고치는 시트에만 있다. 누르면 확인 자리가 펼쳐진다. */
@@ -414,12 +415,28 @@ class CategorySheet {
     });
   }
 
-  /** 아이콘 하나를 고른다. 고른 칸만 눌린 상태가 된다. */
+  /**
+   * 아이콘 하나를 고른다.
+   *
+   * **고르면 격자가 접힌다.** 칸이 예순 개를 넘어 그 아래 저장 버튼이 안 보였다.
+   * 그래서 여기서는 눌린 칸이 아니라 **접혔다는 것**으로 골라진 것을 확인한다.
+   * 고칠 때는 처음부터 접힌 채로 열리므로 먼저 편다.
+   */
   async pickIcon(label: string): Promise<void> {
     await this.pickIconSource('기본');
-    const cell = this.iconCell(label);
-    await cell.click();
-    await expect(cell).toHaveAttribute('aria-pressed', 'true');
+    if (await this.reopenIconsButton.isVisible().catch(() => false)) await this.reopenIcons();
+    await this.iconCell(label).click();
+    await expect(this.reopenIconsButton).toBeVisible();
+  }
+
+  /** 접힌 격자를 다시 펴는 버튼. */
+  get reopenIconsButton(): Locator {
+    return this.root.getByRole('button', { name: '아이콘 다시 고르기' });
+  }
+
+  async reopenIcons(): Promise<void> {
+    await this.reopenIconsButton.click();
+    await expect(this.root.getByRole('group', { name: '아이콘' })).toBeVisible();
   }
 
   /** 아이콘을 무엇으로 고를지. 기본 그림 · 자판 이모지 · 직접 찍은 사진. */

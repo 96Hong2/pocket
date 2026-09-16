@@ -207,6 +207,8 @@ function silenceHomeAddPrompt(): void {
   */
   try {
     window.localStorage.setItem('__ait_storage:home-add-prompted', '1');
+    // 몇 번 적고 나면 한 번 더 뜬다. 세 건씩 심는 spec 한가운데서 시트가 끼어들지 않게 함께 막는다.
+    window.localStorage.setItem('__ait_storage:home-add-prompted-again', '1');
   } catch {
     /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
   }

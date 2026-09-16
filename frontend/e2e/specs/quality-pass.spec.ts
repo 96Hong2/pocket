@@ -182,8 +182,10 @@ test('고른 아이콘 칸의 테두리가 네 변 다 있다', async ({ categor
   await categories.addButton.click();
   await categories.sheet.waitOpen();
 
-  await categories.sheet.pickIcon('paw');
-
+  /*
+    격자는 **고르는 순간 접힌다.** 그러니 재는 것은 고르기 전이다.
+    고른 뒤에 재려 들면 칸이 화면에 없어서, 테두리가 깨져도 검사가 통과해 버린다.
+  */
   // 칸 높이가 행 간격보다 크면 아래 칸이 위 칸 바닥을 덮어 테두리가 잘린다.
   // 눈으로만 보면 "왜 이상하지" 로 끝나고 원인을 못 찾는다. 숫자로 못 박는다.
   const grid = await categories.sheet.iconGridMetrics();
@@ -191,6 +193,11 @@ test('고른 아이콘 칸의 테두리가 네 변 다 있다', async ({ categor
     grid.rowPitch,
   );
   expect(grid.iconSize, '아이콘이 너무 작아 무엇인지 알아보기 어렵다').toBeGreaterThanOrEqual(30);
+
+  // 고르면 접히고, 눌린 자리는 접힌 채로 기억된다. 다시 펴서 그 자리를 확인한다.
+  await categories.sheet.pickIcon('paw');
+  await categories.sheet.reopenIcons();
+  await expect(categories.sheet.iconCell('paw')).toHaveAttribute('aria-pressed', 'true');
 });
 
 // ── 리포트 헤드라인 ─────────────────────────────────────

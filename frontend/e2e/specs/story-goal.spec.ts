@@ -143,7 +143,7 @@ test('기한 없는 목표로 계산기를 열면 목표 저축이 왜 0인지 �
   await manage.open();
   await manage.waitReady();
   await manage.total.startButton.click();
-  await manage.total.sheet.calcButton.click();
+  await manage.total.sheet.openCalc();
   await manage.calc.waitOpen();
 
   // 기한이 없으면 한 달 몫을 나눌 수가 없다. 0 으로 두되 왜 0 인지 그 자리에서 적는다.
@@ -166,7 +166,7 @@ test('기한이 지난 목표로 계산기를 열면 이번 달 몫이 없다고
   await manage.open();
   await manage.waitReady();
   await manage.total.startButton.click();
-  await manage.total.sheet.calcButton.click();
+  await manage.total.sheet.openCalc();
   await manage.calc.waitOpen();
 
   // 기한은 있는데 이미 지났다. 기한 없음과 할 말이 다르다. 더 모을 만큼 적으라고 한다.
@@ -192,7 +192,7 @@ test.describe('계산기가 제안을 못 받았을 때', () => {
     });
 
     await manage.total.startButton.click();
-    await manage.total.sheet.calcButton.click();
+    await manage.total.sheet.openCalc();
     await manage.calc.waitSheetOpen();
 
     /*

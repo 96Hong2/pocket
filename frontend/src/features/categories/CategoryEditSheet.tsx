@@ -199,6 +199,7 @@ export function CategoryEditForm({
           value={icon}
           custom={custom}
           disabled={busy}
+          startOpen={category == null}
           onInvalidChange={setIconInvalid}
           onChange={(next) => {
             setIcon(next.icon);
@@ -259,8 +260,9 @@ export function CategoryEditForm({
                 지우기
               </Button>
             ) : null}
+            {/* 「저장」 만 적으면 무엇이 저장되는지가 안 보인다. 만들 때만 대상을 적는다. */}
             <Button className="cat-sheet__done" disabled={!canSave} onClick={save}>
-              저장
+              {category == null ? '새 카테고리 저장' : '저장'}
             </Button>
           </div>
         </div>
