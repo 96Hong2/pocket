@@ -2,6 +2,7 @@ import { ApiError, parseDecimalOr, useFinishGoal, type GoalOut } from '../../sha
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { formatCurrency } from '../../shared/lib/format';
 import { Button, iconUrl } from '../../shared/ui';
+import { goalDoneLine, ShareButton } from '../share';
 
 export interface GoalDonePanelProps {
   goal: GoalOut;
@@ -49,6 +50,19 @@ export function GoalDonePanel({ goal, onFinished }: GoalDonePanelProps) {
       >
         {finish.isPending ? '마치는 중이에요' : '이 목표 마치기'}
       </Button>
+      {/*
+        다 모은 그 순간이 이 앱에서 가장 자랑할 만한 자리다. 여기서만 세게 그린다.
+        「마치기」 위가 아니라 아래에 둔다. 공유가 이 화면의 할 일을 가리면 안 된다.
+      */}
+      <ShareButton
+        className="goal-done__share"
+        kind="goal_done"
+        where="goal_done"
+        tone="strong"
+        label="이 목표 친구에게 공유하기"
+        message={goalDoneLine(goal.title)}
+      />
+
       {/* 마치기가 무엇을 하는지 한 줄. 지우기와 헷갈리면 다 모은 기록이 사라진다. */}
       <p className="goal-done__aside">마친 목표는 아래 「지난 목표」에 남아요</p>
     </section>

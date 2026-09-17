@@ -128,6 +128,9 @@ class BudgetOut(BaseModel):
     monthly_delta: Decimal
     # 기록이 하나라도 있나. 없으면 첫 사용 화면이다.
     has_any_transaction: bool
+    # 지금까지 적은 건수. 지운 것은 빼고 센다.
+    # 홈이 "몇 번 해 본 사람인가" 로 갈리는 자리에 쓴다. 합계와 무관한 값이다.
+    transaction_count: int
     # 마지막 기록 이후 며칠. 오늘 기록했으면 0, 기록이 없으면 null.
     days_since_last_transaction: int | None
     # 최근 7일 정리 진행. 기록이 하나도 없어도 0 으로 늘 실린다.

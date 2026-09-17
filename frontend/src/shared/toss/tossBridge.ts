@@ -6,6 +6,7 @@ import {
   PermissionError,
   SafeArea,
   Screen,
+  Share,
   Storage,
   TossAds,
   User,
@@ -39,6 +40,9 @@ import {
   type PickPhotosOptions,
   type PickedImage,
   type SafeAreaInsets,
+  type ShareBridge,
+  type ShareTarget,
+  recordShare,
 } from './types';
 
 const DEFAULT_MAX_WIDTH = 1600;
@@ -193,6 +197,37 @@ class TossAdsBridge implements AdsBridge {
   }
 }
 
+/**
+ * 링크를 만들고 시스템 공유 시트를 연다.
+ *
+ * 두 걸음이 반드시 이어져야 한다. 링크만 만들고 시트를 못 열면 사용자에게는 아무 일도
+ * 안 일어난 것으로 보인다. 그래서 한 함수 안에 묶어 두고 중간에서 던지게 한다.
+ *
+ * `ogImageUrl` 은 낮은 버전(안드로이드 5.240.0 · iOS 5.239.0 아래)에서 무시된다.
+ * 무시돼도 링크 자체는 만들어지므로 버전으로 가르지 않는다. 그림만 앱 기본값이 된다.
+ */
+class TossShareBridge implements ShareBridge {
+  private readonly environment: BridgeEnvironment;
+
+  constructor(environment: BridgeEnvironment) {
+    this.environment = environment;
+  }
+
+  async send(target: ShareTarget): Promise<void> {
+    try {
+      const link = await Share.createLink({
+        path: target.path,
+        ogImageUrl: target.ogImageUrl,
+      });
+      // 링크만 보내면 받는 사람이 무엇인지 모르고 누른다. 한 줄을 앞에 붙인다.
+      await Share.sendMessage({ message: `${target.message}\n${link}` });
+      recordShare(this.environment, target);
+    } catch (error) {
+      throw toBridgeError(error, '공유 링크를 만들지 못했어요.');
+    }
+  }
+}
+
 export class TossMiniAppBridge implements MiniAppBridge {
   readonly environment: BridgeEnvironment;
   readonly platform: BridgePlatform;
@@ -202,6 +237,7 @@ export class TossMiniAppBridge implements MiniAppBridge {
   readonly storage = new TossStorage();
   readonly ads = new TossAdsBridge();
   readonly analytics = new TossAnalyticsBridge();
+  readonly share: ShareBridge;
 
   constructor() {
     this.environment = Environment.environment;
@@ -209,6 +245,7 @@ export class TossMiniAppBridge implements MiniAppBridge {
     this.appVersion = Environment.tossAppVersion;
     this.deviceId = Environment.deviceId;
     this.deploymentId = Environment.deploymentId;
+    this.share = new TossShareBridge(this.environment);
   }
 
   supports(capability: BridgeCapability): boolean {
@@ -236,6 +273,10 @@ export class TossMiniAppBridge implements MiniAppBridge {
         return Notification.requestAgreement.isSupported();
       case 'analytics':
         // 낮은 버전에서는 SDK 가 조용히 무시한다. 화면이 로그 때문에 갈릴 일은 없다.
+        return true;
+      case 'share':
+        // SDK 가 지원 여부를 알려 주지 않는다. 못 쓰는 버전이면 부를 때 던지고,
+        // 그 오류를 화면이 그대로 말한다. 여기서 없는 것으로 미리 감추지 않는다.
         return true;
     }
   }

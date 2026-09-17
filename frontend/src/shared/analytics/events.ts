@@ -120,6 +120,20 @@ export const EVENTS = {
    */
   noSpendMarked: 'no_spend_marked',
 
+  /**
+   * 친구에게 공유하기를 눌렀고 그 결과가 어떻게 됐나.
+   *
+   * 자리(`where`)와 갈래(`kind`)와 결과(`result`)까지만 남긴다. **공유 문구는 싣지 않는다.**
+   * 문구에는 목표 이름과 진행률이 들어가 있어, 그대로 실으면 이 앱이 절대 안 보내기로 한
+   * 값을 로그로 내보내는 것이 된다. 문구 확인은 개발 판의 `window.__pocketShares` 가 한다.
+   *
+   * 자리마다 누른 비율이 갈리면 그 자리가 잘못 놓인 것이다. 홈 카드처럼 스스로 나타나는
+   * 자리는 닫은 수(`share_card_dismissed`)와 함께 봐야 성가신지 아닌지가 갈린다.
+   */
+  shareResult: 'share_result',
+  /** 홈의 공유 권유 카드를 닫았다. 권유가 성가신지 보는 유일한 값이다. */
+  shareCardDismissed: 'share_card_dismissed',
+
   /** 배너 자리의 결과. 떴는지·채울 게 없었는지·실패했는지. */
   adResult: 'ad_result',
   /** 화면이 죽었거나 요청이 실패했다. */

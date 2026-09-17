@@ -176,6 +176,25 @@ def load_day_totals(session: Session, user: User, period: BudgetPeriod) -> list[
     return agg.aggregate_days(load_period_inputs(session, user, period), period)
 
 
+def transaction_count(session: Session, user: User) -> int:
+    """지금까지 적은 건수. 지운 것은 빼고 센다.
+
+    합계에 쓰는 값이 아니라 **몇 번 해 봤나**를 재는 값이다. 홈에서 공유를 권하는 자리가
+    이걸로 갈린다. 두어 번 적고 만 사람에게 남에게 알리라고 하면 권유가 아니라 참견이다.
+    """
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(Transaction)
+            .where(
+                Transaction.user_id == user.id,
+                Transaction.deleted_at.is_(None),
+            )
+        )
+        or 0
+    )
+
+
 def last_transaction_date(
     session: Session, user: User, *, not_after: date | None = None
 ) -> date | None:

@@ -14,6 +14,7 @@ import { ReportScreen } from '../screens/ReportScreen';
 import { RecordSheet } from '../screens/RecordSheet';
 import { SettingsScreen } from '../screens/SettingsScreen';
 
+import { installShareSheetStub } from './aitMock';
 import { anonKeyFor, installAnonKeyTrap, probeAnonKey } from './anonKey';
 import { PrepApi } from './api';
 import { DEV_STACK_URLS, FONT_CDN } from './env';
@@ -134,6 +135,8 @@ export const test = base.extend<PocketFixtures>({
   // 기본 page 를 감싼다. 격리 트랩 주입과 감시가 모든 테스트에 자동으로 걸린다.
   page: async ({ page, anonKey, consoleErrorAllowList, showOnboarding }, use) => {
     await page.addInitScript(installAnonKeyTrap, anonKey);
+    // 공유 시트는 웹 페이지 바깥에서 뜬다. 놔두면 실행 환경에 따라 진짜 OS 창이 떠서 멈춘다.
+    await page.addInitScript(installShareSheetStub);
     await page.addInitScript(silenceHomeAddPrompt);
     if (!showOnboarding) await page.addInitScript(silenceOnboarding);
 

@@ -72,6 +72,7 @@ def _view(session: DbSession, user: CurrentUser, period: BudgetPeriod) -> Budget
         month_income=totals.month_income.amount,
         monthly_delta=totals.monthly_delta.amount,
         has_any_transaction=last_recorded is not None,
+        transaction_count=ledger.transaction_count(session, user),
         days_since_last_transaction=ledger.days_since(last_settled, today),
         recovery=to_recovery(ledger.load_recovery_progress(session, user, today)),
     )

@@ -384,6 +384,12 @@
     margin-top: 12px;
   }
 
+  /* 가운데로 모으는 칸이라 놔두면 글자 폭만큼만 선다. 마치기와 폭을 맞춘다. */
+  .goal-done__share {
+    align-self: stretch;
+    margin-top: 2px;
+  }
+
   /* 마치기가 지우기와 무엇이 다른지 한 줄. 이 줄이 없으면 눌러야 알 수 있다. */
   .goal-done__aside {
     margin: 8px 0 0;

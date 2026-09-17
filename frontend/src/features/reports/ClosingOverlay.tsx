@@ -10,6 +10,7 @@ import { formatCurrency, formatMonthLabel, formatSignedCurrency } from '../../sh
 import { TEST_IDS } from '../../shared/testIds';
 import { CategoryAvatar, iconOf, type IconName } from '../../shared/ui';
 import { trapTab } from '../../shared/ui/focusTrap';
+import { closingLine, ShareButton } from '../share';
 
 import {
   CHANGE_NOTE,
@@ -91,6 +92,11 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
 
   const label = `${formatMonthLabel(month)} 결산`;
   const last = index === CLOSING_CARDS.length - 1;
+  /*
+    예산 안에서 마친 달인가. 결산에서 가장 자랑할 만한 사실이라 문구가 이것부터 말한다.
+    서버가 준 「잘한 것」에 그 항목이 있을 때만이다. 여기서 예산과 지출을 다시 견주지 않는다.
+  */
+  const withinBudget = closing.highlights.some((item) => item.kind === 'within_budget');
   const byId = new Map((categories.data?.items ?? []).map((item) => [item.id, item]));
 
   return createPortal(
@@ -142,6 +148,21 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
           closing={closing}
           byId={byId}
         />
+
+        {/*
+          공유는 마지막 장에만. 한 달을 다 훑은 뒤라야 무엇을 알리는 것인지 알고 누른다.
+          첫 장부터 서 있으면 결산을 보라는 화면이 아니라 알리라는 화면이 된다.
+        */}
+        {last ? (
+          <ShareButton
+            className="closing__share"
+            kind="closing"
+            where="closing"
+            tone="strong"
+            label="이번 결산 친구에게 공유하기"
+            message={closingLine(month, withinBudget)}
+          />
+        ) : null}
 
         {/*
           버튼은 카드 안이다. 짙은 면 위에 두면 버튼 바닥색과 배경이 같아져

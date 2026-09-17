@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import type { RecordedLog } from '../../src/shared/toss';
+import type { RecordedLog, RecordedShare } from '../../src/shared/toss';
 
 /**
  * 앱인토스 devtools 목의 다이얼을 돌린다.
@@ -196,4 +196,48 @@ export async function readLogs(page: Page): Promise<RecordedLog[]> {
 /** 그 이름으로 남은 로그만. 순서는 찍힌 순서 그대로다. */
 export async function logsNamed(page: Page, name: string): Promise<RecordedLog[]> {
   return (await readLogs(page)).filter((log) => log.name === name);
+}
+
+/**
+ * 시스템 공유 시트를 대신 받는 자리. `page.addInitScript` 로 심는다.
+ *
+ * devtools 목의 `share()` 는 `navigator.share` 가 있으면 그것을 부르고, 없으면 콘솔에만
+ * 적는다. 둘 중 무엇을 타는지는 브라우저와 OS 가 정해서, 놔두면 실행 환경마다 결과가
+ * 달라지고 최악에는 진짜 macOS 공유창이 떠서 테스트가 그 자리에 선다.
+ *
+ * 그래서 OS 자리를 우리가 채운다. **앱 코드와 브릿지는 실기기와 같은 길을 그대로 지난다.**
+ * 여기 쌓이는 것이 정말로 시트까지 간 글이라, 링크가 붙었는지 여기서만 확인할 수 있다.
+ *
+ * 본문은 브라우저에서 돈다. 바깥 스코프를 참조하면 안 된다.
+ */
+export function installShareSheetStub(): void {
+  try {
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: (data: { text?: string }) => {
+        const bucket = (window as unknown as { __pocketShareSheet?: string[] });
+        (bucket.__pocketShareSheet ??= []).push(data.text ?? '');
+        return Promise.resolve();
+      },
+    });
+  } catch {
+    /* 못 덮는 브라우저에서는 목이 콘솔로 떨어진다. 그래도 화면은 그대로 돈다. */
+  }
+}
+
+/**
+ * 앱이 내보낸 공유 한 건씩.
+ *
+ * 운영 판에는 없는 사본이다(`shared/toss/types.ts` 의 `recordShare`).
+ * 어떤 딥링크와 어떤 미리보기 그림을 붙였는지가 여기 있다.
+ */
+export async function readShares(page: Page): Promise<RecordedShare[]> {
+  return page.evaluate(() => window.__pocketShares ?? []);
+}
+
+/** 시스템 공유 시트까지 실제로 간 글. 문구 다음 줄에 링크가 붙어 있어야 한다. */
+export async function readShareSheet(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () => (window as unknown as { __pocketShareSheet?: string[] }).__pocketShareSheet ?? [],
+  );
 }

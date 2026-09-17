@@ -72,3 +72,15 @@ def test_budget_absent_does_not_break(client: TestClient) -> None:
     r = client.post("/api/v1/transactions", json=_payload(), headers=AUTH)
     assert r.status_code == 201
     assert r.json()["feedback"]["remaining_budget"] is None
+
+
+def test_공유_미리보기_그림이_인증_없이_열린다(unauthenticated_client: TestClient) -> None:
+    """링크 미리보기를 만드는 것은 사용자의 브라우저가 아니라 토스 서버다.
+
+    그쪽은 `X-Anon-Key` 를 붙일 방법이 없어서 이 자리만 인증을 열어 두었다.
+    패키징에서 그림이 빠지면 여기서 404 가 난다. 배포 뒤 미리보기가 빈 것으로 알면 늦다.
+    """
+    for name in ("app", "goal", "goal-done", "budget", "closing"):
+        r = unauthenticated_client.get(f"/og/{name}.png")
+        assert r.status_code == 200, name
+        assert r.headers["content-type"] == "image/png"

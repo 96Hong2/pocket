@@ -11,6 +11,7 @@ import {
   GoalStatusCard,
   HomeHero,
   RecoveryCard,
+  ShareAppCard,
   TodayList,
   resolveHeroLayout,
   resolveHomeView,
@@ -81,6 +82,8 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
     away == null ? '' : shiftDay(toLedgerDate(new Date()), -away),
   );
   const budgetSuggest = useCardDismiss('budget-suggest', '');
+  // 공유 권유는 한 번 닫으면 끝이다. 다시 뜰 「달라진 상황」이 없다.
+  const shareInvite = useCardDismiss('share-app', '');
 
   // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다.
   // 아직 오는 중일 때만 기다리게 하고, 실패·미지원은 위 안내가 이유를 말한다.
@@ -130,6 +133,15 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
       <RecordButton
         onClick={() => onRecord(resolveRecordTab(preferences.data?.last_record_method))}
       />
+
+      {/*
+        기록 버튼 바로 아래. 몇 번 적어 본 사람에게만 뜨고, 닫으면 다시 안 뜬다.
+        결산 안내보다 위다. 결산은 달이 바뀐 며칠만 뜨는 자리라 그때 두 줄이 되는데,
+        아래로 밀면 이 줄은 평소에 허공에 뜬 채가 된다.
+      */}
+      {view?.showShareInvite && !shareInvite.hidden ? (
+        <ShareAppCard onDismiss={shareInvite.dismiss} />
+      ) : null}
 
       {/*
         지난달 결산 안내. 달이 바뀐 뒤 며칠 동안, 지난달에 기록이 있고 아직 안 봤을 때만

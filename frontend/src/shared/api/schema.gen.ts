@@ -880,6 +880,8 @@ export interface components {
             monthly_delta: string;
             /** Has Any Transaction */
             has_any_transaction: boolean;
+            /** Transaction Count */
+            transaction_count: number;
             /** Days Since Last Transaction */
             days_since_last_transaction: number | null;
             recovery: components["schemas"]["RecoveryProgressOut"];
