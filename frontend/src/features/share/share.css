@@ -59,6 +59,51 @@
     background: var(--color-sage-50);
   }
 
+  /*
+    ── 공유를 권하는 카드 ──────────────────────────────
+
+    복구 카드·예산 제안 카드와 같은 골격이다(`home-card__*`). 클래스를 따로 두는 것은
+    이 카드가 홈 밖(목표 화면)에도 서기 때문이다. 홈 전용 스타일에 기대면 그 화면에서 깨진다.
+  */
+  .share-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .share-card__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .share-card__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    min-width: 0;
+  }
+
+  .share-card__title {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.45;
+    color: var(--color-ink);
+    word-break: keep-all;
+  }
+
+  /* 보내기를 망설이게 하는 것을 없애는 줄. 제목보다 작고 흐리게. */
+  .share-card__lead {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.45;
+    color: var(--color-muted);
+    word-break: keep-all;
+  }
+
   .share__failure {
     margin: 0;
     font-size: var(--text-12);

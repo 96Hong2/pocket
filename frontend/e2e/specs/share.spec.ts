@@ -29,14 +29,19 @@ test('몇 번 안 적어 본 사람에게는 앱을 알리라고 하지 않는�
   await home.open();
   await home.waitReady();
 
-  await expect(home.share.row).toHaveCount(0);
+  await expect(home.share.card).toHaveCount(0);
 });
 
 test('충분히 써 본 사람에게는 기록 버튼 아래에서 한 번 묻는다', async ({ home, page, prep }) => {
   await prep.addSeries(SHARE_AFTER_RECORDS, { amount: 3000, daysAgo: 0, prefix: '가게' });
+  // 예산이 없으면 예산 제안 카드가 먼저다. 아래 테스트가 그 규칙을 따로 본다.
+  await prep.setBudget(500_000);
 
   await home.open();
   await home.waitReady();
+  // 그림 한 장에 멘트 한 줄. 줄 하나로는 눈에 안 들어온다는 지적을 받고 카드로 올렸다.
+  await expect(home.share.title).toBeVisible();
+  await expect(home.share.lead).toBeVisible();
   await expect(home.share.button).toBeVisible();
 
   await home.share.button.click();
@@ -55,24 +60,29 @@ test('충분히 써 본 사람에게는 기록 버튼 아래에서 한 번 묻�
 
 test('닫으면 다시 뜨지 않는다', async ({ home, prep }) => {
   await prep.addSeries(SHARE_AFTER_RECORDS, { amount: 3000, daysAgo: 0, prefix: '가게' });
+  await prep.setBudget(500_000);
 
   await home.open();
   await home.waitReady();
   await home.share.closeButton.click();
-  await expect(home.share.row).toHaveCount(0);
+  await expect(home.share.card).toHaveCount(0);
 
   // 닫아 둔 표시는 기기에 남는다. 다시 열어도 그대로여야 한다.
   await home.open();
   await home.waitReady();
-  await expect(home.share.row).toHaveCount(0);
+  await expect(home.share.card).toHaveCount(0);
 });
 
-test('목표는 모은 금액이 아니라 진행률만 보낸다', async ({ goal, page, prep }) => {
+test('목표를 정하면 목표 카드 아래에 공유 카드가 선다', async ({ goal, page, prep }) => {
   const id = await prep.setGoal({ title: '제주도 여행', targetAmount: 1_000_000 });
   await prep.addContribution(id, { amount: 250_000 });
 
   await goal.open();
   await goal.waitReady();
+  await expect(goal.shareCard).toBeVisible();
+  // 보내기를 망설이게 하는 것을 카드가 먼저 없앤다. 「내 돈 사정이 드러나나」가 첫 걱정이다.
+  await expect(goal.shareCard).toContainText('모은 금액은 빼고 진행률만 보내요');
+
   await goal.shareButton.click();
 
   await expect.poll(() => readShares(page)).toHaveLength(1);
@@ -90,8 +100,8 @@ test('다 모은 목표는 축하 자리에서도 보낼 수 있다', async ({ g
   await goal.waitReady();
   await expect(goal.done).toBeVisible();
 
-  // 축하 자리가 이미 같은 이름으로 서 있다. 카드 쪽 줄까지 두면 한 화면에 같은 버튼이 둘이다.
-  await expect(goal.shareButton).toHaveCount(0);
+  // 축하 자리가 이미 같은 이름으로 서 있다. 권유 카드까지 두면 한 화면에 같은 버튼이 둘이다.
+  await expect(goal.shareCard).toHaveCount(0);
 
   await goal.doneShareButton.click();
 
@@ -154,4 +164,18 @@ test('공유 로그에는 자리와 갈래만 남고 보낸 글은 남지 않는
   expect(log.params.result).toBe('ok');
   // 목표 이름과 진행률이 로그로 새면 안 된다. 갈래 이름까지가 이 앱이 남기는 전부다.
   expect(JSON.stringify(log.params)).not.toContain('제주도');
+});
+
+test('예산을 아직 안 정했으면 예산 먼저 묻고 공유는 비켜 준다', async ({ home, prep }) => {
+  // 둘 다 스스로 나타나 한 가지를 권하는 카드다. 같이 서면 기록 버튼 아래가 권유 두 장이 된다.
+  await prep.addSeries(SHARE_AFTER_RECORDS, { amount: 3000, daysAgo: 0, prefix: '가게' });
+
+  await home.open();
+  await home.waitReady();
+  await expect(home.budget.suggestLead).toBeVisible();
+  await expect(home.share.card).toHaveCount(0);
+
+  // 예산 안내를 닫으면 그때 공유를 묻는다. 한 번에 하나씩이다.
+  await home.budget.closeButton.click();
+  await expect(home.share.card).toBeVisible();
 });

@@ -160,13 +160,22 @@ export class GoalScreen {
   }
 
   /**
-   * 진행 중인 목표를 친구에게 보내는 줄. 카드의 마지막 줄이다.
+   * 목표 카드 아래 서는 공유 권유 카드. 진행 중인 목표가 있을 때만 뜬다.
+   *
+   * 다 모으면 이 카드가 사라지고 축하 자리가 그 일을 한다. 둘이 함께 뜨지 않는다.
+   */
+  get shareCard(): Locator {
+    return this.page.getByRole('group', { name: '목표 공유', exact: true });
+  }
+
+  /**
+   * 그 카드 안의 공유 버튼.
    *
    * 누르는 동안 이름이 「공유창 여는 중」으로 바뀐다. 축하 자리의 같은 이름과 섞이지 않게
-   * 카드 안에서만 찾는다(둘은 다 모았을 때 한 화면에 함께 뜬다).
+   * 카드 안에서만 찾는다.
    */
   get shareButton(): Locator {
-    return this.card.getByRole('button', {
+    return this.shareCard.getByRole('button', {
       name: /^(이 목표 친구에게 공유하기|공유창 여는 중)$/,
     });
   }
@@ -180,7 +189,7 @@ export class GoalScreen {
 
   /** 공유가 막혔을 때 버튼 아래 서는 한 줄. */
   get shareFailure(): Locator {
-    return this.card.getByRole('alert');
+    return this.shareCard.getByRole('alert');
   }
 
   /** 모은 돈 목록. */

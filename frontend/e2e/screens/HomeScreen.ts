@@ -36,8 +36,8 @@ export class HomeScreen {
   readonly addToHome: AddToHomeArea;
   /** 며칠 비웠을 때 뜨는 복귀 카드. */
   readonly recovery: RecoveryCard;
-  /** 기록 버튼 아래 공유 권유 줄. 몇 번 적어 본 사람에게만 뜬다. */
-  readonly share: HomeShareRow;
+  /** 기록 버튼 아래 공유 권유 카드. 몇 번 적어 본 사람에게만 뜬다. */
+  readonly share: HomeShareCard;
 
   constructor(page: Page) {
     this.page = page;
@@ -50,7 +50,7 @@ export class HomeScreen {
     this.ads = new AdArea(page);
     this.addToHome = new AddToHomeArea(page);
     this.recovery = new RecoveryCard(page);
-    this.share = new HomeShareRow(page);
+    this.share = new HomeShareCard(page);
   }
 
   async open(): Promise<void> {
@@ -616,21 +616,33 @@ class AddToHomeArea {
 }
 
 /**
- * 기록 버튼 아래 공유 권유 줄.
+ * 기록 버튼 아래 공유 권유 카드.
  *
  * 몇 번 적어 본 사람에게만 뜨고, 닫으면 다시 뜨지 않는다. 닫아 둔 표시는 기기에 남으므로
  * 테스트마다 새 브라우저 컨텍스트에서 다시 볼 수 있다(홈 화면 추가 안내와 같다).
+ *
+ * **예산 제안 카드가 떠 있으면 비켜 준다.** 둘이 같이 서지 않는다.
  */
-class HomeShareRow {
+class HomeShareCard {
   private readonly root: Locator;
 
   constructor(page: Page) {
-    this.root = page.getByRole('region', { name: '앱 공유', exact: true });
+    this.root = page.getByRole('group', { name: '앱 공유', exact: true });
   }
 
-  /** 줄 한 덩어리. 떴는지 없는지를 이것으로 본다. */
-  get row(): Locator {
+  /** 카드 한 덩어리. 떴는지 없는지를 이것으로 본다. */
+  get card(): Locator {
     return this.root;
+  }
+
+  /** 그림 옆 한 줄. 이 카드가 무엇을 권하는지가 여기 있다. */
+  get title(): Locator {
+    return this.root.getByText('가계부 쓰기 싫어하는 친구, 있죠?', { exact: true });
+  }
+
+  /** 그 아래 작은 줄. 보내기를 망설이게 하는 것을 없애는 자리다. */
+  get lead(): Locator {
+    return this.root.getByText('10초면 한 건 끝난다고 알려 주세요', { exact: true });
   }
 
   /**

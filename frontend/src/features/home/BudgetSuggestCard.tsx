@@ -3,11 +3,16 @@ import { useMemo, useState } from 'react';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { ApiError, useSaveBudget } from '../../shared/api';
 import { toLedgerDate } from '../../shared/lib/format';
-import { AmountField, BottomSheet, Button, CategoryAvatar, SageCard } from '../../shared/ui';
+import {
+  AmountField,
+  BottomSheet,
+  Button,
+  CardClose,
+  CategoryAvatar,
+  SageCard,
+} from '../../shared/ui';
 import { useFullScreenAd } from '../ads';
 import { BudgetCalcAsk, BudgetCalcSheet } from '../budgets';
-
-import { CardClose } from './CardClose';
 
 /**
  * 첫 기록을 마친 사람에게만 뜨는 예산 제안.
