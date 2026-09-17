@@ -22,8 +22,18 @@ export type HomeMode = 'firstUse' | 'default' | 'recovery';
  */
 export const RECOVERY_AFTER_DAYS = 3;
 
+/**
+ * 몇 번 적은 사람에게 공유를 권할지.
+ *
+ * 두어 번 눌러 보고 만 사람에게 남에게 알리라고 하면 권유가 아니라 참견이다.
+ * 다섯 번이면 하루 쓰고 지운 사람과 계속 쓰는 사람이 갈린다.
+ */
+export const SHARE_AFTER_RECORDS = 5;
+
 export interface HomeViewInput {
   hasAnyTransaction: boolean;
+  /** 지금까지 적은 건수. 지운 것은 빠져 있다. */
+  transactionCount: number;
   /** 마지막 기록 이후 며칠. 오늘 기록했으면 0, 기록이 없으면 null. */
   daysSinceLastTransaction: number | null;
   /** 예산 금액 문자열. 정하지 않았으면 null. */
@@ -38,6 +48,8 @@ export interface HomeView {
   showBudgetSuggestion: boolean;
   /** 첫 기록을 아직 안 한 사람에게만 부담을 더는 한 줄을 보여준다. */
   showFirstLead: boolean;
+  /** 앱을 친구에게 알리겠냐고 물어볼까. 몇 번 써 본 사람에게만 묻는다. */
+  showShareInvite: boolean;
 }
 
 export function resolveHomeView(input: HomeViewInput): HomeView {
@@ -58,6 +70,7 @@ export function resolveHomeView(input: HomeViewInput): HomeView {
     hasBudget,
     showBudgetSuggestion: input.hasAnyTransaction && !hasBudget,
     showFirstLead: !input.hasAnyTransaction,
+    showShareInvite: input.transactionCount >= SHARE_AFTER_RECORDS,
   };
 }
 
@@ -65,6 +78,7 @@ export function resolveHomeView(input: HomeViewInput): HomeView {
 export function toHomeViewInput(budget: BudgetOut): HomeViewInput {
   return {
     hasAnyTransaction: budget.has_any_transaction,
+    transactionCount: budget.transaction_count,
     daysSinceLastTransaction: budget.days_since_last_transaction,
     budgetAmount: budget.budget.amount ?? null,
   };

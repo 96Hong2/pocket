@@ -288,6 +288,18 @@ class BudgetTotalArea {
     return this.page.getByTestId(TEST_IDS.budgetCaption);
   }
 
+  /**
+   * 예산을 친구에게 보내는 줄.
+   *
+   * 진행 중인 달과 끝난 달이 서로 다른 말을 하고, 넘긴 달에는 아예 없다.
+   * 누르는 동안 이름이 「공유창 여는 중」으로 바뀐다.
+   */
+  get shareButton(): Locator {
+    return this.section.getByRole('button', {
+      name: /^(이번 달 예산 친구에게 공유하기|예산 지킨 달 친구에게 공유하기|공유창 여는 중)$/,
+    });
+  }
+
   /** 예산이 없을 때의 제목. 이번 달과 끝난 달의 문구가 다르다. */
   get emptyTitle(): Locator {
     return this.section.getByText(/^(아직 \d{1,2}월 예산이 없어요|이 달엔 예산이 없었어요)$/);

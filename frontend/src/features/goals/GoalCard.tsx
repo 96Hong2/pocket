@@ -7,6 +7,7 @@ import {
 } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import { Amount, Button, Gauge, iconUrl } from '../../shared/ui';
+import { goalLine, ShareButton } from '../share';
 
 export interface GoalCardProps {
   goal: GoalOut;
@@ -107,6 +108,27 @@ export function GoalCard({ goal, onEdit, onContribute }: GoalCardProps) {
           모은 돈 더하기
         </Button>
       </div>
+
+      {/*
+        카드의 마지막 줄이다. 목표를 만든 직후 처음 보는 화면이 이 카드라, 「새로 만들면
+        공유」 를 따로 묻는 창을 띄우지 않고 여기 늘 세워 둔다. 창을 하나 더 띄우면
+        목표를 만들 때마다 안 쓰는 단이 하나 늘어난다.
+
+        **다 모았으면 이 줄을 접는다.** 바로 위 축하 자리(`GoalDonePanel`)에 같은 이름의
+        버튼이 서 있어, 둘 다 두면 한 화면에 똑같은 버튼이 두 개가 된다. 어느 것을 눌러야
+        하는지 고민할 값이 없다. 배지를 두지 않는 것과 같은 이유다.
+
+        보내는 문구에 모은 금액은 넣지 않는다. 진행률만 간다(`shareText.ts`).
+      */}
+      {goal.is_achieved ? null : (
+        <ShareButton
+          className="goal-card__share"
+          kind="goal"
+          where="goal"
+          label="이 목표 친구에게 공유하기"
+          message={goalLine(goal.title, parseDecimalOr(goal.progress, 0) * 100)}
+        />
+      )}
     </section>
   );
 }

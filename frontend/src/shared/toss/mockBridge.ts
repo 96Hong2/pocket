@@ -21,6 +21,9 @@ import {
   type PickPhotosOptions,
   type PickedImage,
   type SafeAreaInsets,
+  type ShareBridge,
+  type ShareTarget,
+  recordShare,
 } from './types';
 
 /**
@@ -46,6 +49,8 @@ export interface MockScenario {
   /** 지원하지 않는다고 답할 기능들. */
   unsupported?: BridgeCapability[];
   ads?: 'ok' | 'noFill' | 'failed' | 'unsupported';
+  /** 공유 시트. `failed` 면 링크를 못 만든 것으로 친다. */
+  share?: 'ok' | 'failed';
   /** 전면 광고. `ok` 면 잠깐 덮었다가 「봤다」 로 끝난다. */
   fullScreenAd?: 'ok' | 'failed' | 'unsupported';
 }
@@ -141,6 +146,27 @@ class MockAdsBridge implements AdsBridge {
   }
 }
 
+/**
+ * 브라우저에는 시스템 공유 시트가 없다. 무엇을 들고 나가려 했는지만 창에 적어 둔다.
+ *
+ * 실기기에서 링크를 만드는 자리라 여기서도 토스가 주는 것과 같은 모양의 주소를 만든다.
+ * 주소 값 자체를 검증에 쓰지는 않지만, 개발 중에 무엇이 붙는지 눈으로 보이게 한다.
+ */
+class MockShareBridge implements ShareBridge {
+  private readonly scenario: MockScenario;
+
+  constructor(scenario: MockScenario) {
+    this.scenario = scenario;
+  }
+
+  async send(target: ShareTarget): Promise<void> {
+    if (this.scenario.share === 'failed') {
+      throw new BridgeError('UNKNOWN', '목: 공유 링크를 만들지 못했어요.');
+    }
+    recordShare('browser', target);
+  }
+}
+
 /** 브라우저·테스트용 로그 수집. 창에 쌓아 두고 e2e 가 읽는다. */
 class MockAnalyticsBridge implements AnalyticsBridge {
   log(kind: AnalyticsKind, name: string, params: AnalyticsParams = {}): void {
@@ -157,6 +183,7 @@ export class MockMiniAppBridge implements MiniAppBridge {
   readonly storage = new MemoryStorage();
   readonly ads: AdsBridge;
   readonly analytics: AnalyticsBridge = new MockAnalyticsBridge();
+  readonly share: ShareBridge;
 
   private accessoryListeners = new Set<(id: string) => void>();
   private backListeners = new Set<() => void>();
@@ -167,6 +194,7 @@ export class MockMiniAppBridge implements MiniAppBridge {
   constructor(scenario: MockScenario = {}) {
     this.scenario = scenario;
     this.ads = new MockAdsBridge(scenario);
+    this.share = new MockShareBridge(scenario);
   }
 
   supports(capability: BridgeCapability): boolean {

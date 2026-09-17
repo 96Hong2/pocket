@@ -336,6 +336,18 @@ export class ClosingArea {
     return this.overlay.getByRole('button', { name: '다 봤어요' });
   }
 
+  /**
+   * 마지막 장에만 서는 공유. 앞 석 장에는 없다.
+   *
+   * 한 달을 다 훑은 뒤라야 무엇을 알리는 것인지 알고 누른다.
+   * 누르는 동안 이름이 「공유창 여는 중」으로 바뀐다.
+   */
+  get shareButton(): Locator {
+    return this.overlay.getByRole('button', {
+      name: /^(이번 결산 친구에게 공유하기|공유창 여는 중)$/,
+    });
+  }
+
   /** 오른쪽 위 ✕. */
   get closeButton(): Locator {
     return this.overlay.getByRole('button', { name: '닫기' });

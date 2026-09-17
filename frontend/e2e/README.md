@@ -16,13 +16,17 @@ e2e/
     aitMock.ts   그 밖의 devtools 목 다이얼. 광고 미채움·시스템 뒤로가기·미니앱 종료 감시·
                  알림 동의 결과와 그 요청 횟수 세기.
                  남은 행동 로그를 읽는 `readLogs`·`logsNamed` 도 여기 있다(운영 판에는 없는 사본이다)
+                 공유 시트 자리를 대신 받는 `installShareSheetStub` 과 그 결과를 읽는
+                 `readShares`(브릿지가 들고 나간 것)·`readShareSheet`(시트까지 간 글)도 여기 있다
     servers.ts   playwright.config 가 띄우는 dev 서버 정의
     fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다. spec 은 여기서 시작한다
   fixtures/    테스트가 쓰는 파일. 지금은 사진용 PNG 한 장(capture.png). 캡처와 영수증이 함께 쓴다
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
     OnboardingScreen 처음 안내. `showOnboarding` 을 켠 spec 에서만 실제로 뜬다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
-    HomeScreen       홈. 안쪽을 hero·today·budget·goal·closing·ads·addToHome·recovery 로 나눠 들고 있다
+    HomeScreen       홈. 안쪽을 hero·today·budget·goal·closing·ads·addToHome·recovery·share 로 나눠 들고 있다
+                     share 는 기록 버튼 아래 공유 권유 줄이다. 다섯 번 넘게 적은 사람에게만 뜨고
+                     닫으면 기기에 표시가 남는다(addToHome 과 같다)
                      addToHome 은 첫 기록 뒤 한 번만 뜨는 카드다. 기기에 표시를 남기므로
                      테스트마다 새 브라우저 컨텍스트에서 다시 볼 수 있다
                      today 의 안 쓴 날 줄은 빈 상태 버튼과 글자가 같아, 줄 안의 취소 버튼에서
@@ -52,6 +56,8 @@ e2e/
     NotificationsScreen 알림 설정 화면. 켜기와 시각 둘뿐이라 안을 더 쪼개지 않았다
     AssetsScreen     자산 화면. 순자산 카드·그룹 구획 넷·항목 시트를 한 화면이 들고 있다
     GoalScreen       목표 화면. 목표 카드·모은 돈 목록·시트 둘(목표·기여)을 한 화면이 들고 있다
+                     공유 버튼이 둘이다. 카드의 `shareButton` 과 축하 자리의 `doneShareButton`.
+                     이름이 같아 자리로 가르고, **다 모으면 카드 쪽은 접힌다**(둘이 함께 뜨지 않는다)
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
   specs/       테스트. 무엇을 확인하는지만 읽히게 쓴다. 매번 돌린다
   edge/        엣지케이스. 경계값·실패 주입·심사 항목. 출시 전과 크게 고친 뒤에만 돌린다
@@ -119,6 +125,9 @@ e2e/
   `shared/api/types.ts`(거래 종류 같은 타입), `features/transactions/ledgerView.ts`(한 페이지 줄 수·달력 칸 계산),
   `shared/lib/forbiddenWords.ts`(탓하는 말 목록과 판정), `shared/lib/closingSeen.ts`(결산 알림 창 일수),
   `shared/ledger/quickPick.ts`(기록 화면 앞자리 개수).
+  여기에 셋이 더 있다: `features/home/homeMode.ts`(공유를 권하는 기록 건수),
+  `features/share/shareText.ts`(공유 문구), `features/share/shareLink.ts`(딥링크 주소).
+  셋 다 화면 문구·규칙의 정본이라 spec 이 같은 값을 다시 적지 않으려고 가져온다.
   뒤의 둘은 화면 문구·표시 규칙의 정본이라 spec 이 같은 값을 다시 적지 않으려고 가져온다.
   **배럴(`features/*/index.ts`)로 가져오지 않는다.** 배럴은 `.tsx` 를 함께 내보내서,
   상수 하나만 쓰려 해도 화면 컴포넌트가 Node 로 끌려온다. 순수 모듈을 경로로 직접 가져온다.
@@ -194,6 +203,7 @@ placeholder 3장으로 바꿔친다. **파일 선택 다이얼로그가 아예 �
 | `denyPhotoPermission()`          | `photoPermissionDenied(page)`        |
 | `denyCameraPermission()`         | `cameraPermissionDenied(page)`       |
 | `forceAgreementResult(result)`   | `agreementResultForced(page, result)` |
+| `installShareSheetStub()`        | `readShareSheet(page)` 에 글이 쌓인다 |
 
 마지막 줄은 `support/aitMock.ts` 에 있고 알림 동의 결과를 정한다. 목의 기본값이
 `newAgreement` 라 **거절을 보려면 반드시 이 다이얼을 돌려야 한다.** 동의 화면을 몇 번
@@ -258,6 +268,11 @@ cd backend && DATABASE_URL='postgresql+psycopg://pocket:pocket@localhost:5434/po
 - **실기기가 취소를 어떻게 알리는지.** 우리는 '빈 값 = 취소' 로 계약했는데 SDK 타입에 적혀 있지
   않고 devtools 의 web 모드는 예외를 던진다. **실기기가 예외를 던진다면 초록인 채로 틀린다.**
   실기기에서 취소를 한 번 눌러 보기 전까지는 미검증이다.
+- **실제 시스템 공유 시트와 링크 미리보기.** 시트는 웹 페이지 바깥에서 뜨고, 미리보기는
+  토스 서버가 `ogImageUrl` 을 받아 가서 그린다. 여기서 확인되는 것은 **무엇이 시트까지
+  넘어갔는지**(`readShareSheet`)와 **어떤 딥링크·그림 주소를 붙였는지**(`readShares`)까지다.
+  e2e 스택은 주소가 http 라 그림을 아예 안 붙이는 쪽으로만 지나간다. https 쪽 분기는
+  vitest 의 `shareLink.test.ts` 가 본다.
 - **배너 실제 크기와 네이티브 권한 팝업.** 실기기에서만 보인다.
 - **광고 채움/미채움(NoFill)의 실제 응답.** 목이 주는 시나리오까지만이다.
 - **사진 인식 정확도.** 서버 스텁이 이미지를 읽지 않고 정해 둔 예시를 낸다(캡처 5건 · 영수증 1건).

@@ -17,6 +17,11 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 
 헤더가 없으면 `401 UNAUTHORIZED`.
 
+**딱 한 자리만 이 헤더를 안 받는다: `GET /og/*.png`.** 공유 링크 미리보기에 뜨는 그림이고,
+그 그림을 받아 가는 것은 사용자의 브라우저가 아니라 **토스 서버**다. 헤더를 붙일 방법이 없다.
+여기 있는 것은 우리가 만들어 저장소에 넣어 둔 그림 다섯 장뿐이고 사용자 데이터가 아니다.
+파일은 `backend/app/static/og/` 에 있고 `frontend/scripts/gen-og-images.mjs` 가 만든다.
+
 ## 오류 형태
 
 성공이 아닌 응답은 항상 이 모양이다.
@@ -407,6 +412,7 @@ ADR-0006 이다.
   "month_income": "0",
   "monthly_delta": "-12000",
   "has_any_transaction": true,
+  "transaction_count": 12,
   "days_since_last_transaction": 0,
   "recovery": { "window_days": 7, "recorded_days": 2, "progress": "0.2857" }
 }
@@ -426,6 +432,11 @@ ADR-0006 이다.
 화면을 그릴지 고르는 근거다. 둘 다 사용자 시간대 기준이고, 오늘 기록했으면 0 이다.
 기록이 하나도 없으면 `has_any_transaction` 이 false 이고 날짜는 `null` 이다.
 되돌리기로 지운 기록은 세지 않는다.
+
+`transaction_count` 는 **지금까지 적은 건수**다. 지운 것은 빠져 있다. 합계에 쓰는 값이 아니라
+「몇 번 해 본 사람인가」 를 재는 값이고, 홈이 공유를 권할지 여기로 가른다(다섯 번부터).
+**몇 번부터 권할지는 서버가 정하지 않는다.** 서버는 건수만 주고 문턱은 화면이 안다.
+복구 카드와 같은 규칙이다.
 
 `recovery` 는 **최근 며칠 중 며칠 기록했나**다. 며칠 비었을 때 홈에 뜨는 복구 카드가 쓴다.
 `null` 이 없고 늘 실린다. 창은 오늘을 포함한 7일이고 그 길이를 `window_days` 로 함께 보낸다.

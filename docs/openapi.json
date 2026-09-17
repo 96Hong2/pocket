@@ -6518,6 +6518,10 @@
             "type": "boolean",
             "title": "Has Any Transaction"
           },
+          "transaction_count": {
+            "type": "integer",
+            "title": "Transaction Count"
+          },
           "days_since_last_transaction": {
             "anyOf": [
               {
@@ -6541,6 +6545,7 @@
           "month_income",
           "monthly_delta",
           "has_any_transaction",
+          "transaction_count",
           "days_since_last_transaction",
           "recovery"
         ],

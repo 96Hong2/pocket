@@ -159,6 +159,30 @@ export class GoalScreen {
     return this.card.getByRole('button', { name: '모은 돈 더하기', exact: true });
   }
 
+  /**
+   * 진행 중인 목표를 친구에게 보내는 줄. 카드의 마지막 줄이다.
+   *
+   * 누르는 동안 이름이 「공유창 여는 중」으로 바뀐다. 축하 자리의 같은 이름과 섞이지 않게
+   * 카드 안에서만 찾는다(둘은 다 모았을 때 한 화면에 함께 뜬다).
+   */
+  get shareButton(): Locator {
+    return this.card.getByRole('button', {
+      name: /^(이 목표 친구에게 공유하기|공유창 여는 중)$/,
+    });
+  }
+
+  /** 다 모았을 때 축하 자리에 서는 공유. 카드의 것과 이름이 같아 자리로 가른다. */
+  get doneShareButton(): Locator {
+    return this.done.getByRole('button', {
+      name: /^(이 목표 친구에게 공유하기|공유창 여는 중)$/,
+    });
+  }
+
+  /** 공유가 막혔을 때 버튼 아래 서는 한 줄. */
+  get shareFailure(): Locator {
+    return this.card.getByRole('alert');
+  }
+
   /** 모은 돈 목록. */
   get log(): Locator {
     return this.page.getByRole('region', { name: '모은 돈', exact: true });

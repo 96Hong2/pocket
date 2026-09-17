@@ -36,6 +36,8 @@ export class HomeScreen {
   readonly addToHome: AddToHomeArea;
   /** 며칠 비웠을 때 뜨는 복귀 카드. */
   readonly recovery: RecoveryCard;
+  /** 기록 버튼 아래 공유 권유 줄. 몇 번 적어 본 사람에게만 뜬다. */
+  readonly share: HomeShareRow;
 
   constructor(page: Page) {
     this.page = page;
@@ -48,6 +50,7 @@ export class HomeScreen {
     this.ads = new AdArea(page);
     this.addToHome = new AddToHomeArea(page);
     this.recovery = new RecoveryCard(page);
+    this.share = new HomeShareRow(page);
   }
 
   async open(): Promise<void> {
@@ -609,6 +612,41 @@ class AddToHomeArea {
 
   get doneButton(): Locator {
     return this.sheet.getByRole('button', { name: '알겠어요', exact: true });
+  }
+}
+
+/**
+ * 기록 버튼 아래 공유 권유 줄.
+ *
+ * 몇 번 적어 본 사람에게만 뜨고, 닫으면 다시 뜨지 않는다. 닫아 둔 표시는 기기에 남으므로
+ * 테스트마다 새 브라우저 컨텍스트에서 다시 볼 수 있다(홈 화면 추가 안내와 같다).
+ */
+class HomeShareRow {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('region', { name: '앱 공유', exact: true });
+  }
+
+  /** 줄 한 덩어리. 떴는지 없는지를 이것으로 본다. */
+  get row(): Locator {
+    return this.root;
+  }
+
+  /**
+   * 공유 버튼.
+   *
+   * 누르면 링크를 만드는 동안 이름이 「공유창 여는 중」으로 바뀐다. 두 이름을 함께 잡아야
+   * 누른 뒤에도 같은 버튼을 가리킬 수 있다.
+   */
+  get button(): Locator {
+    return this.root.getByRole('button', {
+      name: /^(10초 가계부 친구에게 공유하기|공유창 여는 중)$/,
+    });
+  }
+
+  get closeButton(): Locator {
+    return this.root.getByRole('button', { name: '공유 안내 닫기' });
   }
 }
 

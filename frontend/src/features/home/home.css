@@ -409,6 +409,25 @@
     color: var(--color-ink);
   }
 
+  /*
+    기록 버튼 아래의 공유 권유.
+
+    카드로 그리지 않는다. 테두리와 그림자까지 두면 예산 카드·복구 카드와 같은 무게가 되어,
+    오늘 할 일이 셋으로 보인다. 줄 하나로 두고 닫기만 오른쪽에 붙인다.
+  */
+  .home-share {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 10px;
+    padding: 0 8px;
+  }
+
+  .home-share__action {
+    flex: 1;
+    min-width: 0;
+  }
+
   /* 「예산 정하기」 아래 한 단 낮게. 같은 무게로 두면 무엇부터 할지 정해지지 않는다. */
   .home-card__calc {
     margin-top: 6px;

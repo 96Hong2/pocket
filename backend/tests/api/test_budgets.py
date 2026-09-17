@@ -99,6 +99,21 @@ def test_기록하면_홈이_고를_근거가_바뀐다(client: TestClient) -> N
     assert body["days_since_last_transaction"] is not None
 
 
+def test_적은_건수를_세어_준다(client: TestClient) -> None:
+    """홈이 「몇 번 해 본 사람인가」 로 갈리는 자리에 쓴다. 지운 것은 빼고 센다."""
+    ids = []
+    for _ in range(3):
+        created = client.post("/api/v1/transactions", json=_expense(), headers=AUTH)
+        ids.append(created.json()["transaction"]["id"])
+
+    body = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()
+    assert body["transaction_count"] == 3
+
+    client.delete(f"/api/v1/transactions/{ids[0]}", headers=AUTH)
+    body = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()
+    assert body["transaction_count"] == 2
+
+
 def test_앞날짜로_적어_둔_기록은_공백을_메우지_않는다(client: TestClient) -> None:
     """카드값을 미리 적어 두는 사람이 있다.
 

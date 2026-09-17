@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   RECOVERY_AFTER_DAYS,
+  SHARE_AFTER_RECORDS,
   resolveHeroLayout,
   resolveHomeView,
   type HomeViewInput,
@@ -10,6 +11,7 @@ import {
 function input(overrides: Partial<HomeViewInput> = {}): HomeViewInput {
   return {
     hasAnyTransaction: false,
+    transactionCount: 0,
     daysSinceLastTransaction: null,
     budgetAmount: null,
     ...overrides,
@@ -130,5 +132,23 @@ describe('resolveHeroLayout', () => {
   it('설정을 아직 못 받았으면 남은 예산 설정과 같게 떨어진다', () => {
     expect(resolveHeroLayout(undefined, true)).toBe(resolveHeroLayout('remaining_budget', true));
     expect(resolveHeroLayout(undefined, false)).toBe(resolveHeroLayout('remaining_budget', false));
+  });
+});
+
+describe('공유 권유', () => {
+  it('몇 번 안 적어 본 사람에게는 앱을 알리라고 하지 않는다', () => {
+    const view = resolveHomeView(
+      input({ hasAnyTransaction: true, transactionCount: SHARE_AFTER_RECORDS - 1 }),
+    );
+
+    expect(view.showShareInvite).toBe(false);
+  });
+
+  it('충분히 써 본 사람에게만 묻는다', () => {
+    const view = resolveHomeView(
+      input({ hasAnyTransaction: true, transactionCount: SHARE_AFTER_RECORDS }),
+    );
+
+    expect(view.showShareInvite).toBe(true);
   });
 });

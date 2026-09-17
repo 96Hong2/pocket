@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.body_limit import BodySizeLimitMiddleware
 from app.api.deps import get_verifier
@@ -27,6 +30,9 @@ from app.modules.settings import router as settings_router
 from app.modules.transactions import router as transactions_router
 
 __all__ = ["app", "create_app"]
+
+# 공유 링크 미리보기 그림이 있는 자리. 이미지는 저장소에 함께 들어 있다.
+OG_DIR = Path(__file__).resolve().parent / "static" / "og"
 
 
 def create_app() -> FastAPI:
@@ -80,6 +86,16 @@ def create_app() -> FastAPI:
     app.include_router(goals_router, prefix="/api/v1")
     app.include_router(notifications_router, prefix="/api/v1")
     app.include_router(account_router, prefix="/api/v1")
+
+    # 공유 링크 미리보기(오픈그래프) 그림.
+    #
+    # 인증을 걸지 않는다. 링크 미리보기를 만드는 것은 사용자의 브라우저가 아니라 토스 서버라,
+    # `X-Anon-Key` 를 붙일 방법이 없다. 여기 있는 것은 우리가 만든 그림 몇 장뿐이고
+    # 사용자 데이터가 아니다.
+    #
+    # 폴더가 없으면 기동이 실패한다. 이미지가 이미지로 패키징되지 않은 것을 배포 뒤에
+    # 미리보기가 빈 것으로 알게 되면 늦다.
+    app.mount("/og", StaticFiles(directory=OG_DIR), name="og")
 
     @app.get("/health", tags=["meta"])
     def health() -> dict[str, str]:

@@ -22,7 +22,9 @@ export type BridgeCapability =
   /** 전면(보상형) 광고. 배너와 지원 여부가 따로 갈린다. */
   | 'fullScreenAd'
   | 'notification'
-  | 'analytics';
+  | 'analytics'
+  /** 시스템 공유 시트. 링크를 만들어 친구에게 보낸다. */
+  | 'share';
 
 /**
  * 토스 알림 동의 요청의 결과.
@@ -160,6 +162,41 @@ export interface AnalyticsBridge {
   log(kind: AnalyticsKind, name: string, params?: AnalyticsParams): void;
 }
 
+/**
+ * 친구에게 보낼 것 한 벌.
+ *
+ * `path` 는 링크를 누른 사람이 열게 될 자리다. `intoss://` 로 시작하는 딥링크여야 하고,
+ * 그 규칙은 토스가 정한 것이라 여기서 검사하지 않는다(어기면 SDK 가 던진다).
+ *
+ * `ogImageUrl` 은 미리보기에 뜨는 그림이다. 안 주면 콘솔에 등록한 앱 기본 그림이 쓰인다.
+ * 못 만들었으면 비워서 보낸다. 그림 하나 때문에 공유 자체를 막지 않는다.
+ */
+export interface ShareTarget {
+  path: string;
+  ogImageUrl?: string;
+  /** 링크 앞에 붙는 한 줄. 받는 사람이 링크보다 먼저 읽는 글이다. */
+  message: string;
+}
+
+/**
+ * 공유 시트를 여는 자리.
+ *
+ * 링크 만들기와 시트 열기를 한 번으로 묶는다. 화면이 둘을 따로 부르면 링크만 만들고
+ * 시트를 못 연 상태가 생기는데, 그때 사용자에게는 아무 일도 안 일어난 것으로 보인다.
+ *
+ * **실패하면 던진다.** 부르는 쪽이 왜 안 됐는지 화면에 적어야 한다.
+ */
+export interface ShareBridge {
+  send(target: ShareTarget): Promise<void>;
+}
+
+/** 내보낸 공유 한 건. 운영 판이 아닐 때만 창에 쌓인다. */
+export interface RecordedShare {
+  path: string;
+  ogImageUrl: string | null;
+  message: string;
+}
+
 /** 남긴 행동 로그 한 줄. 운영 판이 아닐 때만 창에 쌓인다. */
 export interface RecordedLog {
   kind: AnalyticsKind;
@@ -177,6 +214,17 @@ declare global {
      * 여기 쌓아 두면 눈으로도 보고 테스트로도 본다. 운영 판에서는 채우지 않는다.
      */
     __pocketLogs?: RecordedLog[];
+    /**
+     * 브라우저·샌드박스에서만 있는 공유 사본.
+     *
+     * 시스템 공유 시트는 웹 페이지 바깥에서 뜬다. 무엇을 들고 나갔는지는 화면에 흔적이
+     * 남지 않아, 이 배열이 없으면 개발 중에도 e2e 에서도 확인할 방법이 없다.
+     *
+     * **행동 로그와 담는 것이 다르다.** 로그에는 갈래 이름까지만 싣는다(`events.ts`).
+     * 공유 문구에는 목표 이름과 금액이 들어가서 로그에 실을 수 없다. 여기 사본에만 둔다.
+     * 운영 판에서는 채우지 않는다.
+     */
+    __pocketShares?: RecordedShare[];
   }
 }
 
@@ -189,6 +237,19 @@ export function recordLog(
 ): void {
   if (environment === 'toss' || typeof window === 'undefined') return;
   (window.__pocketLogs ??= []).push({ kind, name, params });
+}
+
+/** 운영 판이 아닐 때 내보낸 공유를 창에 남긴다. 실패해도 아무 일도 일어나지 않는다. */
+export function recordShare(
+  environment: BridgeEnvironment,
+  target: ShareTarget,
+): void {
+  if (environment === 'toss' || typeof window === 'undefined') return;
+  (window.__pocketShares ??= []).push({
+    path: target.path,
+    ogImageUrl: target.ogImageUrl ?? null,
+    message: target.message,
+  });
 }
 
 export interface NavigationAccessory {
@@ -261,4 +322,5 @@ export interface MiniAppBridge {
   readonly storage: KeyValueStore;
   readonly ads: AdsBridge;
   readonly analytics: AnalyticsBridge;
+  readonly share: ShareBridge;
 }

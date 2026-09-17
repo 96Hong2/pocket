@@ -4,6 +4,7 @@ import { parseDecimal, parseDecimalOr, type BudgetStateOut } from '../../shared/
 import { formatCurrency, formatPercent } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import { Amount, Button, Card, EmptyState, Gauge } from '../../shared/ui';
+import { budgetLine, closingLine, ShareButton, type ShareButtonProps } from '../share';
 
 export interface BudgetTotalCardProps {
   state: BudgetStateOut;
@@ -26,6 +27,36 @@ export interface BudgetTotalCardProps {
 /** `2026-09-01` → `9` */
 function monthNumber(periodStart: string): number {
   return Number(periodStart.slice(5, 7));
+}
+
+/**
+ * 이 카드에서 무엇을 친구에게 보낼까. 보낼 것이 없으면 null.
+ *
+ * 진행 중인 달은 「정했다」 를, 끝난 달은 「지켰다」 를 말한다.
+ * **넘긴 달에는 자리를 아예 두지 않는다.** 넘긴 것을 알리라고 권하면 그 달의 이 카드가
+ * 벌이 된다. 어느 쪽이든 금액은 보내지 않는다(`shareText.ts`).
+ */
+function shareOf(
+  state: BudgetStateOut,
+  editable: boolean,
+): Pick<ShareButtonProps, 'kind' | 'where' | 'label' | 'message'> | null {
+  const month = state.period_start.slice(0, 7);
+
+  if (editable) {
+    return {
+      kind: 'budget',
+      where: 'manage',
+      label: '이번 달 예산 친구에게 공유하기',
+      message: budgetLine(month),
+    };
+  }
+  if (state.is_over_budget) return null;
+  return {
+    kind: 'closing',
+    where: 'manage_past',
+    label: '예산 지킨 달 친구에게 공유하기',
+    message: closingLine(month, true),
+  };
 }
 
 /**
@@ -52,6 +83,7 @@ export function BudgetTotalCard({
     시트를 겹치지 않고 카드 안에서 버튼 줄만 물음으로 바뀐다.
   */
   const [asking, setAsking] = useState(false);
+  const share = shareOf(state, editable);
 
   if (amount == null) {
     return (
@@ -136,6 +168,9 @@ export function BudgetTotalCard({
           {caption(state, progress, editable)}
         </p>
       ) : null}
+
+      {/* 무엇을 보낼지는 아래 `shareOf` 가 정한다. 넘긴 달에는 이 자리가 없다. */}
+      {share != null ? <ShareButton className="budget-total__share" {...share} /> : null}
 
       {editable && !asking ? (
         <button
