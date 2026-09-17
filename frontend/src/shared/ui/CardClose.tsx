@@ -9,7 +9,7 @@
  */
 export function CardClose({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" className="home-card__close" aria-label={label} onClick={onClick}>
+    <button type="button" className="pk-card-close" aria-label={label} onClick={onClick}>
       <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
         <path
           d="M4 4l8 8M12 4l-8 8"

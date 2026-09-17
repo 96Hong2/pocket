@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
-import { useGoal } from '../../shared/api';
+import { parseDecimalOr, useGoal } from '../../shared/api';
 import { Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui';
+import { goalLine, ShareInviteCard } from '../share';
 
 import { ContributionList } from './ContributionList';
 import { ContributionSheet } from './ContributionSheet';
@@ -73,6 +74,29 @@ export function GoalBoard() {
             onEdit={() => setFormOpen(true)}
             onContribute={() => setContributionOpen(true)}
           />
+          {/*
+            목표를 정하고 나면 바로 이 카드가 선다. 카드 안 조용한 줄로는 눈에 안 들어온다는
+            실사용 지적을 받고 올렸다. 그림 하나에 멘트 한 줄이다.
+
+            **다 모으면 세우지 않는다.** 그때는 위 축하 자리가 같은 이름의 버튼을 크게
+            들고 있어, 둘 다 두면 한 화면에 똑같은 버튼이 두 개가 된다.
+
+            닫기를 두지 않았다. 목표 화면은 일부러 찾아 들어오는 자리라 홈처럼 지나치다
+            걸리는 자리가 아니고, 목표를 마치면 스스로 사라진다.
+          */}
+          {goal.is_achieved ? null : (
+            <ShareInviteCard
+              ariaLabel="목표 공유"
+              kind="goal"
+              where="goal"
+              icon="14_friends"
+              title="이 목표, 친구도 알면 좋잖아요"
+              lead="모은 금액은 빼고 진행률만 보내요"
+              label="이 목표 친구에게 공유하기"
+              message={goalLine(goal.title, parseDecimalOr(goal.progress, 0) * 100)}
+            />
+          )}
+
           <ContributionList goalId={goal.id} contributions={goal.contributions} />
           <p className="goal__closing">목표는 언제든 바꿔도, 지워도 괜찮아요</p>
         </>

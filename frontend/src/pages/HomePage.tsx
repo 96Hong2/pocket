@@ -99,6 +99,8 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
   // 그 자리에서 통째로 return 하면 '10초 기록' 버튼까지 사라져, 읽기 실패가 쓰기 진입점을 막는다.
   // 이 앱의 목적은 기록이라 조회가 안 되는 동안에도 기록은 되어야 한다.
   const view = budget.data != null ? resolveHomeView(toHomeViewInput(budget.data)) : null;
+  // 공유 권유가 이 카드를 보고 비켜야 해서, 판정을 한 번만 하고 둘이 함께 읽는다.
+  const showBudgetSuggestion = view?.showBudgetSuggestion === true && !budgetSuggest.hidden;
 
   return (
     <>
@@ -136,10 +138,12 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
 
       {/*
         기록 버튼 바로 아래. 몇 번 적어 본 사람에게만 뜨고, 닫으면 다시 안 뜬다.
-        결산 안내보다 위다. 결산은 달이 바뀐 며칠만 뜨는 자리라 그때 두 줄이 되는데,
-        아래로 밀면 이 줄은 평소에 허공에 뜬 채가 된다.
+
+        **예산 제안 카드가 떠 있으면 비켜 준다.** 둘 다 스스로 나타나 한 가지를 권하는
+        카드라, 같이 서면 기록 버튼 아래가 권유 두 장이 된다. 예산을 정하는 쪽이 이 사람의
+        가계부에 먼저 필요한 일이다. 한 번에 하나만 묻는다.
       */}
-      {view?.showShareInvite && !shareInvite.hidden ? (
+      {view?.showShareInvite && !showBudgetSuggestion && !shareInvite.hidden ? (
         <ShareAppCard onDismiss={shareInvite.dismiss} />
       ) : null}
 
@@ -149,9 +153,7 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
       */}
       <ClosingEntryCard />
 
-      {view?.showBudgetSuggestion && !budgetSuggest.hidden ? (
-        <BudgetSuggestCard onDismiss={budgetSuggest.dismiss} />
-      ) : null}
+      {showBudgetSuggestion ? <BudgetSuggestCard onDismiss={budgetSuggest.dismiss} /> : null}
 
       {/*
         목표가 있을 때만 그린다. 조회가 실패하면 이 자리를 비우고 오류 자리를 만들지 않는다.

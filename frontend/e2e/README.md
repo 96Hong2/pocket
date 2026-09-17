@@ -25,8 +25,9 @@ e2e/
     OnboardingScreen 처음 안내. `showOnboarding` 을 켠 spec 에서만 실제로 뜬다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
     HomeScreen       홈. 안쪽을 hero·today·budget·goal·closing·ads·addToHome·recovery·share 로 나눠 들고 있다
-                     share 는 기록 버튼 아래 공유 권유 줄이다. 다섯 번 넘게 적은 사람에게만 뜨고
-                     닫으면 기기에 표시가 남는다(addToHome 과 같다)
+                     share 는 기록 버튼 아래 공유 권유 **카드**다. 다섯 번 넘게 적은 사람에게만 뜨고
+                     닫으면 기기에 표시가 남는다(addToHome 과 같다).
+                     **예산 제안 카드가 떠 있으면 비켜 준다.** 그 카드를 닫아야 이 카드가 선다
                      addToHome 은 첫 기록 뒤 한 번만 뜨는 카드다. 기기에 표시를 남기므로
                      테스트마다 새 브라우저 컨텍스트에서 다시 볼 수 있다
                      today 의 안 쓴 날 줄은 빈 상태 버튼과 글자가 같아, 줄 안의 취소 버튼에서
@@ -56,8 +57,9 @@ e2e/
     NotificationsScreen 알림 설정 화면. 켜기와 시각 둘뿐이라 안을 더 쪼개지 않았다
     AssetsScreen     자산 화면. 순자산 카드·그룹 구획 넷·항목 시트를 한 화면이 들고 있다
     GoalScreen       목표 화면. 목표 카드·모은 돈 목록·시트 둘(목표·기여)을 한 화면이 들고 있다
-                     공유 버튼이 둘이다. 카드의 `shareButton` 과 축하 자리의 `doneShareButton`.
-                     이름이 같아 자리로 가르고, **다 모으면 카드 쪽은 접힌다**(둘이 함께 뜨지 않는다)
+                     공유가 둘이다. 목표 카드 아래 권유 카드(`shareCard`·`shareButton`)와
+                     축하 자리의 `doneShareButton`. 이름이 같아 자리로 가르고,
+                     **다 모으면 권유 카드가 통째로 사라진다**(둘이 함께 뜨지 않는다)
     UiGalleryScreen  개발용 공용 UI 갤러리. URL 이 달라 별도 객체다
   specs/       테스트. 무엇을 확인하는지만 읽히게 쓴다. 매번 돌린다
   edge/        엣지케이스. 경계값·실패 주입·심사 항목. 출시 전과 크게 고친 뒤에만 돌린다

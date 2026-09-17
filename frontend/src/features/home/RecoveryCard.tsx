@@ -1,8 +1,6 @@
 import { parseDecimalOr, type RecoveryProgressOut } from '../../shared/api';
 import { TEST_IDS } from '../../shared/testIds';
-import { Button, CategoryAvatar, Gauge, SageCard } from '../../shared/ui';
-
-import { CardClose } from './CardClose';
+import { Button, CardClose, CategoryAvatar, Gauge, SageCard } from '../../shared/ui';
 
 interface RecoveryCardProps {
   /** 최근 며칠 중 며칠 정리했나. 빠진 날 수는 받지 않는다. */

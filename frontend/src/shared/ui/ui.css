@@ -177,6 +177,30 @@
     padding: 18px;
   }
 
+  /*
+    카드 오른쪽 위의 닫기.
+
+    시트에서 X 를 뺀 것과 다른 판단이다. 그쪽은 토스가 그리는 미니앱 닫기와 자리가 겹쳐
+    앱이 통째로 닫혔다. 카드는 화면 안쪽이라 그 사고가 없고, 밀어서 닫을 자리도 없다.
+    보이는 크기는 작게 두되 누를 자리는 44px 로 넓히고, 음수 여백으로 줄 높이를 되돌린다.
+  */
+  .pk-card-close {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin: -12px -12px -12px 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-muted);
+  }
+
+  .pk-card-close:active {
+    color: var(--color-ink);
+  }
+
   /* ── Chip ───────────────────────────────────────────── */
   .pk-chip {
     display: inline-flex;

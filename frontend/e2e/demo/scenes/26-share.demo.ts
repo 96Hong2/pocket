@@ -37,8 +37,12 @@ test('54 목표와 결산을 친구에게 보낸다', async ({ appShell, demo, g
   await goal.waitReady();
   await demo.beat(2);
 
-  await demo.step('카드 마지막 줄이 공유다. 눌러 보기 전에는 늘 조용히 서 있다');
-  await expect(goal.shareButton).toBeVisible();
+  await demo.step('목표를 정하면 카드 아래에 공유 카드가 선다');
+  await expect(goal.shareCard).toBeVisible();
+  await demo.beat(2);
+
+  await demo.step('보내기를 망설이게 하는 것을 카드가 먼저 없앤다');
+  await expect(goal.shareCard).toContainText('모은 금액은 빼고 진행률만 보내요');
   await demo.beat(3);
 
   await demo.step('누르면 링크를 만들어 시스템 공유창으로 넘긴다');
@@ -82,7 +86,7 @@ test('54 목표와 결산을 친구에게 보낸다', async ({ appShell, demo, g
   await demo.beat(2);
 });
 
-test('55 앱을 알리는 줄은 닫을 수 있다', async ({ demo, home, prep }) => {
+test('55 앱을 알리는 카드는 닫을 수 있다', async ({ demo, home, prep }) => {
   await prep.addSeries(SHARE_AFTER_RECORDS, { amount: 3000, daysAgo: 0, prefix: '가게' });
   await prep.setBudget(500_000);
 
@@ -90,19 +94,20 @@ test('55 앱을 알리는 줄은 닫을 수 있다', async ({ demo, home, prep }
   await home.waitReady();
   await demo.open('닫을 수 있는 권유', '몇 번 써 본 사람에게만 한 번 묻는다');
 
-  await demo.step('기록 버튼 바로 아래 한 줄. 다섯 번 넘게 적은 사람에게만 뜬다');
-  await expect(home.share.button).toBeVisible();
+  await demo.step('기록 버튼 바로 아래 카드. 다섯 번 넘게 적은 사람에게만 뜬다');
+  await expect(home.share.title).toBeVisible();
+  await expect(home.share.lead).toBeVisible();
   await demo.beat(3);
 
   await demo.step('알릴 생각이 없으면 닫는다');
   await home.share.closeButton.click();
-  await expect(home.share.row).toHaveCount(0);
+  await expect(home.share.card).toHaveCount(0);
   await demo.beat(3);
 
   await demo.step('다시 열어도 그 자리는 비어 있다. 한 번 닫으면 끝이다');
   await home.open();
   await home.waitReady();
-  await expect(home.share.row).toHaveCount(0);
+  await expect(home.share.card).toHaveCount(0);
   await demo.beat(4);
 
   await demo.clearStep();
