@@ -321,6 +321,19 @@
     /* 끄는 동안 브라우저가 세로 손짓을 스크롤로 가져가지 않게 막는다. */
     touch-action: none;
   }
+
+  /*
+    펴는 폰. 시트는 포털로 body 에 붙어 셸의 기둥(--app-column)을 못 물려받는다.
+    안 묶으면 본문만 가운데 서고 시트만 화면 끝까지 퍼져, 같은 앱의 두 층이 따로 논다.
+    문턱과 값은 app/shell.css 의 그것과 같다. 한쪽만 고치면 폭이 어긋난다.
+  */
+  @media (min-width: 600px) {
+    .pk-sheet {
+      width: 100%;
+      max-width: var(--app-column);
+      margin-inline: auto;
+    }
+  }
   /*
     시트 바닥에 붙는 버튼 줄.
 
