@@ -254,7 +254,7 @@ class RecordInput {
    * 앞자리에 안 선 분류를 펼치는 칩.
    *
    * 앞자리는 열한 개까지다(`QUICK_LIMIT`). 그보다 많거나 꺼 둔 것이 있으면 여기 뒤로 간다.
-   * 뒤에 아무것도 없어도 「새 분류」가 이 안에 있어 칩 자체는 늘 있다.
+   * **뒤에 아무것도 없으면 이 칩 자체가 없다.** 그 자리에 「새 분류」가 바로 선다.
    */
   get moreCategoriesButton(): Locator {
     return this.root.getByRole('button', { name: '더 보기', exact: true });
@@ -270,7 +270,11 @@ class RecordInput {
     return this.root.getByText(/카테고리 관리에서 순서를 바꾸고/);
   }
 
-  /** 분류를 여기서 바로 만든다. 관리 탭까지 가지 않는다. 「더 보기」 안에 있다. */
+  /**
+   * 분류를 여기서 바로 만든다. 관리 탭까지 가지 않는다.
+   *
+   * 숨긴 분류가 있으면 「더 보기」 안이고, 없으면 「더 보기」 자리에 이것이 바로 선다.
+   */
   get newCategoryButton(): Locator {
     return this.root.getByRole('button', { name: '새 분류', exact: true });
   }
@@ -861,9 +865,21 @@ class RecordNaturalLanguageForm {
     return this.categoryGroup.getByRole('button', { name: '더 보기', exact: true });
   }
 
-  /** 검토 화면에서도 그 자리에서 분류를 만든다. 「더 보기」 안에 있다. */
+  /**
+   * 검토 화면에서도 그 자리에서 분류를 만든다.
+   *
+   * 숨긴 분류가 있으면 「더 보기」 안이고, 없으면 「더 보기」 자리에 이것이 바로 선다.
+   */
   get newCategoryButton(): Locator {
     return this.categoryGroup.getByRole('button', { name: '새 분류', exact: true });
+  }
+
+  /** 숨긴 분류가 있으면 한 번 펼치고 만들기를 연다. 기록 시트와 같은 규칙이다. */
+  async openNewCategory(): Promise<void> {
+    if ((await this.newCategoryButton.count()) === 0) {
+      await this.moreCategoriesButton.click();
+    }
+    await this.newCategoryButton.click();
   }
 
   /** 앞자리에 없으면 한 번 펼치고 고른다. */

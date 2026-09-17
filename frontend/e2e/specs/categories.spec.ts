@@ -556,8 +556,9 @@ test('끈 것을 다시 켜면 곧바로 앞자리로 돌아온다', async ({ ca
   await recordSheet.waitOpen();
 
   await expect(recordSheet.input.categoryChip('기타')).toBeVisible();
-  // 「더 보기」 자체는 그대로 있다. 뒤에 아무것도 없어도 새 분류 만들기가 그 안에 있다.
-  await expect(recordSheet.input.moreCategoriesButton).toBeVisible();
+  // 뒤로 밀린 것이 없어졌으니 「더 보기」도 사라진다. 그 자리는 「새 분류」가 받는다.
+  await expect(recordSheet.input.moreCategoriesButton).toHaveCount(0);
+  await expect(recordSheet.input.newCategoryButton).toBeVisible();
 });
 
 /**

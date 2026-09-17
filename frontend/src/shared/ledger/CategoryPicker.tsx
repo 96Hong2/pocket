@@ -16,8 +16,9 @@ export interface CategoryPickerProps {
   /**
    * 「＋ 새 분류」를 눌렀을 때. 안 넘기면 그 칸이 없다.
    *
-   * 이 칸은 **「더 보기」 안에만** 둔다. 앞자리는 고르는 자리이고 만드는 자리가 아니다.
-   * 자주 쓰는 열한 개 옆에 만들기가 늘 서 있으면 고를 것이 하나 더 늘어난다.
+   * 숨긴 분류가 있으면 이 칸은 **「더 보기」 안에** 둔다. 앞자리는 고르는 자리이고
+   * 만드는 자리가 아니다. 자주 쓰는 열한 개 옆에 만들기가 늘 서 있으면 고를 것이 하나 는다.
+   * 숨긴 것이 없을 때만 예외로 앞자리에 세운다. 아래 `hasHidden` 을 보라.
    */
   onCreate?: () => void;
   /**
@@ -41,7 +42,10 @@ export interface CategoryPickerProps {
  * **접혀 있을 때는 앞자리 열한 개뿐이다.** 나머지는 「더 보기」 뒤로 간다. 분류를 만들수록
  * 목록이 길어져 고르기가 느려지는 것을 이 한 줄이 막는다.
  * 펼치면 전부 보이고, 거기서 새로 만들 수도 있고, 순서를 어디서 바꾸는지도 적어 둔다.
- * 그 화면이 있다는 것조차 모르는 사람이 대부분이라 이 한 줄이 유일한 안내다.
+ *
+ * **숨긴 것이 없으면 「더 보기」를 세우지 않는다.** 열어도 분류가 한 개도 안 나오는 버튼이라,
+ * 누른 사람은 뭘 더 볼 수 있다고 믿고 눌렀다가 「새 분류」만 본다. 그 자리에 「새 분류」를
+ * 바로 세워 한 번 누르는 값을 없앤다.
  */
 export function CategoryPicker({
   categories,
@@ -61,8 +65,16 @@ export function CategoryPicker({
   const pickedIsHidden = rest.some((item) => item.id === selectedId);
   const open = showAll || pickedIsHidden;
   const shown = open ? [...front, ...rest] : front;
-  // 뒤에 아무것도 없고 만들 수도 없으면 「더 보기」가 열 것이 없다.
-  const hasMore = rest.length > 0 || onCreate != null;
+  /**
+   * 뒤에 숨긴 분류가 있나.
+   *
+   * 없으면 「더 보기」를 눌러도 분류가 하나도 안 나온다. 열어 봐야 「새 분류」뿐이라
+   * 한 번 누르는 값만 치르고 얻는 것이 없다. 그때는 그 자리에 「새 분류」를 바로 세운다.
+   * 기본 분류 열한 개를 그대로 쓰는 사람이 대부분이라, 이쪽이 오히려 보통 상태다.
+   */
+  const hasHidden = rest.length > 0;
+  // 「더 보기」는 숨긴 것이 있을 때만 있다. 그래서 open 이면 숨긴 것도 반드시 있다.
+  const showCreate = onCreate != null && (open || !hasHidden);
 
   const avatar = size === 'lg' ? 40 : 32;
 
@@ -86,7 +98,7 @@ export function CategoryPicker({
         </button>
       ))}
 
-      {hasMore && !open ? (
+      {hasHidden && !open ? (
         <button
           type="button"
           className="cat-chips__item cat-chips__item--more"
@@ -103,25 +115,26 @@ export function CategoryPicker({
         </button>
       ) : null}
 
+      {showCreate ? (
+        <button
+          type="button"
+          className="cat-chips__item cat-chips__item--new"
+          disabled={disabled}
+          onClick={onCreate}
+        >
+          <span className="cat-chips__more-mark" aria-hidden="true">
+            ＋
+          </span>
+          <span className="cat-chips__name">새 분류</span>
+        </button>
+      ) : null}
+
       {open ? (
         <>
-          {onCreate ? (
-            <button
-              type="button"
-              className="cat-chips__item cat-chips__item--new"
-              disabled={disabled}
-              onClick={onCreate}
-            >
-              <span className="cat-chips__more-mark" aria-hidden="true">
-                ＋
-              </span>
-              <span className="cat-chips__name">새 분류</span>
-            </button>
-          ) : null}
-
           {/*
-            여기가 카테고리 관리를 아는 유일한 통로다. 링크가 아니라 글이다.
+            분류가 많아 펼친 사람에게만 한다. 링크가 아니라 글이다.
             누르면 적던 금액이 사라지는 자리라, 지금 갈 곳이 아니라 **있다는 사실**만 말한다.
+            숨긴 것이 없으면 이 줄도 없다. 그 사람은 관리 탭 목록에서 같은 자리를 찾는다.
           */}
           <p className="cat-chips__note">
             관리 › 카테고리 관리에서 순서를 바꾸고, 앞에 보일 분류를 고를 수 있어요

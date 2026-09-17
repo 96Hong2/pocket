@@ -75,10 +75,30 @@ test('칩은 열한 개까지만 서고, 나머지는 「더 보기」 뒤에 �
   expect(all).toContain('기타');
 });
 
-test('「더 보기」 안에서 분류를 만들고, 관리 화면이 있다는 것도 알려 준다', async ({
+test('숨긴 분류가 없으면 「더 보기」 대신 「새 분류」가 그 자리에 선다', async ({
   home,
   recordSheet,
 }) => {
+  // 기본 분류 열한 개를 그대로 쓰는 상태다. 뒤에 숨은 분류가 하나도 없다.
+  // 그때 「더 보기」를 세우면 눌러도 분류가 안 나온다. 한 번 누르는 값만 치른다.
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await expect(recordSheet.input.moreCategoriesButton).toHaveCount(0);
+  await expect(recordSheet.input.newCategoryButton).toBeVisible();
+});
+
+test('숨긴 분류가 있으면 「더 보기」 안에서 만들고, 관리 화면이 있다는 것도 알려 준다', async ({
+  home,
+  prep,
+  recordSheet,
+}) => {
+  // 두 개를 만들면 앞자리 열한 개가 차고 나머지가 뒤로 밀린다. 그때 「더 보기」가 선다.
+  await prep.addCategory('반려동물');
+  await prep.addCategory('경조사');
+
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
@@ -89,7 +109,7 @@ test('「더 보기」 안에서 분류를 만들고, 관리 화면이 있다는
 
   await recordSheet.input.moreCategoriesButton.click();
   await expect(recordSheet.input.newCategoryButton).toBeVisible();
-  // 카테고리 관리가 있다는 것을 아는 유일한 통로다. 대부분 그 화면이 있는 줄도 모른다.
+  // 분류가 많아진 사람에게 카테고리 관리를 알려 주는 자리다. 그 화면이 있는 줄도 모른다.
   await expect(recordSheet.input.categorySettingsNote).toBeVisible();
 
   await recordSheet.input.foldCategoriesButton.click();
@@ -124,8 +144,13 @@ test('한 번 더 칩이 없다', async ({ home, recordSheet }) => {
 test('「더 보기」를 펴면 어느 화면에서 몇 개를 보고 있었는지 남는다', async ({
   home,
   page,
+  prep,
   recordSheet,
 }) => {
+  // 숨긴 분류가 있어야 「더 보기」가 선다. 기본 열한 개뿐이면 그 자리는 「새 분류」다.
+  await prep.addCategory('반려동물');
+  await prep.addCategory('경조사');
+
   await home.open();
   await home.waitReady();
   await home.recordButton.click();

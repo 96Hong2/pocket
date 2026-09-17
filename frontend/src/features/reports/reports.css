@@ -499,6 +499,21 @@
     overflow-y: auto;
   }
 
+  /*
+    펴는 폰. 이것도 포털로 body 에 붙어 셸의 기둥을 못 물려받는다.
+    문턱과 값은 app/shell.css 의 그것과 같다.
+  */
+  @media (min-width: 600px) {
+    .closing {
+      align-items: center;
+    }
+
+    .closing > * {
+      width: 100%;
+      max-width: var(--app-column);
+    }
+  }
+
   .closing__head {
     display: flex;
     align-items: center;
