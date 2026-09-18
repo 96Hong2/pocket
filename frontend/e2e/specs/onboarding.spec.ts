@@ -20,6 +20,11 @@ test('처음 열면 네 장을 지나 바로 시작한다', async ({ home, onboa
   await onboarding.nextButton.click();
 
   await expect(onboarding.title('아래 탭 두 개만 기억해요')).toBeVisible();
+  /*
+    리포트가 무엇을 보여 주는지에 **태그를 한 낱말 얹는다.** 분류별로만 보여 주는 줄 알면
+    태그를 만들어 놓고도 어디서 보는지 모른다. 만드는 법까지 적지는 않는다(읽을 것이 는다).
+  */
+  await expect(page.getByText('분류·태그별로 어디에 썼나')).toBeVisible();
   await onboarding.nextButton.click();
 
   await expect(onboarding.title('홈 화면에 두면 더 빨라요')).toBeVisible();

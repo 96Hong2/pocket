@@ -36,3 +36,30 @@ export function MonthTotals({ summary }: { summary: PeriodSummaryOut }) {
     </dl>
   );
 }
+
+/**
+ * 합계 자리를 미리 잡아 두는 띠.
+ *
+ * 달을 넘기는 동안 이 자리가 카드 한 장으로 부풀었다가 한 줄로 줄었다. 그 아래 달력과
+ * 목록이 통째로 따라 움직여서, 지난달을 찾으려고 화살표를 여러 번 누르면 화면이
+ * 출렁였다. **이름은 그대로 두고 숫자 자리만 회색 막대로 둔다.** 높이가 같다.
+ */
+export function MonthTotalsSkeleton() {
+  return (
+    <div
+      className="tx-totals tx-totals--loading"
+      role="status"
+      aria-label="이번 달 합계를 불러오는 중이에요"
+    >
+      {['지출', '수입', '차액'].map((label) => (
+        <div className="tx-totals__item" key={label}>
+          <span className="tx-totals__label">{label}</span>
+          {/* 자리만 채우는 숫자다. 글자는 안 보이고 크기만 진짜 금액과 같다. */}
+          <span className="pk-skeleton tx-totals__bar" aria-hidden="true">
+            000,000원
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}

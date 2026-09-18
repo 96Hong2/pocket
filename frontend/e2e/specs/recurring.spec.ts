@@ -12,7 +12,7 @@ import { expect, test } from '../support/fixtures';
  */
 
 // 카드를 함께 봐야 하는 시험이 있어 홈 화면 추가 카드를 켜 둔다.
-test.use({ showHomeAddCard: true });
+test.use({ showStarterCards: true });
 
 /** 오늘 날짜. 그날로 걸어야 홈 카드가 뜬다. */
 function today(): number {

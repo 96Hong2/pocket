@@ -156,6 +156,40 @@
   }
 
   /*
+    제목 줄 오른쪽에 아이콘 하나를 두는 머리. 리포트가 달력으로 건너가는 자리에 쓴다.
+    제목·리드의 여백은 그대로 두고 배치만 옆으로 편다.
+  */
+  .page__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .page__head-text {
+    min-width: 0;
+  }
+
+  .page__head-action {
+    display: grid;
+    flex: none;
+    place-items: center;
+    /* 손가락이 닿는 자리. 제목(22px)의 가운데에 맞춰 조금 내린다. */
+    width: 44px;
+    height: 44px;
+    margin-top: 2px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .page__head-action img {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+  }
+
+  /*
     하위 화면으로 들어가는 링크 줄. 카드 한 장 안에 쌓는다.
     화살표는 ::after 로 그린다. 링크 글자에 섞이면 스크린리더가 함께 읽는다.
   */

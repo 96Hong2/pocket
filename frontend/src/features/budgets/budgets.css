@@ -52,6 +52,30 @@
     padding: 4px 6px 4px 14px;
   }
 
+  /*
+    불러오는 동안 예산 카드 자리를 잡아 두는 뼈대.
+    「이 달엔 예산이 없었어요」 카드의 그림 72 · 제목 · 설명과 같은 크기다.
+    숫자를 바꿀 때는 shared/ui/states 의 `.pk-state__*` 와 함께 본다.
+  */
+  .budget__skeleton-icon {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 6px;
+    border-radius: 50%;
+  }
+
+  .budget__skeleton-title {
+    width: 140px;
+    /* .pk-state__title 의 줄 높이(15px × 1.4) */
+    height: 21px;
+  }
+
+  .budget__skeleton-desc {
+    width: 200px;
+    /* .pk-state__description 의 줄 높이(13px × 1.5) */
+    height: 20px;
+  }
+
   /* ── 이어쓰기 배너 ───────────────────────────────── */
 
   .budget-banner {

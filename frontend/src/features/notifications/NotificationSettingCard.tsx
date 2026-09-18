@@ -1,56 +1,15 @@
 import { useId, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
-import { EVENTS, useAnalytics } from '../../shared/analytics';
-import {
-  ApiError,
-  useNotificationSettings,
-  useSaveNotificationSettings,
-  type NotificationSettingsPatch,
-} from '../../shared/api';
-import { BridgeError, type MiniAppBridge } from '../../shared/toss';
+import { ApiError, useNotificationSettings } from '../../shared/api';
 import { CategoryAvatar, RetryButton, Toggle, UnsupportedFeature } from '../../shared/ui';
 
-/**
- * 토스 콘솔 스마트발송 템플릿 코드.
- *
- * 운영 값은 빌드 환경변수로만 들어온다. 비어 있으면 브릿지가 개발에서만 통과시키고
- * 그 밖에서는 못 쓰는 기능으로 다룬다. `import.meta.env.VITE_...` 는 vite 가 빌드 때
- * 문자열로 갈아 끼우므로 키를 변수로 만들지 않는다.
- */
-function templateCode(): string {
-  const configured = import.meta.env.VITE_NOTIFICATION_TEMPLATE_CODE;
-  return typeof configured === 'string' ? configured.trim() : '';
-}
-
-/**
- * 못 쓰는 이유 한 줄.
- *
- * "토스 앱을 업데이트하세요" 만 말하면 이미 최신인 사람은 무엇을 해야 할지 모른다.
- * 숫자 둘을 나란히 보여 주면 업데이트로 풀리는 일인지 스스로 가를 수 있다.
- */
-function unsupportedNotice(bridge: MiniAppBridge): string {
-  const required = bridge.minAppVersion('notification');
-  if (required == null || bridge.appVersion === '') {
-    return '기록 알림은 토스 앱을 업데이트하면 쓸 수 있어요.';
-  }
-  return `기록 알림은 토스 앱 ${required} 이상에서 쓸 수 있어요. 지금 쓰는 토스 앱은 ${bridge.appVersion} 이에요.`;
-}
-
-/** 켤 수 없게 된 이유. 화면이 무엇을 말할지 여기서 갈린다. */
-type Blocker = 'unsupported' | 'rejected' | 'failed';
-
-const BLOCKER_NOTICE: Record<Exclude<Blocker, 'unsupported'>, string> = {
-  rejected: '토스 알림 동의를 하지 않아 알림을 켤 수 없어요. 토스 앱 알림 설정에서 바꿀 수 있어요.',
-  failed: '알림 동의를 받지 못했어요. 잠시 후 다시 시도해 주세요.',
-};
+import { REMIND_BLOCKER_NOTICE, unsupportedNotice, useRemindOptIn } from './useRemindOptIn';
 
 /**
  * 기록 알림을 켜고 시간을 정하는 자리.
  *
- * 켜는 그 순간에만 토스 알림 동의를 묻는다. 화면에 들어오자마자 묻지 않는다.
- * 거절도 결과의 한 종류라 실패로 다루지 않고, **다시 묻지 않는다.** 눌러도 계속 동의 창이
- * 뜨면 거절한 사람에게 같은 것을 반복해서 묻게 된다.
+ * 켜고 끄는 절차는 `useRemindOptIn` 이 갖고 있다. 홈의 권유 카드도 같은 것을 부른다.
  *
  * 아직 설정을 못 받았으면 아무것도 그리지 않는다. 기본값으로 그려 두면 꺼져 있는 것을
  * 켜져 있다고 말하게 된다. 다만 **실패는 감추지 않는다.**
@@ -59,18 +18,12 @@ export function NotificationSettingCard() {
   const titleId = useId();
   const timeId = useId();
   const bridge = useBridge();
-  const analytics = useAnalytics();
   const settings = useNotificationSettings();
-  const save = useSaveNotificationSettings();
-
-  const [blocker, setBlocker] = useState<Blocker | null>(() =>
-    bridge.supports('notification') ? null : 'unsupported',
-  );
-  const [asking, setAsking] = useState(false);
+  const remind = useRemindOptIn('settings');
   // 서버 값이 오기 전에 고친 시각. 저장이 끝나면 서버 값으로 되돌린다.
   const [draftTime, setDraftTime] = useState<string | null>(null);
 
-  if (blocker === 'unsupported') {
+  if (remind.blocker === 'unsupported') {
     return <UnsupportedFeature feature="기록 알림" description={unsupportedNotice(bridge)} />;
   }
 
@@ -88,68 +41,29 @@ export function NotificationSettingCard() {
 
   const enabled = current.is_enabled;
   const time = draftTime ?? current.remind_at ?? '';
-  const busy = asking || save.isPending;
+  const busy = remind.busy;
 
   const failure =
-    save.error instanceof ApiError
-      ? save.error.message
-      : save.isError
+    remind.saveError instanceof ApiError
+      ? remind.saveError.message
+      : remind.saveError != null
         ? '알림 설정을 저장하지 못했어요.'
         : null;
 
-  function patch(body: NotificationSettingsPatch): void {
-    save.mutate(body, { onSuccess: () => setDraftTime(null) });
-  }
-
-  async function turnOn(): Promise<void> {
-    setAsking(true);
-    try {
-      const result = await bridge.requestNotificationAgreement(templateCode());
-      /*
-        알림은 이 앱이 사람을 다시 데려오는 유일한 장치다. 몇 명이 켰는지 모르면
-        재방문율이 낮을 때 알림이 안 닿은 것인지 알림을 켠 사람이 없는 것인지 못 가른다.
-        결과 갈래만 남긴다. 시각도 주기도 싣지 않는다.
-      */
-      analytics.log(EVENTS.notificationResult, { result }, { kind: 'click' });
-      if (result === 'agreementRejected') {
-        setBlocker('rejected');
-        return;
-      }
-    } catch (error) {
-      const code =
-        error instanceof BridgeError && error.code === 'UNSUPPORTED' ? 'unsupported' : 'failed';
-      analytics.log(EVENTS.notificationResult, { result: code }, { kind: 'click' });
-      setBlocker(code);
-      return;
-    } finally {
-      setAsking(false);
-    }
-
-    // 앞서 못 켠 이유를 지운다. 남겨 두면 켜진 토글 아래에서 못 켰다고 말하게 된다.
-    setBlocker(null);
-
-    // 정해 둔 시각이 없으면 보내지 않는다. 그때는 서버가 기본 시각을 넣어 준다.
-    patch({
-      is_enabled: true,
-      frequency: 'daily',
-      ...(time === '' ? {} : { remind_at: time }),
-    });
-  }
-
   function toggle(next: boolean): void {
     if (next) {
-      void turnOn();
+      // 정해 둔 시각이 없으면 안 보낸다. 그때는 서버가 기본 시각을 넣어 준다.
+      void remind.turnOn(time === '' ? undefined : time).then(() => setDraftTime(null));
       return;
     }
-    setBlocker(null);
-    patch({ is_enabled: false });
+    remind.turnOff();
   }
 
   function changeTime(next: string): void {
     setDraftTime(next);
     // 시각 입력은 다 채워지기 전까지 빈 문자열을 준다. 반쪽 값을 저장하지 않는다.
     if (next === '') return;
-    patch({ remind_at: next });
+    remind.save.mutate({ remind_at: next }, { onSuccess: () => setDraftTime(null) });
   }
 
   return (
@@ -165,7 +79,7 @@ export function NotificationSettingCard() {
         <Toggle
           checked={enabled}
           // 거절한 뒤에는 눌러도 동의 창이 다시 뜨지 않는다. 이 화면을 나갔다 오면 다시 물을 수 있다.
-          disabled={busy || blocker === 'rejected'}
+          disabled={busy || remind.blocker === 'rejected'}
           ariaLabelledBy={titleId}
           onChange={toggle}
         />
@@ -186,9 +100,9 @@ export function NotificationSettingCard() {
         />
       </div>
 
-      {blocker != null ? (
+      {remind.blocker != null ? (
         <p className="notify__notice" role="alert">
-          {BLOCKER_NOTICE[blocker]}
+          {REMIND_BLOCKER_NOTICE[remind.blocker]}
         </p>
       ) : null}
 

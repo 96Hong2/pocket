@@ -1,6 +1,6 @@
 export { CalendarGrid, type CalendarGridProps } from './CalendarGrid';
 export { EditSheet, type EditSheetProps } from './EditSheet';
-export { MonthTotals } from './MonthTotals';
+export { MonthTotals, MonthTotalsSkeleton } from './MonthTotals';
 export { SearchBox, type SearchBoxProps } from './SearchBox';
 export {
   dayCellLabel,

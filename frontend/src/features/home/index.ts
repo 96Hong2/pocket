@@ -5,6 +5,7 @@ export { GoalStatusCard } from './GoalStatusCard';
 export { HomeHero } from './HomeHero';
 export {
   RECOVERY_AFTER_DAYS,
+  SECOND_CHANCE_AFTER_RECORDS,
   SHARE_AFTER_RECORDS,
   resolveHeroLayout,
   resolveHomeView,

@@ -164,3 +164,100 @@ test('지운 태그는 목록에서 사라지고 기록은 남는다', async ({
   await home.waitReady();
   await expect(home.today.row('식비')).toBeVisible();
 });
+
+/**
+ * 색은 **파스텔 열넷, 한 줄에 일곱씩 두 줄**이다.
+ *
+ * 처음에는 진한 여덟 색이었다. 칩이 여러 개 선 화면이 시끄러웠고, 여덟으로는 비슷한
+ * 묶음 둘을 갈라 놓을 색이 모자랐다. 개수와 줄 수를 여기서 못 박는다. flex 로 접히게
+ * 두면 폭에 따라 6개·8개로 갈려 줄이 들쭉날쭉해진다.
+ */
+test('색은 열네 개가 두 줄로 선다', async ({ tags }) => {
+  await tags.open();
+  await tags.waitReady();
+
+  await tags.newButton('지출 태그').click();
+  await expect(tags.sheet('새 태그')).toBeVisible();
+
+  await expect(tags.colorButtons).toHaveCount(14);
+  expect(await tags.colorRowCount(), '색 칸이 두 줄로 안 선다').toBe(2);
+
+  await test.step('고른 색이 그대로 목록 표식이 된다', async () => {
+    await tags.nameInput.fill('데이트');
+    await tags.colorButton('라벤더').click();
+    await tags.saveButton('만들기').click();
+    await expect(tags.sheet('새 태그')).toHaveCount(0);
+
+    const mark = tags.group('지출 태그').locator('.tags-row__mark');
+    await expect(mark).toHaveCSS('background-color', 'rgb(220, 199, 237)');
+  });
+});
+
+/** 카드가 딱 붙어 있으면 긴 목록에서 지출이 어디서 끝나는지 안 읽힌다. */
+test('지출 묶음과 수입 묶음 사이에 여백이 있다', async ({ tags }) => {
+  await tags.open();
+  await tags.waitReady();
+
+  const boxes = await tags.groupCards.evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return { top: box.y, bottom: box.y + box.height };
+    }),
+  );
+  expect(boxes).toHaveLength(2);
+  expect(boxes[1].top - boxes[0].bottom, '두 묶음이 붙어 있다').toBeGreaterThanOrEqual(10);
+});
+
+/** 무엇에 쓰는 것인지 한 줄로 말한다. 예시가 「출장」 하나뿐이라 쓸 자리가 안 떠올랐다. */
+test('태그 화면이 무엇에 쓰는지 한 줄로 말한다', async ({ page, tags }) => {
+  await tags.open();
+  await tags.waitReady();
+
+  await expect(page.getByText('카테고리와는 별개로 통계가 나와요. 「정산완료」 「데이트」 처럼요')).toBeVisible();
+});
+
+/**
+ * 달력에서도 태그를 단다.
+ *
+ * 고친 자리가 홈에만 있으면, 지난 날을 되짚다 「이건 데이트였지」 하고 떠올린 그 순간에
+ * 갈 곳이 없다. 달력의 수정 시트와 그 날에 적는 시트 **둘 다** 확인한다.
+ */
+test('달력에서 고칠 때도 태그를 단다', async ({ calendar, prep, tags }) => {
+  await tags.open();
+  await tags.waitReady();
+  await tags.create('지출 태그', '데이트');
+
+  await prep.addTransaction({ amount: 12000, merchant: '영화관' });
+
+  await calendar.open();
+  await calendar.waitReady();
+  await calendar.list.pick('영화관');
+  await calendar.edit.waitOpen();
+
+  await calendar.edit.tagChip('데이트').click();
+  await calendar.edit.done();
+
+  // 목록 줄에 표식이 붙는다. 무엇을 달았는지 목록에서 바로 읽힌다.
+  await expect(calendar.list.tagMark('데이트')).toBeVisible();
+});
+
+test('달력에서 그 날에 적을 때도 태그를 단다', async ({ calendar, recordSheet, tags }) => {
+  await tags.open();
+  await tags.waitReady();
+  await tags.create('지출 태그', '정산완료');
+
+  await calendar.open();
+  await calendar.waitReady();
+  await calendar.list.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.input.enterAmount(8000);
+  await recordSheet.input.pickCategory('식비');
+  await recordSheet.feedback.waitSaved();
+
+  // 저장이 끝난 뒤에 묻는다. 적는 화면에 칸이 하나 더 서면 10초 약속이 깨진다.
+  await recordSheet.feedback.tagChip('정산완료').click();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  await expect(calendar.list.tagMark('정산완료')).toBeVisible();
+});

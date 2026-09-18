@@ -34,6 +34,8 @@ export class HomeScreen {
   readonly ads: AdArea;
   /** 첫 기록 뒤 한 번 뜨는 홈 화면 추가 제안. */
   readonly addToHome: AddToHomeArea;
+  /** 홈 화면 추가 바로 아래에 따로 서는 저녁 알림 카드. */
+  readonly remind: RemindCardArea;
   /** 며칠 비웠을 때 뜨는 복귀 카드. */
   readonly recovery: RecoveryCard;
   /** 기록 버튼 아래 공유 권유 카드. 몇 번 적어 본 사람에게만 뜬다. */
@@ -51,6 +53,7 @@ export class HomeScreen {
     this.closing = new HomeClosingCard(page);
     this.ads = new AdArea(page);
     this.addToHome = new AddToHomeArea(page);
+    this.remind = new RemindCardArea(page);
     this.recovery = new RecoveryCard(page);
     this.share = new HomeShareCard(page);
     this.recurring = new HomeRecurringCard(page);
@@ -611,11 +614,6 @@ class AddToHomeArea {
     return this.card.getByRole('button', { name: '홈 화면에 추가하는 법', exact: true });
   }
 
-  /** 카드에서 알림 설정으로 가는 줄. 우리가 대신 켜 줄 수 없어 길만 알려 준다. */
-  get notifyLink(): Locator {
-    return this.card.getByRole('link', { name: '저녁 8시에 알려 드릴까요?', exact: true });
-  }
-
   get closeButton(): Locator {
     return this.card.getByRole('button', { name: '홈 화면 추가 안내 닫기', exact: true });
   }
@@ -637,6 +635,41 @@ class AddToHomeArea {
 
   get doneButton(): Locator {
     return this.sheet.getByRole('button', { name: '알겠어요', exact: true });
+  }
+}
+
+/**
+ * 저녁 알림 카드.
+ *
+ * 홈 화면 추가와 **다른 카드**다. 닫는 ✕ 도 따로 갖는다. 하나는 앱을 찾기 쉽게 하는
+ * 일이고 하나는 우리가 부르는 일이라, 하나만 하고 싶은 사람이 나머지를 같이 닫게
+ * 두지 않는다.
+ *
+ * 버튼 하나로 저녁 8시가 정해진다. 시각을 고르게 하면 그 자리에서 고민이 시작된다.
+ */
+class RemindCardArea {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  get card(): Locator {
+    return this.page.getByRole('group', { name: '저녁 알림', exact: true });
+  }
+
+  /** 그 자리에서 저녁 8시로 켜는 버튼. */
+  get turnOnButton(): Locator {
+    return this.card.getByRole('button', { name: '저녁 8시 알림 받기', exact: true });
+  }
+
+  get closeButton(): Locator {
+    return this.card.getByRole('button', { name: '저녁 알림 안내 닫기', exact: true });
+  }
+
+  /** 시간을 바꾸러 알림 설정으로 가는 줄. 켜기 전후로 글이 바뀐다. */
+  get settingsLink(): Locator {
+    return this.card.getByRole('link');
   }
 }
 

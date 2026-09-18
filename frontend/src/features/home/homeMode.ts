@@ -30,6 +30,15 @@ export const RECOVERY_AFTER_DAYS = 3;
  */
 export const SHARE_AFTER_RECORDS = 5;
 
+/**
+ * 한 번 닫은 권유를 언제 한 번 더 물을지.
+ *
+ * 첫 기록 직후에는 이 앱을 계속 쓸지조차 모르는 상태라, 그때 닫은 것은 「싫다」 가 아니라
+ * 「아직 모르겠다」 에 가깝다. 다섯 번을 적은 사람은 계속 쓰기로 한 사람이다.
+ * **딱 한 번 더 묻는다.** 그때도 닫으면 그게 대답이다.
+ */
+export const SECOND_CHANCE_AFTER_RECORDS = 5;
+
 export interface HomeViewInput {
   hasAnyTransaction: boolean;
   /** 지금까지 적은 건수. 지운 것은 빠져 있다. */
@@ -58,6 +67,15 @@ export interface HomeView {
    * 이미 홈에 있는 아이콘이 일을 한다.
    */
   showHomeAdd: boolean;
+  /** 저녁 알림을 켜겠냐고 물어볼까. 홈 화면 추가와 같은 때에 함께 묻는다. */
+  showRemind: boolean;
+  /**
+   * 지금이 두 번째 기회인가.
+   *
+   * 참이면 첫 기록 때 닫아 둔 표가 아니라 두 번째 표를 본다. 그래서 그때 닫은 사람에게
+   * 딱 한 번 더 뜨고, 여기서 또 닫으면 다시 안 뜬다.
+   */
+  secondChance: boolean;
 }
 
 export function resolveHomeView(input: HomeViewInput): HomeView {
@@ -80,6 +98,8 @@ export function resolveHomeView(input: HomeViewInput): HomeView {
     showFirstLead: !input.hasAnyTransaction,
     showShareInvite: input.transactionCount >= SHARE_AFTER_RECORDS,
     showHomeAdd: input.hasAnyTransaction,
+    showRemind: input.hasAnyTransaction,
+    secondChance: input.transactionCount >= SECOND_CHANCE_AFTER_RECORDS,
   };
 }
 

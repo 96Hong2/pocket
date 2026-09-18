@@ -12,7 +12,7 @@ export default function TagsPage() {
     <div className="page">
       <h1 className="page__title">태그</h1>
       <p className="page__lead tags-page__lead">
-        카테고리와 별개로 묶어요. 「출장」 처럼요
+        카테고리와는 별개로 통계가 나와요. 「정산완료」 「데이트」 처럼요
       </p>
 
       {/* 식별키를 못 받으면 조회가 시작조차 안 한다. 이 안내가 없으면 목록이 계속 회색이다. */}

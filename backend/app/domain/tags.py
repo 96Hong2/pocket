@@ -2,10 +2,10 @@
 
 **색을 자유 입력으로 받지 않는다.** 아무 hex 나 받으면 배경과 구분이 안 되는 색이
 들어오고, 화면은 그 색으로 글자를 얹어야 한다. 대비를 매번 계산하느니 쓸 수 있는 색을
-여기서 정해 둔다. 프론트의 칩 색도 이 키로 그린다(`frontend/src/features/tags/tagColors.ts`).
+여기서 정해 둔다. 프론트의 칩 색도 이 키로 그린다(`frontend/src/features/tags/tags.css`).
 
 카테고리와 다른 축이다. 카테고리는 "무엇에 썼나"고 태그는 "어떤 묶음인가"다.
-같은 식비라도 「출장」과 「데이트」로 갈리는 것이 태그다.
+같은 식비라도 「정산완료」와 「데이트」로 갈리는 것이 태그다.
 """
 
 from __future__ import annotations
@@ -16,26 +16,37 @@ __all__ = ["TAGS_PER_USER_MAX", "TAG_COLOR_VALUES", "TAG_NAME_MAX", "TagColor", 
 
 
 class TagColor(StrEnum):
-    """고를 수 있는 색. 여덟 개다.
+    """고를 수 있는 색. 열넷이다.
 
-    더 늘리지 않는다. 색이 열두 개가 넘으면 고르는 일 자체가 일이 되고, 두 색을 눈으로
-    가르지 못해 태그가 섞인다.
+    순서가 곧 고르는 화면의 순서이고, 색상환을 한 바퀴 돈다(분홍 → 노랑 → 초록 → 파랑 →
+    보라 → 회색). 한 줄에 일곱 개씩 두 줄로 서므로 윗줄이 따뜻한 쪽, 아랫줄이 찬 쪽이다.
+    옆자리끼리 비슷해 보여도 줄을 건너뛰면 확실히 갈린다.
+
+    DB 는 `native_enum=False` 라 문자열 칸이고 CHECK 제약도 없다. 그래서 값을 더 늘릴 때
+    마이그레이션이 필요 없다. 다만 **이름을 바꾸거나 빼지는 않는다.** 이미 그 색으로
+    만들어 둔 태그가 어느 색인지 잃는다.
     """
 
-    SAGE = "sage"
-    OCEAN = "ocean"
-    LILAC = "lilac"
+    ROSE = "rose"
     CORAL = "coral"
     AMBER = "amber"
+    SAND = "sand"
+    OLIVE = "olive"
+    SAGE = "sage"
     MINT = "mint"
-    ROSE = "rose"
+    TEAL = "teal"
+    SKY = "sky"
+    OCEAN = "ocean"
+    INDIGO = "indigo"
+    LILAC = "lilac"
+    PLUM = "plum"
     SLATE = "slate"
 
 
 class TagKind(StrEnum):
     """지출 태그와 수입 태그는 서로 다른 목록이다.
 
-    「출장」이 지출에도 수입에도 있는 사람이 있고, 그때 같은 태그로 묶으면 리포트가
+    「정산완료」가 지출에도 수입에도 있는 사람이 있고, 그때 같은 태그로 묶으면 리포트가
     번 돈과 쓴 돈을 한 조각에 더한다. 목록부터 갈라 둔다.
     """
 

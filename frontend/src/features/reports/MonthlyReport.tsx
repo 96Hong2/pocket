@@ -96,7 +96,11 @@ export function MonthlyReport({
     return (
       <div className="report">
         {stepper}
-        {identity.status === 'loading' ? <LoadingState label="리포트를 불러오는 중이에요" /> : null}
+        <div className="report__slot">
+          {identity.status === 'loading' ? (
+            <LoadingState label="리포트를 불러오는 중이에요" />
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -105,7 +109,9 @@ export function MonthlyReport({
     return (
       <div className="report">
         {stepper}
-        <LoadingState label="리포트를 불러오는 중이에요" />
+        <div className="report__slot">
+          <LoadingState label="리포트를 불러오는 중이에요" />
+        </div>
       </div>
     );
   }
@@ -113,7 +119,9 @@ export function MonthlyReport({
     return (
       <div className="report">
         {stepper}
-        <ErrorState title="리포트를 불러오지 못했어요" onRetry={() => void report.refetch()} />
+        <div className="report__slot">
+          <ErrorState title="리포트를 불러오지 못했어요" onRetry={() => void report.refetch()} />
+        </div>
       </div>
     );
   }

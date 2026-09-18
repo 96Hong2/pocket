@@ -110,4 +110,17 @@
     font-weight: var(--font-weight-semibold);
     color: var(--color-ink);
   }
+
+  /* ── 홈의 저녁 알림 카드 ─────────────────────────── */
+
+  /* 카드 맨 아래 한 줄. 켤 사람은 위 버튼으로 끝나고, 이 줄은 시간을 바꿀 사람만 쓴다. */
+  .remind-card__settings {
+    display: block;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-sage-800);
+    text-align: center;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }

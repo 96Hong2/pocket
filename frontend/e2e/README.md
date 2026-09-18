@@ -24,16 +24,18 @@ e2e/
   screens/     화면 객체. 셀렉터는 전부 여기 안에만 있다
     OnboardingScreen 처음 안내. `showOnboarding` 을 켠 spec 에서만 실제로 뜬다
     AppShell         마운트·하단 3탭·시스템 뒤로가기
-    HomeScreen       홈. 안쪽을 hero·today·budget·goal·closing·ads·addToHome·recovery·share 로 나눠 들고 있다
-                     share 는 기록 버튼 아래 공유 권유 **카드**다. 다섯 번 넘게 적은 사람에게만 뜨고
-                     닫으면 기기에 표시가 남는다(addToHome 과 같다).
-                     **예산 제안 카드가 떠 있으면 비켜 준다.** 그 카드를 닫아야 이 카드가 선다
-                     addToHome 은 한 번이라도 적으면 서는 카드다. 닫으면 기기에 표시가 남는다.
+    HomeScreen       홈. 안쪽을 hero·today·budget·goal·closing·ads·addToHome·remind·recovery·share 로 나눠 들고 있다
+                     **스스로 서는 카드는 한 번에 둘까지다.** 순서는
+                     recurring → addToHome → remind → budget.suggestCard → share 다
+                     addToHome·remind 는 한 번이라도 적으면 서는 **한 쌍**이고 닫는 ✕ 를 따로 갖는다.
+                     닫으면 기기에 표시가 남고, **다섯 번째 기록에서 한 번 더** 뜬다.
                      **기본은 「닫았다」 로 시작한다**(fixtures). 카드를 보려면
-                     `test.use({ showHomeAddCard: true })` 를 켠다. spec 안에서 표시를 지우는
+                     `test.use({ showStarterCards: true })` 를 켠다. spec 안에서 표시를 지우는
                      방식은 안 통한다: init script 는 새로고침마다 다시 돌아 방금 닫은 것을 되살린다
+                     remind 는 그 자리에서 저녁 8시 알림을 켠다. 이미 켜 둔 사람에게는 안 뜬다
+                     share 는 다섯 번 넘게 적은 사람에게만 뜨고 위 넷 아무에게나 비켜 준다
                      recurring 은 오늘·내일 빠져나갈 돈 카드다. 걸어 둔 반복 지출이 있을 때만 뜨고
-                     **이 카드가 떠 있으면 addToHome·share 는 비켜 준다**
+                     **이 카드가 떠 있으면 addToHome·remind·share 는 비켜 준다**
                      today 의 안 쓴 날 줄은 빈 상태 버튼과 글자가 같아, 줄 안의 취소 버튼에서
                      부모로 한 칸 올라가 잡는다(둘은 함께 그려지지 않는다)
     RecordSheet      기록 시트. 안쪽이 input(키패드)·feedback(저장 후)·nl(줄글)·capture(캡처)·receipt(영수증) 다섯이다
@@ -113,6 +115,18 @@ e2e/
 그래서 **여기서는 `422 PERIOD_CLOSED` 를 못 본다.** 잠금 자체는 스위치가 꺼진 백엔드 API 테스트가 지킨다.
 응답의 `is_editable` 은 스위치와 무관하게 진짜 규칙으로 계산되므로 "끝난 달은 보기만 한다" 는
 화면 동작은 여기서 그대로 검증된다.
+
+## 「뜬다」 는 「제자리에 있다」 가 아니다
+
+`toBeVisible()` 은 그것이 **얼마나 큰지·어디에 있는지·무엇에 가려 있는지**를 안 본다.
+실제로 그렇게 통과한 채로 화면이 틀어진 적이 세 번 있다.
+
+- 기한 지우기 ✕ 가 브라우저 달력 아이콘에 깔려 안 눌렸다 → `elementFromPoint` 로 확인한다
+  (`specs/date-clear.spec.ts`)
+- 홈에 카드가 셋 쌓였다. 카드마다 「뜬다」 만 봤다 → 안 떠야 하는 것에 `toHaveCount(0)` 을 건다
+  (`specs/home-add.spec.ts`)
+- 달을 넘길 때 자리표시자가 줄었다 부풀며 아래가 뛰었다 → `boundingBox()` 로 y 좌표를 재고
+  응답을 `page.route` 로 늦춰 **불러오는 그 순간**을 붙잡는다 (`specs/steady-month.spec.ts`)
 
 ## 새 spec 을 만드는 순서
 
@@ -255,13 +269,15 @@ cd backend && DATABASE_URL='postgresql+psycopg://pocket:pocket@localhost:5434/po
 그래서 `support/fixtures.ts` 가 「이미 봤다」 표시를 미리 넣는다. 그 화면을 확인하는
 `specs/onboarding.spec.ts` 만 `test.use({ showOnboarding: true })` 로 켠다.
 
-## 홈 화면 추가 안내를 꺼 두고 시작한다
+## 첫 기록 뒤의 권유 카드 둘을 꺼 두고 시작한다
 
-그 안내는 첫 기록을 마치는 순간 시트로 스스로 열린다. 실제 동작이 그런데, 기록으로 시작하는
-다른 테스트에서는 그 시트가 다음 조작을 가로막는다(예산·달력·리포트 아홉 건이 그렇게 깨졌다).
+홈 화면 추가와 저녁 알림은 한 번이라도 적으면 홈에 선다. 실제 동작이 그런데, 기록으로
+시작하는 다른 테스트에서는 이 카드들이 목록을 아래로 밀어내 스크롤 위치를 흔든다.
 
-그래서 `support/fixtures.ts` 가 모든 테스트에서 「이미 봤다」 표시를 미리 넣는다.
-안내 자체는 `specs/home-add.spec.ts` 가 그 표시를 지우고 확인한다.
+그래서 `support/fixtures.ts` 가 모든 테스트에서 「이미 닫았다」 표시를 미리 넣는다.
+**두 번째 기회 키까지 함께 넣는다**(`home-add-again`·`remind-again`). 안 그러면 다섯 번
+적는 spec 에서 카드가 다시 뜬다. 카드 자체는 `specs/home-add.spec.ts` 가
+`test.use({ showStarterCards: true })` 로 켜서 확인한다.
 
 목 저장소는 `__ait_storage:` 접두사를 붙인 localStorage 다.
 

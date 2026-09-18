@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
 
-import { ROUTES } from '../../app/router/routes';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { Button, CardClose, CategoryAvatar, SageCard } from '../../shared/ui';
 
@@ -17,9 +15,9 @@ import { AddToHomeSheet } from './AddToHomeSheet';
  * 그래서 카드로 바꿨다. 카드는 닫을 때까지 그 자리에 있으니 놓칠 수가 없고, 한 번 닫으면
  * 다시 안 뜬다. 판정도 「기록이 하나라도 있나」 하나뿐이라 기기 저장에 기대지 않는다.
  *
- * **두 가지를 같이 권한다.** 홈 화면에 두는 것과 저녁 알림을 켜는 것. 둘 다 "다시 오게"
- * 하는 일이고, 첫 기록을 막 끝낸 사람에게 물을 만한 것이 마침 그 둘이다. 카드를 두 장
- * 세우는 대신 한 장에 담는다.
+ * **저녁 알림은 이 카드에서 떼어 냈다.** 한 장에 담아 두니 「알림만 켜고 싶다」 는 사람이
+ * 홈 추가 안내와 함께 닫아야 했고, 알림 줄은 설정 화면으로 보내기만 해서 거기서 다시
+ * 세 걸음을 밟아야 했다. 지금은 아래에 알림 카드가 따로 서고 닫는 ✕ 도 따로다.
  */
 export function AddToHomeCard({ onDismiss }: { onDismiss: () => void }) {
   const analytics = useAnalytics();
@@ -62,15 +60,6 @@ export function AddToHomeCard({ onDismiss }: { onDismiss: () => void }) {
         >
           홈 화면에 추가하는 법
         </Button>
-
-        {/*
-          알림은 우리가 대신 켜 줄 수 없다. 토스 알림 동의를 그 사람이 눌러야 한다.
-          그래서 여기서는 어디로 가면 되는지와 **몇 시에 오는지**만 말한다.
-          시각을 적어 두면 "언제 올지 모르는 알림" 이 아니게 된다.
-        */}
-        <Link className="home-add-card__notify" to={ROUTES.notifications}>
-          저녁 8시에 알려 드릴까요?
-        </Link>
 
         <p className="home-card__aside">앱 설정에서 언제든 다시 볼 수 있어요</p>
       </SageCard>

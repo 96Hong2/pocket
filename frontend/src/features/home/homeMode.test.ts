@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   RECOVERY_AFTER_DAYS,
+  SECOND_CHANCE_AFTER_RECORDS,
   SHARE_AFTER_RECORDS,
   resolveHeroLayout,
   resolveHomeView,
@@ -150,5 +151,35 @@ describe('공유 권유', () => {
     );
 
     expect(view.showShareInvite).toBe(true);
+  });
+});
+
+describe('한 번뿐인 안내를 다시 묻는 때', () => {
+  it('첫 기록만으로도 홈 추가와 저녁 알림을 함께 묻는다', () => {
+    const view = resolveHomeView(input({ hasAnyTransaction: true, transactionCount: 1 }));
+
+    expect(view.showHomeAdd).toBe(true);
+    expect(view.showRemind).toBe(true);
+    // 아직 두 번째 기회가 아니다. 이때 닫으면 첫 번째 표가 남는다.
+    expect(view.secondChance).toBe(false);
+  });
+
+  it('한 번도 안 적은 사람에게는 둘 다 안 묻는다', () => {
+    const view = resolveHomeView(input({ hasAnyTransaction: false, transactionCount: 0 }));
+
+    expect(view.showHomeAdd).toBe(false);
+    expect(view.showRemind).toBe(false);
+  });
+
+  it('다섯 번째 기록부터 두 번째 기회다', () => {
+    const before = resolveHomeView(
+      input({ hasAnyTransaction: true, transactionCount: SECOND_CHANCE_AFTER_RECORDS - 1 }),
+    );
+    const at = resolveHomeView(
+      input({ hasAnyTransaction: true, transactionCount: SECOND_CHANCE_AFTER_RECORDS }),
+    );
+
+    expect(before.secondChance).toBe(false);
+    expect(at.secondChance).toBe(true);
   });
 });

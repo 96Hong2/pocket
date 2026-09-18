@@ -10,7 +10,7 @@ import {
   type CategoryBudgetOut,
 } from '../../shared/api';
 import { shiftMonth, toLedgerDate } from '../../shared/lib/format';
-import { Card, ErrorState, LoadingState, MonthStepper, RetryButton } from '../../shared/ui';
+import { Card, ErrorState, MonthStepper, RetryButton } from '../../shared/ui';
 import { useFullScreenAd } from '../ads';
 
 import { BudgetAmountSheet } from './BudgetAmountSheet';
@@ -31,6 +31,10 @@ const MONTHS_BACK = 36;
  *
  * 달은 `CalendarPage` 와 똑같이 `{year, month}` 를 항상 명시해 부른다. 이번 달만 인자를
  * 빼면 홈과 캐시가 갈리는 것이 아니라 같은 자리를 두 방식이 서로 덮는다.
+ *
+ * **불러오는 동안의 자리가 다 그린 카드와 같은 높이다.** 예전에는 회색 줄 하나로 줄었다가
+ * 카드로 부풀어서, 지난달 예산을 찾으려고 화살표를 여러 번 누르면 아래 목록이 그때마다
+ * 위아래로 뛰었다. 화면을 녹화해 보고 고쳤다.
  */
 export function BudgetSection() {
   const thisMonth = toLedgerDate(new Date()).slice(0, 7);
@@ -83,6 +87,13 @@ export function BudgetSection() {
     setCalcOpen(true);
   }
 
+  /*
+    끝난 달인지는 서버가 정한다. 다만 **불러오는 동안에도 이 줄이 서 있어야** 한다.
+    없다가 생기면 그 높이(38px)만큼 아래가 밀린다. 지난달이 끝난 달이라는 것은 달 이름만
+    봐도 아는 사실이라, 서버 값이 오기 전에는 그것으로 대신한다.
+  */
+  const closed = state != null ? !editable : month < thisMonth;
+
   function moveMonth(next: string): void {
     setMonth(next);
     // 달을 옮기면 열려 있던 시트의 대상이 그 달에 없을 수 있다. 먼저 닫는다.
@@ -117,6 +128,8 @@ export function BudgetSection() {
         </div>
       ) : null}
 
+      {closed ? <p className="budget__closed">끝난 달이에요 · 보기만 할 수 있어요</p> : null}
+
       {budget.isError ? (
         <Card padding="md">
           <ErrorState
@@ -127,13 +140,9 @@ export function BudgetSection() {
         </Card>
       ) : data == null || state == null ? (
         // 달을 옮기는 동안이다. 오류로 묶으면 정상 로딩이 실패로 보인다.
-        <Card padding="md">
-          <LoadingState variant="rows" rows={1} label="예산을 불러오는 중이에요" />
-        </Card>
+        <BudgetSlotSkeleton />
       ) : (
         <>
-          {!editable ? <p className="budget__closed">끝난 달이에요 · 보기만 할 수 있어요</p> : null}
-
           {state.is_auto_carried ? (
             <div className="budget-banner" aria-label="이어쓴 예산 안내" role="group">
               <p className="budget-banner__text">지난달 예산을 그대로 가져왔어요</p>
@@ -207,5 +216,24 @@ export function BudgetSection() {
         onClose={() => setCategoryTarget(null)}
       />
     </section>
+  );
+}
+
+/**
+ * 예산 카드가 들어설 자리를 미리 잡아 둔다.
+ *
+ * 「이 달엔 예산이 없었어요」 카드와 **뼈대가 같다**: 같은 카드 여백, 같은 크기의 그림,
+ * 제목 한 줄, 설명 한 줄. 그래서 다 불러와도 높이가 안 바뀐다. 회색 줄 하나로 두면
+ * 120px 쯤 짧아, 달을 넘길 때마다 아래가 그만큼 뛴다.
+ */
+function BudgetSlotSkeleton() {
+  return (
+    <Card padding="md">
+      <div className="pk-state pk-state--inline" role="status" aria-label="예산을 불러오는 중이에요">
+        <span className="pk-skeleton budget__skeleton-icon" aria-hidden="true" />
+        <span className="pk-skeleton budget__skeleton-title" aria-hidden="true" />
+        <span className="pk-skeleton budget__skeleton-desc" aria-hidden="true" />
+      </div>
+    </Card>
   );
 }

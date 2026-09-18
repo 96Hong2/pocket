@@ -12,8 +12,21 @@
 
 import type { KeyValueStore } from '../toss';
 
-/** 닫을 수 있는 카드. 키가 겹치지 않게 여기 한 곳에서 이름을 정한다. */
-export type DismissibleCard = 'recovery' | 'budget-suggest' | 'share-app' | 'home-add';
+/**
+ * 닫을 수 있는 카드. 키가 겹치지 않게 여기 한 곳에서 이름을 정한다.
+ *
+ * `-again` 이 붙은 둘은 **두 번째 기회**다. 첫 기록 때 닫은 사람에게 다섯 번째 기록에서
+ * 한 번만 더 보여 준다. 표(mark)로 가르지 않고 키를 따로 둔 이유는, 표는 같은지 다른지만
+ * 보기 때문에 「1회차에서 닫았다」 와 「5회차에서 닫았다」 를 함께 기억하지 못해서다.
+ */
+export type DismissibleCard =
+  | 'recovery'
+  | 'budget-suggest'
+  | 'share-app'
+  | 'home-add'
+  | 'home-add-again'
+  | 'remind'
+  | 'remind-again';
 
 function keyFor(card: DismissibleCard): string {
   return `card-dismissed-${card}`;

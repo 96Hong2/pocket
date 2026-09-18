@@ -50,9 +50,32 @@ export class TagsScreen {
     return this.page.getByRole('dialog').getByLabel('이름', { exact: true });
   }
 
-  /** 색 고르기. 이름은 스크린리더가 읽는 색 이름이다(「초록」·「파랑」…). */
+  /** 색 고르기. 이름은 스크린리더가 읽는 색 이름이다(「연두」·「파랑」…). */
   colorButton(colorName: string): Locator {
     return this.page.getByRole('dialog').getByRole('button', { name: colorName, exact: true });
+  }
+
+  /** 고를 수 있는 색 전부. 묶음의 접근성 이름이 「색」 이라 그 안에서만 센다. */
+  get colorButtons(): Locator {
+    return this.page.getByRole('dialog').getByRole('group', { name: '색' }).getByRole('button');
+  }
+
+  /**
+   * 색 칸이 몇 줄로 서는가.
+   *
+   * 화면 폭에 따라 접히는 flex 로 두면 6개·8개로 갈려 줄이 들쭉날쭉해진다.
+   * 칸의 y 좌표를 모아 서로 다른 값이 몇 개인지 센다.
+   */
+  async colorRowCount(): Promise<number> {
+    const tops = await this.colorButtons.evaluateAll((nodes) =>
+      nodes.map((node) => Math.round(node.getBoundingClientRect().y)),
+    );
+    return new Set(tops).size;
+  }
+
+  /** 두 묶음 카드. 사이 여백을 잴 때 쓴다. */
+  get groupCards(): Locator {
+    return this.page.locator('.tags-card');
   }
 
   saveButton(label: '만들기' | '고치기'): Locator {
