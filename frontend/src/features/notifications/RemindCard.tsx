@@ -70,9 +70,14 @@ export function RemindCard({ onDismiss }: { onDismiss: () => void }) {
         </Button>
       )}
 
+      {/* 못 켠 이유. 동의를 안 했거나 저장이 막혔거나 둘 중 하나다. 각각 다른 말을 한다. */}
       {remind.blocker != null && remind.blocker !== 'unsupported' ? (
         <p className="home-card__error" role="alert">
           {REMIND_BLOCKER_NOTICE[remind.blocker]}
+        </p>
+      ) : remind.saveError != null ? (
+        <p className="home-card__error" role="alert">
+          알림 설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.
         </p>
       ) : null}
 

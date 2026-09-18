@@ -62,7 +62,12 @@ export function useRemindOptIn(where: RemindOptInWhere): {
   /** 저장 실패 문구. 없으면 null. */
   saveError: unknown;
   save: ReturnType<typeof useSaveNotificationSettings>;
-  /** 켠다. 켜졌으면 true. `remindAt` 을 안 주면 서버가 기본 시각을 넣는다. */
+  /**
+   * 켠다. **저장까지 끝나야** true 다. `remindAt` 을 안 주면 서버가 기본 시각을 넣는다.
+   *
+   * 저장을 안 기다리면, 동의만 받고 저장이 막힌 사람에게 화면이 「켰어요」 라고 말한다.
+   * 알림은 오지 않는데 켰다고 적혀 있으면 그건 거짓말이다.
+   */
   turnOn: (remindAt?: string) => Promise<boolean>;
   turnOff: () => void;
   clearBlocker: () => void;
@@ -102,11 +107,16 @@ export function useRemindOptIn(where: RemindOptInWhere): {
 
     // 앞서 못 켠 이유를 지운다. 남겨 두면 켜진 토글 아래에서 못 켰다고 말하게 된다.
     setBlocker(null);
-    save.mutate({
-      is_enabled: true,
-      frequency: 'daily',
-      ...(remindAt == null || remindAt === '' ? {} : { remind_at: remindAt }),
-    });
+    try {
+      await save.mutateAsync({
+        is_enabled: true,
+        frequency: 'daily',
+        ...(remindAt == null || remindAt === '' ? {} : { remind_at: remindAt }),
+      });
+    } catch {
+      // 왜 막혔는지는 `saveError` 가 들고 있다. 부르는 화면이 그것으로 한 줄을 적는다.
+      return false;
+    }
     return true;
   }
 

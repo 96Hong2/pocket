@@ -138,6 +138,38 @@ test('카드에서 바로 저녁 8시 알림이 켜진다', async ({ home, notif
   });
 });
 
+/**
+ * 저장이 막히면 **켰다고 말하지 않는다.**
+ *
+ * 동의는 받았는데 저장이 막힌 사람에게 「저녁 8시에 알려 드릴게요」 라고 적으면, 알림은
+ * 오지 않는데 켰다고 적혀 있는 화면이 된다. 저장을 안 기다리면 실제로 그렇게 된다.
+ */
+test.describe('알림 저장 실패', () => {
+  test.use({ consoleErrorAllowList: [/Failed to load resource[\s\S]*500/] });
+
+  test('알림 저장이 막히면 켰다고 말하지 않는다', async ({ home, page, prep }) => {
+    // 500 을 일부러 만든다. 그 콘솔 오류는 이 테스트가 만든 것이라 눈감는다.
+    await prep.addTransaction({ amount: 12000 });
+    await home.open();
+    await home.waitReady();
+
+    await page.route('**/api/v1/notifications/settings', async (route) => {
+      if (route.request().method() !== 'PATCH') {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({ status: 500, contentType: 'application/json', body: '{}' });
+    });
+
+    await home.remind.turnOnButton.click();
+
+    await expect(home.remind.card).toContainText('저장하지 못했어요');
+    await expect(home.remind.card).not.toContainText('알려 드릴게요');
+    // 다시 눌러 볼 수 있어야 한다. 잠가 두면 고칠 길이 없다.
+    await expect(home.remind.turnOnButton).toBeEnabled();
+  });
+});
+
 test('이미 켜 둔 사람에게는 알림 카드가 안 뜬다', async ({ home, notifications, prep }) => {
   await prep.addTransaction({ amount: 12000 });
 
