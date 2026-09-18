@@ -52,6 +52,8 @@ e2e/
     ReportScreen     리포트 탭. 총액·도넛·조각 목록·6개월 흐름·월간 결산
                      closing 은 결산 입구와 오버레이다. 입구는 버튼, 오버레이는 다이얼로그라
                      둘 다 이름으로 잡고, 안쪽의 점·줄만 testid 를 쓴다
+                     **배너가 둘이다.** `adSlot`(도넛 위)·`bottomAdSlot`(큰 지출 Top 5 위).
+                     testid 가 같아 자리 이름(`data-placement`)으로 가른다
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
     ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·suggest·categories·banner·settings 로 나눠 들고 있다
                      suggest 는 목표 기반 생활비 제안 카드다. 예산이 없는 달에, 기한이 있는 목표가
@@ -64,6 +66,8 @@ e2e/
     TagsScreen       태그 관리. 지출·수입 두 묶음과 만들기·고치기·지우기 시트
     RecurringScreen  반복 지출. 목록·켜기끄기와 만들기·고치기 시트.
                      홈 카드는 여기가 아니라 HomeScreen.recurring 이 든다
+                     알림은 둘을 고른다: `leadButton`(당일·전날)·`remindAtInput`(시각).
+                     **안 고르면 당일이다.** 언제 적히는지는 `nextLine`(폼)·`nextOnRow`(목록)
     AssetsScreen     자산 화면. 순자산 카드·그룹 구획 넷·항목 시트를 한 화면이 들고 있다
     GoalScreen       목표 화면. 목표 카드·모은 돈 목록·시트 둘(목표·기여)을 한 화면이 들고 있다
                      공유가 둘이다. 목표 카드 아래 권유 카드(`shareCard`·`shareButton`)와
@@ -115,6 +119,23 @@ e2e/
 그래서 **여기서는 `422 PERIOD_CLOSED` 를 못 본다.** 잠금 자체는 스위치가 꺼진 백엔드 API 테스트가 지킨다.
 응답의 `is_editable` 은 스위치와 무관하게 진짜 규칙으로 계산되므로 "끝난 달은 보기만 한다" 는
 화면 동작은 여기서 그대로 검증된다.
+
+## 날짜는 기기 시간대로 세지 않는다 (2026-09-19)
+
+CI 런너는 **UTC** 다. 한국 시간으로 이미 다음 날인 15:00 UTC 이후에 돌리면 `new Date()` 의
+날짜가 화면·서버가 보는 날짜와 **하루 어긋난다.** 로컬은 늘 초록이고 CI 만 저녁에 빨개진다.
+
+```ts
+// ❌ 런너의 날짜다. 15:00 UTC 뒤로는 하루 늦다
+new Date().getDate()
+
+// ✅ 가계부 시간대(Asia/Seoul)의 날짜
+toLedgerDate(new Date())
+```
+
+`support/api.ts` 의 `seedTime` 이 같은 이유로 KST 정오를 기준으로 심는다.
+**그리고 모듈 맨 위에서 한 번 세지 말고 시험 안에서 센다.** 스위트가 한국 자정을 넘기면
+모듈이 읽은 날짜가 낡는다(그 창은 좁아 아직 고치지 않은 spec 이 남아 있다).
 
 ## 「뜬다」 는 「제자리에 있다」 가 아니다
 

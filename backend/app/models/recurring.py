@@ -8,14 +8,25 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Index, Integer, String, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Time,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Entity, MoneyColumn, SoftDeleteMixin, str_enum_type
 from app.domain.aggregation import PaymentMethod
+from app.domain.recurring import MAX_LEAD_DAYS
 
 __all__ = ["RecurringExpense"]
 
@@ -26,6 +37,10 @@ class RecurringExpense(Entity, SoftDeleteMixin):
         CheckConstraint("amount > 0", name="amount_positive"),
         # 31일에 걸어 둔 것은 그 달 마지막 날로 당겨 본다. 2월이 없는 달이 되지 않게.
         CheckConstraint("day_of_month >= 1 AND day_of_month <= 31", name="day_of_month_range"),
+        CheckConstraint(
+            f"remind_lead_days >= 0 AND remind_lead_days <= {MAX_LEAD_DAYS}",
+            name="remind_lead_days_range",
+        ),
         Index("ix_recurring_expenses_user_id_day_of_month", "user_id", "day_of_month"),
     )
 
@@ -46,6 +61,12 @@ class RecurringExpense(Entity, SoftDeleteMixin):
     payment_method: Mapped[PaymentMethod | None] = mapped_column(
         str_enum_type(PaymentMethod, name="payment_method"), nullable=True
     )
+
+    # 몇 시에 알릴까. 비우면 기록 알림에 정해 둔 시각을 따른다.
+    # 구독마다 다른 시각을 쓰는 사람이 있다(월세는 아침, 넷플릭스는 저녁).
+    remind_at: Mapped[time | None] = mapped_column(Time, nullable=True)
+    # 며칠 전에 알릴까. 0 이 당일이고 1 이 전날이다. 기본은 당일이다.
+    remind_lead_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
 
     # 잠시 꺼 두는 자리. 지우면 이력이 사라지지만 끄면 다시 켤 수 있다.
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))

@@ -7,15 +7,25 @@
 from __future__ import annotations
 
 import calendar
-from datetime import date
+from datetime import date, timedelta
 
-__all__ = ["DUE_LEAD_DAYS", "due_date_in", "next_due_on", "should_ask"]
+__all__ = [
+    "DEFAULT_LEAD_DAYS",
+    "MAX_LEAD_DAYS",
+    "due_date_in",
+    "next_due_on",
+    "remind_on",
+    "should_ask",
+]
 
-# 며칠 전부터 알릴까. 전날 하루다.
+# 며칠 전에 알릴까. 안 고르면 **당일**이다.
 #
-# 이틀 전부터 띄우면 카드가 이틀 내내 홈에 앉아 있고, 그날 아침에 띄우면 이미 빠져나간
-# 뒤라 알림이 아니라 통보가 된다. 전날 저녁이 "옮겨 둘까" 를 할 수 있는 마지막 때다.
-DUE_LEAD_DAYS = 1
+# 처음에는 전날 하나로 못 박았는데, 대부분은 빠져나간 그날 적는 것이 자연스럽다.
+# 「전날 미리 옮겨 둘까」 를 하고 싶은 사람만 하루 앞으로 당긴다.
+DEFAULT_LEAD_DAYS = 0
+
+# 이틀 전부터 띄우면 카드가 이틀 내내 홈에 앉아 있다. 하루가 한계다.
+MAX_LEAD_DAYS = 1
 
 
 def due_date_in(year: int, month: int, day_of_month: int) -> date:
@@ -37,23 +47,29 @@ def next_due_on(today: date, day_of_month: int) -> date:
     return due_date_in(year, month, day_of_month)
 
 
+def remind_on(due: date, lead_days: int) -> date:
+    """그 회차를 알릴 날. 당일(0)이면 지출일 그날이다."""
+    return due - timedelta(days=_clamp_lead(lead_days))
+
+
 def should_ask(
     today: date,
     day_of_month: int,
     *,
+    lead_days: int = DEFAULT_LEAD_DAYS,
     last_recorded_on: date | None,
     dismissed_on: date | None,
 ) -> date | None:
     """오늘 물어볼 지출일. 물어볼 것이 없으면 None.
 
-    전날과 당일 이틀만 묻는다. 그날이 지나면 안 적기로 한 것이고, 그때도 조르면
-    이 앱이 구독 관리 앱이 된다.
+    `lead_days` 는 그 예고가 정한 값이다. 당일(0)이면 그날 하루만, 전날(1)이면 이틀 묻는다.
+    그날이 지나면 안 적기로 한 것이고, 그때도 조르면 이 앱이 구독 관리 앱이 된다.
 
     이미 적었거나 「이번 달은 됐어요」 를 누른 회차는 건너뛴다. 판정 기준은 **그 회차의
     지출일**이다. 날짜를 그대로 비교하면 매달 같은 일을 다시 겪는다.
     """
     due = next_due_on(today, day_of_month)
-    if (due - today).days > DUE_LEAD_DAYS:
+    if (due - today).days > _clamp_lead(lead_days):
         return None
     if last_recorded_on is not None and _same_cycle(last_recorded_on, due, day_of_month):
         return None
@@ -69,3 +85,8 @@ def _same_cycle(marked_on: date, due: date, day_of_month: int) -> bool:
     표시한 날 기준으로 다음 지출일을 다시 세어 이번 것과 같은지 본다.
     """
     return next_due_on(marked_on, day_of_month) == due
+
+
+def _clamp_lead(lead_days: int) -> int:
+    """옛 행이나 잘못된 값이 들어와도 화면이 흔들리지 않게 범위 안으로 민다."""
+    return max(0, min(MAX_LEAD_DAYS, lead_days))

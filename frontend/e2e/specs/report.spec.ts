@@ -431,3 +431,51 @@ test('달력에서 달을 옮기면 주소가 도로 끌고 오지 않는다', a
   await calendar.goToMonth('2026년 7월');
   await expect(calendar.monthLabel).toHaveText('2026년 7월');
 });
+
+/**
+ * 달력으로 가는 버튼은 홈과 리포트가 **같아야 한다.**
+ *
+ * 처음에는 리포트만 그림 파일(png)을 썼다. 같은 곳으로 가는 버튼이 하나는 동그란 이모지,
+ * 하나는 선으로 그린 네모라 서로 다른 기능처럼 보였다.
+ */
+test('홈과 리포트의 달력 버튼이 같게 생겼다', async ({ home, page, report }) => {
+  await home.open();
+  await home.waitReady();
+  const onHome = await shapeOf(page.getByRole('link', { name: '월간 달력 보기' }));
+
+  await report.open();
+  await report.waitReady();
+  const onReport = await shapeOf(report.calendarLink);
+
+  expect(onReport, '달력 버튼이 화면마다 다르게 생겼다').toEqual(onHome);
+});
+
+/** 버튼의 겉모습. 크기·테두리·안에 든 그림까지 본다. */
+async function shapeOf(locator: import('@playwright/test').Locator) {
+  return locator.evaluate((node) => {
+    const style = getComputedStyle(node);
+    const box = node.getBoundingClientRect();
+    return {
+      width: Math.round(box.width),
+      height: Math.round(box.height),
+      radius: style.borderRadius,
+      border: style.borderWidth,
+      glyph: node.querySelector('svg')?.innerHTML ?? null,
+    };
+  });
+}
+
+/**
+ * 배너 자리가 리포트에 둘이다.
+ *
+ * 수입 탭에는 아래에 아무것도 없어 배너가 화면 끝에 홀로 남는다. 그래서 소비 탭에만 선다.
+ */
+test('큰 지출 Top 5 위에도 배너가 서고, 수입 탭에는 안 선다', async ({ page, report }) => {
+  await report.open();
+  await report.waitReady();
+
+  await expect(page.getByTestId('ad-slot')).toHaveCount(2);
+
+  await report.modeTab('수입').click();
+  await expect(page.getByTestId('ad-slot')).toHaveCount(1);
+});

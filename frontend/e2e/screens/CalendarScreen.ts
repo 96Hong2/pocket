@@ -313,6 +313,11 @@ export class EditSheetArea {
     return this.root.getByRole('button', { name, exact: true });
   }
 
+  /** 태그 라벨 옆의 작은 글씨. 태그가 있든 없든 늘 보인다. */
+  get tagManageLink(): Locator {
+    return this.root.getByRole('link', { name: '관리 › 태그에서 설정', exact: true });
+  }
+
   get amount(): Locator {
     return this.root.getByLabel('금액');
   }

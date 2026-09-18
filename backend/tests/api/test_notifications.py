@@ -270,3 +270,107 @@ async def test_보내다_중간에_죽어도_이미_보낸_표시는_남는다(
     assert rows[first.id] is not None
     # 두 번째는 못 받았으니 표시가 없다.
     assert sum(1 for value in rows.values() if value is None) == 1
+
+
+# ── 반복 지출 예고 푸시 ──────────────────────────────────
+
+RECURRING = "/api/v1/recurring"
+# 2026-09-08 09:00 KST. 아래 예고가 정한 시각이고, 매일 알림(21:30)과는 다른 분이다.
+MORNING = datetime(2026, 9, 8, 0, 0, tzinfo=UTC)
+
+
+def _enable(client: TestClient) -> None:
+    client.patch(
+        SETTINGS,
+        json={"is_enabled": True, "remind_at": "21:30", "frequency": "daily"},
+        headers=AUTH,
+    )
+
+
+async def test_반복_지출이_정한_시각에도_울린다(client: TestClient, db: Session) -> None:
+    """매일 받기로 한 시각이 아니어도, 예고가 정한 시각이면 보낸다."""
+    _enable(client)
+    client.post(
+        RECURRING,
+        json={"name": "월세", "amount": "500000", "day_of_month": 8, "remind_at": "09:00"},
+        headers=AUTH,
+    )
+
+    sender = _RecordingSender()
+    assert await service.send_due_reminders(db, sender, MORNING) == 1
+    assert sender.sent[0].remind_at == time(9, 0)
+
+
+async def test_예고가_울린_날에는_매일_알림이_또_안_간다(client: TestClient, db: Session) -> None:
+    """문구가 같은 알림이 하루 두 번 오면 그건 소음이다. 하루 한 통이다."""
+    _enable(client)
+    client.post(
+        RECURRING,
+        json={"name": "월세", "amount": "500000", "day_of_month": 8, "remind_at": "09:00"},
+        headers=AUTH,
+    )
+    assert await service.send_due_reminders(db, _RecordingSender(), MORNING) == 1
+    db.expire_all()
+
+    later = _RecordingSender()
+    assert await service.send_due_reminders(db, later, NOW) == 0
+    assert later.sent == []
+
+
+async def test_전날로_걸어_두면_전날에만_울린다(client: TestClient, db: Session) -> None:
+    """카드는 전날부터 이틀 서 있지만 **알림은 하루만** 울린다."""
+    _enable(client)
+    client.post(
+        RECURRING,
+        json={
+            "name": "넷플릭스",
+            "amount": "17000",
+            "day_of_month": 9,
+            "remind_at": "09:00",
+            "remind_lead_days": 1,
+        },
+        headers=AUTH,
+    )
+
+    # 09-08 은 지출일(09-09)의 전날이다. 여기서 울린다.
+    assert await service.send_due_reminders(db, _RecordingSender(), MORNING) == 1
+    db.expire_all()
+
+    # 09-09 당일 같은 시각에는 안 울린다. 홈 카드만 서 있다.
+    same_time_next_day = datetime(2026, 9, 9, 0, 0, tzinfo=UTC)
+    again = _RecordingSender()
+    assert await service.send_due_reminders(db, again, same_time_next_day) == 0
+    assert again.sent == []
+
+
+async def test_꺼_둔_예고는_안_울린다(client: TestClient, db: Session) -> None:
+    _enable(client)
+    created = client.post(
+        RECURRING,
+        json={"name": "월세", "amount": "500000", "day_of_month": 8, "remind_at": "09:00"},
+        headers=AUTH,
+    ).json()["items"][0]
+    client.patch(f"{RECURRING}/{created['id']}", json={"is_active": False}, headers=AUTH)
+    db.expire_all()
+
+    sender = _RecordingSender()
+    assert await service.send_due_reminders(db, sender, MORNING) == 0
+    assert sender.sent == []
+
+
+async def test_시각을_안_정한_예고는_매일_알림_시각에_울린다(
+    client: TestClient, db: Session
+) -> None:
+    """비워 두면 기록 알림에 정해 둔 시각을 따른다. 그날은 어차피 한 통이다."""
+    _enable(client)
+    client.post(
+        RECURRING,
+        json={"name": "월세", "amount": "500000", "day_of_month": 8},
+        headers=AUTH,
+    )
+
+    morning = _RecordingSender()
+    assert await service.send_due_reminders(db, morning, MORNING) == 0
+
+    evening = _RecordingSender()
+    assert await service.send_due_reminders(db, evening, NOW) == 1

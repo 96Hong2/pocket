@@ -14,10 +14,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
-from app.domain.recurring import should_ask
+from app.domain.recurring import next_due_on, remind_on, should_ask
 from app.domain.tags import TagKind
 from app.models import RecurringExpense, User
 from app.modules.categories import service as categories
+from app.modules.notifications.schemas import parse_hhmm
 from app.modules.recurring.schemas import RecurringCreate, RecurringUpdate
 from app.modules.tags import service as tags
 
@@ -29,6 +30,7 @@ __all__ = [
     "due_today",
     "list_recurring",
     "mark_recorded",
+    "next_dates",
     "require_owned",
 ]
 
@@ -87,6 +89,8 @@ def create_recurring(session: Session, user: User, data: RecurringCreate) -> Rec
         category_id=data.category_id,
         tag_id=data.tag_id,
         payment_method=data.payment_method,
+        remind_at=None if data.remind_at is None else parse_hhmm(data.remind_at),
+        remind_lead_days=data.remind_lead_days,
     )
     session.add(row)
     session.commit()
@@ -101,13 +105,18 @@ def update_recurring(
     row = require_owned(session, user, row_id)
     payload = data.model_dump(exclude_unset=True)
 
-    for field in ("name", "amount", "day_of_month", "is_active"):
+    for field in ("name", "amount", "day_of_month", "is_active", "remind_lead_days"):
         if field in payload and payload[field] is None:
             raise ApiError(
                 ErrorCode.INVALID_REQUEST, f"{field} 는 비울 수 없어요.", status_code=422
             )
 
     _check_links(session, user, payload)
+
+    # 시각은 화면이 `HH:MM` 로 보낸다. 모델에는 time 으로 앉는다.
+    if "remind_at" in payload:
+        raw = payload.pop("remind_at")
+        row.remind_at = None if raw is None else parse_hhmm(raw)
 
     for field, value in payload.items():
         if value is None and field not in {"category_id", "tag_id", "payment_method"}:
@@ -147,6 +156,7 @@ def due_today(session: Session, user: User, today: date) -> list[tuple[Recurring
         day = should_ask(
             today,
             row.day_of_month,
+            lead_days=row.remind_lead_days,
             last_recorded_on=row.last_recorded_on,
             dismissed_on=row.dismissed_on,
         )
@@ -164,6 +174,7 @@ def due_date_for(row: RecurringExpense, today: date) -> date:
     day = should_ask(
         today,
         row.day_of_month,
+        lead_days=row.remind_lead_days,
         last_recorded_on=row.last_recorded_on,
         dismissed_on=row.dismissed_on,
     )
@@ -190,3 +201,9 @@ def dismiss_recurring(
     session.commit()
     session.refresh(row)
     return row
+
+
+def next_dates(row: RecurringExpense, today: date) -> tuple[date, date]:
+    """다음 지출일과 그 회차를 알릴 날. 화면이 굵게 적는 값이다."""
+    due = next_due_on(today, row.day_of_month)
+    return due, remind_on(due, row.remind_lead_days)

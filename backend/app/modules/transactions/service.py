@@ -568,12 +568,21 @@ def _like_pattern(text: str) -> str:
     return f"%{escaped}%"
 
 
-def _as_amount(keyword: str) -> Decimal | None:
-    """검색어가 금액인가. 금액이 아니면 None.
+def _as_amount_range(keyword: str) -> tuple[Decimal, Decimal] | None:
+    """검색어가 금액인가. 금액이 아니면 None. 금액이면 찾을 **구간**을 돌려준다.
 
     사람은 「12,000」 이나 「12000원」 으로 적는다. 쉼표와 '원' 을 떼고 숫자만 남으면
-    금액으로 본다. **부분일치가 아니라 딱 그 금액이다.** 자릿수가 겹친다고 12,000 을
-    찾다가 112,000 이 나오면 검색이 아니라 훼방이다.
+    금액으로 본다.
+
+    **뒤에 붙은 0 을 「그 자리는 아무 숫자나」 로 읽는다.** 가계부에서 금액을 찾을 때
+    사람은 「오천 원쯤 썼는데」 를 떠올리지 「5,300원」 을 떠올리지 않는다.
+
+        5000  →  5,000 ~ 5,999   (「오천 원대」)
+        50    →  50 ~ 59         (「오십 원대」)
+        12345 →  12,345 딱 하나  (끝이 0 이 아니면 그 금액이다)
+
+    **부분일치가 아니다.** 12,000 을 찾다가 112,000 이 나오면 검색이 아니라 훼방이다.
+    앞자리는 그대로 두고 뒤의 0 자리만 넓힌다.
     """
     cleaned = keyword.replace(",", "").replace(" ", "").removesuffix("원")
     # 저장할 수 있는 자릿수(MoneyColumn 은 14자리)를 넘으면 금액으로 안 본다.
@@ -582,9 +591,17 @@ def _as_amount(keyword: str) -> Decimal | None:
     if not cleaned.isdigit() or len(cleaned) > 14:
         return None
     try:
-        return Decimal(cleaned)
+        low = Decimal(cleaned)
     except ArithmeticError:
         return None
+
+    # 0 은 넓히지 않는다. 「0 ~ 9」 는 아무도 찾지 않는 구간이고, 앞에 0 을 붙여 적은
+    # 검색어(`0050`)까지 이상하게 번진다.
+    if low == 0:
+        return low, low
+
+    width = len(str(int(low))) - len(str(int(low)).rstrip("0"))
+    return low, low + Decimal(10**width - 1)
 
 
 def _encode_cursor(tx: Transaction) -> str:
@@ -648,9 +665,10 @@ def list_transactions(
             Category.name.ilike(pattern, escape="\\"),
             Tag.name.ilike(pattern, escape="\\"),
         ]
-        amount = _as_amount(keyword)
-        if amount is not None:
-            matches.append(Transaction.amount == amount)
+        span = _as_amount_range(keyword)
+        if span is not None:
+            low, high = span
+            matches.append(Transaction.amount.between(low, high))
         stmt = (
             stmt.outerjoin(Category, Category.id == Transaction.category_id)
             .outerjoin(Tag, Tag.id == Transaction.tag_id)

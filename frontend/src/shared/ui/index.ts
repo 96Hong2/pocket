@@ -6,6 +6,7 @@ export {
 } from './AmountField';
 export { BottomSheet, type BottomSheetProps } from './BottomSheet';
 export { Button, type ButtonProps, type ButtonVariant } from './Button';
+export { CalendarGlyph } from './CalendarGlyph';
 export { CardClose } from './CardClose';
 export { Card, type CardPadding, type CardProps } from './Card';
 export { DateField, type DateFieldProps } from './DateField';

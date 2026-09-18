@@ -506,9 +506,14 @@ class RecordFeedback {
     return this.root.getByRole('button', { name, exact: true });
   }
 
-  /** 태그를 하나도 안 만든 사람에게 보이는 한 줄. 만들러 가는 길이 여기 있다. */
-  get tagEmptyLink(): Locator {
-    return this.root.getByRole('link', { name: '관리 › 태그', exact: true });
+  /**
+   * 태그 라벨 옆의 작은 글씨. **태그가 있든 없든 늘 보인다.**
+   *
+   * 예전에는 하나도 없을 때만 보여 줬는데, 하나라도 만든 사람은 두 번째를 만들러 갈
+   * 자리를 못 찾았다.
+   */
+  get tagManageLink(): Locator {
+    return this.root.getByRole('link', { name: '관리 › 태그에서 설정', exact: true });
   }
 
   get backspaceKey(): Locator {

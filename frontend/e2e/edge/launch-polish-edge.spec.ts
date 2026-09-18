@@ -169,7 +169,7 @@ test('이체 분류에는 규칙을 걸 수 없다', async ({ categories }) => {
 
 // ── 배너 ────────────────────────────────────────────────
 
-test('채울 광고가 없으면 네 자리 모두 빈 칸을 남기지 않는다', async ({
+test('채울 광고가 없으면 어느 자리도 빈 칸을 남기지 않는다', async ({
   appShell,
   home,
   page,
@@ -182,11 +182,20 @@ test('채울 광고가 없으면 네 자리 모두 빈 칸을 남기지 않는�
   await expect(home.ads.slot).not.toBeVisible();
   expect(await home.ads.slot.boundingBox(), '접힌 광고 자리가 아직 크기를 차지한다').toBeNull();
 
-  for (const tab of ['리포트', '관리'] as const) {
+  // 리포트에는 자리가 둘이다(도넛 위·큰 지출 위). 둘 다 접혀야 한다.
+  for (const [tab, count] of [
+    ['리포트', 2],
+    ['관리', 1],
+  ] as const) {
     await appShell.goToTab(tab);
-    const slot = page.getByTestId('ad-slot');
-    await expect(slot).not.toBeVisible();
-    expect(await slot.boundingBox(), `${tab} 의 접힌 광고 자리가 크기를 차지한다`).toBeNull();
+    const slots = page.getByTestId('ad-slot');
+    // 앞 화면이 걷힐 때까지 기다린다. 세는 순간에 둘이 겹치면 수가 흔들린다.
+    await expect(slots).toHaveCount(count);
+    for (let index = 0; index < count; index += 1) {
+      const slot = slots.nth(index);
+      await expect(slot).not.toBeVisible();
+      expect(await slot.boundingBox(), `${tab} 의 접힌 광고 자리가 크기를 차지한다`).toBeNull();
+    }
   }
 
   await settings.open();

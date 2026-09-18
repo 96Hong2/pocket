@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Response, status
 
@@ -19,6 +20,7 @@ from app.domain.aggregation import TransactionSource, TransactionType
 from app.models import RecurringExpense
 from app.modules import ledger
 from app.modules.budgets.schemas import BudgetStateOut, to_budget_state
+from app.modules.notifications.schemas import format_hhmm
 from app.modules.recurring import service
 from app.modules.recurring.schemas import (
     RecurringCreate,
@@ -33,7 +35,8 @@ from app.modules.transactions.schemas import TransactionCreated, TransactionOut,
 router = APIRouter(prefix="/recurring", tags=["recurring"], responses=ERROR_RESPONSES)
 
 
-def _out(row: RecurringExpense) -> RecurringOut:
+def _out(row: RecurringExpense, today: date) -> RecurringOut:
+    due_on, remind_on = service.next_dates(row, today)
     return RecurringOut(
         id=row.id,
         name=row.name,
@@ -43,12 +46,19 @@ def _out(row: RecurringExpense) -> RecurringOut:
         tag_id=row.tag_id,
         payment_method=row.payment_method,
         is_active=row.is_active,
+        remind_at=format_hhmm(row.remind_at),
+        remind_lead_days=row.remind_lead_days,
         last_recorded_on=row.last_recorded_on,
+        next_due_on=due_on,
+        next_remind_on=remind_on,
     )
 
 
 def _list(session: DbSession, user: CurrentUser) -> RecurringListOut:
-    return RecurringListOut(items=[_out(row) for row in service.list_recurring(session, user)])
+    today = ledger.today_for(user)
+    return RecurringListOut(
+        items=[_out(row, today) for row in service.list_recurring(session, user)]
+    )
 
 
 @router.get("", response_model=RecurringListOut)

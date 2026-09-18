@@ -170,23 +170,10 @@
     min-width: 0;
   }
 
+  /* 모양은 `.pk-cal-btn`(shared/ui) 이 갖는다. 홈 히어로의 것과 같아야 한다. */
   .page__head-action {
-    display: grid;
-    flex: none;
-    place-items: center;
-    /* 손가락이 닿는 자리. 제목(22px)의 가운데에 맞춰 조금 내린다. */
-    width: 44px;
-    height: 44px;
-    margin-top: 2px;
-    border-radius: var(--radius-pill);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-card);
-  }
-
-  .page__head-action img {
-    width: 26px;
-    height: 26px;
-    object-fit: contain;
+    /* 제목(22px)의 가운데에 맞춰 조금 내린다. */
+    margin-top: 4px;
   }
 
   /*

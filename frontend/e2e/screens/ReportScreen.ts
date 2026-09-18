@@ -268,13 +268,18 @@ export class ReportScreen {
   }
 
   /**
-   * 광고 자리. 리포트에는 없어야 한다.
+   * 배너 자리 둘. 도넛 위와 「큰 지출 Top 5」 위다.
    *
-   * 배너는 홈 한 곳뿐이다. 이 화면은 달을 옮길 때마다 본문을 다시 그려서,
-   * 여기에 두면 배너가 다시 붙고 그것이 곧 광고 새로고침이 된다.
+   * 달을 옮길 때마다 본문을 다시 그리는 화면이라, 다시 붙는 것이 곧 광고 새로고침이 된다.
+   * 그래서 자리마다 재요청 간격을 둔다. 둘을 함께 잡으면 strict mode 에 걸려 자리 이름으로 가른다.
    */
   get adSlot(): Locator {
-    return this.root.getByTestId(TEST_IDS.adSlot);
+    return this.root.locator('[data-placement="report"]');
+  }
+
+  /** 「큰 지출 Top 5」 위 배너. 소비 탭에만 선다(수입에는 아래에 아무것도 없다). */
+  get bottomAdSlot(): Locator {
+    return this.root.locator('[data-placement="report_bottom"]');
   }
 
   /** 조회가 실패했을 때 본문 자리를 대신하는 제목. */
@@ -391,6 +396,11 @@ export class ClosingArea {
    * 오버레이 안의 광고 자리. 배너는 홈 한 곳뿐이라 여기는 늘 비어 있어야 한다.
    * 한 달을 돌아보는 자리에 광고가 끼면 결산이 광고를 보여주는 구실이 된다.
    */
+  /** 도넛 위 배너. 「큰 지출 Top 5」 위에도 하나 더 있어 자리 이름으로 가른다. */
+  get bottomAdSlot(): Locator {
+    return this.page.locator('[data-placement="report_bottom"]');
+  }
+
   get adSlot(): Locator {
     return this.overlay.getByTestId(TEST_IDS.adSlot);
   }

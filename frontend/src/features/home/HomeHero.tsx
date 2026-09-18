@@ -9,7 +9,7 @@ import {
   formatSignedCurrency,
 } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
-import { Amount, Chip, Gauge, RetryButton } from '../../shared/ui';
+import { Amount, CalendarGlyph, Chip, Gauge, RetryButton } from '../../shared/ui';
 
 import type { HeroLayout, HomeView } from './homeMode';
 
@@ -86,7 +86,11 @@ export function HomeHero({
           '오늘 말고 그 전' 을 보고 싶어지는 자리가 여기라, 목록 끝까지 내려가야만
           갈 수 있게 두면 그 사이에 마음이 식는다.
         */}
-        <Link className="home-hero__calendar" to={ROUTES.calendar} aria-label="월간 달력 보기">
+        <Link
+          className="home-hero__calendar pk-cal-btn"
+          to={ROUTES.calendar}
+          aria-label="월간 달력 보기"
+        >
           <CalendarGlyph />
         </Link>
       </div>
@@ -247,50 +251,5 @@ function HeroValue({ layout, budget }: { layout: HeroLayout; budget: BudgetOut }
         </span>
       ) : null}
     </>
-  );
-}
-
-/**
- * 히어로의 달력 아이콘.
- *
- * 아이콘 자산(png)이 아니라 선으로 그린다. 이 자리는 글자 크기에 맞춰 작게 놓이는데
- * png 를 줄이면 흐려지고, 색도 토큰을 따라가지 못한다.
- */
-function CalendarGlyph() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      <rect
-        x="2"
-        y="4"
-        width="16"
-        height="14"
-        rx="3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <line x1="2" y1="8.5" x2="18" y2="8.5" stroke="currentColor" strokeWidth="1.8" />
-      <line
-        x1="6.5"
-        y1="2"
-        x2="6.5"
-        y2="5.5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <line
-        x1="13.5"
-        y1="2"
-        x2="13.5"
-        y2="5.5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <circle cx="7" cy="12.5" r="1.3" fill="currentColor" />
-      <circle cx="11" cy="12.5" r="1.3" fill="currentColor" opacity="0.45" />
-      <circle cx="15" cy="12.5" r="1.3" fill="currentColor" opacity="0.45" />
-    </svg>
   );
 }

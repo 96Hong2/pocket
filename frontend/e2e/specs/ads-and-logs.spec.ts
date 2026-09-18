@@ -17,11 +17,24 @@ test('배너가 네 화면에 서고, 자리마다 결과를 남긴다', async (
   await expect(home.ads.slot).toHaveCount(1);
   await expect(home.ads.slot).toHaveAttribute('data-placement', 'home');
 
-  await test.step('리포트와 관리에도 한 자리씩', async () => {
+  await test.step('리포트에는 두 자리다. 도넛 위와 「큰 지출 Top 5」 위', async () => {
     await appShell.goToTab('리포트');
-    await expect(page.getByTestId('ad-slot')).toHaveAttribute('data-placement', 'report');
+    const slots = page.getByTestId('ad-slot');
+    // 앞 화면이 걷히고 이 화면의 자리 둘이 다 설 때까지 기다린다.
+    await expect(slots).toHaveCount(2);
+    /*
+      **자리 이름이 서로 달라야 한다.** 같으면 뒤에 붙는 쪽이 쿨다운에 걸려 늘 접히고,
+      로그에서도 어느 자리가 벌었는지 못 가른다.
+    */
+    await expect(slots.first()).toHaveAttribute('data-placement', 'report');
+    await expect(slots.last()).toHaveAttribute('data-placement', 'report_bottom');
 
     await appShell.goToTab('관리');
+    /*
+      **자리 수를 먼저 기다린다.** 탭을 옮기는 사이 앞 화면이 아직 붙어 있을 수 있고,
+      리포트에는 자리가 둘이라 그 찰나에 strict mode 로 죽는다(CI 에서만 그랬다).
+    */
+    await expect(page.getByTestId('ad-slot')).toHaveCount(1);
     await expect(page.getByTestId('ad-slot')).toHaveAttribute('data-placement', 'manage');
   });
 

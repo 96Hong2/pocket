@@ -8,7 +8,7 @@ import {
   useUpdateRecurring,
   type RecurringOut,
 } from '../../shared/api';
-import { formatCurrency } from '../../shared/lib/format';
+import { formatCurrency, formatDayLabel } from '../../shared/lib/format';
 import {
   BottomSheet,
   Button,
@@ -56,13 +56,13 @@ export function RecurringManageList() {
 
   return (
     <>
-      <Card padding={rows.length === 0 ? 'md' : 'list'}>
+      <Card className="recurring-card" padding={rows.length === 0 ? 'md' : 'list'}>
         {rows.length === 0 ? (
           <EmptyState
             size="inline"
             icon="27_clock"
             title="걸어 둔 것이 없어요"
-            description="매달 같은 날 나가는 돈을 적어 두면 전날에 알려드려요"
+            description="매달 같은 날 나가는 돈을 적어 두면 그날 알려드려요"
           />
         ) : (
           <ul className="recurring-list">
@@ -88,6 +88,16 @@ export function RecurringManageList() {
                     <span className="recurring-row__when">
                       매달 {item.day_of_month}일 ·{' '}
                       {formatCurrency(parseDecimalOr(item.amount, 0))}
+                    </span>
+                    {/*
+                      **언제 적히는지를 줄에서 바로 읽게 한다.** 「매달 31일」 만으로는
+                      2월에 무슨 일이 나는지 모른다. 서버가 당겨 준 날짜를 그대로 적는다.
+                    */}
+                    <span className="recurring-row__next">
+                      다음 {formatDayLabel(item.next_due_on)}
+                      {item.next_remind_on === item.next_due_on
+                        ? ''
+                        : ` · 알림 ${formatDayLabel(item.next_remind_on)}`}
                     </span>
                   </button>
                   <Toggle

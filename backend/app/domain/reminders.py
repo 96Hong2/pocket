@@ -12,12 +12,22 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, time
 from zoneinfo import ZoneInfo
 
-__all__ = ["is_due", "local_today"]
+__all__ = ["is_due", "local_today", "matches_minute"]
 
 
 def local_today(now_utc: datetime, tz: ZoneInfo) -> date:
     """그 사람이 사는 곳의 오늘. 보낸 날을 남길 때도 이 날짜를 쓴다."""
     return _as_utc(now_utc).astimezone(tz).date()
+
+
+def matches_minute(now_utc: datetime, tz: ZoneInfo, at: time) -> bool:
+    """그 사람이 사는 곳의 지금이 정한 시각과 **같은 분**인가.
+
+    발송기가 1분마다 도는 것을 전제로 한 판정이라, 지난 시각을 나중에 몰아 보내지 않는다.
+    늦게 온 알림은 '지금 적으라' 는 말이 아니게 된다.
+    """
+    local_now = _as_utc(now_utc).astimezone(tz)
+    return (local_now.hour, local_now.minute) == (at.hour, at.minute)
 
 
 def is_due(
@@ -37,12 +47,9 @@ def is_due(
     """
     if remind_at is None:
         return False
-
-    local_now = _as_utc(now_utc).astimezone(tz)
-    if (local_now.hour, local_now.minute) != (remind_at.hour, remind_at.minute):
+    if not matches_minute(now_utc, tz, remind_at):
         return False
-
-    return last_reminded_on != local_now.date()
+    return last_reminded_on != local_today(now_utc, tz)
 
 
 def _as_utc(value: datetime) -> datetime:

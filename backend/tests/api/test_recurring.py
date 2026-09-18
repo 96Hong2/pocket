@@ -6,14 +6,16 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.domain.recurring import due_date_in, next_due_on, should_ask
+from app.domain.recurring import due_date_in, next_due_on, remind_on, should_ask
 from app.models import Category, RecurringExpense, User
+from app.modules import ledger
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
 RECURRING = "/api/v1/recurring"
@@ -49,26 +51,60 @@ def test_다음_지출일은_오늘을_포함한다() -> None:
 @pytest.mark.parametrize(
     ("today", "asked"),
     [
-        (date(2026, 9, 23), False),  # 이틀 전이면 아직 안 묻는다
-        (date(2026, 9, 24), True),  # 전날
+        (date(2026, 9, 24), False),  # 안 고르면 전날에는 안 묻는다
         (date(2026, 9, 25), True),  # 당일
         (date(2026, 9, 26), False),  # 지나면 안 조른다
     ],
 )
-def test_전날과_당일_이틀만_묻는다(today: date, asked: bool) -> None:
+def test_안_고르면_당일_하루만_묻는다(today: date, asked: bool) -> None:
     got = should_ask(today, 25, last_recorded_on=None, dismissed_on=None)
     assert (got is not None) is asked
+
+
+@pytest.mark.parametrize(
+    ("today", "asked"),
+    [
+        (date(2026, 9, 23), False),  # 이틀 전이면 아직 안 묻는다
+        (date(2026, 9, 24), True),  # 전날
+        (date(2026, 9, 25), True),  # 당일까지 카드는 서 있다
+        (date(2026, 9, 26), False),
+    ],
+)
+def test_전날로_걸어_두면_이틀_묻는다(today: date, asked: bool) -> None:
+    got = should_ask(today, 25, lead_days=1, last_recorded_on=None, dismissed_on=None)
+    assert (got is not None) is asked
+
+
+def test_알리는_날은_며칠_전이냐로_갈린다() -> None:
+    """푸시는 **알리기로 한 그날 하루만** 울린다. 카드가 서 있는 기간과 다르다."""
+    assert remind_on(date(2026, 9, 25), 0) == date(2026, 9, 25)
+    assert remind_on(date(2026, 9, 25), 1) == date(2026, 9, 24)
+    # 범위 밖 값이 들어와도 화면이 흔들리지 않는다.
+    assert remind_on(date(2026, 9, 25), 7) == date(2026, 9, 24)
+    assert remind_on(date(2026, 9, 25), -3) == date(2026, 9, 25)
 
 
 def test_전날에_적었으면_당일에_다시_안_묻는다() -> None:
     """표시를 '같은 달' 로 세면 전날 적은 사람에게 당일 또 뜬다. 회차로 센다."""
     assert (
-        should_ask(date(2026, 9, 25), 25, last_recorded_on=date(2026, 9, 24), dismissed_on=None)
+        should_ask(
+            date(2026, 9, 25),
+            25,
+            lead_days=1,
+            last_recorded_on=date(2026, 9, 24),
+            dismissed_on=None,
+        )
         is None
     )
     # 다음 달에는 다시 묻는다.
     assert (
-        should_ask(date(2026, 10, 24), 25, last_recorded_on=date(2026, 9, 24), dismissed_on=None)
+        should_ask(
+            date(2026, 10, 24),
+            25,
+            lead_days=1,
+            last_recorded_on=date(2026, 9, 24),
+            dismissed_on=None,
+        )
         is not None
     )
 
@@ -142,6 +178,16 @@ def test_수입_태그는_반복_지출에_못_건다(client: TestClient) -> Non
 # ── 곧 나갈 돈 (API) ────────────────────────────────────
 
 
+def _ledger_today() -> date:
+    """서버가 보는 오늘.
+
+    **`date.today()` 를 쓰면 안 된다.** CI 런너는 UTC 인데 사용자 기본 시간대는 KST 라,
+    15:00 UTC 를 넘긴 시각에 돌리면 하루 어긋난 날짜로 예고를 걸게 된다.
+    알림을 당일 하루만 주게 되면서 그 어긋남이 그대로 빨간불이 됐다.
+    """
+    return datetime.now(ZoneInfo(ledger.DEFAULT_TIMEZONE)).date()
+
+
 def _seed(client: TestClient, db: Session, day_of_month: int, **kwargs) -> RecurringExpense:
     row = RecurringExpense(
         user_id=_user(client, db).id,
@@ -157,14 +203,14 @@ def _seed(client: TestClient, db: Session, day_of_month: int, **kwargs) -> Recur
 
 
 def test_꺼_둔_것은_묻지_않는다(client: TestClient, db: Session) -> None:
-    today = date.today()
+    today = _ledger_today()
     _seed(client, db, today.day, is_active=False)
 
     assert client.get(f"{RECURRING}/due", headers=AUTH).json() == []
 
 
 def test_오늘이_그날이면_오늘로_알려_준다(client: TestClient, db: Session) -> None:
-    today = date.today()
+    today = _ledger_today()
     _seed(client, db, today.day)
 
     items = client.get(f"{RECURRING}/due", headers=AUTH).json()
@@ -177,7 +223,7 @@ def test_오늘이_그날이면_오늘로_알려_준다(client: TestClient, db: 
 def test_누르면_기록이_되고_그_회차는_다시_안_묻는다(
     client: TestClient, db: Session, default_categories: list[Category]
 ) -> None:
-    today = date.today()
+    today = _ledger_today()
     row = _seed(client, db, today.day, category_id=_expense_category(default_categories).id)
 
     res = client.post(f"{RECURRING}/{row.id}/record", headers=AUTH)
@@ -192,7 +238,7 @@ def test_누르면_기록이_되고_그_회차는_다시_안_묻는다(
 
 def test_차례가_아닐_때_부르면_막는다(client: TestClient, db: Session) -> None:
     """막지 않으면 다음 달 날짜로 거래가 생겨 달력에 오지 않은 지출이 앉는다."""
-    today = date.today()
+    today = _ledger_today()
     # 오늘에서 열흘 떨어진 날. 달을 넘겨도 늘 '아직 아닌' 날이 되게 고른다.
     far = ((today.day + 9) % 28) + 1
     row = _seed(client, db, far)
@@ -203,7 +249,7 @@ def test_차례가_아닐_때_부르면_막는다(client: TestClient, db: Sessio
 
 
 def test_이번_달은_됐다고_하면_그_회차는_안_묻는다(client: TestClient, db: Session) -> None:
-    today = date.today()
+    today = _ledger_today()
     row = _seed(client, db, today.day)
 
     assert client.post(f"{RECURRING}/{row.id}/dismiss", headers=AUTH).status_code == 200

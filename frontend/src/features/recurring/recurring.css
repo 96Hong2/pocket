@@ -16,6 +16,15 @@
 
   /* ── 설정 목록 ─────────────────────────────────────── */
 
+  /*
+    목록 카드와 아래 「＋ 반복 지출 추가」 사이 여백.
+    붙어 있으면 「걸어 둔 것이 없어요」 와 버튼이 한 덩어리로 읽혀,
+    버튼이 그 안내의 일부인지 따로 있는 것인지 안 갈린다.
+  */
+  .recurring-card {
+    margin-bottom: 14px;
+  }
+
   .recurring-list {
     display: flex;
     flex-direction: column;
@@ -67,6 +76,13 @@
     color: var(--color-muted);
   }
 
+  /* 실제로 적히는 날. 매달 며칟날보다 이쪽이 궁금해서 눈에 들어와야 한다. */
+  .recurring-row__next {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
   /* ── 만들기·고치기 폼 ─────────────────────────────── */
 
   .recurring-form {
@@ -101,6 +117,61 @@
 
   .recurring-form__hint {
     margin: 0;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  /* 알림 시각 칸. 종류 알약 바로 아래에 한 줄로 붙는다. */
+  .recurring-form__time {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  .recurring-form__time-label {
+    flex: 1;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .recurring-form__time-input {
+    flex: none;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  /*
+    언제 적히는지를 말하는 줄. 폼에서 가장 중요한 한 줄이라 바탕을 깔아 띄운다.
+    「매달 31일」 만 적혀 있으면 2월에 무슨 일이 나는지 아무도 모른다.
+  */
+  .recurring-form__next {
+    margin: 0;
+    padding: 12px 14px;
+    background: var(--color-sage-50);
+    border-radius: var(--radius-inset);
+    font-size: var(--text-13);
+    color: var(--color-sage-800);
+    word-break: keep-all;
+  }
+
+  .recurring-form__next b {
+    font-weight: var(--font-weight-bold);
+  }
+
+  /* 31일을 고른 사람에게만 붙는 꼬리. 줄을 바꿔 본문과 갈라 둔다. */
+  .recurring-form__shift {
+    display: block;
+    margin-top: 2px;
     font-size: var(--text-12);
     color: var(--color-muted);
   }
