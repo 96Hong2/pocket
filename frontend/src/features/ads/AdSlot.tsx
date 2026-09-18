@@ -14,7 +14,14 @@ import type { BannerHandle } from '../../shared/toss';
 const TEST_GROUP = import.meta.env.DEV ? 'ait-ad-test-banner-id' : null;
 
 /** 배너가 선 자리. 로그에서 어느 화면의 배너인지 가른다. */
-export type AdPlacement = 'home' | 'report' | 'manage' | 'settings' | 'assets' | 'goal';
+export type AdPlacement =
+  | 'home'
+  | 'report'
+  | 'report_bottom'
+  | 'manage'
+  | 'settings'
+  | 'assets'
+  | 'goal';
 
 /**
  * 같은 자리에 배너를 다시 요청하기까지 두는 최소 간격.

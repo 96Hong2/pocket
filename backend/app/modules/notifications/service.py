@@ -16,16 +16,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
+from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.domain import reminders
+from app.domain import recurring as recurring_rules, reminders
 from app.integrations.notifications import ReminderSender, ReminderTarget
-from app.models import NotificationSetting, User
+from app.models import NotificationSetting, RecurringExpense, User
 from app.modules import ledger
 from app.modules.notifications.schemas import parse_hhmm
 
@@ -136,12 +140,18 @@ def due_reminders(session: Session, now_utc: datetime) -> list[DueReminder]:
     파이썬이 본다.
 
     빈도(`frequency`)는 보지 않는다. 하루 한 번 고정이라 볼 것이 없다.
+
+    **반복 지출 예고도 여기서 함께 본다.** 예고마다 몇 시에·며칠 전에 알릴지를 따로 갖는데,
+    보내는 길은 하나여야 「하루 한 통」 을 지킬 수 있다. 문구는 콘솔 템플릿이 고정이라
+    둘이 같다. 무엇 때문에 왔는지는 앱에 들어온 뒤 홈 카드가 말한다.
     """
     rows = session.execute(
         select(NotificationSetting, User)
         .join(User, User.id == NotificationSetting.user_id)
         .where(NotificationSetting.is_enabled.is_(True), NotificationSetting.remind_at.is_not(None))
     ).all()
+
+    upcoming = _active_recurring(session, [user.id for _, user in rows])
 
     due: list[DueReminder] = []
     missing_key = 0
@@ -154,20 +164,27 @@ def due_reminders(session: Session, now_utc: datetime) -> list[DueReminder]:
             missing_key += 1
             continue
         tz = ledger.user_tz(user)
-        if not reminders.is_due(
+        today_local = reminders.local_today(now_utc, tz)
+        # **하루 한 통이다.** 기록 알림과 반복 지출 예고가 같은 날에 걸려도 먼저 오는 것만
+        # 울린다. 같은 문구가 두 번 오면 그건 알림이 아니라 소음이다.
+        if setting.last_reminded_on == today_local:
+            continue
+        fires_at = _fire_time(
             now_utc=now_utc,
             tz=tz,
             remind_at=remind_at,
-            last_reminded_on=setting.last_reminded_on,
-        ):
+            today_local=today_local,
+            recurring=upcoming.get(user.id, ()),
+        )
+        if fires_at is None:
             continue
         due.append(
             DueReminder(
                 setting=setting,
                 target=ReminderTarget(
                     user_id=user.id,
-                    local_date=reminders.local_today(now_utc, tz),
-                    remind_at=remind_at,
+                    local_date=today_local,
+                    remind_at=fires_at,
                     push_anon_key=setting.push_anon_key,
                 ),
             )
@@ -176,6 +193,63 @@ def due_reminders(session: Session, now_utc: datetime) -> list[DueReminder]:
     if missing_key:
         logger.warning("익명키가 없어 건너뛴 사람", extra={"count": missing_key})
     return due
+
+
+def _active_recurring(
+    session: Session, user_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[RecurringExpense]]:
+    """켜 둔 반복 지출을 사람별로 묶어 한 번에 읽는다.
+
+    사람마다 따로 물으면 1분마다 도는 잡이 사람 수만큼 쿼리를 낸다.
+    """
+    if not user_ids:
+        return {}
+    rows = session.scalars(
+        select(RecurringExpense).where(
+            RecurringExpense.user_id.in_(user_ids),
+            RecurringExpense.deleted_at.is_(None),
+            RecurringExpense.is_active.is_(True),
+        )
+    )
+    grouped: dict[uuid.UUID, list[RecurringExpense]] = defaultdict(list)
+    for row in rows:
+        grouped[row.user_id].append(row)
+    return grouped
+
+
+def _fire_time(
+    *,
+    now_utc: datetime,
+    tz: ZoneInfo,
+    remind_at: time,
+    today_local: date,
+    recurring: Sequence[RecurringExpense],
+) -> time | None:
+    """지금 이 사람에게 울릴 시각. 울릴 때가 아니면 None.
+
+    두 갈래다: 매일 받기로 한 시각과, 반복 지출마다 따로 정한 시각.
+    **반복 지출 예고는 알리기로 한 그날 하루만 울린다.** 전날로 걸어 둔 것은 전날에만
+    울리고 당일에는 홈 카드만 선다. 이틀 연속 울리면 그건 조르는 것이다.
+    """
+    if reminders.matches_minute(now_utc, tz, remind_at):
+        return remind_at
+
+    for row in recurring:
+        due = recurring_rules.should_ask(
+            today_local,
+            row.day_of_month,
+            lead_days=row.remind_lead_days,
+            last_recorded_on=row.last_recorded_on,
+            dismissed_on=row.dismissed_on,
+        )
+        if due is None:
+            continue
+        if recurring_rules.remind_on(due, row.remind_lead_days) != today_local:
+            continue
+        at = row.remind_at or remind_at
+        if reminders.matches_minute(now_utc, tz, at):
+            return at
+    return None
 
 
 async def send_due_reminders(session: Session, sender: ReminderSender, now_utc: datetime) -> int:

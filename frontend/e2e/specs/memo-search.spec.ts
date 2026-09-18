@@ -54,20 +54,43 @@ test('수정 시트에서도 메모를 고친다', async ({ calendar, home, prep
   await expect(calendar.list.row('팀 커피 쐈다')).toBeVisible();
 });
 
-test('금액으로 찾으면 그 금액만 나온다', async ({ calendar, prep }) => {
-  await prep.addTransaction({ amount: 12000, merchant: '스타벅스' });
-  await prep.addTransaction({ amount: 112000, merchant: '백화점' });
+/**
+ * **끝에 붙은 0 은 「그 자리는 아무 숫자나」 다.**
+ *
+ * 가계부에서 금액을 찾을 때 사람은 「오천 원쯤 썼는데」 를 떠올리지 「5,300원」 을
+ * 떠올리지 않는다. 5,000 을 적으면 5,000~5,999 를 찾는다.
+ */
+test('끝이 0 이면 그 자리를 아무 숫자로 본다', async ({ calendar, prep }) => {
+  await prep.addTransaction({ amount: 5000, merchant: '김밥천국' });
+  await prep.addTransaction({ amount: 5300, merchant: '스타벅스' });
+  await prep.addTransaction({ amount: 6000, merchant: '백화점' });
+  // 자릿수가 다르면 안 나온다. 「오천 원대」 지 「5 로 시작하는 모든 금액」 이 아니다.
+  await prep.addTransaction({ amount: 50000, merchant: '전자제품' });
 
   await calendar.open();
   await calendar.waitReady();
 
-  await calendar.search.find('12000');
+  await calendar.search.find('5000');
 
-  /*
-    부분일치가 아니라 딱 그 금액이다. 12,000 을 찾다가 112,000 이 나오면
-    검색이 아니라 훼방이다.
-  */
+  await expect(calendar.list.row('김밥천국')).toBeVisible();
   await expect(calendar.list.row('스타벅스')).toBeVisible();
+  await expect(calendar.list.row('백화점')).toHaveCount(0);
+  await expect(calendar.list.row('전자제품')).toHaveCount(0);
+});
+
+test('끝이 0 이 아니면 딱 그 금액이다', async ({ calendar, prep }) => {
+  await prep.addTransaction({ amount: 12345, merchant: '스타벅스' });
+  await prep.addTransaction({ amount: 12346, merchant: '김밥천국' });
+  await prep.addTransaction({ amount: 112345, merchant: '백화점' });
+
+  await calendar.open();
+  await calendar.waitReady();
+
+  await calendar.search.find('12345');
+
+  // 부분일치가 아니다. 12,345 를 찾다가 112,345 가 나오면 검색이 아니라 훼방이다.
+  await expect(calendar.list.row('스타벅스')).toBeVisible();
+  await expect(calendar.list.row('김밥천국')).toHaveCount(0);
   await expect(calendar.list.row('백화점')).toHaveCount(0);
 });
 

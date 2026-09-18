@@ -52,7 +52,30 @@ export class RecurringScreen {
   }
 
   get daySelect(): Locator {
-    return this.page.getByRole('dialog').getByLabel('매달 며칟날', { exact: true });
+    return this.page.getByRole('dialog').getByLabel('매달', { exact: true });
+  }
+
+  /** 며칠 전에 알릴지. 안 고르면 「당일」 이다. */
+  leadButton(label: '당일' | '전날'): Locator {
+    return this.page
+      .getByRole('dialog')
+      .getByRole('radiogroup', { name: '언제 알릴까요' })
+      .getByRole('radio', { name: label, exact: true });
+  }
+
+  /** 이 예고만 받을 시각. 비우면 기록 알림 시각을 따른다. */
+  get remindAtInput(): Locator {
+    return this.page.getByRole('dialog').getByLabel('알림 시각', { exact: true });
+  }
+
+  /** 폼이 굵게 적는 「다음은 N월 D일에 적어요」 한 줄. */
+  get nextLine(): Locator {
+    return this.page.getByRole('dialog').locator('.recurring-form__next');
+  }
+
+  /** 목록 줄이 적는 다음 날짜. 서버가 당겨 준 값이다. */
+  nextOnRow(name: string): Locator {
+    return this.row(name).locator('.recurring-row__next');
   }
 
   saveButton(label: '만들기' | '고치기'): Locator {
@@ -68,10 +91,16 @@ export class RecurringScreen {
     name,
     amount,
     day,
+    lead,
+    remindAt,
   }: {
     name: string;
     amount: number;
     day: number;
+    /** 안 주면 폼 기본값(당일)을 그대로 쓴다. */
+    lead?: '당일' | '전날';
+    /** `09:00` 모양. 안 주면 비워 둔다(기록 알림 시각을 따른다). */
+    remindAt?: string;
   }): Promise<void> {
     await this.addButton.click();
     await expect(this.sheet('새 반복 지출')).toBeVisible();
@@ -82,6 +111,8 @@ export class RecurringScreen {
     */
     await this.page.getByRole('dialog').getByLabel('금액').fill(String(amount));
     await this.daySelect.selectOption(String(day));
+    if (lead != null) await this.leadButton(lead).click();
+    if (remindAt != null) await this.remindAtInput.fill(remindAt);
     await this.saveButton('만들기').click();
     await expect(this.sheet('새 반복 지출')).toHaveCount(0);
   }

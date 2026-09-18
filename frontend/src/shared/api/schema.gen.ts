@@ -2044,6 +2044,13 @@ export interface components {
             /** Tag Id */
             tag_id?: string | null;
             payment_method?: components["schemas"]["PaymentMethod"] | null;
+            /** Remind At */
+            remind_at?: string | null;
+            /**
+             * Remind Lead Days
+             * @default 0
+             */
+            remind_lead_days: number;
         };
         /**
          * RecurringDueOut
@@ -2099,15 +2106,29 @@ export interface components {
             payment_method: components["schemas"]["PaymentMethod"] | null;
             /** Is Active */
             is_active: boolean;
+            /** Remind At */
+            remind_at?: string | null;
+            /** Remind Lead Days */
+            remind_lead_days: number;
             /** Last Recorded On */
             last_recorded_on: string | null;
+            /**
+             * Next Due On
+             * Format: date
+             */
+            next_due_on: string;
+            /**
+             * Next Remind On
+             * Format: date
+             */
+            next_remind_on: string;
         };
         /**
          * RecurringUpdate
          * @description 보낸 필드만 고친다.
          *
-         *     **분류·태그·결제수단은 null 이 '지운다' 다.** 골랐다가 되무를 수 있어야 한다.
-         *     이름·금액·날짜·켜짐은 비워 둘 자리가 없어 null 을 보내면 422 다.
+         *     **분류·태그·결제수단·알림 시각은 null 이 '지운다' 다.** 골랐다가 되무를 수 있어야 한다.
+         *     이름·금액·날짜·켜짐·전날여부는 비워 둘 자리가 없어 null 을 보내면 422 다.
          */
         RecurringUpdate: {
             /** Name */
@@ -2123,6 +2144,10 @@ export interface components {
             payment_method?: components["schemas"]["PaymentMethod"] | null;
             /** Is Active */
             is_active?: boolean | null;
+            /** Remind At */
+            remind_at?: string | null;
+            /** Remind Lead Days */
+            remind_lead_days?: number | null;
         };
         /**
          * ResetIn

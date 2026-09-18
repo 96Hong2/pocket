@@ -6,7 +6,7 @@ import { ROUTES } from '../app/router/routes';
 import { AdSlot } from '../features/ads';
 import { MonthlyReport } from '../features/reports';
 import { toLedgerDate } from '../shared/lib/format';
-import { iconUrl } from '../shared/ui';
+import { CalendarGlyph } from '../shared/ui';
 
 /** `2026-08` 모양인지. 홈 카드가 붙여 준 값이라 아무 문자열이나 들어올 수 있다. */
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -55,11 +55,11 @@ export default function ReportPage() {
           이번 달로 떨어뜨리면 반년 전 리포트를 보던 사람이 화살표를 여섯 번 더 눌러야 한다.
         */}
         <Link
-          className="page__head-action"
+          className="page__head-action pk-cal-btn"
           to={`${ROUTES.calendar}?month=${month}`}
           aria-label="이 달을 달력으로 보기"
         >
-          <img src={iconUrl('58_calendar')} alt="" aria-hidden="true" />
+          <CalendarGlyph />
         </Link>
       </div>
 
@@ -72,6 +72,7 @@ export default function ReportPage() {
         autoOpenClosing={openClosing}
         onClosingAutoOpened={consumeClosing}
         adSlot={<AdSlot placement="report" />}
+        bottomAdSlot={<AdSlot placement="report_bottom" />}
       />
     </div>
   );

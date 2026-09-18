@@ -59,6 +59,7 @@ export function MonthlyReport({
   autoOpenClosing = false,
   onClosingAutoOpened,
   adSlot,
+  bottomAdSlot,
 }: {
   month: string;
   onMonthChange: (next: string) => void;
@@ -68,6 +69,8 @@ export function MonthlyReport({
   onClosingAutoOpened?: () => void;
   /** 도넛 바로 위에 설 배너. 페이지가 넣어 준다. */
   adSlot?: ReactNode;
+  /** 「큰 지출 Top 5」 바로 위에 설 배너. 소비 탭에만 선다. */
+  bottomAdSlot?: ReactNode;
 }) {
   // 아직 오지 않은 달은 볼 수 없다. 가면 안 끝난 이번 달을 "지난달 전체" 로 견주는 거짓말이 나온다.
   const thisMonth = toLedgerDate(new Date()).slice(0, 7);
@@ -268,14 +271,19 @@ export function MonthlyReport({
 
       {/* 소비 이야기다. 수입에는 결제 수단도 큰 지출도 없다. */}
       {!income ? <PaymentMethods rows={data.method_breakdown} /> : null}
+
+      {/*
+        둘째 배너. **소비 탭에서만** 선다. 수입 탭에는 아래에 아무것도 없어 배너가
+        화면 끝에 홀로 남는다.
+
+        `report` 자리와 다른 이름을 쓴다. 자리 이름이 같으면 뒤에 붙는 쪽이 쿨다운에 걸려
+        늘 접힌다(`AdSlot` 의 `REQUEST_COOLDOWN_MS`). 로그에서도 어느 자리인지 갈린다.
+      */}
+      {!income ? bottomAdSlot : null}
+
       {!income ? (
         <LargeExpenses rows={data.large_expenses} byId={byId} namesUnknown={namesUnknown} />
       ) : null}
-
-      {/*
-        광고 자리는 홈 한 곳뿐이다. 시안에는 여기에도 배너가 있지만 PRD v5 가 홈으로 못 박았다.
-        달을 옮길 때마다 본문을 다시 그려서 배너가 다시 붙고, 그것이 곧 광고 새로고침이 된다.
-      */}
     </div>
   );
 }

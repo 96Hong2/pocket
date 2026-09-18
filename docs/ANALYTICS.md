@@ -31,7 +31,7 @@
 | 떠나기로 마음먹나 | `data_reset_result` | 성공·실패, 걸린 시간, 오류 코드 |
 | 남에게 알릴 만하다고 느끼나 | `share_result` · `share_card_dismissed` | 누른 자리(`home`·`goal`·`goal_done`·`manage`·`manage_past`·`closing`), 갈래(`app`·`goal`·`goal_done`·`budget`·`closing`), 성공·실패와 실패 코드. **보낸 글은 싣지 않는다** |
 | 미리 적어 둔 돈을 실제로 적나 | `recurring_result` | 적었나(`recorded`)·미뤘나(`dismissed`), 전날인가 당일인가(`eve`·`today`). **항목 이름과 금액은 싣지 않는다** |
-| 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
+| 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
 
 `review_finished` 는 「5건 중 날짜 2건·금액 1건 고침」 까지만 남긴다.
 그 날짜가 무엇이었고 금액이 얼마였는지는 남기지 않는다.

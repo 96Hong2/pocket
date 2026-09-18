@@ -202,14 +202,47 @@ def test_하루_경계도_사용자_시간대로_본다(client: TestClient) -> N
 # ── 금액·메모·태그로 찾기 ───────────────────────────────
 
 
-def test_숫자만_적으면_그_금액을_찾는다(client: TestClient) -> None:
-    """부분일치가 아니라 딱 그 금액이다. 12,000 을 찾다 112,000 이 나오면 훼방이다."""
-    _add(client, amount="12000", merchant="스타벅스")
-    _add(client, amount="112000", merchant="백화점")
+def test_끝이_0_이면_그_자리를_아무_숫자로_본다(client: TestClient) -> None:
+    """「오천 원쯤 썼는데」 를 찾는 사람이 5,000 을 적는다. 5,300 도 그 사람이 찾는 것이다."""
+    _add(client, amount="5000", merchant="김밥천국")
+    _add(client, amount="5300", merchant="스타벅스")
+    _add(client, amount="6000", merchant="백화점")
+    _add(client, amount="500", merchant="편의점")
 
-    found = _page(client, q="12000")["items"]
+    found = _page(client, q="5000")["items"]
+
+    assert sorted(item["merchant"] for item in found) == ["김밥천국", "스타벅스"]
+
+
+def test_두_자리도_같은_규칙이다(client: TestClient) -> None:
+    _add(client, amount="50", merchant="공중전화")
+    _add(client, amount="59", merchant="사탕")
+    _add(client, amount="60", merchant="껌")
+
+    found = _page(client, q="50")["items"]
+
+    assert sorted(item["merchant"] for item in found) == ["공중전화", "사탕"]
+
+
+def test_끝이_0_이_아니면_딱_그_금액이다(client: TestClient) -> None:
+    """부분일치가 아니다. 12,345 를 찾다 112,345 가 나오면 훼방이다."""
+    _add(client, amount="12345", merchant="스타벅스")
+    _add(client, amount="12346", merchant="김밥천국")
+    _add(client, amount="112345", merchant="백화점")
+
+    found = _page(client, q="12345")["items"]
 
     assert [item["merchant"] for item in found] == ["스타벅스"]
+
+
+def test_앞자리가_같아도_자릿수가_다르면_안_나온다(client: TestClient) -> None:
+    """5,000 은 「오천 원대」 지 「5 로 시작하는 모든 금액」 이 아니다."""
+    _add(client, amount="5000", merchant="김밥천국")
+    _add(client, amount="50000", merchant="백화점")
+
+    found = _page(client, q="5000")["items"]
+
+    assert [item["merchant"] for item in found] == ["김밥천국"]
 
 
 def test_쉼표와_원을_붙여_적어도_찾는다(client: TestClient) -> None:

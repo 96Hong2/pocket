@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.domain.recurring import due_date_in, next_due_on, should_ask
+from app.domain.recurring import due_date_in, next_due_on, remind_on, should_ask
 from app.models import Category, RecurringExpense, User
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
@@ -49,26 +49,60 @@ def test_다음_지출일은_오늘을_포함한다() -> None:
 @pytest.mark.parametrize(
     ("today", "asked"),
     [
-        (date(2026, 9, 23), False),  # 이틀 전이면 아직 안 묻는다
-        (date(2026, 9, 24), True),  # 전날
+        (date(2026, 9, 24), False),  # 안 고르면 전날에는 안 묻는다
         (date(2026, 9, 25), True),  # 당일
         (date(2026, 9, 26), False),  # 지나면 안 조른다
     ],
 )
-def test_전날과_당일_이틀만_묻는다(today: date, asked: bool) -> None:
+def test_안_고르면_당일_하루만_묻는다(today: date, asked: bool) -> None:
     got = should_ask(today, 25, last_recorded_on=None, dismissed_on=None)
     assert (got is not None) is asked
+
+
+@pytest.mark.parametrize(
+    ("today", "asked"),
+    [
+        (date(2026, 9, 23), False),  # 이틀 전이면 아직 안 묻는다
+        (date(2026, 9, 24), True),  # 전날
+        (date(2026, 9, 25), True),  # 당일까지 카드는 서 있다
+        (date(2026, 9, 26), False),
+    ],
+)
+def test_전날로_걸어_두면_이틀_묻는다(today: date, asked: bool) -> None:
+    got = should_ask(today, 25, lead_days=1, last_recorded_on=None, dismissed_on=None)
+    assert (got is not None) is asked
+
+
+def test_알리는_날은_며칠_전이냐로_갈린다() -> None:
+    """푸시는 **알리기로 한 그날 하루만** 울린다. 카드가 서 있는 기간과 다르다."""
+    assert remind_on(date(2026, 9, 25), 0) == date(2026, 9, 25)
+    assert remind_on(date(2026, 9, 25), 1) == date(2026, 9, 24)
+    # 범위 밖 값이 들어와도 화면이 흔들리지 않는다.
+    assert remind_on(date(2026, 9, 25), 7) == date(2026, 9, 24)
+    assert remind_on(date(2026, 9, 25), -3) == date(2026, 9, 25)
 
 
 def test_전날에_적었으면_당일에_다시_안_묻는다() -> None:
     """표시를 '같은 달' 로 세면 전날 적은 사람에게 당일 또 뜬다. 회차로 센다."""
     assert (
-        should_ask(date(2026, 9, 25), 25, last_recorded_on=date(2026, 9, 24), dismissed_on=None)
+        should_ask(
+            date(2026, 9, 25),
+            25,
+            lead_days=1,
+            last_recorded_on=date(2026, 9, 24),
+            dismissed_on=None,
+        )
         is None
     )
     # 다음 달에는 다시 묻는다.
     assert (
-        should_ask(date(2026, 10, 24), 25, last_recorded_on=date(2026, 9, 24), dismissed_on=None)
+        should_ask(
+            date(2026, 10, 24),
+            25,
+            lead_days=1,
+            last_recorded_on=date(2026, 9, 24),
+            dismissed_on=None,
+        )
         is not None
     )
 

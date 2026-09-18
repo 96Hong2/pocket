@@ -169,7 +169,7 @@ test('이체 분류에는 규칙을 걸 수 없다', async ({ categories }) => {
 
 // ── 배너 ────────────────────────────────────────────────
 
-test('채울 광고가 없으면 네 자리 모두 빈 칸을 남기지 않는다', async ({
+test('채울 광고가 없으면 어느 자리도 빈 칸을 남기지 않는다', async ({
   appShell,
   home,
   page,
@@ -184,9 +184,13 @@ test('채울 광고가 없으면 네 자리 모두 빈 칸을 남기지 않는�
 
   for (const tab of ['리포트', '관리'] as const) {
     await appShell.goToTab(tab);
-    const slot = page.getByTestId('ad-slot');
-    await expect(slot).not.toBeVisible();
-    expect(await slot.boundingBox(), `${tab} 의 접힌 광고 자리가 크기를 차지한다`).toBeNull();
+    // 리포트에는 자리가 둘이다. 둘 다 접혀야 한다.
+    const slots = page.getByTestId('ad-slot');
+    for (let index = 0; index < (await slots.count()); index += 1) {
+      const slot = slots.nth(index);
+      await expect(slot).not.toBeVisible();
+      expect(await slot.boundingBox(), `${tab} 의 접힌 광고 자리가 크기를 차지한다`).toBeNull();
+    }
   }
 
   await settings.open();

@@ -52,6 +52,8 @@ e2e/
     ReportScreen     리포트 탭. 총액·도넛·조각 목록·6개월 흐름·월간 결산
                      closing 은 결산 입구와 오버레이다. 입구는 버튼, 오버레이는 다이얼로그라
                      둘 다 이름으로 잡고, 안쪽의 점·줄만 testid 를 쓴다
+                     **배너가 둘이다.** `adSlot`(도넛 위)·`bottomAdSlot`(큰 지출 Top 5 위).
+                     testid 가 같아 자리 이름(`data-placement`)으로 가른다
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
     ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·suggest·categories·banner·settings 로 나눠 들고 있다
                      suggest 는 목표 기반 생활비 제안 카드다. 예산이 없는 달에, 기한이 있는 목표가
@@ -64,6 +66,8 @@ e2e/
     TagsScreen       태그 관리. 지출·수입 두 묶음과 만들기·고치기·지우기 시트
     RecurringScreen  반복 지출. 목록·켜기끄기와 만들기·고치기 시트.
                      홈 카드는 여기가 아니라 HomeScreen.recurring 이 든다
+                     알림은 둘을 고른다: `leadButton`(당일·전날)·`remindAtInput`(시각).
+                     **안 고르면 당일이다.** 언제 적히는지는 `nextLine`(폼)·`nextOnRow`(목록)
     AssetsScreen     자산 화면. 순자산 카드·그룹 구획 넷·항목 시트를 한 화면이 들고 있다
     GoalScreen       목표 화면. 목표 카드·모은 돈 목록·시트 둘(목표·기여)을 한 화면이 들고 있다
                      공유가 둘이다. 목표 카드 아래 권유 카드(`shareCard`·`shareButton`)와

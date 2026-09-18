@@ -89,7 +89,7 @@ test('눌린 태그를 다시 누르면 떨어진다', async ({ home, recordShee
   await expect(recordSheet.feedback.tagChip('출장')).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('태그가 하나도 없으면 만들러 가는 길만 보여준다', async ({ home, recordSheet }) => {
+test('태그가 하나도 없어도 어디서 만드는지 알려준다', async ({ home, recordSheet }) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
@@ -99,7 +99,39 @@ test('태그가 하나도 없으면 만들러 가는 길만 보여준다', async
   await recordSheet.feedback.waitSaved();
 
   // 「태그가 없어요」 만 적으면 어디서 만드는지 모른다.
-  await expect(recordSheet.feedback.tagEmptyLink).toBeVisible();
+  await expect(recordSheet.feedback.tagManageLink).toBeVisible();
+});
+
+/**
+ * 태그를 만든 뒤에도 그 길이 남는다.
+ *
+ * 예전에는 하나도 없을 때만 보여 줬다. 하나 만들고 나면 둘째를 만들러 갈 자리가 화면에서
+ * 사라져, 기록을 적다 「이건 따로 묶고 싶다」 고 생각한 순간에 갈 곳이 없었다.
+ */
+test('태그가 있어도 관리로 가는 길이 남는다', async ({ calendar, prep, recordSheet, home, tags }) => {
+  await tags.open();
+  await tags.waitReady();
+  await tags.create('지출 태그', '데이트');
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.input.enterAmount(5000);
+  await recordSheet.input.pickCategory('식비');
+  await recordSheet.feedback.waitSaved();
+  await expect(recordSheet.feedback.tagChip('데이트')).toBeVisible();
+  await expect(recordSheet.feedback.tagManageLink).toBeVisible();
+  await recordSheet.closeByEsc();
+
+  await test.step('고치는 시트에도 있다', async () => {
+    await prep.addTransaction({ amount: 9000, merchant: '영화관' });
+    await calendar.open();
+    await calendar.waitReady();
+    await calendar.list.pick('영화관');
+    await calendar.edit.waitOpen();
+    await expect(calendar.edit.tagManageLink).toBeVisible();
+  });
 });
 
 test('리포트에서 태그별로 갈린다', async ({ home, recordSheet, report, tags }) => {
