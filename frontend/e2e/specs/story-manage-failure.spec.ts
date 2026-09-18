@@ -45,7 +45,7 @@ const ETC = '기타';
 const VET = '동물병원';
 
 /** 시각을 안 고르고 켜면 서버가 넣어 주는 값. */
-const DEFAULT_TIME = '21:30';
+const DEFAULT_TIME = '20:00';
 const LATE = '23:30';
 
 test('자산을 못 불러오면 적는 입구를 모두 닫고 먼저 다시 받게 한다', async ({

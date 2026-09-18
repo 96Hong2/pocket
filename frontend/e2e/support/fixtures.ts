@@ -10,9 +10,11 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { ManageScreen } from '../screens/ManageScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { RecurringScreen } from '../screens/RecurringScreen';
 import { ReportScreen } from '../screens/ReportScreen';
 import { RecordSheet } from '../screens/RecordSheet';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { TagsScreen } from '../screens/TagsScreen';
 
 import { installShareSheetStub } from './aitMock';
 import { anonKeyFor, installAnonKeyTrap, probeAnonKey } from './anonKey';
@@ -36,6 +38,17 @@ interface PocketFixtures {
    * 안내 자체를 확인하는 spec 에서만 `test.use({ showOnboarding: true })` 로 켠다.
    */
   showOnboarding: boolean;
+  /**
+   * 홈 화면 추가 카드를 띄운 채로 연다.
+   *
+   * 기본은 닫아 둔 상태다. 안 그러면 기록으로 시작하는 spec 마다 이 카드가 목록을 아래로
+   * 밀어내 스크롤 위치가 흔들린다. 카드 자체를 확인하는 spec 에서만
+   * `test.use({ showHomeAddCard: true })` 로 켠다.
+   *
+   * **spec 안에서 표시를 지우는 방식은 안 통한다.** init script 는 새로고침에도 다시 도는데,
+   * 그러면 방금 닫은 것을 매번 되살려 「닫으면 다시 안 뜬다」 를 확인할 수가 없다.
+   */
+  showHomeAddCard: boolean;
   appShell: AppShell;
   /** 내 계정. 앱 설정 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
   account: AccountScreen;
@@ -57,6 +70,10 @@ interface PocketFixtures {
   assets: AssetsScreen;
   /** 목표. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
   goal: GoalScreen;
+  /** 태그 관리. 관리 탭 아래 하위 화면이다. */
+  tags: TagsScreen;
+  /** 반복 지출. 관리 탭 아래 하위 화면이다. 홈 카드는 `home.recurring` 이 든다. */
+  recurring: RecurringScreen;
   /** 처음 안내. `showOnboarding` 을 켠 spec 에서만 실제로 뜬다. */
   onboarding: OnboardingScreen;
   /** 확인하려는 동작의 배경 상태를 심는다. 브라우저와 같은 익명키를 쓴다. */
@@ -73,6 +90,8 @@ export const test = base.extend<PocketFixtures>({
   },
 
   showOnboarding: [false, { option: true }],
+
+  showHomeAddCard: [false, { option: true }],
 
   appShell: async ({ page }, use) => {
     await use(new AppShell(page));
@@ -126,6 +145,14 @@ export const test = base.extend<PocketFixtures>({
     await use(new OnboardingScreen(page));
   },
 
+  tags: async ({ page }, use) => {
+    await use(new TagsScreen(page));
+  },
+
+  recurring: async ({ page }, use) => {
+    await use(new RecurringScreen(page));
+  },
+
   prep: async ({ anonKey }, use) => {
     const api = await PrepApi.create(anonKey);
     await use(api);
@@ -133,11 +160,11 @@ export const test = base.extend<PocketFixtures>({
   },
 
   // 기본 page 를 감싼다. 격리 트랩 주입과 감시가 모든 테스트에 자동으로 걸린다.
-  page: async ({ page, anonKey, consoleErrorAllowList, showOnboarding }, use) => {
+  page: async ({ page, anonKey, consoleErrorAllowList, showOnboarding, showHomeAddCard }, use) => {
     await page.addInitScript(installAnonKeyTrap, anonKey);
     // 공유 시트는 웹 페이지 바깥에서 뜬다. 놔두면 실행 환경에 따라 진짜 OS 창이 떠서 멈춘다.
     await page.addInitScript(installShareSheetStub);
-    await page.addInitScript(silenceHomeAddPrompt);
+    if (!showHomeAddCard) await page.addInitScript(silenceHomeAddCard);
     if (!showOnboarding) await page.addInitScript(silenceOnboarding);
 
     const violations: string[] = [];
@@ -197,21 +224,19 @@ export { expect };
 /**
  * 홈 화면 추가 안내를 「이미 봤다」 로 두고 시작한다.
  *
- * 이 안내는 첫 기록을 마치는 순간 스스로 열린다. 실제 동작이 그렇지만, 기록으로 시작하는
- * 다른 테스트에서는 그 시트가 다음 조작을 가로막는다(예산·달력·리포트 아홉 건이 그렇게 깨졌다).
- * 안내 자체는 `specs/home-add.spec.ts` 가 이 표시를 지우고 확인한다.
+ * 이 카드는 한 번이라도 적은 사람의 홈에 선다. 실제 동작이 그렇지만, 기록으로 시작하는
+ * 다른 테스트에서는 카드가 목록을 아래로 밀어내 스크롤 위치를 흔든다.
+ * 카드 자체는 `specs/home-add.spec.ts` 가 이 표시를 지우고 확인한다.
  *
  * 토스 devtools 목 SDK 의 저장소는 `__ait_storage:` 접두사를 붙인 localStorage 다.
  */
-function silenceHomeAddPrompt(): void {
+function silenceHomeAddCard(): void {
   /*
     init script 는 about:blank 처럼 저장소를 못 여는 문서에서도 돈다.
     거기서 던지면 그 오류가 콘솔 감시에 잡혀 관계없는 테스트가 깨진다(플랫폼 엣지 넷이 그랬다).
   */
   try {
-    window.localStorage.setItem('__ait_storage:home-add-prompted', '1');
-    // 몇 번 적고 나면 한 번 더 뜬다. 세 건씩 심는 spec 한가운데서 시트가 끼어들지 않게 함께 막는다.
-    window.localStorage.setItem('__ait_storage:home-add-prompted-again', '1');
+    window.localStorage.setItem('__ait_storage:card-dismissed-home-add', '');
   } catch {
     /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
   }

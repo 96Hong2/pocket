@@ -13,7 +13,7 @@
 import type { KeyValueStore } from '../toss';
 
 /** 닫을 수 있는 카드. 키가 겹치지 않게 여기 한 곳에서 이름을 정한다. */
-export type DismissibleCard = 'recovery' | 'budget-suggest' | 'share-app';
+export type DismissibleCard = 'recovery' | 'budget-suggest' | 'share-app' | 'home-add';
 
 function keyFor(card: DismissibleCard): string {
   return `card-dismissed-${card}`;

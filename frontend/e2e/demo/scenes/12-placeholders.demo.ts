@@ -221,7 +221,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await expect(notifications.timeInput).toBeDisabled();
   await demo.beat(2);
 
-  await demo.step('켜는 그 순간에 토스 알림 동의를 묻고, 시각은 저녁 9시 30분으로 들어온다');
+  await demo.step('켜는 그 순간에 토스 알림 동의를 묻고, 시각은 저녁 8시로 들어온다');
   await notifications.turnOn();
   await expect(notifications.timeInput).toHaveValue('21:30');
   await demo.beat(2);

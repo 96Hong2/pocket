@@ -50,6 +50,14 @@ export interface HomeView {
   showFirstLead: boolean;
   /** 앱을 친구에게 알리겠냐고 물어볼까. 몇 번 써 본 사람에게만 묻는다. */
   showShareInvite: boolean;
+  /**
+   * 홈 화면에 추가하라고 권할까.
+   *
+   * **한 번만 적어 봐도 권한다.** 써 보지도 않은 앱을 홈에 놓으라는 말은 광고로 읽히지만,
+   * 한 번 적어 본 사람은 이 앱이 무엇인지 안다. 그 뒤로는 자주 쓸수록 이 카드가 아니라
+   * 이미 홈에 있는 아이콘이 일을 한다.
+   */
+  showHomeAdd: boolean;
 }
 
 export function resolveHomeView(input: HomeViewInput): HomeView {
@@ -71,6 +79,7 @@ export function resolveHomeView(input: HomeViewInput): HomeView {
     showBudgetSuggestion: input.hasAnyTransaction && !hasBudget,
     showFirstLead: !input.hasAnyTransaction,
     showShareInvite: input.transactionCount >= SHARE_AFTER_RECORDS,
+    showHomeAdd: input.hasAnyTransaction,
   };
 }
 

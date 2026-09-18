@@ -22,6 +22,8 @@ test('관리 탭에서 자산으로 들어가면 빈 상태가 있다', async ({
   await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText([
     '목표',
     '카테고리 관리',
+    '태그',
+    '반복 지출',
     '알림 설정',
     '내 계정',
     '앱 설정',

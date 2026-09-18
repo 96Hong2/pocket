@@ -8,6 +8,7 @@ export { BottomSheet, type BottomSheetProps } from './BottomSheet';
 export { Button, type ButtonProps, type ButtonVariant } from './Button';
 export { CardClose } from './CardClose';
 export { Card, type CardPadding, type CardProps } from './Card';
+export { DateField, type DateFieldProps } from './DateField';
 export { CategoryAvatar, type CategoryAvatarProps } from './CategoryAvatar';
 export { Chip, type ChipProps, type ChipVariant } from './Chip';
 export { isEmoji, NOT_EMOJI_MESSAGE } from './emoji';
@@ -23,6 +24,7 @@ export {
   type SegmentedControlProps,
   type SegmentedOption,
 } from './SegmentedControl';
+export { TagMark } from './TagMark';
 export { Toggle, type ToggleProps } from './Toggle';
 export { TransactionRow, type TransactionRowProps } from './TransactionRow';
 

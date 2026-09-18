@@ -43,11 +43,11 @@ export interface AddToHomeSheetProps {
   /**
    * 어디서 열었는지. 안내를 어느 자리에서 봤을 때 실제로 따라 하는지 보려고 남긴다.
    *
-   * `first_record` 는 **정말로 방금 첫 기록이 생긴 순간만**이다. 그 말을 제목에 쓰기
-   * 때문에, 전이 없이 열 수 있는 길을 만들면 안 한 일을 했다고 말하게 된다.
-   * 몇 번 더 적은 뒤 한 번 더 묻는 자리는 `kept_recording` 이고, 제목은 담백한 쪽을 쓴다.
+   * `home_card` 는 홈에 서 있는 카드, `settings` 는 앱 설정의 줄이다. 둘 다 사람이
+   * 눌러서 여는 자리라 제목은 담백한 쪽 하나를 쓴다. **안 한 일을 했다고 말하지 않는다**:
+   * 「첫 기록 끝!」 같은 제목은 정말 그 순간에만 쓸 수 있는데, 카드는 며칠 뒤에도 눌린다.
    */
-  from: 'first_record' | 'kept_recording' | 'settings';
+  from: 'home_card' | 'settings';
 }
 
 export function AddToHomeSheet({ open, onClose, from }: AddToHomeSheetProps) {
@@ -56,14 +56,11 @@ export function AddToHomeSheet({ open, onClose, from }: AddToHomeSheetProps) {
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
   useOverlayBackClose(open, onClose);
 
-  // 첫 기록 직후에는 방금 한 일과 이어 붙인다. 설정에서 연 사람에게 「첫 기록」 은 남의 얘기다.
-  const firstRecord = from === 'first_record';
-
   return (
     <BottomSheet
       open={open}
       onClose={onClose}
-      title={firstRecord ? '첫 기록 끝! 홈에 두면 더 빨라요' : '홈 화면에 추가하면 더 빨라요'}
+      title="홈 화면에 추가하면 더 빨라요"
       className="home-add-sheet"
     >
       <div className="home-add-hero">

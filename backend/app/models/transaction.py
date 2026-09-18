@@ -56,8 +56,18 @@ class Transaction(Entity, SoftDeleteMixin):
     # 중복 판정과 자동 분류 규칙이 맞춰 보는 정규화된 상호명.
     merchant_normalized: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
+    # 상호와 다른 칸이다. 상호는 「어디서」 고 메모는 「무엇을·왜」 다.
+    # 같은 스타벅스라도 "팀 커피 쐈다" 는 상호에 적을 말이 아니다.
+    memo: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    # 카테고리와 다른 축의 묶음. 한 기록에 하나만 붙는다.
+    # 여럿 붙이면 태그별 합계가 총액을 넘어서, 「비율」 이라는 말 자체가 거짓이 된다.
+    tag_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("tags.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     source: Mapped[TransactionSource] = mapped_column(

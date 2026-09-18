@@ -102,18 +102,10 @@ test('홈에서 달력으로 가는 길이 둘이고, 어느 쪽으로 가도 �
 
 test.describe('홈 추가 안내를 처음 보는 사람', () => {
   /*
-    픽스처가 모든 테스트에 「이미 봤다」 를 심는다. 지우지 않으면 시트가 **아예 열리지 않아**,
+    픽스처가 모든 테스트에 「이미 닫았다」 를 심는다. 켜 두지 않으면 카드가 **아예 서지 않아**,
     여기서 세는 것이 제품이 아니라 픽스처 덕분에 통과한다.
   */
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-      try {
-        window.localStorage.removeItem('__ait_storage:home-add-prompted');
-      } catch {
-        /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
-      }
-    });
-  });
+  test.use({ showHomeAddCard: true });
 
   test('안내가 떠 있을 때 뒤로가기는 미니앱이 아니라 시트를 가져간다', async ({
     appShell,
@@ -127,6 +119,8 @@ test.describe('홈 추가 안내를 처음 보는 사람', () => {
     await home.waitReady();
     await recordOnce(home, recordSheet);
 
+    // 카드는 스스로 아무것도 안 연다. 안내를 여는 것은 사람이 누를 때다.
+    await home.addToHome.openButton.click();
     await expect(home.addToHome.sheet).toBeVisible();
     // 우리 화면 어디에도 없는 버튼이라 토스가 적어 둔 이름 그대로 실려야 찾아간다.
     await expect(home.addToHome.sheet).toContainText('휴대폰 홈 화면에 추가');

@@ -1,0 +1,147 @@
+import { expect, test } from '../support/fixtures';
+
+/**
+ * 반복 지출. 매달 같은 날 나가는 돈을 미리 적어 둔다.
+ *
+ * **거래를 스스로 만들지 않는다.** 구독을 해지했는데 가계부에는 계속 찍히면 그 가계부가
+ * 사실이 아니게 된다. 예고를 보여 주고 누르는 것은 사람이다.
+ *
+ * 확인할 것은 여섯이다: 만들고 지운다, 오늘이 그날이면 홈에서 묻는다, 누르면 기록이 되고
+ * 그 회차는 다시 안 묻는다, 「이번 달은 됐어요」 가 있다, 꺼 두면 아예 안 묻는다,
+ * **그 카드가 떠 있으면 아래 권유가 비켜 준다.**
+ */
+
+// 카드를 함께 봐야 하는 시험이 있어 홈 화면 추가 카드를 켜 둔다.
+test.use({ showHomeAddCard: true });
+
+/** 오늘 날짜. 그날로 걸어야 홈 카드가 뜬다. */
+function today(): number {
+  return new Date().getDate();
+}
+
+test('걸어 둔 것이 없으면 무엇을 하는 자리인지만 말한다', async ({ recurring }) => {
+  await recurring.open();
+  await recurring.waitReady();
+
+  // 빈 목록이 정상이다. 오류 자리를 만들지 않고, 무엇을 하는 자리인지 한 줄로 말한다.
+  await expect(recurring.emptyTitle).toBeVisible();
+  await expect(recurring.page.getByText('매달 같은 날 나가는 돈을 적어 두면 전날에 알려드려요')).toBeVisible();
+});
+
+test('만들면 목록에 서고, 지우면 사라진다', async ({ recurring }) => {
+  await recurring.open();
+  await recurring.waitReady();
+
+  await recurring.create({ name: '넷플릭스', amount: 17000, day: 25 });
+
+  const row = recurring.row('넷플릭스');
+  await expect(row).toBeVisible();
+  await expect(row).toContainText('매달 25일');
+  await expect(row).toContainText('17,000원');
+
+  await test.step('지우기 전에 무엇이 남는지 말한다', async () => {
+    await row.getByText('넷플릭스', { exact: true }).click();
+    await expect(recurring.sheet('반복 지출 고치기')).toBeVisible();
+    await recurring.deleteButton.click();
+    await expect(recurring.page.getByText(/이미 적어 둔 기록은 그대로 남아요/)).toBeVisible();
+    await recurring.page.getByRole('button', { name: '지우기', exact: true }).click();
+  });
+
+  await expect(recurring.row('넷플릭스')).toHaveCount(0);
+});
+
+test('오늘이 그날이면 홈에서 묻고, 누르면 그 자리에서 기록이 된다', async ({
+  home,
+  recurring,
+}) => {
+  await recurring.open();
+  await recurring.waitReady();
+  await recurring.create({ name: '넷플릭스', amount: 17000, day: today() });
+
+  await home.open();
+  await home.waitReady();
+
+  await expect(home.recurring.card).toBeVisible();
+  await expect(home.recurring.headline).toContainText('오늘 빠져나가는 돈이에요');
+  await expect(home.recurring.card).toContainText('넷플릭스');
+  await expect(home.recurring.card).toContainText('17,000원');
+
+  await home.recurring.recordButton.click();
+
+  // 누르면 카드가 사라진다. 한 회차에 한 번만 묻는다.
+  await expect(home.recurring.card).toHaveCount(0);
+  // 그리고 목록에 그 이름 그대로 앉는다. 무엇이 빠져나갔나가 보여야 한다.
+  await expect(home.today.row('넷플릭스')).toBeVisible();
+});
+
+test('이번 달은 됐다고 하면 그 회차는 다시 안 묻는다', async ({ home, page, recurring }) => {
+  await recurring.open();
+  await recurring.waitReady();
+  await recurring.create({ name: '넷플릭스', amount: 17000, day: today() });
+
+  await home.open();
+  await home.waitReady();
+  await expect(home.recurring.card).toBeVisible();
+
+  // 해지했거나 이번 달만 안 나가는 경우가 있다. 닫을 길이 없으면 카드가 이틀 내내 앉는다.
+  await home.recurring.dismissButton.click();
+  await expect(home.recurring.card).toHaveCount(0);
+
+  await page.reload();
+  await home.waitReady();
+  await expect(home.recurring.card).toHaveCount(0);
+});
+
+test('꺼 두면 아예 안 묻는다', async ({ home, recurring }) => {
+  await recurring.open();
+  await recurring.waitReady();
+  await recurring.create({ name: '넷플릭스', amount: 17000, day: today() });
+
+  // 끄기와 지우기는 다르다. 끈 것은 목록에 흐리게 남아 다시 켤 수 있다.
+  await recurring.toggle('넷플릭스').click();
+  await expect(recurring.toggle('넷플릭스')).toHaveAttribute('aria-checked', 'false');
+
+  await home.open();
+  await home.waitReady();
+  await expect(home.recurring.card).toHaveCount(0);
+});
+
+test('한 번에 한 장만 서고, 적으면 다음 것이 올라온다', async ({ home, recurring }) => {
+  await recurring.open();
+  await recurring.waitReady();
+  await recurring.create({ name: '넷플릭스', amount: 17000, day: today() });
+  await recurring.create({ name: '헬스장', amount: 60000, day: today() });
+
+  await home.open();
+  await home.waitReady();
+
+  // 같은 날 둘이 걸려 있어도 카드는 하나다. 석 장이 서면 홈이 알림판이 된다.
+  await expect(home.recurring.card).toHaveCount(1);
+
+  await home.recurring.dismissButton.click();
+  await expect(home.recurring.card).toBeVisible();
+  await expect(home.recurring.card).toContainText('헬스장');
+});
+
+/**
+ * 「곧 나갈 돈」 이 떠 있으면 권유 카드는 비켜 준다.
+ *
+ * 그건 권유가 아니라 오늘 실제로 돈이 빠져나간다는 사실이다. 그 아래 권유가 둘씩 붙으면
+ * 정작 급한 것이 안 읽힌다. 카드가 셋 쌓인 화면을 직접 찍어 보고 정했다.
+ */
+test('곧 나갈 돈이 있으면 홈 화면 추가 권유는 비켜 준다', async ({ home, recurring }) => {
+  await recurring.open();
+  await recurring.waitReady();
+  await recurring.create({ name: '넷플릭스', amount: 17000, day: today() });
+
+  await home.open();
+  await home.waitReady();
+
+  await expect(home.recurring.card).toBeVisible();
+  await expect(home.addToHome.card).toHaveCount(0);
+
+  // 그 일을 끝내면 그때 권유가 올라온다.
+  await home.recurring.recordButton.click();
+  await expect(home.recurring.card).toHaveCount(0);
+  await expect(home.addToHome.card).toBeVisible();
+});

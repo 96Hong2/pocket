@@ -9,7 +9,7 @@ import {
   useUpdateGoal,
   type GoalOut,
 } from '../../shared/api';
-import { AmountField, BottomSheet, Button, iconUrl } from '../../shared/ui';
+import { AmountField, BottomSheet, Button, DateField, iconUrl } from '../../shared/ui';
 import { DAY_MAX, DAY_MIN, isDayInRange } from '../../shared/lib/limits';
 
 export interface GoalFormSheetProps {
@@ -131,19 +131,25 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
 
       <AmountField label="목표 금액" value={target} onChange={setTarget} />
 
-      <label className="goal-sheet__field">
-        <span className="goal-sheet__label">언제까지 (선택)</span>
-        <input
-          className="goal-sheet__input pk-date"
-          type="date"
-          min={DAY_MIN}
-          max={DAY_MAX}
-          value={deadline}
-          onChange={(event) => setDeadline(event.target.value)}
-        />
-        {/* 기한이 없어도 목표는 목표다. 대신 매달 얼마씩이라는 말은 만들 수 없다. */}
-        <span className="goal-sheet__hint">정해 두면 매달 얼마씩 모으면 되는지 알려드려요</span>
-      </label>
+      {/*
+        안 정해도 되는 칸이라 ✕ 가 함께 선다.
+
+        달력을 한 번 열면 「재설정」 을 눌러도 칸에 값이 남는 기기가 있어(iOS), 기한을
+        지우려다 못 지우는 자리가 됐다. 그 ✕ 는 우리 화면이라 어디서나 같게 동작한다.
+      */}
+      <DateField
+        className="goal-sheet__field"
+        inputClassName="goal-sheet__input"
+        label="언제까지 (선택)"
+        value={deadline}
+        min={DAY_MIN}
+        max={DAY_MAX}
+        clearable
+        clearLabel="기한 지우기"
+        /* 기한이 없어도 목표는 목표다. 대신 매달 얼마씩이라는 말은 만들 수 없다. */
+        hint="정해 두면 매달 얼마씩 모으면 되는지 알려드려요"
+        onChange={setDeadline}
+      />
 
       <div className="goal-sheet__field">
         {/* 이 칸은 시작 금액이다. 카드의 '지금까지' 는 여기에 더한 돈까지 합친 값이라 서로 다르다. */}

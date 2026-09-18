@@ -17,6 +17,8 @@ import { Card, CategoryAvatar, type IconName } from '../shared/ui';
 const SUB_SCREENS: { to: string; label: string; icon: IconName }[] = [
   { to: ROUTES.goal, label: '목표', icon: '02_gold_bars' },
   { to: ROUTES.categories, label: '카테고리 관리', icon: '16_paw' },
+  { to: ROUTES.tags, label: '태그', icon: '05_choice_arrows' },
+  { to: ROUTES.recurring, label: '반복 지출', icon: '27_clock' },
   { to: ROUTES.notifications, label: '알림 설정', icon: '30_bell' },
   { to: ROUTES.account, label: '내 계정', icon: '57_smartphone' },
   { to: ROUTES.settings, label: '앱 설정', icon: '21_shield' },

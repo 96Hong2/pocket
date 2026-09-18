@@ -88,7 +88,9 @@ def test_시각을_안_주고_켜면_기본_시각이_들어간다(client: TestC
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["is_enabled"] is True
-    assert body["remind_at"] == "21:30"
+    # 기본 시각은 저녁 8시다. 상수를 그대로 읽어 견주면 값이 바뀌어도 이 시험이 아무것도
+    # 안 지키므로, 화면에 보일 문자열을 여기 그대로 적는다.
+    assert body["remind_at"] == "20:00"
     assert body["frequency"] == "daily"
 
 

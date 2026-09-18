@@ -51,6 +51,7 @@ __all__ = [
     "load_range_totals",
     "load_recovery_progress",
     "local_date",
+    "noon_at",
     "period_bounds",
     "period_for",
     "period_transactions",
@@ -104,6 +105,15 @@ def day_bounds(day: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
     return start, end
 
 
+def noon_at(day: date, user: User) -> datetime:
+    """그 날 정오를 사용자 시간대로 만들어 UTC 로 넘긴다.
+
+    자정으로 두면 시간대가 한 칸만 달라져도 날이 앞뒤로 넘어간다. 손으로 고른 날에
+    적을 때는 늘 정오를 쓴다(달력 수정·반복 지출이 같은 규칙이다).
+    """
+    return datetime.combine(day, time(12, 0), tzinfo=user_tz(user)).astimezone(UTC)
+
+
 def period_transactions(session: Session, user: User, period: BudgetPeriod) -> list[Transaction]:
     start, end = period_bounds(period, user_tz(user))
     stmt = (
@@ -129,6 +139,7 @@ def _to_domain(tx: Transaction, tz: ZoneInfo) -> agg.TransactionInput:
         is_deleted=tx.deleted_at is not None,
         source=tx.source,
         payment_method=tx.payment_method,
+        tag_id=str(tx.tag_id) if tx.tag_id else None,
     )
 
 

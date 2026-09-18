@@ -283,24 +283,18 @@ test.describe('가장 좁은 화면', () => {
   // iPhone SE 1세대 폭. 우리가 감당하기로 한 하한이다.
   test.use({ viewport: { width: 320, height: 568 } });
 
+  // 다른 테스트는 이 카드를 닫아 두고 시작한다(support/fixtures.ts). 여기서는 켜서 본다.
+  test.use({ showHomeAddCard: true });
+
   test('날짜 칸도 홈 추가 안내도 화면을 가로로 밀지 않는다', async ({
     home,
     page,
     recordSheet,
   }) => {
-    // 다른 테스트는 이 안내를 꺼 두고 시작한다(support/fixtures.ts). 여기서는 켜서 본다.
-    await page.addInitScript(() => {
-      try {
-        window.localStorage.removeItem('__ait_storage:home-add-prompted');
-      } catch {
-        /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
-      }
-    });
-
     await home.open();
     await home.waitReady();
 
-    // 첫 기록을 마치면 홈 추가 안내가 스스로 열린다. 세 단계가 붙은 시트라 좁은 폭에서 먼저 넘친다.
+    // 한 번 적으면 홈 추가 카드가 선다. 카드도 그 안내 시트도 좁은 폭에서 먼저 넘친다.
     await home.recordButton.click();
     await recordSheet.waitOpen();
     await recordSheet.input.enterAmount(12000);
@@ -308,6 +302,10 @@ test.describe('가장 좁은 화면', () => {
     await recordSheet.feedback.waitSaved();
     await recordSheet.closeByEsc();
 
+    await expect(home.addToHome.card).toBeVisible();
+    await expectNoSideScroll(page, '홈(카드)');
+
+    await home.addToHome.openButton.click();
     await expect(home.addToHome.sheet).toBeVisible();
     await expectNoSideScroll(page, '홈');
     await home.addToHome.doneButton.click();

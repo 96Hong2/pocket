@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ApiError,
   parseDecimalOr,
+  useTags,
   useUpdateTransaction,
   type CategoryOut,
   type FeedbackOut,
@@ -16,6 +17,7 @@ import { CategoryPicker, KIND_WORDS, PaymentMethodPicker, kindOf } from '../../s
 import { formatCurrency } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, iconOf, TransactionRow } from '../../shared/ui';
+import { TagPicker } from '../tags';
 
 import { toAmount } from './digits';
 import { buildFeedbackMessage } from './feedbackMessage';
@@ -46,10 +48,13 @@ interface FeedbackPanelProps {
 type Editing = 'amount' | 'category' | null;
 
 /** 마지막으로 보낸 고치기가 어느 칸이었나. 오류를 그 칸 아래에 붙이려면 알아야 한다. */
-type UpdateTarget = 'amount' | 'category' | 'merchant' | 'payment_method';
+type UpdateTarget = 'amount' | 'category' | 'merchant' | 'memo' | 'payment_method' | 'tag';
 
 /** 상호는 서버가 120자까지 받는다. 화면에서 먼저 막아 422 를 왕복하지 않는다. */
 const MERCHANT_MAX = 120;
+
+/** 메모는 200자까지다. 상호와 같은 이유로 여기서 먼저 막는다. */
+const MEMO_MAX = 200;
 
 /** 저장 결과와 그에 대한 한마디. 금액·분류 고치기가 그 줄에 그대로 붙는다. */
 export function FeedbackPanel({
@@ -66,12 +71,15 @@ export function FeedbackPanel({
   const [editing, setEditing] = useState<Editing>(null);
   const [digits, setDigits] = useState('');
   const [merchant, setMerchant] = useState(transaction.merchant ?? '');
+  const [memo, setMemo] = useState(transaction.memo ?? '');
   const [target, setTarget] = useState<UpdateTarget | null>(null);
   // 상호 칸이 마지막으로 보낸 값. 응답이 오기 전에는 transaction.merchant 로는 비교가 안 된다.
   const sentMerchant = useRef<string | null>(null);
+  const sentMemo = useRef<string | null>(null);
   // 확인을 눌러 만든 요청인지. 성공하면 그때 닫고, 실패하면 닫지 않는다.
   const closeAfterUpdate = useRef(false);
   const update = useUpdateTransaction();
+  const tags = useTags();
 
   const category = categories.find((item) => item.id === transaction.category_id);
   const overName = categories.find((item) => item.id === feedback.over_category_id)?.name;
@@ -183,6 +191,31 @@ export function FeedbackPanel({
     return true;
   }
 
+  /**
+   * 메모를 보낸다. 상호와 같은 규칙이고 보내는 칸만 다르다.
+   *
+   * 두 칸을 한 요청에 묶지 않는다. 상호만 고치고 메모는 그대로인 경우가 훨씬 흔한데,
+   * 묶으면 안 건드린 칸까지 매번 실어 보내게 되고 오류도 어느 칸 것인지 못 가른다.
+   */
+  function flushMemo(closeOnSuccess = false): boolean {
+    const trimmed = memo.trim();
+    if (trimmed === (transaction.memo ?? '')) return false;
+
+    const alreadySent = update.isPending && sentMemo.current === trimmed;
+    if (closeOnSuccess) closeAfterUpdate.current = true;
+    if (alreadySent) return true;
+
+    sentMemo.current = trimmed;
+    apply('memo', { memo: trimmed === '' ? null : trimmed });
+    return true;
+  }
+
+  /** 태그를 달거나 뗀다. 누르는 즉시 보낸다. 되돌릴 것이 한 칸뿐이다. */
+  function changeTag(next: string | null): void {
+    if (next === (transaction.tag_id ?? null)) return;
+    apply('tag', { tag_id: next });
+  }
+
   /** 무엇으로 냈는지 고친다. 상호와 달리 누르는 즉시 보낸다. 되돌릴 것이 한 칸뿐이다. */
   function changeMethod(next: PaymentMethod | null): void {
     if (next === transaction.payment_method) return;
@@ -192,7 +225,10 @@ export function FeedbackPanel({
 
   function confirm(): void {
     analytics.log(EVENTS.feedbackAction, { action: 'confirm' }, { flowId, kind: 'click' });
-    if (flushMerchant(true)) return;
+    // 두 칸 다 고쳤으면 상호를 먼저 보내고 닫기는 그쪽에 맡긴다. 메모는 그 뒤에 따라간다.
+    const merchantSent = flushMerchant(true);
+    const memoSent = flushMemo(!merchantSent);
+    if (merchantSent || memoSent) return;
     onConfirm();
   }
 
@@ -306,6 +342,61 @@ export function FeedbackPanel({
 
       {/* 상호 저장이 실패한 것은 이 칸 아래에 붙인다. 아래 오류 줄은 펼쳐 둔 칸 것만 말한다. */}
       {target === 'merchant' && updateError ? (
+        <p className="feedback__notice" role="alert">
+          {updateError.message}
+        </p>
+      ) : null}
+
+      {/*
+        상호와 **다른 칸**이다. 상호는 「어디서」 고 메모는 「무엇을·왜」 다.
+        같은 스타벅스라도 "팀 커피 쐈다" 는 상호에 적을 말이 아니고, 상호에 적으면
+        다음에 같은 가게에서 쓴 것과 묶이지 않는다.
+
+        안 적어도 되는 칸이라 저장이 끝난 다음에 묻는다. 적는 화면에 칸이 하나 더 서면
+        10초 약속이 깨진다.
+      */}
+      <label className="feedback__merchant-field">
+        <span className="feedback__merchant-label">메모</span>
+        <input
+          className="feedback__merchant"
+          data-testid={TEST_IDS.feedbackMemoField}
+          type="text"
+          value={memo}
+          maxLength={MEMO_MAX}
+          placeholder="남겨 두고 싶은 한마디"
+          autoComplete="off"
+          disabled={update.isPending}
+          onChange={(event) => setMemo(event.target.value)}
+          onBlur={() => flushMemo()}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.currentTarget.blur();
+          }}
+        />
+      </label>
+
+      {target === 'memo' && updateError ? (
+        <p className="feedback__notice" role="alert">
+          {updateError.message}
+        </p>
+      ) : null}
+
+      {/*
+        어느 묶음인가. 이체에는 뜻이 없어 아예 안 세운다(리포트의 어느 조각에도 안 들어간다).
+        태그를 하나도 안 만든 사람에게는 만들러 가는 길 한 줄만 보인다.
+      */}
+      {transaction.type === 'transfer' ? null : (
+        <TagPicker
+          className="feedback__tags"
+          // `kindOf` 가 환불을 지출로 눕혀 준다. 환불은 나갔던 묶음에서 빠지는 돈이다.
+          kind={kind}
+          tags={tags.data?.items ?? []}
+          selectedId={transaction.tag_id ?? null}
+          disabled={update.isPending}
+          onChange={changeTag}
+        />
+      )}
+
+      {target === 'tag' && updateError ? (
         <p className="feedback__notice" role="alert">
           {updateError.message}
         </p>

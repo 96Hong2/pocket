@@ -1,0 +1,348 @@
+/*
+  태그.
+
+  카테고리와 다른 축이라 색도 다른 계열을 쓴다. 카테고리는 세이지 한 계열이고,
+  태그는 여덟 색이 서로 구분돼야 한다. 같은 램프를 쓰면 리포트에서 두 링이 같은
+  이야기를 하는 것처럼 보인다.
+
+  색 값은 여기 하나다. 칩·점·도넛 조각이 전부 이 변수를 읽는다.
+  `@theme` 이 아니라 `:root` 에 두는 이유: tailwind 가 클래스에서 안 쓰인 `@theme` 변수를
+  지우는데, 이 값들은 JS 가 `var(--tag-...)` 문자열로 만들어 써서 tailwind 가 못 본다.
+*/
+
+:root {
+  /* 진한 색: 칩 배경·도넛 조각. 흰 글자와 대비 4.5:1 이상. */
+  --tag-sage: #3f5a40;
+  --tag-ocean: #2f5d8a;
+  --tag-lilac: #61508f;
+  --tag-coral: #a8532f;
+  --tag-amber: #7e5b21;
+  --tag-mint: #1f6b63;
+  --tag-rose: #9c3f62;
+  --tag-slate: #4c5257;
+
+  /* 그 위에 얹는 글자색. 여덟 색 모두 흰 글자가 읽힌다. */
+  --tag-sage-ink: #ffffff;
+  --tag-ocean-ink: #ffffff;
+  --tag-lilac-ink: #ffffff;
+  --tag-coral-ink: #ffffff;
+  --tag-amber-ink: #ffffff;
+  --tag-mint-ink: #ffffff;
+  --tag-rose-ink: #ffffff;
+  --tag-slate-ink: #ffffff;
+
+  /* 옅은 배경: 목록 줄의 작은 칩. 진한 색 글자를 얹는다. */
+  --tag-sage-soft: #e6ecdf;
+  --tag-ocean-soft: #e0e9f2;
+  --tag-lilac-soft: #e8e4f2;
+  --tag-coral-soft: #f6e3da;
+  --tag-amber-soft: #f6ecd8;
+  --tag-mint-soft: #daecea;
+  --tag-rose-soft: #f4e0e8;
+  --tag-slate-soft: #e6e8ea;
+}
+
+@layer components {
+  /* ── 기록에 다는 칩 줄 ─────────────────────────────── */
+
+  .tag-pick {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tag-pick__label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .tag-pick__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /*
+    태그 칩. 안 고른 것은 테두리만, 고른 것은 그 태그 색으로 찬다.
+    색으로만 가르지 않는다. 고른 칩에는 체크 표시가 함께 선다.
+  */
+  .tag-pick__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .tag-pick__chip[aria-pressed='true'] {
+    border-color: transparent;
+    background: var(--tag-color);
+    color: var(--tag-ink);
+  }
+
+  .tag-pick__chip:disabled {
+    opacity: 0.5;
+  }
+
+  .tag-pick__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-pill);
+    background: var(--tag-color);
+  }
+
+  .tag-pick__chip[aria-pressed='true'] .tag-pick__dot {
+    background: var(--tag-ink);
+  }
+
+  /* 태그가 하나도 없을 때. 만들러 가는 길 하나만 둔다. */
+  .tag-pick__empty {
+    margin: 0;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  /* ── 목록 줄에 붙는 작은 칩 ───────────────────────── */
+
+  .tag-mark {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: var(--radius-pill);
+    background: var(--tag-soft);
+    font-size: var(--text-10);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.4;
+    color: var(--tag-color);
+    white-space: nowrap;
+  }
+
+  /* ── 관리 화면 ─────────────────────────────────────── */
+
+  .tags-page__lead {
+    margin: 0 0 4px;
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  .tags-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .tags-group__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .tags-group__count {
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .tags-group__empty {
+    margin: 0;
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  .tags-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+  }
+
+  .tags-row__mark {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: var(--radius-pill);
+    background: var(--tag-color);
+  }
+
+  .tags-row__name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tags-row__count {
+    flex: none;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  .tags-row__edit {
+    flex: none;
+  }
+
+  /* ── 만들기·고치기 폼 ─────────────────────────────── */
+
+  .tag-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 4px 0;
+  }
+
+  .tag-form__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .tag-form__label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .tag-form__input {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    font-size: var(--text-15);
+    color: var(--color-ink);
+  }
+
+  .tag-form__colors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* 색 고르기. 44px 을 지키려고 겉은 크게 두고 안쪽 동그라미만 작게 그린다. */
+  .tag-form__color {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: none;
+  }
+
+  .tag-form__swatch {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-pill);
+    background: var(--tag-color);
+    color: var(--tag-ink);
+  }
+
+  .tag-form__color[aria-pressed='true'] .tag-form__swatch {
+    box-shadow: 0 0 0 3px var(--color-surface), 0 0 0 5px var(--tag-color);
+  }
+
+  .tag-form__actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .tag-form__notice {
+    margin: 0;
+    font-size: var(--text-12);
+    color: var(--color-expense);
+  }
+
+  /* ── 리포트 태그 조각 ─────────────────────────────── */
+
+  .tag-report {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .tag-report__bar {
+    display: flex;
+    overflow: hidden;
+    width: 100%;
+    height: 12px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+  }
+
+  .tag-report__seg {
+    height: 100%;
+    background: var(--tag-color);
+  }
+
+  .tag-report__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tag-report__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tag-report__dot {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-pill);
+    background: var(--tag-color);
+  }
+
+  .tag-report__name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tag-report__share {
+    flex: none;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  .tag-report__amount {
+    flex: none;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .tag-report__rest {
+    margin: 0;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+}

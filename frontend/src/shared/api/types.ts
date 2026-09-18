@@ -33,6 +33,10 @@ export type PeriodSummaryOut = Schemas['PeriodSummaryOut'];
 export type MonthlyReportOut = Schemas['MonthlyReportOut'];
 export type BreakdownRowOut = Schemas['BreakdownRowOut'];
 export type MethodRowOut = Schemas['MethodRowOut'];
+/** 태그 조각 하나. 이름과 색은 화면이 태그 목록에서 찾아 붙인다. */
+export type TagRowOut = Schemas['TagRowOut'];
+/** 태그별 순위표. 안 단 돈은 조각이 아니라 숫자로만 온다. */
+export type TagBreakdownOut = Schemas['TagBreakdownOut'];
 export type TrendPointOut = Schemas['TrendPointOut'];
 export type PeriodComparisonOut = Schemas['PeriodComparisonOut'];
 /** 월간 결산. 카드 넉 장이 그리는 것이 한 응답에 들어 있다. */
@@ -92,6 +96,24 @@ export type CategoryListOut = Schemas['CategoryListOut'];
 /** 내가 만드는 카테고리. 종류는 서버가 지출로 고정하므로 보내지 않는다. */
 export type CategoryCreate = Schemas['CategoryCreate'];
 export type CategoryUpdate = Schemas['CategoryUpdate'];
+
+// ── 태그 ──────────────────────────────────────
+/** 카테고리와 다른 축의 묶음. 한 기록에 하나만 붙는다. */
+export type TagOut = Schemas['TagOut'];
+export type TagListOut = Schemas['TagListOut'];
+export type TagCreate = Schemas['TagCreate'];
+export type TagUpdate = Schemas['TagUpdate'];
+export type TagColor = Schemas['TagColor'];
+export type TagKind = Schemas['TagKind'];
+
+// ── 반복 지출 ──────────────────────────────────
+/** 매달 같은 날 나가는 돈. 예고일 뿐이라 거래를 스스로 만들지 않는다. */
+export type RecurringOut = Schemas['RecurringOut'];
+export type RecurringListOut = Schemas['RecurringListOut'];
+export type RecurringCreate = Schemas['RecurringCreate'];
+export type RecurringUpdate = Schemas['RecurringUpdate'];
+/** 오늘 물어볼 것 한 줄. 홈 카드가 이 목록으로 그린다. */
+export type RecurringDueOut = Schemas['RecurringDueOut'];
 
 // ── 자산 ──────────────────────────────────────
 /** 자산 화면이 그리는 것 전부. 한 번도 안 적었으면 `snapshot` 이 null 이고 `items` 가 빈 배열이다. */

@@ -25,8 +25,10 @@ from app.modules.goals import router as goals_router
 from app.modules.imports import router as imports_router
 from app.modules.merchant_rules import router as merchant_rules_router
 from app.modules.notifications import router as notifications_router
+from app.modules.recurring import router as recurring_router
 from app.modules.reports import router as reports_router
 from app.modules.settings import router as settings_router
+from app.modules.tags import router as tags_router
 from app.modules.transactions import router as transactions_router
 
 __all__ = ["app", "create_app"]
@@ -86,6 +88,8 @@ def create_app() -> FastAPI:
     app.include_router(goals_router, prefix="/api/v1")
     app.include_router(notifications_router, prefix="/api/v1")
     app.include_router(account_router, prefix="/api/v1")
+    app.include_router(tags_router, prefix="/api/v1")
+    app.include_router(recurring_router, prefix="/api/v1")
 
     # 공유 링크 미리보기(오픈그래프) 그림.
     #

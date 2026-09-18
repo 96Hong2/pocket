@@ -83,6 +83,8 @@ class TransactionInput:
     source: TransactionSource | None = None
     # 무엇으로 냈나. 지출에만 붙고 안 고르면 None 이다.
     payment_method: PaymentMethod | None = None
+    # 어느 묶음인가. 안 달면 None 이고, 이체에는 아예 안 붙는다.
+    tag_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +105,10 @@ class PeriodTotals:
     # 결제 수단별 지출. 분류별 지출과 같은 규칙이다(환불 차감·excluded 포함).
     # 안 고른 것은 None 칸에 모인다.
     method_spend: dict[PaymentMethod | None, Money] = field(default_factory=dict)
+    # 태그별 지출·수입. 분류와 같은 규칙이고, 안 단 것은 None 칸에 모인다.
+    # 화면은 None 칸을 조각으로 그리지 않고 "아직 안 단 돈" 으로 따로 적는다.
+    tag_spend: dict[str | None, Money] = field(default_factory=dict)
+    tag_income: dict[str | None, Money] = field(default_factory=dict)
 
 
 def aggregate_period(
@@ -118,6 +124,8 @@ def aggregate_period(
     category_budgeted_spend: dict[str | None, Money] = {}
     category_income: dict[str | None, Money] = {}
     method_spend: dict[PaymentMethod | None, Money] = {}
+    tag_spend: dict[str | None, Money] = {}
+    tag_income: dict[str | None, Money] = {}
 
     for tx in transactions:
         if tx.is_deleted or not period.contains(tx.occurred_on):
@@ -129,12 +137,14 @@ def aggregate_period(
         if tx.type is TransactionType.INCOME:
             month_income = month_income + tx.amount
             _accumulate(category_income, tx.category_id, tx.amount)
+            _accumulate(tag_income, tx.tag_id, tx.amount)
             continue
 
         signed = tx.amount if tx.type is TransactionType.EXPENSE else -tx.amount
         month_expense = month_expense + signed
         _accumulate(category_spend, tx.category_id, signed)
         _accumulate(method_spend, tx.payment_method, signed)
+        _accumulate(tag_spend, tx.tag_id, signed)
         if not tx.excluded_from_budget:
             budgeted_spend = budgeted_spend + signed
             _accumulate(category_budgeted_spend, tx.category_id, signed)
@@ -149,6 +159,8 @@ def aggregate_period(
         category_budgeted_spend=category_budgeted_spend,
         category_income=category_income,
         method_spend=method_spend,
+        tag_spend=tag_spend,
+        tag_income=tag_income,
     )
 
 

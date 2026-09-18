@@ -16,6 +16,8 @@
 @import './features/imports/imports.css';
 @import './features/reports/reports.css';
 @import './features/categories/categories.css';
+@import './features/tags/tags.css';
+@import './features/recurring/recurring.css';
 @import './features/settings/settings.css';
 @import './features/account/account.css';
 @import './features/assets/assets.css';
