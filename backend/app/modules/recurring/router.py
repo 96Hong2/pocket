@@ -125,6 +125,8 @@ def record(row_id: uuid.UUID, session: DbSession, user: CurrentUser) -> Transact
         },
         today=today,
     )
+    # 거래를 커밋한 뒤에 표시를 남긴다. 여기서 실패하면 거래는 남고 카드도 남아
+    # 한 번 더 물어보게 되는데, 거래가 사라지는 쪽보다 그쪽이 덜 나쁘다.
     service.mark_recorded(session, user, row_id, due_on)
 
     return TransactionCreated(

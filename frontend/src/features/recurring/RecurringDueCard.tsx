@@ -34,7 +34,17 @@ export function RecurringDueCard() {
   if (item == null) return null;
 
   const busy = record.isPending || dismiss.isPending;
-  const failure = record.error instanceof ApiError ? record.error.message : null;
+  /*
+    둘 다 본다. 미루기가 막혔는데 아무 말이 없으면 카드가 그대로 남은 이유를 알 수 없고,
+    사용자는 버튼이 고장 난 줄 안다.
+  */
+  const failed = record.error ?? dismiss.error;
+  const failure =
+    failed instanceof ApiError
+      ? failed.message
+      : failed != null
+        ? '지금은 처리하지 못했어요. 잠시 후 다시 시도해 주세요.'
+        : null;
 
   return (
     <SageCard className="home-card recurring-due" role="group" aria-label="곧 나갈 돈">
