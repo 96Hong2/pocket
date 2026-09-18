@@ -50,7 +50,7 @@ export function TagManageList() {
         const rows = items.filter((tag) => tag.kind === group.kind);
         const full = rows.length >= PER_KIND_MAX;
         return (
-          <Card key={group.kind} padding="md">
+          <Card key={group.kind} className="tags-card" padding="md">
             <section className="tags-group" aria-label={group.title}>
               <p className="tags-group__head">
                 <span>{group.title}</span>

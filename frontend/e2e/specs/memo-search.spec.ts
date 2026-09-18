@@ -135,3 +135,55 @@ test('검색 안내 문구가 실제로 찾는 것과 같다', async ({ calendar
   // 문구와 동작이 어긋나면 사용자는 검색이 고장 난 줄로 안다.
   await expect(calendar.search.input).toHaveAttribute('placeholder', '이름·태그·금액으로 검색');
 });
+
+/**
+ * 검색 칸은 **달력 아래**다.
+ *
+ * 위에 있으면 이 화면에 들어온 사람이 달력보다 검색을 먼저 본다. 이 화면에 오는 이유는
+ * 달력을 보려는 것이고, 검색은 그러다 찾을 것이 생겼을 때 쓴다.
+ */
+test('검색 칸이 달력 아래에 선다', async ({ calendar }) => {
+  await calendar.open();
+  await calendar.waitReady();
+
+  const grid = await calendar.grid.box.boundingBox();
+  const search = await calendar.search.input.boundingBox();
+  expect(grid).not.toBeNull();
+  expect(search).not.toBeNull();
+
+  expect(search!.y, '검색 칸이 달력 위에 있다').toBeGreaterThan(grid!.y + grid!.height);
+});
+
+/**
+ * 찾는 동안에도 달력은 그대로 있다.
+ *
+ * 감추면 아래 있던 검색 칸이 위로 뛰어올라, 글자를 한 자 칠 때마다 화면이 움직인다.
+ * 그리고 달력의 날을 누르면 검색이 끝나고 그 날로 간다. 안 그러면 검색 중 달력이
+ * 안 눌리는 죽은 자리가 된다.
+ */
+test('찾는 동안에도 달력이 그 자리에 있고, 날을 누르면 검색이 끝난다', async ({
+  calendar,
+  prep,
+}) => {
+  await prep.addTransaction({ amount: 12000, merchant: '스타벅스' });
+
+  await calendar.open();
+  await calendar.waitReady();
+  const before = await calendar.search.input.boundingBox();
+  expect(before).not.toBeNull();
+
+  await calendar.search.find('스타벅스');
+  await expect(calendar.search.resultCount).toBeVisible();
+
+  await expect(calendar.grid.box).toBeVisible();
+  const after = await calendar.search.input.boundingBox();
+  expect(Math.round(after!.y), '검색을 시작하니 검색 칸이 움직였다').toBe(Math.round(before!.y));
+
+  await test.step('달력의 날을 누르면 그 날 목록으로 돌아온다', async () => {
+    // 검색 중에도 달력이 눌려야 한다. 안 그러면 보이기만 하는 죽은 자리가 된다.
+    await calendar.grid.select(calendar.grid.cellName('2026-09-02'));
+    await expect(calendar.search.input).toHaveValue('');
+    await expect(calendar.search.resultCount).toHaveCount(0);
+    await expect(calendar.list.dayTotal).toBeVisible();
+  });
+});

@@ -4,6 +4,7 @@ import { IdentityNotice } from '../app/IdentityNotice';
 import { useIdentity } from '../app/providers';
 import { AdSlot } from '../features/ads';
 import { AddToHomeCard } from '../features/home-add';
+import { RemindCard } from '../features/notifications';
 import { RecurringDueCard } from '../features/recurring';
 import {
   BudgetSuggestCard,
@@ -91,8 +92,15 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
   const budgetSuggest = useCardDismiss('budget-suggest', '');
   // 공유 권유는 한 번 닫으면 끝이다. 다시 뜰 「달라진 상황」이 없다.
   const shareInvite = useCardDismiss('share-app', '');
-  // 홈 화면 추가도 마찬가지다. 한 번 닫으면 앱 설정에만 남는다.
+  /*
+    홈 화면 추가와 저녁 알림은 **두 번 묻는다.** 첫 기록 직후와 다섯 번째 기록 때다.
+    첫 기록 때는 이 앱을 계속 쓸지조차 모르는 상태라 그때 닫은 것은 대답이 아니다.
+    표(mark)로 가르지 않고 키를 둘로 나눈 이유는 `shared/lib/cardDismiss.ts` 에 적어 뒀다.
+  */
   const homeAdd = useCardDismiss('home-add', '');
+  const homeAddAgain = useCardDismiss('home-add-again', '');
+  const remind = useCardDismiss('remind', '');
+  const remindAgain = useCardDismiss('remind-again', '');
 
   // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다.
   // 아직 오는 중일 때만 기다리게 하고, 실패·미지원은 위 안내가 이유를 말한다.
@@ -109,29 +117,34 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
   // 이 앱의 목적은 기록이라 조회가 안 되는 동안에도 기록은 되어야 한다.
   const view = budget.data != null ? resolveHomeView(toHomeViewInput(budget.data)) : null;
   /*
-    스스로 나타나는 카드가 셋인데, 세 장이 한꺼번에 서면 기록 버튼 아래가 권유 전시장이 된다.
+    **스스로 서는 카드는 한 번에 둘까지다.** 셋이 쌓이면 기록 버튼 아래가 권유 전시장이 되고,
+    정작 급한 것이 안 읽힌다. 카드가 셋 쌓인 화면을 직접 찍어 보고 정한 규칙이다.
 
-    다만 **홈 화면 추가는 예산 제안에 비켜 주지 않는다.** 둘이 같은 성격이 아니다.
-    예산 카드는 금액을 적어 넣는 **일거리**고, 홈 추가는 두 줄짜리 **한 번뿐인 안내**다.
-    첫 기록을 마친 그 순간이 홈에 두겠냐고 물을 유일한 때라, 그 자리를 예산에 내주면
-    예산을 정하지 않는 사람에게는 영영 안 뜬다(실기기에서 그렇게 안 떴다).
+    순서는 이렇다: 곧 나갈 돈 → 홈 화면 추가 → 저녁 알림 → 예산 제안 → 공유.
 
-    비켜 주는 것은 공유 권유다. 그건 다섯 번 넘게 적은 사람에게만 뜨고, 그때까지 기다릴
-    수 있는 유일한 권유다.
-
-    **「곧 나갈 돈」 에는 둘 다 비켜 준다.** 그건 권유가 아니라 오늘 실제로 돈이 빠져나간다는
-    사실이고, 그 아래 권유가 둘씩 붙으면 정작 급한 것이 안 읽힌다. 카드가 셋 쌓인 화면을
-    직접 찍어 보고 정했다.
+    - 「곧 나갈 돈」이 맨 위다. 권유가 아니라 오늘 실제로 돈이 빠져나간다는 **사실**이다.
+    - 홈 화면 추가와 저녁 알림은 **한 쌍**이다. 첫 기록을 마친 그 순간이 둘 다 물을 유일한
+      때이고, 둘 다 **한 번뿐인 안내**다. 그래서 둘을 갈라 놓지 않는다.
+    - 예산 제안은 비켜 준다. **안 사라지고 기다리기 때문**이다. 예산을 정할 때까지 계속
+      뜨고, 카드 자체도 관리 탭에서 언제든 정할 수 있다고 적는다. 반대로 한 번뿐인 안내는
+      그 자리를 내주면 영영 안 뜬다(실기기에서 그렇게 안 떴다).
+    - 공유는 맨 뒤다. 다섯 번 넘게 적은 사람에게만 뜨고, 그때까지 기다릴 수 있다.
   */
   const dueSoon = (recurringDue.data?.length ?? 0) > 0;
-  const showBudgetSuggestion = view?.showBudgetSuggestion === true && !budgetSuggest.hidden;
-  const showHomeAdd = view?.showHomeAdd === true && !homeAdd.hidden && !dueSoon;
+  // 두 번째 기회면 두 번째 표를 본다. 그래야 첫 번째에 닫은 사람에게 한 번 더 뜬다.
+  const homeAddCard = view?.secondChance === true ? homeAddAgain : homeAdd;
+  const remindCard = view?.secondChance === true ? remindAgain : remind;
+  const showHomeAdd = view?.showHomeAdd === true && !homeAddCard.hidden && !dueSoon;
+  const showRemind = view?.showRemind === true && !remindCard.hidden && !dueSoon;
+  const showBudgetSuggestion =
+    view?.showBudgetSuggestion === true && !budgetSuggest.hidden && !showHomeAdd && !showRemind;
   const showShareInvite =
     view?.showShareInvite === true &&
     !shareInvite.hidden &&
     !dueSoon &&
     !showBudgetSuggestion &&
-    !showHomeAdd;
+    !showHomeAdd &&
+    !showRemind;
 
   return (
     <>
@@ -175,8 +188,15 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
       */}
       <RecurringDueCard />
 
-      {/* 기록 버튼 바로 아래. 셋 중 하나만 선다. 순서는 위 주석에 적어 뒀다. */}
-      {showHomeAdd ? <AddToHomeCard onDismiss={homeAdd.dismiss} /> : null}
+      {/*
+        기록 버튼 바로 아래. 순서는 위 주석에 적어 뒀다.
+
+        홈 화면 추가와 저녁 알림은 **나란히 선다.** 하나는 앱을 찾기 쉽게 하는 일이고
+        하나는 우리가 부르는 일이라, 하나만 하고 싶은 사람이 나머지를 같이 닫게 두지 않는다.
+        닫는 ✕ 도 각자 갖는다.
+      */}
+      {showHomeAdd ? <AddToHomeCard onDismiss={homeAddCard.dismiss} /> : null}
+      {showRemind ? <RemindCard onDismiss={remindCard.dismiss} /> : null}
       {showShareInvite ? <ShareAppCard onDismiss={shareInvite.dismiss} /> : null}
 
       {/*

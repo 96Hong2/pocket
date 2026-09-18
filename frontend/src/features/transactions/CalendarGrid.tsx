@@ -10,7 +10,13 @@ import { dayCellLabel, dayIso, monthGrid, type DayNumbers } from './ledgerView';
  * 서버는 기록이 있는 날만 보내 준다. 빈 칸은 여기서 만든다.
  * 칸마다 접근성 이름에 날짜와 금액을 다 넣는다. 숫자만 그리는 칸이라 이름이 없으면
  * 스크린리더로는 어느 날인지도 얼마인지도 알 수 없다.
+ *
+ * **항상 여섯 줄이다.** 달마다 다섯 줄과 여섯 줄을 오가면 달을 넘길 때마다 격자 높이가
+ * 48px 씩 오르내리고, 그 아래 목록이 통째로 따라 움직인다. 뒤 빈 칸을 채워 못 박는다.
  */
+
+/** 여섯 줄 × 일곱 칸. 앞 빈 칸(최대 6)과 날(최대 31)을 합쳐도 이 안에 든다. */
+const GRID_CELLS = 42;
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
@@ -88,6 +94,9 @@ export function CalendarGrid({ month, days, selected, today, onSelect }: Calenda
             </button>
           );
         })}
+        {Array.from({ length: GRID_CELLS - leadingBlanks - dayNumbers.length }, (_, i) => (
+          <span key={`tail-${i}`} className="tx-cal__blank" aria-hidden="true" />
+        ))}
       </div>
     </div>
   );

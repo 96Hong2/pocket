@@ -21,8 +21,8 @@ const NAME_MAX = 12;
  * 만들 때만 종류를 정한다. 지출 태그를 수입 태그로 바꾸면 그 태그로 적어 둔 지난 기록이
  * 종류와 어긋나고, 이미 본 리포트의 숫자가 나중에 달라진다. 카테고리와 같은 규칙이다.
  *
- * 색은 여덟 개 중에서 고른다. 자유 입력으로 받으면 배경과 구분이 안 되는 색이 들어오고,
- * 그 위에 얹을 글자색을 화면이 매번 계산해야 한다.
+ * 색은 열네 개 중에서 고른다. 자유 입력으로 받으면 배경과 구분이 안 되는 색이 들어오고,
+ * 그 위에 얹을 글자색을 화면이 매번 계산해야 한다. 일곱씩 두 줄로 세워 한 번에 다 보인다.
  *
  * **처음 값은 마운트할 때 한 번만 읽는다.** 부르는 쪽이 `key` 로 대상이 바뀐 것을 알려 준다.
  * effect 로 다시 채우면 저장 응답이 돌아오는 순간 사용자가 적던 값이 덮인다.
@@ -41,7 +41,7 @@ export function TagForm({ tag, kind, onDone, onCancel }: TagFormProps) {
   const create = useCreateTag();
   const update = useUpdateTag();
   const [name, setName] = useState(tag?.name ?? '');
-  const [color, setColor] = useState<TagColor>(tag?.color ?? 'sage');
+  const [color, setColor] = useState<TagColor>(tag?.color ?? TAG_COLORS[0]);
 
   const busy = create.isPending || update.isPending;
   const trimmed = name.trim();
@@ -73,7 +73,7 @@ export function TagForm({ tag, kind, onDone, onCancel }: TagFormProps) {
           className="tag-form__input"
           value={name}
           maxLength={NAME_MAX}
-          placeholder="예: 출장"
+          placeholder="예: 데이트"
           autoComplete="off"
           disabled={busy}
           onChange={(event) => setName(event.target.value)}

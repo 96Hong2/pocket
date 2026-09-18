@@ -88,6 +88,11 @@ class CalendarGridArea {
     this.root = page.getByRole('group', { name: '날짜 고르기' });
   }
 
+  /** 격자 한 덩어리. 화면에서 어디에 서 있는지·얼마나 높은지를 잴 때 쓴다. */
+  get box(): Locator {
+    return this.root;
+  }
+
   /** 그 날 칸. 금액까지 맞춰 보려면 이름 전체를 넘긴다. */
   cell(name: string | RegExp): Locator {
     return this.root.getByRole('button', { name });
@@ -176,6 +181,11 @@ class LedgerListArea {
     return this.root
       .getByText(title, { exact: true })
       .locator('xpath=following-sibling::div[contains(@class,"pk-tx__subtitle")]');
+  }
+
+  /** 목록 줄에 붙는 태그 표식. 줄 제목이 아니라 칩이라 따로 잡는다. */
+  tagMark(name: string): Locator {
+    return this.root.locator('.tag-mark', { hasText: name });
   }
 
   /**

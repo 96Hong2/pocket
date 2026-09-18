@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
 import { QuickRecordSheet } from '../features/quick-record';
@@ -7,6 +8,7 @@ import {
   EditSheet,
   LEDGER_PAGE_SIZE,
   MonthTotals,
+  MonthTotalsSkeleton,
   SearchBox,
   TransactionPages,
 } from '../features/transactions';
@@ -29,7 +31,7 @@ import {
 } from '../shared/lib/format';
 import { useDebounced } from '../shared/lib/useDebounced';
 import { TEST_IDS } from '../shared/testIds';
-import { Button, Card, EmptyState, ErrorState, LoadingState, MonthStepper } from '../shared/ui';
+import { Button, Card, EmptyState, ErrorState, MonthStepper } from '../shared/ui';
 
 /**
  * 월간 달력. 기록한 것을 다시 보고, 그 날에 바로 적는 화면이다.
@@ -40,19 +42,36 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, MonthStepper } from
  * **고른 날에 적고·고치고·지우는 일이 여기서 다 끝난다.** 지난 날 하나를 빠뜨린 것을
  * 여기서 발견하는데, 적으려고 홈으로 돌아가면 그 날이 아니라 오늘에 적힌다.
  *
- * 검색 중에는 달력과 선택한 날 목록을 감춘다. 결과가 달력 아래에 따로 붙으면
- * 지금 보는 것이 무엇인지 읽히지 않는다.
+ * **검색 칸은 달력 아래다.** 위에 두면 이 화면에 들어온 사람이 달력보다 검색을 먼저 본다.
+ * 이 화면에 오는 이유는 달력을 보려는 것이고, 검색은 그러다 찾을 것이 생겼을 때 쓴다.
+ *
+ * 검색 중에도 **달력은 그대로 둔다.** 감추면 아래 있던 검색 칸이 위로 뛰어올라, 글자를
+ * 한 자 칠 때마다 화면이 움직인다. 대신 고른 날 목록 자리에 결과가 들어선다.
+ * 달력의 날을 누르면 검색을 끝내고 그 날로 간다. 안 그러면 검색 중 달력이 안 눌리는
+ * 죽은 자리가 된다.
  */
 
 /** 입력할 때마다 서버를 부르지 않는다. 한 글자씩 요청하면 앞 요청이 뒤 요청을 덮는다. */
 const SEARCH_DEBOUNCE_MS = 250;
 
+/** `2026-08` 모양인지. 리포트가 붙여 준 값이라 아무 문자열이나 들어올 수 있다. */
+const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 export default function CalendarPage() {
   const today = toLedgerDate(new Date());
   const thisMonth = today.slice(0, 7);
 
-  const [month, setMonth] = useState(thisMonth);
-  const [selected, setSelected] = useState(today);
+  /*
+    리포트의 달력 아이콘이 `?month=2026-08` 로 데려온다. 보던 달을 그대로 연다.
+    한 번만 읽는다. 계속 보고 있으면 화살표로 달을 옮겨도 주소가 도로 끌고 온다.
+    주소를 손으로 친 경우에도 어긋난 값이면 그냥 이번 달을 연다.
+  */
+  const [params] = useSearchParams();
+  const [month, setMonth] = useState(() => {
+    const asked = params.get('month');
+    return asked != null && MONTH_PATTERN.test(asked) && asked <= thisMonth ? asked : thisMonth;
+  });
+  const [selected, setSelected] = useState(() => (month === thisMonth ? today : `${month}-01`));
   const [typed, setTyped] = useState('');
   const [editing, setEditing] = useState<TransactionOut | null>(null);
   // 고른 날에 적는 시트. 이름에 날이 붙은 버튼만 그 날에 적는 규칙을 여기서도 지킨다.
@@ -110,12 +129,32 @@ export default function CalendarPage() {
           />
         </Card>
       ) : summary.data == null ? (
-        // 달을 옮기는 동안이다. 오류 카드로 묶으면 정상 로딩이 실패로 보인다.
-        <Card padding="md">
-          <LoadingState variant="rows" rows={1} label="이번 달 합계를 불러오는 중이에요" />
-        </Card>
+        // 달을 옮기는 동안이다. 합계 띠와 같은 높이라 아래가 안 움직인다.
+        <MonthTotalsSkeleton />
       ) : (
         <MonthTotals summary={summary.data} />
+      )}
+
+      {calendar.isError ? (
+        <Card padding="md">
+          <ErrorState
+            size="inline"
+            title="달력을 불러오지 못했어요"
+            onRetry={() => void calendar.refetch()}
+          />
+        </Card>
+      ) : (
+        <CalendarGrid
+          month={month}
+          days={calendar.data?.days ?? []}
+          selected={selected}
+          today={today}
+          onSelect={(day) => {
+            setSelected(day);
+            // 검색 중이었다면 여기서 끝난다. 고른 날을 보여 주려고 누른 것이다.
+            setTyped('');
+          }}
+        />
       )}
 
       <SearchBox value={typed} onChange={setTyped} />
@@ -149,79 +188,59 @@ export default function CalendarPage() {
           />
         </section>
       ) : (
-        <>
-          {calendar.isError ? (
-            <Card padding="md">
-              <ErrorState
-                size="inline"
-                title="달력을 불러오지 못했어요"
-                onRetry={() => void calendar.refetch()}
-              />
+        <section className="tx-list" aria-label="고른 날 기록">
+          <p className="tx-list__head">
+            <span>
+              {formatDayLabel(selected)} {formatWeekday(selected)}요일
+            </span>
+            <span className="tx-list__total" data-testid={TEST_IDS.dayTotal}>
+              {formatCurrency(parseDecimalOr(dayNumbers?.expense, 0))}
+            </span>
+          </p>
+          <TransactionPages
+            items={spent}
+            categories={categoryItems}
+            isPending={pages.isPending}
+            isError={pages.isError}
+            onRetry={() => void pages.refetch()}
+            hasMore={pages.hasNextPage}
+            isLoadingMore={pages.isFetchingNextPage}
+            onMore={() => void pages.fetchNextPage()}
+            onPick={setEditing}
+            empty={
+              // 안 썼다고 적어 둔 날은 빈 날이 아니다. 아래 줄이 그 자리를 채운다.
+              noSpend.length > 0 ? null : (
+                <Card padding="list">
+                  <p className="tx-list__empty" role="status">
+                    이 날은 기록이 없어요. 없는 날도 괜찮아요.
+                  </p>
+                </Card>
+              )
+            }
+          />
+          {/* 읽기 전용이다. 되돌리는 길은 오늘을 보는 홈에만 둔다. */}
+          {noSpend.length > 0 ? (
+            <Card padding="list">
+              <NoSpendRow />
             </Card>
-          ) : (
-            <CalendarGrid
-              month={month}
-              days={calendar.data?.days ?? []}
-              selected={selected}
-              today={today}
-              onSelect={setSelected}
-            />
-          )}
+          ) : null}
 
-          <section className="tx-list" aria-label="고른 날 기록">
-            <p className="tx-list__head">
-              <span>
-                {formatDayLabel(selected)} {formatWeekday(selected)}요일
-              </span>
-              <span className="tx-list__total" data-testid={TEST_IDS.dayTotal}>
-                {formatCurrency(parseDecimalOr(dayNumbers?.expense, 0))}
-              </span>
-            </p>
-            <TransactionPages
-              items={spent}
-              categories={categoryItems}
-              isPending={pages.isPending}
-              isError={pages.isError}
-              onRetry={() => void pages.refetch()}
-              hasMore={pages.hasNextPage}
-              isLoadingMore={pages.isFetchingNextPage}
-              onMore={() => void pages.fetchNextPage()}
-              onPick={setEditing}
-              empty={
-                // 안 썼다고 적어 둔 날은 빈 날이 아니다. 아래 줄이 그 자리를 채운다.
-                noSpend.length > 0 ? null : (
-                  <Card padding="list">
-                    <p className="tx-list__empty" role="status">
-                      이 날은 기록이 없어요. 없는 날도 괜찮아요.
-                    </p>
-                  </Card>
-                )
-              }
-            />
-            {/* 읽기 전용이다. 되돌리는 길은 오늘을 보는 홈에만 둔다. */}
-            {noSpend.length > 0 ? (
-              <Card padding="list">
-                <NoSpendRow />
-              </Card>
-            ) : null}
-
-            {/*
+          {/*
               **버튼 이름에 그 날을 적는다.** 「기록하기」 라고만 쓰면 오늘에 적히는 홈의
               버튼과 구분이 안 되고, 실제로 그렇게 오늘에 적힌 적이 있다.
               앞날은 아직 쓰지 않은 돈이라 적을 자리를 열지 않는다.
             */}
-            {selected <= today ? (
-              <Button
-                className="tx-list__record"
-                variant="outline"
-                fullWidth
-                onClick={() => setRecording(true)}
-              >
-                {formatRelativeDay(selected)} 기록하기
-              </Button>
-            ) : null}
-          </section>
-        </>
+          {selected <= today ? (
+            <Button
+              className="tx-list__record"
+              variant="outline"
+              fullWidth
+              onClick={() => setRecording(true)}
+            >
+              {formatRelativeDay(selected)} 기록하기
+            </Button>
+          ) : null}
+        </section>
       )}
 
       <EditSheet

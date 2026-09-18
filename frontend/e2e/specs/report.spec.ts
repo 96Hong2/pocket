@@ -396,3 +396,38 @@ function daysIn(month: string): number {
 function lastDayOf(month: string): string {
   return `${month}-${String(daysIn(month)).padStart(2, '0')}`;
 }
+
+/**
+ * 리포트 오른쪽 위의 달력 아이콘.
+ *
+ * 리포트는 「어디에 썼나」 고 달력은 「언제 썼나」 다. 한쪽을 보다 다른 쪽이 궁금해지는
+ * 자리가 여기인데, 달력으로 가는 길이 홈에만 있어서 탭을 두 번 건너야 했다.
+ *
+ * **보던 달을 들고 간다.** 이번 달로 떨어뜨리면 반년 전 리포트를 보던 사람이 달력에서
+ * 화살표를 여섯 번 더 눌러야 한다.
+ */
+test('리포트에서 달력으로 건너가고, 보던 달이 따라간다', async ({ calendar, page, report }) => {
+  await report.open();
+  await report.waitReady();
+
+  await report.goPreviousMonth();
+  const month = await report.monthLabel().innerText();
+
+  await report.calendarLink.click();
+
+  await expect(page).toHaveURL(/\/calendar\?month=\d{4}-\d{2}$/);
+  await calendar.waitReady();
+  await expect(calendar.monthLabel).toHaveText(month);
+});
+
+test('달력에서 달을 옮기면 주소가 도로 끌고 오지 않는다', async ({ calendar, report }) => {
+  await report.open();
+  await report.waitReady();
+  await report.goPreviousMonth();
+  await report.calendarLink.click();
+  await calendar.waitReady();
+
+  // 주소는 들어올 때 한 번만 읽는다. 계속 보고 있으면 화살표가 안 듣는다.
+  await calendar.goToMonth('2026년 7월');
+  await expect(calendar.monthLabel).toHaveText('2026년 7월');
+});

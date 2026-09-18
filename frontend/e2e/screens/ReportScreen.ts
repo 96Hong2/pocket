@@ -73,6 +73,16 @@ export class ReportScreen {
   /**
    * 여러 달 뒤로 갔다가 한 번에 돌아오는 알약. 이번 달을 보고 있으면 없다.
    */
+  /**
+   * 제목 줄 오른쪽의 달력 아이콘.
+   *
+   * 리포트는 「어디에 썼나」 고 달력은 「언제 썼나」 라, 한쪽을 보다 다른 쪽이 궁금해지는
+   * 자리가 여기다. **보던 달을 들고 간다.**
+   */
+  get calendarLink(): Locator {
+    return this.page.getByRole('link', { name: '이 달을 달력으로 보기', exact: true });
+  }
+
   get thisMonthJump(): Locator {
     return this.root.getByRole('button', { name: '이번 달로' });
   }

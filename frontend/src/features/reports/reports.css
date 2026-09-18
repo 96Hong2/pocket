@@ -7,6 +7,18 @@
     --report-trend-track: 96px;
   }
 
+  /*
+    불러오는 동안·실패했을 때 본문 자리.
+
+    달을 옮기면 리포트가 통째로 다시 온다. 그 사이 화면이 월 선택기 하나로 줄었다가
+    다시 길어지면, 아래로 굴려 보던 사람이 맨 위로 튕긴다. 자리만 잡아 둔다.
+  */
+  .report__slot {
+    display: grid;
+    place-items: center;
+    min-height: 420px;
+  }
+
   .report__modes {
     align-self: stretch;
   }

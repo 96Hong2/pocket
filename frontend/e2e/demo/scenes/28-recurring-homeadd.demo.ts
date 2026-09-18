@@ -12,7 +12,7 @@ function today(): number {
   return new Date().getDate();
 }
 
-test.use({ showHomeAddCard: true });
+test.use({ showStarterCards: true });
 
 test('57 매달 나가는 돈을 미리 적어 두고, 홈에 앱을 놓는다', async ({
   demo,
@@ -64,9 +64,14 @@ test('57 매달 나가는 돈을 미리 적어 두고, 홈에 앱을 놓는다',
   await expect(home.addToHome.card).toBeVisible();
   await demo.beat(4);
 
-  await demo.step('알림도 같은 카드에서 권한다. 저녁 8시다');
-  await expect(home.addToHome.notifyLink).toBeVisible();
+  await demo.step('알림은 바로 아래 딴 카드다. 닫는 ✕ 도 따로다');
+  await expect(home.remind.card).toBeVisible();
   await demo.beat(3);
+
+  await demo.step('버튼 하나로 저녁 8시가 정해진다');
+  await home.remind.turnOnButton.click();
+  await expect(home.remind.card).toContainText('저녁 8시에 알려 드릴게요');
+  await demo.beat(4);
 
   await demo.step('누르면 토스 메뉴 이름 그대로 세 단계를 알려 준다');
   await home.addToHome.openButton.click();

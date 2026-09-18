@@ -2186,13 +2186,18 @@ export interface components {
         };
         /**
          * TagColor
-         * @description 고를 수 있는 색. 여덟 개다.
+         * @description 고를 수 있는 색. 열넷이다.
          *
-         *     더 늘리지 않는다. 색이 열두 개가 넘으면 고르는 일 자체가 일이 되고, 두 색을 눈으로
-         *     가르지 못해 태그가 섞인다.
+         *     순서가 곧 고르는 화면의 순서이고, 색상환을 한 바퀴 돈다(분홍 → 노랑 → 초록 → 파랑 →
+         *     보라 → 회색). 한 줄에 일곱 개씩 두 줄로 서므로 윗줄이 따뜻한 쪽, 아랫줄이 찬 쪽이다.
+         *     옆자리끼리 비슷해 보여도 줄을 건너뛰면 확실히 갈린다.
+         *
+         *     DB 는 `native_enum=False` 라 문자열 칸이고 CHECK 제약도 없다. 그래서 값을 더 늘릴 때
+         *     마이그레이션이 필요 없다. 다만 **이름을 바꾸거나 빼지는 않는다.** 이미 그 색으로
+         *     만들어 둔 태그가 어느 색인지 잃는다.
          * @enum {string}
          */
-        TagColor: "sage" | "ocean" | "lilac" | "coral" | "amber" | "mint" | "rose" | "slate";
+        TagColor: "rose" | "coral" | "amber" | "sand" | "olive" | "sage" | "mint" | "teal" | "sky" | "ocean" | "indigo" | "lilac" | "plum" | "slate";
         /** TagCreate */
         TagCreate: {
             /** Name */
@@ -2206,7 +2211,7 @@ export interface components {
          * TagKind
          * @description 지출 태그와 수입 태그는 서로 다른 목록이다.
          *
-         *     「출장」이 지출에도 수입에도 있는 사람이 있고, 그때 같은 태그로 묶으면 리포트가
+         *     「정산완료」가 지출에도 수입에도 있는 사람이 있고, 그때 같은 태그로 묶으면 리포트가
          *     번 돈과 쓴 돈을 한 조각에 더한다. 목록부터 갈라 둔다.
          * @enum {string}
          */

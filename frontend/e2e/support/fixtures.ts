@@ -39,16 +39,16 @@ interface PocketFixtures {
    */
   showOnboarding: boolean;
   /**
-   * 홈 화면 추가 카드를 띄운 채로 연다.
+   * 첫 기록 뒤에 서는 권유 카드 둘(홈 화면 추가·저녁 알림)을 띄운 채로 연다.
    *
-   * 기본은 닫아 둔 상태다. 안 그러면 기록으로 시작하는 spec 마다 이 카드가 목록을 아래로
+   * 기본은 닫아 둔 상태다. 안 그러면 기록으로 시작하는 spec 마다 이 카드들이 목록을 아래로
    * 밀어내 스크롤 위치가 흔들린다. 카드 자체를 확인하는 spec 에서만
-   * `test.use({ showHomeAddCard: true })` 로 켠다.
+   * `test.use({ showStarterCards: true })` 로 켠다.
    *
    * **spec 안에서 표시를 지우는 방식은 안 통한다.** init script 는 새로고침에도 다시 도는데,
    * 그러면 방금 닫은 것을 매번 되살려 「닫으면 다시 안 뜬다」 를 확인할 수가 없다.
    */
-  showHomeAddCard: boolean;
+  showStarterCards: boolean;
   appShell: AppShell;
   /** 내 계정. 앱 설정 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
   account: AccountScreen;
@@ -91,7 +91,7 @@ export const test = base.extend<PocketFixtures>({
 
   showOnboarding: [false, { option: true }],
 
-  showHomeAddCard: [false, { option: true }],
+  showStarterCards: [false, { option: true }],
 
   appShell: async ({ page }, use) => {
     await use(new AppShell(page));
@@ -160,11 +160,11 @@ export const test = base.extend<PocketFixtures>({
   },
 
   // 기본 page 를 감싼다. 격리 트랩 주입과 감시가 모든 테스트에 자동으로 걸린다.
-  page: async ({ page, anonKey, consoleErrorAllowList, showOnboarding, showHomeAddCard }, use) => {
+  page: async ({ page, anonKey, consoleErrorAllowList, showOnboarding, showStarterCards }, use) => {
     await page.addInitScript(installAnonKeyTrap, anonKey);
     // 공유 시트는 웹 페이지 바깥에서 뜬다. 놔두면 실행 환경에 따라 진짜 OS 창이 떠서 멈춘다.
     await page.addInitScript(installShareSheetStub);
-    if (!showHomeAddCard) await page.addInitScript(silenceHomeAddCard);
+    if (!showStarterCards) await page.addInitScript(silenceStarterCards);
     if (!showOnboarding) await page.addInitScript(silenceOnboarding);
 
     const violations: string[] = [];
@@ -222,21 +222,25 @@ export const test = base.extend<PocketFixtures>({
 export { expect };
 
 /**
- * 홈 화면 추가 안내를 「이미 봤다」 로 두고 시작한다.
+ * 첫 기록 뒤의 권유 카드 둘을 「이미 닫았다」 로 두고 시작한다.
  *
- * 이 카드는 한 번이라도 적은 사람의 홈에 선다. 실제 동작이 그렇지만, 기록으로 시작하는
+ * 이 카드들은 한 번이라도 적은 사람의 홈에 선다. 실제 동작이 그렇지만, 기록으로 시작하는
  * 다른 테스트에서는 카드가 목록을 아래로 밀어내 스크롤 위치를 흔든다.
  * 카드 자체는 `specs/home-add.spec.ts` 가 이 표시를 지우고 확인한다.
  *
+ * **두 번째 기회 키까지 함께 지운다.** 다섯 번 적는 spec 에서 카드가 다시 떠 버린다.
+ *
  * 토스 devtools 목 SDK 의 저장소는 `__ait_storage:` 접두사를 붙인 localStorage 다.
  */
-function silenceHomeAddCard(): void {
+function silenceStarterCards(): void {
   /*
     init script 는 about:blank 처럼 저장소를 못 여는 문서에서도 돈다.
     거기서 던지면 그 오류가 콘솔 감시에 잡혀 관계없는 테스트가 깨진다(플랫폼 엣지 넷이 그랬다).
   */
   try {
-    window.localStorage.setItem('__ait_storage:card-dismissed-home-add', '');
+    for (const card of ['home-add', 'home-add-again', 'remind', 'remind-again']) {
+      window.localStorage.setItem(`__ait_storage:card-dismissed-${card}`, '');
+    }
   } catch {
     /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
   }

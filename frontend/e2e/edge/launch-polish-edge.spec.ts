@@ -284,7 +284,7 @@ test.describe('가장 좁은 화면', () => {
   test.use({ viewport: { width: 320, height: 568 } });
 
   // 다른 테스트는 이 카드를 닫아 두고 시작한다(support/fixtures.ts). 여기서는 켜서 본다.
-  test.use({ showHomeAddCard: true });
+  test.use({ showStarterCards: true });
 
   test('날짜 칸도 홈 추가 안내도 화면을 가로로 밀지 않는다', async ({
     home,

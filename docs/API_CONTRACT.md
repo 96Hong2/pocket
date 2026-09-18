@@ -299,7 +299,7 @@ ADR-0006 이다.
 | 메서드 | 경로 | 하는 일 |
 | --- | --- | --- |
 | GET | `/tags` | 내 태그 전부. 지출·수입이 한 목록에 섞여 오고 화면이 `kind` 로 갈라 쓴다 |
-| POST | `/tags` | 만들기. 바디는 `{"name": "출장", "color": "ocean", "kind": "expense"}`. 201 |
+| POST | `/tags` | 만들기. 바디는 `{"name": "데이트", "color": "lilac", "kind": "expense"}`. 201 |
 | PATCH | `/tags/{tag_id}` | 이름·색 고치기. **종류는 못 바꾼다** |
 | DELETE | `/tags/{tag_id}` | 지우기. 204 |
 
@@ -308,10 +308,16 @@ ADR-0006 이다.
 
 - **기본 태그는 없다.** 처음 온 사람의 목록이 비어 있는 것이 정상이고, 그때 화면은 태그
   자리를 아예 그리지 않는다.
-- `color` 는 여덟 개 중 하나다: `sage` `ocean` `lilac` `coral` `amber` `mint` `rose` `slate`.
+- `color` 는 **열네 개** 중 하나다. 선언 순서가 곧 고르는 화면의 순서이고, 일곱씩 두 줄로 선다:
+  `rose` `coral` `amber` `sand` `olive` `sage` `mint` / `teal` `sky` `ocean` `indigo` `lilac` `plum` `slate`.
   정본은 `app/domain/tags.py` 이고 화면이 그 키로 색을 찾는다(`shared/lib/tagColors.ts`).
   자유 입력으로 받지 않는 이유는 배경과 구분이 안 되는 색이 들어오고, 그 위에 얹을 글자색을
   화면이 매번 계산해야 하기 때문이다.
+  - **값을 더할 때 마이그레이션이 필요 없다.** DB 칸은 `native_enum=False` 라 그냥 문자열이고
+    CHECK 제약도 안 걸려 있다. 다만 **이름을 바꾸거나 빼지 않는다.** 이미 그 색으로 만들어 둔
+    태그가 어느 색인지 잃는다.
+  - 화면은 파스텔 바탕에 같은 계열의 진한 글자를 얹는다. 대비 4.5:1 을 넘기는 짝을
+    `features/tags/tags.css` 가 갖고 있다.
 - `kind` 는 `expense`·`income` 둘이다. **지출 태그와 수입 태그는 서로 다른 목록**이라
   이름이 겹쳐도 된다. 섞이면 리포트가 번 돈과 쓴 돈을 한 조각에 더한다.
 - 이름은 12자까지, 종류마다 20개까지다. 같은 종류 안에서 이름이 겹치면 409 다

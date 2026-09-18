@@ -50,6 +50,27 @@
     color: var(--color-income);
   }
 
+  /*
+    불러오는 동안의 합계 띠. 이름은 그대로 두고 숫자 자리만 막대로 바꾼다.
+    카드로 감싸면 자리가 부풀었다 줄어 그 아래 달력과 목록이 통째로 움직인다.
+  */
+  .tx-totals__label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  /*
+    막대의 크기를 px 로 적지 않는다. 안에 **자리 채움 숫자**를 넣고 글자만 감춘다.
+    그러면 글꼴·줄 높이가 진짜 금액과 똑같아서 띠 높이가 1px 도 안 바뀐다.
+    px 로 맞췄더니 반올림 때문에 1px 씩 흔들렸다.
+  */
+  .tx-totals__bar {
+    font-weight: var(--font-weight-bold);
+    color: transparent;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* ── 검색 ────────────────────────────────────────── */
 
   .tx-search {

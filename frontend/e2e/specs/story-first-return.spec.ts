@@ -105,7 +105,7 @@ test.describe('홈 추가 안내를 처음 보는 사람', () => {
     픽스처가 모든 테스트에 「이미 닫았다」 를 심는다. 켜 두지 않으면 카드가 **아예 서지 않아**,
     여기서 세는 것이 제품이 아니라 픽스처 덕분에 통과한다.
   */
-  test.use({ showHomeAddCard: true });
+  test.use({ showStarterCards: true });
 
   test('안내가 떠 있을 때 뒤로가기는 미니앱이 아니라 시트를 가져간다', async ({
     appShell,
