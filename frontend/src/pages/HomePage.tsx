@@ -1,9 +1,10 @@
 import { useState } from 'react';
 
 import { IdentityNotice } from '../app/IdentityNotice';
-import { useIdentity, useOnboardingShowing } from '../app/providers';
+import { useIdentity } from '../app/providers';
 import { AdSlot } from '../features/ads';
-import { AddToHomePrompt } from '../features/home-add';
+import { AddToHomeCard } from '../features/home-add';
+import { RecurringDueCard } from '../features/recurring';
 import {
   BudgetSuggestCard,
   ClosingEntryCard,
@@ -27,6 +28,7 @@ import {
   useCategories,
   useGoal,
   usePreferences,
+  useRecurringDue,
   useTransactions,
   type TransactionOut,
 } from '../shared/api';
@@ -63,6 +65,11 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
   const [day, setDay] = useState(() => toLedgerDate(new Date()));
   const budget = useBudget();
   const categories = useCategories();
+  /*
+    오늘·내일 빠져나갈 돈. 카드 자체는 `RecurringDueCard` 가 그리지만, **떴는지를 여기서도
+    알아야** 아래 권유 카드들이 비켜 줄 수 있다. 캐시를 함께 읽으므로 요청이 늘지 않는다.
+  */
+  const recurringDue = useRecurringDue();
   // 하루치만 받는다. 달을 통째로 받아 화면에서 거르면 지난달로 넘어갈 때 목록이 빈다.
   // 저장·수정은 `transactions` 아래를 통째로 무효화하므로 어느 날을 보고 있어도 함께 새로 온다.
   const transactions = useTransactions({ day });
@@ -84,6 +91,8 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
   const budgetSuggest = useCardDismiss('budget-suggest', '');
   // 공유 권유는 한 번 닫으면 끝이다. 다시 뜰 「달라진 상황」이 없다.
   const shareInvite = useCardDismiss('share-app', '');
+  // 홈 화면 추가도 마찬가지다. 한 번 닫으면 앱 설정에만 남는다.
+  const homeAdd = useCardDismiss('home-add', '');
 
   // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다.
   // 아직 오는 중일 때만 기다리게 하고, 실패·미지원은 위 안내가 이유를 말한다.
@@ -99,8 +108,30 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
   // 그 자리에서 통째로 return 하면 '10초 기록' 버튼까지 사라져, 읽기 실패가 쓰기 진입점을 막는다.
   // 이 앱의 목적은 기록이라 조회가 안 되는 동안에도 기록은 되어야 한다.
   const view = budget.data != null ? resolveHomeView(toHomeViewInput(budget.data)) : null;
-  // 공유 권유가 이 카드를 보고 비켜야 해서, 판정을 한 번만 하고 둘이 함께 읽는다.
+  /*
+    스스로 나타나는 카드가 셋인데, 세 장이 한꺼번에 서면 기록 버튼 아래가 권유 전시장이 된다.
+
+    다만 **홈 화면 추가는 예산 제안에 비켜 주지 않는다.** 둘이 같은 성격이 아니다.
+    예산 카드는 금액을 적어 넣는 **일거리**고, 홈 추가는 두 줄짜리 **한 번뿐인 안내**다.
+    첫 기록을 마친 그 순간이 홈에 두겠냐고 물을 유일한 때라, 그 자리를 예산에 내주면
+    예산을 정하지 않는 사람에게는 영영 안 뜬다(실기기에서 그렇게 안 떴다).
+
+    비켜 주는 것은 공유 권유다. 그건 다섯 번 넘게 적은 사람에게만 뜨고, 그때까지 기다릴
+    수 있는 유일한 권유다.
+
+    **「곧 나갈 돈」 에는 둘 다 비켜 준다.** 그건 권유가 아니라 오늘 실제로 돈이 빠져나간다는
+    사실이고, 그 아래 권유가 둘씩 붙으면 정작 급한 것이 안 읽힌다. 카드가 셋 쌓인 화면을
+    직접 찍어 보고 정했다.
+  */
+  const dueSoon = (recurringDue.data?.length ?? 0) > 0;
   const showBudgetSuggestion = view?.showBudgetSuggestion === true && !budgetSuggest.hidden;
+  const showHomeAdd = view?.showHomeAdd === true && !homeAdd.hidden && !dueSoon;
+  const showShareInvite =
+    view?.showShareInvite === true &&
+    !shareInvite.hidden &&
+    !dueSoon &&
+    !showBudgetSuggestion &&
+    !showHomeAdd;
 
   return (
     <>
@@ -137,15 +168,16 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
       />
 
       {/*
-        기록 버튼 바로 아래. 몇 번 적어 본 사람에게만 뜨고, 닫으면 다시 안 뜬다.
+        곧 나갈 돈. 스스로 나타나는 카드 중에서도 **이것이 맨 위**다.
 
-        **예산 제안 카드가 떠 있으면 비켜 준다.** 둘 다 스스로 나타나 한 가지를 권하는
-        카드라, 같이 서면 기록 버튼 아래가 권유 두 장이 된다. 예산을 정하는 쪽이 이 사람의
-        가계부에 먼저 필요한 일이다. 한 번에 하나만 묻는다.
+        오늘이나 내일 실제로 돈이 빠져나가는 일이라, 권유가 아니라 사실을 알리는 자리다.
+        그 사람이 걸어 둔 것에만 뜨므로 대부분의 화면에는 아무것도 안 그린다.
       */}
-      {view?.showShareInvite && !showBudgetSuggestion && !shareInvite.hidden ? (
-        <ShareAppCard onDismiss={shareInvite.dismiss} />
-      ) : null}
+      <RecurringDueCard />
+
+      {/* 기록 버튼 바로 아래. 셋 중 하나만 선다. 순서는 위 주석에 적어 뒀다. */}
+      {showHomeAdd ? <AddToHomeCard onDismiss={homeAdd.dismiss} /> : null}
+      {showShareInvite ? <ShareAppCard onDismiss={shareInvite.dismiss} /> : null}
 
       {/*
         지난달 결산 안내. 달이 바뀐 뒤 며칠 동안, 지난달에 기록이 있고 아직 안 봤을 때만
@@ -218,10 +250,6 @@ export default function HomePage() {
     open: false,
     tab: DEFAULT_RECORD_TAB,
   });
-  // 아래 화면과 같은 조회다. 캐시를 함께 읽으므로 요청이 늘지 않는다.
-  const budget = useBudget();
-  const onboardingShowing = useOnboardingShowing();
-
   return (
     <div className="page home">
       <IdentityNotice />
@@ -233,16 +261,6 @@ export default function HomePage() {
         day={sheet.day}
         from={sheet.day == null ? 'home' : 'home_day'}
         onClose={() => setSheet((prev) => ({ ...prev, open: false }))}
-      />
-
-      {/*
-        첫 기록을 마친 그 순간 스스로 열리는 안내. 한 번뿐이다.
-        기록 시트 위에 겹치지 않게, 시트가 닫힌 뒤에만 연다.
-        처음 안내가 떠 있는 동안에도 기다린다(아직 모르는 동안도 기다린다).
-      */}
-      <AddToHomePrompt
-        hasAnyTransaction={budget.data == null ? null : budget.data.has_any_transaction}
-        paused={sheet.open || onboardingShowing !== false}
       />
     </div>
   );

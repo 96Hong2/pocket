@@ -20,6 +20,8 @@ from app.models.preference import (
     RecordMethod,
     UserPreference,
 )
+from app.models.recurring import RecurringExpense
+from app.models.tag import Tag, TagColor, TagKind
 from app.models.transaction import (
     PaymentMethod,
     Transaction,
@@ -56,6 +58,10 @@ __all__ = [
     "ParseUsage",
     "PaymentMethod",
     "RecordMethod",
+    "RecurringExpense",
+    "Tag",
+    "TagColor",
+    "TagKind",
     "Transaction",
     "TransactionSource",
     "TransactionType",

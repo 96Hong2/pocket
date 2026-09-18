@@ -41,8 +41,11 @@ __all__ = [
     "update_notification_settings",
 ]
 
-# 켜기만 하고 시각을 안 고른 사람에게 넣어 주는 값. 저녁에 하루를 정리하는 시간대다.
-DEFAULT_REMIND_AT = time(21, 30)
+# 켜기만 하고 시각을 안 고른 사람에게 넣어 주는 값.
+#
+# 저녁 8시다. 하루 지출이 거의 끝났는데 아직 안 자는 시간이라, 그 자리에서 앱을 열어
+# 적을 수 있다. 9시 반은 이미 누운 사람이 많아 "내일 적어야지" 로 넘어간다.
+DEFAULT_REMIND_AT = time(20, 0)
 
 
 @dataclass(frozen=True, slots=True)

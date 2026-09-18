@@ -197,3 +197,50 @@ def test_하루_경계도_사용자_시간대로_본다(client: TestClient) -> N
     eleventh = _page(client, day="2026-09-11")["items"]
     assert [item["merchant"] for item in tenth] == ["늦은밤"]
     assert [item["merchant"] for item in eleventh] == ["자정넘어"]
+
+
+# ── 금액·메모·태그로 찾기 ───────────────────────────────
+
+
+def test_숫자만_적으면_그_금액을_찾는다(client: TestClient) -> None:
+    """부분일치가 아니라 딱 그 금액이다. 12,000 을 찾다 112,000 이 나오면 훼방이다."""
+    _add(client, amount="12000", merchant="스타벅스")
+    _add(client, amount="112000", merchant="백화점")
+
+    found = _page(client, q="12000")["items"]
+
+    assert [item["merchant"] for item in found] == ["스타벅스"]
+
+
+def test_쉼표와_원을_붙여_적어도_찾는다(client: TestClient) -> None:
+    """사람은 「12,000원」 이라고 적는다. 화면이 그렇게 보여 주기 때문이다."""
+    _add(client, amount="12000", merchant="스타벅스")
+
+    assert len(_page(client, q="12,000")["items"]) == 1
+    assert len(_page(client, q="12000원")["items"]) == 1
+
+
+def test_메모로도_찾는다(client: TestClient) -> None:
+    _add(client, merchant="스타벅스", memo="팀 커피 쐈다")
+
+    found = _page(client, q="커피")["items"]
+
+    assert len(found) == 1
+    assert found[0]["memo"] == "팀 커피 쐈다"
+
+
+def test_태그_이름으로도_찾는다(client: TestClient) -> None:
+    tag = client.post("/api/v1/tags", json={"name": "출장"}, headers=AUTH).json()["items"][0]
+    _add(client, merchant="김밥천국", tag_id=tag["id"])
+    _add(client, merchant="스타벅스")
+
+    found = _page(client, q="출장")["items"]
+
+    assert [item["merchant"] for item in found] == ["김밥천국"]
+
+
+def test_공백만_남은_메모는_없는_것으로_본다(client: TestClient) -> None:
+    """빈 칸이 목록에 회색 줄로 서지 않게, 받는 자리에서 None 으로 눕힌다."""
+    created = _add(client, memo="   ")
+
+    assert created["memo"] is None

@@ -19,7 +19,7 @@ import { expect, test } from '../support/fixtures';
 
 const NEW_TIME = '22:00';
 /** 시각을 안 고르고 켜면 서버가 넣어 주는 값. 켜 두고 시각이 비면 영영 안 가는 알림이 된다. */
-const DEFAULT_TIME = '21:30';
+const DEFAULT_TIME = '20:00';
 
 /** 목이 알림 동의를 실패로 만들 때 쓰는 코드. `Notification agreement failed` 로 온다. */
 const AGREEMENT_FAILURE = '4000';

@@ -7,6 +7,7 @@ import {
   parseDecimalOr,
   useCreateTransaction,
   useDeleteTransaction,
+  useTags,
   type CategoryOut,
   type TransactionOut,
 } from '../../shared/api';
@@ -107,6 +108,8 @@ export function TodayList({
   onPick,
   onRecord,
 }: TodayListProps) {
+  // 캐시를 함께 읽어 요청이 늘지 않는다. 안 오면 태그 표식만 안 그린다.
+  const tags = useTags();
   const today = toLedgerDate(new Date());
   const isToday = day === today;
   const label = formatRelativeDay(day);
@@ -182,6 +185,7 @@ export function TodayList({
               key={tx.id}
               transaction={tx}
               categories={categories}
+              tags={tags.data?.items ?? []}
               avatarSize={54}
               density="compact"
               onClick={onPick ? () => onPick(tx) : undefined}

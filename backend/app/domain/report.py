@@ -18,8 +18,11 @@ __all__ = [
     "UNCATEGORIZED",
     "BreakdownRow",
     "MethodRow",
+    "TagRanking",
+    "TagRow",
     "rank_breakdown",
     "rank_methods",
+    "rank_tags",
 ]
 
 # 분류를 못 정한 줄. 감추지 않는다. 감추면 조각 합이 총액과 안 맞는다.
@@ -133,3 +136,48 @@ def rank_methods(spend: dict[PaymentMethod | None, Money]) -> tuple[list[MethodR
         for method, value in ordered
     ]
     return rows, total
+
+
+@dataclass(frozen=True)
+class TagRow:
+    """태그 조각 하나. 이름과 색은 화면이 태그 목록에서 찾아 붙인다."""
+
+    tag_id: str
+    amount: Money
+    share: Decimal | None
+    """**태그를 단 돈 안에서**의 비중. 그 달 전체가 아니다."""
+
+
+@dataclass(frozen=True)
+class TagRanking:
+    """태그별 순위표.
+
+    **안 단 돈을 조각에 넣지 않는다.** 태그는 스스로 만들어 붙이는 것이라, 처음에는
+    안 단 쪽이 거의 전부다. 그걸 한 조각으로 그리면 링이 통째로 회색이 되고 태그를
+    붙인 보람이 안 보인다. 대신 얼마가 아직 안 달렸는지 숫자로 함께 준다.
+    """
+
+    rows: list[TagRow]
+    tagged_total: Money
+    untagged_total: Money
+
+
+def rank_tags(spend: dict[str | None, Money]) -> TagRanking:
+    """태그별 금액을 큰 순으로 세운다. 접지 않는다(태그 수 자체가 스무 개까지다).
+
+    음수(그 태그로 환불이 더 큰 경우)는 뺀다. `rank_breakdown` 과 같은 이유다.
+    """
+    untagged = spend.get(None, Money.zero())
+    tagged = {key: value for key, value in spend.items() if key is not None and value.is_positive}
+
+    total = Money.zero()
+    for value in tagged.values():
+        total = total + value
+
+    ordered = sorted(tagged.items(), key=lambda item: (-item[1].amount, item[0]))
+    rows = [TagRow(tag_id=key, amount=value, share=ratio(value, total)) for key, value in ordered]
+    return TagRanking(
+        rows=rows,
+        tagged_total=total,
+        untagged_total=untagged if untagged.is_positive else Money.zero(),
+    )

@@ -29,6 +29,19 @@ export const queryKeys = {
 
   categories: () => [ROOT, 'categories'] as const,
 
+  /**
+   * 태그 목록. 달과 무관하다.
+   *
+   * `moneyQueryKeys` 에 넣지 않는다. 기록을 저장해도 태그 목록 자체는 안 변한다.
+   * 다만 목록이 「몇 건에 달렸나」 를 함께 주므로, 태그를 단 기록을 저장하면
+   * 그 숫자만 잠깐 낡는다. 지우기 전 확인에만 쓰는 값이라 그 정도는 감수한다.
+   */
+  tags: () => [ROOT, 'tags'] as const,
+
+  /** 반복 지출 설정과 「곧 나갈 돈」. 둘이 함께 낡으므로 한 뿌리 아래 둔다. */
+  recurring: () => [ROOT, 'recurring'] as const,
+  recurringDue: () => [ROOT, 'recurring', 'due'] as const,
+
   /** 기억한 분류 규칙. 달과 무관하다. */
   merchantRules: () => [ROOT, 'merchant-rules'] as const,
 
@@ -139,5 +152,8 @@ export function moneyQueryKeys(): ReadonlyArray<readonly string[]> {
     queryKeys.calendars(),
     // 리포트도 거래를 세는 화면이다. 빼면 저장 뒤 리포트만 옛 숫자를 보여준다.
     queryKeys.reports(),
+    // 반복 지출 예고도 거래에 걸린다. 빼면 「지금 기록하기」 를 누른 뒤에도
+    // 같은 카드가 홈에 그대로 남는다.
+    queryKeys.recurring(),
   ];
 }

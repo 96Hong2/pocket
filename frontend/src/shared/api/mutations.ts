@@ -33,6 +33,12 @@ import type {
   NotificationSettingsPatch,
   PeriodSummaryOut,
   PreferencesOut,
+  RecurringCreate,
+  RecurringListOut,
+  RecurringUpdate,
+  TagCreate,
+  TagListOut,
+  TagUpdate,
   ImportBatchOut,
   ImportCandidatePatch,
   ImportCommitOut,
@@ -599,5 +605,123 @@ export function useDeleteGoalContribution() {
     mutationFn: (input: { goalId: string; contributionId: string }) =>
       client.deleteGoalContribution(input.goalId, input.contributionId),
     onSuccess: () => invalidateGoal(queryClient),
+  });
+}
+
+
+/**
+ * 태그 쓰기.
+ *
+ * 만들기·고치기 응답이 **목록 전체**라 캐시에 그대로 쓴다. 왕복 없이 칩이 바뀐다.
+ * 지우기만 응답이 없어 무효화한다.
+ */
+function writeTags(queryClient: QueryClient, next: TagListOut): void {
+  queryClient.setQueryData<TagListOut>(queryKeys.tags(), next);
+}
+
+export function useCreateTag() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: TagCreate) => client.createTag(body),
+    onSuccess: (next) => writeTags(queryClient, next),
+  });
+}
+
+export function useUpdateTag() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: TagUpdate }) => client.updateTag(id, body),
+    onSuccess: (next) => writeTags(queryClient, next),
+  });
+}
+
+/**
+ * 태그 지우기.
+ *
+ * 그 태그를 달아 둔 기록에서 태그만 떨어진다. 목록과 리포트가 함께 낡으므로 둘 다
+ * 무효화한다. 리포트를 빼먹으면 이미 없는 태그의 조각이 링에 남는다.
+ */
+export function useDeleteTag() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => client.deleteTag(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tags() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.reports() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.transactionLists() });
+    },
+  });
+}
+
+/** 반복 지출 쓰기. 응답이 목록 전체라 캐시에 그대로 쓴다. */
+function writeRecurring(queryClient: QueryClient, next: RecurringListOut): void {
+  queryClient.setQueryData<RecurringListOut>(queryKeys.recurring(), next);
+  // 「곧 나갈 돈」 은 목록이 아니라 판정 결과라 응답에 없다. 다시 물어야 한다.
+  void queryClient.invalidateQueries({ queryKey: queryKeys.recurringDue() });
+}
+
+export function useCreateRecurring() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: RecurringCreate) => client.createRecurring(body),
+    onSuccess: (next) => writeRecurring(queryClient, next),
+  });
+}
+
+export function useUpdateRecurring() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: RecurringUpdate }) =>
+      client.updateRecurring(id, body),
+    onSuccess: (next) => writeRecurring(queryClient, next),
+  });
+}
+
+export function useDeleteRecurring() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => client.deleteRecurring(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.recurring() }),
+  });
+}
+
+/**
+ * 예고를 기록으로 옮긴다.
+ *
+ * 거래가 하나 생기므로 돈에 얽힌 캐시를 통째로 맞춘다(`moneyQueryKeys` 에 반복 지출도
+ * 들어 있어 카드가 그 자리에서 사라진다).
+ */
+export function useRecordRecurring(params?: MonthParams) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => client.recordRecurring(id),
+    onSuccess: (created) => {
+      writeBudgetState(queryClient, created.budget, params);
+      void invalidateMoney(queryClient);
+    },
+  });
+}
+
+export function useDismissRecurring() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => client.dismissRecurring(id),
+    onSuccess: (next) => writeRecurring(queryClient, next),
   });
 }

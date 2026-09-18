@@ -290,3 +290,52 @@ export function useGoalHistory(options?: { enabled?: boolean }) {
     enabled: isReady && (options?.enabled ?? true),
   });
 }
+
+/**
+ * 태그 목록.
+ *
+ * 지출 태그와 수입 태그가 한 목록에 섞여 오고, 쓰는 자리가 `kind` 로 갈라 쓴다.
+ * **하나도 없는 것이 정상이다.** 태그는 그 사람이 스스로 만드는 묶음이라,
+ * 안 만든 사람에게는 화면이 태그 자리를 아예 그리지 않는다.
+ */
+export function useTags() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.tags(),
+    queryFn: ({ signal }) => client.listTags({ signal }),
+    enabled: isReady,
+    // 카테고리와 같다. 기록을 저장해도 목록 자체는 달라지지 않는다.
+    staleTime: 30 * 60_000,
+  });
+}
+
+/** 반복 지출 설정 목록. 관리 화면 하나만 읽는다. */
+export function useRecurring() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.recurring(),
+    queryFn: ({ signal }) => client.listRecurring({ signal }),
+    enabled: isReady,
+  });
+}
+
+/**
+ * 오늘 물어볼 반복 지출.
+ *
+ * **빈 목록이 정상이다.** 걸어 둔 것이 없거나 아직 그날이 아니면 아무것도 안 온다.
+ * 홈이 이 조회로 카드를 그리므로, 실패하면 그 자리를 비우고 오류 카드를 만들지 않는다.
+ */
+export function useRecurringDue() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.recurringDue(),
+    queryFn: ({ signal }) => client.listRecurringDue({ signal }),
+    enabled: isReady,
+  });
+}

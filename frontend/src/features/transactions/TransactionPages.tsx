@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import type { CategoryOut, TransactionOut } from '../../shared/api';
+import { useTags, type CategoryOut, type TransactionOut } from '../../shared/api';
 import { LedgerRow } from '../../shared/ledger';
 import { Button, Card, ErrorState, LoadingState } from '../../shared/ui';
 
@@ -39,6 +39,12 @@ export function TransactionPages({
   onPick,
   empty,
 }: TransactionPagesProps) {
+  const tags = useTags();
+
+  /*
+    태그 목록은 캐시를 함께 읽으므로 요청이 늘지 않는다. 안 오면 표식만 안 그린다.
+    목록이 태그를 기다리게 두지 않는다. 훑는 것이 목적이지 태그를 보러 오지 않았다.
+  */
   if (isPending) return <LoadingState variant="rows" label="기록을 불러오는 중이에요" />;
 
   if (isError) {
@@ -64,6 +70,7 @@ export function TransactionPages({
             key={tx.id}
             transaction={tx}
             categories={categories}
+            tags={tags.data?.items ?? []}
             density="compact"
             hideDivider={index === items.length - 1}
             onClick={() => onPick(tx)}

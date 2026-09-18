@@ -38,6 +38,8 @@ export class HomeScreen {
   readonly recovery: RecoveryCard;
   /** 기록 버튼 아래 공유 권유 카드. 몇 번 적어 본 사람에게만 뜬다. */
   readonly share: HomeShareCard;
+  /** 오늘·내일 빠져나갈 돈. 걸어 둔 반복 지출이 있을 때만 뜬다. */
+  readonly recurring: HomeRecurringCard;
 
   constructor(page: Page) {
     this.page = page;
@@ -51,6 +53,7 @@ export class HomeScreen {
     this.addToHome = new AddToHomeArea(page);
     this.recovery = new RecoveryCard(page);
     this.share = new HomeShareCard(page);
+    this.recurring = new HomeRecurringCard(page);
   }
 
   async open(): Promise<void> {
@@ -442,6 +445,16 @@ class BudgetCard {
     return this.page.getByText('예산을 정하면');
   }
 
+  /** 제안 카드가 떴나. 아래 카드들이 이 카드에 비켜 주는지 볼 때 쓴다. */
+  get suggestCard(): Locator {
+    return this.suggestLead;
+  }
+
+  /** 제안 카드를 닫는다. 닫아야 그 아래 자리를 다투는 카드가 선다. */
+  async dismissSuggest(): Promise<void> {
+    await this.closeButton.click();
+  }
+
   /** 저장이 실패했을 때 입력칸과 버튼 사이에 뜨는 한 줄. 홈에서 alert 는 이 자리뿐이다. */
   get saveNotice(): Locator {
     return this.page.getByRole('alert');
@@ -583,26 +596,38 @@ class AddToHomeArea {
   }
 
   /**
-   * 첫 기록을 마친 그 순간 스스로 열리는 시트.
+   * 한 번이라도 적은 사람의 홈에 서는 카드.
    *
-   * 처음에는 홈 카드였다. 목록에 섞여 그냥 지나쳐져서 시트 하나로 합쳤다.
-   * 제목이 앱 설정에서 여는 것과 다르다. 방금 한 일과 이어 붙이기 때문이다.
+   * 예전에는 첫 기록 직후 시트가 스스로 열렸다. 그 한 번을 놓치면 다시 볼 길이 앱 설정
+   * 뿐이었고, 세 번째에 한 번 더 묻는 장치는 기기에 센 횟수에 기대고 있어서 실기기에서
+   * 안 떴다. 카드는 닫을 때까지 그 자리에 있어 놓칠 수가 없다.
    */
-  get sheet(): Locator {
-    return this.page.getByRole('dialog', { name: '첫 기록 끝! 홈에 두면 더 빨라요', exact: true });
+  get card(): Locator {
+    return this.page.getByRole('group', { name: '홈 화면에 추가', exact: true });
+  }
+
+  /** 카드 안의 버튼. 누르면 안내 시트가 열린다. */
+  get openButton(): Locator {
+    return this.card.getByRole('button', { name: '홈 화면에 추가하는 법', exact: true });
+  }
+
+  /** 카드에서 알림 설정으로 가는 줄. 우리가 대신 켜 줄 수 없어 길만 알려 준다. */
+  get notifyLink(): Locator {
+    return this.card.getByRole('link', { name: '저녁 8시에 알려 드릴까요?', exact: true });
+  }
+
+  get closeButton(): Locator {
+    return this.card.getByRole('button', { name: '홈 화면 추가 안내 닫기', exact: true });
   }
 
   /**
-   * 제목이 무엇이든 이 안내 시트.
+   * 안내 시트. 홈 카드와 앱 설정이 **같은 시트**를 연다.
    *
-   * 첫 기록 직후에는 「첫 기록 끝!」 로 열리고, 몇 번 더 적은 뒤 한 번 더 물을 때는
-   * 담백한 제목으로 열린다. 안 한 일을 했다고 말하지 않으려고 갈라 둔 것이라,
-   * 「떴나 안 떴나」 만 볼 때는 이쪽을 쓴다.
+   * 제목을 하나로 합쳤다. 「첫 기록 끝!」 같은 제목은 정말 그 순간에만 쓸 수 있는데,
+   * 카드는 며칠 뒤에도 눌린다.
    */
-  get anySheet(): Locator {
-    return this.page.getByRole('dialog', {
-      name: /^(첫 기록 끝! 홈에 두면 더 빨라요|홈 화면에 추가하면 더 빨라요)$/,
-    });
+  get sheet(): Locator {
+    return this.page.getByRole('dialog', { name: '홈 화면에 추가하면 더 빨라요', exact: true });
   }
 
   /** 안내 시트 안의 단계 셋. 넷째 단계부터는 읽지 않는다. */
@@ -804,5 +829,37 @@ class RecoveryCard {
     return this.page.getByText(
       /\d+\s*일\s*(만|째|빠짐|동안|넘게)|\d+\s*일[^.]{0,8}(놓쳤|놓친|빠뜨)|연속\s*기록|기록이\s*끊|이어지지\s*않/,
     );
+  }
+}
+
+
+/**
+ * 홈의 「곧 나갈 돈」 카드.
+ *
+ * 걸어 둔 반복 지출이 있고 그날이 가까울 때만 뜬다. **한 번에 한 장**이라, 같은 날 둘이
+ * 걸려 있어도 카드는 하나다. 하나를 적으면 다음 것이 그 자리에 올라온다.
+ */
+class HomeRecurringCard {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('group', { name: '곧 나갈 돈', exact: true });
+  }
+
+  get card(): Locator {
+    return this.root;
+  }
+
+  /** 첫 줄. 전날과 당일의 말이 달라야 한다. */
+  get headline(): Locator {
+    return this.root.getByText(/(오늘 빠져나가는 돈이에요|내일 빠져나가요)/);
+  }
+
+  get recordButton(): Locator {
+    return this.root.getByRole('button', { name: '지금 기록하기', exact: true });
+  }
+
+  get dismissButton(): Locator {
+    return this.root.getByRole('button', { name: '이번 달은 됐어요', exact: true });
   }
 }

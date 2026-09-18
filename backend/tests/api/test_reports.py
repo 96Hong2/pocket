@@ -47,6 +47,7 @@ def _add(
     merchant: str | None = None,
     category_id: str | None = None,
     payment_method: str | None = None,
+    tag_id: str | None = None,
 ) -> None:
     body: dict[str, object] = {
         "occurred_at": when,
@@ -62,6 +63,8 @@ def _add(
         body["category_id"] = category_id
     if payment_method:
         body["payment_method"] = payment_method
+    if tag_id:
+        body["tag_id"] = tag_id
     response = client.post("/api/v1/transactions", json=body, headers=AUTH)
     assert response.status_code == 201, response.text
 
@@ -252,3 +255,66 @@ def test_기록이_없으면_결제_수단_자리가_비어_있다(client: TestC
     body = _report(client)
     assert body["method_breakdown"] == []
     assert body["method_breakdown_total"] == "0"
+
+
+# ── 태그 조각 ───────────────────────────────────────────
+
+
+def _tag(client: TestClient, name: str, kind: str = "expense") -> str:
+    body = client.post("/api/v1/tags", json={"name": name, "kind": kind}, headers=AUTH).json()
+    return next(item["id"] for item in body["items"] if item["name"] == name)
+
+
+def test_태그를_안_만들면_조각도_비어_있다(client: TestClient, default_categories) -> None:
+    _add(client, amount="10000", when=_at(2, THIS_MONTH))
+
+    tags = _report(client)["expense_tag_breakdown"]
+
+    # 빈 목록이라 화면이 그 자리를 통째로 감춘다. 0원 조각을 그리지 않는다.
+    assert tags["rows"] == []
+    assert tags["tagged_total"] == "0"
+
+
+def test_태그별로_큰_것부터_세우고_비중을_준다(client: TestClient, default_categories) -> None:
+    trip = _tag(client, "출장")
+    date_tag = _tag(client, "데이트")
+    _add(client, amount="30000", when=_at(2, THIS_MONTH), tag_id=trip)
+    _add(client, amount="10000", when=_at(3, THIS_MONTH), tag_id=date_tag)
+
+    tags = _report(client)["expense_tag_breakdown"]
+
+    assert [row["tag_id"] for row in tags["rows"]] == [trip, date_tag]
+    assert tags["tagged_total"] == "40000"
+    assert tags["rows"][0]["share"] == "0.75"
+
+
+def test_태그를_안_단_돈은_조각이_아니라_숫자로_말한다(
+    client: TestClient, default_categories
+) -> None:
+    """처음에는 안 단 쪽이 거의 전부다. 조각으로 그리면 링이 통째로 회색이 된다."""
+    trip = _tag(client, "출장")
+    _add(client, amount="10000", when=_at(2, THIS_MONTH), tag_id=trip)
+    _add(client, amount="90000", when=_at(3, THIS_MONTH))
+
+    tags = _report(client)["expense_tag_breakdown"]
+
+    assert len(tags["rows"]) == 1
+    assert tags["rows"][0]["share"] == "1"
+    assert tags["untagged_total"] == "90000"
+
+
+def test_지출_태그와_수입_태그는_다른_목록이다(client: TestClient, default_categories) -> None:
+    bonus = _tag(client, "보너스", kind="income")
+    _add(
+        client,
+        amount="500000",
+        when=_at(2, THIS_MONTH),
+        kind="income",
+        category_id=_category(client, "월급"),
+        tag_id=bonus,
+    )
+
+    report = _report(client)
+
+    assert report["expense_tag_breakdown"]["rows"] == []
+    assert [row["tag_id"] for row in report["income_tag_breakdown"]["rows"]] == [bonus]

@@ -134,6 +134,17 @@ export const EVENTS = {
   /** 홈의 공유 권유 카드를 닫았다. 권유가 성가신지 보는 유일한 값이다. */
   shareCardDismissed: 'share_card_dismissed',
 
+  /**
+   * 「곧 나갈 돈」 카드에서 무엇을 눌렀나.
+   *
+   * 적은 수(`recorded`)와 미룬 수(`dismissed`)를 함께 봐야 이 카드가 도움인지 성가신지
+   * 갈린다. 전날(`eve`)과 당일(`today`) 중 언제 누르는지도 함께 남긴다. 전날에 아무도
+   * 안 누르면 하루 먼저 띄울 이유가 없다.
+   *
+   * **항목 이름과 금액은 싣지 않는다.** 그 사람이 무엇을 구독하는지가 로그에 남는다.
+   */
+  recurringResult: 'recurring_result',
+
   /** 배너 자리의 결과. 떴는지·채울 게 없었는지·실패했는지. */
   adResult: 'ad_result',
   /** 화면이 죽었거나 요청이 실패했다. */

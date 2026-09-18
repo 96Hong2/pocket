@@ -16,7 +16,7 @@ from app.api.amounts import ratio_out
 from app.domain.closing import Closing, HighlightKind, NextStepKind
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod
-from app.domain.report import BreakdownRow, MethodRow
+from app.domain.report import BreakdownRow, MethodRow, TagRanking
 from app.modules.budgets.schemas import BudgetStateOut
 
 __all__ = [
@@ -30,11 +30,14 @@ __all__ = [
     "MonthlyReportOut",
     "NextOut",
     "PeriodComparisonOut",
+    "TagBreakdownOut",
+    "TagRowOut",
     "TrendPointOut",
     "to_breakdown",
     "to_closing",
     "to_comparison",
     "to_methods",
+    "to_tags",
 ]
 
 
@@ -58,6 +61,25 @@ class MethodRowOut(BaseModel):
     key: str
     amount: Decimal
     share: Decimal | None
+
+
+class TagRowOut(BaseModel):
+    """태그 조각 하나. 이름과 색은 화면이 태그 목록에서 찾아 붙인다."""
+
+    tag_id: uuid.UUID
+    amount: Decimal
+    # 태그를 단 돈 안에서의 비중. 그 달 전체가 아니다.
+    share: Decimal | None
+
+
+class TagBreakdownOut(BaseModel):
+    """태그별 순위표. 태그를 하나도 안 만든 사람에게는 빈 목록이고, 화면이 그 자리를 감춘다."""
+
+    rows: list[TagRowOut]
+    # 조각 합. 태그를 단 기록만 더한 값이다.
+    tagged_total: Decimal
+    # 아직 태그를 안 단 돈. 조각에 넣지 않고 숫자로만 말한다.
+    untagged_total: Decimal
 
 
 class TrendPointOut(BaseModel):
@@ -123,6 +145,10 @@ class MonthlyReportOut(BaseModel):
     method_breakdown: list[MethodRowOut]
     method_breakdown_total: Decimal
 
+    # 어느 묶음에 얼마가 갔나. 지출과 수입이 서로 다른 목록이다.
+    expense_tag_breakdown: TagBreakdownOut
+    income_tag_breakdown: TagBreakdownOut
+
     # 항상 여섯 개. 오래된 것부터. 기록이 없는 달도 0 으로 넣는다.
     # 빈 달을 빼면 막대가 밀려 다른 달로 읽힌다.
     trend: list[TrendPointOut]
@@ -155,6 +181,17 @@ def to_methods(rows: list[MethodRow]) -> list[MethodRowOut]:
         MethodRowOut(key=row.key, amount=row.amount.amount, share=ratio_out(row.share))
         for row in rows
     ]
+
+
+def to_tags(ranking: TagRanking) -> TagBreakdownOut:
+    return TagBreakdownOut(
+        rows=[
+            TagRowOut(tag_id=uuid.UUID(row.tag_id), amount=row.amount.amount, share=row.share)
+            for row in ranking.rows
+        ],
+        tagged_total=ranking.tagged_total.amount,
+        untagged_total=ranking.untagged_total.amount,
+    )
 
 
 def to_comparison(

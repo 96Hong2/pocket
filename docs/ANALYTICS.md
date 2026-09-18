@@ -21,7 +21,7 @@
 | 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드 |
 | 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움과 **지우려다 그만둠**(`delete_asked`·`delete_cancelled`·`delete`), 고친 칸 이름, 그 기록의 입력 방식 |
 | 저장 뒤 뜻이 전달됐나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것 |
-| 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(첫 기록 직후·앱 설정), 동의·거절·미지원 |
+| 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(`home_card`·`settings`)와 결과(`shown`·`guide_done`·`dismissed`), 동의·거절·미지원 |
 | 이메일 연결에서 어디서 빠지나 | `account_link_result` · `profile_result` | 코드를 보냈나(`sent`)·붙었나(`linked`·`switched`·`merged`)·어디서 막혔나(`send_failed`·`verify_failed` 와 오류 코드), 연령대·성별을 답했나 건너뛰었나와 그 갈래. **이메일 주소와 코드는 싣지 않는다** |
 | 광고 뒤의 부가기능이 값어치가 있나 | `budget_calc_opened` | 광고를 보고 열었나(`watched`), 광고 없이 지나갔나와 그 이유(`no_group`·`unsupported`·`failed`) |
 | 첫 안내가 방해가 되나 | `onboarding_result` | 끝까지 봤나·건너뛰었나, 그때 몇 번째 장 |
@@ -30,6 +30,7 @@
 | 빈 날에 무엇을 고르나 | `no_spend_marked` | 누른 화면, 그 날짜 |
 | 떠나기로 마음먹나 | `data_reset_result` | 성공·실패, 걸린 시간, 오류 코드 |
 | 남에게 알릴 만하다고 느끼나 | `share_result` · `share_card_dismissed` | 누른 자리(`home`·`goal`·`goal_done`·`manage`·`manage_past`·`closing`), 갈래(`app`·`goal`·`goal_done`·`budget`·`closing`), 성공·실패와 실패 코드. **보낸 글은 싣지 않는다** |
+| 미리 적어 둔 돈을 실제로 적나 | `recurring_result` | 적었나(`recorded`)·미뤘나(`dismissed`), 전날인가 당일인가(`eve`·`today`). **항목 이름과 금액은 싣지 않는다** |
 | 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
 
 `review_finished` 는 「5건 중 날짜 2건·금액 1건 고침」 까지만 남긴다.
@@ -46,6 +47,15 @@
 **자리마다 누른 비율이 갈리면 그 자리가 잘못 놓인 것이다.** 홈 카드처럼 스스로 나타나는
 자리는 `share_card_dismissed` 와 함께 봐야 권유가 성가신지 아닌지가 갈린다. 닫은 수가 누른
 수보다 훨씬 많으면 그 줄은 도움이 아니라 방해다.
+
+**`recurring_result` 에 항목 이름과 금액을 싣지 않는다.** 그 사람이 무엇을 구독하는지가
+로그에 남는다. 공유 문구를 안 싣는 것과 같은 이유다. 적은 수와 미룬 수를 함께 봐야 이 카드가
+도움인지 성가신지 갈리고, 전날(`eve`)에 아무도 안 누르면 하루 먼저 띄울 이유가 없다.
+
+**`home_add_result` 는 카드가 시트를 대신한 뒤로 뜻이 달라졌다.** 예전에는 첫 기록 직후
+스스로 열린 시트를 봤나(`first_record`)를 셌는데, 지금은 홈에 선 카드(`home_card`)에서
+안내를 열었나(`shown`)·끝까지 읽었나(`guide_done`)·닫았나(`dismissed`)를 센다.
+닫은 수가 연 수보다 훨씬 많으면 그 카드는 도움이 아니라 방해다.
 
 **`no_spend_marked` 는 빈 날 카드의 답을 준다.** 그 카드에는 안 썼다는 줄과 기록하기 버튼
 둘뿐이라, 둘 중 무엇을 누르는지가 곧 「적을 것이 없는 날에 사람들이 무엇을 하나」다.

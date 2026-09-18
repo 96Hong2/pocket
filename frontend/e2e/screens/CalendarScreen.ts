@@ -293,6 +293,16 @@ export class EditSheetArea {
     return this.root.getByLabel('상호');
   }
 
+  /** 상호와 **다른 칸**이다. 「어디서」 가 아니라 「무엇을·왜」 를 적는다. */
+  get memo(): Locator {
+    return this.root.getByLabel('메모');
+  }
+
+  /** 태그 칩 하나. 눌린 것을 다시 누르면 떨어진다. */
+  tagChip(name: string): Locator {
+    return this.root.getByRole('button', { name, exact: true });
+  }
+
   get amount(): Locator {
     return this.root.getByLabel('금액');
   }

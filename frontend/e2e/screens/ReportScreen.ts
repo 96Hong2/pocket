@@ -153,6 +153,25 @@ export class ReportScreen {
   }
 
   /**
+   * 태그별 조각 카드의 제목. 지출·수입 모드에 따라 말이 갈린다.
+   *
+   * 태그를 하나도 안 만든 사람에게는 이 카드가 통째로 없다.
+   */
+  tagCard(kindLabel: '지출' | '수입'): Locator {
+    return this.root.getByRole('heading', { name: `태그별 ${kindLabel}`, exact: true });
+  }
+
+  /** 태그 조각 한 줄. 이름으로 찾는다. */
+  tagRow(name: string): Locator {
+    return this.root.getByRole('listitem').filter({ hasText: name });
+  }
+
+  /** 아직 태그를 안 단 돈을 말하는 한 줄. 조각에 안 들어간다는 것을 여기서 말한다. */
+  get tagRest(): Locator {
+    return this.root.getByText(/태그를 안 단 .+ 은 위 비율에 안 들어가요/);
+  }
+
+  /**
    * 큰 지출 다섯 건 카드의 제목.
    *
    * 소비 이야기라 수입 쪽에는 없다. 그 달에 큰 지출이 하나도 없으면 카드째 없다.

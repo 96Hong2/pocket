@@ -490,6 +490,27 @@ class RecordFeedback {
     await this.merchantField.blur();
   }
 
+  /** 상호와 **다른 칸**이다. 「어디서」 가 아니라 「무엇을·왜」 를 적는다. */
+  get memoField(): Locator {
+    return this.root.getByTestId(TEST_IDS.feedbackMemoField);
+  }
+
+  /** 상호와 같은 규칙이다. 칸을 벗어날 때 보낸다. */
+  async writeMemo(text: string): Promise<void> {
+    await this.memoField.fill(text);
+    await this.memoField.blur();
+  }
+
+  /** 태그 칩 하나. 눌린 것을 다시 누르면 떨어진다. */
+  tagChip(name: string): Locator {
+    return this.root.getByRole('button', { name, exact: true });
+  }
+
+  /** 태그를 하나도 안 만든 사람에게 보이는 한 줄. 만들러 가는 길이 여기 있다. */
+  get tagEmptyLink(): Locator {
+    return this.root.getByRole('link', { name: '관리 › 태그', exact: true });
+  }
+
   get backspaceKey(): Locator {
     return this.root.getByRole('button', { name: '한 자리 지우기' });
   }

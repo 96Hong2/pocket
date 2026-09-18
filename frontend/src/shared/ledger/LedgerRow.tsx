@@ -1,5 +1,5 @@
-import { parseDecimalOr, type CategoryOut, type TransactionOut } from '../api';
-import { Chip, TransactionRow, iconOf } from '../ui';
+import { parseDecimalOr, type CategoryOut, type TagOut, type TransactionOut } from '../api';
+import { Chip, TagMark, TransactionRow, iconOf } from '../ui';
 
 /**
  * 거래 한 줄을 화면 형태로 옮긴다.
@@ -19,6 +19,13 @@ const KIND_LABEL: Partial<Record<TransactionOut['type'], string>> = {
 export interface LedgerRowProps {
   transaction: TransactionOut;
   categories: CategoryOut[];
+  /**
+   * 태그 목록. 이 줄에 달린 태그의 이름과 색을 여기서 찾는다.
+   *
+   * 안 넘기면 태그 표식을 안 그린다. 태그를 쓰지 않는 자리(검토 목록 같은 곳)가
+   * 목록 조회를 하나 더 끌고 다니지 않게 하려는 것이다.
+   */
+  tags?: TagOut[];
   /** 지름(px). 홈 54 / 달력 48. */
   avatarSize?: number;
   density?: 'default' | 'compact';
@@ -30,6 +37,7 @@ export interface LedgerRowProps {
 export function LedgerRow({
   transaction,
   categories,
+  tags = [],
   avatarSize = 48,
   density = 'default',
   hideDivider = false,
@@ -40,12 +48,21 @@ export function LedgerRow({
     : undefined;
   const kind = KIND_LABEL[transaction.type];
   const excluded = transaction.excluded_from_budget;
+  const tag = transaction.tag_id
+    ? tags.find((item) => item.id === transaction.tag_id)
+    : undefined;
 
   return (
     <TransactionRow
       {...iconOf(category)}
       title={transaction.merchant ?? category?.name ?? '기록'}
-      subtitle={transaction.merchant ? category?.name : undefined}
+      /*
+        메모가 있으면 분류 이름 대신 메모를 보여 준다.
+
+        분류는 왼쪽 그림이 이미 말하고 있다. 같은 자리에 분류 이름을 또 적느니, 그 사람이
+        일부러 남긴 한 줄을 보여 주는 쪽이 목록을 훑을 때 쓸모가 있다.
+      */
+      subtitle={transaction.memo ?? (transaction.merchant ? category?.name : undefined)}
       amount={parseDecimalOr(transaction.amount, 0)}
       tone={transaction.type}
       excluded={excluded}
@@ -54,10 +71,11 @@ export function LedgerRow({
       hideDivider={hideDivider}
       onClick={onClick}
       chips={
-        excluded || kind ? (
+        excluded || kind || tag ? (
           <>
             {excluded ? <Chip variant="excluded">예산 제외</Chip> : null}
             {kind ? <Chip variant="kind">{kind}</Chip> : null}
+            {tag ? <TagMark tag={tag} /> : null}
           </>
         ) : undefined
       }

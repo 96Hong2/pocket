@@ -42,6 +42,13 @@ import type {
   PeriodSummaryOut,
   PreferencesOut,
   PreferencesPatch,
+  RecurringCreate,
+  RecurringDueOut,
+  RecurringListOut,
+  RecurringUpdate,
+  TagCreate,
+  TagListOut,
+  TagUpdate,
   TransactionCreate,
   TransactionCreated,
   TransactionListOut,
@@ -119,6 +126,8 @@ const PATHS = {
   merchantRules: '/api/v1/merchant-rules',
   assets: '/api/v1/assets',
   goals: '/api/v1/goals',
+  tags: '/api/v1/tags',
+  recurring: '/api/v1/recurring',
   categoryOrder: '/api/v1/categories/order',
   accountReset: '/api/v1/account/reset',
   accountMe: '/api/v1/account/me',
@@ -145,6 +154,14 @@ function importPath(batchId: string): string {
 
 function candidatePath(batchId: string, candidateId: string): string {
   return `${importPath(batchId)}/candidates/${encodeURIComponent(candidateId)}`;
+}
+
+function tagPath(id: string): string {
+  return `${PATHS.tags}/${encodeURIComponent(id)}`;
+}
+
+function recurringPath(id: string): string {
+  return `${PATHS.recurring}/${encodeURIComponent(id)}`;
 }
 
 function goalPath(goalId: string): string {
@@ -185,6 +202,33 @@ export interface ApiClient extends Transport {
   getClosing(params?: MonthParams, options?: CallOptions): Promise<ClosingOut>;
   /** 달력 격자용 날짜별 합계. 기록이 있는 날만 온다. */
   getCalendar(params?: MonthParams, options?: CallOptions): Promise<CalendarMonthOut>;
+  /**
+   * 태그 목록. 지출 태그와 수입 태그가 한 목록에 섞여 오고 화면이 `kind` 로 갈라 쓴다.
+   *
+   * 쓰기 응답도 전부 같은 목록 모양이라, 화면이 받은 것을 그대로 캐시에 넣는다.
+   */
+  listTags(options?: CallOptions): Promise<TagListOut>;
+  createTag(body: TagCreate, options?: CallOptions): Promise<TagListOut>;
+  updateTag(id: string, body: TagUpdate, options?: CallOptions): Promise<TagListOut>;
+  /** 태그만 지운다. 그 태그로 적어 둔 기록은 남는다. 두 번 눌러도 204 다. */
+  deleteTag(id: string, options?: CallOptions): Promise<void>;
+
+  /** 반복 지출 설정 목록. 꺼 둔 것도 함께 온다. */
+  listRecurring(options?: CallOptions): Promise<RecurringListOut>;
+  /** 오늘 물어볼 것. **빈 목록이 정상이다.** */
+  listRecurringDue(options?: CallOptions): Promise<RecurringDueOut[]>;
+  createRecurring(body: RecurringCreate, options?: CallOptions): Promise<RecurringListOut>;
+  updateRecurring(
+    id: string,
+    body: RecurringUpdate,
+    options?: CallOptions,
+  ): Promise<RecurringListOut>;
+  deleteRecurring(id: string, options?: CallOptions): Promise<void>;
+  /** 예고를 기록으로 옮긴다. 응답은 키패드 저장과 같은 모양이다. */
+  recordRecurring(id: string, options?: CallOptions): Promise<TransactionCreated>;
+  /** 이번 회차는 묻지 않는다. 다음 달에는 다시 묻는다. */
+  dismissRecurring(id: string, options?: CallOptions): Promise<RecurringListOut>;
+
   listCategories(options?: CallOptions): Promise<CategoryListOut>;
   /** 내 카테고리 만들기. 이름이 겹치면 409 로 막힌다. */
   createCategory(body: CategoryCreate, options?: CallOptions): Promise<CategoryOut>;
@@ -408,6 +452,98 @@ export function createApiClient(options: TransportOptions): ApiClient {
         method: 'GET',
         path: PATHS.calendar,
         query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
+    listTags(call) {
+      return transport.request<TagListOut>({
+        method: 'GET',
+        path: PATHS.tags,
+        signal: call?.signal,
+      });
+    },
+
+    createTag(body, call) {
+      return transport.request<TagListOut>({
+        method: 'POST',
+        path: PATHS.tags,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    updateTag(id, body, call) {
+      return transport.request<TagListOut>({
+        method: 'PATCH',
+        path: tagPath(id),
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    deleteTag(id, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: tagPath(id),
+        signal: call?.signal,
+      });
+    },
+
+    listRecurring(call) {
+      return transport.request<RecurringListOut>({
+        method: 'GET',
+        path: PATHS.recurring,
+        signal: call?.signal,
+      });
+    },
+
+    listRecurringDue(call) {
+      return transport.request<RecurringDueOut[]>({
+        method: 'GET',
+        path: `${PATHS.recurring}/due`,
+        signal: call?.signal,
+      });
+    },
+
+    createRecurring(body, call) {
+      return transport.request<RecurringListOut>({
+        method: 'POST',
+        path: PATHS.recurring,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    updateRecurring(id, body, call) {
+      return transport.request<RecurringListOut>({
+        method: 'PATCH',
+        path: recurringPath(id),
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    deleteRecurring(id, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: recurringPath(id),
+        signal: call?.signal,
+      });
+    },
+
+    recordRecurring(id, call) {
+      return transport.request<TransactionCreated>({
+        method: 'POST',
+        path: `${recurringPath(id)}/record`,
+        signal: call?.signal,
+      });
+    },
+
+    dismissRecurring(id, call) {
+      return transport.request<RecurringListOut>({
+        method: 'POST',
+        path: `${recurringPath(id)}/dismiss`,
         signal: call?.signal,
       });
     },

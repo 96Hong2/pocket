@@ -143,22 +143,28 @@ src/
   pages/      라우트 하나 = 파일 하나                      ← 있다
   shared/     ui · toss · tokens · lib                     ← 있다
   shared/api  HTTP 클라이언트 · 생성 타입 · 쿼리 훅        ← 있다
-  features/   home · quick-record · ads
+  features/   home · home-add · quick-record · ads
               transactions · budgets · imports · reports
-              categories · settings
+              categories · tags · recurring · settings
               assets · goals · notifications · share       ← 있다
 ```
 
-**`features/` 에는 지금 화면 열둘과 화면 아닌 것 하나가 있다.** 홈(`home`), 기록 시트
+**`features/` 에는 지금 화면 열넷과 화면 아닌 것 둘이 있다.** 홈(`home`), 기록 시트
 (`quick-record`), 배너 슬롯(`ads`), 내역·달력·수정(`transactions`), 관리 탭 예산 섹션
 (`budgets`), 줄글·캡처·영수증 검토(`imports`), 월 리포트(`reports`), 카테고리 관리
-(`categories`), 앱 설정(`settings`), 자산(`assets`), 목표(`goals`), 알림 설정
-(`notifications`), 그리고 친구에게 보내기(`share`) 다.
+(`categories`), 태그 관리(`tags`), 반복 지출(`recurring`), 앱 설정(`settings`),
+자산(`assets`), 목표(`goals`), 알림 설정(`notifications`), 그리고 화면이 없는 둘,
+친구에게 보내기(`share`) 와 홈 화면에 추가(`home-add`) 다.
 `share` 는 자기 화면이 없다. 목표·예산·결산·홈 넷이 같은 버튼과 같은 문구를 쓰는 자리라
 `ads` 처럼 부품만 모아 두고 부르는 쪽이 자기 화면에 끼운다. 자리마다 문구를 새로 적으면
 같은 앱이 화면마다 다른 말을 하고, 「금액은 안 보낸다」 같은 약속이 한 자리에서만 지켜진다.
 부품은 둘이다: 카드 안에 조용히 서는 `ShareButton` 과, 스스로 나타나 권하는 `ShareInviteCard`.
 뒤엣것이 홈과 목표 화면 **양쪽**에 서기 때문에 홈 전용 스타일(`home-card__*`)에 기댈 수 없다.
+`tags` 와 `recurring` 은 자기 관리 화면을 가지면서 **다른 화면에도 부품을 낸다.**
+태그 칩 줄(`TagPicker`)은 저장 직후 화면과 수정 시트가, 태그 조각(`TagBreakdown`)은 리포트가
+쓴다. 반복 지출의 「곧 나갈 돈」 카드는 홈에 선다. 설정하는 자리와 알려 주는 자리를 갈라 두는
+것이 규칙이고, 색을 정하는 규칙만은 `shared/lib/tagColors.ts` 에 있다. 목록 한 줄
+(`shared/ledger/LedgerRow`)도 태그 색을 그리는데, shared 가 features 를 가리킬 수는 없기 때문이다.
 복구 카드는 `recovery` 폴더가 아니라 `home` 안에 있다. 홈 히어로와 같은 예산 응답을 보고
 같은 자리에 뜨고 지는 카드라, 폴더를 갈라 두면 왜 떴는지 두 곳을 읽어야 한다.
 `imports` 의 후보 검토 화면(`ImportReview`)은 줄글·캡처·영수증 탭이 **같은 컴포넌트를 쓴다.**
@@ -180,8 +186,8 @@ shared/api/
   client.ts       엔드포인트 하나에 메서드 하나
   context.ts      useApiClient() · useApiReady()
   queryKeys.ts    queryKey 규약과 무효화 대상
-  queries.ts      조회 훅 (카테고리 · 설정 · 알림 설정 · 예산 · 예산 제안 · 거래 목록 · 기간 요약 · 달력 · 월 리포트 · 월 결산 · 자산 · 목표 · 기억한 분류)
-  mutations.ts    변경 훅 (거래 · 예산 · 카테고리 한도 · 카테고리 · 설정 · 알림 설정 · 자산 · 목표와 적립 · 줄글·캡처·영수증 분석과 검토·저장)
+  queries.ts      조회 훅 (카테고리 · 태그 · 반복 지출 · 설정 · 알림 설정 · 예산 · 예산 제안 · 거래 목록 · 기간 요약 · 달력 · 월 리포트 · 월 결산 · 자산 · 목표 · 기억한 분류)
+  mutations.ts    변경 훅 (거래 · 예산 · 카테고리 한도 · 카테고리 · 태그 · 반복 지출 · 설정 · 알림 설정 · 자산 · 목표와 적립 · 줄글·캡처·영수증 분석과 검토·저장)
 ```
 
 생성 타입은 **커밋한다.** CI 의 frontend 잡은 백엔드 없이 도는데 그때도 타입이 있어야 빌드된다.

@@ -183,6 +183,8 @@ export const TEST_IDS = {
   feedbackDetail: 'feedback-detail',
   /** 저장 직후 상호를 적는 칸. 라벨 없이 placeholder 만 있어 role 로 못 가른다. */
   feedbackMerchantField: 'feedback-merchant-field',
+  /** 저장 직후 메모를 적는 칸. 상호 칸과 같은 이유로 id 로 잡는다. */
+  feedbackMemoField: 'feedback-memo-field',
   /** 앱 정보 시트의 값 목록. 판·배포·기기가 이름 없는 값이라 묶어서 잡는다. */
   diagnostics: 'diagnostics',
 } as const;

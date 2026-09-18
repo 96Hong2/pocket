@@ -38,6 +38,8 @@ import {
 import { CategoryDonut } from './CategoryDonut';
 import { ClosingSection } from './ClosingSection';
 import { donutColors } from './donutColors';
+import { TagBreakdown } from '../tags';
+
 import { TrendBars } from './TrendBars';
 
 /** 분류를 못 정한 줄과 접은 줄. 서버는 코드값만 주고 한국어는 화면이 붙인다. */
@@ -246,6 +248,15 @@ export function MonthlyReport({
         <h2 className="report__section">6개월 흐름</h2>
         <TrendBars points={data.trend} mode={mode} currentMonth={month} />
       </Card>
+
+      {/*
+        어떤 묶음에 갔나. 분류 도넛과 다른 질문이라 수입 모드에도 선다.
+        태그를 하나도 안 만든 사람에게는 이 자리가 통째로 안 그려진다.
+      */}
+      <TagBreakdown
+        breakdown={income ? data.income_tag_breakdown : data.expense_tag_breakdown}
+        kindLabel={income ? '수입' : '지출'}
+      />
 
       {/* 소비 이야기다. 수입에는 결제 수단도 큰 지출도 없다. */}
       {!income ? <PaymentMethods rows={data.method_breakdown} /> : null}

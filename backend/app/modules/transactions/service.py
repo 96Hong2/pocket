@@ -35,11 +35,13 @@ from app.domain.feedback import (
 from app.domain.fingerprint import build_fingerprint
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod
-from app.models import Category, Transaction, User
+from app.domain.tags import TagKind
+from app.models import Category, Tag, Transaction, User
 from app.modules import ledger
 from app.modules.budgets import service as budgets
 from app.modules.categories import service as categories
 from app.modules.settings import service as settings
+from app.modules.tags import service as tags
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +250,46 @@ def _clear_no_spend_for_spending(session: Session, user: User, tx: Transaction) 
         mark.deleted_at = now
 
 
+def _tag_kind_for(kind: agg.TransactionType) -> TagKind | None:
+    """그 종류에 달 수 있는 태그. 이체에는 달 수 없다.
+
+    이체는 돈이 줄지도 늘지도 않아 리포트의 어느 조각에도 안 들어간다. 태그를 달아도
+    어디에도 안 보이니 달 수 있는 척하지 않는다.
+    """
+    if kind in (agg.TransactionType.EXPENSE, agg.TransactionType.REFUND):
+        return TagKind.EXPENSE
+    if kind is agg.TransactionType.INCOME:
+        return TagKind.INCOME
+    return None
+
+
+def _require_tag(session: Session, user: User, tag_id, kind: agg.TransactionType) -> None:
+    """태그가 내 것이고 그 종류에 맞는지 본다. 안 붙였으면 볼 것이 없다."""
+    if tag_id is None:
+        return
+    wanted = _tag_kind_for(kind)
+    if wanted is None:
+        raise ApiError(ErrorCode.INVALID_REQUEST, "이체에는 태그를 달 수 없어요.", 422)
+    tags.require_kind(session, user, tag_id, wanted)
+
+
+def _drop_tag_if_kind_changed(session: Session, user: User, payload: dict, tx: Transaction) -> None:
+    """종류를 바꿔 태그가 안 맞게 되면 태그를 뗀다.
+
+    지출을 수입으로 고치면 지출 태그가 수입 기록에 남는다. 그대로 두면 리포트가
+    번 돈과 쓴 돈을 한 조각에 더한다. 막지 않고 떼는 이유는, 종류를 고치는 것이
+    사용자가 하려던 일이고 태그는 곁들인 값이기 때문이다.
+    """
+    kind = payload.get("type", tx.type)
+    tag_id = payload.get("tag_id", tx.tag_id)
+    if tag_id is None:
+        return
+    wanted = _tag_kind_for(kind)
+    row = session.get(Tag, tag_id)
+    if wanted is None or row is None or row.kind is not wanted:
+        payload["tag_id"] = None
+
+
 def _normalized(data: dict) -> dict:
     """저장 형태로 맞춘다. 시각은 항상 UTC 다. 월 귀속은 조회할 때 사용자 시간대로 다시 본다."""
     payload = dict(data)
@@ -417,6 +459,7 @@ def create_transaction(
     session: Session, user: User, data: dict, *, today: date | None = None
 ) -> tuple[Transaction, SaveOutcome]:
     categories.require_owned(session, user, data.get("category_id"))
+    _require_tag(session, user, data.get("tag_id"), data.get("type", agg.TransactionType.EXPENSE))
     _require_no_spend_once(session, user, data)
     target = _refund_target(session, user, data.get("refund_of_transaction_id"), data.get("amount"))
 
@@ -436,6 +479,8 @@ def create_transaction(
         # 되돌리는 돈은 나갔던 곳으로 돌아간다. 카드로 낸 것의 환불을 현금 칸에서 빼면
         # 두 칸이 동시에 틀린다.
         payload["payment_method"] = target.payment_method
+        # 되돌리는 돈은 나갔던 묶음에서 빠진다. 태그가 다르면 그 묶음 합계가 안 줄어든다.
+        payload["tag_id"] = target.tag_id
 
     _drop_method_if_not_spending(payload, payload["type"])
 
@@ -473,6 +518,8 @@ def update_transaction(
 
     if "category_id" in payload:
         categories.require_owned(session, user, payload["category_id"])
+    if "tag_id" in payload:
+        _require_tag(session, user, payload["tag_id"], payload.get("type", tx.type))
     if "amount" in payload and tx.source is agg.TransactionSource.NO_SPEND:
         # 무지출일 기록은 금액이 0 이라는 것 자체가 의미다.
         raise ApiError(ErrorCode.INVALID_REQUEST, "무지출일 기록의 금액은 바꿀 수 없어요.", 422)
@@ -489,6 +536,7 @@ def update_transaction(
 
     _require_refund_consistency(session, tx, payload)
     _drop_method_if_not_spending(payload, payload.get("type", tx.type), current=tx.payment_method)
+    _drop_tag_if_kind_changed(session, user, payload, tx)
 
     for field, value in payload.items():
         setattr(tx, field, value)
@@ -516,6 +564,22 @@ def _like_pattern(text: str) -> str:
     """부분일치 패턴. 사용자가 넣은 % 와 _ 를 글자로 취급한다."""
     escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     return f"%{escaped}%"
+
+
+def _as_amount(keyword: str) -> Decimal | None:
+    """검색어가 금액인가. 금액이 아니면 None.
+
+    사람은 「12,000」 이나 「12000원」 으로 적는다. 쉼표와 '원' 을 떼고 숫자만 남으면
+    금액으로 본다. **부분일치가 아니라 딱 그 금액이다.** 자릿수가 겹친다고 12,000 을
+    찾다가 112,000 이 나오면 검색이 아니라 훼방이다.
+    """
+    cleaned = keyword.replace(",", "").replace(" ", "").removesuffix("원")
+    if not cleaned.isdigit():
+        return None
+    try:
+        return Decimal(cleaned)
+    except ArithmeticError:
+        return None
 
 
 def _encode_cursor(tx: Transaction) -> str:
@@ -551,7 +615,8 @@ def list_transactions(
     정렬 키가 시각 하나면 같은 시각의 거래에서 페이지 경계가 흔들려 행이 빠지거나 겹친다.
     캡처로 한 번에 여러 건을 넣으면 시각이 실제로 같아진다. 그래서 (시각, id) 로 정렬한다.
 
-    검색은 상호와 카테고리 이름을 함께 본다. 화면의 안내 문구가 그렇게 적혀 있다.
+    검색은 상호·카테고리 이름·태그 이름·메모를 함께 보고, 숫자만 적으면 그 **금액**도
+    함께 본다. 화면의 안내 문구가 그렇게 적혀 있다.
 
     기간과 날짜는 함께 걸린다(AND). 달력 화면은 그 달을 보면서 그 안의 한 날을 고르므로
     둘이 어긋날 일이 없고, 어긋나게 부르면 결과가 비는 것이 맞다.
@@ -572,11 +637,19 @@ def list_transactions(
     keyword = (query or "").strip()
     if keyword:
         pattern = _like_pattern(keyword)
-        stmt = stmt.outerjoin(Category, Category.id == Transaction.category_id).where(
-            or_(
-                Transaction.merchant.ilike(pattern, escape="\\"),
-                Category.name.ilike(pattern, escape="\\"),
-            )
+        matches = [
+            Transaction.merchant.ilike(pattern, escape="\\"),
+            Transaction.memo.ilike(pattern, escape="\\"),
+            Category.name.ilike(pattern, escape="\\"),
+            Tag.name.ilike(pattern, escape="\\"),
+        ]
+        amount = _as_amount(keyword)
+        if amount is not None:
+            matches.append(Transaction.amount == amount)
+        stmt = (
+            stmt.outerjoin(Category, Category.id == Transaction.category_id)
+            .outerjoin(Tag, Tag.id == Transaction.tag_id)
+            .where(or_(*matches))
         )
 
     if cursor is not None:

@@ -75,6 +75,23 @@ def _clean_text(value: str | None) -> str | None:
     return value
 
 
+# 메모 상한. 컬럼 폭과 같다. 여기서 안 막으면 DB 가 자르거나 터진다.
+MEMO_MAX = 200
+
+
+def _clean_memo(value: str | None) -> str | None:
+    """공백만 남은 메모는 없는 것으로 본다. 빈 칸이 목록에 회색 줄로 서지 않게.
+
+    제어문자 방어는 상호와 같은 함수를 쓴다. 다만 문구는 메모 것으로 바꿔 준다.
+    """
+    if value is None:
+        return None
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
+        raise ValueError("메모에 넣을 수 없는 문자가 있어요.")
+    stripped = value.strip()
+    return stripped or None
+
+
 class TransactionCreate(BaseModel):
     """표준 거래 형식. 파싱 결과와 손입력이 같은 형태로 들어온다."""
 
@@ -83,7 +100,11 @@ class TransactionCreate(BaseModel):
     amount: Decimal = Field(ge=0, le=MAX_AMOUNT, description="원 단위 정수. 무지출일만 0")
     type: TransactionType = TransactionType.EXPENSE
     merchant: str | None = Field(default=None, max_length=120)
+    # 상호와 다른 칸이다. 「어디서」 가 아니라 「무엇을·왜」 를 적는다.
+    memo: str | None = Field(default=None, max_length=MEMO_MAX)
     category_id: uuid.UUID | None = None
+    # 카테고리와 다른 축의 묶음. 한 기록에 하나만 붙는다.
+    tag_id: uuid.UUID | None = None
     source: TransactionSource = TransactionSource.KEYPAD
     confidence: float = Field(default=1.0, ge=0, le=1)
     excluded_from_budget: bool = False
@@ -94,6 +115,7 @@ class TransactionCreate(BaseModel):
     _check_amount = field_validator("amount")(integral_won)
     _check_occurred_at = field_validator("occurred_at")(_in_range)
     _check_merchant = field_validator("merchant")(_clean_text)
+    _check_memo = field_validator("memo")(_clean_memo)
 
     @model_validator(mode="after")
     def _zero_only_for_no_spend(self) -> TransactionCreate:
@@ -117,7 +139,10 @@ class TransactionUpdate(BaseModel):
     amount: Decimal | None = Field(default=None, gt=0, le=MAX_AMOUNT)
     type: TransactionType | None = None
     merchant: str | None = Field(default=None, max_length=120)
+    # 상호·분류와 같이 null 이 「지운다」 다.
+    memo: str | None = Field(default=None, max_length=MEMO_MAX)
     category_id: uuid.UUID | None = None
+    tag_id: uuid.UUID | None = None
     excluded_from_budget: bool | None = None
     # 분류와 같이 null 이 「지운다」 다. 골랐다가 되무를 수 있어야 한다.
     payment_method: PaymentMethod | None = None
@@ -125,6 +150,7 @@ class TransactionUpdate(BaseModel):
     _check_amount = field_validator("amount")(integral_won)
     _check_occurred_at = field_validator("occurred_at")(_in_range)
     _check_merchant = field_validator("merchant")(_clean_text)
+    _check_memo = field_validator("memo")(_clean_memo)
 
     @model_validator(mode="after")
     def _reject_explicit_nulls(self) -> TransactionUpdate:
@@ -145,7 +171,9 @@ class TransactionOut(BaseModel):
     amount: Decimal
     type: TransactionType
     merchant: str | None
+    memo: str | None = None
     category_id: uuid.UUID | None
+    tag_id: uuid.UUID | None = None
     source: TransactionSource
     confidence: float
     excluded_from_budget: bool

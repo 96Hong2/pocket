@@ -5,6 +5,7 @@ import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   parseDecimalOr,
   useDeleteTransaction,
+  useTags,
   useUpdateTransaction,
   type CategoryOut,
   type MonthParams,
@@ -24,6 +25,7 @@ import { formatDayLabel } from '../../shared/lib/format';
 import { AmountField, BottomSheet, Button, CategoryAvatar, Toggle, iconOf } from '../../shared/ui';
 
 import { CategoryEditForm } from '../categories';
+import { TagPicker } from '../tags';
 
 /**
  * 수정 시트. 상호·금액·카테고리·예산 제외를 한 화면에서 고친다.
@@ -108,14 +110,17 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
   const analytics = useAnalytics();
   const update = useUpdateTransaction(month);
   const remove = useDeleteTransaction();
+  const tags = useTags();
 
   const savedAmount = parseDecimalOr(transaction.amount, 0);
   const [merchant, setMerchant] = useState(transaction.merchant ?? '');
+  const [memo, setMemo] = useState(transaction.memo ?? '');
   const [amount, setAmount] = useState(String(savedAmount));
   const [categoryId, setCategoryId] = useState<string | null>(transaction.category_id ?? null);
   const [excluded, setExcluded] = useState(transaction.excluded_from_budget);
   const [kind, setKind] = useState<LedgerKind>(kindOf(transaction.type));
   const [method, setMethod] = useState<PaymentMethod | null>(transaction.payment_method);
+  const [tagId, setTagId] = useState<string | null>(transaction.tag_id ?? null);
   /*
     무엇에 실패했나. 고치기와 지우기가 서로 다른 말을 해야 한다.
     지우기에 실패했는데 「고친 것을 저장하지 못했어요」 라고 하면, 지워졌는지 아닌지를
@@ -178,6 +183,8 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
     const trimmed = merchant.trim();
 
     if (trimmed !== (transaction.merchant ?? '')) next.merchant = trimmed === '' ? null : trimmed;
+    const trimmedMemo = memo.trim();
+    if (trimmedMemo !== (transaction.memo ?? '')) next.memo = trimmedMemo === '' ? null : trimmedMemo;
     if (nextAmount !== savedAmount) next.amount = String(nextAmount);
     if (switchable && kind !== transaction.type) next.type = kind;
     if (categoryId !== (transaction.category_id ?? null)) next.category_id = categoryId;
@@ -185,6 +192,9 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
     // 수입·이체로 가면 서버가 어차피 비운다. 여기서도 안 보내 두 곳이 같은 말을 하게 한다.
     const nextMethod = kind === 'expense' && !isTransfer ? method : null;
     if (nextMethod !== transaction.payment_method) next.payment_method = nextMethod;
+    // 이체에는 태그가 안 붙는다. 종류를 바꾸면 안 맞는 태그는 서버가 떼 준다.
+    const nextTag = isTransfer ? null : tagId;
+    if (nextTag !== (transaction.tag_id ?? null)) next.tag_id = nextTag;
     return next;
   }
 
@@ -271,6 +281,18 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
           />
         </div>
 
+        {/* 상호와 다른 칸이다. 「어디서」 가 아니라 「무엇을·왜」 를 적는다. */}
+        <label className="tx-edit__field tx-edit__field--memo">
+          <span className="tx-edit__label">메모</span>
+          <input
+            className="tx-edit__input"
+            value={memo}
+            onChange={(event) => setMemo(event.target.value)}
+            placeholder="남겨 두고 싶은 한마디"
+            maxLength={200}
+          />
+        </label>
+
         {switchable ? (
           <KindToggle
             className="tx-edit__kind"
@@ -287,9 +309,23 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
               );
               // 수입에는 결제 수단이 없다. 지출로 되돌아오면 저장돼 있던 값을 되찾는다.
               setMethod(next === 'expense' ? transaction.payment_method : null);
+              // 지출 태그를 수입에 달 수 없다. 분류와 같은 규칙으로 비우고, 되돌아오면 되찾는다.
+              setTagId(next === kindOf(transaction.type) ? (transaction.tag_id ?? null) : null);
             }}
           />
         ) : null}
+
+        {/* 이체에는 뜻이 없다. 리포트의 어느 조각에도 안 들어가서 달아도 안 보인다. */}
+        {isTransfer ? null : (
+          <TagPicker
+            className="tx-edit__tags"
+            kind={kind}
+            tags={tags.data?.items ?? []}
+            selectedId={tagId}
+            disabled={busy}
+            onChange={setTagId}
+          />
+        )}
 
         {/* 수입·이체에는 뜻이 없어 아예 안 세운다. 비활성으로 두면 무엇을 잘못했나 싶어진다. */}
         {kind === 'expense' && !isTransfer ? (
