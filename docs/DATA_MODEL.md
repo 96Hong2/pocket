@@ -128,6 +128,8 @@ erDiagram
 | `confidence` | `float` = 1.0 | 0~1. 사용자가 직접 넣은 값은 1.0 |
 | `excluded_from_budget` | `bool` = false | **거래목록·리포트에는 남고 예산 계산에서만 빠진다** |
 | `payment_method` | `credit` \| `debit` \| `cash` \| `null` | 신용카드·체크카드·현금. **지출과 환불에만 붙고** 수입·이체로 고치면 서비스가 비운다. `null` 이 「안 고름」이라 '모름' 값을 따로 두지 않는다 |
+| `memo` | `varchar(200)?` | 상호와 **다른 칸**이다. 「어디서」 가 아니라 「무엇을·왜」. 저장한 뒤에 묻고, 목록 줄은 분류 이름 대신 이 한마디를 보여 준다 |
+| `tag_id` | `uuid?` | **한 기록에 하나.** 여럿 달면 태그별 합계가 총액을 넘어 리포트의 「비율」 이 거짓이 된다. FK 가 `SET NULL` 이라 태그를 지워도 거래는 남는다 |
 | `fingerprint` | `varchar(64)?` | 중복 후보를 찾는 sha256 해시 |
 | `refund_of_transaction_id` | `uuid?` | 어떤 지출의 환불인지 |
 | `import_batch_id` | `uuid?` | 줄글·캡처·영수증 분석에서 저장했으면 그 묶음. `imports.commit_batch` 가 채운다 |
@@ -210,14 +212,16 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | notification_settings | 기본값 | 설명 |
 |---|---|---|
 | `is_enabled` | **false** | 옵트인. 진입 즉시 동의 시트를 띄우지 않는다 |
-| `remind_at` | NULL | `HH:MM`. 켜면서 안 주면 서버가 21:30 을 넣는다 |
-| `frequency` | `weekly_twice` | `weekly_twice` \| `daily`. **발송기는 읽지 않는다.** 하루 한 번 고정(ADR-0013). 화면에 고르는 자리는 없고 켤 때 `daily` 로 온다 |
+| `remind_at` | NULL | `HH:MM`. 켜면서 안 주면 서버가 **20:00** 을 넣는다(2026-09-18 에 21:30 에서 옮김) |
+| `frequency` | `weekly_twice` | `weekly_twice` \| `daily`. **발송기는 읽지 않는다.** 하루 한 통 고정(ADR-0013·0022). 화면에 고르는 자리는 없고 켤 때 `daily` 로 온다 |
 | `timezone` | `Asia/Seoul` | **읽지 않는다.** 아래 참고 |
 | `last_reminded_on` | NULL | 마지막으로 보낸 현지 날짜. 같은 날 두 번 보내지 않는 기준이다 |
 
 **알림 시각의 시간대 정본은 `users.timezone` 이다.** `notification_settings.timezone` 은 초기
 스키마에 있지만 아무도 읽지 않는다. 두 곳을 보면 달 경계와 알림 시각이 서로 다른 시간대로
-갈려서, 한 사람의 '오늘' 이 화면과 알림에서 달라진다. 판정과 발송 구조는 ADR-0013 에 있다.
+갈려서, 한 사람의 '오늘' 이 화면과 알림에서 달라진다. 판정과 발송 구조는 ADR-0013·0022 에 있다.
+`last_reminded_on` 은 **두 갈래가 함께 쓰는 하루 상한**이다. 반복 지출 예고가 아침에 울린
+날에는 저녁 기록 알림이 안 간다.
 
 ## merchant_rules
 
@@ -323,6 +327,52 @@ pref.budget_auto_carryover = false         → 복사 안 함
 
 컬럼은 16자리인데 **API 상한은 거래·예산과 같은 14자리**다(`app/api/amounts.py` 의 `MAX_AMOUNT`).
 그보다 크면 JS 의 안전 정수 범위(약 9e15)를 넘겨 화면이 자릿수를 잘못 그린다.
+
+## tags
+
+카테고리와 **다른 축**이다. 카테고리는 「무엇에 썼나」 고 태그는 「어떤 묶음인가」 다.
+같은 식비라도 「정산완료」 와 「데이트」 로 갈리는 것이 태그다.
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `name` | `varchar(40)` | 화면은 **12자**까지 받는다(`TAG_NAME_MAX`). 칩 한 줄에 들어가는 길이다 |
+| `color` | `varchar(32)` | **열넷** 중 하나. 정본은 `app/domain/tags.py` |
+| `kind` | `expense` \| `income` | **서로 다른 목록이다.** 이름이 겹쳐도 된다 |
+| `sort_order` | `int` = 0 | |
+
+- **기본 태그는 없다.** 처음 온 사람의 목록이 비어 있는 것이 정상이다.
+- 종류마다 **20개**까지(`TAGS_PER_USER_MAX`). 같은 종류 안에서 이름이 겹치면 409 다.
+- **`color` 는 `native_enum=False` 라 DB 에서 그냥 `varchar` 이고 CHECK 제약이 없다.**
+  그래서 색을 더할 때 마이그레이션이 필요 없다(실제로 8 → 14 를 마이그레이션 없이 늘렸다).
+  다만 **이름을 바꾸거나 빼지 않는다.** 그 색으로 만들어 둔 태그가 어느 색인지 잃는다.
+- **종류는 만들 때만 정한다.** 나중에 바꾸면 그 태그로 적어 둔 지난 기록이 종류와 어긋나고,
+  이미 본 리포트의 숫자가 달라진다(카테고리와 같은 규칙, ADR-0015).
+
+## recurring_expenses
+
+매달 같은 날 나가는 돈의 **예고**다. **거래를 자동으로 만들지 않는다.** 구독을 해지했는데
+가계부에는 계속 찍히면 그 가계부가 사실이 아니게 된다. 기록으로 만드는 것은 사람이 누른다.
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `name` | `varchar(120)` | 그대로 거래의 상호가 된다 |
+| `amount` | `numeric(14,0)` | `> 0` |
+| `day_of_month` | `int` | `1~31`. **그 달에 없는 날짜는 말일로 당긴다**(4월이면 30, 2월이면 28·29) |
+| `category_id`, `tag_id` | `uuid?` | 둘 다 `SET NULL`. 태그는 **지출 종류만** 걸린다 |
+| `payment_method` | `credit` \| `debit` \| `cash` \| `null` | |
+| `remind_at` | `time?` | 이 예고만 받을 시각. **비우면 기록 알림에 정해 둔 시각**을 따른다 |
+| `remind_lead_days` | `int` = **0** | 0=당일 · 1=전날. CHECK 로 `0~1` 만 받는다 |
+| `is_active` | `bool` = true | **끄기와 지우기는 다르다.** 끈 것은 목록에 흐리게 남는다 |
+| `last_recorded_on` | `date?` | 이 예고로 기록을 만든 마지막 날 |
+| `dismissed_on` | `date?` | 「이번 달은 됐어요」 를 누른 날 |
+
+- 한 사람 **20개**까지(`RECURRING_MAX`).
+- **`last_recorded_on`·`dismissed_on` 은 날짜가 아니라 「회차」 로 읽는다.** 전날에 적었으면
+  표시 날짜가 지출일보다 하루 빠르다. 그 날짜로 다음 지출일을 다시 세어 이번 것과 같은지 본다
+  (`domain/recurring._same_cycle`). 「같은 달」 로 세면 전날 적은 사람에게 당일 또 뜬다.
+- **카드가 서 있는 기간과 알림이 울리는 날이 다르다.** 전날로 걸면 카드는 이틀,
+  알림은 전날 하루다. 하루 상한은 `notification_settings.last_reminded_on` 이 함께 쓴다
+  (ADR-0022).
 
 ## goals / goal_contributions
 

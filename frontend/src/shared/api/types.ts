@@ -157,7 +157,7 @@ export type Gender = Schemas['Gender'];
 export type PreferencesPatch = Schemas['PreferencesPatch'];
 /** 홈 맨 위에 무엇을 크게 보여줄지. */
 export type HomeHero = Schemas['HomeHero'];
-/** 기록 알림 설정. `remind_at` 은 `"21:30"` 모양이고 안 정했으면 null 이다. */
+/** 기록 알림 설정. `remind_at` 은 `"20:00"` 모양이고 안 정했으면 null 이다. */
 export type NotificationSettingsOut = Schemas['NotificationSettingsOut'];
 /** 보낸 필드만 고친다. `remind_at: null` 은 정해 둔 시각을 지운다는 뜻이다. */
 export type NotificationSettingsPatch = Schemas['NotificationSettingsPatch'];
