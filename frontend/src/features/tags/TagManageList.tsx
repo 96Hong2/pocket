@@ -1,14 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 
 import { useDeleteTag, useTags, type TagKind, type TagOut } from '../../shared/api';
-import {
-  BottomSheet,
-  Button,
-  Card,
-  ErrorState,
-  LoadingState,
-  RetryButton,
-} from '../../shared/ui';
+import { BottomSheet, Button, Card, ErrorState, LoadingState } from '../../shared/ui';
 
 import { TagForm } from './TagForm';
 import { tagColorVar } from '../../shared/lib/tagColors';
@@ -144,6 +137,12 @@ export function TagManageList() {
                 ? `${confirming.usage_count}건에서 「${confirming.name}」 표시만 사라져요. 기록과 금액은 그대로 남아요.`
                 : '아직 이 태그를 단 기록이 없어요.'}
             </p>
+            {/* 지우기가 막히면 시트가 열린 채 이유를 말한다. 시트 밖에 두면 안 보인다. */}
+            {remove.isError ? (
+              <p className="tag-form__notice" role="alert">
+                태그를 지우지 못했어요. 잠시 후 다시 시도해 주세요.
+              </p>
+            ) : null}
             <div className="tag-form__actions">
               <Button variant="ghost" onClick={() => setConfirming(null)}>
                 그만두기
@@ -167,15 +166,6 @@ export function TagManageList() {
           </div>
         ) : null}
       </BottomSheet>
-
-      {remove.isError ? (
-        <Card padding="md">
-          <p className="tag-form__notice" role="alert">
-            태그를 지우지 못했어요.
-          </p>
-          <RetryButton variant="ghost" onRetry={() => void tags.refetch()} />
-        </Card>
-      ) : null}
     </>
   );
 }

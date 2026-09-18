@@ -54,7 +54,7 @@ export function AddToHomeCard({ onDismiss }: { onDismiss: () => void }) {
           onClick={() => {
             analytics.log(
               EVENTS.homeAddResult,
-              { from: 'home_card', result: 'shown' },
+              { from: 'home_card', result: 'opened' },
               { kind: 'click' },
             );
             setOpen(true);

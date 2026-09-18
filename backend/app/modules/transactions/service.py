@@ -14,7 +14,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import Select, and_, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
@@ -263,7 +263,9 @@ def _tag_kind_for(kind: agg.TransactionType) -> TagKind | None:
     return None
 
 
-def _require_tag(session: Session, user: User, tag_id, kind: agg.TransactionType) -> None:
+def _require_tag(
+    session: Session, user: User, tag_id: uuid.UUID | None, kind: agg.TransactionType
+) -> None:
     """태그가 내 것이고 그 종류에 맞는지 본다. 안 붙였으면 볼 것이 없다."""
     if tag_id is None:
         return
@@ -574,7 +576,10 @@ def _as_amount(keyword: str) -> Decimal | None:
     찾다가 112,000 이 나오면 검색이 아니라 훼방이다.
     """
     cleaned = keyword.replace(",", "").replace(" ", "").removesuffix("원")
-    if not cleaned.isdigit():
+    # 저장할 수 있는 자릿수(MoneyColumn 은 14자리)를 넘으면 금액으로 안 본다.
+    # 검색어는 120자까지 들어오는데, 그만한 숫자를 금액 조건으로 넘기면 맞을 행이 없는
+    # 비교를 DB 에 시키는 셈이고 드라이버에 따라 터질 수도 있다.
+    if not cleaned.isdigit() or len(cleaned) > 14:
         return None
     try:
         return Decimal(cleaned)
@@ -637,7 +642,7 @@ def list_transactions(
     keyword = (query or "").strip()
     if keyword:
         pattern = _like_pattern(keyword)
-        matches = [
+        matches: list[ColumnElement[bool]] = [
             Transaction.merchant.ilike(pattern, escape="\\"),
             Transaction.memo.ilike(pattern, escape="\\"),
             Category.name.ilike(pattern, escape="\\"),

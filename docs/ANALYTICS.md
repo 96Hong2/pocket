@@ -21,7 +21,7 @@
 | 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드 |
 | 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움과 **지우려다 그만둠**(`delete_asked`·`delete_cancelled`·`delete`), 고친 칸 이름, 그 기록의 입력 방식 |
 | 저장 뒤 뜻이 전달됐나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것 |
-| 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(`home_card`·`settings`)와 결과(`shown`·`guide_done`·`dismissed`), 동의·거절·미지원 |
+| 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(`home_card`·`settings`)와 결과(`opened`·`guide_done`·`dismissed`), 동의·거절·미지원 |
 | 이메일 연결에서 어디서 빠지나 | `account_link_result` · `profile_result` | 코드를 보냈나(`sent`)·붙었나(`linked`·`switched`·`merged`)·어디서 막혔나(`send_failed`·`verify_failed` 와 오류 코드), 연령대·성별을 답했나 건너뛰었나와 그 갈래. **이메일 주소와 코드는 싣지 않는다** |
 | 광고 뒤의 부가기능이 값어치가 있나 | `budget_calc_opened` | 광고를 보고 열었나(`watched`), 광고 없이 지나갔나와 그 이유(`no_group`·`unsupported`·`failed`) |
 | 첫 안내가 방해가 되나 | `onboarding_result` | 끝까지 봤나·건너뛰었나, 그때 몇 번째 장 |
@@ -54,7 +54,7 @@
 
 **`home_add_result` 는 카드가 시트를 대신한 뒤로 뜻이 달라졌다.** 예전에는 첫 기록 직후
 스스로 열린 시트를 봤나(`first_record`)를 셌는데, 지금은 홈에 선 카드(`home_card`)에서
-안내를 열었나(`shown`)·끝까지 읽었나(`guide_done`)·닫았나(`dismissed`)를 센다.
+안내를 열었나(`opened`)·끝까지 읽었나(`guide_done`)·닫았나(`dismissed`)를 센다.
 닫은 수가 연 수보다 훨씬 많으면 그 카드는 도움이 아니라 방해다.
 
 **`no_spend_marked` 는 빈 날 카드의 답을 준다.** 그 카드에는 안 썼다는 줄과 기록하기 버튼

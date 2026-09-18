@@ -32,10 +32,18 @@ export interface TagBreakdownProps {
 
 export function TagBreakdown({ breakdown, kindLabel }: TagBreakdownProps) {
   const tags = useTags();
-  // 태그를 하나도 안 만든 사람에게는 이 자리를 아예 그리지 않는다.
-  if (breakdown.rows.length === 0) return null;
 
   const byId = new Map<string, TagOut>((tags.data?.items ?? []).map((tag) => [tag.id, tag]));
+  /*
+    이름을 찾은 줄만 센다.
+
+    태그 목록이 아직 안 왔거나 방금 지운 태그면 조각에 이름을 못 붙인다. 조각 수만 보고
+    카드를 그리면 **제목과 빈 막대만 남은 카드**가 잠깐 선다. 그릴 줄이 없으면 카드째 없앤다.
+    태그를 하나도 안 만든 사람에게 이 자리가 아예 없는 것과 같은 이유다.
+  */
+  const rows = breakdown.rows.filter((row) => byId.has(row.tag_id));
+  if (rows.length === 0) return null;
+
   const untagged = parseDecimalOr(breakdown.untagged_total, 0);
 
   return (
@@ -43,7 +51,7 @@ export function TagBreakdown({ breakdown, kindLabel }: TagBreakdownProps) {
       <h2 className="report__section">태그별 {kindLabel}</h2>
       <div className="tag-report">
         <div className="tag-report__bar" aria-hidden="true">
-          {breakdown.rows.map((row) => {
+          {rows.map((row) => {
             const tag = byId.get(row.tag_id);
             const share = parseDecimal(row.share) ?? 0;
             if (tag == null || share <= 0) return null;
@@ -63,10 +71,8 @@ export function TagBreakdown({ breakdown, kindLabel }: TagBreakdownProps) {
         </div>
 
         <ul className="tag-report__list">
-          {breakdown.rows.map((row) => {
+          {rows.map((row) => {
             const tag = byId.get(row.tag_id);
-            // 태그 목록이 아직 안 왔거나 방금 지운 태그다. 이름 없이 색 점만 그리면
-            // 무엇인지 알 수 없으니 그 줄을 비운다.
             if (tag == null) return null;
             const share = parseDecimal(row.share) ?? 0;
             return (
