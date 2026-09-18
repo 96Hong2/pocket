@@ -8,8 +8,7 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -24,7 +23,6 @@ from app.modules.recurring.schemas import RecurringCreate, RecurringUpdate
 from app.modules.tags import service as tags
 
 __all__ = [
-    "PushWindow",
     "create_recurring",
     "delete_recurring",
     "dismiss_recurring",
@@ -32,6 +30,7 @@ __all__ = [
     "due_today",
     "list_recurring",
     "mark_recorded",
+    "next_dates",
     "require_owned",
 ]
 
@@ -202,43 +201,6 @@ def dismiss_recurring(
     session.commit()
     session.refresh(row)
     return row
-
-
-@dataclass(frozen=True, slots=True)
-class PushWindow:
-    """오늘 이 예고를 몇 시에 알릴까. 알릴 것이 없으면 만들지 않는다."""
-
-    row: RecurringExpense
-    due_on: date
-    at: time
-
-
-def push_windows(
-    session: Session, user: User, today: date, *, fallback_at: time
-) -> list[PushWindow]:
-    """오늘이 알림 날인 예고들과 그 시각.
-
-    `due_today` 와 다르다. 그쪽은 **홈 카드**가 며칠 동안 서 있을지를 보고, 이쪽은
-    **푸시를 오늘 보낼지**를 본다. 전날 알림으로 걸어 둔 것은 지출일 전날 하루만 울리고,
-    그날은 카드만 서 있다. 알림이 이틀 연속 오면 그건 조르는 것이다.
-
-    시각을 안 정한 예고는 기록 알림에 정해 둔 시각(`fallback_at`)을 따른다.
-    """
-    windows: list[PushWindow] = []
-    for row in list_recurring(session, user):
-        if not row.is_active:
-            continue
-        due = should_ask(
-            today,
-            row.day_of_month,
-            lead_days=row.remind_lead_days,
-            last_recorded_on=row.last_recorded_on,
-            dismissed_on=row.dismissed_on,
-        )
-        if due is None or remind_on(due, row.remind_lead_days) != today:
-            continue
-        windows.append(PushWindow(row=row, due_on=due, at=row.remind_at or fallback_at))
-    return sorted(windows, key=lambda item: (item.at, item.row.created_at))
 
 
 def next_dates(row: RecurringExpense, today: date) -> tuple[date, date]:
