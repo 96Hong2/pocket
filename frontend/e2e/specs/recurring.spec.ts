@@ -1,3 +1,4 @@
+import { toLedgerDate } from '../../src/shared/lib/format';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -17,9 +18,21 @@ import { expect, test } from '../support/fixtures';
 // 카드를 함께 봐야 하는 시험이 있어 홈 화면 추가 카드를 켜 둔다.
 test.use({ showStarterCards: true });
 
-/** 오늘 날짜. 그날로 걸어야 홈 카드가 뜬다. */
+/**
+ * 오늘 날짜. 그날로 걸어야 홈 카드가 뜬다.
+ *
+ * **기기 시간대로 세면 안 된다.** CI 런너는 UTC 라, KST 로 이미 다음 날인 시각에 돌리면
+ * 하루 어긋난 날짜로 예고를 걸고 카드가 영영 안 뜬다(실제로 CI 만 빨갰다).
+ * 서버가 보는 것과 같은 가계부 시간대(Asia/Seoul)로 센다.
+ */
+function ledgerDay(offset = 0): number {
+  const iso = toLedgerDate(new Date());
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(year, month - 1, day + offset).getDate();
+}
+
 function today(): number {
-  return new Date().getDate();
+  return ledgerDay();
 }
 
 test('걸어 둔 것이 없으면 무엇을 하는 자리인지만 말한다', async ({ recurring }) => {
@@ -177,13 +190,10 @@ test('언제 적히는지를 폼과 목록이 말한다', async ({ recurring }) 
 });
 
 test('안 고르면 당일이고, 전날로 걸면 전날부터 묻는다', async ({ home, recurring }) => {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
   await recurring.open();
   await recurring.waitReady();
   // 내일 나갈 돈이다. 당일이면 오늘은 아직 안 묻는다.
-  await recurring.create({ name: '넷플릭스', amount: 17000, day: tomorrow.getDate() });
+  await recurring.create({ name: '넷플릭스', amount: 17000, day: ledgerDay(1) });
 
   await home.open();
   await home.waitReady();
