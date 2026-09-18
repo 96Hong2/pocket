@@ -23,6 +23,20 @@ test('기한을 골랐다가 ✕ 로 지우고, 지운 채로 저장된다', asy
   // 값이 있을 때만 ✕ 가 선다. 빈 칸 옆의 ✕ 는 아무것도 안 하는 버튼이다.
   await expect(goal.form.deadlineClearButton).toBeVisible();
 
+  await test.step('✕ 가 무엇에도 가려 있지 않다', async () => {
+    /*
+      **`toBeVisible` 은 겹침을 못 본다.** 처음에는 ✕ 를 칸 오른쪽 끝에 뒀는데 그 자리에
+      크롬이 달력 아이콘을 그려서 ✕ 가 그 아래에 깔렸다. 시험은 초록이었고 캡처를
+      눈으로 보다 잡았다. 그래서 그 점을 실제로 누르면 무엇이 잡히는지까지 본다.
+    */
+    const onTop = await goal.form.deadlineClearButton.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+      return hit != null && element.contains(hit);
+    });
+    expect(onTop, '지우기 ✕ 가 다른 것에 가려 있다').toBe(true);
+  });
+
   await goal.form.deadlineClearButton.click();
   await expect(goal.form.deadlineField).toHaveValue('');
   await expect(goal.form.deadlineClearButton).toHaveCount(0);
