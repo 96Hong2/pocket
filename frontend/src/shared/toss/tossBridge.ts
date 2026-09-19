@@ -107,6 +107,16 @@ class TossAnalyticsBridge implements AnalyticsBridge {
  */
 const FULL_SCREEN_LOAD_TIMEOUT_MS = 8_000;
 
+/**
+ * 광고가 뜬 뒤에 닫힘을 기다리는 한계.
+ *
+ * **불러오는 시간과 같은 시계로 재면 안 된다.** 리워드 광고는 끝까지 보는 데 30초쯤 걸리고
+ * 보상 이벤트는 그 끝에 온다. 8초짜리 시계를 그대로 켜 두면 광고가 화면에 떠 있는 동안
+ * 「못 띄웠다」 고 답하게 된다. 여기는 SDK 가 닫힘도 실패도 안 보내는 경우에만 쓰는 빗장이라
+ * 넉넉히 준다.
+ */
+const FULL_SCREEN_WATCH_TIMEOUT_MS = 180_000;
+
 class TossAdsBridge implements AdsBridge {
   private initialized: Promise<void> | null = null;
 
@@ -155,46 +165,78 @@ class TossAdsBridge implements AdsBridge {
   }
 
   showFullScreen(adGroupId: string): Promise<FullScreenAdResult> {
-    if (!loadFullScreenAd.isSupported() || !showFullScreenAd.isSupported()) {
-      return Promise.resolve('failed');
+    return runFullScreenAd(adGroupId);
+  }
+
+  /*
+    SDK 호출이 전면과 한 글자도 다르지 않다. 전면형인지 리워드형인지는 콘솔에 등록한
+    그룹이 정하기 때문이다. 부르는 쪽이 어느 쪽을 기대하는지만 이 이름으로 갈린다.
+  */
+  showRewarded(adGroupId: string): Promise<FullScreenAdResult> {
+    return runFullScreenAd(adGroupId);
+  }
+}
+
+/**
+ * 전면 광고 한 편을 불러와 띄우고 닫힐 때까지 기다린다.
+ *
+ * 보상 이벤트가 오면 `earned`, 떴다가 그냥 닫히면 `watched` 다. **둘을 뭉치지 않는다.**
+ * 리워드형에서 보상 없이 닫힌 것은 중간에 나갔다는 뜻이라, 끝까지 본 사람과 같이 세면
+ * 리워드 자리가 실제로 얼마나 끝까지 읽히는지 알 수 없다.
+ */
+function runFullScreenAd(adGroupId: string): Promise<FullScreenAdResult> {
+  if (!loadFullScreenAd.isSupported() || !showFullScreenAd.isSupported()) {
+    return Promise.resolve('failed');
+  }
+  return new Promise<FullScreenAdResult>((resolve) => {
+    let settled = false;
+    let timer = setTimeout(() => finish('failed'), FULL_SCREEN_LOAD_TIMEOUT_MS);
+
+    function finish(result: FullScreenAdResult): void {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
     }
-    return new Promise<FullScreenAdResult>((resolve) => {
-      let settled = false;
-      const finish = (result: FullScreenAdResult) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(result);
-      };
-      const timer = setTimeout(() => finish('failed'), FULL_SCREEN_LOAD_TIMEOUT_MS);
 
-      const show = () => {
-        let shown = false;
-        showFullScreenAd({
-          options: { adGroupId },
-          onEvent: (event) => {
-            // 보상형은 보상 이벤트가 먼저 오고, 전면형은 닫힘만 온다. 어느 쪽이든 「봤다」.
-            // 눌렀다는 것도 떠 있었다는 뜻이다. 목 SDK 는 뜸·노출 없이 눌림만 보낸다.
-            if (event.type === 'show' || event.type === 'impression' || event.type === 'clicked') {
-              shown = true;
-            }
-            if (event.type === 'userEarnedReward') finish('watched');
-            if (event.type === 'dismissed') finish(shown ? 'watched' : 'failed');
-            if (event.type === 'failedToShow') finish('failed');
-          },
-          onError: () => finish('failed'),
-        });
-      };
+    const show = () => {
+      let shown = false;
+      let earned = false;
+      // 불러오기는 끝났다. 이제부터는 사람이 광고를 보는 시간이라 시계를 갈아 끼운다.
+      clearTimeout(timer);
+      timer = setTimeout(
+        () => finish(earned ? 'earned' : shown ? 'watched' : 'failed'),
+        FULL_SCREEN_WATCH_TIMEOUT_MS,
+      );
 
-      loadFullScreenAd({
+      showFullScreenAd({
         options: { adGroupId },
         onEvent: (event) => {
-          if (event.type === 'loaded') show();
+          // 눌렀다는 것도 떠 있었다는 뜻이다. 목 SDK 는 뜸·노출 없이 눌림만 보낸다.
+          if (event.type === 'show' || event.type === 'impression' || event.type === 'clicked') {
+            shown = true;
+          }
+          /*
+            보상 이벤트 뒤에도 닫힘이 따라온다. 여기서 바로 끝내지 않고 표시만 해 두는
+            이유는, 광고가 아직 화면을 덮고 있는 동안 다음 화면을 열면 그 위로 광고가
+            남기 때문이다. 닫힘까지 기다렸다가 한 번에 답한다.
+          */
+          if (event.type === 'userEarnedReward') earned = true;
+          if (event.type === 'dismissed') finish(earned ? 'earned' : shown ? 'watched' : 'failed');
+          if (event.type === 'failedToShow') finish('failed');
         },
         onError: () => finish('failed'),
       });
+    };
+
+    loadFullScreenAd({
+      options: { adGroupId },
+      onEvent: (event) => {
+        if (event.type === 'loaded') show();
+      },
+      onError: () => finish('failed'),
     });
-  }
+  });
 }
 
 /**

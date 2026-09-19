@@ -11,7 +11,7 @@ import {
 } from '../../shared/api';
 import { shiftMonth, toLedgerDate } from '../../shared/lib/format';
 import { Card, ErrorState, MonthStepper, RetryButton } from '../../shared/ui';
-import { useInterstitial } from '../ads';
+import { useRewardedAd } from '../ads';
 
 import { BudgetAmountSheet } from './BudgetAmountSheet';
 import { BudgetCalcSheet } from './BudgetCalcSheet';
@@ -43,7 +43,7 @@ export function BudgetSection() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [categoryTarget, setCategoryTarget] = useState<CategoryBudgetTarget | null>(null);
   const analytics = useAnalytics();
-  const interstitial = useInterstitial();
+  const rewarded = useRewardedAd();
 
   const monthParams = useMemo(() => {
     const [year, monthNumber] = month.split('-').map(Number);
@@ -71,16 +71,19 @@ export function BudgetSection() {
         : null;
 
   /**
-   * 계산기는 광고 한 편 뒤에 연다.
+   * 계산기는 리워드 광고 한 편 뒤에 연다.
    *
-   * 광고가 안 떠도 연다. 광고 서버 사정으로 예산을 못 정하게 두지 않는다. 대신 어느 쪽으로
-   * 열렸는지를 남겨, 광고를 본 사람이 예산까지 정하는 비율을 따로 볼 수 있게 한다.
+   * 광고가 어떻게 끝나든 연다. 끝까지 안 봤다고 계산기를 닫아 걸면, 광고가 중간에 끊긴
+   * 사람까지 벌하게 된다. 대신 어느 쪽으로 열렸는지를 남겨, 끝까지 본 사람이 예산까지
+   * 정하는 비율을 그냥 지나간 사람과 견줄 수 있게 한다.
    */
   async function openCalc(): Promise<void> {
-    const outcome = await interstitial.show('budget_calc');
+    const outcome = await rewarded.show();
     analytics.log(
       EVENTS.budgetCalcOpened,
-      outcome.result === 'watched' ? { ad: 'watched' } : { ad: 'skipped', reason: outcome.reason },
+      outcome.result === 'skipped'
+        ? { ad: 'skipped', reason: outcome.reason, where: 'manage' }
+        : { ad: outcome.result, where: 'manage' },
       { kind: 'click' },
     );
     setAmountOpen(false);
@@ -200,7 +203,7 @@ export function BudgetSection() {
         amount={amount}
         onClose={() => setAmountOpen(false)}
         onCalc={() => void openCalc()}
-        calcBusy={interstitial.busy}
+        calcBusy={rewarded.busy}
       />
       {/*
         생활비 계산기. 예산 시트에서 「계산해서 정하기」 로만 열린다.

@@ -6,11 +6,14 @@ import type { PrepApi } from '../support/api';
 import { expect, test } from '../support/fixtures';
 
 /**
- * 전면 광고가 서는 네 자리와 그 상한.
+ * 전면 광고가 서는 세 자리와 그 상한.
  *
  * 여기서 지키는 것 둘이다. **광고가 어떻게 되든 기능은 열린다**, 그리고 **한 세션에
  * 한 편이다**. 자리를 늘리면서 상한을 안 두면, 자리마다 「여기는 괜찮다」 고 판단한 결과가
  * 한 사람에게 다 쌓인다.
+ *
+ * 생활비 계산기는 여기 없다. 사람이 스스로 광고와 맞바꾸겠다고 누르는 자리라 리워드
+ * 광고로 나갔고 상한도 안 센다(ADR-0024). 그 둘이 서로를 안 갉아먹는지를 이 파일 끝에서 본다.
  *
  * 광고가 떴는지는 로그로 본다. 목 SDK 의 전면 광고는 화면을 가렸다가 1.5초 뒤 스스로
  * 닫혀서, 그 사이를 노려 잡으면 느린 러너에서 어긋난다.
@@ -158,4 +161,54 @@ test('하루 두 편을 다 본 사람에게는 안 띄운다. 기능은 그대�
   expect(logs.map((log) => [log.params.where, log.params.result, log.params.reason])).toEqual([
     ['closing', 'skipped', 'capped'],
   ]);
+});
+
+test('하루 두 편을 다 본 사람도 계산기 광고는 본다. 스스로 맞바꾸겠다고 누른 자리다', async ({
+  manage,
+  page,
+}) => {
+  await seedWatchedToday(page, 2);
+
+  await manage.open();
+  await manage.waitReady();
+  await manage.total.startButton.click();
+  await manage.total.sheet.waitOpen();
+  await manage.total.sheet.openCalc();
+  await manage.calc.waitSheetOpen();
+
+  /*
+    상한에 걸렸다면 `skipped`·`capped` 로 남았을 자리다. 리워드 광고는 그 상한을 안 지난다.
+    목 SDK 는 보상 이벤트를 안 보내므로 끝까지 본 `earned` 가 아니라 `watched` 로 끝난다.
+  */
+  const opened = await logsNamed(page, 'budget_calc_opened');
+  expect(opened.map((log) => [log.params.ad, log.params.reason])).toEqual([['watched', undefined]]);
+
+  // 계산기 광고는 전면 광고 장부에 안 적힌다. 적혔다면 이 로그가 생겼을 것이다.
+  expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
+});
+
+test('계산기 광고를 봐도 그 세션의 전면 광고 한 편은 그대로 남는다', async ({
+  appShell,
+  assets,
+  manage,
+  page,
+}) => {
+  await manage.open();
+  await manage.waitReady();
+  await manage.total.startButton.click();
+  await manage.total.sheet.waitOpen();
+  await manage.total.sheet.openCalc();
+  await manage.calc.waitSheetOpen();
+
+  // 시트를 닫고 같은 세션 그대로 자산으로 간다. 주소로 열면 세션이 새로 시작해 뜻이 없어진다.
+  await appShell.pressBack();
+  await manage.calc.waitClosed();
+  await manage.assetsEntry.click();
+  await assets.waitReady();
+
+  await expect
+    .poll(async () => (await logsNamed(page, 'interstitial_result')).length)
+    .toBeGreaterThan(0);
+  const logs = await logsNamed(page, 'interstitial_result');
+  expect(logs.map((log) => [log.params.where, log.params.result])).toEqual([['assets', 'watched']]);
 });

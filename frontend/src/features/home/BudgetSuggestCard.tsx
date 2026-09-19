@@ -11,7 +11,7 @@ import {
   CategoryAvatar,
   SageCard,
 } from '../../shared/ui';
-import { useFullScreenAd } from '../ads';
+import { useRewardedAd } from '../ads';
 import { BudgetCalcAsk, BudgetCalcSheet } from '../budgets';
 
 /**
@@ -30,7 +30,7 @@ export function BudgetSuggestCard({ onDismiss }: { onDismiss: () => void }) {
   const [digits, setDigits] = useState('');
   const saveBudget = useSaveBudget();
   const analytics = useAnalytics();
-  const fullScreenAd = useFullScreenAd();
+  const rewarded = useRewardedAd();
   /** 광고를 틀기 전에 한 번 묻는 모달. 카드 위에 따로 띄운다. */
   const [askOpen, setAskOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
@@ -47,12 +47,12 @@ export function BudgetSuggestCard({ onDismiss }: { onDismiss: () => void }) {
 
   /** 광고가 안 떠도 계산기는 연다. 광고 서버 사정으로 예산을 못 정하게 두지 않는다. */
   async function openCalc(): Promise<void> {
-    const outcome = await fullScreenAd.show();
+    const outcome = await rewarded.show();
     analytics.log(
       EVENTS.budgetCalcOpened,
-      outcome.result === 'watched'
-        ? { ad: 'watched', where: 'home' }
-        : { ad: 'skipped', reason: outcome.reason, where: 'home' },
+      outcome.result === 'skipped'
+        ? { ad: 'skipped', reason: outcome.reason, where: 'home' }
+        : { ad: outcome.result, where: 'home' },
       { kind: 'click' },
     );
     setAskOpen(false);
@@ -96,7 +96,7 @@ export function BudgetSuggestCard({ onDismiss }: { onDismiss: () => void }) {
         className="home-card__calc"
         variant="ghost"
         fullWidth
-        disabled={saveBudget.isPending || fullScreenAd.busy}
+        disabled={saveBudget.isPending || rewarded.busy}
         onClick={() => setAskOpen(true)}
       >
         얼마로 할지 모르겠어요
@@ -112,13 +112,13 @@ export function BudgetSuggestCard({ onDismiss }: { onDismiss: () => void }) {
       <BottomSheet
         open={askOpen}
         onClose={() => setAskOpen(false)}
-        dismissible={!fullScreenAd.busy}
+        dismissible={!rewarded.busy}
         ariaLabel="예산 대신 잡아 드리기"
         className="budget-sheet"
       >
         <div className="budget-sheet__body">
           <BudgetCalcAsk
-            busy={fullScreenAd.busy}
+            busy={rewarded.busy}
             onClose={() => setAskOpen(false)}
             onConfirm={() => void openCalc()}
           />

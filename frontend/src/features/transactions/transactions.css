@@ -308,11 +308,15 @@
   /*
     날짜 칸. 한 줄로 둔다. 이 시트는 고칠 칸이 많아 한 칸이 두 줄을 먹으면
     「완료」·「삭제」 가 접힌 아래로 밀린다.
+
+    위 아바타 줄과는 아래 칸들과 같은 간격(14px)을 둔다. 붙여 두면 아이콘에 딸린
+    줄처럼 보여서, 고칠 수 있는 칸이라는 것이 안 읽힌다.
   */
   .tx-edit__day {
     display: flex;
     align-items: center;
     gap: 10px;
+    margin-top: 14px;
     min-height: 44px;
     padding: 0 14px;
     border: 1px solid var(--color-border);

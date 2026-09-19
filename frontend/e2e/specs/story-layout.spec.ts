@@ -94,6 +94,25 @@ test('아주 긴 분류 이름이 기록·수정 시트의 칩 격자를 밀어�
 });
 
 /*
+  수정 시트를 열었을 때 날짜 칸이 아이콘 줄 바로 밑에 붙어 있었다.
+
+  붙어 있으면 아이콘에 딸린 설명처럼 보여서, 눌러서 옮길 수 있는 칸이라는 것이 안 읽힌다.
+  아래 칸들과 같은 간격(14px)을 줘서 같은 층의 칸으로 서게 했다.
+*/
+test('수정 시트의 날짜 칸이 위 아이콘 줄에 붙지 않는다', async ({ calendar, prep }) => {
+  await prep.addTransaction({ amount: 9_000, daysAgo: 0, merchant: '국밥' });
+
+  await calendar.open();
+  await calendar.waitReady();
+  await calendar.list.pick('국밥');
+  await calendar.edit.waitOpen();
+
+  await expect
+    .poll(() => calendar.edit.dayGap(), { message: '날짜 칸이 아이콘 줄에 붙어 있다' })
+    .toBeGreaterThanOrEqual(10);
+});
+
+/*
   앱 설정에서 「남은 예산」을 골랐는데 예산이 없을 때 뜨는 입구.
 
   이 버튼은 예산이 아예 없는 사람에게만 선다. 곧 **여기 오는 사람은 전부 처음 정하는

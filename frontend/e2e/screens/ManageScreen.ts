@@ -427,7 +427,7 @@ class AmountSheetArea {
    * 그 자리에서는 금액 칸과 저장 버튼이 사라진다.
    */
   get calcNote(): Locator {
-    return this.root.getByText(/광고 5초만 보면 예산을 대신 잡아 드려요/);
+    return this.root.getByText(/광고 한 편 보면 예산을 대신 잡아 드려요/);
   }
 
   /** 묻는 자리의 「확인」. 이걸 눌러야 광고가 뜬다. */

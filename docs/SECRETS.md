@@ -228,7 +228,8 @@ POCKET_SMTP_HOST=smtp.gmail.com POCKET_SMTP_USER=<메일> ./scripts/deploy-cloud
 | 이름 | 값 | 비고 |
 |---|---|---|
 | `VITE_AD_GROUP_ID` | 콘솔에서 발급한 운영 adGroupId | 번들에 박히므로 "감춰지는" 값은 아니다. 다만 저장소에는 남기지 않는다 |
-| `VITE_AD_FULLSCREEN_GROUP_ID` | 콘솔에서 발급한 운영 **전면(보상형)** adGroupId | 위와 같다. 비면 생활비 계산기가 광고 없이 열린다(오류 없음) |
+| `VITE_AD_FULLSCREEN_GROUP_ID` | 콘솔에서 발급한 운영 **전면** adGroupId | 위와 같다. 비면 월말 결산·자산·리포트 자리가 광고 없이 열린다(오류 없음) |
+| `VITE_AD_REWARDED_GROUP_ID` | 콘솔에서 발급한 운영 **리워드** adGroupId | 전면과 다른 그룹이다. 비면 생활비 계산기가 광고 없이 열린다(오류 없음). `make ait` 가 없으면 멈춘다 |
 
 값이 비어 있으면 배너 슬롯 자체를 접는다. 빈 자리를 남기지 않는다.
 조용히 접히므로 오류로는 드러나지 않는다. **`ad_result` 로그의 `no_group` 이 유일한 실마리다.**

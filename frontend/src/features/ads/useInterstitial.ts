@@ -22,10 +22,13 @@ import { useFullScreenAd, type FullScreenAdOutcome } from './useFullScreenAd';
 /**
  * 전면 광고가 서는 자리.
  *
- * 기록하는 흐름에는 하나도 없다. 전부 「잠깐 멈춰도 되는 곳」 이다: 계산기를 열기 전,
- * 지난달을 돌아보기 전, 자산을 들여다보러 들어올 때, 옛날 달을 한참 훑을 때.
+ * 기록하는 흐름에는 하나도 없다. 전부 「잠깐 멈춰도 되는 곳」 이다: 지난달을 돌아보기 전,
+ * 자산을 들여다보러 들어올 때, 옛날 달을 한참 훑을 때.
+ *
+ * 생활비 계산기는 여기 없다. 광고와 기능을 맞바꾸겠다고 사람이 먼저 누르는 자리라
+ * 리워드 광고(`useRewardedAd`)로 나갔고, 그래서 상한도 안 센다(ADR-0024).
  */
-export type InterstitialWhere = 'budget_calc' | 'closing' | 'assets' | 'report_months';
+export type InterstitialWhere = 'closing' | 'assets' | 'report_months';
 
 /** 지나온 결과. `capped` 는 상한에 걸려 광고를 아예 부르지 않은 것이다. */
 export type InterstitialOutcome = FullScreenAdOutcome | { result: 'skipped'; reason: 'capped' };
