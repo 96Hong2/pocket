@@ -200,6 +200,13 @@ function runFullScreenAd(adGroupId: string): Promise<FullScreenAdResult> {
     }
 
     const show = () => {
+      /*
+        8초를 넘겨 이미 「못 띄웠다」 고 답한 뒤에 `loaded` 가 오는 일이 있다. 그때
+        띄우면 부르던 쪽은 벌써 다음 화면을 열었으므로, **엉뚱한 화면 위로 광고가
+        덮인다.** 닫힘도 이미 settled 라 못 받아 180초 시계까지 남는다. 여기서 끊는다.
+      */
+      if (settled) return;
+
       let shown = false;
       let earned = false;
       // 불러오기는 끝났다. 이제부터는 사람이 광고를 보는 시간이라 시계를 갈아 끼운다.
