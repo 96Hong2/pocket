@@ -79,9 +79,10 @@ Apps in Toss API/SDK 이름을 기억으로 추측하지 않는다. 확인 순�
 - 인앱 광고 UI를 위장/변형하지 않는다. 광고 slot 내부는 SDK에 맡긴다.
 
 ## 8. Ads
-- MVP는 배너만.
-- 기록 CTA 위/기록/저장 중간 광고 금지.
-- 최대 1개 slot부터 실험.
+- 기록 CTA 위/기록/저장 중간 광고 금지. 이건 안 바뀐다.
+- 배너는 자리마다 하나. 전면 광고는 「예측할 수 있고 잠깐 멈춰도 되는 자리」에만 (ADR-0023).
+- 전면 광고 총량은 `features/ads/useInterstitial.ts` 한 곳에서 센다: 한 세션 1회 · 하루 2회.
+  화면이 `useFullScreenAd` 를 직접 부르지 않는다.
 - `isSupported`, `NoFill`, render failure 처리.
 - 광고 닫기(X) 버튼과 자체 `AD` 라벨을 넣지 않는다. 재확인은 끝났다(ADR-0004).
 - 광고가 없을 때 빈 자리 유지 금지.

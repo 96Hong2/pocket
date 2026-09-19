@@ -321,20 +321,23 @@
   }
 
   .tx-edit__day-label {
-    flex: 1;
+    flex: none;
     font-size: var(--text-13);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
   }
 
+  /* 줄의 남은 자리를 칸이 다 가져간다. 그래야 줄 전체가 눌린다. */
   .tx-edit__day-input {
-    flex: none;
+    flex: 1;
+    min-width: 0;
     border: 0;
     background: transparent;
     font-family: inherit;
     font-size: var(--text-14);
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
+    text-align: right;
   }
 
   .tx-edit__fields {

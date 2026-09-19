@@ -68,7 +68,13 @@ async function runGate(
   if (outcome.result !== 'watched') return outcome;
 
   watchedThisSession += 1;
-  await writeDayCount(store, countedToday(record, today));
+  /*
+    날짜를 **다시 잰다.** 광고는 몇 초 걸린다. 23시 59분에 시작해 자정을 넘겨 닫힌 한 편을
+    어제 칸에 세면, 그 사람은 새 날 첫 1분에 상한 하나를 이미 쓴 셈이 된다.
+  */
+  const closedOn = toLedgerDate(new Date());
+  const current = closedOn === today ? record : await readDayCount(store);
+  await writeDayCount(store, countedToday(current, closedOn));
   return outcome;
 }
 

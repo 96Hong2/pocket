@@ -586,22 +586,45 @@
     background: var(--color-sage-50);
   }
 
+  .home-ask__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .home-ask__text {
+    flex: 1;
     margin: 0;
     font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
     color: var(--color-sage-800);
   }
 
-  .home-ask__text b {
-    font-weight: var(--font-weight-bold);
+  .home-ask__close {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    margin: -6px -6px -6px 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-muted);
   }
 
   .home-ask__actions {
     display: flex;
+    align-items: stretch;
     gap: 8px;
   }
 
+  /*
+    둘을 같은 크기로 세운다. 변형마다 높이가 달라(44·48·52) 그대로 두면 바닥이 어긋난다.
+    좁은 화면에서 날짜가 길어져도 넘치지 않게 폭도 같이 나눈다.
+  */
   .home-ask__actions > * {
     flex: 1;
+    min-width: 0;
+    height: 48px;
   }
 }

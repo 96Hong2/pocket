@@ -36,7 +36,11 @@ import { TagPicker } from '../tags';
 const MONTHS_BACK = 36;
 
 function oldestDay(): string {
-  return `${shiftMonth(toLedgerDate(new Date()).slice(0, 7), -MONTHS_BACK)}-01`;
+  return `${shiftMonth(todayIso().slice(0, 7), -MONTHS_BACK)}-01`;
+}
+
+function todayIso(): string {
+  return toLedgerDate(new Date());
 }
 
 /**
@@ -298,8 +302,10 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
             className="tx-edit__day-input"
             type="date"
             value={day}
-            min={oldestDay()}
-            max={toLedgerDate(new Date())}
+            min={savedDay < oldestDay() ? savedDay : oldestDay()}
+            // 아직 오지 않은 날에는 적을 것이 없다. 다만 읽어 온 것에 앞날이 섞여 들어온
+            // 기록은 그 값을 그대로 보여 준다. 칸이 빨갛게 서면 고칠 수도 없다.
+            max={savedDay > todayIso() ? savedDay : todayIso()}
             disabled={busy}
             // 달력을 열었다 비운 채로 닫는 기기가 있다. 비면 적혀 있던 날로 되돌린다.
             onChange={(event) => setDay(event.target.value === '' ? savedDay : event.target.value)}

@@ -131,10 +131,11 @@ test('홈에서 줄을 눌러 날짜를 옮기면 그 날로 간다', async ({ h
 });
 
 test('달력에서도 수정 시트로 날짜를 옮긴다', async ({ calendar, prep }) => {
+  const AMOUNT = 5_500;
   const today = toLedgerDate(new Date());
   const target = ledgerDay(-2);
 
-  await prep.addTransaction({ amount: 5_500, merchant: '편의점', on: today });
+  await prep.addTransaction({ amount: AMOUNT, merchant: '편의점', on: today });
   await calendar.open();
   await calendar.waitReady();
   await calendar.list.pick('편의점');
@@ -144,6 +145,11 @@ test('달력에서도 수정 시트로 날짜를 옮긴다', async ({ calendar, 
   await calendar.edit.done();
   await calendar.edit.waitClosed();
 
-  await calendar.grid.select(calendar.grid.cellName(target));
+  /*
+    옮긴 날 칸의 이름에 **그 금액까지** 들어 있어야 한다. 금액 없이 찾으면 달력이 아직
+    옛 합계를 들고 있는 순간에만 맞아, 느린 기계에서만 빨개진다(CI 에서 그랬다).
+  */
+  await calendar.grid.select(calendar.grid.cellName(target, { expense: AMOUNT }));
   await expect(calendar.list.row('편의점')).toBeVisible();
+  await expect(calendar.list.dayTotal).toHaveText(formatCurrency(AMOUNT));
 });

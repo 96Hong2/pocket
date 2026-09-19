@@ -14,6 +14,8 @@
 
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
+import { toLedgerDate } from '../lib/format';
+
 import type { MonthParams } from './client';
 import { useApiClient } from './context';
 import { moneyQueryKeys, queryKeys } from './queryKeys';
@@ -63,6 +65,14 @@ function writeBudgetState(
   params?: MonthParams,
 ): void {
   if (next == null) return;
+  /*
+    **응답이 말하는 달과 보고 있는 달이 다르면 쓰지 않는다.**
+
+    수정 시트에서 날짜를 다른 달로 옮기면 서버는 **옮겨 간 달**의 예산으로 답한다.
+    그것을 보고 있던 달 자리에 그대로 넣으면, 홈 히어로에 지난달 남은 돈과 남은 날이
+    박힌 채로 재조회가 올 때까지 서 있는다. 무효화는 이미 뒤따라 돈다.
+  */
+  if (!sameMonth(next, params)) return;
 
   queryClient.setQueryData<BudgetOut>(queryKeys.budget(params), (prev) =>
     prev == null ? prev : { ...prev, budget: next },
@@ -70,6 +80,18 @@ function writeBudgetState(
   queryClient.setQueryData<PeriodSummaryOut>(queryKeys.summary(params), (prev) =>
     prev == null ? prev : { ...prev, budget: next },
   );
+}
+
+/**
+ * 서버가 답한 예산이 지금 보고 있는 달의 것인가.
+ *
+ * `params` 가 없으면 보고 있는 것은 이번 달이다. 응답의 `period_start` 는 그 달 1일이라
+ * 앞 일곱 글자(`2026-09`)만 견준다. 기간이 달이 아닌 판이 오면 그때 이 함수를 고친다.
+ */
+function sameMonth(next: BudgetStateOut, params?: MonthParams): boolean {
+  const answered = next.period_start.slice(0, 7);
+  if (params == null) return answered === toLedgerDate(new Date()).slice(0, 7);
+  return answered === `${params.year}-${String(params.month).padStart(2, '0')}`;
 }
 
 /** 돈에 얽힌 캐시를 전부 낡은 것으로 표시한다. 화면에 떠 있는 것은 바로 다시 받는다. */

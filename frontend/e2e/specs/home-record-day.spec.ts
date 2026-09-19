@@ -100,13 +100,13 @@ test('지난 날을 보는 중에 큰 기록하기를 누르면 어느 날에 �
   await expect(recordSheet.isVisible).resolves.toBe(false);
 
   // 그만두면 아무 일도 없다.
-  await home.recordDayChoice('그만두기').click();
+  await home.recordDayClose.click();
   await expect(home.recordDayAsk).toHaveCount(0);
   await expect(recordSheet.isVisible).resolves.toBe(false);
 
   // 어제를 고르면 어제에 적는다. 시트가 어느 날인지 적어 준다.
   await home.recordButton.click();
-  await home.recordDayChoice('어제로').click();
+  await home.recordDayChoice('어제').click();
   await recordSheet.waitOpen();
   await expect(recordSheet.input.dayNotice).toHaveText('어제에 적어요');
   await recordSheet.input.enterAmount(4500);
@@ -129,7 +129,7 @@ test('물음에서 오늘을 고르면 오늘에 적히고 방식도 고를 수 
   await expect(home.today.title).toHaveText('어제');
 
   await home.recordButton.click();
-  await home.recordDayChoice('오늘로').click();
+  await home.recordDayChoice('오늘').click();
   await recordSheet.waitOpen();
   await expect(recordSheet.input.dayNotice).toHaveCount(0);
   // 오늘로 갔으면 날이 붙은 버튼으로 들어온 것이 아니라 방식 알약이 그대로 있다.

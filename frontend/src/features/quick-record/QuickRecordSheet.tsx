@@ -233,7 +233,7 @@ function RecordBody({
   day?: string;
   from: RecordFrom;
   onDone: () => void;
-  /** 저장이 끝난 날. 부르는 쪽이 그 날로 옮겨 간다. */
+  /** 저장이 끝난 날. 부르는 쪽이 그 날로 옮겨 간다. 오늘을 넘지 않는다. */
   onRecorded?: (day: string) => void;
   onSavingChange: (saving: boolean) => void;
   /** 어느 탭에서든 읽어 두고 아직 저장 안 한 건수의 합. */
@@ -249,12 +249,7 @@ function RecordBody({
   const dayId = useId();
 
   const today = toLedgerDate(new Date());
-  /*
-    이름에 날이 붙은 버튼(「어제 기록하기」·달력의 그 날)으로 열었나.
-
-    이 값은 **열 때 한 번 정해지고 안 변한다.** 방식을 고르는 자리를 둘지가 여기 달렸다.
-    고른 날은 키패드에만 붙고 줄글·캡처·영수증은 읽은 내용에서 날짜가 나오기 때문이다.
-  */
+  /** 이름에 날이 붙은 버튼(「어제 기록하기」·달력의 그 날)으로 열었나. 처음 켜 둘 탭만 정한다. */
   const openedOnPastDay = day != null && day !== today;
 
   /*
@@ -278,15 +273,15 @@ function RecordBody({
   const [flowId] = useState(() => analytics.startFlow());
 
   /*
-    이름에 날이 붙은 버튼으로 들어왔으면 **키패드 하나만 연다.**
+    지난 날에 적는 중이면 **키패드로만 적는다.**
 
     고른 날은 키패드에만 붙는다. 줄글·캡처·영수증은 읽은 내용에서 날짜가 나오기 때문이다.
-    그런데 시트가 마지막에 쓴 방식으로 열려서, 줄글을 마지막에 썼으면 「9월 5일 기록하기」
-    를 눌러도 줄글 탭이 열리고 고른 날이 말없이 버려졌다. 사용자가 신고한 그 버그가
-    다른 길로 살아 있었다.
+    시트가 마지막에 쓴 방식으로 열려서, 줄글을 마지막에 썼으면 「9월 5일 기록하기」 를
+    눌러도 줄글 탭이 열리고 고른 날이 말없이 버려졌다. 사용자가 신고한 그 버그다.
 
-    시트 안에서 날짜를 바꾼 경우는 다르다. 거기서는 방식 알약을 **없애지 않고 잠근다.**
-    없애면 줄글에 적어 두던 것이 통째로 사라지고, 날짜를 오늘로 되돌려도 안 돌아온다.
+    **없애지 않고 잠근다.** 규칙을 하나로 둔다: 지난 날이면 잠기고 오늘로 되돌리면 풀린다.
+    없애 버리면 들어온 길에 따라 같은 상태가 「자리 없음」 과 「잠김」 으로 갈리고,
+    줄글에 적어 두던 것도 통째로 사라져 날짜를 되돌려도 안 돌아온다.
   */
   const [tab, setTab] = useState<RecordTab>(
     openedOnPastDay ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB),
@@ -328,6 +323,17 @@ function RecordBody({
   useEffect(() => {
     onReviewingChange(reviewing);
   }, [onReviewingChange, reviewing]);
+
+  /**
+   * 적힌 날을 부르는 쪽에 알린다.
+   *
+   * **오늘을 넘지 않는다.** 읽어 온 것에 앞날이 섞여 있을 수 있는데(화면이 확인만 시키고
+   * 막지는 않는다), 그 날로 옮겨 가면 목록이 아직 오지 않은 날에 서고 거기서 더 앞으로
+   * 걸어갈 수 있다.
+   */
+  function tellRecorded(savedDay: string): void {
+    onRecorded?.(savedDay > today ? today : savedDay);
+  }
 
   /** 그 탭이 지금 몇 건을 들고 있는지 적어 둔다. 같은 값이면 그대로 두어 다시 그리지 않는다. */
   function trackReview(key: RecordTab) {
@@ -486,14 +492,15 @@ function RecordBody({
               result: 'ok',
               created_count: 1,
               elapsed_ms: Date.now() - startedAt,
-              // 시트 안에서 날짜를 바꿔 적었나. 이 칸이 쓰이는지 여기서만 갈린다.
-              backfill: isBackfill,
+              // 오늘이 아닌 날에 적었나. `record_started` 의 `backfill`(열 때 지난 날이었나)과
+              // 뜻이 달라 이름을 가른다. 둘을 견주면 「날짜」 칸이 실제로 쓰이는지 갈린다.
+              day_moved: isBackfill,
             },
             { flowId },
           );
           rememberMethod();
           markRecorded();
-          onRecorded?.(toLedgerDate(new Date(created.transaction.occurred_at)));
+          tellRecorded(toLedgerDate(new Date(created.transaction.occurred_at)));
           setSaved({ transaction: created.transaction, feedback: created.feedback });
         },
       },
@@ -541,90 +548,95 @@ function RecordBody({
 
   return (
     <div className="record">
-      {/*
-        이름에 날이 붙은 버튼으로 들어왔으면 방식을 고르지 않는다. 고른 날을 잃을 길을
-        아예 두지 않는다. 시트 안에서 날짜를 지난 날로 바꿨을 때는 자리를 없애는 대신
-        **잠근다.** 없애면 줄글에 적어 두던 것이 통째로 사라지고, 날짜를 되돌려도 안 돌아온다.
-      */}
-      {openedOnPastDay || done ? null : (
-        <SegmentedControl
-          className="record__tabs"
-          options={TABS.map((option) =>
-            option.value === tab
-              ? option
-              : { ...option, disabled: option.disabled || busy || isBackfill },
-          )}
-          value={tab}
-          onChange={(next) => {
-            analytics.log(
-              EVENTS.inputMethodChanged,
-              { from: recordMethodOf(tab), to: recordMethodOf(next) },
-              { flowId, kind: 'click' },
-            );
-            setTab(next);
-          }}
-          ariaLabel="기록 방법"
-        />
+      {done ? null : (
+        <>
+          <SegmentedControl
+            className="record__tabs"
+            options={TABS.map((option) =>
+              option.value === tab
+                ? option
+                : { ...option, disabled: option.disabled || busy || isBackfill },
+            )}
+            value={tab}
+            onChange={(next) => {
+              analytics.log(
+                EVENTS.inputMethodChanged,
+                { from: recordMethodOf(tab), to: recordMethodOf(next) },
+                { flowId, kind: 'click' },
+              );
+              setTab(next);
+            }}
+            ariaLabel="기록 방법"
+          />
+          {/*
+            잠긴 이유는 **잠긴 것 바로 아래**에 적는다. 멀리 두면 눌리지 않는 자리를
+            말없이 둔 것과 같다. 눌러도 초점이 안 가는 자리라 읽는 프로그램에는 이 줄이
+            유일한 통로다. 잠기는 순간 한 번 읽히게 알린다.
+          */}
+          {isBackfill ? (
+            <p className="record__hint" role="status">
+              오늘이 아닌 날은 키패드로만 적어요
+            </p>
+          ) : null}
+        </>
       )}
 
       {/*
         감추기만 하고 남겨 둔다. 언마운트하면 적어 둔 줄글과 검토 목록이 사라진다.
-        **지난 날에 적는 중에는 아예 안 그린다.** 갈 수 없는 자리를 DOM 에 두면
-        읽는 프로그램에는 잡히고, 나중에 누군가 그 자리를 다시 열어 놓기 쉽다.
+        지난 날에 적는 중이라 알약이 잠겨 있어도 마찬가지다. 날짜를 오늘로 되돌리면
+        적어 두던 것이 그대로 있어야 한다.
       */}
-      {openedOnPastDay ? null : (
-        <>
-          <div className="record__panel" hidden={done || tab !== 'nl'}>
-            <NaturalLanguageTab
-              flowId={flowId}
-              onBusyChange={markBusy}
-              onReviewChange={trackReview('nl')}
-              onDone={finish}
-              onSaved={(savedDay) => {
-                rememberMethod();
-                markRecorded();
-                if (savedDay != null) onRecorded?.(savedDay);
-              }}
-            />
-          </div>
+      <>
+        <div className="record__panel" hidden={done || tab !== 'nl'}>
+          <NaturalLanguageTab
+            flowId={flowId}
+            onBusyChange={markBusy}
+            onReviewChange={trackReview('nl')}
+            onDone={finish}
+            onSaved={(savedDay) => {
+              rememberMethod();
+              markRecorded();
+              if (savedDay != null) tellRecorded(savedDay);
+            }}
+          />
+        </div>
 
-          <div className="record__panel" hidden={done || tab !== 'capture'}>
-            <ImageImportTab
-              kind="capture"
-              flowId={flowId}
-              onBusyChange={markBusy}
-              onReviewChange={trackReview('capture')}
-              onDone={finish}
-              onSaved={(savedDay) => {
-                rememberMethod();
-                markRecorded();
-                if (savedDay != null) onRecorded?.(savedDay);
-              }}
-            />
-          </div>
+        <div className="record__panel" hidden={done || tab !== 'capture'}>
+          <ImageImportTab
+            kind="capture"
+            flowId={flowId}
+            onBusyChange={markBusy}
+            onReviewChange={trackReview('capture')}
+            onDone={finish}
+            onSaved={(savedDay) => {
+              rememberMethod();
+              markRecorded();
+              if (savedDay != null) tellRecorded(savedDay);
+            }}
+          />
+        </div>
 
-          <div className="record__panel" hidden={done || tab !== 'receipt'}>
-            <ImageImportTab
-              kind="receipt"
-              flowId={flowId}
-              onBusyChange={markBusy}
-              onReviewChange={trackReview('receipt')}
-              onDone={finish}
-              onSaved={(savedDay) => {
-                rememberMethod();
-                markRecorded();
-                if (savedDay != null) onRecorded?.(savedDay);
-              }}
-              // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
-              fallbackAction={
-                <Button variant="ghost" onClick={() => setTab('keypad')}>
-                  키패드로 입력
-                </Button>
-              }
-            />
-          </div>
-        </>
-      )}
+        <div className="record__panel" hidden={done || tab !== 'receipt'}>
+          <ImageImportTab
+            kind="receipt"
+            flowId={flowId}
+            onBusyChange={markBusy}
+            onReviewChange={trackReview('receipt')}
+            onDone={finish}
+            onSaved={(savedDay) => {
+              rememberMethod();
+              markRecorded();
+              if (savedDay != null) tellRecorded(savedDay);
+            }}
+            // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
+            fallbackAction={
+              <Button variant="ghost" onClick={() => setTab('keypad')}>
+                키패드로 입력
+              </Button>
+            }
+          />
+        </div>
+      </>
 
       {/*
         저장 뒤 확인 화면. 다른 탭과 나란히 서서, 여기 떠 있는 동안에도 그쪽이 들고 있는
@@ -677,7 +689,7 @@ function RecordBody({
           */}
           <div className="record__date">
             <label className="record__date-label" htmlFor={dayId}>
-              적을 날
+              날짜
             </label>
             <input
               id={dayId}
@@ -693,14 +705,6 @@ function RecordBody({
               }
             />
           </div>
-
-          {/*
-            방식 알약을 잠근 이유를 그 자리에서 말한다. 눌리지 않는 자리를 말없이 두면
-            고장으로 읽힌다. 날이 붙은 버튼으로 들어왔으면 알약 자체가 없어 안 적는다.
-          */}
-          {isBackfill && !openedOnPastDay ? (
-            <p className="record__hint">지난 날은 키패드로만 적어요</p>
-          ) : null}
 
           {/* 오늘이 아니면 어느 날인지 한글로 한 번 더 말한다. 칸의 숫자 형식은 기기마다 다르다. */}
           {backfillLabel ? (

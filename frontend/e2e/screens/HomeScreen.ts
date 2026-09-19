@@ -69,12 +69,17 @@ export class HomeScreen {
    * 오늘을 보고 있을 때는 아예 없다. 있으면 기록이 늘 한 번 더 묻는 일이 된다.
    */
   get recordDayAsk(): Locator {
-    return this.page.getByRole('group', { name: '어느 날에 적을까요' });
+    return this.page.getByRole('alertdialog', { name: '어느 날에 적을까요' });
   }
 
-  /** 그 물음의 버튼. 「오늘로」·「어제로」·「9월 14일로」·「그만두기」. */
+  /** 그 물음의 날짜 버튼. 「오늘」·「어제」·「9월 14일」. */
   recordDayChoice(label: string): Locator {
     return this.recordDayAsk.getByRole('button', { name: label, exact: true });
+  }
+
+  /** 묻던 것을 접는 ✕. 「그만두기」 라고 적으면 읽어 온 것을 버리는 그 버튼과 겹친다. */
+  get recordDayClose(): Locator {
+    return this.recordDayAsk.getByRole('button', { name: '묻는 것 닫기', exact: true });
   }
 
   get recordButton(): Locator {

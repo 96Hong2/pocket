@@ -32,6 +32,7 @@
 | 남에게 알릴 만하다고 느끼나 | `share_result` · `share_card_dismissed` | 누른 자리(`home`·`goal`·`goal_done`·`manage`·`manage_past`·`closing`), 갈래(`app`·`goal`·`goal_done`·`budget`·`closing`), 성공·실패와 실패 코드. **보낸 글은 싣지 않는다** |
 | 미리 적어 둔 돈을 실제로 적나 | `recurring_result` | 적었나(`recorded`)·미뤘나(`dismissed`), 전날인가 당일인가(`eve`·`today`). **항목 이름과 금액은 싣지 않는다** |
 | 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
+| 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(`budget_calc`·`closing`·`assets`·`report_months`)와 결과(`watched`·`skipped`), 지나간 이유(`no_group`·`unsupported`·`failed`·**`capped`**) |
 
 `review_finished` 는 「5건 중 날짜 2건·금액 1건 고침」 까지만 남긴다.
 그 날짜가 무엇이었고 금액이 얼마였는지는 남기지 않는다.
@@ -76,10 +77,19 @@
 로 연 사람의 그 비율을 견줘야 한다. 둘이 같으면 광고가 방해가 아니고, `watched` 쪽이 낮으면
 5초가 사람을 돌려보내는 것이다. `skipped` 의 `reason` 이 `failed` 로 몰리면 광고 자리 사정이다.
 
+**`interstitial_result` 는 자리마다 따로 봐야 한다.** 전면 광고는 사람을 멈춰 세우는
+장치라, 한 자리가 성가시면 앱 전체가 성가신 것으로 기억된다. 그 자리에서 하려던 일을 끝낸
+비율이 광고 없이 지나간 사람보다 눈에 띄게 낮으면 그 자리가 잘못 놓인 것이다. `capped` 는
+상한(한 세션 1회 · 하루 2회)에 걸려 아예 안 부른 것이다. 이 값이 많으면 자리를 더 늘릴 것이
+아니라 상한을 다시 볼 때다.
+
 **`record_started` 의 `from` 이 입구 셋의 성적표다.** 홈 가운데 큰 버튼(`home`), 홈 목록의
 빈 날 버튼(`home_day`), 월간 달력에서 고른 날(`calendar_day`) 셋이 있다. 달력에서 적는 길은
 「지난 날 하나를 빠뜨린 것을 달력에서 발견한다」 는 가정으로 낸 것이라, 그 가정이 틀렸으면
 버튼 하나를 덜어낼 수 있다. `backfill` 이 함께 있어야 지난 날에만 나는 실수를 가려낸다.
+`record_started` 의 `backfill` 은 **열 때** 지난 날이었나고, `save_result` 의 `day_moved` 는
+**실제로 오늘이 아닌 날에** 적었나다. 뜻이 달라 이름을 갈랐다. 둘을 견주면 새로 낸
+「날짜」 칸이 실제로 쓰이는지 갈린다.
 
 **`record_changed` 의 `delete_asked` 대비 `delete` 가 삭제 확인의 성적표다.** 되돌릴 수 없는
 유일한 동작이라 한 번 묻는데, `delete_cancelled` 가 잦으면 그 물음이 실제로 사고를 막고 있는

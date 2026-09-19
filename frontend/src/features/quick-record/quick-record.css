@@ -62,20 +62,26 @@
   }
 
   .record__date-label {
-    flex: 1;
+    flex: none;
     font-size: var(--text-13);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
   }
 
+  /*
+    칸이 줄의 남은 자리를 다 차지한다. `flex: none` 으로 두면 실제로 눌리는 곳이
+    오른쪽 날짜 글자뿐이라, 44px 짜리 줄이 눈속임이 된다.
+  */
   .record__date-input {
-    flex: none;
+    flex: 1;
+    min-width: 0;
     border: 0;
     background: transparent;
     font-family: inherit;
     font-size: var(--text-14);
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
+    text-align: right;
   }
 
   /* 칸 아래 한 줄짜리 안내. 잠긴 이유처럼 상황에 따라만 선다. */
