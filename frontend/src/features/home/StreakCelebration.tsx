@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { useBridge, useOverlayBackClose } from '../../app/providers';
+import { useBridge, useOverlay, useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   STREAK_FOOT,
@@ -44,12 +44,19 @@ export interface StreakCelebrationProps {
  */
 export function StreakCelebration({ streak, blocked }: StreakCelebrationProps) {
   const bridge = useBridge();
+  const overlay = useOverlay();
   const milestone = streak == null ? null : reachedMilestone(streak.days);
   const token = streak == null || milestone == null ? null : celebrationToken(streak, milestone);
   // 표를 읽기 전(undefined)에는 띄우지 않는다. 읽는 사이에 떴다 사라지면 더 이상하다.
   const [celebrated, setCelebrated] = useState<string | null | undefined>(undefined);
   // 이 화면에서 닫은 것. 저장이 막힌 기기에서도 닫은 뒤에 다시 뜨지 않게 한다.
   const [closed, setClosed] = useState<string | null>(null);
+  /*
+    띄운 표. **한 번 띄우면 다른 창 신호로 도로 접지 않는다.** 이 대화상자도 뒤로가기를
+    가져가려고 오버레이로 등록되므로, 띄운 순간 `hasOpen` 이 켜진다. 그걸 보고 접으면
+    떴다 사라지기를 되풀이한다.
+  */
+  const [shown, setShown] = useState<string | null>(null);
 
   useEffect(() => {
     if (token == null) return;
@@ -65,10 +72,18 @@ export function StreakCelebration({ streak, blocked }: StreakCelebrationProps) {
   // 홈이 다시 그려질 때마다 새 함수가 가면 대화상자가 초점을 제 몸으로 도로 끌어간다.
   const close = useCallback(() => setClosed(token), [token]);
 
-  if (token == null || milestone == null || celebrated === undefined) return null;
-  if (celebrated === token || closed === token || blocked) return null;
+  const ready =
+    token != null && celebrated !== undefined && celebrated !== token && closed !== token;
+  /*
+    홈 카드 안에서 열리는 시트(홈 화면 추가, 생활비 계산기)는 홈이 모른다. 그런 창도
+    뒤로가기 목록에는 올라 있으니 `hasOpen` 으로 함께 기다린다.
+  */
+  if (ready && shown !== token && !blocked && !overlay.hasOpen) setShown(token);
 
-  return <StreakDialog token={token} milestone={milestone} onClose={close} />;
+  if (!ready || milestone == null || shown !== token) return null;
+
+  // 표가 바뀌면 새로 띄운다. 같은 대화상자를 다시 쓰면 7일 로그를 남긴 표시가 14일까지 따라간다.
+  return <StreakDialog key={token} token={token} milestone={milestone} onClose={close} />;
 }
 
 function StreakDialog({
