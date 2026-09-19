@@ -15,6 +15,7 @@ export {
   type HomeView,
   type HomeViewInput,
 } from './homeMode';
+export { RecordDayAsk } from './RecordDayAsk';
 export { RecoveryCard } from './RecoveryCard';
 export { ShareAppCard } from './ShareAppCard';
 export { TodayList } from './TodayList';

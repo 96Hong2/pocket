@@ -84,23 +84,72 @@ test('오늘 기록하기는 오늘에 남고 날짜 안내가 없다', async ({
   await expect(home.today.emptyButton).toHaveCount(0);
 });
 
-test('위의 큰 기록하기는 어제를 보고 있어도 오늘에 적는다', async ({ home, recordSheet }) => {
+test('지난 날을 보는 중에 큰 기록하기를 누르면 어느 날에 적을지 먼저 묻는다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.today.prevDayButton.click();
+  await expect(home.today.title).toHaveText('어제');
+
+  // 바로 열리지 않는다. 이 버튼은 늘 오늘에 적는데, 며칠 전을 훑다 누른 사람은
+  // 보고 있던 날에 적힐 것이라고 여긴다.
+  await home.recordButton.click();
+  await expect(home.recordDayAsk).toBeVisible();
+  await expect(recordSheet.isVisible).resolves.toBe(false);
+
+  // 그만두면 아무 일도 없다.
+  await home.recordDayClose.click();
+  await expect(home.recordDayAsk).toHaveCount(0);
+  await expect(recordSheet.isVisible).resolves.toBe(false);
+
+  // 어제를 고르면 어제에 적는다. 시트가 어느 날인지 적어 준다.
+  await home.recordButton.click();
+  await home.recordDayChoice('어제').click();
+  await recordSheet.waitOpen();
+  await expect(recordSheet.input.dayNotice).toHaveText('어제에 적어요');
+  await recordSheet.input.enterAmount(4500);
+  await recordSheet.input.pickCategory('식비');
+  await recordSheet.feedback.waitSaved();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  await expect(home.today.title).toHaveText('어제');
+  await expect(home.today.row('식비')).toBeVisible();
+});
+
+test('물음에서 오늘을 고르면 오늘에 적히고 방식도 고를 수 있다', async ({
+  home,
+  recordSheet,
+}) => {
   await home.open();
   await home.waitReady();
   await home.today.prevDayButton.click();
   await expect(home.today.title).toHaveText('어제');
 
   await home.recordButton.click();
+  await home.recordDayChoice('오늘').click();
   await recordSheet.waitOpen();
   await expect(recordSheet.input.dayNotice).toHaveCount(0);
+  // 오늘로 갔으면 날이 붙은 버튼으로 들어온 것이 아니라 방식 알약이 그대로 있다.
+  await expect(recordSheet.methodTab('줄글')).toBeEnabled();
+
   await recordSheet.input.enterAmount(3000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
 
-  // 어제는 그대로 비어 있고, 오늘로 가면 있다
-  await expect(home.today.emptyButton).toBeVisible();
-  await home.today.jumpTodayButton.click();
+  /*
+    적고 나면 **적힌 날이 눈앞에 선다.** 어제를 보던 사람에게 오늘 것을 적어 놓고
+    화면은 어제에 두면, 들어간 것인지 아닌지를 화살표로 찾아가 봐야 안다.
+  */
+  await expect(home.today.title).toHaveText('오늘');
   await expect(home.today.emptyButton).toHaveCount(0);
+
+  // 보고 있던 어제에 잘못 적히지 않았다. 큰 버튼은 늘 오늘에 적는다.
+  await home.today.prevDayButton.click();
+  await expect(home.today.title).toHaveText('어제');
+  await expect(home.today.emptyButton).toBeVisible();
 });

@@ -181,6 +181,20 @@ class RecordInput {
     return this.root.getByText(/에 적어요$/);
   }
 
+  /** 적을 날을 고르는 칸. 지난 날 것을 찾아가지 않고 여기서 바로 바꾼다. */
+  get dayField(): Locator {
+    return this.root.getByLabel('날짜');
+  }
+
+  /**
+   * 방식 알약이 왜 잠겼는지 말하는 한 줄. 알약 **바로 아래**에 선다.
+   *
+   * 잠긴 버튼은 초점을 못 받아, 읽는 프로그램에는 이 줄이 이유에 닿는 유일한 길이다.
+   */
+  get dayLockNotice(): Locator {
+    return this.root.getByText('오늘이 아닌 날은 키패드로만 적어요', { exact: true });
+  }
+
   /** 저장이 실패했을 때 뜨는 안내. */
   get notice(): Locator {
     return this.root.getByRole('alert');

@@ -1,15 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
 import { ROUTES } from '../app/router/routes';
-import { AdSlot } from '../features/ads';
+import { AdSlot, useInterstitial } from '../features/ads';
 import { MonthlyReport } from '../features/reports';
 import { toLedgerDate } from '../shared/lib/format';
 import { CalendarGlyph } from '../shared/ui';
 
 /** `2026-08` 모양인지. 홈 카드가 붙여 준 값이라 아무 문자열이나 들어올 수 있다. */
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/**
+ * 옛날 달을 몇 번 훑으면 전면 광고 한 편이 서나.
+ *
+ * 한두 번은 무언가를 확인하러 온 것이라 막으면 안 된다. 세 번째부터는 목적 없이 훑는
+ * 쪽에 가깝고, 그런 시간은 잠깐 멈춰도 덜 억울하다.
+ */
+const MONTH_MOVES_BEFORE_AD = 3;
 
 /** 리포트 탭. 그 달에 어디로 얼마나 갔는지 한 화면에서 본다. */
 export default function ReportPage() {
@@ -25,12 +33,23 @@ export default function ReportPage() {
   // 사용자가 누르지도 않은 전체화면 결산이 다시 뜬다.
   const [openClosing, setOpenClosing] = useState(() => params.get('closing') === '1');
   const consumeClosing = useCallback(() => setOpenClosing(false), []);
+  // 객체가 아니라 함수만 받는다. 객체는 광고가 뜨는 동안 새로 만들어진다.
+  const { show } = useInterstitial();
+  const moves = useRef(0);
   // 달을 옮기면 부탁도 접는다. 로딩 중에는 결산 자리가 아직 없어서 부탁을 못 쓴 채로
   // 달만 바뀔 수 있는데, 그러면 엉뚱한 달의 결산이 저절로 열린다.
-  const changeMonth = useCallback((next: string) => {
-    setMonth(next);
-    setOpenClosing(false);
-  }, []);
+  const changeMonth = useCallback(
+    (next: string) => {
+      setMonth(next);
+      setOpenClosing(false);
+      // 달은 먼저 바뀐다. 광고를 기다렸다 옮기면 누른 것이 안 먹은 것처럼 보인다.
+      moves.current += 1;
+      if (moves.current === MONTH_MOVES_BEFORE_AD) {
+        void show('report_months', { oncePerSession: true });
+      }
+    },
+    [show],
+  );
 
   // 다 쓴 부탁은 주소에서도 지운다. 히스토리에는 남기지 않는다. 남기면 뒤로가기로
   // 그 주소에 되돌아왔을 때 또 열린다.

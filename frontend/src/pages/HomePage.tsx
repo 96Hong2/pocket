@@ -12,6 +12,7 @@ import {
   GoalDoneCard,
   GoalStatusCard,
   HomeHero,
+  RecordDayAsk,
   RecoveryCard,
   ShareAppCard,
   TodayList,
@@ -58,12 +59,22 @@ function RecordButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) => void }) {
+function HomeContent({
+  day,
+  onDayChange,
+  onRecord,
+}: {
+  /** 아래 목록이 보고 있는 날. 기록 시트가 저장한 날로 옮길 수 있어야 해서 밖에서 들고 있다. */
+  day: string;
+  onDayChange: (day: string) => void;
+  onRecord: (tab: RecordTab, day?: string) => void;
+}) {
   const { state } = useIdentity();
   // 홈에서 바로 고친다. 여기서 못 고치면 달력까지 들어가야 해서 아무도 안 고친다.
   const [editing, setEditing] = useState<TransactionOut | null>(null);
-  // 아래 목록이 보고 있는 날. 오늘로 열고 화살표로 옮긴다.
-  const [day, setDay] = useState(() => toLedgerDate(new Date()));
+  const today = toLedgerDate(new Date());
+  /** 지난 날을 보는 중에 큰 버튼을 눌렀나. 어느 날에 적을지 묻는 자리가 펴진다. */
+  const [asking, setAsking] = useState(false);
   const budget = useBudget();
   const categories = useCategories();
   /*
@@ -175,10 +186,36 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
       {/*
         마지막에 쓴 방식으로 연다. 설정이 아직 안 왔으면 기다리지 않고 키패드로 연다.
         시트가 늦게 열리면 10초 안에 적는다는 약속부터 깨진다.
+
+        **지난 날을 보고 있으면 먼저 묻는다.** 이 버튼은 늘 오늘에 적는데, 며칠 전을
+        훑다가 누른 사람은 보고 있던 날에 적힐 것이라고 여긴다. 적고 나서야 알면
+        지우고 다시 적는 수밖에 없다.
       */}
       <RecordButton
-        onClick={() => onRecord(resolveRecordTab(preferences.data?.last_record_method))}
+        onClick={() => {
+          const tab = resolveRecordTab(preferences.data?.last_record_method);
+          if (day === today) {
+            onRecord(tab);
+            return;
+          }
+          setAsking(true);
+        }}
       />
+
+      {asking ? (
+        <RecordDayAsk
+          day={day}
+          today={today}
+          onCancel={() => setAsking(false)}
+          onPick={(picked) => {
+            setAsking(false);
+            const tab = resolveRecordTab(preferences.data?.last_record_method);
+            // 오늘을 골랐으면 날을 안 넘긴다. 넘기면 「이름에 날이 붙은 버튼」 으로 취급돼
+            // 방식 알약이 사라진다.
+            onRecord(tab, picked === today ? undefined : picked);
+          }}
+        />
+      ) : null}
 
       {/*
         곧 나갈 돈. 스스로 나타나는 카드 중에서도 **이것이 맨 위**다.
@@ -229,7 +266,11 @@ function HomeContent({ onRecord }: { onRecord: (tab: RecordTab, day?: string) =>
 
       <TodayList
         day={day}
-        onDayChange={setDay}
+        // 날을 옮기면 묻던 것도 접는다. 답이 다른 날에 붙으면 안 된다.
+        onDayChange={(next) => {
+          setAsking(false);
+          onDayChange(next);
+        }}
         transactions={transactions.data?.items ?? []}
         categories={categories.data?.items ?? []}
         loading={transactions.isPending || categories.isPending}
@@ -270,10 +311,16 @@ export default function HomePage() {
     open: false,
     tab: DEFAULT_RECORD_TAB,
   });
+  // 아래 목록이 보고 있는 날. 오늘로 열고 화살표로 옮긴다.
+  const [day, setDay] = useState(() => toLedgerDate(new Date()));
   return (
     <div className="page home">
       <IdentityNotice />
-      <HomeContent onRecord={(tab, day) => setSheet({ open: true, tab, day })} />
+      <HomeContent
+        day={day}
+        onDayChange={setDay}
+        onRecord={(tab, pickedDay) => setSheet({ open: true, tab, day: pickedDay })}
+      />
       <div className="home__tail" />
       <QuickRecordSheet
         open={sheet.open}
@@ -281,6 +328,12 @@ export default function HomePage() {
         day={sheet.day}
         from={sheet.day == null ? 'home' : 'home_day'}
         onClose={() => setSheet((prev) => ({ ...prev, open: false }))}
+        /*
+          적힌 날로 목록을 옮긴다. 지난 달 영수증을 읽어 넣고 시트를 닫았는데 화면이
+          오늘에 머물러 「오늘은 안 썼어요」 라고 적혀 있으면, 들어갔는지 아닌지를
+          그 날짜를 찾아가 봐야 안다.
+        */
+        onRecorded={setDay}
       />
     </div>
   );

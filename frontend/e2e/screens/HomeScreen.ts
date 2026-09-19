@@ -63,6 +63,25 @@ export class HomeScreen {
     await this.page.goto(ROUTES.home);
   }
 
+  /**
+   * 지난 날을 보는 중에 큰 기록 버튼을 누르면 펴지는 물음.
+   *
+   * 오늘을 보고 있을 때는 아예 없다. 있으면 기록이 늘 한 번 더 묻는 일이 된다.
+   */
+  get recordDayAsk(): Locator {
+    return this.page.getByRole('alertdialog', { name: '어느 날에 적을까요' });
+  }
+
+  /** 그 물음의 날짜 버튼. 「오늘」·「어제」·「9월 14일」. */
+  recordDayChoice(label: string): Locator {
+    return this.recordDayAsk.getByRole('button', { name: label, exact: true });
+  }
+
+  /** 묻던 것을 접는 ✕. 「그만두기」 라고 적으면 읽어 온 것을 버리는 그 버튼과 겹친다. */
+  get recordDayClose(): Locator {
+    return this.recordDayAsk.getByRole('button', { name: '묻는 것 닫기', exact: true });
+  }
+
   get recordButton(): Locator {
     // 오늘 카드에도 「오늘 기록하기」가 있다. 위 큰 버튼만 잡으려면 정확히 맞춰야 한다.
     return this.page.getByRole('button', { name: '기록하기', exact: true });

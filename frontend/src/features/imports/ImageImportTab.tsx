@@ -135,7 +135,7 @@ export interface ImageImportTabProps {
   onReviewChange?: (pending: number) => void;
   onDone: () => void;
   /** 저장이 성공한 순간. 닫기보다 앞선다. */
-  onSaved?: () => void;
+  onSaved?: (day: string | null) => void;
   /** 사진으로는 안 될 때 갈 다른 길. 실패 화면과 권한 화면 두 자리에 함께 놓인다. */
   fallbackAction?: ReactNode;
 }

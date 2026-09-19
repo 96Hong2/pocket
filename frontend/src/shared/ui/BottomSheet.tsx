@@ -61,6 +61,15 @@ export function BottomSheet({
   const trackerRef = useRef<Tracker | null>(null);
   /** 끌고 나서 손을 뗀 자리에서 클릭이 한 번 더 온다. 되돌아온 시트를 그것으로 닫지 않는다. */
   const swallowClick = useRef(false);
+  /*
+    지금 내려와 있는 거리. **상태가 아니라 여기를 보고 닫을지 정한다.**
+
+    예전에는 손을 뗄 때 `drag.offset` 을 읽었는데, 그것은 마지막으로 **그려진** 값이다.
+    빠르게 쓸어내리면 마지막 몇 번의 움직임이 아직 안 그려진 채로 pointerup 이 와서,
+    160px 을 내렸는데도 30px 로 읽혀 시트가 안 닫혔다. 시트가 길수록(그릴 것이 많을수록)
+    자주 났다. 화면에 보여 줄 값과 판단에 쓸 값을 갈라 둔다.
+  */
+  const offsetRef = useRef(0);
   const [drag, setDrag] = useState<DragState>(AT_REST);
   const titleId = useId();
 
@@ -117,6 +126,7 @@ export function BottomSheet({
     const next = trackMove(tracker, event.clientX, event.clientY);
     if (next == null) {
       trackerRef.current = null;
+      offsetRef.current = 0;
       setDrag(AT_REST);
       return;
     }
@@ -124,6 +134,7 @@ export function BottomSheet({
       // 끌기로 확정된 뒤에는 포인터를 붙잡는다. 손가락이 시트 밖으로 나가도 이어진다.
       event.currentTarget.setPointerCapture(event.pointerId);
     }
+    offsetRef.current = next.offset;
     setDrag(next);
   }
 
@@ -132,9 +143,12 @@ export function BottomSheet({
     if (tracker == null || tracker.pointerId !== event.pointerId) return;
     trackerRef.current = null;
 
-    const offset = drag.offset;
+    const offset = offsetRef.current;
+    // 끌기로 확정됐는지도 상태가 아니라 추적기가 안다. 같은 이유다.
+    const engaged = tracker.engaged;
+    offsetRef.current = 0;
     setDrag(AT_REST);
-    if (!drag.dragging) return;
+    if (!engaged) return;
 
     swallowClick.current = true;
     if (shouldDismiss(offset, event.timeStamp - tracker.startedAt)) onClose();

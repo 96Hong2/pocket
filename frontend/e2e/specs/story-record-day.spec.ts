@@ -44,8 +44,11 @@ test('줄글을 마지막에 썼어도 어제 기록하기는 키패드로 열�
   await recordSheet.waitClosed();
 
   /*
-    날 이름이 붙은 버튼은 다르다. **방식을 아예 묻지 않는다.**
-    묻는 자리를 남겨 두면 탭을 옮기는 순간 고른 날이 말없이 버려진다.
+    날 이름이 붙은 버튼은 다르다. **키패드로만 적는다.**
+    옮길 수 있게 두면 탭을 옮기는 순간 고른 날이 말없이 버려진다.
+
+    자리를 없애지는 않고 **잠근다.** 규칙을 하나로 둔다: 지난 날이면 잠기고 오늘로
+    되돌리면 풀린다. 없애 버리면 들어온 길에 따라 같은 상태가 둘로 갈린다.
   */
   await home.today.prevDayButton.click();
   await expect(home.today.title).toHaveText('어제');
@@ -53,8 +56,15 @@ test('줄글을 마지막에 썼어도 어제 기록하기는 키패드로 열�
   await recordSheet.waitOpen();
 
   await expect(recordSheet.input.dayNotice).toHaveText('어제에 적어요');
-  await expect(recordSheet.methodTabs).toHaveCount(0);
-  await expect(recordSheet.nl.textarea).toHaveCount(0);
+  await expect(recordSheet.input.dayLockNotice).toBeVisible();
+  await expect(recordSheet.methodTab('줄글')).toBeDisabled();
+  await expect(recordSheet.methodTab('캡처')).toBeDisabled();
+  await expect(recordSheet.methodTab('영수증')).toBeDisabled();
+
+  // 날짜를 오늘로 되돌리면 풀린다. 그 사이 줄글에 적어 둔 것도 살아 있다.
+  await recordSheet.input.dayField.fill(toLedgerDate(new Date()));
+  await expect(recordSheet.input.dayLockNotice).toHaveCount(0);
+  await expect(recordSheet.methodTab('줄글')).toBeEnabled();
 });
 
 test('달력에서 고른 날도 방식을 묻지 않고 그 날 키패드로 연다', async ({
@@ -74,7 +84,7 @@ test('달력에서 고른 날도 방식을 묻지 않고 그 날 키패드로 �
   await recordSheet.waitOpen();
 
   await expect(recordSheet.input.dayNotice).toBeVisible();
-  await expect(recordSheet.methodTabs).toHaveCount(0);
+  await expect(recordSheet.methodTab('줄글')).toBeDisabled();
 });
 
 test('어제는 안 썼어요는 어제에만 남고, 어제에 적으면 그 줄이 걷힌다', async ({

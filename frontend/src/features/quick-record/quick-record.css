@@ -43,10 +43,58 @@
     margin-bottom: 4px;
   }
 
-  /* 종류 알약 바로 아래. 금액을 누르기 전에 눈에 들어와야 고르고 넘어간다. */
+  /*
+    어느 날에 적을지 고르는 자리. 종류 알약과 금액 사이에 선다.
+
+    **한 줄로 둔다.** 이름을 위에 얹으면 그만큼 시트가 길어지는데, 이 시트는 키패드까지
+    한 화면에 들어와야 한다. 넘치면 시트가 스크롤 상자가 되고, 손잡이가 위로 밀려
+    밀어서 닫기가 간헐적으로 안 먹는다(실제로 그렇게 깨졌다).
+  */
+  .record__date {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  .record__date-label {
+    flex: none;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  /*
+    칸이 줄의 남은 자리를 다 차지한다. `flex: none` 으로 두면 실제로 눌리는 곳이
+    오른쪽 날짜 글자뿐이라, 44px 짜리 줄이 눈속임이 된다.
+  */
+  .record__date-input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    text-align: right;
+  }
+
+  /* 칸 아래 한 줄짜리 안내. 잠긴 이유처럼 상황에 따라만 선다. */
+  .record__hint {
+    margin: 0;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
   /* 오늘이 아닌 날에 적는 중이라는 한 줄. 금액 위에 조용히 선다. */
   .record__day {
-    margin: 0 0 -4px;
+    margin: 0;
     font-size: var(--text-13);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
