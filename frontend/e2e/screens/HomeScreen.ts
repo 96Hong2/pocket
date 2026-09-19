@@ -42,6 +42,8 @@ export class HomeScreen {
   readonly share: HomeShareCard;
   /** 오늘·내일 빠져나갈 돈. 걸어 둔 반복 지출이 있을 때만 뜬다. */
   readonly recurring: HomeRecurringCard;
+  /** 7일을 이어서 적었을 때 맨 앞에 뜨는 축하. 결산과 같은 전체화면 카드다. */
+  readonly streak: StreakCelebrationArea;
 
   constructor(page: Page) {
     this.page = page;
@@ -57,6 +59,7 @@ export class HomeScreen {
     this.recovery = new RecoveryCard(page);
     this.share = new HomeShareCard(page);
     this.recurring = new HomeRecurringCard(page);
+    this.streak = new StreakCelebrationArea(page);
   }
 
   async open(): Promise<void> {
@@ -913,5 +916,48 @@ class HomeRecurringCard {
 
   get dismissButton(): Locator {
     return this.root.getByRole('button', { name: '이번 달은 됐어요', exact: true });
+  }
+}
+
+/**
+ * 연속 기록 축하.
+ *
+ * 이름이 `N일 연속 기록` 인 대화상자다. 몇 일째인지를 이름에서 못 박지 않고 찾는다.
+ * 뜨지 않아야 하는 자리에서 「몇 일이든 하나도 없다」 를 봐야 해서다.
+ */
+class StreakCelebrationArea {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('dialog', { name: /^\d+일 연속 기록$/ });
+  }
+
+  get dialog(): Locator {
+    return this.root;
+  }
+
+  /** 큰 글씨 한 줄. `일주일을 다 채웠어요`. */
+  get lead(): Locator {
+    return this.root.locator('.closing__lead');
+  }
+
+  get shareButton(): Locator {
+    return this.root.getByRole('button', { name: '친구에게 공유하기' });
+  }
+
+  get okButton(): Locator {
+    return this.root.getByRole('button', { name: '좋아요', exact: true });
+  }
+
+  get closeButton(): Locator {
+    return this.root.getByRole('button', { name: '닫기', exact: true });
+  }
+
+  async waitOpen(): Promise<void> {
+    await expect(this.root).toBeVisible();
+  }
+
+  async waitClosed(): Promise<void> {
+    await expect(this.root).toHaveCount(0);
   }
 }

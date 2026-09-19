@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.domain import aggregation as agg, recovery
+from app.domain import aggregation as agg, recovery, streak
 from app.domain.feedback import (
     LARGE_EXPENSE_MEDIAN_WINDOW_DAYS,
     NO_SPEND_STREAK_WINDOW_DAYS,
@@ -254,6 +254,16 @@ def load_recovery_progress(session: Session, user: User, today: date) -> recover
     """
     window = recovery.recovery_window(today)
     return recovery.build_progress(load_period_inputs(session, user, window), window)
+
+
+def load_streak(session: Session, user: User, today: date) -> streak.Streak | None:
+    """오늘(또는 어제)까지 이어서 적은 날. 끊겼거나 8주를 넘겼으면 None.
+
+    어느 날을 「적은 날」 로 볼지는 도메인이 정한다. 여기서는 창만큼 읽어 넘긴다.
+    """
+    return streak.current_streak(
+        load_period_inputs(session, user, streak.streak_window(today)), today
+    )
 
 
 def load_category_expense_median(

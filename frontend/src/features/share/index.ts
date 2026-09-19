@@ -7,5 +7,6 @@ export {
   closingLine,
   goalDoneLine,
   goalLine,
+  streakLine,
   type ShareKind,
 } from './shareText';

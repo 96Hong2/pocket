@@ -15,6 +15,7 @@ import {
   RecordDayAsk,
   RecoveryCard,
   ShareAppCard,
+  StreakCelebration,
   TodayList,
   resolveHeroLayout,
   resolveHomeView,
@@ -63,11 +64,14 @@ function HomeContent({
   day,
   onDayChange,
   onRecord,
+  recording,
 }: {
   /** 아래 목록이 보고 있는 날. 기록 시트가 저장한 날로 옮길 수 있어야 해서 밖에서 들고 있다. */
   day: string;
   onDayChange: (day: string) => void;
   onRecord: (tab: RecordTab, day?: string) => void;
+  /** 기록 시트가 떠 있나. 7일 축하가 그 위로 겹쳐 뜨지 않게 기다리는 데 쓴다. */
+  recording: boolean;
 }) {
   const { state } = useIdentity();
   // 홈에서 바로 고친다. 여기서 못 고치면 달력까지 들어가야 해서 아무도 안 고친다.
@@ -293,6 +297,15 @@ function HomeContent({
       />
 
       {/*
+        7일을 이어서 적었으면 맨 앞에 축하를 한 장 띄운다. 결산과 같은 모양이다.
+        시트·묻는 창이 떠 있는 동안은 기다린다. 방금 적은 것의 결과를 덮지 않는다.
+      */}
+      <StreakCelebration
+        streak={budget.data?.streak}
+        blocked={recording || editing != null || asking}
+      />
+
+      {/*
         달력과 같은 시트를 쓴다. 고치는 자리가 둘이 되면 규칙도 둘이 된다.
         달은 넘기지 않는다. 홈의 조회도 달 없이 부르니, 수정 응답이 캐시에 쓰는 키를
         홈이 읽는 키와 맞춰야 히어로 숫자가 왕복 없이 바뀐다.
@@ -320,6 +333,7 @@ export default function HomePage() {
         day={day}
         onDayChange={setDay}
         onRecord={(tab, pickedDay) => setSheet({ open: true, tab, day: pickedDay })}
+        recording={sheet.open}
       />
       <div className="home__tail" />
       <QuickRecordSheet

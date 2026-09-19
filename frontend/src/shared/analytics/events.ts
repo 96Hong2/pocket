@@ -78,6 +78,13 @@ export const EVENTS = {
    * 축하 화면이 안 읽히는 것이고, 마친 뒤 새 목표를 안 정하면 거기서 관계가 끝난 것이다.
    */
   goalFinished: 'goal_finished',
+  /**
+   * 7일을 이어서 적어 축하가 떴다. 몇 일째 축하인지(7·14·21…).
+   *
+   * 이 값과 `share_result` 의 `where: 'streak'` 을 견주면, 꾸준히 적은 사람이 그걸 남에게
+   * 알릴 만하다고 느끼는지가 보인다. 끊긴 것은 세지 않는다. 뜬 것만 센다.
+   */
+  streakCelebrated: 'streak_celebrated',
   /** 홈 화면에 추가하라는 안내의 결과. 실제 추가 여부는 앱이 알 수 없다. */
   homeAddResult: 'home_add_result',
   /**
