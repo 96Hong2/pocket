@@ -24,7 +24,7 @@ export interface NaturalLanguageTabProps {
   onReviewChange?: (pending: number) => void;
   onDone: () => void;
   /** 저장이 성공한 순간. 닫기보다 앞선다. */
-  onSaved?: () => void;
+  onSaved?: (day: string | null) => void;
 }
 
 /**

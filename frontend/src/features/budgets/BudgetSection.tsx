@@ -11,7 +11,7 @@ import {
 } from '../../shared/api';
 import { shiftMonth, toLedgerDate } from '../../shared/lib/format';
 import { Card, ErrorState, MonthStepper, RetryButton } from '../../shared/ui';
-import { useFullScreenAd } from '../ads';
+import { useInterstitial } from '../ads';
 
 import { BudgetAmountSheet } from './BudgetAmountSheet';
 import { BudgetCalcSheet } from './BudgetCalcSheet';
@@ -43,7 +43,7 @@ export function BudgetSection() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [categoryTarget, setCategoryTarget] = useState<CategoryBudgetTarget | null>(null);
   const analytics = useAnalytics();
-  const fullScreenAd = useFullScreenAd();
+  const interstitial = useInterstitial();
 
   const monthParams = useMemo(() => {
     const [year, monthNumber] = month.split('-').map(Number);
@@ -77,7 +77,7 @@ export function BudgetSection() {
    * 열렸는지를 남겨, 광고를 본 사람이 예산까지 정하는 비율을 따로 볼 수 있게 한다.
    */
   async function openCalc(): Promise<void> {
-    const outcome = await fullScreenAd.show();
+    const outcome = await interstitial.show('budget_calc');
     analytics.log(
       EVENTS.budgetCalcOpened,
       outcome.result === 'watched' ? { ad: 'watched' } : { ad: 'skipped', reason: outcome.reason },
@@ -200,7 +200,7 @@ export function BudgetSection() {
         amount={amount}
         onClose={() => setAmountOpen(false)}
         onCalc={() => void openCalc()}
-        calcBusy={fullScreenAd.busy}
+        calcBusy={interstitial.busy}
       />
       {/*
         생활비 계산기. 예산 시트에서 「계산해서 정하기」 로만 열린다.

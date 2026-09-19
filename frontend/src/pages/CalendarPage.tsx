@@ -255,6 +255,14 @@ export default function CalendarPage() {
         day={selected}
         from="calendar_day"
         onClose={() => setRecording(false)}
+        /*
+          시트 안에서 날짜를 바꿔 적었으면 달력도 그 날로 간다. 고른 날과 적힌 날이
+          어긋난 채로 남으면, 적은 것이 목록에 없어 안 들어간 줄 안다.
+        */
+        onRecorded={(recordedDay) => {
+          setSelected(recordedDay);
+          setMonth(recordedDay.slice(0, 7));
+        }}
       />
     </div>
   );

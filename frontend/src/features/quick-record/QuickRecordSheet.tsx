@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useBridge, useOverlayBackClose } from '../../app/providers';
 import { bumpRecordCount } from '../../shared/lib/homeAddSeen';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
-import { formatRelativeDay, toLedgerDate, toLedgerNoonIso } from '../../shared/lib/format';
+import {
+  formatRelativeDay,
+  shiftMonth,
+  toLedgerDate,
+  toLedgerNoonIso,
+} from '../../shared/lib/format';
 import {
   ApiError,
   queryKeys,
@@ -68,6 +73,13 @@ interface SavedState {
   feedback: FeedbackOut;
 }
 
+/** 얼마나 옛날까지 고를 수 있나. 달력 화면과 같게 3년이다. */
+const MONTHS_BACK = 36;
+
+function oldestDay(): string {
+  return `${shiftMonth(toLedgerDate(new Date()).slice(0, 7), -MONTHS_BACK)}-01`;
+}
+
 /**
  * 기록 시트.
  *
@@ -80,20 +92,29 @@ export function QuickRecordSheet({
   day,
   from = 'home',
   onClose,
+  onRecorded,
 }: {
   open: boolean;
   /** 열 때 켜 둘 탭. 안 주면 키패드로 연다. */
   initialTab?: RecordTab;
   /**
-   * 키패드로 적을 날. 안 주면 오늘이다.
+   * 처음에 고를 날. 안 주면 오늘이다.
    *
-   * 「어제 기록하기」 처럼 **버튼에 날 이름이 붙은 자리**에서만 넘어온다.
-   * 줄글·캡처·영수증은 읽은 내용에서 날짜가 나오므로 이 값을 쓰지 않는다.
+   * 「어제 기록하기」 처럼 **버튼에 날 이름이 붙은 자리**에서 넘어온다. 시트 안에서도
+   * 바꿀 수 있으므로 이것은 시작값일 뿐이다.
    */
   day?: string;
   /** 어느 자리에서 열었나. 로그에만 쓴다. */
   from?: RecordFrom;
   onClose: () => void;
+  /**
+   * 어느 날에 적혔는지. 저장이 실제로 끝난 뒤에 부른다.
+   *
+   * 부르는 쪽(홈)이 그 날로 옮겨 가라고 있는 값이다. 지난 달 영수증을 읽어 넣었는데
+   * 화면이 오늘에 머물러 「오늘은 안 썼어요」 라고 적혀 있으면, 들어갔는지 아닌지를
+   * 그 날짜를 찾아가 봐야 안다.
+   */
+  onRecorded?: (day: string) => void;
 }) {
   // 저장 응답을 기다리는 동안에는 닫히지 않는다.
   // 닫히면 컴포넌트가 사라져 응답이 갈 곳이 없어지고, 저장 결과 화면이 영구히 사라진다.
@@ -142,6 +163,7 @@ export function QuickRecordSheet({
         day={day}
         from={from}
         onDone={onClose}
+        onRecorded={onRecorded}
         onSavingChange={setSaving}
         onPendingChange={setPending}
         onReviewingChange={setReviewing}
@@ -201,15 +223,18 @@ function RecordBody({
   day,
   from,
   onDone,
+  onRecorded,
   onSavingChange,
   onPendingChange,
   onReviewingChange,
 }: {
   initialTab?: RecordTab;
-  /** 키패드로 적을 날. 안 주면 오늘. */
+  /** 처음에 고를 날. 안 주면 오늘. */
   day?: string;
   from: RecordFrom;
   onDone: () => void;
+  /** 저장이 끝난 날. 부르는 쪽이 그 날로 옮겨 간다. */
+  onRecorded?: (day: string) => void;
   onSavingChange: (saving: boolean) => void;
   /** 어느 탭에서든 읽어 두고 아직 저장 안 한 건수의 합. */
   onPendingChange: (pending: number) => void;
@@ -221,15 +246,27 @@ function RecordBody({
   const queryClient = useQueryClient();
   const categories = useCategories();
   const create = useCreateTransaction();
+  const dayId = useId();
+
+  const today = toLedgerDate(new Date());
+  /*
+    이름에 날이 붙은 버튼(「어제 기록하기」·달력의 그 날)으로 열었나.
+
+    이 값은 **열 때 한 번 정해지고 안 변한다.** 방식을 고르는 자리를 둘지가 여기 달렸다.
+    고른 날은 키패드에만 붙고 줄글·캡처·영수증은 읽은 내용에서 날짜가 나오기 때문이다.
+  */
+  const openedOnPastDay = day != null && day !== today;
 
   /*
-    지난 날에 적는 중인가.
+    지금 적기로 한 날.
 
-    「어제 기록하기」 로 열었을 때만 참이다. 참이면 저장이 그 날 정오로 가고,
-    화면에도 어느 날에 적는지 적는다. **말없이 다른 날에 적는 것이 이 버그의 원인이었다.**
+    **시트 안에서 바꿀 수 있다.** 예전에는 지난 날에 적으려면 홈이나 달력에서 그 날을
+    먼저 찾아간 다음 기록하기를 눌러야 했다. 영수증을 몰아서 적는 사람에게는 그 왕복이
+    적는 일보다 길었다.
   */
-  const isBackfill = day != null && day !== toLedgerDate(new Date());
-  const backfillLabel = isBackfill ? formatRelativeDay(day) : null;
+  const [recordDay, setRecordDay] = useState(day ?? today);
+  const isBackfill = recordDay !== today;
+  const backfillLabel = isBackfill ? formatRelativeDay(recordDay) : null;
 
   /*
     이 시트가 사는 동안이 기록 흐름 하나다.
@@ -241,19 +278,18 @@ function RecordBody({
   const [flowId] = useState(() => analytics.startFlow());
 
   /*
-    지난 날에 적을 때는 **키패드 하나만 연다.**
+    이름에 날이 붙은 버튼으로 들어왔으면 **키패드 하나만 연다.**
 
     고른 날은 키패드에만 붙는다. 줄글·캡처·영수증은 읽은 내용에서 날짜가 나오기 때문이다.
     그런데 시트가 마지막에 쓴 방식으로 열려서, 줄글을 마지막에 썼으면 「9월 5일 기록하기」
     를 눌러도 줄글 탭이 열리고 고른 날이 말없이 버려졌다. 사용자가 신고한 그 버그가
     다른 길로 살아 있었다.
 
-    방식을 고를 수 있게 두고 「여기서는 안 붙어요」 라고 적는 길도 있었지만, 읽을 것이
-    늘고 고른 날을 잃을 길이 그대로 남는다. 이름에 날이 붙은 버튼은 그 날에 적는 것
-    하나만 한다. 지난 날을 줄글로 적고 싶으면 글에 날짜를 적으면 된다.
+    시트 안에서 날짜를 바꾼 경우는 다르다. 거기서는 방식 알약을 **없애지 않고 잠근다.**
+    없애면 줄글에 적어 두던 것이 통째로 사라지고, 날짜를 오늘로 되돌려도 안 돌아온다.
   */
   const [tab, setTab] = useState<RecordTab>(
-    isBackfill ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB),
+    openedOnPastDay ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB),
   );
   // 지출인가 수입인가. 이 값이 고를 수 있는 분류와 저장할 종류를 함께 정한다.
   const [kind, setKind] = useState<LedgerKind>('expense');
@@ -320,9 +356,9 @@ function RecordBody({
     analytics.log(
       EVENTS.recordStarted,
       {
-        method: recordMethodOf(isBackfill ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB)),
+        method: recordMethodOf(openedOnPastDay ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB)),
         from,
-        backfill: isBackfill,
+        backfill: openedOnPastDay,
       },
       { flowId },
     );
@@ -416,7 +452,7 @@ function RecordBody({
           「어제 기록하기」 로 열었으면 그 날 정오에 적는다. 오늘이면 지금 시각 그대로 둔다.
           정오로 두는 것은 시간대가 달라져도 날이 안 넘어가게 하려는 것이다(달력 수정과 같은 규칙).
         */
-        occurred_at: isBackfill ? toLedgerNoonIso(day) : new Date().toISOString(),
+        occurred_at: isBackfill ? toLedgerNoonIso(recordDay) : new Date().toISOString(),
         amount,
         type: kind,
         category_id: category.id,
@@ -450,11 +486,14 @@ function RecordBody({
               result: 'ok',
               created_count: 1,
               elapsed_ms: Date.now() - startedAt,
+              // 시트 안에서 날짜를 바꿔 적었나. 이 칸이 쓰이는지 여기서만 갈린다.
+              backfill: isBackfill,
             },
             { flowId },
           );
           rememberMethod();
           markRecorded();
+          onRecorded?.(toLedgerDate(new Date(created.transaction.occurred_at)));
           setSaved({ transaction: created.transaction, feedback: created.feedback });
         },
       },
@@ -502,12 +541,18 @@ function RecordBody({
 
   return (
     <div className="record">
-      {/* 지난 날에 적는 중에는 방식을 고르지 않는다. 고른 날을 잃을 길을 아예 두지 않는다. */}
-      {isBackfill || done ? null : (
+      {/*
+        이름에 날이 붙은 버튼으로 들어왔으면 방식을 고르지 않는다. 고른 날을 잃을 길을
+        아예 두지 않는다. 시트 안에서 날짜를 지난 날로 바꿨을 때는 자리를 없애는 대신
+        **잠근다.** 없애면 줄글에 적어 두던 것이 통째로 사라지고, 날짜를 되돌려도 안 돌아온다.
+      */}
+      {openedOnPastDay || done ? null : (
         <SegmentedControl
           className="record__tabs"
           options={TABS.map((option) =>
-            option.value === tab ? option : { ...option, disabled: option.disabled || busy },
+            option.value === tab
+              ? option
+              : { ...option, disabled: option.disabled || busy || isBackfill },
           )}
           value={tab}
           onChange={(next) => {
@@ -527,7 +572,7 @@ function RecordBody({
         **지난 날에 적는 중에는 아예 안 그린다.** 갈 수 없는 자리를 DOM 에 두면
         읽는 프로그램에는 잡히고, 나중에 누군가 그 자리를 다시 열어 놓기 쉽다.
       */}
-      {isBackfill ? null : (
+      {openedOnPastDay ? null : (
         <>
           <div className="record__panel" hidden={done || tab !== 'nl'}>
             <NaturalLanguageTab
@@ -535,9 +580,10 @@ function RecordBody({
               onBusyChange={markBusy}
               onReviewChange={trackReview('nl')}
               onDone={finish}
-              onSaved={() => {
+              onSaved={(savedDay) => {
                 rememberMethod();
                 markRecorded();
+                if (savedDay != null) onRecorded?.(savedDay);
               }}
             />
           </div>
@@ -549,9 +595,10 @@ function RecordBody({
               onBusyChange={markBusy}
               onReviewChange={trackReview('capture')}
               onDone={finish}
-              onSaved={() => {
+              onSaved={(savedDay) => {
                 rememberMethod();
                 markRecorded();
+                if (savedDay != null) onRecorded?.(savedDay);
               }}
             />
           </div>
@@ -563,9 +610,10 @@ function RecordBody({
               onBusyChange={markBusy}
               onReviewChange={trackReview('receipt')}
               onDone={finish}
-              onSaved={() => {
+              onSaved={(savedDay) => {
                 rememberMethod();
                 markRecorded();
+                if (savedDay != null) onRecorded?.(savedDay);
               }}
               // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
               fallbackAction={
@@ -622,7 +670,39 @@ function RecordBody({
             }}
           />
 
-          {/* 오늘이 아니면 어느 날에 적는지 먼저 말한다. 금액을 누르기 전에 보여야 한다. */}
+          {/*
+            **어느 날에 적을지를 여기서 정한다.** 지난 날 것을 적으려고 홈이나 달력에서
+            그 날을 먼저 찾아가는 왕복이 적는 일보다 길었다. 오늘이 기본이고, 아직 오지
+            않은 날에는 적을 것이 없어 오늘까지만 고를 수 있다.
+          */}
+          <div className="record__date">
+            <label className="record__date-label" htmlFor={dayId}>
+              적을 날
+            </label>
+            <input
+              id={dayId}
+              className="record__date-input"
+              type="date"
+              value={recordDay}
+              min={oldestDay()}
+              max={today}
+              disabled={create.isPending}
+              // 달력을 열었다 비운 채로 닫는 기기가 있다. 비면 오늘로 되돌린다.
+              onChange={(event) =>
+                setRecordDay(event.target.value === '' ? today : event.target.value)
+              }
+            />
+          </div>
+
+          {/*
+            방식 알약을 잠근 이유를 그 자리에서 말한다. 눌리지 않는 자리를 말없이 두면
+            고장으로 읽힌다. 날이 붙은 버튼으로 들어왔으면 알약 자체가 없어 안 적는다.
+          */}
+          {isBackfill && !openedOnPastDay ? (
+            <p className="record__hint">지난 날은 키패드로만 적어요</p>
+          ) : null}
+
+          {/* 오늘이 아니면 어느 날인지 한글로 한 번 더 말한다. 칸의 숫자 형식은 기기마다 다르다. */}
           {backfillLabel ? (
             <p className="record__day">
               <b>{backfillLabel}</b>에 적어요

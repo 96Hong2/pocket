@@ -205,13 +205,16 @@ test('검토 줄을 고치다 분류를 만들어도 적어 둔 상호·금액·
   await recordSheet.nl.confirmButton.click();
   await recordSheet.waitClosed();
 
-  // 고친 날에 들어갔나. 오늘 자리에 서 있으면 날짜를 고친 것이 버려진 것이다.
+  // 고친 날에 들어갔나. 적고 나면 홈이 그 날로 옮겨 가므로 찾아갈 것도 없다.
   await home.waitReady();
-  await expect(home.today.row(GIMBAP)).toHaveCount(0);
-  await home.today.prevDayButton.click();
   await expect(home.today.title).toHaveText('어제');
   await expect(home.today.row(GIMBAP)).toBeVisible();
   await expect(home.today.amount(formatCurrency(9_000))).toBeVisible();
+
+  // 오늘 자리에 서 있으면 날짜를 고친 것이 버려진 것이다.
+  await home.today.jumpTodayButton.click();
+  await expect(home.today.title).toHaveText('오늘');
+  await expect(home.today.row(GIMBAP)).toHaveCount(0);
 });
 
 /*

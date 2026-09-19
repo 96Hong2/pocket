@@ -299,6 +299,11 @@ export class EditSheetArea {
     return this.root.getByText(/ · \d{1,2}월 \d{1,2}일$/);
   }
 
+  /** 적힌 날. 여기서 옮기면 그 날로 간다. */
+  get dayField(): Locator {
+    return this.root.getByLabel('날짜');
+  }
+
   get merchant(): Locator {
     return this.root.getByLabel('상호');
   }

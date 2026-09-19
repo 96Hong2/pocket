@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
@@ -21,14 +21,26 @@ import {
   kindOf,
   type LedgerKind,
 } from '../../shared/ledger';
-import { formatDayLabel } from '../../shared/lib/format';
+import {
+  formatDayLabel,
+  shiftMonth,
+  toLedgerDate,
+  toLedgerNoonIso,
+} from '../../shared/lib/format';
 import { AmountField, BottomSheet, Button, CategoryAvatar, Toggle, iconOf } from '../../shared/ui';
 
 import { CategoryEditForm } from '../categories';
 import { TagPicker } from '../tags';
 
+/** 얼마나 옛날까지 옮길 수 있나. 달력 화면과 같게 3년이다. */
+const MONTHS_BACK = 36;
+
+function oldestDay(): string {
+  return `${shiftMonth(toLedgerDate(new Date()).slice(0, 7), -MONTHS_BACK)}-01`;
+}
+
 /**
- * 수정 시트. 상호·금액·카테고리·예산 제외를 한 화면에서 고친다.
+ * 수정 시트. 날짜·상호·금액·카테고리·예산 제외를 한 화면에서 고친다.
  *
  * 저장은 `PATCH /transactions/{id}` 하나로 끝낸다. 보낸 필드만 고치는 규칙이라
  * 바뀐 것만 실어 보낸다. 아무것도 안 바뀌었으면 요청을 보내지 않는다.
@@ -113,6 +125,16 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
   const tags = useTags();
 
   const savedAmount = parseDecimalOr(transaction.amount, 0);
+  const dayId = useId();
+  const savedDay = toLedgerDate(new Date(transaction.occurred_at));
+  /*
+    적힌 날.
+
+    **여기서 옮길 수 있어야 한다.** 캡처로 읽은 날짜가 하루 어긋나거나, 며칠 지나 적은
+    것을 제 날로 돌려놓고 싶은 일이 흔하다. 예전에는 지우고 그 날을 찾아가 다시 적는
+    길밖에 없었다. 옮길 때는 그 날 정오로 둔다. 시간대가 달라져도 날이 안 넘어간다.
+  */
+  const [day, setDay] = useState(savedDay);
   const [merchant, setMerchant] = useState(transaction.merchant ?? '');
   const [memo, setMemo] = useState(transaction.memo ?? '');
   const [amount, setAmount] = useState(String(savedAmount));
@@ -182,6 +204,7 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
     const next: TransactionUpdate = {};
     const trimmed = merchant.trim();
 
+    if (day !== savedDay) next.occurred_at = toLedgerNoonIso(day);
     if (trimmed !== (transaction.merchant ?? '')) next.merchant = trimmed === '' ? null : trimmed;
     const trimmedMemo = memo.trim();
     if (trimmedMemo !== (transaction.memo ?? '')) next.memo = trimmedMemo === '' ? null : trimmedMemo;
@@ -256,9 +279,31 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
       <div className="tx-edit__scroll">
         <div className="tx-edit__head">
           <CategoryAvatar {...iconOf(headCategory)} size={58} />
+          {/* 머리의 날짜도 고른 값을 따라간다. 저장한 값만 보면 옮긴 뒤에도 옛 날이 남는다. */}
           <p className="tx-edit__title">
-            {nameOf(transaction, categories)} · {formatDayLabel(new Date(transaction.occurred_at))}
+            {nameOf(transaction, categories)} · {formatDayLabel(day)}
           </p>
+        </div>
+
+        {/*
+          날짜 칸. 상호·금액보다 위에 둔다. 무엇을 고치러 들어왔든 「이게 그 기록이 맞나」
+          를 먼저 보게 되는 값이고, 아직 오지 않은 날에는 적을 것이 없어 오늘까지만 간다.
+        */}
+        <div className="tx-edit__day">
+          <label className="tx-edit__day-label" htmlFor={dayId}>
+            날짜
+          </label>
+          <input
+            id={dayId}
+            className="tx-edit__day-input"
+            type="date"
+            value={day}
+            min={oldestDay()}
+            max={toLedgerDate(new Date())}
+            disabled={busy}
+            // 달력을 열었다 비운 채로 닫는 기기가 있다. 비면 적혀 있던 날로 되돌린다.
+            onChange={(event) => setDay(event.target.value === '' ? savedDay : event.target.value)}
+          />
         </div>
 
         <div className="tx-edit__fields">

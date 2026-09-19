@@ -456,13 +456,23 @@
     보이는 것은 안쪽의 36×4 막대뿐이고, 누르는 자리는 그 위아래로 넓다.
     `touch-action: none` 이라야 손잡이에서 시작한 세로 손짓을 우리가 받는다.
   */
+  /*
+    손잡이.
+
+    **스크롤 상자 맨 위에 붙여 둔다.** 시트가 화면보다 길면 내용이 스크롤되는데,
+    그때 손잡이가 위로 밀려 나가면 밀어서 닫는 길이 사라진다. 아래로 지나가는 글자가
+    비치지 않게 바탕도 함께 깐다. 바닥의 버튼 줄(`.pk-sheet-foot`)과 같은 방식이다.
+  */
   .pk-sheet__handle {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     display: grid;
     place-items: center;
     width: 100%;
     height: 28px;
     margin-bottom: 4px;
-    background: transparent;
+    background: var(--color-surface);
   }
 
   .pk-sheet__handle--hit {

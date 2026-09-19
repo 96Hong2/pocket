@@ -48,8 +48,12 @@ export interface ImportReviewProps {
   /**
    * 저장이 실제로 성공한 순간. 닫기와 갈라 둔다.
    * 저장하고 나서 확인을 안 누르고 X·딤·Esc 로 닫으면 닫기 신호만으로는 늦는다.
+   *
+   * **어느 날에 적혔는지 함께 준다.** 지난 달 영수증을 읽어 넣고 홈으로 나왔는데 화면이
+   * 오늘에 머물러 있으면, 적힌 것인지 아닌지를 그 날짜로 찾아가 봐야 안다.
+   * 날짜를 못 가리면(고른 줄이 없거나 읽은 값이 어긋나면) null 이다.
    */
-  onSaved?: () => void;
+  onSaved?: (day: string | null) => void;
   /** 어느 탭의 검토 화면인지 e2e 가 가른다. 두 탭이 hidden 으로 함께 남는다. */
   testId: string;
   /** 고른 것의 분류를 한 번에 바꾸는 자리를 둘지. 여러 건이 한꺼번에 오는 캡처에서만 쓴다. */
@@ -387,7 +391,7 @@ export function ImportReview({
           { flowId },
         );
         setSaved(result);
-        onSaved?.();
+        onSaved?.(savedDay(result));
       },
       onError: (error) => {
         analytics.log(
@@ -580,4 +584,20 @@ function thisMonth(): string {
 function periodLabel(periodStart: string): string {
   if (periodStart.slice(0, 7) === thisMonth()) return '이번 달';
   return `${Number(periodStart.slice(5, 7))}월`;
+}
+
+/**
+ * 방금 넣은 것들이 앉은 날.
+ *
+ * 한 장에서 여러 날이 나오는 일은 드물지만 나오면 **가장 나중 날**을 고른다.
+ * 홈이 그 날로 옮겨 가는 데 쓰는 값이라, 어디로 가야 방금 넣은 것이 보이는지 하나만
+ * 답해야 한다. 고른 줄이 하나도 없으면 옮길 이유가 없어 null 이다.
+ */
+function savedDay(result: ImportCommitOut): string | null {
+  const days = (result.batch.candidates ?? [])
+    .filter((candidate) => candidate.is_selected)
+    .map((candidate) => new Date(candidate.occurred_at))
+    .filter((at) => !Number.isNaN(at.getTime()))
+    .map((at) => toLedgerDate(at));
+  return days.length === 0 ? null : days.reduce((latest, day) => (day > latest ? day : latest));
 }

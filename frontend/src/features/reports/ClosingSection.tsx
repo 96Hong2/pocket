@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useClosing } from '../../shared/api';
 import { formatMonthLabel } from '../../shared/lib/format';
 import { Card, iconUrl } from '../../shared/ui';
+import { useInterstitial } from '../ads';
 
 import { ClosingOverlay } from './ClosingOverlay';
 import { CLOSING_CARDS } from './closingText';
@@ -25,12 +26,18 @@ export interface ClosingSectionProps {
  *
  * 조회가 실패하면 이 자리를 비운다. 리포트 본문은 그대로 남으므로 결산 하나 때문에
  * 그 달을 통째로 못 보게 되지 않는다.
+ *
+ * **여는 길에 전면 광고 한 편이 선다.** 달에 한 번 있는 일이고 기록하는 흐름 밖이라,
+ * 앱에서 사람을 멈춰 세워도 되는 몇 안 되는 자리다. 광고가 안 떠도 결산은 열린다.
+ * 홈 카드로 들어와 저절로 열리는 길(`autoOpen`)에는 세우지 않는다. 화면이 넘어가는
+ * 중에 광고가 끼어들면 무엇 때문에 멈췄는지 알 수가 없다.
  */
 export function ClosingSection({ month, autoOpen = false, onAutoOpened }: ClosingSectionProps) {
   const [year, monthNumber] = month.split('-').map(Number);
   const closing = useClosing({ year, month: monthNumber });
   // 열린 달을 들고 있는다. 달을 옮기면 저절로 닫혀서, 옆 달 결산이 그대로 떠 있지 않는다.
   const [openMonth, setOpenMonth] = useState<string | null>(autoOpen ? month : null);
+  const interstitial = useInterstitial();
 
   // 달을 옮기면 이 자리가 통째로 다시 마운트되면서 위 초기값을 또 읽는다. 열어 달라는
   // 부탁을 쓴 즉시 알려서, 다음 마운트에는 닫힌 채로 시작하게 한다.
@@ -39,13 +46,25 @@ export function ClosingSection({ month, autoOpen = false, onAutoOpened }: Closin
   }, [autoOpen, onAutoOpened]);
 
   const data = closing.data;
+
+  // 광고가 뜨든 안 뜨든 결산은 연다. 광고 서버 사정으로 지난달을 못 보게 두지 않는다.
+  async function openAfterAd(): Promise<void> {
+    await interstitial.show('closing');
+    setOpenMonth(month);
+  }
+
   if (data == null || !data.is_closed || !data.has_any_transaction) return null;
 
   return (
     <>
       {/* 카드 전체가 버튼이라 이름으로 잡힌다. 따로 표식을 붙이지 않는다. */}
       <Card className="closing-entry" padding="none">
-        <button type="button" className="closing-entry__button" onClick={() => setOpenMonth(month)}>
+        <button
+          type="button"
+          className="closing-entry__button"
+          disabled={interstitial.busy}
+          onClick={() => void openAfterAd()}
+        >
           <img className="closing-entry__icon" src={iconUrl('31_gift')} alt="" aria-hidden />
           <span className="closing-entry__text">
             <span className="closing-entry__title">{formatMonthLabel(month)} 결산</span>

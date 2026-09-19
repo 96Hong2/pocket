@@ -111,6 +111,38 @@ test('달마다 격자 높이가 같다', async ({ calendar, page }) => {
 });
 
 /**
+ * 한 번이 아니라 **잇달아** 넘겨도 제자리다.
+ *
+ * 한 걸음만 재면 다섯 줄 달과 여섯 줄 달을 오가는 자리를 못 본다. 지난 달을 찾느라
+ * 화살표를 대여섯 번 누르는 것이 실제 쓰임이라, 그만큼 눌러 보고 아래 목록이 어디에
+ * 있는지 매번 잰다.
+ */
+test('달력에서 여러 달을 잇달아 넘겨도 검색 칸과 목록이 제자리에 있다', async ({
+  calendar,
+  page,
+}) => {
+  await calendar.open();
+  await calendar.waitReady();
+
+  const list = page.getByRole('region', { name: '고른 날 기록' });
+  const gridTop = await topOf(calendar.grid.box);
+  const searchTop = await topOf(calendar.search.input);
+  const listTop = await topOf(list);
+
+  for (let step = 0; step < 6; step += 1) {
+    await page
+      .getByRole('button', { name: /^\d{4}년 \d{1,2}월로 이동$/ })
+      .first()
+      .click();
+    await calendar.waitReady();
+    const label = await calendar.monthLabel.textContent();
+    expect(await topOf(calendar.grid.box), `${label} 에서 격자가 밀렸다`).toBe(gridTop);
+    expect(await topOf(calendar.search.input), `${label} 에서 검색 칸이 밀렸다`).toBe(searchTop);
+    expect(await topOf(list), `${label} 에서 목록이 밀렸다`).toBe(listTop);
+  }
+});
+
+/**
  * 리포트도 마찬가지다.
  *
  * 달을 옮기면 리포트가 통째로 다시 온다. 그 사이 화면이 월 선택기 하나로 줄면, 아래로
