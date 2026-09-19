@@ -103,7 +103,7 @@ export class SettingsScreen {
 
   /** 광고를 봐야 열린다는 한 줄. 버튼을 누른 뒤 묻는 자리에 적힌다. */
   get budgetCalcNote(): Locator {
-    return this.budgetSheet.getByText(/광고 5초만 보면 예산을 대신 잡아 드려요/);
+    return this.budgetSheet.getByText(/광고 한 편 보면 예산을 대신 잡아 드려요/);
   }
 
   /** 묻는 자리의 「확인」. 이걸 눌러야 광고가 뜬다. */

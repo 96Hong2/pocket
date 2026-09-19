@@ -23,7 +23,7 @@
 | 저장 뒤 뜻이 전달됐나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것 |
 | 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(`home_card`·`settings`)와 결과(`opened`·`guide_done`·`dismissed`), 동의·거절·미지원과 **켠 자리**(`where`: `home_card`·`settings`) |
 | 이메일 연결에서 어디서 빠지나 | `account_link_result` · `profile_result` | 코드를 보냈나(`sent`)·붙었나(`linked`·`switched`·`merged`)·어디서 막혔나(`send_failed`·`verify_failed` 와 오류 코드), 연령대·성별을 답했나 건너뛰었나와 그 갈래. **이메일 주소와 코드는 싣지 않는다** |
-| 광고 뒤의 부가기능이 값어치가 있나 | `budget_calc_opened` | 광고를 보고 열었나(`watched`), 광고 없이 지나갔나와 그 이유(`no_group`·`unsupported`·`failed`) |
+| 광고 뒤의 부가기능이 값어치가 있나 | `budget_calc_opened` | 리워드 광고를 끝까지 봤나(`earned`), 중간에 닫았나(`watched`), 광고 없이 지나갔나와 그 이유(`no_group`·`unsupported`·`failed`), 어느 입구인지(`home`·`manage`·`settings`) |
 | 첫 안내가 방해가 되나 | `onboarding_result` | 끝까지 봤나·건너뛰었나, 그때 몇 번째 장 |
 | 목표를 끝까지 해내나 | `goal_finished` | 마친 화면 |
 | 고를 것이 너무 많나 | `category_more_opened` · `category_order_changed` | 「더 보기」를 편 화면과 그때 보이던 칩 수, 순서를 바꾼 방식(한 칸 옮기기·자주 쓴 순서)와 종류 |
@@ -32,7 +32,7 @@
 | 남에게 알릴 만하다고 느끼나 | `share_result` · `share_card_dismissed` | 누른 자리(`home`·`goal`·`goal_done`·`manage`·`manage_past`·`closing`), 갈래(`app`·`goal`·`goal_done`·`budget`·`closing`), 성공·실패와 실패 코드. **보낸 글은 싣지 않는다** |
 | 미리 적어 둔 돈을 실제로 적나 | `recurring_result` | 적었나(`recorded`)·미뤘나(`dismissed`), 전날인가 당일인가(`eve`·`today`). **항목 이름과 금액은 싣지 않는다** |
 | 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
-| 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(`budget_calc`·`closing`·`assets`·`report_months`)와 결과(`watched`·`skipped`), 지나간 이유(`no_group`·`unsupported`·`failed`·**`capped`**) |
+| 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(`closing`·`assets`·`report_months`)와 결과(`watched`·`skipped`), 지나간 이유(`no_group`·`unsupported`·`failed`·**`capped`**) |
 
 `review_finished` 는 「5건 중 날짜 2건·금액 1건 고침」 까지만 남긴다.
 그 날짜가 무엇이었고 금액이 얼마였는지는 남기지 않는다.
@@ -71,11 +71,17 @@
 고른다. 첫 장에서 건너뛰는 사람이 많으면 장 수가 아니라 첫 장이 잘못된 것이고, 끝까지
 본 사람의 첫 기록 성공률이 건너뛴 사람보다 낮으면 안내 자체가 방해가 된 것이다.
 
-**`budget_calc_opened` 는 광고 한 편이 값어치가 있는지 재는 자리다.** 생활비 계산기는 전면
-광고를 지나야 열리는데, 광고가 안 떠도 연다(광고 서버 사정으로 예산을 막지 않는다). 그래서
-`watched` 로 연 사람 중 예산까지 정한 비율(`budget_saved` 의 `from: 'calculator'`)과 `skipped`
-로 연 사람의 그 비율을 견줘야 한다. 둘이 같으면 광고가 방해가 아니고, `watched` 쪽이 낮으면
-5초가 사람을 돌려보내는 것이다. `skipped` 의 `reason` 이 `failed` 로 몰리면 광고 자리 사정이다.
+**`budget_calc_opened` 는 광고 한 편이 값어치가 있는지 재는 자리다.** 생활비 계산기는 리워드
+광고를 지나야 열리는데, 광고가 어떻게 끝나든 연다(광고 서버 사정으로 예산을 막지 않는다).
+그래서 광고를 지나온 사람 중 예산까지 정한 비율(`budget_saved` 의 `from: 'calculator'`)과
+`skipped` 로 연 사람의 그 비율을 견줘야 한다. 둘이 같으면 광고가 방해가 아니고, 광고를 본 쪽이
+낮으면 광고가 사람을 돌려보내는 것이다. `skipped` 의 `reason` 이 `failed` 로 몰리면 광고 자리
+사정이다.
+
+**`earned` 와 `watched` 를 뭉치지 않는다(ADR-0024).** 리워드형은 끝까지 본 `earned` 가 곧
+수익이다. `watched` 는 떴지만 보상 전에 닫은 것이라, 둘을 합치면 이 자리가 실제로 버는지 알 수
+없다. `watched` 비율이 높으면 광고가 긴 것이거나 계산기가 그만큼의 값을 못 한다는 뜻이다.
+`where` 로 입구 셋(`home` 첫 기록 직후 · `manage` 예산 시트 · `settings` 「남은 예산」)을 가른다.
 
 **`interstitial_result` 는 자리마다 따로 봐야 한다.** 전면 광고는 사람을 멈춰 세우는
 장치라, 한 자리가 성가시면 앱 전체가 성가신 것으로 기억된다. 그 자리에서 하려던 일을 끝낸

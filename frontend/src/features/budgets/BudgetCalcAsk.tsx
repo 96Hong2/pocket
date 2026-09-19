@@ -20,7 +20,8 @@ export function BudgetCalcAsk({ busy, onClose, onConfirm }: BudgetCalcAskProps) 
   return (
     <div className="budget-ask" role="group" aria-label="예산 대신 잡아 드리기">
       <CategoryAvatar icon="32_piggybank" size={96} />
-      <p className="budget-ask__text">광고 5초만 보면 예산을 대신 잡아 드려요</p>
+      {/* 리워드 광고라 길이를 우리가 못 정한다. 「5초」 라고 적으면 지키지 못할 약속이 된다. */}
+      <p className="budget-ask__text">광고 한 편 보면 예산을 대신 잡아 드려요</p>
       <p className="budget-ask__sub">월급과 매달 나가는 돈만 적으면 돼요</p>
       <div className="budget-ask__actions">
         <Button variant="ghost" disabled={busy} onClick={onClose}>

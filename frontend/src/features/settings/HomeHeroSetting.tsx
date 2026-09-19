@@ -13,7 +13,7 @@ import { toLedgerDate } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, RetryButton, SegmentedControl, type SegmentedOption } from '../../shared/ui';
 
-import { useFullScreenAd } from '../ads';
+import { useRewardedAd } from '../ads';
 import { BudgetAmountSheet, BudgetCalcSheet } from '../budgets';
 import { resolveHeroLayout, type HeroLayout } from '../home/homeMode';
 
@@ -84,7 +84,7 @@ export function HomeHeroSetting() {
   */
   const [touched, setTouched] = useState(false);
   const analytics = useAnalytics();
-  const fullScreenAd = useFullScreenAd();
+  const rewarded = useRewardedAd();
 
   /*
     「계산해서 정하기」 는 여기에도 둔다.
@@ -96,12 +96,12 @@ export function HomeHeroSetting() {
   async function openCalc(): Promise<void> {
     setCalcBusy(true);
     try {
-      const outcome = await fullScreenAd.show();
+      const outcome = await rewarded.show();
       analytics.log(
         EVENTS.budgetCalcOpened,
-        outcome.result === 'watched'
-          ? { ad: 'watched', where: 'settings' }
-          : { ad: 'skipped', reason: outcome.reason, where: 'settings' },
+        outcome.result === 'skipped'
+          ? { ad: 'skipped', reason: outcome.reason, where: 'settings' }
+          : { ad: outcome.result, where: 'settings' },
         { kind: 'click' },
       );
     } finally {

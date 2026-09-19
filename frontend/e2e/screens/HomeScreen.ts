@@ -502,7 +502,7 @@ class BudgetCard {
   }
 
   get calcNote(): Locator {
-    return this.calcAsk.getByText(/광고 5초만 보면 예산을 대신 잡아 드려요/);
+    return this.calcAsk.getByText(/광고 한 편 보면 예산을 대신 잡아 드려요/);
   }
 
   get calcConfirmButton(): Locator {

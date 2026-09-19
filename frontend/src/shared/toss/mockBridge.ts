@@ -53,6 +53,13 @@ export interface MockScenario {
   share?: 'ok' | 'failed';
   /** 전면 광고. `ok` 면 잠깐 덮었다가 「봤다」 로 끝난다. */
   fullScreenAd?: 'ok' | 'failed' | 'unsupported';
+  /**
+   * 리워드 광고. 전면과 따로 둔다.
+   *
+   * `earned` 는 끝까지 보고 보상까지 받은 것, `watched` 는 중간에 닫은 것이다.
+   * 지원 여부는 `fullScreenAd` 와 한 칸을 쓴다(SDK 게이트가 같다).
+   */
+  rewardedAd?: 'earned' | 'watched' | 'failed';
 }
 
 /** 목 전면 광고가 화면을 덮고 있는 시간. 실광고처럼 몇 초를 끌지 않는다. */
@@ -130,20 +137,35 @@ class MockAdsBridge implements AdsBridge {
   showFullScreen(): Promise<FullScreenAdResult> {
     const mode = this.scenario.fullScreenAd ?? 'ok';
     if (mode !== 'ok') return Promise.resolve('failed');
-
-    // 실광고처럼 화면을 통째로 덮는다. e2e 가 「광고가 떴다」 를 이 자리로 본다.
-    const node = document.createElement('div');
-    node.dataset.testid = 'mock-fullscreen-ad';
-    node.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#111;color:#fff';
-    node.textContent = '광고 (목)';
-    document.body.appendChild(node);
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        node.remove();
-        resolve('watched');
-      }, MOCK_FULL_SCREEN_MS);
-    });
+    return cover('mock-fullscreen-ad', '광고 (목)', 'watched');
   }
+
+  showRewarded(): Promise<FullScreenAdResult> {
+    if (this.scenario.fullScreenAd === 'unsupported') return Promise.resolve('failed');
+    const mode = this.scenario.rewardedAd ?? 'earned';
+    if (mode === 'failed') return Promise.resolve('failed');
+    // 전면과 다른 자리표시자를 쓴다. e2e 가 어느 쪽 광고가 떴는지 구분할 수 있어야 한다.
+    return cover('mock-rewarded-ad', '리워드 광고 (목)', mode);
+  }
+}
+
+/** 실광고처럼 화면을 통째로 덮었다가 걷는다. e2e 가 「광고가 떴다」 를 이 자리로 본다. */
+function cover(
+  testid: string,
+  label: string,
+  result: FullScreenAdResult,
+): Promise<FullScreenAdResult> {
+  const node = document.createElement('div');
+  node.dataset.testid = testid;
+  node.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#111;color:#fff';
+  node.textContent = label;
+  document.body.appendChild(node);
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      node.remove();
+      resolve(result);
+    }, MOCK_FULL_SCREEN_MS);
+  });
 }
 
 /**

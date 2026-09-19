@@ -299,6 +299,20 @@ export class EditSheetArea {
     return this.root.getByText(/ · \d{1,2}월 \d{1,2}일$/);
   }
 
+  /**
+   * 아이콘 줄과 날짜 줄 사이의 빈 높이(px).
+   *
+   * **두 자리를 한 번에 잰다.** 따로 재면 시트가 올라오는 중에 두 번 재게 되어, 그 사이
+   * 움직인 거리가 간격에 섞인다(실제로 음수가 나왔다).
+   */
+  async dayGap(): Promise<number> {
+    return this.root.locator('.tx-edit__head').evaluate((head) => {
+      const day = head.parentElement?.querySelector('.tx-edit__day');
+      if (day == null) return Number.NaN;
+      return day.getBoundingClientRect().top - head.getBoundingClientRect().bottom;
+    });
+  }
+
   /** 적힌 날. 여기서 옮기면 그 날로 간다. */
   get dayField(): Locator {
     return this.root.getByLabel('날짜');
