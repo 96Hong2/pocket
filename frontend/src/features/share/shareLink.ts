@@ -28,6 +28,8 @@ const OG_FILE: Record<ShareKind, string> = {
   goal_done: 'goal-done.png',
   budget: 'budget.png',
   closing: 'closing.png',
+  // 연속 기록 전용 그림은 아직 없다. 앱 그림을 쓴다. 받는 사람에게는 무슨 앱인지가 먼저다.
+  streak: 'app.png',
 };
 
 /**

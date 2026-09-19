@@ -29,6 +29,7 @@ from app.modules.budgets.schemas import (
     to_budget_suggestion,
     to_category_budget,
     to_recovery,
+    to_streak,
 )
 
 # 제안식에 직접 넣어 보는 금액. 원 단위 정수만 받는다. 소수를 받으면 제안액도 소수가 되고,
@@ -75,6 +76,7 @@ def _view(session: DbSession, user: CurrentUser, period: BudgetPeriod) -> Budget
         transaction_count=ledger.transaction_count(session, user),
         days_since_last_transaction=ledger.days_since(last_settled, today),
         recovery=to_recovery(ledger.load_recovery_progress(session, user, today)),
+        streak=to_streak(ledger.load_streak(session, user, today)),
     )
 
 

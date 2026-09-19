@@ -29,7 +29,8 @@
 | 고를 것이 너무 많나 | `category_more_opened` · `category_order_changed` | 「더 보기」를 편 화면과 그때 보이던 칩 수, 순서를 바꾼 방식(한 칸 옮기기·자주 쓴 순서)와 종류 |
 | 빈 날에 무엇을 고르나 | `no_spend_marked` | 누른 화면, 그 날짜 |
 | 떠나기로 마음먹나 | `data_reset_result` | 성공·실패, 걸린 시간, 오류 코드 |
-| 남에게 알릴 만하다고 느끼나 | `share_result` · `share_card_dismissed` | 누른 자리(`home`·`goal`·`goal_done`·`manage`·`manage_past`·`closing`), 갈래(`app`·`goal`·`goal_done`·`budget`·`closing`), 성공·실패와 실패 코드. **보낸 글은 싣지 않는다** |
+| 남에게 알릴 만하다고 느끼나 | `share_result` · `share_card_dismissed` | 누른 자리(`home`·`goal`·`goal_done`·`manage`·`manage_past`·`closing`·`streak`), 갈래(`app`·`goal`·`goal_done`·`budget`·`closing`·`streak`), 성공·실패와 실패 코드. **보낸 글은 싣지 않는다** |
+| 꾸준히 적는 사람이 늘어나나 | `streak_celebrated` | 몇 일째 축하가 떴나(7·14·21…). **끊긴 것은 싣지 않는다** |
 | 미리 적어 둔 돈을 실제로 적나 | `recurring_result` | 적었나(`recorded`)·미뤘나(`dismissed`), 전날인가 당일인가(`eve`·`today`). **항목 이름과 금액은 싣지 않는다** |
 | 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
 | 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(`closing`·`assets`·`report_months`)와 결과(`watched`·`skipped`), 지나간 이유(`no_group`·`unsupported`·`failed`·**`capped`**) |
@@ -82,6 +83,11 @@
 수익이다. `watched` 는 떴지만 보상 전에 닫은 것이라, 둘을 합치면 이 자리가 실제로 버는지 알 수
 없다. `watched` 비율이 높으면 광고가 긴 것이거나 계산기가 그만큼의 값을 못 한다는 뜻이다.
 `where` 로 입구 셋(`home` 첫 기록 직후 · `manage` 예산 시트 · `settings` 「남은 예산」)을 가른다.
+
+**`streak_celebrated` 는 뜬 것만 센다.** 7일을 채운 사람에게 한 번 뜨는 축하라, 이 값이
+곧 「일주일을 다 채운 사람 수」 다(ADR-0025). 끊긴 날·빈 날 수는 서버도 화면도 안 만들어서 여기에도
+없다. 같은 `where: 'streak'` 의 `share_result` 와 견주면 꾸준히 적은 것을 남에게 알릴 만하다고
+느끼는지가 보인다. 14 이상이 드물면 두 번째 주를 잇게 하는 것이 다음 과제다.
 
 **`interstitial_result` 는 자리마다 따로 봐야 한다.** 전면 광고는 사람을 멈춰 세우는
 장치라, 한 자리가 성가시면 앱 전체가 성가신 것으로 기억된다. 그 자리에서 하려던 일을 끝낸

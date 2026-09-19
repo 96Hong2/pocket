@@ -29,6 +29,7 @@ from app.domain.budget_plan import (
 from app.domain.money import Money, ratio
 from app.domain.period import BudgetPeriod
 from app.domain.recovery import RecoveryProgress
+from app.domain.streak import Streak
 
 __all__ = [
     "BudgetOut",
@@ -38,12 +39,14 @@ __all__ = [
     "CategoryBudgetOut",
     "RecoveryProgressOut",
     "SavingSource",
+    "StreakOut",
     "SuggestionAmountOut",
     "SuggestionSource",
     "to_budget_state",
     "to_budget_suggestion",
     "to_category_budget",
     "to_recovery",
+    "to_streak",
 ]
 
 
@@ -116,6 +119,17 @@ class RecoveryProgressOut(BaseModel):
     progress: str
 
 
+class StreakOut(BaseModel):
+    """오늘(또는 어제)까지 이어서 적은 날. 홈이 7일마다 한 번 축하하는 데 쓴다.
+
+    끊긴 날은 싣지 않는다. 끊겼으면 이 칸 자체가 null 로 온다.
+    """
+
+    # 이어진 날의 첫날. 화면이 「같은 축하를 두 번 띄우지 않기」 위한 표로 쓴다.
+    started_on: date
+    days: int
+
+
 class BudgetOut(BaseModel):
     """예산 조회·저장 응답. 홈이 첫 화면을 고르는 근거를 함께 준다."""
 
@@ -135,6 +149,8 @@ class BudgetOut(BaseModel):
     days_since_last_transaction: int | None
     # 최근 7일 정리 진행. 기록이 하나도 없어도 0 으로 늘 실린다.
     recovery: RecoveryProgressOut
+    # 오늘(또는 어제)까지 이어서 적은 날. 끊겼거나 8주를 넘겼으면 null.
+    streak: StreakOut | None
 
 
 class SuggestionSource(StrEnum):
@@ -246,6 +262,10 @@ def to_budget_suggestion(
         suggested=_amount(plan.suggested),
         reason=plan.reason,
     )
+
+
+def to_streak(value: Streak | None) -> StreakOut | None:
+    return None if value is None else StreakOut(started_on=value.started_on, days=value.days)
 
 
 def to_recovery(progress: RecoveryProgress) -> RecoveryProgressOut:

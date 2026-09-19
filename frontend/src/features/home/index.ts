@@ -18,5 +18,6 @@ export {
 export { RecordDayAsk } from './RecordDayAsk';
 export { RecoveryCard } from './RecoveryCard';
 export { ShareAppCard } from './ShareAppCard';
+export { StreakCelebration } from './StreakCelebration';
 export { TodayList } from './TodayList';
 export { useCardDismiss } from './useCardDismiss';

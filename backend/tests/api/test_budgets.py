@@ -150,6 +150,17 @@ def test_최근_7일_정리_진행이_늘_실린다(client: TestClient) -> None:
     assert body["recovery"]["progress"] == "0.1429"
 
 
+def test_이어서_적은_날은_끊겼으면_null_이다(client: TestClient) -> None:
+    """홈의 7일 축하가 이 값을 본다. 끊긴 날 수 같은 값은 애초에 안 싣는다."""
+    body = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()
+    assert body["streak"] is None
+
+    client.post("/api/v1/transactions", json=_expense(), headers=AUTH)
+    body = client.get(f"/api/v1/budgets?{PERIOD}", headers=AUTH).json()
+    assert body["streak"]["days"] == 1
+    assert set(body["streak"]) == {"started_on", "days"}
+
+
 # ── 저장 ────────────────────────────────────────────────
 
 

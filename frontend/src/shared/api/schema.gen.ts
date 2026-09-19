@@ -1026,6 +1026,7 @@ export interface components {
             /** Days Since Last Transaction */
             days_since_last_transaction: number | null;
             recovery: components["schemas"]["RecoveryProgressOut"];
+            streak: components["schemas"]["StreakOut"] | null;
         };
         /**
          * BudgetStateOut
@@ -2169,6 +2170,21 @@ export interface components {
          * @enum {string}
          */
         SavingSource: "goal" | "given" | "none";
+        /**
+         * StreakOut
+         * @description 오늘(또는 어제)까지 이어서 적은 날. 홈이 7일마다 한 번 축하하는 데 쓴다.
+         *
+         *     끊긴 날은 싣지 않는다. 끊겼으면 이 칸 자체가 null 로 온다.
+         */
+        StreakOut: {
+            /**
+             * Started On
+             * Format: date
+             */
+            started_on: string;
+            /** Days */
+            days: number;
+        };
         /**
          * SuggestionAmountOut
          * @description 제안식의 한 칸. 값만 주면 화면이 그것을 사실로 적어 버려서 출처를 함께 준다.

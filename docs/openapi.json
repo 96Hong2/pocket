@@ -7821,6 +7821,16 @@
           },
           "recovery": {
             "$ref": "#/components/schemas/RecoveryProgressOut"
+          },
+          "streak": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StreakOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -7833,7 +7843,8 @@
           "has_any_transaction",
           "transaction_count",
           "days_since_last_transaction",
-          "recovery"
+          "recovery",
+          "streak"
         ],
         "title": "BudgetOut",
         "description": "예산 조회·저장 응답. 홈이 첫 화면을 고르는 근거를 함께 준다."
@@ -10848,6 +10859,26 @@
         ],
         "title": "SavingSource",
         "description": "목표저축 칸의 출처. 목표에서 옮긴 값인지, 사용자가 직접 적은 값인지, 낼 수 없어 0 인지."
+      },
+      "StreakOut": {
+        "properties": {
+          "started_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Started On"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "started_on",
+          "days"
+        ],
+        "title": "StreakOut",
+        "description": "오늘(또는 어제)까지 이어서 적은 날. 홈이 7일마다 한 번 축하하는 데 쓴다.\n\n끊긴 날은 싣지 않는다. 끊겼으면 이 칸 자체가 null 로 온다."
       },
       "SuggestionAmountOut": {
         "properties": {

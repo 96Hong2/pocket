@@ -12,7 +12,7 @@
  */
 
 /** 무엇을 공유하는가. 로그의 갈래 이름도 이 값을 그대로 쓴다. */
-export type ShareKind = 'app' | 'goal' | 'goal_done' | 'budget' | 'closing';
+export type ShareKind = 'app' | 'goal' | 'goal_done' | 'budget' | 'closing' | 'streak';
 
 /** 문구 끝에 늘 붙는 꼬리. 받는 사람이 무슨 앱인지 알아야 링크를 누른다. */
 const TAIL = '10초 가계부';
@@ -69,6 +69,17 @@ export function closingLine(month: string, withinBudget: boolean): string {
   return withinBudget
     ? `${label}은 예산 안에서 마쳤어요 · ${TAIL}`
     : `${label} 가계부를 정리했어요 · ${TAIL}`;
+}
+
+/**
+ * 이어서 적은 날.
+ *
+ * 금액이 하나도 없다. 얼마를 썼는지가 아니라 **꾸준히 적었다는 것**이 자랑이다.
+ * `milestone` 은 7의 배수다(7 → 일주일, 14 → 2주).
+ */
+export function streakLine(milestone: number): string {
+  const span = milestone === 7 ? '일주일' : `${milestone / 7}주`;
+  return `가계부를 ${span} 내내 적었어요 · ${TAIL}`;
 }
 
 /** 앱 자체를 권한다. 숫자가 하나도 안 들어가는 유일한 문구다. */
