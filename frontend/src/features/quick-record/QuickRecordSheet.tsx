@@ -698,10 +698,11 @@ function RecordBody({
           */}
           <div className="record__day-row">
             <span className="record__day-pick" data-past={isBackfill ? '' : undefined}>
-              <span className="record__day-chip" aria-hidden="true">
-                <CalendarGlyph />
-                {backfillLabel ?? '오늘'}
-              </span>
+              {/*
+                칸이 알약보다 앞에 온다. 눈에 보이는 것은 알약이지만, 초점이 가거나 잠겼다는
+                것을 알약에 옮겨 그리려면 CSS 가 칸 뒤의 형제를 짚을 수 있어야 한다.
+                자리는 겹쳐 두므로 순서가 배치를 바꾸지는 않는다.
+              */}
               <input
                 id={dayId}
                 className="record__day-input"
@@ -716,6 +717,10 @@ function RecordBody({
                   setRecordDay(event.target.value === '' ? today : event.target.value)
                 }
               />
+              <span className="record__day-chip" aria-hidden="true">
+                <CalendarGlyph />
+                {backfillLabel ?? '오늘'}
+              </span>
             </span>
           </div>
 

@@ -140,6 +140,28 @@ test('축하를 닫으면 이메일로 지켜 두겠냐고 묻고, 거기서 바
   expect(new URL(page.url()).pathname).toBe('/');
 });
 
+/*
+  **시스템 뒤로가기가 이 창을 닫아야 한다.**
+
+  홈은 탭 뿌리라, 떠 있는 창이 뒤로가기를 안 가져가면 창은 그대로 있고 미니앱이 통째로
+  닫힌다. 바텀시트는 스스로 등록하지 않으므로 여는 쪽이 매번 걸어야 한다.
+*/
+test('이메일을 권하는 창은 시스템 뒤로가기로 닫힌다', async ({ appShell, home, page, prep }) => {
+  await seedDays(prep, 6);
+
+  await home.open();
+  await home.waitReady();
+  await home.streak.waitOpen();
+  await home.streak.closeButton.click();
+
+  const ask = page.getByRole('dialog', { name: '기록을 안전하게' });
+  await expect(ask).toBeVisible();
+
+  await appShell.pressBack();
+  await expect(ask).toHaveCount(0);
+  await expect(home.recordButton).toBeVisible();
+});
+
 test('공유하면 금액 없이 꾸준히 적었다는 말만 나간다', async ({ home, page, prep }) => {
   await seedDays(prep, 6);
 

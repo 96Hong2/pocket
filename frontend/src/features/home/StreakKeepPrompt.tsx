@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { useBridge } from '../../app/providers';
+import { useBridge, useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { useMe } from '../../shared/api';
 import { BottomSheet, Button } from '../../shared/ui';
@@ -46,6 +46,14 @@ export function StreakKeepPrompt({ open, onClose }: { open: boolean; onClose: ()
 
   const linkable = me.data != null && me.data.email == null && me.data.email_login_available;
   const show = open && asked === false && linkable && !linkOpen;
+
+  /*
+    시스템 뒤로가기를 이 창이 가져간다.
+
+    **빼먹으면 앱이 통째로 닫힌다.** 홈은 탭 뿌리라, 열린 오버레이가 없으면 뒤로가기가
+    미니앱을 닫는다. 바텀시트는 스스로 등록하지 않으므로 여는 쪽이 매번 건다.
+  */
+  useOverlayBackClose(show, onClose);
 
   // 뜬 그 순간에 물었다고 적는다. 대답을 기다려 적으면 그냥 닫은 사람에게 매주 다시 뜬다.
   useEffect(() => {

@@ -109,6 +109,28 @@
     cursor: pointer;
   }
 
+  /*
+    초점 테두리를 알약에 옮겨 그린다. 투명한 칸에는 `outline` 도 함께 투명해져서,
+    키보드로 옮겨 다니는 사람에게 지금 어디에 있는지 보이는 것이 하나도 없다.
+  */
+  .record__day-input:focus-visible {
+    outline: none;
+  }
+
+  .record__day-input:focus-visible + .record__day-chip {
+    outline: 2px solid var(--color-sage-700);
+    outline-offset: 2px;
+  }
+
+  /* 저장이 도는 동안. 눌러도 아무 일이 없는 자리라 모양으로 먼저 알린다. */
+  .record__day-input:disabled {
+    cursor: default;
+  }
+
+  .record__day-input:disabled + .record__day-chip {
+    opacity: 0.45;
+  }
+
   /* 칸 아래 한 줄짜리 안내. 잠긴 이유처럼 상황에 따라만 선다. */
   .record__hint {
     margin: 0;
