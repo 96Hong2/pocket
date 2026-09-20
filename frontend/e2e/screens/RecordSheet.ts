@@ -35,6 +35,34 @@ class LeaveConfirm {
 }
 
 /**
+ * 아직 오지 않은 날에 저장하려 할 때 뜨는 확인.
+ *
+ * 기록 시트·수정 시트·검토 목록·목표 모으기가 **같은 창**을 쓴다. 자리마다 다른 모양으로
+ * 물으면 한 화면에서 배운 것이 다음 화면에서 안 통한다.
+ */
+export class FutureDayConfirmArea {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('alertdialog', { name: '아직 오지 않은 날이에요' });
+  }
+
+  get dialog(): Locator {
+    return this.root;
+  }
+
+  /** 그대로 넣는 쪽. 기본이 아니라 왼쪽 작은 버튼이다. */
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: '이 날짜로 저장' });
+  }
+
+  /** 되돌리는 쪽. 오른쪽 큰 버튼이 기본이다. */
+  get fixButton(): Locator {
+    return this.root.getByRole('button', { name: '날짜 고치기' });
+  }
+}
+
+/**
  * 기록 바텀시트.
  *
  * 저장해도 시트는 닫히지 않고 안쪽이 입력에서 피드백으로 바뀐다.
@@ -55,6 +83,8 @@ export class RecordSheet {
   readonly capture: RecordImageImport;
   /** 영수증 탭. 카메라로 찍는 것만 다르고 그 뒤는 캡처와 같다. */
   readonly receipt: RecordImageImport;
+  /** 앞날에 저장하려 할 때 뜨는 확인. 시트 위에 겹친다. */
+  readonly futureDayConfirm: FutureDayConfirmArea;
 
   constructor(page: Page) {
     this.page = page;
@@ -65,6 +95,7 @@ export class RecordSheet {
     this.capture = new RecordImageImport(this.root, CAPTURE_LABELS);
     this.receipt = new RecordImageImport(this.root, RECEIPT_LABELS);
     this.leave = new LeaveConfirm(page);
+    this.futureDayConfirm = new FutureDayConfirmArea(page);
   }
 
   get isVisible(): Promise<boolean> {
