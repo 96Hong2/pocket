@@ -289,6 +289,11 @@ class RecordInput {
     return this.root.getByText(/카테고리 관리에서 순서를 바꾸고/);
   }
 
+  /** 그 줄 앞머리. 누르면 카테고리 관리로 간다. 잃을 것이 있으면 먼저 묻는다. */
+  get categoryManageLink(): Locator {
+    return this.root.getByRole('button', { name: '관리 › 카테고리 관리' });
+  }
+
   /**
    * 분류를 여기서 바로 만든다. 관리 탭까지 가지 않는다.
    *

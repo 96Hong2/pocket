@@ -610,6 +610,18 @@
     color: var(--color-muted);
   }
 
+  /*
+    자리 이름만 링크다. 밑줄을 그어야 「읽는 글」 과 「가는 길」 이 갈린다.
+    글자 크기가 작아 손가락 자리가 모자라므로 위아래로 눌리는 범위를 넓힌다.
+  */
+  .cat-chips__note-link {
+    padding: 4px 0;
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   .cat-chips__fold {
     grid-column: 1 / -1;
     justify-self: center;

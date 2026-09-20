@@ -34,10 +34,10 @@ test('기록 시트에서 날짜를 지난 날로 바꿔 적으면 홈 목록이
   // 오늘로 시작한다. 알약이 「오늘」 이라고 적혀 있다.
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayChip).toHaveText('오늘');
+  await expect(recordSheet.input.dayChip).toHaveText(formatDayLabel(toLedgerDate(new Date())));
 
   await recordSheet.input.dayField.fill(target);
-  await expect(recordSheet.input.dayChip).toHaveText(formatRelativeDay(target));
+  await expect(recordSheet.input.dayChip).toHaveText(formatDayLabel(target));
 
   await recordSheet.input.enterAmount(3_200);
   await recordSheet.input.pickCategory('식비');

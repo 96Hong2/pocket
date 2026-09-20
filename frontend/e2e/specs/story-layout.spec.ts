@@ -1,4 +1,4 @@
-import { formatCurrency, toLedgerDate } from '../../src/shared/lib/format';
+import { formatCurrency, formatDayLabel, toLedgerDate } from '../../src/shared/lib/format';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -125,7 +125,7 @@ test('기록 시트의 날짜는 줄을 다 쓰지 않는 작은 알약이다', 
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  await expect(recordSheet.input.dayChip).toHaveText('오늘');
+  await expect(recordSheet.input.dayChip).toHaveText(formatDayLabel(toLedgerDate(new Date())));
   // 숫자 형식이 그대로 보이면 안 된다. 기기마다 달라서 읽는 사람이 헷갈린다.
   await expect(recordSheet.input.dayChip).not.toContainText('/');
 

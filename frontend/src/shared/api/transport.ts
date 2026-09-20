@@ -23,8 +23,14 @@ export type AnonKeyState =
   | { status: 'unsupported' }
   | { status: 'failed' };
 
-/** 지하철에서 저장 버튼이 영원히 로딩으로 남지 않게 하는 값. */
-const DEFAULT_TIMEOUT_MS = 10_000;
+/**
+ * 지하철에서 저장 버튼이 영원히 로딩으로 남지 않게 하는 값.
+ *
+ * **10초에서 6초로 줄였다.** 조회는 한 번 더 부르므로 닿지 않는 서버에서 6 + 1 + 6 = 13초가
+ * 걸린다. 검수는 첫 화면이 20초 안에 서기를 요구한다(2026-09-20 반려). 오래 걸리는 자리
+ * (줄글 읽기·사진 읽기)는 저마다 더 긴 값을 따로 넘긴다.
+ */
+const DEFAULT_TIMEOUT_MS = 6_000;
 
 export interface TransportOptions {
   getAnonKey(): AnonKeyState;

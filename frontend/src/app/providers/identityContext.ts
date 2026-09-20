@@ -15,7 +15,11 @@ export type IdentityState =
   | { status: 'unsupported'; message: string }
   | {
       status: 'failed';
-      code: BridgeErrorCode;
+      /**
+       * 왜 못 받았나. `TIMEOUT` 은 SDK 가 아예 답을 안 준 것이라 브릿지 오류가 아니다.
+       * 답이 없는 것과 실패한 것은 다른 일이라 갈라서 센다.
+       */
+      code: BridgeErrorCode | 'TIMEOUT';
       message: string;
       /**
        * SDK 가 준 오류 이름. 화면에 작게 적는다.

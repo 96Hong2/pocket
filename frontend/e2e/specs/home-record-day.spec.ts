@@ -1,4 +1,15 @@
+import { formatDayLabel, shiftDay, toLedgerDate } from '../../src/shared/lib/format';
 import { expect, test } from '../support/fixtures';
+
+/** 알약에 적히는 오늘. 「오늘」 이 아니라 날짜 그대로다. */
+function todayLabel(): string {
+  return formatDayLabel(toLedgerDate(new Date()));
+}
+
+/** 알약에 적히는 어제. 가계부 시간대로 센다. */
+function yesterdayLabel(): string {
+  return formatDayLabel(shiftDay(toLedgerDate(new Date()), -1));
+}
 
 /**
  * 홈에서 기록할 때 **어느 날에 적히는가.**
@@ -18,7 +29,7 @@ test('어제 기록하기로 적으면 어제에 남는다', async ({ home, reco
 
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayChip).toHaveText('어제');
+  await expect(recordSheet.input.dayChip).toHaveText(yesterdayLabel());
   await recordSheet.input.enterAmount(7000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
@@ -73,7 +84,7 @@ test('오늘 기록하기는 오늘에 남고 날짜 안내가 없다', async ({
 
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayChip).toHaveText('오늘');
+  await expect(recordSheet.input.dayChip).toHaveText(todayLabel());
   await recordSheet.input.enterAmount(5000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
@@ -108,7 +119,7 @@ test('지난 날을 보는 중에 큰 기록하기를 누르면 어느 날에 �
   await home.recordButton.click();
   await home.recordDayChoice('어제').click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayChip).toHaveText('어제');
+  await expect(recordSheet.input.dayChip).toHaveText(yesterdayLabel());
   await recordSheet.input.enterAmount(4500);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
@@ -131,7 +142,7 @@ test('물음에서 오늘을 고르면 오늘에 적히고 방식도 고를 수 
   await home.recordButton.click();
   await home.recordDayChoice('오늘').click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayChip).toHaveText('오늘');
+  await expect(recordSheet.input.dayChip).toHaveText(todayLabel());
   // 오늘로 갔으면 날이 붙은 버튼으로 들어온 것이 아니라 방식 알약이 그대로 있다.
   await expect(recordSheet.methodTab('줄글')).toBeEnabled();
 
