@@ -18,7 +18,7 @@ test('어제 기록하기로 적으면 어제에 남는다', async ({ home, reco
 
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayNotice).toBeVisible();
+  await expect(recordSheet.input.dayChip).toHaveText('어제');
   await recordSheet.input.enterAmount(7000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
@@ -48,8 +48,8 @@ test('어제보다 더 전인 날도 그 날에 남는다', async ({ home, recor
   await expect(home.today.emptyButton).toHaveText(`${label} 기록하기`);
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
-  // 안내에도 그 날 이름이 그대로 적힌다. 「어제」 로 뭉뚱그리지 않는다.
-  await expect(recordSheet.input.dayNotice).toHaveText(`${label}에 적어요`);
+  // 알약에도 그 날 이름이 그대로 적힌다. 「어제」 로 뭉뚱그리지 않는다.
+  await expect(recordSheet.input.dayChip).toHaveText(label);
 
   await recordSheet.input.enterAmount(9000);
   await recordSheet.input.pickCategory('식비');
@@ -73,7 +73,7 @@ test('오늘 기록하기는 오늘에 남고 날짜 안내가 없다', async ({
 
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayNotice).toHaveCount(0);
+  await expect(recordSheet.input.dayChip).toHaveText('오늘');
   await recordSheet.input.enterAmount(5000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
@@ -108,7 +108,7 @@ test('지난 날을 보는 중에 큰 기록하기를 누르면 어느 날에 �
   await home.recordButton.click();
   await home.recordDayChoice('어제').click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayNotice).toHaveText('어제에 적어요');
+  await expect(recordSheet.input.dayChip).toHaveText('어제');
   await recordSheet.input.enterAmount(4500);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
@@ -131,7 +131,7 @@ test('물음에서 오늘을 고르면 오늘에 적히고 방식도 고를 수 
   await home.recordButton.click();
   await home.recordDayChoice('오늘').click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayNotice).toHaveCount(0);
+  await expect(recordSheet.input.dayChip).toHaveText('오늘');
   // 오늘로 갔으면 날이 붙은 버튼으로 들어온 것이 아니라 방식 알약이 그대로 있다.
   await expect(recordSheet.methodTab('줄글')).toBeEnabled();
 

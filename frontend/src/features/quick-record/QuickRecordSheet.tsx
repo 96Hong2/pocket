@@ -32,6 +32,7 @@ import {
 import {
   BottomSheet,
   Button,
+  CalendarGlyph,
   CategoryAvatar,
   ErrorState,
   LoadingState,
@@ -686,32 +687,42 @@ function RecordBody({
             **어느 날에 적을지를 여기서 정한다.** 지난 날 것을 적으려고 홈이나 달력에서
             그 날을 먼저 찾아가는 왕복이 적는 일보다 길었다. 오늘이 기본이고, 아직 오지
             않은 날에는 적을 것이 없어 오늘까지만 고를 수 있다.
-          */}
-          <div className="record__date">
-            <label className="record__date-label" htmlFor={dayId}>
-              날짜
-            </label>
-            <input
-              id={dayId}
-              className="record__date-input"
-              type="date"
-              value={recordDay}
-              min={oldestDay()}
-              max={today}
-              disabled={create.isPending}
-              // 달력을 열었다 비운 채로 닫는 기기가 있다. 비면 오늘로 되돌린다.
-              onChange={(event) =>
-                setRecordDay(event.target.value === '' ? today : event.target.value)
-              }
-            />
-          </div>
 
-          {/* 오늘이 아니면 어느 날인지 한글로 한 번 더 말한다. 칸의 숫자 형식은 기기마다 다르다. */}
-          {backfillLabel ? (
-            <p className="record__day">
-              <b>{backfillLabel}</b>에 적어요
-            </p>
-          ) : null}
+            **평소에는 「오늘」 이라고만 적힌 작은 알약이다.** 거의 모두가 오늘 것을 적는데,
+            줄을 통째로 쓰는 칸을 두면 안 바꿀 값이 금액보다 커 보인다. 날짜를 고쳐야 하는
+            사람만 이걸 눌러 달력을 연다.
+
+            알약에 보이는 글자는 우리가 쓰고(「오늘」·「어제」·「9월 5일」), 실제로 누르는 것은
+            그 위에 투명하게 겹쳐 둔 날짜 칸이다. 기기가 그리는 달력을 그대로 쓰면서 칸의
+            숫자 형식(`09/20/2026`)은 안 보이게 하는 유일한 방법이다.
+          */}
+          <div className="record__day-row">
+            <span className="record__day-pick" data-past={isBackfill ? '' : undefined}>
+              {/*
+                칸이 알약보다 앞에 온다. 눈에 보이는 것은 알약이지만, 초점이 가거나 잠겼다는
+                것을 알약에 옮겨 그리려면 CSS 가 칸 뒤의 형제를 짚을 수 있어야 한다.
+                자리는 겹쳐 두므로 순서가 배치를 바꾸지는 않는다.
+              */}
+              <input
+                id={dayId}
+                className="record__day-input"
+                type="date"
+                aria-label="날짜"
+                value={recordDay}
+                min={oldestDay()}
+                max={today}
+                disabled={create.isPending}
+                // 달력을 열었다 비운 채로 닫는 기기가 있다. 비면 오늘로 되돌린다.
+                onChange={(event) =>
+                  setRecordDay(event.target.value === '' ? today : event.target.value)
+                }
+              />
+              <span className="record__day-chip" aria-hidden="true">
+                <CalendarGlyph />
+                {backfillLabel ?? '오늘'}
+              </span>
+            </span>
+          </div>
 
           <AmountDisplay digits={digits} hint={hint} />
 

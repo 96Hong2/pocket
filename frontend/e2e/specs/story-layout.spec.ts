@@ -113,6 +113,31 @@ test('수정 시트의 날짜 칸이 위 아이콘 줄에 붙지 않는다', asy
 });
 
 /*
+  기록 시트의 날짜가 줄을 통째로 쓰는 칸이었다.
+
+  거의 모두가 오늘 것을 적는데, 안 바꿀 값이 금액보다 커 보였다. 게다가 기기가 그리는
+  칸이라 `09/20/2026` 같은 미국식 숫자가 그대로 떴다. 「오늘」 한 마디짜리 작은 알약으로
+  줄이고, 고쳐야 하는 사람만 눌러서 열게 했다.
+*/
+test('기록 시트의 날짜는 줄을 다 쓰지 않는 작은 알약이다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await expect(recordSheet.input.dayChip).toHaveText('오늘');
+  // 숫자 형식이 그대로 보이면 안 된다. 기기마다 달라서 읽는 사람이 헷갈린다.
+  await expect(recordSheet.input.dayChip).not.toContainText('/');
+
+  const ratio = await recordSheet.input.dayChip.evaluate((chip) => {
+    const sheet = chip.closest('[role="dialog"]');
+    if (sheet == null) return 1;
+    return chip.getBoundingClientRect().width / sheet.getBoundingClientRect().width;
+  });
+  expect(ratio, '날짜가 아직 줄을 통째로 쓰고 있다').toBeLessThan(0.5);
+});
+
+/*
   앱 설정에서 「남은 예산」을 골랐는데 예산이 없을 때 뜨는 입구.
 
   이 버튼은 예산이 아예 없는 사람에게만 선다. 곧 **여기 오는 사람은 전부 처음 정하는

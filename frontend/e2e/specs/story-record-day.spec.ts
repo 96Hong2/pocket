@@ -55,7 +55,7 @@ test('줄글을 마지막에 썼어도 어제 기록하기는 키패드로 열�
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
 
-  await expect(recordSheet.input.dayNotice).toHaveText('어제에 적어요');
+  await expect(recordSheet.input.dayChip).toHaveText('어제');
   await expect(recordSheet.input.dayLockNotice).toBeVisible();
   await expect(recordSheet.methodTab('줄글')).toBeDisabled();
   await expect(recordSheet.methodTab('캡처')).toBeDisabled();
@@ -83,7 +83,7 @@ test('달력에서 고른 날도 방식을 묻지 않고 그 날 키패드로 �
   await calendar.list.recordButton.click();
   await recordSheet.waitOpen();
 
-  await expect(recordSheet.input.dayNotice).toBeVisible();
+  await expect(recordSheet.input.dayChip).not.toHaveText('오늘');
   await expect(recordSheet.methodTab('줄글')).toBeDisabled();
 });
 
