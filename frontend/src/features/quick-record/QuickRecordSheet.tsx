@@ -1,6 +1,9 @@
 import { useEffect, useId, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router';
+
+import { ROUTES } from '../../app/router/routes';
 
 import { useBridge, useOverlayBackClose } from '../../app/providers';
 import { bumpRecordCount } from '../../shared/lib/homeAddSeen';
@@ -130,22 +133,40 @@ export function QuickRecordSheet({
   const [pending, setPending] = useState(0);
   const [reviewing, setReviewing] = useState(false);
   const [asking, setAsking] = useState(false);
-  const analytics = useAnalytics();
+  /*
+    나가고 나서 어디로 갈까.
 
-  /** 닫으려는 모든 길이 여기를 지난다. 손잡이·딤·Esc·시스템 뒤로가기가 같은 규칙을 탄다. */
-  function requestClose(): void {
+    닫기만 하는 길과 카테고리 관리로 옮겨 가는 길이 **같은 확인 창을 쓴다.** 읽어 온 것을
+    잃는다는 점에서 둘은 같은 일이라, 한쪽만 묻고 다른 쪽은 그냥 보내면 그 창이 무의미해진다.
+  */
+  const [leaveTo, setLeaveTo] = useState<'close' | 'manage'>('close');
+  const analytics = useAnalytics();
+  const navigate = useNavigate();
+
+  function leave(where: 'close' | 'manage'): void {
+    onClose();
+    if (where === 'manage') void navigate(ROUTES.categories);
+  }
+
+  /** 나가려는 모든 길이 여기를 지난다. 손잡이·딤·Esc·시스템 뒤로가기·관리로 가기가 같은 규칙을 탄다. */
+  function requestLeave(where: 'close' | 'manage'): void {
     if (pending > 0) {
       analytics.log(EVENTS.recordLeaveAsked, { result: 'asked', pending }, { kind: 'impression' });
+      setLeaveTo(where);
       setAsking(true);
       return;
     }
-    onClose();
+    leave(where);
+  }
+
+  function requestClose(): void {
+    requestLeave('close');
   }
 
   function answer(result: 'stayed' | 'left'): void {
     analytics.log(EVENTS.recordLeaveAsked, { result, pending }, { kind: 'click' });
     setAsking(false);
-    if (result === 'left') onClose();
+    if (result === 'left') leave(leaveTo);
   }
 
   useOverlayBackClose(open, requestClose, saving);
@@ -165,6 +186,7 @@ export function QuickRecordSheet({
         from={from}
         onDone={onClose}
         onRecorded={onRecorded}
+        onManage={() => requestLeave('manage')}
         onSavingChange={setSaving}
         onPendingChange={setPending}
         onReviewingChange={setReviewing}
@@ -225,6 +247,7 @@ function RecordBody({
   from,
   onDone,
   onRecorded,
+  onManage,
   onSavingChange,
   onPendingChange,
   onReviewingChange,
@@ -236,6 +259,8 @@ function RecordBody({
   onDone: () => void;
   /** 저장이 끝난 날. 부르는 쪽이 그 날로 옮겨 간다. 오늘을 넘지 않는다. */
   onRecorded?: (day: string) => void;
+  /** 카테고리 관리로 가겠다고 했을 때. 잃을 것이 있으면 바깥이 먼저 묻는다. */
+  onManage: () => void;
   onSavingChange: (saving: boolean) => void;
   /** 어느 탭에서든 읽어 두고 아직 저장 안 한 건수의 합. */
   onPendingChange: (pending: number) => void;
@@ -775,6 +800,7 @@ function RecordBody({
               categories={pickable}
               disabled={create.isPending}
               onPick={pickCategory}
+              onManage={onManage}
               selectedId={pickedId}
               onCreate={() => setCreating(true)}
               onExpand={() =>

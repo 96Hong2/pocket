@@ -289,9 +289,9 @@ class RecordInput {
     return this.root.getByText(/카테고리 관리에서 순서를 바꾸고/);
   }
 
-  /** 그 줄 앞머리의 링크. 누르면 카테고리 관리로 바로 간다. */
+  /** 그 줄 앞머리. 누르면 카테고리 관리로 간다. 잃을 것이 있으면 먼저 묻는다. */
   get categoryManageLink(): Locator {
-    return this.root.getByRole('link', { name: '관리 › 카테고리 관리' });
+    return this.root.getByRole('button', { name: '관리 › 카테고리 관리' });
   }
 
   /**

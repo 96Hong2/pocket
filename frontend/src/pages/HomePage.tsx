@@ -125,11 +125,17 @@ function HomeContent({
     ) : null;
   }
 
-  if (budget.isPending) return <LoadingState label="지금 상태를 불러오는 중이에요" />;
+  /*
+    **예산 조회를 기다리는 동안에도 기록 버튼은 선다.**
+
+    예전에는 여기서 통째로 return 해서, 조회가 끝날 때까지 화면에 스피너 하나만 있었다.
+    서버에 안 닿는 자리에서는 그 스피너가 13초를 갔고, 검수가 「최초 접속 시간 20초 초과」 로
+    막은 화면이 그것이다. 실패했을 때 버튼을 남기는 규칙(바로 아래)이 기다리는 동안에는
+    안 걸려 있었다. 이 앱의 목적은 기록이라 조회가 어떻든 기록은 되어야 한다(ADR-0026).
+  */
 
   // 예산 조회가 실패하면 히어로 자리만 대신한다.
   // 그 자리에서 통째로 return 하면 '10초 기록' 버튼까지 사라져, 읽기 실패가 쓰기 진입점을 막는다.
-  // 이 앱의 목적은 기록이라 조회가 안 되는 동안에도 기록은 되어야 한다.
   const view = budget.data != null ? resolveHomeView(toHomeViewInput(budget.data)) : null;
   /*
     **스스로 서는 카드는 한 번에 둘까지다.** 셋이 쌓이면 기록 버튼 아래가 권유 전시장이 되고,
@@ -163,7 +169,9 @@ function HomeContent({
 
   return (
     <>
-      {view != null && budget.data != null ? (
+      {budget.isPending ? (
+        <LoadingState label="지금 상태를 불러오는 중이에요" />
+      ) : view != null && budget.data != null ? (
         <HomeHero
           view={view}
           budget={budget.data}

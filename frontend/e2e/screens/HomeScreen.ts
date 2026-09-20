@@ -91,8 +91,15 @@ export class HomeScreen {
   }
 
   /** 홈이 그릴 것을 다 그린 뒤를 기다린다. 조회가 끝나야 히어로 숫자가 진짜다. */
+  /**
+   * 홈이 다 섰다.
+   *
+   * **기록 버튼만으로는 모자라다.** 조회를 기다리는 동안에도 그 버튼은 서 있다(ADR-0026).
+   * 히어로 자리의 스피너까지 걷혀야 숫자를 읽을 수 있다.
+   */
   async waitReady(): Promise<void> {
     await expect(this.recordButton).toBeVisible();
+    await expect(this.loadingState).toHaveCount(0);
   }
 
   /** 맨 위로 되돌린다. 목록을 훑고 나서 히어로 숫자를 다시 볼 때 쓴다. */

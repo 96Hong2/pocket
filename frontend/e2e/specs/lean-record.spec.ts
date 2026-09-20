@@ -148,6 +148,44 @@ test('더 보기 안의 「관리 › 카테고리 관리」 를 누르면 그 �
   expect(appShell.pathname).toBe('/manage/categories');
 });
 
+/*
+  읽어 온 것을 두고 이 줄을 누르면 손잡이로 닫을 때와 **같은 확인 창**이 뜬다.
+
+  예전에는 이 자리가 그냥 링크라, 검토 목록을 눈앞에 둔 채 눌러도 아무 말 없이 화면이
+  바뀌고 목록이 통째로 사라졌다. 시트가 애써 지키던 「닫기를 한 번 되묻는다」 를 이
+  한 줄이 우회했다.
+*/
+test('읽어 온 것을 두고 카테고리 관리로 가려 하면 먼저 묻는다', async ({
+  appShell,
+  home,
+  prep,
+  recordSheet,
+}) => {
+  await prep.addCategory('반려동물');
+  await prep.addCategory('경조사');
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  // 줄글로 한 건을 읽어 두면 잃을 것이 생긴다.
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+
+  await recordSheet.methodTab('키패드').click();
+  await recordSheet.input.moreCategoriesButton.click();
+  await recordSheet.input.categoryManageLink.click();
+
+  // 화면은 아직 안 옮겨 갔다. 물어보는 창이 먼저 선다.
+  expect(appShell.pathname).toBe('/');
+  await expect(recordSheet.leave.stayButton).toBeVisible();
+
+  await recordSheet.leave.stayButton.click();
+  expect(appShell.pathname).toBe('/');
+  await expect(recordSheet.isVisible).resolves.toBe(true);
+});
+
 test('한 번 더 칩이 없다', async ({ home, recordSheet }) => {
   // 저장 이력이 있어도 뜨지 않는다. 같은 금액을 또 쓰는 일보다, 화면에 칩이 하나 더 서서
   // 무엇을 눌러야 하는지 헷갈리는 값이 컸다.

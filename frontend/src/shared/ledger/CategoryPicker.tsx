@@ -1,8 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
 
-// 경로 문자열을 화면마다 다시 적지 않는다. 이 파일은 상수만 있어 서로 물리지 않는다.
-import { ROUTES } from '../../app/router/routes';
 import { cx } from '../lib/cx';
 import { CategoryAvatar, iconOf } from '../ui';
 
@@ -16,6 +13,13 @@ export interface CategoryPickerProps {
   selectedId?: string | null;
   disabled?: boolean;
   onPick: (category: CategoryOut) => void;
+  /**
+   * 「관리 › 카테고리 관리」 를 눌렀을 때. **안 넘기면 밑줄도 없는 그냥 글이다.**
+   *
+   * 화면을 옮기면 이 자리를 감싼 시트가 통째로 사라진다. 적던 금액이나 읽어 온 목록을
+   * 잃어도 되는지, 묻고 나서 옮겨야 하는지는 부르는 쪽만 안다. 그래서 길도 부르는 쪽이 낸다.
+   */
+  onManage?: () => void;
   /**
    * 「＋ 새 분류」를 눌렀을 때. 안 넘기면 그 칸이 없다.
    *
@@ -55,6 +59,7 @@ export function CategoryPicker({
   selectedId,
   disabled = false,
   onPick,
+  onManage,
   onCreate,
   onExpand,
   size = 'lg',
@@ -137,15 +142,20 @@ export function CategoryPicker({
           {/*
             분류가 많아 펼친 사람에게만 한다. 숨긴 것이 없으면 이 줄도 없다.
 
-            **앞자리만 링크다.** 자리 이름을 읽고 그 자리를 찾아가는 일이 「관리 탭을 열고
-            목록에서 카테고리 관리를 찾는」 왕복이었다. 밑줄을 긋고 바로 데려간다.
-            적던 금액은 이 시트와 함께 사라지므로, 링크는 글 앞머리에만 두고 줄 전체를
-            누를 수 있게는 하지 않는다.
+            **앞자리는 부르는 쪽이 길을 줄 때만 누를 수 있다.** 자리 이름을 읽고 그 자리를
+            찾아가는 일이 「관리 탭을 열고 목록에서 카테고리 관리를 찾는」 왕복이라 밑줄을
+            그어 바로 데려간다. 다만 이 컴포넌트는 읽어 온 목록을 든 검토 화면에도 서는데,
+            거기서 화면을 옮기면 그 목록이 말없이 사라진다. **여기서 직접 링크를 걸지 않고**
+            잃을 것이 있는지 아는 쪽이 `onManage` 로 길을 내준다.
           */}
           <p className="cat-chips__note">
-            <Link className="cat-chips__note-link" to={ROUTES.categories}>
-              관리 › 카테고리 관리
-            </Link>
+            {onManage == null ? (
+              '관리 › 카테고리 관리'
+            ) : (
+              <button type="button" className="cat-chips__note-link" onClick={onManage}>
+                관리 › 카테고리 관리
+              </button>
+            )}
             에서 순서를 바꾸고, 앞에 보일 분류를 고를 수 있어요
           </p>
 

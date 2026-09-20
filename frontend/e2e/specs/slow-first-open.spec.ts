@@ -35,8 +35,12 @@ test.describe('서버에 닿지 않을 때', () => {
     const startedAt = Date.now();
     await home.open();
 
-    // 기록 버튼은 서버를 안 기다린다. 첫 그림이 데이터에 묶여 있으면 안 된다.
-    await expect(home.recordButton).toBeVisible({ timeout: REVIEW_LIMIT_MS });
+    /*
+      **기록 버튼은 서버를 안 기다린다.** 조회가 끝나든 말든 이 앱이 하는 일은 기록이다.
+      3초를 넘기면 그건 데이터에 묶여 있다는 뜻이다. 반려 당시에는 여기서 13초가 걸렸다.
+    */
+    await expect(home.recordButton).toBeVisible({ timeout: 3_000 });
+    const buttonMs = Date.now() - startedAt;
 
     // 숫자를 못 받은 자리도 「불러오는 중」 에 갇히지 않고 다시 시도할 길을 준다.
     await expect(page.getByRole('button', { name: '다시 시도' }).first()).toBeVisible({
@@ -44,6 +48,7 @@ test.describe('서버에 닿지 않을 때', () => {
     });
 
     const elapsed = Date.now() - startedAt;
+    expect(buttonMs, `기록 버튼이 서는 데 ${buttonMs}ms 걸렸다`).toBeLessThan(3_000);
     expect(elapsed, `첫 화면이 서는 데 ${elapsed}ms 걸렸다`).toBeLessThan(REVIEW_LIMIT_MS);
 
     for (const release of held) release();
