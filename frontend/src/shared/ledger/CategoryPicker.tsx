@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 
+// 경로 문자열을 화면마다 다시 적지 않는다. 이 파일은 상수만 있어 서로 물리지 않는다.
+import { ROUTES } from '../../app/router/routes';
 import { cx } from '../lib/cx';
 import { CategoryAvatar, iconOf } from '../ui';
 
@@ -132,12 +135,18 @@ export function CategoryPicker({
       {open ? (
         <>
           {/*
-            분류가 많아 펼친 사람에게만 한다. 링크가 아니라 글이다.
-            누르면 적던 금액이 사라지는 자리라, 지금 갈 곳이 아니라 **있다는 사실**만 말한다.
-            숨긴 것이 없으면 이 줄도 없다. 그 사람은 관리 탭 목록에서 같은 자리를 찾는다.
+            분류가 많아 펼친 사람에게만 한다. 숨긴 것이 없으면 이 줄도 없다.
+
+            **앞자리만 링크다.** 자리 이름을 읽고 그 자리를 찾아가는 일이 「관리 탭을 열고
+            목록에서 카테고리 관리를 찾는」 왕복이었다. 밑줄을 긋고 바로 데려간다.
+            적던 금액은 이 시트와 함께 사라지므로, 링크는 글 앞머리에만 두고 줄 전체를
+            누를 수 있게는 하지 않는다.
           */}
           <p className="cat-chips__note">
-            관리 › 카테고리 관리에서 순서를 바꾸고, 앞에 보일 분류를 고를 수 있어요
+            <Link className="cat-chips__note-link" to={ROUTES.categories}>
+              관리 › 카테고리 관리
+            </Link>
+            에서 순서를 바꾸고, 앞에 보일 분류를 고를 수 있어요
           </p>
 
           {pickedIsHidden ? null : (

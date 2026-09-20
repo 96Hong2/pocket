@@ -1,3 +1,4 @@
+import { formatDayLabel, toLedgerDate } from '../../src/shared/lib/format';
 import { logsNamed } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
 
@@ -69,8 +70,8 @@ test('오늘 칸에서 적으면 지난 날 안내 없이 오늘에 적힌다', 
   await expect(calendar.list.recordButton).toHaveText('오늘 기록하기');
   await calendar.list.recordButton.click();
   await recordSheet.waitOpen();
-  // 오늘은 지난 날이 아니다. 알약이 「오늘」 이라고만 적는다.
-  await expect(recordSheet.input.dayChip).toHaveText('오늘');
+  // 오늘이어도 날짜를 그대로 적는다. 「오늘」 로 뭉뚱그리지 않는다.
+  await expect(recordSheet.input.dayChip).toHaveText(formatDayLabel(toLedgerDate(new Date())));
 
   await recordSheet.input.enterAmount(1500);
   await recordSheet.input.pickCategory('식비');

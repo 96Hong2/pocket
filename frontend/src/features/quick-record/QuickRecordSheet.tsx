@@ -6,7 +6,7 @@ import { useBridge, useOverlayBackClose } from '../../app/providers';
 import { bumpRecordCount } from '../../shared/lib/homeAddSeen';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
-  formatRelativeDay,
+  formatDayLabel,
   shiftMonth,
   toLedgerDate,
   toLedgerNoonIso,
@@ -262,7 +262,8 @@ function RecordBody({
   */
   const [recordDay, setRecordDay] = useState(day ?? today);
   const isBackfill = recordDay !== today;
-  const backfillLabel = isBackfill ? formatRelativeDay(recordDay) : null;
+  /** 알약에 적는 글자. 오늘이든 아니든 **날짜를 그대로 적는다.** */
+  const dayChipLabel = formatDayLabel(recordDay);
 
   /*
     이 시트가 사는 동안이 기록 흐름 하나다.
@@ -667,40 +668,45 @@ function RecordBody({
       {done ? null : (
         <div className="record__panel" hidden={tab !== 'keypad'}>
           {/*
-          금액보다 먼저 정해야 하는 값이다. 아래 분류 칩과 저장할 종류가 이 하나를 따라간다.
-          바꾸면 골라 둔 분류를 버리고 목록을 다시 편다. 지출 분류가 수입에 남으면 안 된다.
-        */}
-          <KindToggle
-            className="record__kind"
-            value={kind}
-            disabled={create.isPending}
-            ariaLabel="지출인지 수입인지"
-            onChange={(next) => {
-              if (next === kind) return;
-              setKind(next);
-              setPickedId(null);
-              setListOpen(true);
-            }}
-          />
-
-          {/*
-            **어느 날에 적을지를 여기서 정한다.** 지난 날 것을 적으려고 홈이나 달력에서
-            그 날을 먼저 찾아가는 왕복이 적는 일보다 길었다. 오늘이 기본이고, 아직 오지
-            않은 날에는 적을 것이 없어 오늘까지만 고를 수 있다.
-
-            **평소에는 「오늘」 이라고만 적힌 작은 알약이다.** 거의 모두가 오늘 것을 적는데,
-            줄을 통째로 쓰는 칸을 두면 안 바꿀 값이 금액보다 커 보인다. 날짜를 고쳐야 하는
-            사람만 이걸 눌러 달력을 연다.
-
-            알약에 보이는 글자는 우리가 쓰고(「오늘」·「어제」·「9월 5일」), 실제로 누르는 것은
-            그 위에 투명하게 겹쳐 둔 날짜 칸이다. 기기가 그리는 달력을 그대로 쓰면서 칸의
-            숫자 형식(`09/20/2026`)은 안 보이게 하는 유일한 방법이다.
+            **한 줄에 둘이 선다.** 왼쪽은 무엇을 적을지(지출·수입), 오른쪽은 언제 적을지다.
+            둘 다 금액보다 먼저 정하는 값이라 같은 층에 두고, 서로 다른 일이라 **모양을
+            가른다.** 왼쪽은 테두리 있는 알약 둘, 오른쪽은 테두리 없는 조용한 버튼 하나다.
+            같은 모양으로 나란히 두면 세 칸짜리 한 묶음으로 읽혀, 날짜가 종류의 하나처럼 보인다.
           */}
-          <div className="record__day-row">
+          <div className="record__top">
+            {/*
+              금액보다 먼저 정해야 하는 값이다. 아래 분류 칩과 저장할 종류가 이 하나를 따라간다.
+              바꾸면 골라 둔 분류를 버리고 목록을 다시 편다. 지출 분류가 수입에 남으면 안 된다.
+            */}
+            <KindToggle
+              className="record__kind"
+              value={kind}
+              disabled={create.isPending}
+              ariaLabel="지출인지 수입인지"
+              onChange={(next) => {
+                if (next === kind) return;
+                setKind(next);
+                setPickedId(null);
+                setListOpen(true);
+              }}
+            />
+
+            {/*
+              **어느 날에 적을지를 여기서 정한다.** 지난 날 것을 적으려고 홈이나 달력에서
+              그 날을 먼저 찾아가는 왕복이 적는 일보다 길었다. 오늘이 기본이고, 아직 오지
+              않은 날에는 적을 것이 없어 오늘까지만 고를 수 있다.
+
+              **날짜를 그대로 적는다**(「9월 20일」). 「오늘」 이라고만 적으면 그게 며칠인지
+              모르는 채로 저장하게 되고, 지난 날에서 돌아왔을 때 제대로 돌아왔는지도 안 보인다.
+
+              글자는 우리가 쓰고, 실제로 누르는 것은 그 위에 투명하게 겹쳐 둔 날짜 칸이다.
+              기기가 그리는 달력을 그대로 쓰면서 칸의 숫자 형식(`09/20/2026`)은 안 보이게
+              하는 유일한 방법이다.
+            */}
             <span className="record__day-pick" data-past={isBackfill ? '' : undefined}>
               {/*
-                칸이 알약보다 앞에 온다. 눈에 보이는 것은 알약이지만, 초점이 가거나 잠겼다는
-                것을 알약에 옮겨 그리려면 CSS 가 칸 뒤의 형제를 짚을 수 있어야 한다.
+                칸이 글자보다 앞에 온다. 눈에 보이는 것은 글자이지만, 초점이 가거나 잠겼다는
+                것을 거기에 옮겨 그리려면 CSS 가 칸 뒤의 형제를 짚을 수 있어야 한다.
                 자리는 겹쳐 두므로 순서가 배치를 바꾸지는 않는다.
               */}
               <input
@@ -719,7 +725,8 @@ function RecordBody({
               />
               <span className="record__day-chip" aria-hidden="true">
                 <CalendarGlyph />
-                {backfillLabel ?? '오늘'}
+                {dayChipLabel}
+                <ChevronGlyph />
               </span>
             </span>
           </div>
@@ -805,5 +812,28 @@ function RecordBody({
         </div>
       )}
     </div>
+  );
+}
+
+/** 날짜 옆의 작은 꺾쇠. 테두리가 없는 자리라 이것이 「눌러서 바꾼다」 는 유일한 표시다. */
+function ChevronGlyph() {
+  return (
+    <svg
+      className="record__day-caret"
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M2 4l3 3 3-3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

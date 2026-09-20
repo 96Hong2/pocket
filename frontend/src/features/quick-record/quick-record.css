@@ -37,44 +37,50 @@
     flex: 1;
   }
 
-  /* 가운데 두 알약. 무엇을 적는지부터 고르는 자리라 금액 위에 선다. */
-  .record__kind {
-    justify-content: center;
-    margin-bottom: 4px;
-  }
-
   /*
-    어느 날에 적을지 고르는 자리. 종류 알약과 금액 사이에 선다.
+    무엇을 적을지와 언제 적을지가 한 줄에 선다.
 
-    **가운데 작은 알약 하나다.** 줄을 통째로 쓰던 칸이었는데, 거의 모두가 오늘 것을
-    적으니 안 바꿀 값이 금액보다 커 보였다. 지금은 「오늘」 한 마디로 줄이고, 고쳐야
-    하는 사람만 눌러서 연다.
+    양 끝으로 벌린다. 가운데로 모으면 다섯 칸이 한 묶음처럼 읽혀서, 날짜가 종류의 하나로
+    보인다. 좁은 화면에서는 이 벌어진 자리가 먼저 줄어들어 둘 다 그대로 남는다.
 
     시트는 키패드까지 한 화면에 들어와야 한다. 넘치면 시트가 스크롤 상자가 되고,
     손잡이가 위로 밀려 밀어서 닫기가 간헐적으로 안 먹는다(실제로 그렇게 깨졌다).
   */
-  /* 알약을 가운데에 둔다. 이 패널은 흐름 배치라 `align-self` 가 안 먹는다. */
-  .record__day-row {
-    text-align: center;
+  .record__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
   }
 
+  .record__kind {
+    flex: none;
+  }
+
+  /*
+    어느 날에 적을지 고르는 자리.
+
+    **테두리도 바탕도 없다.** 왼쪽 알약과 같은 옷을 입히면 「지출·수입·날짜」 가 한 묶음으로
+    읽힌다. 여기서는 글자와 그림만 두고, 꺾쇠 하나로 눌러서 바꾸는 자리임을 알린다.
+    키는 왼쪽 알약(36px)과 맞춰 두 덩어리의 바닥이 어긋나지 않게 한다.
+  */
   .record__day-pick {
     position: relative;
     display: inline-flex;
+    flex: none;
   }
 
   .record__day-chip {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    min-height: 34px;
-    padding: 0 14px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-surface);
+    gap: 5px;
+    height: 36px;
+    padding: 0 6px;
     font-size: var(--text-13);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
+    white-space: nowrap;
   }
 
   .record__day-chip svg {
@@ -82,9 +88,16 @@
     height: 15px;
   }
 
-  /* 오늘이 아닌 날에 적는 중이면 알약이 스스로 눈에 띈다. 따로 한 줄을 더 쓰지 않는다. */
+  .record__day-caret {
+    width: 10px;
+    height: 10px;
+    opacity: 0.7;
+  }
+
+  /* 오늘이 아닌 날에 적는 중이면 이 자리가 스스로 눈에 띈다. 따로 한 줄을 더 쓰지 않는다. */
   .record__day-pick[data-past] .record__day-chip {
-    border-color: var(--color-sage-700);
+    padding: 0 10px;
+    border-radius: var(--radius-pill);
     background: var(--color-sage-50);
     color: var(--color-sage-700);
     font-weight: var(--font-weight-bold);
@@ -118,8 +131,9 @@
   }
 
   .record__day-input:focus-visible + .record__day-chip {
+    border-radius: var(--radius-pill);
     outline: 2px solid var(--color-sage-700);
-    outline-offset: 2px;
+    outline-offset: 0;
   }
 
   /* 저장이 도는 동안. 눌러도 아무 일이 없는 자리라 모양으로 먼저 알린다. */

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { EVENTS, useAnalytics } from '../../shared/analytics';
+import { TimeoutError, withTimeout } from '../../shared/lib/withTimeout';
 import { BridgeError, type MiniAppBridge } from '../../shared/toss';
 
 import { useBridge } from './bridgeContext';
@@ -19,6 +20,19 @@ const UNSUPPORTED: IdentityState = { status: 'unsupported', message: UNSUPPORTED
  * 화면에 갇히고, 빠져나올 길은 「다시 시도」 를 손으로 누르는 것뿐이었다.
  */
 const RETRY_DELAYS_MS = [600, 1_800] as const;
+
+/**
+ * 한 번 물을 때 기다리는 시간.
+ *
+ * **답이 안 오는 경우가 실패보다 나쁘다.** 실패는 `.catch` 로 잡아 되묻지만, 영원히 안
+ * 끝나는 약속은 잡을 자리가 없어 화면이 「불러오는 중」 에 갇힌다. 그동안 조회·저장은
+ * 식별키를 기다리느라 서버로 한 건도 안 나간다. 2026-09-20 에 검수가 이 자리에서
+ * 「최초 접속 시간 20초 초과」 로 막혔다.
+ *
+ * 세 번을 다 써도 2.5 + 0.6 + 2.5 + 1.8 + 2.5 = 9.9초다. 그 안에 안내와 「다시 시도」 가 뜬다.
+ * 실기기에서 이 호출은 0.5초를 안 넘는다.
+ */
+const ASK_TIMEOUT_MS = 2_500;
 
 function initialState(bridge: MiniAppBridge): IdentityState {
   return bridge.supports('identity') ? { status: 'loading' } : UNSUPPORTED;
@@ -56,14 +70,18 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
 
     // 실패해도 던지지 않는다. 여기서 던지면 앱 전체가 하얗게 죽는다.
     const ask = (tried: number): void => {
-      bridge
-        .getIdentity()
+      withTimeout(bridge.getIdentity(), ASK_TIMEOUT_MS)
         .then((identity) => {
           if (alive) setState({ status: 'ready', identity });
         })
         .catch((error: unknown) => {
           if (!alive) return;
-          const code = error instanceof BridgeError ? error.code : 'UNKNOWN';
+          const code =
+            error instanceof TimeoutError
+              ? 'TIMEOUT'
+              : error instanceof BridgeError
+                ? error.code
+                : 'UNKNOWN';
           if (code === 'UNSUPPORTED') {
             setState(UNSUPPORTED);
             return;

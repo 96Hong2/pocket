@@ -116,6 +116,38 @@ test('숨긴 분류가 있으면 「더 보기」 안에서 만들고, 관리 �
   await expect(recordSheet.input.newCategoryButton).toHaveCount(0);
 });
 
+/*
+  그 줄이 자리 이름만 말하고 끝이었다.
+
+  읽은 사람은 관리 탭을 열고 목록에서 「카테고리 관리」 를 다시 찾아야 했다. 앞머리에
+  밑줄을 긋고 바로 데려간다.
+*/
+test('더 보기 안의 「관리 › 카테고리 관리」 를 누르면 그 화면으로 간다', async ({
+  appShell,
+  home,
+  page,
+  prep,
+  recordSheet,
+}) => {
+  // 앞자리 열한 개가 차야 「더 보기」가 선다. 그 안에만 있는 줄이다.
+  await prep.addCategory('반려동물');
+  await prep.addCategory('경조사');
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.input.moreCategoriesButton.click();
+
+  await recordSheet.input.categoryManageLink.click();
+
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/manage/categories');
+  await expect(page.getByRole('heading', { name: '카테고리 관리' })).toBeVisible();
+  // 데려가면서 시트는 닫는다. 남아 있으면 뒤 화면을 덮은 채로 남는다.
+  await recordSheet.waitClosed();
+  expect(appShell.pathname).toBe('/manage/categories');
+});
+
 test('한 번 더 칩이 없다', async ({ home, recordSheet }) => {
   // 저장 이력이 있어도 뜨지 않는다. 같은 금액을 또 쓰는 일보다, 화면에 칩이 하나 더 서서
   // 무엇을 눌러야 하는지 헷갈리는 값이 컸다.
