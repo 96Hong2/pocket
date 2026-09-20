@@ -19,8 +19,8 @@ import {
   type ImportCandidatePatch,
   type ImportCommitOut,
 } from '../../shared/api';
-import { formatCurrency, toLedgerDate } from '../../shared/lib/format';
-import { CategoryPicker } from '../../shared/ledger';
+import { formatCurrency, isFutureDay, toLedgerDate } from '../../shared/lib/format';
+import { CategoryPicker, FutureDayConfirm } from '../../shared/ledger';
 import { Button, ErrorState, LoadingState } from '../../shared/ui';
 
 import { CandidateRow } from './CandidateRow';
@@ -105,6 +105,8 @@ export function ImportReview({
   const [editing, setEditing] = useState<string | null>(null);
   const [saved, setSaved] = useState<ImportCommitOut | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  /** 저장을 눌렀다가 고른 것에 앞날이 섞여 있어 물어보는 중인가. */
+  const [futureAsking, setFutureAsking] = useState(false);
 
   /*
     무엇을 몇 번 고쳤나. 값이 아니라 **어느 칸을 몇 번** 인지만 센다.
@@ -184,6 +186,24 @@ export function ImportReview({
   const candidates = batch.candidates ?? [];
   const total = parseDecimalOr(batch.selected_expense_total, 0);
   const canSave = batch.selected_count > 0 && !busy;
+
+  /*
+    고른 것 중 아직 오지 않은 날.
+
+    줄마다 이미 「앞날」 이라고 눈에 띄게 적어 두지만, 목록이 길면 아래로 굴려야 보이는
+    줄이 생긴다. **저장을 누르는 그 순간에 한 번 더 묻는다.** 막지는 않는다.
+  */
+  const futureSelected = candidates.find(
+    (item) => item.is_selected && isFutureDay(toLedgerDate(new Date(item.occurred_at))),
+  );
+
+  function requestSaveAll(): void {
+    if (futureSelected != null) {
+      setFutureAsking(true);
+      return;
+    }
+    void saveAll();
+  }
   const dropped = truncatedCount(batch.error_code);
 
   return (
@@ -326,15 +346,25 @@ export function ImportReview({
             <Button
               className="nl__done"
               disabled={!canSave}
-              onClick={() => {
-                void saveAll();
-              }}
+              onClick={requestSaveAll}
             >
               {saveLabel(batch.selected_count, total)}
             </Button>
           </>
         )}
       </div>
+
+      {/* 고른 것에 앞날이 섞여 있을 때만 선다. 막는 것이 아니라 한 번 확인하는 자리다. */}
+      {futureAsking && futureSelected != null ? (
+        <FutureDayConfirm
+          day={toLedgerDate(new Date(futureSelected.occurred_at))}
+          onFix={() => setFutureAsking(false)}
+          onSave={() => {
+            setFutureAsking(false);
+            void saveAll();
+          }}
+        />
+      ) : null}
     </div>
   );
 

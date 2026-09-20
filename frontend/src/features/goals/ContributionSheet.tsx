@@ -2,7 +2,8 @@ import { useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
 import { ApiError, useAddGoalContribution } from '../../shared/api';
-import { toLedgerDate } from '../../shared/lib/format';
+import { isFutureDay, toLedgerDate } from '../../shared/lib/format';
+import { FutureDayConfirm } from '../../shared/ledger';
 import { AmountField, BottomSheet, Button } from '../../shared/ui';
 import { DAY_MAX, DAY_MIN, isDayInRange } from '../../shared/lib/limits';
 
@@ -52,6 +53,8 @@ function ContributionForm({ goalId, onSavingChange, onClose }: ContributionFormP
   const dayOk = isDayInRange(day);
   const canSave = digits !== '' && Number(digits) > 0 && day !== '' && dayOk && !add.isPending;
   const message = add.error instanceof ApiError ? add.error.message : null;
+  /** 저장을 눌렀다가 앞날이라 물어보는 중인가. */
+  const [futureAsking, setFutureAsking] = useState(false);
 
   return (
     <div className="goal-sheet__body">
@@ -82,20 +85,33 @@ function ContributionForm({ goalId, onSavingChange, onClose }: ContributionFormP
         </p>
       ) : null}
 
-      <Button
-        fullWidth
-        disabled={!canSave}
-        onClick={() => {
-          // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
-          onSavingChange(true);
-          add.mutate(
-            { goalId, body: { amount: Number(digits), occurred_on: day } },
-            { onSettled: () => onSavingChange(false), onSuccess: onClose },
-          );
-        }}
-      >
+      <Button fullWidth disabled={!canSave} onClick={requestSave}>
         저장
       </Button>
+
+      {/* 앞날에 모은 것으로 적으려 할 때만 선다. 막는 것이 아니라 한 번 확인하는 자리다. */}
+      {futureAsking ? (
+        <FutureDayConfirm day={day} onFix={() => setFutureAsking(false)} onSave={save} />
+      ) : null}
     </div>
   );
+
+  function requestSave(): void {
+    // 아직 오지 않은 날이면 한 번 묻는다. 모은 돈은 이미 넣은 돈이라 앞날은 대개 오타다.
+    if (isFutureDay(day)) {
+      setFutureAsking(true);
+      return;
+    }
+    save();
+  }
+
+  function save(): void {
+    setFutureAsking(false);
+    // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
+    onSavingChange(true);
+    add.mutate(
+      { goalId, body: { amount: Number(digits), occurred_on: day } },
+      { onSettled: () => onSavingChange(false), onSuccess: onClose },
+    );
+  }
 }

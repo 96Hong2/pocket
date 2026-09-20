@@ -1296,6 +1296,61 @@
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
   }
+
+  /*
+    ── 아직 오지 않은 날 확인 ─────────────────────────
+
+    기록 시트·수정 시트·검토 목록·목표 모으기가 같은 창을 쓴다. 자리마다 다른 모양으로
+    물으면 한 화면에서 배운 것이 다음 화면에서 안 통한다. 모양은 기록 시트의 「그만둘까요」
+    와 같다(`record-leave`). 같은 무게의 물음이라 같게 그린다.
+  */
+  .future-day {
+    /* 시트가 곧 스크롤 상자라 화면에 못 박는다. 어디까지 내려 읽었든 같은 자리에 뜬다. */
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: var(--color-dim);
+  }
+
+  .future-day__box {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 320px;
+    padding: 20px;
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
+  }
+
+  .future-day__text {
+    margin: 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.5;
+    color: var(--color-ink);
+    word-break: keep-all;
+  }
+
+  .future-day__text b {
+    color: var(--color-sage-700);
+  }
+
+  .future-day__actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  /* 그대로 두는 쪽이 기본이다. 오른쪽 큰 버튼에 둔다. */
+  .future-day__actions > * {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

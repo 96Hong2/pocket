@@ -76,13 +76,59 @@ test('지난 날을 고르면 방식 알약이 잠기고, 오늘로 되돌리면
   await expect(recordSheet.methodTab('줄글')).toBeEnabled();
 });
 
-test('아직 오지 않은 날은 고를 수 없다', async ({ home, recordSheet }) => {
+/*
+  앞날은 막지 않고 한 번 묻는다 (2026-09-20 개정).
+
+  예전에는 칸에 `max` 를 걸어 아예 못 고르게 했다. 그런데 미리 나갈 돈을 적어 두는 사람이
+  있고, 읽어 온 것에 앞날이 섞여 들어오기도 한다. 잠가 두면 앞엣사람은 아예 못 적는다.
+  고를 수는 있게 두고 **저장하는 순간에** 한 번 묻는다.
+*/
+test('앞날을 고르면 저장할 때 한 번 묻고, 그대로 저장할 수 있다', async ({
+  home,
+  recordSheet,
+}) => {
+  const future = ledgerDay(3);
+
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  await expect(recordSheet.input.dayField).toHaveAttribute('max', toLedgerDate(new Date()));
+  // 칸이 앞날을 막지 않는다.
+  await recordSheet.input.dayField.fill(future);
+  await expect(recordSheet.input.dayChip).toHaveText(formatDayLabel(future));
+
+  await recordSheet.input.enterAmount(6_000);
+  await recordSheet.input.pickCategory('식비');
+
+  // 묻기 전에는 저장되지 않는다.
+  const ask = recordSheet.futureDayConfirm;
+  await expect(ask.dialog).toBeVisible();
+  await expect(ask.dialog).toContainText(formatDayLabel(future));
+  await expect(recordSheet.feedback.headline).toHaveCount(0);
+
+  // 「날짜 고치기」 를 고르면 그대로 남는다. 잃는 것이 없다.
+  await ask.fixButton.click();
+  await expect(ask.dialog).toHaveCount(0);
+  await expect(recordSheet.feedback.headline).toHaveCount(0);
+
+  // 다시 눌러 「이 날짜로 저장」 을 고르면 그 날로 들어간다.
+  await recordSheet.input.pickCategory('식비');
+  await ask.saveButton.click();
+  await recordSheet.feedback.waitSaved();
+});
+
+test('오늘에 적을 때는 아무것도 묻지 않는다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.enterAmount(3_000);
+  await recordSheet.input.pickCategory('식비');
+
+  await recordSheet.feedback.waitSaved();
+  await expect(recordSheet.futureDayConfirm.dialog).toHaveCount(0);
 });
 
 test('줄글로 어제 것을 넣으면 홈이 어제로 옮겨 간다', async ({ home, recordSheet }) => {

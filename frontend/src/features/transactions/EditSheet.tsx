@@ -15,6 +15,7 @@ import {
 } from '../../shared/api';
 import {
   CategoryPicker,
+  FutureDayConfirm,
   KindToggle,
   PaymentMethodPicker,
   categoriesOfKind,
@@ -23,10 +24,12 @@ import {
 } from '../../shared/ledger';
 import {
   formatDayLabel,
+  isFutureDay,
   shiftMonth,
   toLedgerDate,
   toLedgerNoonIso,
 } from '../../shared/lib/format';
+import { DAY_MAX } from '../../shared/lib/limits';
 import { AmountField, BottomSheet, Button, CategoryAvatar, Toggle, iconOf } from '../../shared/ui';
 
 import { CategoryEditForm } from '../categories';
@@ -225,7 +228,20 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
     return next;
   }
 
+  /** 완료를 눌렀다가 앞날이라 물어보는 중인가. */
+  const [futureAsking, setFutureAsking] = useState(false);
+
+  function requestSubmit(): void {
+    // 아직 오지 않은 날이면 한 번 묻는다. 고쳐서 앞날이 된 경우만 잡는다.
+    if (day !== savedDay && isFutureDay(day)) {
+      setFutureAsking(true);
+      return;
+    }
+    void submit();
+  }
+
   async function submit(): Promise<void> {
+    setFutureAsking(false);
     const body = changes();
     if (Object.keys(body).length === 0) {
       onClose();
@@ -303,9 +319,11 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
             type="date"
             value={day}
             min={savedDay < oldestDay() ? savedDay : oldestDay()}
-            // 아직 오지 않은 날에는 적을 것이 없다. 다만 읽어 온 것에 앞날이 섞여 들어온
-            // 기록은 그 값을 그대로 보여 준다. 칸이 빨갛게 서면 고칠 수도 없다.
-            max={savedDay > todayIso() ? savedDay : todayIso()}
+            /*
+              **앞날을 막지 않는다.** 미리 나갈 돈을 적어 두는 사람이 있고, 읽어 온 것에
+              앞날이 섞여 들어오기도 한다. 대신 「완료」 를 누를 때 한 번 묻는다.
+            */
+            max={DAY_MAX}
             disabled={busy}
             // 달력을 열었다 비운 채로 닫는 기기가 있다. 비면 적혀 있던 날로 되돌린다.
             onChange={(event) => setDay(event.target.value === '' ? savedDay : event.target.value)}
@@ -460,6 +478,15 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
         ) : null}
       </div>
 
+      {/* 앞날로 고쳐 저장하려 할 때만 선다. 막는 것이 아니라 한 번 확인하는 자리다. */}
+      {futureAsking ? (
+        <FutureDayConfirm
+          day={day}
+          onFix={() => setFutureAsking(false)}
+          onSave={() => void submit()}
+        />
+      ) : null}
+
       <div className="pk-sheet-foot">
         {asking ? (
           <div className="tx-edit__confirm" role="group" aria-label="삭제 확인" ref={confirmRef}>
@@ -488,7 +515,7 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
             <Button
               variant="primarySmall"
               className="tx-edit__done"
-              onClick={() => void submit()}
+              onClick={requestSubmit}
               disabled={busy || creating || !amountOk}
             >
               완료

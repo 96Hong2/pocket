@@ -10,10 +10,12 @@ import { bumpRecordCount } from '../../shared/lib/homeAddSeen';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   formatDayLabel,
+  isFutureDay,
   shiftMonth,
   toLedgerDate,
   toLedgerNoonIso,
 } from '../../shared/lib/format';
+import { DAY_MAX } from '../../shared/lib/limits';
 import {
   ApiError,
   queryKeys,
@@ -27,6 +29,7 @@ import {
 } from '../../shared/api';
 import {
   CategoryPicker,
+  FutureDayConfirm,
   KindToggle,
   categoriesOfKind,
   kindOf,
@@ -473,9 +476,28 @@ function RecordBody({
     onDone();
   }
 
+  /**
+   * 저장하려다 앞날이라 물어보는 중. 누르면 그대로 이어서 저장한다.
+   *
+   * 고른 분류와 금액을 여기 들고 있는다. 물어보는 사이에 화면이 바뀌어도 저장할 것이
+   * 흔들리지 않게 한다.
+   */
+  const [futureAsk, setFutureAsk] = useState<{ category: CategoryOut; amount: number } | null>(null);
+
+  function requestSave(category: CategoryOut, amount: number): void {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    // 아직 오지 않은 날이면 한 번 묻는다. 막지는 않는다.
+    if (isFutureDay(recordDay)) {
+      setFutureAsk({ category, amount });
+      return;
+    }
+    save(category, amount);
+  }
+
   function save(category: CategoryOut, amount: number): void {
     if (!Number.isFinite(amount) || amount <= 0) return;
 
+    setFutureAsk(null);
     markBusy(true);
     analytics.log(EVENTS.saveRequested, { method: 'keypad', count: 1 }, { flowId, kind: 'click' });
     const startedAt = Date.now();
@@ -556,7 +578,7 @@ function RecordBody({
    */
   function pickCategory(category: CategoryOut): void {
     if (amount > 0) {
-      save(category, amount);
+      requestSave(category, amount);
       return;
     }
     setPickedId(category.id);
@@ -741,7 +763,11 @@ function RecordBody({
                 aria-label="날짜"
                 value={recordDay}
                 min={oldestDay()}
-                max={today}
+                /*
+                  **앞날을 막지 않는다.** 미리 나갈 돈을 적어 두는 사람이 있다. 대신 저장할
+                  때 한 번 묻는다(`FutureDayConfirm`). 칸에서 잠그면 그 사람은 아예 못 적는다.
+                */
+                max={DAY_MAX}
                 disabled={create.isPending}
                 // 달력을 열었다 비운 채로 닫는 기기가 있다. 비면 오늘로 되돌린다.
                 onChange={(event) =>
@@ -828,13 +854,22 @@ function RecordBody({
             <Button
               className="record__save"
               disabled={amount <= 0 || create.isPending}
-              onClick={() => save(saveTarget, amount)}
+              onClick={() => requestSave(saveTarget, amount)}
             >
               저장
             </Button>
           ) : null}
 
           <Keypad digits={digits} onChange={setDigits} />
+
+          {/* 앞날에 적으려 할 때만 선다. 막는 것이 아니라 한 번 확인하는 자리다. */}
+          {futureAsk != null ? (
+            <FutureDayConfirm
+              day={recordDay}
+              onFix={() => setFutureAsk(null)}
+              onSave={() => save(futureAsk.category, futureAsk.amount)}
+            />
+          ) : null}
         </div>
       )}
     </div>
