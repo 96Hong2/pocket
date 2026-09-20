@@ -262,6 +262,18 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
         fields: Object.keys(body).sort().join(','),
         source: transaction.source,
       });
+      /*
+        태그는 따로 한 번 더 센다. 「어느 칸을 고쳤나」 와 「태그가 쓰이나」 는 다른 물음이다.
+        누른 순간이 아니라 여기서 세는 이유는, 칩을 눌렀다가 그냥 닫은 것까지 「달았다」
+        로 들어가면 안 되기 때문이다.
+      */
+      if (body.tag_id !== undefined) {
+        analytics.log(EVENTS.tagApplied, {
+          where: 'edit',
+          kind,
+          result: body.tag_id == null ? 'detached' : 'attached',
+        });
+      }
       onClose();
     } catch {
       // 시트를 닫지 않는다. 고쳐 둔 값이 사라지면 처음부터 다시 입력해야 한다.
@@ -388,7 +400,6 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
         {isTransfer ? null : (
           <TagPicker
             className="tx-edit__tags"
-            where="edit"
             kind={kind}
             tags={tags.data?.items ?? []}
             selectedId={tagId}

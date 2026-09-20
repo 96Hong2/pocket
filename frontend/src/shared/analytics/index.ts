@@ -16,4 +16,5 @@ export {
   type LogMethod,
   type ParseOutcome,
   type PickOutcome,
+  type RecurringAction,
 } from './events';

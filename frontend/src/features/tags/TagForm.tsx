@@ -1,6 +1,6 @@
 import { useId, useState, type CSSProperties } from 'react';
 
-import { EVENTS, useAnalytics } from '../../shared/analytics';
+import { EVENTS, useAnalytics, type ItemAction } from '../../shared/analytics';
 import {
   ApiError,
   useCreateTag,
@@ -56,7 +56,7 @@ export function TagForm({ tag, kind, onDone, onCancel }: TagFormProps) {
         : null;
 
   /** 서버가 받아 준 뒤에만 센다. 이름은 안 싣는다. */
-  function done(action: 'created' | 'updated'): void {
+  function done(action: ItemAction): void {
     analytics.log(EVENTS.tagChanged, { action, kind }, { kind: 'click' });
     onDone();
   }

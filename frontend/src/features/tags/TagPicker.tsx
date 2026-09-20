@@ -2,7 +2,6 @@ import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 
 import { ROUTES } from '../../app/router/routes';
-import { EVENTS, useAnalytics } from '../../shared/analytics';
 import type { TagKind, TagOut } from '../../shared/api';
 
 import { tagColorVar, tagInkVar } from '../../shared/lib/tagColors';
@@ -22,13 +21,6 @@ import { tagColorVar, tagInkVar } from '../../shared/lib/tagColors';
 export interface TagPickerProps {
   /** 그 종류의 태그만 보여준다. 지출 기록에 수입 태그를 달 수 없다. */
   kind: TagKind;
-  /**
-   * 어느 자리에 선 줄인가. 로그에만 쓴다.
-   *
-   * 적고 난 직후에 다는 것과 나중에 고치면서 다는 것은 다른 행동이다. 이걸 안 갈라
-   * 놓으면 「태그를 다는 사람이 있다」 까지만 알고 언제 다는지는 모른다.
-   */
-  where: 'record' | 'edit' | 'recurring';
   tags: TagOut[];
   selectedId: string | null;
   disabled?: boolean;
@@ -38,25 +30,13 @@ export interface TagPickerProps {
 
 export function TagPicker({
   kind,
-  where,
   tags,
   selectedId,
   disabled = false,
   onChange,
   className,
 }: TagPickerProps) {
-  const analytics = useAnalytics();
   const pickable = tags.filter((tag) => tag.kind === kind);
-
-  function pick(tagId: string | null): void {
-    // 태그 id 도 이름도 안 싣는다. 붙였나 뗐나와 어느 자리였나까지다.
-    analytics.log(
-      EVENTS.tagApplied,
-      { where, kind, result: tagId == null ? 'detached' : 'attached' },
-      { kind: 'click' },
-    );
-    onChange(tagId);
-  }
 
   return (
     <div className={className == null ? 'tag-pick' : `tag-pick ${className}`}>
@@ -86,7 +66,7 @@ export function TagPicker({
                   } as CSSProperties
                 }
                 // 눌린 것을 다시 누르면 뗀다. 잘못 단 태그를 되무를 길이 이것뿐이다.
-                onClick={() => pick(picked ? null : tag.id)}
+                onClick={() => onChange(picked ? null : tag.id)}
               >
                 <span className="tag-pick__dot" aria-hidden="true" />
                 {tag.name}

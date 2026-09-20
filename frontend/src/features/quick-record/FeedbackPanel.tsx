@@ -134,6 +134,23 @@ export function FeedbackPanel({
       { id: transaction.id, body },
       {
         onSuccess: (updated) => {
+          /*
+            **붙은 것만 센다.** 칩을 누른 순간이 아니라 서버가 받아 준 뒤다.
+            누르자마자 세면 요청이 실패한 것까지 「태그를 쓴다」 에 들어가는데,
+            이 값은 태그가 실제로 쓰이는지 재는 유일한 자리라 그러면 뜻을 잃는다.
+          */
+          if (next === 'tag') {
+            analytics.log(
+              EVENTS.tagApplied,
+              {
+                where: 'record',
+                kind,
+                // 응답은 기록·피드백·예산을 함께 담은 봉투다. 태그는 그 안에 있다.
+                result: updated.transaction.tag_id == null ? 'detached' : 'attached',
+              },
+              { flowId, kind: 'click' },
+            );
+          }
           onUpdated(updated);
           setEditing(null);
           if (closeAfterUpdate.current) {
@@ -387,7 +404,6 @@ export function FeedbackPanel({
       {transaction.type === 'transfer' ? null : (
         <TagPicker
           className="feedback__tags"
-          where="record"
           // `kindOf` 가 환불을 지출로 눕혀 준다. 환불은 나갔던 묶음에서 빠지는 돈이다.
           kind={kind}
           tags={tags.data?.items ?? []}

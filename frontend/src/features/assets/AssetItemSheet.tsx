@@ -103,7 +103,13 @@ function AssetItemForm({ target, items, onSavingChange, onClose }: AssetItemForm
           // 이름도 금액도 안 싣는다. 어느 그룹인지와 남은 줄 수까지다.
           analytics.log(
             EVENTS.assetChanged,
-            { action, group, items: next.length },
+            {
+              action,
+              // 지울 때는 저장돼 있던 줄의 그룹이다. 폼에서 칩만 바꾸고 지우면
+              // 지워진 줄과 로그의 그룹이 어긋난다.
+              group: action === 'deleted' ? (saved?.group ?? group) : group,
+              items: next.length,
+            },
             { kind: 'click' },
           );
           onClose();
