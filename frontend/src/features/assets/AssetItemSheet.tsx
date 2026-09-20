@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
+import { EVENTS, useAnalytics, type ItemAction } from '../../shared/analytics';
 import {
   ApiError,
   parseDecimalOr,
@@ -78,6 +79,7 @@ const GROUP_OPTIONS = (Object.keys(ASSET_GROUP_VIEWS) as AssetGroup[]).map((grou
 }));
 
 function AssetItemForm({ target, items, onSavingChange, onClose }: AssetItemFormProps) {
+  const analytics = useAnalytics();
   const save = useSaveAssets();
 
   const saved = items.find((item) => item.sort_order === target.sortOrder) ?? null;
@@ -90,10 +92,24 @@ function AssetItemForm({ target, items, onSavingChange, onClose }: AssetItemForm
   const canSave = digits !== '' && !save.isPending;
   const message = save.error instanceof ApiError ? save.error.message : null;
 
-  function send(next: AssetItemIn[]): void {
+  function send(next: AssetItemIn[], action: ItemAction): void {
     // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
     onSavingChange(true);
-    save.mutate({ items: next }, { onSettled: () => onSavingChange(false), onSuccess: onClose });
+    save.mutate(
+      { items: next },
+      {
+        onSettled: () => onSavingChange(false),
+        onSuccess: () => {
+          // 이름도 금액도 안 싣는다. 어느 그룹인지와 남은 줄 수까지다.
+          analytics.log(
+            EVENTS.assetChanged,
+            { action, group, items: next.length },
+            { kind: 'click' },
+          );
+          onClose();
+        },
+      },
+    );
   }
 
   return (
@@ -136,7 +152,10 @@ function AssetItemForm({ target, items, onSavingChange, onClose }: AssetItemForm
             variant="outline"
             disabled={save.isPending}
             onClick={() =>
-              send(items.filter((item) => item.sort_order !== target.sortOrder).map(toItemIn))
+              send(
+                items.filter((item) => item.sort_order !== target.sortOrder).map(toItemIn),
+                'deleted',
+              )
             }
           >
             지우기
@@ -152,11 +171,12 @@ function AssetItemForm({ target, items, onSavingChange, onClose }: AssetItemForm
               amount: Number(digits),
             };
             if (target.sortOrder == null) {
-              send([...items.map(toItemIn), next]);
+              send([...items.map(toItemIn), next], 'created');
               return;
             }
             send(
               items.map((item) => (item.sort_order === target.sortOrder ? next : toItemIn(item))),
+              'updated',
             );
           }}
         >

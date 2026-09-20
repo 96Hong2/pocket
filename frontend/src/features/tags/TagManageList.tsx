@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { useDeleteTag, useTags, type TagKind, type TagOut } from '../../shared/api';
 import { BottomSheet, Button, Card, ErrorState, LoadingState } from '../../shared/ui';
 
@@ -32,6 +33,7 @@ type EditTarget = { kind: TagKind; tag: TagOut | null };
  * 그 말을 안 하면 「지우면 그 기록도 사라지나」 를 알 수 없어 아무도 못 지운다.
  */
 export function TagManageList() {
+  const analytics = useAnalytics();
   const tags = useTags();
   const remove = useDeleteTag();
   const [target, setTarget] = useState<EditTarget | null>(null);
@@ -154,6 +156,13 @@ export function TagManageList() {
                 onClick={() =>
                   remove.mutate(confirming.id, {
                     onSuccess: () => {
+                      // 몇 건이 표시를 잃었는지까지 남긴다. 한 번도 안 쓴 태그를 지우는 것과
+                      // 여러 건에 달아 둔 태그를 지우는 것은 다른 일이다.
+                      analytics.log(
+                        EVENTS.tagChanged,
+                        { action: 'deleted', kind: confirming.kind, used: confirming.usage_count },
+                        { kind: 'click' },
+                      );
                       setConfirming(null);
                       setTarget(null);
                     },

@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { Link } from 'react-router';
 
 import { ROUTES } from '../../app/router/routes';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   ApiError,
   parseDecimalOr,
@@ -53,6 +54,7 @@ export interface RecurringFormProps {
 export function RecurringForm({ item, onDone, onCancel }: RecurringFormProps) {
   const nameId = useId();
   const timeId = useId();
+  const analytics = useAnalytics();
   const categories = useCategories();
   const tags = useTags();
   const notifications = useNotificationSettings();
@@ -104,10 +106,26 @@ export function RecurringForm({ item, onDone, onCancel }: RecurringFormProps) {
       remind_lead_days: Number(lead),
     };
     if (item != null) {
-      update.mutate({ id: item.id, body }, { onSuccess: onDone });
+      update.mutate({ id: item.id, body }, { onSuccess: () => done('updated') });
       return;
     }
-    create.mutate(body, { onSuccess: onDone });
+    create.mutate(body, { onSuccess: () => done('created') });
+  }
+
+  /**
+   * 서버가 받아 준 뒤에만 센다.
+   *
+   * 항목 이름과 금액은 안 싣는다. 대신 **알림을 켰는지와 며칠 전인지**를 남긴다.
+   * 「곧 나갈 돈」 카드는 알림을 켠 사람에게만 뜨므로, 그 카드의 반응을 읽으려면
+   * 분모가 되는 이 값이 있어야 한다.
+   */
+  function done(action: 'created' | 'updated'): void {
+    analytics.log(
+      EVENTS.recurringChanged,
+      { action, notify: remindAt !== '', lead: Number(lead), tagged: tagId != null },
+      { kind: 'click' },
+    );
+    onDone();
   }
 
   return (
@@ -203,6 +221,7 @@ export function RecurringForm({ item, onDone, onCancel }: RecurringFormProps) {
 
       <TagPicker
         kind="expense"
+        where="recurring"
         tags={tags.data?.items ?? []}
         selectedId={tagId}
         disabled={busy}

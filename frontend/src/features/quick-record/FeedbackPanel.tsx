@@ -387,6 +387,7 @@ export function FeedbackPanel({
       {transaction.type === 'transfer' ? null : (
         <TagPicker
           className="feedback__tags"
+          where="record"
           // `kindOf` 가 환불을 지출로 눕혀 준다. 환불은 나갔던 묶음에서 빠지는 돈이다.
           kind={kind}
           tags={tags.data?.items ?? []}

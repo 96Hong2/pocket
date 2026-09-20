@@ -32,6 +32,10 @@
 | 남에게 알릴 만하다고 느끼나 | `share_result` · `share_card_dismissed` | 누른 자리(`home`·`goal`·`goal_done`·`manage`·`manage_past`·`closing`·`streak`), 갈래(`app`·`goal`·`goal_done`·`budget`·`closing`·`streak`), 성공·실패와 실패 코드. **보낸 글은 싣지 않는다** |
 | 꾸준히 적는 사람이 늘어나나 | `streak_celebrated` | 몇 일째 축하가 떴나(7·14·21…). **끊긴 것은 싣지 않는다** |
 | 미리 적어 둔 돈을 실제로 적나 | `recurring_result` | 적었나(`recorded`)·미뤘나(`dismissed`), 전날인가 당일인가(`eve`·`today`). **항목 이름과 금액은 싣지 않는다** |
+| 미리 적어 둘 돈을 걸어는 두나 | `recurring_changed` | 만듦·고침·지움과 잠시 끔·다시 켬(`created`·`updated`·`deleted`·`paused`·`resumed`), 알림을 켰나와 며칠 전인가, 태그를 달았나, 지울 때 켜져 있었나. **항목 이름과 금액은 싣지 않는다** |
+| 태그를 만들기만 하나 실제로 다나 | `tag_changed` · `tag_applied` | 만듦·고침·지움과 갈래(지출·수입), 지울 때 몇 건이 표시를 잃나, 붙였나·뗐나와 어느 자리(`record`·`edit`·`recurring`). **태그 이름은 싣지 않는다** |
+| 자산을 한 번 적고 마나 | `asset_changed` | 더함·고침·지움과 어느 그룹, 그 뒤 남은 줄 수. **이름과 금액은 싣지 않는다** |
+| 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나, 몇 장짜리인가, 몇 장째에서 닫았나와 끝까지 봤나 |
 | 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
 | 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(`closing`·`assets`·`report_months`)와 결과(`watched`·`skipped`), 지나간 이유(`no_group`·`unsupported`·`failed`·**`capped`**) |
 
@@ -53,6 +57,16 @@
 **`recurring_result` 에 항목 이름과 금액을 싣지 않는다.** 그 사람이 무엇을 구독하는지가
 로그에 남는다. 공유 문구를 안 싣는 것과 같은 이유다. 적은 수와 미룬 수를 함께 봐야 이 카드가
 도움인지 성가신지 갈리고, 전날(`eve`)에 아무도 안 누르면 하루 먼저 띄울 이유가 없다.
+
+**태그와 자산은 「만든 수」로 판단하지 않는다.** 만들어 놓고 한 번도 안 쓰는 일이 흔해서,
+`tag_changed` 만 보면 쓰이는 기능처럼 보인다. 뜻이 생기는 것은 `tag_applied` 와 나란히 놓을
+때다. 만든 사람 대비 실제로 단 사람이 적으면, 태그를 더 쉽게 만들게 할 것이 아니라 다는
+자리를 다시 봐야 한다. 자산도 같다. 줄 수가 한 번 늘고 멈추면 그 화면은 한 번 적고 마는 곳이다.
+
+**결산과 7일 축하는 같은 잣대로 잰다.** 둘 다 뜬 것(`closing_opened`·`streak_celebrated`)과
+거기서 공유한 것(`share_result` 의 `where`)이 있어야 어느 카드가 사람을 움직이는지 견줄 수
+있다. 결산에는 오래 그 짝이 없었다. `closing_closed` 의 `page` 가 1에 몰리면 카드 수가
+문제가 아니라 첫 장이 잘못된 것이다.
 
 **`home_add_result` 는 카드가 시트를 대신한 뒤로 뜻이 달라졌다.** 예전에는 첫 기록 직후
 스스로 열린 시트를 봤나(`first_record`)를 셌는데, 지금은 홈에 선 카드(`home_card`)에서

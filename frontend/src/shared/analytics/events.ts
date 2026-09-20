@@ -107,6 +107,53 @@ export const EVENTS = {
   /** 알림을 켜려 했을 때의 결과. 이 앱이 사람을 다시 데려오는 유일한 장치다. */
   notificationResult: 'notification_result',
 
+  /**
+   * 태그를 만들거나 고치거나 지웠다.
+   *
+   * **태그 이름은 싣지 않는다.** 사람들이 태그에 무엇을 적는지는 상호나 메모와 다르지 않다.
+   * 남기는 것은 갈래(지출·수입)와 지울 때 몇 건이 그 표시를 잃는지까지다.
+   *
+   * 만든 수만 보면 이 기능이 쓰인다고 착각하기 쉽다. 만들어 놓고 한 번도 안 다는 사람이
+   * 있어서, 이 로그는 `tag_applied` 와 짝으로 봐야 뜻이 생긴다.
+   */
+  tagChanged: 'tag_changed',
+  /**
+   * 기록에 태그를 붙이거나 뗐다.
+   *
+   * 태그가 실제로 쓰이는지 말해 주는 유일한 값이다. 어느 자리에서 달았는지(`where`)를
+   * 함께 남긴다. 적고 난 직후와 나중에 고치면서 다는 것은 다른 행동이다.
+   */
+  tagApplied: 'tag_applied',
+
+  /**
+   * 자산 항목을 더하거나 고치거나 지웠다.
+   *
+   * **이름과 금액은 싣지 않는다.** 어느 그룹인지와 지금 몇 줄인지까지다. 순자산은 이 앱에서
+   * 가장 사적인 숫자라, 갯수 말고는 아무것도 내보내지 않는다.
+   */
+  assetChanged: 'asset_changed',
+
+  /**
+   * 반복 지출을 만들거나 고치거나 지웠다. 잠시 끄고 켠 것도 여기서 센다.
+   *
+   * 「곧 나갈 돈」 카드의 반응(`recurring_result`)만으로는 절반밖에 못 본다. 카드가 뜨려면
+   * 먼저 누군가 반복 지출을 등록해야 하는데, 그 앞단이 안 남아 있었다.
+   *
+   * **항목 이름과 금액은 싣지 않는다.** 그 사람이 무엇을 구독하는지가 로그에 남는다.
+   */
+  recurringChanged: 'recurring_changed',
+
+  /**
+   * 월간 결산 카드를 열었다. 그리고 몇 장까지 보고 닫았나.
+   *
+   * 7일 축하(`streak_celebrated`)에는 뜬 것을 세는 로그가 있는데 결산에는 없어서, 둘 중
+   * 어느 쪽이 공유를 더 끌어내는지 견줄 수가 없었다. 이 둘이 그 자리를 채운다.
+   *
+   * 넉 장 중 첫 장에서 닫는 사람이 많으면 카드 수가 아니라 첫 장이 잘못된 것이다.
+   */
+  closingOpened: 'closing_opened',
+  closingClosed: 'closing_closed',
+
   /** 분류 「더 보기」를 폈다. 앞자리 열한 개로 모자란 사람이 얼마나 되는지 본다. */
   categoryMoreOpened: 'category_more_opened',
   /** 칩 순서를 바꿨다. 어떻게 바꿨는지(한 칸 옮기기·자주 쓴 순서)만 남긴다. */
@@ -184,3 +231,11 @@ export type ParseOutcome = 'ok' | 'partial' | 'empty' | 'failed';
 /** 고칠 수 있는 자리. 값이 아니라 어느 칸인지만 센다. */
 export type EditField =
   'amount' | 'date' | 'category' | 'type' | 'merchant' | 'payment_method' | 'selection';
+
+/**
+ * 사람이 손수 관리하는 목록에 한 일.
+ *
+ * 태그·자산·반복 지출이 같은 말을 쓴다. 셋 다 만들고 고치고 지우는 목록이라,
+ * 자리마다 다른 낱말을 쓰면 나중에 세 표를 나란히 놓고 볼 수가 없다.
+ */
+export type ItemAction = 'created' | 'updated' | 'deleted';

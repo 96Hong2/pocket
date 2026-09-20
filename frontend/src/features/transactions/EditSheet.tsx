@@ -388,6 +388,7 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
         {isTransfer ? null : (
           <TagPicker
             className="tx-edit__tags"
+            where="edit"
             kind={kind}
             tags={tags.data?.items ?? []}
             selectedId={tagId}
