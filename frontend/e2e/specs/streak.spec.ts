@@ -63,7 +63,8 @@ test('오늘 7일째를 적으면, 결과를 본 뒤 시트가 닫히고 나서 
 
   await home.streak.waitOpen();
   await expect(home.streak.dialog).toHaveAccessibleName('7일 연속 기록');
-  await expect(home.streak.lead).toHaveText('일주일을 다 채웠어요');
+  await expect(home.streak.lead).toHaveText('축하합니다!');
+  await expect(home.streak.milestone).toHaveText('일주일을 다 채웠어요');
   await expect(home.streak.shareButton).toBeVisible();
 
   const shown = await logsNamed(page, 'streak_celebrated');
@@ -80,7 +81,10 @@ test('한 번 본 축하는 다시 안 뜬다. 다시 열어도 마찬가지다'
   // 축하에도 탓하는 말이 섞이면 안 된다. 화면에 실제로 찍힌 글자로 본다.
   expect(findForbiddenWords((await home.streak.dialog.innerText()) ?? '')).toEqual([]);
 
-  await home.streak.okButton.click();
+  // 카드 안에서 닫는 버튼은 없다. 닫는 길은 오른쪽 위 ✕ 하나다.
+  await expect(home.streak.dialog.getByRole('button', { name: '좋아요' })).toHaveCount(0);
+
+  await home.streak.closeButton.click();
   await home.streak.waitClosed();
 
   // 주소로 다시 열면 화면이 통째로 새로 뜬다. 기기에 남긴 표가 없으면 여기서 다시 뜬다.
@@ -100,10 +104,40 @@ test('✕ 로도 닫히고, 2주를 채우면 그 주의 축하가 새로 뜬다
 
   // 7일째 축하를 못 봤어도 지금 닿은 것은 2주다. 지난 축하를 줄 세워 틀지 않는다.
   await expect(home.streak.dialog).toHaveAccessibleName('14일 연속 기록');
-  await expect(home.streak.lead).toHaveText('2주를 다 채웠어요');
+  await expect(home.streak.milestone).toHaveText('2주를 다 채웠어요');
 
   await home.streak.closeButton.click();
   await home.streak.waitClosed();
+});
+
+/**
+ * 축하를 닫으면 이메일로 지켜 두겠냐고 한 번 묻는다.
+ *
+ * 일주일치를 쌓아 둔 사람이 방금 그걸 잘했다는 말을 들은 참이라, 이 앱에서 계정을 권할 수
+ * 있는 거의 유일한 순간이다. 그 자리에서 이메일 칸까지 바로 열려야 한다.
+ */
+test('축하를 닫으면 이메일로 지켜 두겠냐고 묻고, 거기서 바로 칸이 열린다', async ({
+  home,
+  page,
+  prep,
+}) => {
+  await seedDays(prep, 6);
+
+  await home.open();
+  await home.waitReady();
+  await home.streak.waitOpen();
+  await home.streak.closeButton.click();
+  await home.streak.waitClosed();
+
+  const ask = page.getByRole('dialog', { name: '기록을 안전하게' });
+  await expect(ask).toBeVisible();
+  await expect(ask.getByText('이메일을 등록하면 내 기록을 안전하게 저장할 수 있어요!')).toBeVisible();
+
+  await ask.getByRole('button', { name: '이메일 등록하기' }).click();
+
+  // 관리 탭으로 보내지 않는다. 방금 받은 축하가 식기 전에 그 자리에서 적게 한다.
+  await expect(page.getByRole('dialog', { name: '이메일로 지켜 두기' })).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe('/');
 });
 
 test('공유하면 금액 없이 꾸준히 적었다는 말만 나간다', async ({ home, page, prep }) => {

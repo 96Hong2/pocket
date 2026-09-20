@@ -936,17 +936,18 @@ class StreakCelebrationArea {
     return this.root;
   }
 
-  /** 큰 글씨 한 줄. `일주일을 다 채웠어요`. */
+  /** 큰 글씨 한 줄. `축하합니다!`. */
   get lead(): Locator {
     return this.root.locator('.closing__lead');
   }
 
-  get shareButton(): Locator {
-    return this.root.getByRole('button', { name: '친구에게 공유하기' });
+  /** 그 아래 줄. `일주일을 다 채웠어요` 처럼 몇 주를 채웠는지. */
+  get milestone(): Locator {
+    return this.root.locator('.closing__line');
   }
 
-  get okButton(): Locator {
-    return this.root.getByRole('button', { name: '좋아요', exact: true });
+  get shareButton(): Locator {
+    return this.root.getByRole('button', { name: '친구에게 공유하기' });
   }
 
   get closeButton(): Locator {

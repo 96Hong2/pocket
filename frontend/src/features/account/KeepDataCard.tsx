@@ -55,7 +55,11 @@ export function KeepDataCard() {
   function dismiss(): void {
     setReady(false);
     void bridge.storage.set(DISMISSED_KEY, '1').catch(() => undefined);
-    analytics.log(EVENTS.accountLinkResult, { result: 'prompt_dismissed' }, { kind: 'click' });
+    analytics.log(
+      EVENTS.accountLinkResult,
+      { result: 'prompt_dismissed', where: 'manage' },
+      { kind: 'click' },
+    );
   }
 
   return (
@@ -71,7 +75,11 @@ export function KeepDataCard() {
           className="keep-data__go"
           to={ROUTES.account}
           onClick={() =>
-            analytics.log(EVENTS.accountLinkResult, { result: 'prompt_opened' }, { kind: 'click' })
+            analytics.log(
+              EVENTS.accountLinkResult,
+              { result: 'prompt_opened', where: 'manage' },
+              { kind: 'click' },
+            )
           }
         >
           지켜 두기

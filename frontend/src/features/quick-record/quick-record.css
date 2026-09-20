@@ -46,42 +46,67 @@
   /*
     어느 날에 적을지 고르는 자리. 종류 알약과 금액 사이에 선다.
 
-    **한 줄로 둔다.** 이름을 위에 얹으면 그만큼 시트가 길어지는데, 이 시트는 키패드까지
-    한 화면에 들어와야 한다. 넘치면 시트가 스크롤 상자가 되고, 손잡이가 위로 밀려
-    밀어서 닫기가 간헐적으로 안 먹는다(실제로 그렇게 깨졌다).
+    **가운데 작은 알약 하나다.** 줄을 통째로 쓰던 칸이었는데, 거의 모두가 오늘 것을
+    적으니 안 바꿀 값이 금액보다 커 보였다. 지금은 「오늘」 한 마디로 줄이고, 고쳐야
+    하는 사람만 눌러서 연다.
+
+    시트는 키패드까지 한 화면에 들어와야 한다. 넘치면 시트가 스크롤 상자가 되고,
+    손잡이가 위로 밀려 밀어서 닫기가 간헐적으로 안 먹는다(실제로 그렇게 깨졌다).
   */
-  .record__date {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 44px;
-    padding: 0 14px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
+  /* 알약을 가운데에 둔다. 이 패널은 흐름 배치라 `align-self` 가 안 먹는다. */
+  .record__day-row {
+    text-align: center;
   }
 
-  .record__date-label {
-    flex: none;
+  .record__day-pick {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .record__day-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
     font-size: var(--text-13);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
   }
 
+  .record__day-chip svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  /* 오늘이 아닌 날에 적는 중이면 알약이 스스로 눈에 띈다. 따로 한 줄을 더 쓰지 않는다. */
+  .record__day-pick[data-past] .record__day-chip {
+    border-color: var(--color-sage-700);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
   /*
-    칸이 줄의 남은 자리를 다 차지한다. `flex: none` 으로 두면 실제로 눌리는 곳이
-    오른쪽 날짜 글자뿐이라, 44px 짜리 줄이 눈속임이 된다.
+    실제로 눌리는 칸. 알약 위에 통째로 겹쳐 두고 투명하게 둔다.
+
+    **`display: none` 이나 `visibility: hidden` 으로 감추면 안 된다.** 그러면 기기가
+    그리는 달력이 안 열려서 날짜를 아예 못 바꾼다. 보이지 않게만 하고 자리는 남긴다.
   */
-  .record__date-input {
-    flex: 1;
-    min-width: 0;
+  .record__day-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
     border: 0;
     background: transparent;
     font-family: inherit;
-    font-size: var(--text-14);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-ink);
-    text-align: right;
+    opacity: 0;
+    cursor: pointer;
   }
 
   /* 칸 아래 한 줄짜리 안내. 잠긴 이유처럼 상황에 따라만 선다. */
@@ -90,20 +115,6 @@
     font-size: var(--text-12);
     color: var(--color-muted);
     text-align: center;
-  }
-
-  /* 오늘이 아닌 날에 적는 중이라는 한 줄. 금액 위에 조용히 선다. */
-  .record__day {
-    margin: 0;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-muted);
-    text-align: center;
-  }
-
-  .record__day b {
-    color: var(--color-sage-700);
-    font-weight: var(--font-weight-bold);
   }
 
   .record__notice {

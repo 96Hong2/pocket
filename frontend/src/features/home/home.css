@@ -627,4 +627,51 @@
     min-width: 0;
     height: 48px;
   }
+
+  /*
+    7일 축하를 닫은 뒤에 뜨는 작은 창. 글 두 줄과 버튼 둘이 전부다.
+    방금 받은 축하 뒤라, 여기서 설명이 길어지면 축하가 설명의 서론이 된다.
+  */
+  .streak-keep__body {
+    margin: 0;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.5;
+    color: var(--color-ink);
+  }
+
+  .streak-keep__note {
+    margin: 8px 0 18px;
+    font-size: var(--text-13);
+    line-height: 1.5;
+    color: var(--color-muted);
+  }
+
+  .streak-keep__later {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 6px;
+    border: 0;
+    background: none;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    cursor: pointer;
+  }
+
+  /*
+    7일 축하 카드의 공유 버튼만 칠한다.
+
+    이 카드에 남은 버튼은 이것 하나뿐이라, 테두리만 있는 모양으로 두면 카드에 아무것도
+    권하지 않는 것처럼 보인다. 결산 카드는 「다음」 과 나란히 서므로 그쪽은 그대로 둔다.
+  */
+  .closing--streak .share__button--strong {
+    border-color: var(--color-sage-700);
+    background: var(--color-sage-700);
+    color: var(--color-surface);
+  }
+
+  .closing--streak .share__button--strong:not(:disabled):active {
+    background: var(--color-sage-800);
+  }
 }

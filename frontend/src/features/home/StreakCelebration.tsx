@@ -17,6 +17,8 @@ import { CategoryAvatar } from '../../shared/ui';
 import { trapTab } from '../../shared/ui/focusTrap';
 import { ShareButton, streakLine } from '../share';
 
+import { StreakKeepPrompt } from './StreakKeepPrompt';
+
 export interface StreakCelebrationProps {
   /** 서버가 센 이어진 날. 끊겼으면 null 이다. */
   streak: StreakFact | null | undefined;
@@ -38,7 +40,11 @@ export interface StreakCelebrationProps {
  *
  * 결산과 달리 **저절로 뜬다.** 결산은 한 달치 숫자를 읽는 화면이라 스스로 열 때를 고르게
  * 두었지만, 이건 읽을 것이 한 줄뿐인 축하라 누르게 만들면 아무도 안 누른다. 대신
- * 같은 축하는 한 번만 뜨고(`streak-celebrated`), 닫는 길이 셋이다(✕·뒤로가기·「좋아요」).
+ * 같은 축하는 한 번만 뜨고(`streak-celebrated`), 닫는 길이 둘이다(오른쪽 위 ✕·뒤로가기).
+ *
+ * **카드 안에는 공유 버튼만 둔다.** 닫는 버튼을 나란히 두면 둘이 같은 무게로 보여서,
+ * 자랑하려고 연 카드가 그냥 닫는 카드가 된다. 닫고 나면 이메일로 지켜 두겠냐고
+ * 한 번 묻는다([[StreakKeepPrompt]]).
  *
  * **광고를 넣지 않는다.** 결산과 같은 이유다.
  */
@@ -69,8 +75,14 @@ export function StreakCelebration({ streak, blocked }: StreakCelebrationProps) {
     };
   }, [bridge, token]);
 
+  /** 축하를 닫고 나서 이메일을 권했나. 닫는 그 순간에 이어서 뜬다. */
+  const [keepAsked, setKeepAsked] = useState(false);
+
   // 홈이 다시 그려질 때마다 새 함수가 가면 대화상자가 초점을 제 몸으로 도로 끌어간다.
-  const close = useCallback(() => setClosed(token), [token]);
+  const close = useCallback(() => {
+    setClosed(token);
+    setKeepAsked(true);
+  }, [token]);
 
   const ready =
     token != null && celebrated !== undefined && celebrated !== token && closed !== token;
@@ -80,10 +92,17 @@ export function StreakCelebration({ streak, blocked }: StreakCelebrationProps) {
   */
   if (ready && shown !== token && !blocked && !overlay.hasOpen) setShown(token);
 
-  if (!ready || milestone == null || shown !== token) return null;
+  const open = ready && milestone != null && shown === token;
 
-  // 표가 바뀌면 새로 띄운다. 같은 대화상자를 다시 쓰면 7일 로그를 남긴 표시가 14일까지 따라간다.
-  return <StreakDialog key={token} token={token} milestone={milestone} onClose={close} />;
+  return (
+    <>
+      {/* 표가 바뀌면 새로 띄운다. 같은 대화상자를 다시 쓰면 7일 로그를 남긴 표시가 14일까지 따라간다. */}
+      {open && milestone != null ? (
+        <StreakDialog key={token} token={token} milestone={milestone} onClose={close} />
+      ) : null}
+      <StreakKeepPrompt open={keepAsked} onClose={() => setKeepAsked(false)} />
+    </>
+  );
 }
 
 function StreakDialog({
@@ -142,7 +161,7 @@ function StreakDialog({
   return createPortal(
     <div
       ref={dialogRef}
-      className="closing"
+      className="closing closing--streak"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -164,9 +183,16 @@ function StreakDialog({
 
       <section className="closing__card">
         <CategoryAvatar className="closing__icon" size={84} icon="26_sparkles" />
-        <p className="closing__lead">{streakLead(milestone)}</p>
+        {/* 무슨 일인지보다 축하가 먼저다. 카드를 연 순간 눈에 들어오는 줄은 하나뿐이다. */}
+        <p className="closing__lead">축하합니다!</p>
+        <p className="closing__line">{streakLead(milestone)}</p>
         <p className="closing__foot">{STREAK_FOOT}</p>
 
+        {/*
+          **카드 안의 버튼은 이 하나뿐이다.** 「좋아요」 를 나란히 두었더니 닫는 길이
+          둘이 되어, 공유와 닫기가 같은 무게로 보였다. 닫기는 오른쪽 위 ✕ 로 올리고
+          여기는 자랑하는 자리만 남긴다.
+        */}
         <ShareButton
           className="closing__share"
           kind="streak"
@@ -175,11 +201,6 @@ function StreakDialog({
           label="친구에게 공유하기"
           message={streakLine(milestone)}
         />
-
-        {/* ✕ 와 이름이 같으면 안 된다. 이건 닫는 것이 아니라 축하를 받았다는 대답이다. */}
-        <button type="button" className="closing__next" onClick={onClose}>
-          좋아요
-        </button>
       </section>
     </div>,
     document.body,
