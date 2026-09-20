@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 
 import { useBridge, useOverlayBackClose } from '../../app/providers';
 import { ROUTES } from '../../app/router/routes';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { parseDecimalOr, useCategories, type CategoryOut, type ClosingOut } from '../../shared/api';
 import { markClosingSeen } from '../../shared/lib/closingSeen';
 import { formatCurrency, formatMonthLabel, formatSignedCurrency } from '../../shared/lib/format';
@@ -52,18 +53,52 @@ export function ClosingOverlay({ open, ...rest }: ClosingOverlayProps) {
 }
 
 function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'open'>) {
+  const analytics = useAnalytics();
   const bridge = useBridge();
   const categories = useCategories();
   const dialogRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
 
-  useOverlayBackClose(true, onClose);
+  /*
+    닫을 때 몇 장까지 봤는지 남기려면 그 순간의 번호가 필요하다. 닫는 길이 넷이고
+    (✕ · Esc · 뒤로가기 · 「다 봤어요」) 그중 둘은 효과 안에 갇혀 있어서, 값을 그대로
+    물리면 처음 값인 0 이 박힌다. 그래서 최신 번호를 따로 들고 있는다.
+
+    `leave` 를 번호에 물리지 않는 이유는 아래 효과가 그걸 물고 있어서다. 번호가 바뀔 때마다
+    그 효과가 다시 돌면 초점이 대화상자로 튕겨 돌아온다.
+  */
+  const page = useRef(0);
+  useEffect(() => {
+    page.current = index;
+  }, [index]);
+
+  const leave = useCallback(() => {
+    analytics.log(
+      EVENTS.closingClosed,
+      {
+        page: page.current + 1,
+        total: CLOSING_CARDS.length,
+        finished: page.current === CLOSING_CARDS.length - 1,
+      },
+      { kind: 'click' },
+    );
+    onClose();
+  }, [analytics, onClose]);
+
+  useOverlayBackClose(true, leave);
+
+  const opened = useRef(false);
 
   // 봤다는 표시는 연 그 순간에 남긴다. 끝까지 넘겨야 남기면, 첫 장만 보고 닫은 사람에게
   // 같은 카드가 매일 다시 뜬다.
+  //
+  // 로그도 한 번만 싣는다. 개발 모드는 효과를 두 번 돌려서, 막지 않으면 연 횟수가 두 배다.
   useEffect(() => {
     void markClosingSeen(bridge.storage, month);
-  }, [month, bridge]);
+    if (opened.current) return;
+    opened.current = true;
+    analytics.log(EVENTS.closingOpened, { cards: CLOSING_CARDS.length }, { kind: 'impression' });
+  }, [analytics, month, bridge]);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -75,7 +110,7 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        leave();
         return;
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
@@ -88,7 +123,7 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
       document.body.style.overflow = overflow;
       previouslyFocused?.focus();
     };
-  }, [onClose]);
+  }, [leave]);
 
   const label = `${formatMonthLabel(month)} 결산`;
   const last = index === CLOSING_CARDS.length - 1;
@@ -122,7 +157,7 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
 
       <header className="closing__head">
         <p className="closing__month">{label}</p>
-        <button type="button" className="closing__close" onClick={onClose} aria-label="닫기">
+        <button type="button" className="closing__close" onClick={leave} aria-label="닫기">
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path
               d="M4 4l10 10M14 4L4 14"
@@ -147,6 +182,7 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
           month={month}
           closing={closing}
           byId={byId}
+          onLeave={leave}
         />
 
         {/*
@@ -171,7 +207,7 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
         <button
           type="button"
           className="closing__next"
-          onClick={() => (last ? onClose() : setIndex(index + 1))}
+          onClick={() => (last ? leave() : setIndex(index + 1))}
         >
           {/* 마지막 장에서도 '닫기' 라고 하면 위 ✕ 와 이름이 같아진다. 다 본 것은 다른 뜻이다. */}
           {last ? '다 봤어요' : '다음'}
@@ -213,11 +249,14 @@ function ClosingCardBody({
   month,
   closing,
   byId,
+  onLeave,
 }: {
   card: ClosingCardKey;
   month: string;
   closing: ClosingOut;
   byId: Map<string, CategoryOut>;
+  /** 결산을 떠나는 길. 마지막 장의 「예산 화면으로」 가 쓴다. */
+  onLeave: () => void;
 }) {
   switch (card) {
     case 'highlights':
@@ -227,7 +266,7 @@ function ClosingCardBody({
     case 'change':
       return <ChangeCard closing={closing} byId={byId} />;
     case 'next':
-      return <NextCard closing={closing} byId={byId} />;
+      return <NextCard closing={closing} byId={byId} onLeave={onLeave} />;
   }
 }
 
@@ -328,7 +367,15 @@ function ChangeCard({ closing, byId }: { closing: ClosingOut; byId: Map<string, 
  * **여기서 예산을 정해 주지 않는다.** 결산이 다음 달 예산을 대신 정하면 사용자가
  * 안 본 사이에 숫자가 바뀐다. 가는 길만 열어 둔다.
  */
-function NextCard({ closing, byId }: { closing: ClosingOut; byId: Map<string, CategoryOut> }) {
+function NextCard({
+  closing,
+  byId,
+  onLeave,
+}: {
+  closing: ClosingOut;
+  byId: Map<string, CategoryOut>;
+  onLeave: () => void;
+}) {
   const next = closing.next;
 
   return (
@@ -336,8 +383,13 @@ function NextCard({ closing, byId }: { closing: ClosingOut; byId: Map<string, Ca
       <p className="closing__lead">
         {next == null ? NO_NEXT_LINE : nextLine(next, byId.get(next.category_id)?.name)}
       </p>
+      {/*
+        여기로 나가도 결산을 떠난 것이다. 화면이 넘어가면서 이 오버레이가 통째로 사라져
+        닫기가 안 불리는데, 그러면 **끝까지 본 사람만** 닫힘 로그에서 빠진다.
+        남은 표가 「첫 장에서 닫는다」 쪽으로 기울어 잘못된 결론을 부른다.
+      */}
       {next != null ? (
-        <Link className="closing__link" to={ROUTES.manage}>
+        <Link className="closing__link" to={ROUTES.manage} onClick={onLeave}>
           예산 화면으로
         </Link>
       ) : null}

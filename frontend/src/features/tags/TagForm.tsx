@@ -1,5 +1,6 @@
 import { useId, useState, type CSSProperties } from 'react';
 
+import { EVENTS, useAnalytics, type ItemAction } from '../../shared/analytics';
 import {
   ApiError,
   useCreateTag,
@@ -38,6 +39,7 @@ export interface TagFormProps {
 
 export function TagForm({ tag, kind, onDone, onCancel }: TagFormProps) {
   const nameId = useId();
+  const analytics = useAnalytics();
   const create = useCreateTag();
   const update = useUpdateTag();
   const [name, setName] = useState(tag?.name ?? '');
@@ -53,13 +55,22 @@ export function TagForm({ tag, kind, onDone, onCancel }: TagFormProps) {
         ? '태그를 저장하지 못했어요.'
         : null;
 
+  /** 서버가 받아 준 뒤에만 센다. 이름은 안 싣는다. */
+  function done(action: ItemAction): void {
+    analytics.log(EVENTS.tagChanged, { action, kind }, { kind: 'click' });
+    onDone();
+  }
+
   function save(): void {
     if (trimmed === '' || busy) return;
     if (tag != null) {
-      update.mutate({ id: tag.id, body: { name: trimmed, color } }, { onSuccess: onDone });
+      update.mutate(
+        { id: tag.id, body: { name: trimmed, color } },
+        { onSuccess: () => done('updated') },
+      );
       return;
     }
-    create.mutate({ name: trimmed, color, kind }, { onSuccess: onDone });
+    create.mutate({ name: trimmed, color, kind }, { onSuccess: () => done('created') });
   }
 
   return (

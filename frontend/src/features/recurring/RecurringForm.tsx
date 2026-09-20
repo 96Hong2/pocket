@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { Link } from 'react-router';
 
 import { ROUTES } from '../../app/router/routes';
+import { EVENTS, useAnalytics, type ItemAction } from '../../shared/analytics';
 import {
   ApiError,
   parseDecimalOr,
@@ -53,6 +54,7 @@ export interface RecurringFormProps {
 export function RecurringForm({ item, onDone, onCancel }: RecurringFormProps) {
   const nameId = useId();
   const timeId = useId();
+  const analytics = useAnalytics();
   const categories = useCategories();
   const tags = useTags();
   const notifications = useNotificationSettings();
@@ -104,10 +106,38 @@ export function RecurringForm({ item, onDone, onCancel }: RecurringFormProps) {
       remind_lead_days: Number(lead),
     };
     if (item != null) {
-      update.mutate({ id: item.id, body }, { onSuccess: onDone });
+      update.mutate({ id: item.id, body }, { onSuccess: () => done('updated') });
       return;
     }
-    create.mutate(body, { onSuccess: onDone });
+    create.mutate(body, { onSuccess: () => done('created') });
+  }
+
+  /**
+   * 서버가 받아 준 뒤에만 센다.
+   *
+   * 항목 이름과 금액은 안 싣는다. 「곧 나갈 돈」 카드는 알림이 켜져 있어야 뜨므로,
+   * 그 카드의 반응(`recurring_result`)을 읽으려면 분모가 되는 값이 여기 있어야 한다.
+   *
+   * **시각을 비운 것은 「안 알림」 이 아니다.** 기록 알림 시각을 따르겠다는 뜻이고,
+   * 새로 만들 때의 기본값이 바로 빈 값이다. 그래서 둘을 따로 남긴다:
+   * 앱 알림이 켜져 있나(`enabled`)와 이 항목만 다른 시각을 골랐나(`at`).
+   *
+   * `lead` 는 `recurring_result` 와 같은 낱말을 쓴다. 한쪽이 0·1 이고 다른 쪽이
+   * `today`·`eve` 면 두 표를 나란히 놓고 볼 수가 없다.
+   */
+  function done(action: ItemAction): void {
+    analytics.log(
+      EVENTS.recurringChanged,
+      {
+        action,
+        enabled: !notifyOff,
+        at: remindAt === '' ? 'default' : 'custom',
+        lead: lead === '1' ? 'eve' : 'today',
+        tagged: tagId != null,
+      },
+      { kind: 'click' },
+    );
+    onDone();
   }
 
   return (

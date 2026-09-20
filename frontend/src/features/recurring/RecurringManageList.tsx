@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { EVENTS, useAnalytics, type RecurringAction } from '../../shared/analytics';
 import {
   parseDecimalOr,
   useCategories,
@@ -36,6 +37,7 @@ const MAX = 20;
  * 끈 것은 목록에 흐리게 남아, 다시 켤 때 금액과 날짜를 새로 적지 않아도 된다.
  */
 export function RecurringManageList() {
+  const analytics = useAnalytics();
   const items = useRecurring();
   const categories = useCategories();
   const update = useUpdateRecurring();
@@ -105,7 +107,20 @@ export function RecurringManageList() {
                     ariaLabel={`${item.name} 알림`}
                     disabled={update.isPending}
                     onChange={(next) =>
-                      update.mutate({ id: item.id, body: { is_active: next } })
+                      update.mutate(
+                        { id: item.id, body: { is_active: next } },
+                        {
+                          // 끄는 것과 지우는 것은 다른 뜻이다. 껐다는 것은 이 항목이 아직
+                          // 맞는데 지금만 안 알리고 싶다는 말이라, 지운 수에 섞으면 안 된다.
+                          //
+                          // 서버가 받아 준 뒤에만 센다. 실패하면 토글이 원래대로 돌아가는데
+                          // 로그만 남으면 「잠시 끈 사람」 이 실제보다 부풀어 오른다.
+                          onSuccess: () => {
+                            const action: RecurringAction = next ? 'resumed' : 'paused';
+                            analytics.log(EVENTS.recurringChanged, { action }, { kind: 'click' });
+                          },
+                        },
+                      )
                     }
                   />
                 </li>
@@ -174,6 +189,12 @@ export function RecurringManageList() {
                 onClick={() =>
                   remove.mutate(confirming.id, {
                     onSuccess: () => {
+                      const action: RecurringAction = 'deleted';
+                      analytics.log(
+                        EVENTS.recurringChanged,
+                        { action, active: confirming.is_active },
+                        { kind: 'click' },
+                      );
                       setConfirming(null);
                       setTarget(null);
                     },
