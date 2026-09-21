@@ -16,6 +16,7 @@ import {
   Button,
   ColorPicker,
   FALLBACK_CATEGORY_ICON,
+  parseCustomIcon,
   toIconName,
   type IconName,
 } from '../../shared/ui';
@@ -132,6 +133,8 @@ export function CategoryEditForm({
   const [iconInvalid, setIconInvalid] = useState(false);
 
   const busy = create.isPending || update.isPending || remove.isPending;
+  /** 사진을 걸었나. 사진은 동그라미를 꽉 채워 바탕색이 안 드러난다. */
+  const photoPicked = parseCustomIcon(custom)?.kind === 'photo';
   const trimmed = name.trim();
   const canSave = trimmed !== '' && !iconInvalid && !busy;
 
@@ -245,7 +248,7 @@ export function CategoryEditForm({
       */}
       {isDefault ? (
         <p className="cat-sheet__note cat-sheet__note--lead">
-          기본 분류예요. 여기서 바꾼 이름과 그림은 내 화면에만 보여요
+          기본 분류예요. 여기서 바꾼 이름과 그림, 색은 내 화면에만 보여요
         </p>
       ) : null}
 
@@ -266,6 +269,7 @@ export function CategoryEditForm({
         <IconPicker
           value={icon}
           custom={custom}
+          color={color}
           disabled={busy}
           startOpen={category == null}
           onInvalidChange={setIconInvalid}
@@ -282,16 +286,25 @@ export function CategoryEditForm({
         </span>
         {/*
           태그와 같은 것을 쓴다. 카테고리는 아이콘이 이미 얼굴이라 **색을 안 골라도 된다.**
-          맨 앞 빗금 칸이 「색 없음」 이고, 한 번 고른 색을 떼는 길도 그것뿐이다.
+          격자 위의 「색 없음」 이 그 자리이고, 한 번 고른 색을 떼는 길도 그것뿐이다.
         */}
         <ColorPicker
           value={color}
-          disabled={busy}
+          disabled={busy || photoPicked}
           clearable
           labelledBy={`${colorId}-label`}
           onChange={setColor}
         />
-        <span className="cat-sheet__note">목록과 기록 화면에서 이 색이 동그라미에 깔려요</span>
+        {/*
+          **사진을 건 분류에는 색이 안 보인다.** 사진이 동그라미를 꽉 채워서 바탕이
+          한 픽셀도 안 드러난다. 고를 수 있게 두고 아무 일도 안 일어나면 고장으로
+          읽히므로, 잠그고 왜 잠겼는지 그 자리에 적는다.
+        */}
+        <span className="cat-sheet__note">
+          {photoPicked
+            ? '사진은 동그라미를 꽉 채워서 색이 보이지 않아요. 아이콘이나 이모지로 바꾸면 고를 수 있어요'
+            : '목록과 기록 화면에서 이 색이 동그라미에 깔려요'}
+        </span>
       </div>
 
       {failure ? (

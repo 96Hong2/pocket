@@ -401,6 +401,13 @@
   }
 
   /* 라벨 아래 한 줄. 지금 고르는 것이 나중에 어디서 쓰이는지 말한다. */
+  /* 시트 맨 위에 서는 한 줄. 칸에 딸린 설명이 아니라 이 시트 전체가 무엇인지 말한다. */
+  .cat-sheet__note--lead {
+    margin-top: -4px;
+    margin-bottom: 4px;
+    color: var(--color-sage-700);
+  }
+
   .cat-sheet__note {
     font-size: var(--text-12);
     line-height: 1.5;

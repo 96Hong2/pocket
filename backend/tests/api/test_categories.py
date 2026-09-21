@@ -670,3 +670,84 @@ def test_숫자_키캡은_아이콘으로_걸린다(
     )
     assert response.status_code == 201
     assert response.json()["icon_custom"] == "emoji:7️⃣"
+
+
+def test_만들_때_고른_색이_저장된다(client: TestClient, default_categories: list[Category]) -> None:
+    """색을 고르고 저장했는데 목록이 회색이면, 고른 사람에게는 앱이 고장 난 것이다."""
+    del default_categories
+    created = client.post(
+        "/api/v1/categories",
+        json={"name": "커피값", "icon_key": "06_coffee", "color": "sage"},
+        headers=AUTH,
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["color"] == "sage"
+    assert _by_name(client, "커피값")["color"] == "sage"
+
+
+def test_지웠다_다시_만들면_보낸_색이_이긴다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """되살리기는 같은 행을 쓴다. 옛 색이 따라오면 다른 색을 고른 사람이 옛 색을 본다."""
+    del default_categories
+    made = client.post(
+        "/api/v1/categories",
+        json={"name": "커피값", "icon_key": "06_coffee", "color": "plum"},
+        headers=AUTH,
+    )
+    client.delete(f"/api/v1/categories/{made.json()['id']}", headers=AUTH)
+
+    again = client.post(
+        "/api/v1/categories",
+        json={"name": "커피값", "icon_key": "06_coffee", "color": "sky"},
+        headers=AUTH,
+    )
+    assert again.status_code == 201, again.text
+    assert again.json()["color"] == "sky"
+
+
+def test_이름이_겹쳐_막히면_기록_화면_설정도_안_바뀐다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """한 요청이 반만 들어가면, 화면은 「저장 못 했어요」 인데 칩은 이미 사라져 있다."""
+    client.post(
+        "/api/v1/categories", json={"name": "밥값", "icon_key": "09_rice_bowl"}, headers=AUTH
+    )
+    target = default_categories[0]
+
+    blocked = client.patch(
+        f"/api/v1/categories/{target.id}",
+        json={"is_quick": False, "name": "밥값"},
+        headers=AUTH,
+    )
+    assert blocked.status_code == 409, blocked.text
+    assert _by_name(client, target.name)["is_quick"] is True
+
+
+def test_기본_분류를_다르게_부르면_그_이름으로_찾힌다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """찾는 사람이 부르는 이름으로 찾아야 한다. 화면에 없는 말로만 찾히면 검색이 아니다."""
+    target = default_categories[0]
+    made = client.post(
+        "/api/v1/transactions",
+        json={
+            "occurred_at": "2026-09-15T12:30:00+09:00",
+            "amount": "9000",
+            "type": "expense",
+            "source": "keypad",
+            "category_id": str(target.id),
+        },
+        headers=AUTH,
+    )
+    assert made.status_code == 201, made.text
+
+    client.patch(f"/api/v1/categories/{target.id}", json={"name": "밥값"}, headers=AUTH)
+
+    found = client.get("/api/v1/transactions", params={"q": "밥값"}, headers=AUTH)
+    assert found.status_code == 200, found.text
+    assert len(found.json()["items"]) == 1
+
+    # 바꾸기 전 이름으로 찾는 길도 남는다. 그 기억으로 찾는 사람이 있다.
+    old = client.get("/api/v1/transactions", params={"q": target.name}, headers=AUTH)
+    assert len(old.json()["items"]) == 1

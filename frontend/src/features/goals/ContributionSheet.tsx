@@ -122,8 +122,12 @@ function ContributionForm({ goalId, onSavingChange, onClose }: ContributionFormP
             **금액은 안 싣는다.** 얼마를 모으는지가 그 사람의 사정이다. 남기는 것은
             오늘 넣었나 지난 날로 넣었나까지다. 지난 날로 넣는 사람이 많으면 이
             시트가 아니라 「모은 뒤에 적는 흐름」 이 필요한 것이다.
+
+            **앞날은 `backdated` 가 아니다.** 이 시트는 앞날도 받는다(한 번 묻고 통과시킨다).
+            `day !== today` 로 세면 앞날에 넣은 것까지 「지난 날」 에 섞여, 두 가지 다른 일이
+            한 칸에 뭉친다.
           */
-          analytics.log(EVENTS.goalContributed, { backdated: day !== today }, { kind: 'click' });
+          analytics.log(EVENTS.goalContributed, { backdated: day < today }, { kind: 'click' });
           onClose();
         },
       },

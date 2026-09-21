@@ -1,4 +1,73 @@
 /*
+  파스텔 열네 색.
+
+  **태그와 카테고리가 같은 값을 쓴다.** 팔레트를 둘로 두면 한 화면에 서로 안 어울리는
+  색이 두 벌 서고, 대비를 맞춘 자리도 두 곳이 된다. 값 목록의 정본은 서버
+  (`app/domain/tags.py`)이고, 그 키를 `shared/lib/tagColors.ts` 가 변수 이름으로 바꾼다.
+
+  **바탕은 파스텔, 글자는 같은 계열의 진한 색이다.** 진한 바탕에 흰 글자를 얹던 것을
+  뒤집었다. 칩이 열넷 서는 화면에서 진한 색은 화면 전체를 시끄럽게 만든다.
+
+  리포트의 도넛 조각은 여기 없다. 그쪽은 **자리 색**(`--color-donut-N`)이라 같은 링에
+  같은 색이 두 번 나오지 않게 하는 것이 목적이고, 이 팔레트와 하는 일이 다르다.
+
+  `@theme` 이 아니라 `:root` 에 두는 이유: tailwind 가 클래스에서 안 쓰인 `@theme` 변수를
+  지우는데, 이 값들은 JS 가 `var(--tag-...)` 문자열로 만들어 써서 tailwind 가 못 본다.
+
+  이름의 `--tag-` 접두사는 그대로 둔다. 바꾸면 이 값을 읽는 자리를 전부 함께 고쳐야 하고,
+  그 이득이 없다.
+*/
+:root {
+  /* 파스텔 바탕: 칩·점·도넛 조각. 같은 계열의 진한 글자색(-ink)과 4.5:1 이상. */
+  --tag-rose: #F7C9D8;
+  --tag-coral: #F9CDBA;
+  --tag-amber: #F6DEA8;
+  --tag-sand: #E9DCC2;
+  --tag-olive: #D8E0B2;
+  --tag-sage: #C6DCBE;
+  --tag-mint: #B6DED5;
+  --tag-teal: #B2D8DF;
+  --tag-sky: #C2DCF3;
+  --tag-ocean: #BECDF0;
+  --tag-indigo: #CAC8ED;
+  --tag-lilac: #DCC7ED;
+  --tag-plum: #EBC4E1;
+  --tag-slate: #D2D7DC;
+
+  /* 그 바탕에 얹는 글자색. 회색 글자를 쓰면 열넷이 다 같아 보인다. */
+  --tag-rose-ink: #8C3357;
+  --tag-coral-ink: #8C4124;
+  --tag-amber-ink: #7A5713;
+  --tag-sand-ink: #6B5830;
+  --tag-olive-ink: #57642C;
+  --tag-sage-ink: #3A5B39;
+  --tag-mint-ink: #1C5D55;
+  --tag-teal-ink: #1B5862;
+  --tag-sky-ink: #28547E;
+  --tag-ocean-ink: #31467C;
+  --tag-indigo-ink: #423D7E;
+  --tag-lilac-ink: #5C397A;
+  --tag-plum-ink: #722F68;
+  --tag-slate-ink: #485258;
+
+  /* 더 옅은 바탕: 목록 줄의 작은 칩. 여기에도 같은 -ink 를 얹는다. */
+  --tag-rose-soft: #FCEBF1;
+  --tag-coral-soft: #FDEDE5;
+  --tag-amber-soft: #FCF2DC;
+  --tag-sand-soft: #F7F0E4;
+  --tag-olive-soft: #EFF3E0;
+  --tag-sage-soft: #E7F0E3;
+  --tag-mint-soft: #E2F1ED;
+  --tag-teal-soft: #E0F0F3;
+  --tag-sky-soft: #E5F0FA;
+  --tag-ocean-soft: #E4EAF9;
+  --tag-indigo-soft: #E9E7F8;
+  --tag-lilac-soft: #F1E8F8;
+  --tag-plum-soft: #F8E7F4;
+  --tag-slate-soft: #EBEEF0;
+}
+
+/*
   공용 프리미티브의 시각 스펙. 시안 실측값을 그대로 옮겼고, 값은 전부 index.css 의 토큰에서 읽는다.
   components 레이어에 두어 화면에서 Tailwind 유틸리티로 덮어쓸 수 있게 한다.
 */

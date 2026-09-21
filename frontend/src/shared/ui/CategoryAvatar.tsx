@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 
 import { cx } from '../lib/cx';
+import { TAG_COLORS } from '../lib/tagColors';
 import { iconUrl, parseCustomIcon, type IconName } from './icons';
 
 export interface CategoryAvatarProps {
@@ -27,23 +28,13 @@ export interface CategoryAvatarProps {
   className?: string;
 }
 
-/** 고를 수 있는 색인지. 값 목록의 정본은 서버(`app/domain/tags.py`)다. */
-const COLORS = new Set([
-  'rose',
-  'coral',
-  'amber',
-  'sand',
-  'olive',
-  'sage',
-  'mint',
-  'teal',
-  'sky',
-  'ocean',
-  'indigo',
-  'lilac',
-  'plum',
-  'slate',
-]);
+/**
+ * 고를 수 있는 색인지.
+ *
+ * 값 목록을 여기 다시 적지 않는다. 적어 두면 색을 하나 늘릴 때 아바타만 조용히 무시한다.
+ * 정본은 서버(`app/domain/tags.py`)이고 `TAG_COLORS` 가 그것을 따라간다.
+ */
+const COLORS: ReadonlySet<string> = new Set<string>(TAG_COLORS);
 
 export function CategoryAvatar({
   icon,

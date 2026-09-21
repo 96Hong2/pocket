@@ -338,8 +338,14 @@ export class TossMiniAppBridge implements MiniAppBridge {
 
   minAppVersion(capability: BridgeCapability): string | null {
     // 버전으로 갈리는 것만 적는다. 나머지는 앱 버전과 무관하거나 SDK 가 하한을 알려 주지 않는다.
-    if (capability !== 'notification') return null;
-    const gate = Notification.requestAgreement.MIN_TOSS_APP_VERSION;
+    const gate =
+      capability === 'notification'
+        ? Notification.requestAgreement.MIN_TOSS_APP_VERSION
+        : // 별점 창은 권유 카드를 아예 안 그리는 자리라, 왜 안 뜨는지 말할 값이 있어야 한다.
+          capability === 'review'
+          ? Review.request.MIN_TOSS_APP_VERSION
+          : null;
+    if (gate == null) return null;
     if (this.platform === 'ios') return gate.ios;
     if (this.platform === 'android') return gate.android;
     return null;

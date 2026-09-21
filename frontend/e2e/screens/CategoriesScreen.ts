@@ -324,7 +324,7 @@ class CategorySheet {
   /**
    * 색 고르기. 태그 시트와 같은 컴포넌트라 이름도 같다.
    *
-   * 카테고리에만 맨 앞에 「색 없음」 칸이 하나 더 있다. 아이콘이 이미 얼굴이라
+   * 카테고리에만 격자 위에 「색 없음」 버튼이 하나 더 있다. 아이콘이 이미 얼굴이라
    * 색을 안 골라도 되고, 한 번 고른 색을 떼는 길도 그것뿐이다.
    */
   get colorGroup(): Locator {
@@ -626,35 +626,6 @@ class MerchantRuleSheet {
 
   get merchantField(): Locator {
     return this.root.getByLabel('상호', { exact: true });
-  }
-
-  /**
-   * 색 고르기. 태그 시트와 같은 컴포넌트라 이름도 같다.
-   *
-   * 카테고리에만 맨 앞에 「색 없음」 칸이 하나 더 있다. 아이콘이 이미 얼굴이라
-   * 색을 안 골라도 되고, 한 번 고른 색을 떼는 길도 그것뿐이다.
-   */
-  get colorGroup(): Locator {
-    return this.root.getByRole('group', { name: '색', exact: true });
-  }
-
-  colorCell(label: string): Locator {
-    return this.colorGroup.getByRole('button', { name: label, exact: true });
-  }
-
-  /**
-   * 색을 떼는 버튼. **격자 밖에 있다.**
-   *
-   * 열네 칸 사이에 끼우면 열다섯이 되어 셋째 줄에 하나만 남고, 따뜻한 줄과 찬 줄이
-   * 한 칸씩 밀린다. 색이 아니라 하는 일이라 동그라미가 아니라 글자다.
-   */
-  get clearColorButton(): Locator {
-    return this.colorGroup.getByRole('button', { name: '색 없음', exact: true });
-  }
-
-  /** 기본 분류를 열었을 때만 있는 한 줄. 고친 것이 어디까지 가는지 말한다. */
-  get scopeNote(): Locator {
-    return this.root.getByText(/내 화면에만 보여요/);
   }
 
   get saveButton(): Locator {

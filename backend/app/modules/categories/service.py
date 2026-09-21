@@ -33,6 +33,7 @@ __all__ = [
     "list_categories",
     "quick_hidden_ids",
     "quick_order_ids",
+    "renamed_ids_matching",
     "require_own",
     "require_owned",
     "require_seen",
@@ -168,6 +169,37 @@ def category_overrides(session: Session, user: User) -> dict[str, dict[str, str 
     """기본 분류에 내가 걸어 둔 값. 아무것도 안 고쳤으면 빈 dict 다."""
     row = settings_service.get_preferences(session, user)
     return {str(k): dict(v) for k, v in row.category_overrides.items()}
+
+
+def renamed_ids_matching(
+    overrides: dict[str, dict[str, str | None]], keyword: str
+) -> list[uuid.UUID]:
+    """그 사람이 **다르게 부르기로 한 이름**이 검색어에 걸리는 기본 분류의 id.
+
+    검색은 `categories.name` 을 보는데, 그 칸에는 공용 이름이 들어 있다. 「식비」 를
+    「밥값」 이라 부르기로 한 사람에게는 화면 어디에도 「식비」 가 없으므로, 그 말로는
+    못 찾고 안 쓰는 말로만 찾히게 된다. 찾는 쪽이 부르는 이름으로 찾아야 한다.
+
+    설정이 JSON 이라 SQL 로 join 할 수 없다. 걸리는 id 를 미리 뽑아 `IN` 조건으로 얹는다.
+    덮어쓴 분류만 훑으므로 대개 빈 목록이고, 많아야 기본 분류 수(열여섯)다.
+
+    **바꾼 이름에 안 걸리면 안 돌려준다.** 공용 이름으로 찾는 길은 SQL 쪽에 그대로 있다.
+    그쪽까지 막으면 이름을 바꾸기 전에 적어 둔 기억으로 찾는 사람이 못 찾는다.
+    """
+    needle = " ".join(keyword.split()).casefold()
+    if needle == "":
+        return []
+    found: list[uuid.UUID] = []
+    for key, patch in overrides.items():
+        name = patch.get("name")
+        if not isinstance(name, str) or needle not in name.casefold():
+            continue
+        try:
+            found.append(uuid.UUID(key))
+        except ValueError:
+            # 설정에 남은 옛 값. 있는 것만 골라 쓴다.
+            continue
+    return found
 
 
 def _patch_of(row: Category, overrides: dict[str, dict[str, str | None]]) -> dict[str, str | None]:
@@ -430,6 +462,9 @@ def create_category(session: Session, user: User, data: CategoryCreate) -> Categ
         revived.name = name
         revived.icon_key = data.icon_key
         revived.icon_custom = data.icon_custom
+        # 되살릴 때도 보낸 색을 건다. 안 걸면 지우기 전의 옛 색이 따라와서,
+        # 다른 색을 골라 다시 만든 사람이 저장하자마자 옛 색을 본다.
+        revived.color = data.color
         revived.sort_order = user_sort_order(data.kind)
         revived.deleted_at = None
         session.commit()
@@ -445,6 +480,7 @@ def create_category(session: Session, user: User, data: CategoryCreate) -> Categ
         kind=data.kind,
         icon_key=data.icon_key,
         icon_custom=data.icon_custom,
+        color=data.color,
         sort_order=user_sort_order(data.kind),
     )
     session.add(row)

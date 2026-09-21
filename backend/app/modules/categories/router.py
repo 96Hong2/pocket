@@ -86,16 +86,22 @@ def create(body: CategoryCreate, session: DbSession, user: CurrentUser) -> Categ
 def update(
     category_id: uuid.UUID, body: CategoryUpdate, session: DbSession, user: CurrentUser
 ) -> CategoryOut:
-    # 기록 화면에 보일지는 내 설정이다. 이름·아이콘·색도 기본 분류에서는 내 설정에 남는다.
-    if body.is_quick is not None:
-        service.require_owned(session, user, category_id)
-        service.set_quick(session, user, category_id, body.is_quick)
+    """보낸 값만 바꾼다. 기록 화면에 보일지도, 기본 분류의 이름·아이콘·색도 내 설정에 남는다.
 
+    **이름·아이콘·색을 먼저 고치고 `is_quick` 을 나중에 건다.** 반대로 두면, 이름이
+    겹쳐 저장이 막힌 요청인데 칩만 먼저 꺼진다. 화면은 「저장하지 못했어요」 를 띄우는데
+    기록 시트에서는 그 분류가 이미 사라져 있다. 두 쓰기가 한 트랜잭션이 아니라 순서로만
+    갈리므로, 되돌릴 수 없는 쪽(칩 끄기)을 뒤에 둔다.
+    """
     row = (
         service.update_category(session, user, category_id, body)
         if body.model_fields_set - {"is_quick"}
         else service.require_seen(session, user, category_id)
     )
+
+    if body.is_quick is not None:
+        service.require_owned(session, user, category_id)
+        service.set_quick(session, user, category_id, body.is_quick)
     return _out(
         row, service.quick_hidden_ids(session, user), service.category_overrides(session, user)
     )

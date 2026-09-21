@@ -665,6 +665,13 @@ def list_transactions(
             Category.name.ilike(pattern, escape="\\"),
             Tag.name.ilike(pattern, escape="\\"),
         ]
+        # 기본 분류를 다르게 부르기로 한 사람은 **그 이름으로** 찾는다. 그 이름이
+        # 카테고리 행이 아니라 설정 JSON 에 있어 SQL 로 join 할 수 없다(ADR-0027).
+        renamed = categories.renamed_ids_matching(
+            categories.category_overrides(session, user), keyword
+        )
+        if renamed:
+            matches.append(Transaction.category_id.in_(renamed))
         span = _as_amount_range(keyword)
         if span is not None:
             low, high = span

@@ -654,14 +654,28 @@ def _category_names(session: Session, user: User) -> list[str]:
 
     기본 목록만 주면 '데이트' 를 만들어 둔 사람이 줄글이나 캡처로 적을 때 그 이름이
     후보에 없어 영영 안 붙는다. 앞에 세우는 이유는 목록이 길면 뒤가 잘리기 때문이다.
+
+    **그 사람이 부르는 이름으로 준다.** 기본 「식비」 를 「밥값」 이라 부르기로 했으면
+    모델에게도 「밥값」 이 가야 한다. 공용 이름을 주면 사람이 줄글에 「밥값 8000」 이라
+    적었을 때 후보에 없는 말이 되어 그 분류에 안 붙는다(ADR-0027).
     """
     rows = categories.list_categories(session, user)
+    overrides = categories.category_overrides(session, user)
     mine = [row.name for row in rows if row.user_id is not None]
-    shared = [row.name for row in rows if row.user_id is None]
+    shared = [categories.effective_name(row, overrides) for row in rows if row.user_id is None]
     return mine + shared
 
 
 def _category_id_by_name(session: Session, user: User, name: str) -> uuid.UUID | None:
+    """모델이 답한 이름으로 분류를 찾는다.
+
+    **모델에게는 그 사람이 부르는 이름을 줬으므로 여기서도 그 이름으로 찾는다.**
+    행 이름만 보면, 기본 「식비」 를 「밥값」 으로 부르는 사람에게 모델이 「밥값」 이라
+    답했을 때 아무것도 안 걸려 분류 없이 저장된다(ADR-0027).
+
+    행 이름이 먼저다. 내가 만든 「식비」 가 있는데 기본을 「식비」 라 부를 수는 없어
+    (이름 겹침 판정이 막는다) 두 길이 같은 이름에 함께 걸릴 일은 없다.
+    """
     stmt = (
         select(Category.id)
         .where(
@@ -674,7 +688,18 @@ def _category_id_by_name(session: Session, user: User, name: str) -> uuid.UUID |
         .order_by(Category.user_id.is_(None))
         .limit(1)
     )
-    return session.scalars(stmt).first()
+    found = session.scalars(stmt).first()
+    if found is not None:
+        return found
+
+    overrides = categories.category_overrides(session, user)
+    renamed = categories.renamed_ids_matching(overrides, name)
+    for category_id in renamed:
+        patch = overrides.get(str(category_id)) or {}
+        # 부분일치가 아니라 그 이름이어야 한다. 위 SQL 도 `==` 로 본다.
+        if patch.get("name") == name:
+            return category_id
+    return None
 
 
 def _rules_by_merchant(session: Session, user: User) -> dict[str, _LearnedRule]:

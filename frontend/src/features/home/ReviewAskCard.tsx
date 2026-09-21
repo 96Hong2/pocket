@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
@@ -24,8 +24,17 @@ export function ReviewAskCard({ onDismiss }: { onDismiss: () => void }) {
   const analytics = useAnalytics();
   // 창을 여는 동안 두 번 눌리면 창이 겹친다.
   const [busy, setBusy] = useState(false);
+  /*
+    이미 한 번 답했나.
+
+    창이 뜨는 동안에도 ✕ 는 눌린다. 그때 로그가 둘(`dismissed` + `opened`) 남으면
+    「물어본 수」 보다 「누른 수」 가 많아지는 줄이 생긴다.
+  */
+  const answered = useRef(false);
 
   async function ask(): Promise<void> {
+    if (answered.current) return;
+    answered.current = true;
     setBusy(true);
     try {
       await bridge.requestReview();
@@ -54,7 +63,10 @@ export function ReviewAskCard({ onDismiss }: { onDismiss: () => void }) {
         <CardClose
           label="별점 안내 닫기"
           onClick={() => {
-            analytics.log(EVENTS.ratingAsked, { result: 'dismissed' }, { kind: 'click' });
+            if (!answered.current) {
+              answered.current = true;
+              analytics.log(EVENTS.ratingAsked, { result: 'dismissed' }, { kind: 'click' });
+            }
             onDismiss();
           }}
         />
