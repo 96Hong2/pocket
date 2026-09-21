@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
+import { EVENTS, useAnalytics, type ItemAction } from '../../shared/analytics';
 import {
   ApiError,
   parseDecimalOr,
@@ -68,6 +69,7 @@ interface GoalFormProps {
 }
 
 function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
+  const analytics = useAnalytics();
   const create = useCreateGoal();
   const update = useUpdateGoal();
   const remove = useDeleteGoal();
@@ -88,17 +90,33 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
   const busy = create.isPending || update.isPending || remove.isPending;
   // 연도 오타(`0202`)는 칸의 min·max 로 안 막힌다. 여기서 막고 왜 막혔는지 아래에 적는다.
   const dayOk = isDayInRange(deadline);
-  const canSave =
-    title.trim() !== '' && target !== '' && Number(target) > 0 && dayOk && !busy;
+  const canSave = title.trim() !== '' && target !== '' && Number(target) > 0 && dayOk && !busy;
   // 세 요청이 한 시트를 나눠 쓰므로 실패도 한 자리에 모아 그린다.
   const failure = [create.error, update.error, remove.error].find(
     (error): error is ApiError => error instanceof ApiError,
   );
 
-  /** 저장·지우기가 같은 방식으로 시트를 닫는다. 껍데기 쪽이 닫기를 막을 수 있게 알린다. */
-  function settle(): { onSettled: () => void; onSuccess: () => void } {
+  /**
+   * 저장·지우기가 같은 방식으로 시트를 닫는다. 껍데기 쪽이 닫기를 막을 수 있게 알린다.
+   *
+   * **서버가 받아 준 뒤에만 로그를 센다.** 이름과 금액은 안 싣는다. 무엇을 모으는지와
+   * 얼마를 모으는지가 그 사람의 사정이라, 남길 것은 기한을 걸었나와 종잣돈이 있었나까지다.
+   */
+  function settle(action: ItemAction): { onSettled: () => void; onSuccess: () => void } {
     onSavingChange(true);
-    return { onSettled: () => onSavingChange(false), onSuccess: onClose };
+    return {
+      onSettled: () => onSavingChange(false),
+      onSuccess: () => {
+        analytics.log(
+          EVENTS.goalChanged,
+          action === 'deleted'
+            ? { action }
+            : { action, deadline: deadline !== '', seeded: initial !== '' },
+          { kind: 'click' },
+        );
+        onClose();
+      },
+    };
   }
 
   function save(): void {
@@ -110,10 +128,10 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
       initial_amount: initial === '' ? 0 : Number(initial),
     };
     if (goal == null) {
-      create.mutate(body, settle());
+      create.mutate(body, settle('created'));
       return;
     }
-    update.mutate({ goalId: goal.id, body }, settle());
+    update.mutate({ goalId: goal.id, body }, settle('updated'));
   }
 
   return (
@@ -185,7 +203,7 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
             <Button
               variant="outline"
               disabled={busy}
-              onClick={() => remove.mutate(goal.id, settle())}
+              onClick={() => remove.mutate(goal.id, settle('deleted'))}
             >
               지우기
             </Button>
@@ -193,12 +211,12 @@ function GoalForm({ goal, onSavingChange, onClose }: GoalFormProps) {
         </div>
       ) : (
         <>
-      {/* 저장이 왜 회색인지 그 자리에서 말한다. 연도 오타는 칸만 봐서는 안 보인다. */}
-      {!dayOk ? (
-        <p className="goal-sheet__notice" role="status">
-          날짜는 2000년부터 2100년 사이로 골라 주세요
-        </p>
-      ) : null}
+          {/* 저장이 왜 회색인지 그 자리에서 말한다. 연도 오타는 칸만 봐서는 안 보인다. */}
+          {!dayOk ? (
+            <p className="goal-sheet__notice" role="status">
+              날짜는 2000년부터 2100년 사이로 골라 주세요
+            </p>
+          ) : null}
           <div className="goal-sheet__actions">
             {goal != null ? (
               <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>

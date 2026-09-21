@@ -41,7 +41,7 @@ test('이름 앞뒤 공백은 다듬어 저장된다', async ({ categories }) =>
   await categories.sheet.waitClosed();
 
   // 다듬지 않으면 ' 반려동물 ' 과 '반려동물' 이 서로 다른 이름이 되어 둘 다 만들어진다.
-  await expect(categories.mineButton(PET)).toBeVisible();
+  await expect(categories.editButton(PET)).toBeVisible();
 });
 
 test.describe('이미 있는 이름', () => {
@@ -70,7 +70,7 @@ test('아주 긴 이름을 넣어도 목록이 가로로 넘치지 않는다', a
   await categories.waitReady();
   await categories.create(VERY_LONG, PET_ICON);
 
-  await expect(categories.mineButton(VERY_LONG)).toBeVisible();
+  await expect(categories.editButton(VERY_LONG)).toBeVisible();
 
   // 넘치면 브라우저가 화면을 축소해 탭바가 밖으로 밀린다. 관리 탭으로 돌아갈 수 없게 된다.
   const box = await page.evaluate(() => ({
@@ -94,7 +94,7 @@ test('지운 이름으로 다시 만들 수 있다', async ({ categories }) => {
   // 지운 행이 그 이름을 계속 붙들고 있으면 여기서 409 가 난다.
   // 사용자에게는 화면에 없는 이름이 「이미 있다」고 막히는 것으로 보인다.
   await categories.create(PET, PET_ICON);
-  await expect(categories.mineButton(PET)).toBeVisible();
+  await expect(categories.editButton(PET)).toBeVisible();
   await expect(categories.row(PET)).toHaveCount(1);
 });
 
@@ -115,7 +115,7 @@ test('지운 이름으로 이름을 바꿀 수 있다', async ({ categories }) =
   await categories.sheet.saveButton.click();
   await categories.sheet.waitClosed();
 
-  await expect(categories.mineButton(PET)).toBeVisible();
+  await expect(categories.editButton(PET)).toBeVisible();
   await expect(categories.row('데이트')).toHaveCount(0);
 });
 

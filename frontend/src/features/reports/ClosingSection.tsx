@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useClosing } from '../../shared/api';
 import { formatMonthLabel } from '../../shared/lib/format';
 import { Card, iconUrl } from '../../shared/ui';
-import { useInterstitial } from '../ads';
+import { AdAheadNote, useInterstitial } from '../ads';
 
 import { ClosingOverlay } from './ClosingOverlay';
 import { CLOSING_CARDS } from './closingText';
@@ -27,10 +27,13 @@ export interface ClosingSectionProps {
  * 조회가 실패하면 이 자리를 비운다. 리포트 본문은 그대로 남으므로 결산 하나 때문에
  * 그 달을 통째로 못 보게 되지 않는다.
  *
- * **여는 길에 전면 광고 한 편이 선다.** 달에 한 번 있는 일이고 기록하는 흐름 밖이라,
- * 앱에서 사람을 멈춰 세워도 되는 몇 안 되는 자리다. 광고가 안 떠도 결산은 열린다.
- * 홈 카드로 들어와 저절로 열리는 길(`autoOpen`)에는 세우지 않는다. 화면이 넘어가는
- * 중에 광고가 끼어들면 무엇 때문에 멈췄는지 알 수가 없다.
+ * **여는 길에 전면 광고 한 편이 선다. 그래서 버튼에 미리 적어 둔다.** 달에 한 번 있는
+ * 일이고 기록하는 흐름 밖이라 사람을 멈춰 세워도 되는 몇 안 되는 자리지만, 그것과
+ * 「누르기 전에 알리는 것」 은 다른 문제다. 앱에 남은 전면 광고가 여기 하나뿐인 이유도
+ * 이것이다. 적어 둘 버튼이 있는 자리만 남겼다.
+ *
+ * 광고가 안 떠도 결산은 열린다. 홈 카드로 들어와 저절로 열리는 길(`autoOpen`)에는
+ * 세우지 않는다. 화면이 넘어가는 중에 광고가 끼어들면 무엇 때문에 멈췄는지 알 수가 없다.
  */
 export function ClosingSection({ month, autoOpen = false, onAutoOpened }: ClosingSectionProps) {
   const [year, monthNumber] = month.split('-').map(Number);
@@ -71,6 +74,8 @@ export function ClosingSection({ month, autoOpen = false, onAutoOpened }: Closin
             <span className="closing-entry__hint">
               카드 {CLOSING_CARDS.length}장 · 잘한 것부터 열어봐요
             </span>
+            {/* 받는 것(카드 넉 장) 바로 아래다. 무엇을 얻고 무엇을 치르는지 한눈에 붙어 있다. */}
+            <AdAheadNote className="closing-entry__ad" />
           </span>
           {/* 눌러서 들어가는 자리라는 표시. 읽을 것이 아니라 방향이다. */}
           <span className="closing-entry__chevron" aria-hidden="true">

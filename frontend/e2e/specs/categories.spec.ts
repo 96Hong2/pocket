@@ -7,8 +7,8 @@ import { expect, test } from '../support/fixtures';
  * 카테고리 관리 화면.
  *
  * 준비는 API 로 심고, 행동과 단언은 화면으로 한다. 여기서 지키는 것이 셋이다.
- * 기본 카테고리는 눈으로 보되 손대지 못한다는 것, 만든 것이 기록 시트까지 곧바로 닿는다는 것,
- * 지운 뒤에도 그 분류로 적어 둔 기록이 사라지지 않는다는 것.
+ * 기본 카테고리는 **고칠 수는 있되 지우지는 못한다**는 것, 만든 것이 기록 시트까지 곧바로
+ * 닿는다는 것, 지운 뒤에도 그 분류로 적어 둔 기록이 사라지지 않는다는 것.
  */
 
 /**
@@ -109,7 +109,7 @@ test('카테고리를 만들면 새로고침 없이 목록에 나타난다', asy
   await categories.sheet.waitClosed();
 
   // 다시 불러오지 않고 그 자리에서 나타나야 한다.
-  await expect(categories.mineButton(PET)).toBeVisible();
+  await expect(categories.editButton(PET)).toBeVisible();
   await expect(categories.emptyNotice).toHaveCount(0);
 
   // 새로 만든 것이 지출 구획 안, '기타' 앞에 선다. 앞으로 오면 기록 시트 칩의 첫 자리를 빼앗는다.
@@ -142,7 +142,7 @@ test('방금 만든 카테고리가 기록 시트 칩에 바로 나온다', asyn
   await categories.open();
   await categories.waitReady();
   await categories.create(PET, PET_ICON);
-  await expect(categories.mineButton(PET)).toBeVisible();
+  await expect(categories.editButton(PET)).toBeVisible();
 
   // 화면을 다시 띄우지 않고 앱 안에서 홈으로 건너간다.
   await appShell.pressBack();
@@ -295,15 +295,36 @@ test.describe('이름이 겹칠 때', () => {
 
 // ── 고치기 입구 ─────────────────────────────────────────
 
-test('기본 카테고리에는 고치기 입구가 없고, 내가 만든 것만 고친다', async ({ categories }) => {
+test('기본 카테고리도 고칠 수 있고, 지우기만 막힌다', async ({ categories }) => {
+  await categories.open();
+  await categories.waitReady();
+
+  await categories.openEdit('식비');
+  await expect(categories.sheet.editDialog).toBeVisible();
+  await expect(categories.sheet.nameField).toHaveValue('식비');
+  /*
+    **지우기만 없다.** 기본 분류는 남들도 쓰는 한 행이라 지우면 그 분류로 적어 둔 남의
+    기록이 분류를 잃는다. 이름·그림·색은 내 설정에만 남아 남에게 안 번진다.
+  */
+  await expect(categories.sheet.deleteButton).toHaveCount(0);
+  // 무엇이 남의 화면에 가는지 그 자리에서 말한다.
+  await expect(categories.sheet.scopeNote).toBeVisible();
+  // 종류는 못 바꾼다. 바꾸면 그 분류로 적어 둔 지난 기록이 종류와 어긋난다.
+  await expect(categories.sheet.kindToggle).toHaveCount(0);
+
+  await categories.sheet.nameField.fill('밥값');
+  await categories.sheet.saveButton.click();
+  await categories.sheet.waitClosed();
+
+  // 「기본」 배지는 그대로다. 지우는 길이 없다는 것을 그 배지가 말한다.
+  await expect(categories.basicRow('밥값')).toBeVisible();
+  await expect(categories.row('식비')).toHaveCount(0);
+});
+
+test('내가 만든 카테고리는 고치기와 지우기가 둘 다 있다', async ({ categories }) => {
   await categories.open();
   await categories.waitReady();
   await categories.create(PET, PET_ICON);
-
-  // 눌리지 않는 버튼을 두는 것과 아예 두지 않는 것은 다르다. 기본 구획에는 버튼 자체가 없다.
-  await expect(categories.basicButtons).toHaveCount(0);
-  // 이름은 보이는데 그 줄을 누를 방법이 없다.
-  await expect(categories.basicRow('식비')).toBeVisible();
 
   await categories.openEdit(PET);
   await expect(categories.sheet.editDialog).toBeVisible();
@@ -314,7 +335,7 @@ test('기본 카테고리에는 고치기 입구가 없고, 내가 만든 것만
   await categories.sheet.saveButton.click();
   await categories.sheet.waitClosed();
 
-  await expect(categories.mineButton('반려친구')).toBeVisible();
+  await expect(categories.editButton('반려친구')).toBeVisible();
   await expect(categories.row(PET)).toHaveCount(0);
 });
 

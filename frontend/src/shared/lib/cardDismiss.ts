@@ -26,7 +26,8 @@ export type DismissibleCard =
   | 'home-add'
   | 'home-add-again'
   | 'remind'
-  | 'remind-again';
+  | 'remind-again'
+  | 'rating-ask';
 
 function keyFor(card: DismissibleCard): string {
   return `card-dismissed-${card}`;

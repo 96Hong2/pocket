@@ -1,4 +1,73 @@
 /*
+  파스텔 열네 색.
+
+  **태그와 카테고리가 같은 값을 쓴다.** 팔레트를 둘로 두면 한 화면에 서로 안 어울리는
+  색이 두 벌 서고, 대비를 맞춘 자리도 두 곳이 된다. 값 목록의 정본은 서버
+  (`app/domain/tags.py`)이고, 그 키를 `shared/lib/tagColors.ts` 가 변수 이름으로 바꾼다.
+
+  **바탕은 파스텔, 글자는 같은 계열의 진한 색이다.** 진한 바탕에 흰 글자를 얹던 것을
+  뒤집었다. 칩이 열넷 서는 화면에서 진한 색은 화면 전체를 시끄럽게 만든다.
+
+  리포트의 도넛 조각은 여기 없다. 그쪽은 **자리 색**(`--color-donut-N`)이라 같은 링에
+  같은 색이 두 번 나오지 않게 하는 것이 목적이고, 이 팔레트와 하는 일이 다르다.
+
+  `@theme` 이 아니라 `:root` 에 두는 이유: tailwind 가 클래스에서 안 쓰인 `@theme` 변수를
+  지우는데, 이 값들은 JS 가 `var(--tag-...)` 문자열로 만들어 써서 tailwind 가 못 본다.
+
+  이름의 `--tag-` 접두사는 그대로 둔다. 바꾸면 이 값을 읽는 자리를 전부 함께 고쳐야 하고,
+  그 이득이 없다.
+*/
+:root {
+  /* 파스텔 바탕: 칩·점·도넛 조각. 같은 계열의 진한 글자색(-ink)과 4.5:1 이상. */
+  --tag-rose: #F7C9D8;
+  --tag-coral: #F9CDBA;
+  --tag-amber: #F6DEA8;
+  --tag-sand: #E9DCC2;
+  --tag-olive: #D8E0B2;
+  --tag-sage: #C6DCBE;
+  --tag-mint: #B6DED5;
+  --tag-teal: #B2D8DF;
+  --tag-sky: #C2DCF3;
+  --tag-ocean: #BECDF0;
+  --tag-indigo: #CAC8ED;
+  --tag-lilac: #DCC7ED;
+  --tag-plum: #EBC4E1;
+  --tag-slate: #D2D7DC;
+
+  /* 그 바탕에 얹는 글자색. 회색 글자를 쓰면 열넷이 다 같아 보인다. */
+  --tag-rose-ink: #8C3357;
+  --tag-coral-ink: #8C4124;
+  --tag-amber-ink: #7A5713;
+  --tag-sand-ink: #6B5830;
+  --tag-olive-ink: #57642C;
+  --tag-sage-ink: #3A5B39;
+  --tag-mint-ink: #1C5D55;
+  --tag-teal-ink: #1B5862;
+  --tag-sky-ink: #28547E;
+  --tag-ocean-ink: #31467C;
+  --tag-indigo-ink: #423D7E;
+  --tag-lilac-ink: #5C397A;
+  --tag-plum-ink: #722F68;
+  --tag-slate-ink: #485258;
+
+  /* 더 옅은 바탕: 목록 줄의 작은 칩. 여기에도 같은 -ink 를 얹는다. */
+  --tag-rose-soft: #FCEBF1;
+  --tag-coral-soft: #FDEDE5;
+  --tag-amber-soft: #FCF2DC;
+  --tag-sand-soft: #F7F0E4;
+  --tag-olive-soft: #EFF3E0;
+  --tag-sage-soft: #E7F0E3;
+  --tag-mint-soft: #E2F1ED;
+  --tag-teal-soft: #E0F0F3;
+  --tag-sky-soft: #E5F0FA;
+  --tag-ocean-soft: #E4EAF9;
+  --tag-indigo-soft: #E9E7F8;
+  --tag-lilac-soft: #F1E8F8;
+  --tag-plum-soft: #F8E7F4;
+  --tag-slate-soft: #EBEEF0;
+}
+
+/*
   공용 프리미티브의 시각 스펙. 시안 실측값을 그대로 옮겼고, 값은 전부 index.css 의 토큰에서 읽는다.
   components 레이어에 두어 화면에서 Tailwind 유틸리티로 덮어쓸 수 있게 한다.
 */
@@ -911,6 +980,17 @@
     background: var(--color-sage-50);
   }
 
+  /*
+    색을 고른 분류. 태그와 같은 파스텔 열넷을 쓴다.
+
+    색은 **바탕에만** 건다. 그림에는 손대지 않는다. 우리 아이콘은 저마다 색이 있어서,
+    바탕색에 맞춰 물들이면 무슨 그림인지 알아보기 어려워진다. 고른 색이 하는 일은
+    목록에서 그 줄을 빨리 찾게 하는 것이고, 그건 바탕만으로 충분하다.
+  */
+  .pk-avatar--tinted {
+    background: var(--pk-avatar-bg);
+  }
+
   .pk-avatar__img {
     /*
       동그라미 안에서 그림이 너무 작아 무엇인지 알아보기 어려웠다. 목록·칩이 다 이 값을 쓴다.
@@ -935,6 +1015,82 @@
   .pk-avatar__emoji {
     display: block;
     line-height: 1;
+  }
+
+  /* ── ColorPicker ────────────────────────────────────── */
+  /*
+    색 고르기 한 덩어리. 「색 없음」 이 격자 위에 오른쪽으로 붙고, 그 아래 색 열넷이 선다.
+    격자 안에 끼우면 열다섯이 되어 셋째 줄에 하나만 남는다.
+  */
+  .pk-colors-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /*
+    색을 떼는 자리. 색이 아니라 **하는 일**이라 동그라미가 아니라 글자로 둔다.
+    오른쪽 끝에 두어 색을 고르러 온 눈이 먼저 걸리지 않게 한다.
+  */
+  .pk-colors__clear {
+    align-self: flex-end;
+    min-height: 32px;
+    padding: 6px 12px;
+    border: 1px solid var(--color-dashed);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-muted);
+    font-family: inherit;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .pk-colors__clear[aria-pressed='true'] {
+    border-color: var(--color-sage-700);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+  }
+
+  /*
+    **한 줄에 일곱 개씩이다.** flex-wrap 으로 두면 화면 폭에 따라 6개·8개로 접혀
+    줄이 들쭉날쭉해지고, 색의 자리를 손이 기억하지 못한다.
+    개수는 `shared/lib/tagColors.ts` 의 TAG_COLORS_PER_ROW 와 같은 값이다.
+  */
+  .pk-colors {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px 2px;
+    justify-items: center;
+  }
+
+  /* 손가락이 닿는 자리는 44px 을 지킨다. 겉을 크게 두고 안쪽 동그라미만 작게 그린다. */
+  .pk-colors__cell {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-width: 36px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: none;
+  }
+
+  .pk-colors__swatch {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-pill);
+    background: var(--tag-color);
+    color: var(--tag-ink);
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.1);
+  }
+
+  .pk-colors__cell[aria-pressed='true'] .pk-colors__swatch {
+    box-shadow:
+      0 0 0 3px var(--color-surface),
+      0 0 0 5px var(--tag-color);
   }
 
   /* ── Amount ─────────────────────────────────────────── */

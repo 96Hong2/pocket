@@ -193,6 +193,16 @@ export async function readLogs(page: Page): Promise<RecordedLog[]> {
   return page.evaluate(() => window.__pocketLogs ?? []);
 }
 
+/**
+ * 별점 창이 몇 번 열렸나.
+ *
+ * 토스가 띄우는 창이라 화면에는 아무 흔적도 안 남는다. 「눌렀더니 정말 열렸다」 를
+ * 볼 길이 이것뿐이다(`shared/toss/types.ts` 의 `recordReview`).
+ */
+export async function reviewsOpened(page: Page): Promise<number> {
+  return page.evaluate(() => window.__pocketReviews ?? 0);
+}
+
 /** 그 이름으로 남은 로그만. 순서는 찍힌 순서 그대로다. */
 export async function logsNamed(page: Page, name: string): Promise<RecordedLog[]> {
   return (await readLogs(page)).filter((log) => log.name === name);

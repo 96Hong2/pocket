@@ -306,6 +306,16 @@ export class ClosingArea {
     return this.page.getByRole('button', { name: /결산/ });
   }
 
+  /**
+   * 입구에 적힌 광고 예고.
+   *
+   * 토스 노출 가이드가 「전면광고가 나오기 전, 명확한 광고 안내 표시가 있나요」 를 묻는
+   * 자리다. 이 줄이 사라지면 그 검수를 통과하지 못한다.
+   */
+  get adNote(): Locator {
+    return this.card.getByText(/광고/);
+  }
+
   /** 열려 있는 결산 오버레이. 닫혀 있으면 DOM 에 아예 없다. */
   get overlay(): Locator {
     return this.page.getByRole('dialog', { name: /결산$/ });

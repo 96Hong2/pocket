@@ -11,6 +11,7 @@ export { CardClose } from './CardClose';
 export { Card, type CardPadding, type CardProps } from './Card';
 export { DateField, type DateFieldProps } from './DateField';
 export { CategoryAvatar, type CategoryAvatarProps } from './CategoryAvatar';
+export { ColorPicker, type ColorPickerProps } from './ColorPicker';
 export { Chip, type ChipProps, type ChipVariant } from './Chip';
 export { isEmoji, NOT_EMOJI_MESSAGE } from './emoji';
 export { Gauge, type GaugeProps, type GaugeSize } from './Gauge';

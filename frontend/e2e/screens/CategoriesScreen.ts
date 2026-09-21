@@ -103,17 +103,6 @@ export class CategoriesScreen {
     return this.allRows.filter({ hasNot: this.page.getByText('기본', { exact: true }) });
   }
 
-  /**
-   * 기본 줄 안에서 누를 수 있는 것 중 **줄 자체를 여는 것**.
-   *
-   * 여기가 0 이어야 기본 카테고리에 고치기·지우기 입구가 없는 것이다.
-   * 순서 화살표는 뺀다. 그것은 이 줄을 고치는 것이 아니라 내 설정을 고치는 것이라
-   * 기본 분류에도 있다(스위치와 같은 이유다).
-   */
-  get basicButtons(): Locator {
-    return this.basicRows.getByRole('button').filter({ hasNotText: /^[↑↓]$/ });
-  }
-
   /** 순서 바꾸기 화살표. 기본 분류에도 있다. 그 값은 내 설정에만 남는다. */
   moveUpButton(name: string): Locator {
     return this.page.getByRole('button', { name: `${name} 위로`, exact: true });
@@ -228,9 +217,13 @@ export class CategoriesScreen {
   }
 
   /**
-   * 내가 만든 줄. 이 줄만 버튼이고, 접근성 이름이 이름 그대로가 아니라 `{이름} 고치기` 다.
+   * 그 줄을 여는 버튼. **기본 분류에도 있다.**
+   *
+   * 접근성 이름이 이름 그대로가 아니라 `{이름} 고치기` 다. 예전에는 내가 만든 줄만
+   * 버튼이었는데, 기본 분류도 이름·그림·색을 고칠 수 있게 되면서 모든 줄이 버튼이다.
+   * 고친 값은 그 사람 설정에만 남고 남의 화면은 그대로다.
    */
-  mineButton(name: string): Locator {
+  editButton(name: string): Locator {
     return this.page.getByRole('button', { name: `${name} 고치기`, exact: true });
   }
 
@@ -268,9 +261,9 @@ export class CategoriesScreen {
     await this.sheet.waitClosed();
   }
 
-  /** 내가 만든 줄을 눌러 고치기 시트를 연다. 무엇이 들어 있는지는 spec 이 본다. */
+  /** 줄을 눌러 고치기 시트를 연다. 기본 분류도 열린다. 무엇이 들어 있는지는 spec 이 본다. */
   async openEdit(name: string): Promise<void> {
-    await this.mineButton(name).click();
+    await this.editButton(name).click();
     await this.sheet.waitOpen();
   }
 
@@ -326,6 +319,35 @@ class CategorySheet {
 
   async pickKind(label: '지출' | '수입'): Promise<void> {
     await this.kindToggle.getByRole('button', { name: label, exact: true }).click();
+  }
+
+  /**
+   * 색 고르기. 태그 시트와 같은 컴포넌트라 이름도 같다.
+   *
+   * 카테고리에만 격자 위에 「색 없음」 버튼이 하나 더 있다. 아이콘이 이미 얼굴이라
+   * 색을 안 골라도 되고, 한 번 고른 색을 떼는 길도 그것뿐이다.
+   */
+  get colorGroup(): Locator {
+    return this.root.getByRole('group', { name: '색', exact: true });
+  }
+
+  colorCell(label: string): Locator {
+    return this.colorGroup.getByRole('button', { name: label, exact: true });
+  }
+
+  /**
+   * 색을 떼는 버튼. **격자 밖에 있다.**
+   *
+   * 열네 칸 사이에 끼우면 열다섯이 되어 셋째 줄에 하나만 남고, 따뜻한 줄과 찬 줄이
+   * 한 칸씩 밀린다. 색이 아니라 하는 일이라 동그라미가 아니라 글자다.
+   */
+  get clearColorButton(): Locator {
+    return this.colorGroup.getByRole('button', { name: '색 없음', exact: true });
+  }
+
+  /** 기본 분류를 열었을 때만 있는 한 줄. 고친 것이 어디까지 가는지 말한다. */
+  get scopeNote(): Locator {
+    return this.root.getByText(/내 화면에만 보여요/);
   }
 
   get saveButton(): Locator {
@@ -637,6 +659,7 @@ const ROW_ONLY = 'li:not([data-quick-edge])';
 function stripRowChrome(text: string): string {
   return text
     .replace(/^[↑↓\s]+/, '')
-    .replace(/(기본|고치기)$/, '')
+    // 기본 줄은 배지와 방향 표식이 함께 붙어 「식비기본›」 으로 읽힌다. 뒤에서부터 다 뗀다.
+    .replace(/(기본|›)+$/, '')
     .trim();
 }

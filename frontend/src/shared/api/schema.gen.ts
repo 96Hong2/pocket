@@ -1193,6 +1193,7 @@ export interface components {
             icon_key: string;
             /** Icon Custom */
             icon_custom?: string | null;
+            color?: components["schemas"]["TagColor"] | null;
             /** @default expense */
             kind: components["schemas"]["CategoryKind"];
         };
@@ -1231,6 +1232,7 @@ export interface components {
             icon_key: string;
             /** Icon Custom */
             icon_custom?: string | null;
+            color?: components["schemas"]["TagColor"] | null;
             /**
              * Is Quick
              * @default true
@@ -1257,6 +1259,11 @@ export interface components {
          *     **아이콘 둘은 한 번에 하나만 보낸다.** 걸리는 아이콘은 어차피 하나라, 한쪽을 보내면
          *     다른 쪽이 지워진다. 사진을 걸었다가 기본 아이콘으로 되돌리는 길도 이것뿐이다
          *     (`icon_custom: null` 은 "그대로 둔다" 라서 되돌리기가 되지 않는다).
+         *
+         *     **`color` 만 null 이 "지운다" 다.** 색은 안 고를 수 있는 값이라 되돌릴 길이 있어야
+         *     하는데, 이름·아이콘처럼 "그대로 둔다" 로 읽으면 한 번 고른 색을 영영 못 뗀다.
+         *     목표 기한(`target_date`)·알림 시각(`remind_at`)과 같은 규칙이다. 그래서 service 가
+         *     이 필드만 `None` 을 걸러 내지 않는다.
          */
         CategoryUpdate: {
             /** Name */
@@ -1265,6 +1272,7 @@ export interface components {
             icon_key?: string | null;
             /** Icon Custom */
             icon_custom?: string | null;
+            color?: components["schemas"]["TagColor"] | null;
             /** Is Quick */
             is_quick?: boolean | null;
         };

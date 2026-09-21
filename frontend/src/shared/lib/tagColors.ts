@@ -3,13 +3,14 @@ import type { TagColor } from '../api';
 /**
  * 태그 색을 CSS 변수 이름으로 바꾸는 **유일한** 자리.
  *
- * 값 자체는 `features/tags/tags.css` 가 갖고 있다. 칩·점·도넛 조각이 같은 변수를 쓰므로,
- * 색을 하나 고치면 세 자리가 함께 바뀐다. 여기서 hex 를 다시 적으면 어긋난다.
+ * 값 자체는 `shared/ui/ui.css` 가 갖고 있다. 칩·점·카테고리 아바타가 같은 변수를 쓰므로,
+ * 색을 하나 고치면 그 자리들이 함께 바뀐다. 여기서 hex 를 다시 적으면 어긋난다.
  *
  * 색 목록의 정본은 서버(`app/domain/tags.py`)다. 여기서는 그 키를 그대로 쓴다.
  *
- * `features/tags` 가 아니라 `shared` 에 있는 이유: 목록 한 줄(`shared/ledger/LedgerRow`)도
- * 태그 색을 그린다. shared 가 features 를 가리키면 계층이 뒤집힌다.
+ * `features/tags` 가 아니라 `shared` 에 있는 이유: 목록 한 줄(`shared/ledger/LedgerRow`)과
+ * 카테고리 아바타(`shared/ui/CategoryAvatar`)도 이 색을 그린다. shared 가 features 를
+ * 가리키면 계층이 뒤집힌다. **값(css)도 같은 이유로 2026-09-21 에 shared 로 올렸다.**
  */
 
 /** 칩·점·도넛 조각의 파스텔 바탕. */

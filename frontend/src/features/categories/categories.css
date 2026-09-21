@@ -112,7 +112,7 @@
     padding: 0;
   }
 
-  /* 내가 만든 줄만 버튼이다. 기본 줄은 누를 곳이 없다. */
+  /* 줄 전체가 버튼이다. 기본 분류도 이름·그림·색을 고칠 수 있다. */
   .cat-row__main--hit {
     border: 0;
     background: transparent;
@@ -168,18 +168,26 @@
   }
 
   .cat-row__name {
+    /*
+      「기본」 칩이 옆에 설 수 있어 이름이 자리를 다 먹지 않게 한다. 이름이 길면
+      말줄임으로 접히고, 칩과 「고치기」 는 자기 너비를 지킨다.
+    */
     flex: 1;
     min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     font-size: var(--text-14);
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
   }
 
+  /* 들어가는 방향만 말한다. 읽을 글자가 아니라 표식이라 크기를 키우고 색을 죽인다. */
   .cat-row__go {
     flex: none;
-    font-size: var(--text-12);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-sage-700);
+    font-size: 18px;
+    line-height: 1;
+    color: var(--color-muted);
   }
 
   /* ── 아이콘 고르기 ──────────────────────────────── */
@@ -393,6 +401,13 @@
   }
 
   /* 라벨 아래 한 줄. 지금 고르는 것이 나중에 어디서 쓰이는지 말한다. */
+  /* 시트 맨 위에 서는 한 줄. 칸에 딸린 설명이 아니라 이 시트 전체가 무엇인지 말한다. */
+  .cat-sheet__note--lead {
+    margin-top: -4px;
+    margin-bottom: 4px;
+    color: var(--color-sage-700);
+  }
+
   .cat-sheet__note {
     font-size: var(--text-12);
     line-height: 1.5;

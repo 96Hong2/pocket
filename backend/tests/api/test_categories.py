@@ -1,7 +1,8 @@
 """카테고리 조회와 내가 만든 분류의 생성·수정·삭제.
 
 화면이 이 목록으로 아이콘까지 그린다. 기본 분류는 모든 사용자가 같은 행을 보므로
-고치거나 지울 수 없어야 하고, 내가 만든 분류를 지워도 과거 거래는 그대로 남아야 한다.
+**지울 수는 없고**, 이름·아이콘·색을 고치면 그 행이 아니라 내 설정에 남아 남의 화면을
+건드리지 않아야 한다. 내가 만든 분류를 지워도 과거 거래는 그대로 남아야 한다.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import anon_key_hash
 from app.domain.categories import (
     DEFAULT_CATEGORIES,
     USER_CATEGORY_SORT_ORDER,
@@ -191,17 +193,100 @@ def test_공백_차이는_같은_이름으로_본다(
     assert inner.json()["error"]["code"] == "DUPLICATE_CATEGORY"
 
 
-def test_기본_분류는_고치지도_지우지도_못한다(
-    client: TestClient, default_categories: list[Category]
-) -> None:
+def test_기본_분류는_지우지_못한다(client: TestClient, default_categories: list[Category]) -> None:
     target = default_categories[0]
-    patched = client.patch(f"/api/v1/categories/{target.id}", json={"name": "내식비"}, headers=AUTH)
-    assert patched.status_code == 422, patched.text
-    assert patched.json()["error"]["code"] == "INVALID_REQUEST"
-
     removed = client.delete(f"/api/v1/categories/{target.id}", headers=AUTH)
     assert removed.status_code == 422, removed.text
     assert target.name in _names(client)
+
+
+def test_기본_분류를_고치면_공용_행이_아니라_내_설정에_남는다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """남의 화면은 그대로여야 한다. 여기가 무너지면 한 사람이 바꾼 이름이 전부에게 번진다."""
+    target = default_categories[0]
+    original = target.name
+
+    patched = client.patch(
+        f"/api/v1/categories/{target.id}",
+        json={"name": "밥값", "color": "sage"},
+        headers=AUTH,
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["name"] == "밥값"
+    assert patched.json()["color"] == "sage"
+    assert "밥값" in _names(client)
+    assert original not in _names(client)
+
+    # 공용 행은 손대지 않았다.
+    db.expire_all()
+    shared = db.get(Category, target.id)
+    assert shared is not None and shared.name == original
+
+    # 남의 눈으로 같은 값을 본다. 화면이 읽는 그 함수를 그대로 부른다.
+    other = User(anon_key_hash="other-user-hash")
+    db.add(other)
+    db.commit()
+    seen = category_service.category_overrides(db, other)
+    assert category_service.effective_name(shared, seen) == original
+    assert category_service.effective_color(shared, seen) is None
+
+
+def test_기본_분류를_원래_이름으로_되돌리면_덮어쓰기가_사라진다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """되돌릴 길이 없으면 한 번 고친 이름에 영영 묶인다."""
+    target = default_categories[0]
+    original = target.name
+
+    client.patch(f"/api/v1/categories/{target.id}", json={"name": "밥값"}, headers=AUTH)
+    back = client.patch(f"/api/v1/categories/{target.id}", json={"name": original}, headers=AUTH)
+    assert back.status_code == 200, back.text
+    assert back.json()["name"] == original
+
+    user = db.scalar(select(User).where(User.anon_key_hash == anon_key_hash("test-anon-key")))
+    assert user is not None
+    assert str(target.id) not in category_service.category_overrides(db, user)
+
+
+def test_기본_분류_색은_null_로_뗄_수_있다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    target = default_categories[0]
+    client.patch(f"/api/v1/categories/{target.id}", json={"color": "sage"}, headers=AUTH)
+    cleared = client.patch(f"/api/v1/categories/{target.id}", json={"color": None}, headers=AUTH)
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["color"] is None
+
+
+def test_기본_분류를_내_분류와_같은_이름으로는_못_고친다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """행 이름이 아니라 **내 화면에 보이는 이름**으로 견뎌야 같은 이름 두 줄을 막는다."""
+    mine = client.post(
+        "/api/v1/categories",
+        json={"name": "밥값", "icon_key": "09_rice_bowl"},
+        headers=AUTH,
+    )
+    assert mine.status_code == 201, mine.text
+
+    clash = client.patch(
+        f"/api/v1/categories/{default_categories[0].id}", json={"name": "밥값"}, headers=AUTH
+    )
+    assert clash.status_code == 409, clash.text
+    assert clash.json()["error"]["code"] == "DUPLICATE_CATEGORY"
+
+
+def test_기본_분류를_다르게_부르면_같은_이름을_새로_못_만든다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    client.patch(
+        f"/api/v1/categories/{default_categories[0].id}", json={"name": "밥값"}, headers=AUTH
+    )
+    again = client.post(
+        "/api/v1/categories", json={"name": "밥값", "icon_key": "09_rice_bowl"}, headers=AUTH
+    )
+    assert again.status_code == 409, again.text
 
 
 def test_남의_분류는_고치지도_지우지도_못한다(
@@ -517,16 +602,19 @@ def test_기본_분류도_기록_화면에서_뺄_수_있다(
     assert back.json()["is_quick"] is True
 
 
-def test_기본_분류의_이름은_여전히_못_고친다(
-    client: TestClient, default_categories: list[Category]
+def test_기본_분류의_아이콘도_내_화면에서만_바뀐다(
+    client: TestClient, db: Session, default_categories: list[Category]
 ) -> None:
     del default_categories
     target = _by_name(client, "식비")
-    blocked = client.patch(
-        f"/api/v1/categories/{target['id']}", headers=AUTH, json={"name": "밥값"}
+    changed = client.patch(
+        f"/api/v1/categories/{target['id']}", headers=AUTH, json={"icon_custom": "emoji:🍚"}
     )
-    assert blocked.status_code == 422
-    assert _by_name(client, "식비")["name"] == "식비"
+    assert changed.status_code == 200, changed.text
+    assert _by_name(client, "식비")["icon_custom"] == "emoji:🍚"
+
+    shared = db.get(Category, uuid.UUID(target["id"]))
+    assert shared is not None and shared.icon_custom is None
 
 
 def test_내가_끈_것이_남에게_번지지_않는다(
@@ -582,3 +670,84 @@ def test_숫자_키캡은_아이콘으로_걸린다(
     )
     assert response.status_code == 201
     assert response.json()["icon_custom"] == "emoji:7️⃣"
+
+
+def test_만들_때_고른_색이_저장된다(client: TestClient, default_categories: list[Category]) -> None:
+    """색을 고르고 저장했는데 목록이 회색이면, 고른 사람에게는 앱이 고장 난 것이다."""
+    del default_categories
+    created = client.post(
+        "/api/v1/categories",
+        json={"name": "커피값", "icon_key": "06_coffee", "color": "sage"},
+        headers=AUTH,
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["color"] == "sage"
+    assert _by_name(client, "커피값")["color"] == "sage"
+
+
+def test_지웠다_다시_만들면_보낸_색이_이긴다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """되살리기는 같은 행을 쓴다. 옛 색이 따라오면 다른 색을 고른 사람이 옛 색을 본다."""
+    del default_categories
+    made = client.post(
+        "/api/v1/categories",
+        json={"name": "커피값", "icon_key": "06_coffee", "color": "plum"},
+        headers=AUTH,
+    )
+    client.delete(f"/api/v1/categories/{made.json()['id']}", headers=AUTH)
+
+    again = client.post(
+        "/api/v1/categories",
+        json={"name": "커피값", "icon_key": "06_coffee", "color": "sky"},
+        headers=AUTH,
+    )
+    assert again.status_code == 201, again.text
+    assert again.json()["color"] == "sky"
+
+
+def test_이름이_겹쳐_막히면_기록_화면_설정도_안_바뀐다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """한 요청이 반만 들어가면, 화면은 「저장 못 했어요」 인데 칩은 이미 사라져 있다."""
+    client.post(
+        "/api/v1/categories", json={"name": "밥값", "icon_key": "09_rice_bowl"}, headers=AUTH
+    )
+    target = default_categories[0]
+
+    blocked = client.patch(
+        f"/api/v1/categories/{target.id}",
+        json={"is_quick": False, "name": "밥값"},
+        headers=AUTH,
+    )
+    assert blocked.status_code == 409, blocked.text
+    assert _by_name(client, target.name)["is_quick"] is True
+
+
+def test_기본_분류를_다르게_부르면_그_이름으로_찾힌다(
+    client: TestClient, default_categories: list[Category]
+) -> None:
+    """찾는 사람이 부르는 이름으로 찾아야 한다. 화면에 없는 말로만 찾히면 검색이 아니다."""
+    target = default_categories[0]
+    made = client.post(
+        "/api/v1/transactions",
+        json={
+            "occurred_at": "2026-09-15T12:30:00+09:00",
+            "amount": "9000",
+            "type": "expense",
+            "source": "keypad",
+            "category_id": str(target.id),
+        },
+        headers=AUTH,
+    )
+    assert made.status_code == 201, made.text
+
+    client.patch(f"/api/v1/categories/{target.id}", json={"name": "밥값"}, headers=AUTH)
+
+    found = client.get("/api/v1/transactions", params={"q": "밥값"}, headers=AUTH)
+    assert found.status_code == 200, found.text
+    assert len(found.json()["items"]) == 1
+
+    # 바꾸기 전 이름으로 찾는 길도 남는다. 그 기억으로 찾는 사람이 있다.
+    old = client.get("/api/v1/transactions", params={"q": target.name}, headers=AUTH)
+    assert len(old.json()["items"]) == 1

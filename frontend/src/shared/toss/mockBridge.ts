@@ -1,6 +1,7 @@
 import {
   BridgeError,
   recordLog,
+  recordReview,
   type AdsBridge,
   type AnalyticsBridge,
   type AnalyticsKind,
@@ -263,6 +264,14 @@ export class MockMiniAppBridge implements MiniAppBridge {
     }
     if (mode === 'cancel') return null;
     return { id: 'mock-receipt', dataUri: BLANK_PNG };
+  }
+
+  /** 목에서는 창이 뜬 흔적만 남긴다. 실기기처럼 결과를 돌려주지 않는다. */
+  async requestReview(): Promise<void> {
+    if (!this.supports('review')) {
+      throw new BridgeError('UNSUPPORTED', '목: 이 버전에서는 별점을 남길 수 없어요.');
+    }
+    recordReview(this.environment);
   }
 
   async requestNotificationAgreement(_templateCode: string): Promise<NotificationAgreementResult> {

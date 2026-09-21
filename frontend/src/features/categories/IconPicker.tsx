@@ -39,6 +39,8 @@ export interface IconPickerProps {
    * 그래서 이 값이 참인 동안은 감싼 폼이 저장을 막는다.
    */
   onInvalidChange?: (invalid: boolean) => void;
+  /** 지금 고른 바탕색. 미리보기에 함께 그린다. */
+  color?: string | null;
   disabled?: boolean;
   /**
    * 기본 아이콘 격자를 펼친 채로 열까.
@@ -61,6 +63,7 @@ export interface IconPickerProps {
 export function IconPicker({
   value,
   custom,
+  color = null,
   onChange,
   onInvalidChange,
   disabled = false,
@@ -91,7 +94,8 @@ export function IconPicker({
     <div className="icon-picker">
       <div className="icon-picker__head">
         {/* 지금 걸린 것을 늘 보여 준다. 탭을 옮겨도 이 자리는 안 바뀐다. */}
-        <CategoryAvatar icon={value} custom={custom} size={52} />
+        {/* 색도 함께 그린다. 아래에서 색을 고르는데 위 미리보기가 회색이면 안 먹은 줄 안다. */}
+        <CategoryAvatar icon={value} custom={custom} color={color} size={52} />
         <SegmentedControl
           className="icon-picker__tabs"
           options={SOURCES}

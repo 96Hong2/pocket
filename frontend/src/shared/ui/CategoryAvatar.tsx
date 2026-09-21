@@ -1,4 +1,7 @@
+import type { CSSProperties } from 'react';
+
 import { cx } from '../lib/cx';
+import { TAG_COLORS } from '../lib/tagColors';
 import { iconUrl, parseCustomIcon, type IconName } from './icons';
 
 export interface CategoryAvatarProps {
@@ -10,24 +13,53 @@ export interface CategoryAvatarProps {
   custom?: string | null;
   /** 지름(px). 홈·달력·알림 54 / 자산 54 / 예산 52 / 검토 52 / 통계 44 / 설정 48 / 카테고리 40. */
   size?: number;
+  /**
+   * 동그라미 바탕색(`category.color`). 안 고른 분류는 null 이고 무채색 기본 바탕이다.
+   *
+   * 태그와 같은 열네 색을 쓴다. 팔레트를 둘로 두면 한 화면에 안 어울리는 색이 두 벌 선다.
+   * 리포트의 링은 여전히 **자리 색**(`--color-donut-N`)이라 여기와 섞이지 않는다.
+   *
+   * 모르는 값이면 조용히 기본 바탕으로 돌아간다. 옛 판이 적어 둔 색 하나 때문에
+   * 목록이 빈 동그라미로 뜨지 않게 한다.
+   */
+  color?: string | null;
   /** 비워 두면 장식으로 본다. 아이콘 옆에 이름이 있으면 비워 둔다. */
   alt?: string;
   className?: string;
 }
 
+/**
+ * 고를 수 있는 색인지.
+ *
+ * 값 목록을 여기 다시 적지 않는다. 적어 두면 색을 하나 늘릴 때 아바타만 조용히 무시한다.
+ * 정본은 서버(`app/domain/tags.py`)이고 `TAG_COLORS` 가 그것을 따라간다.
+ */
+const COLORS: ReadonlySet<string> = new Set<string>(TAG_COLORS);
+
 export function CategoryAvatar({
   icon,
   custom = null,
+  color = null,
   size = 48,
   alt = '',
   className,
 }: CategoryAvatarProps) {
   const picked = parseCustomIcon(custom);
+  const tinted = color != null && COLORS.has(color);
   // 120px 이상으로 크게 보일 때만 큰 파일을 쓴다.
   const src = picked?.kind === 'photo' ? picked.src : iconUrl(icon, size >= 120 ? 'lg' : 'sm');
 
   return (
-    <div className={cx('pk-avatar', className)} style={{ width: `${size}px`, height: `${size}px` }}>
+    <div
+      className={cx('pk-avatar', tinted && 'pk-avatar--tinted', className)}
+      style={
+        {
+          width: `${size}px`,
+          height: `${size}px`,
+          ...(tinted ? { '--pk-avatar-bg': `var(--tag-${color})` } : null),
+        } as CSSProperties
+      }
+    >
       {picked?.kind === 'emoji' ? (
         // 이모지는 글자다. 자리를 아이콘과 똑같이 채우려고 지름에 비례해 키운다.
         <span

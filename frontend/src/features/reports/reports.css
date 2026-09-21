@@ -481,6 +481,20 @@
     color: var(--color-sage-100);
   }
 
+  /*
+    광고 예고. 안내 줄(hint)보다 작고 얇게 두어 받는 것이 먼저 읽히게 한다.
+
+    **색은 hint 와 같은 값이다.** 한 단 더 죽여 봤는데 세이지 바탕(700) 위에서 대비가
+    4.2:1 로 떨어졌다. 못 읽는 예고는 예고가 아니라 그 자리에서 물러섰다. 크기와 굵기로만
+    낮춘다.
+  */
+  .closing-entry__ad {
+    margin-top: 3px;
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-sage-100);
+  }
+
   .closing-entry__chevron {
     flex: none;
     font-size: 18px;

@@ -11,11 +11,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from app.domain.tags import TagColor
+
 __all__ = [
     "DEFAULT_CATEGORIES",
     "FIXED_COST_CATEGORY",
     "USER_CATEGORY_SORT_ORDER",
     "USER_INCOME_SORT_ORDER",
+    "CategoryColor",
     "CategoryKind",
     "DefaultCategory",
     "default_category_icons",
@@ -23,6 +26,12 @@ __all__ = [
     "income_category_names",
     "user_sort_order",
 ]
+
+
+# 카테고리 바탕색. **태그와 같은 열넷을 그대로 쓴다.**
+# 팔레트를 둘로 두면 한 화면에 서로 안 어울리는 색이 두 벌 서고, 대비를 맞춘 자리도
+# 두 곳이 된다. 값 정본과 그 이유는 `domain.tags.TagColor` 에 적혀 있다.
+CategoryColor = TagColor
 
 
 class CategoryKind(StrEnum):

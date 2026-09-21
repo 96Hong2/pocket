@@ -31,6 +31,15 @@ export const RECOVERY_AFTER_DAYS = 3;
 export const SHARE_AFTER_RECORDS = 5;
 
 /**
+ * 몇 번 적은 사람에게 별점을 물을지.
+ *
+ * 공유(5번)보다 한참 뒤다. 평점은 토스가 이 앱을 더 보여 줄지 정할 때 보는 값이라
+ * 일찍 물을수록 이득처럼 보이지만, 아직 이 앱을 모르는 사람의 별점은 그 사람 말이
+ * 아니라 우리가 받아 낸 점수다. **스무 번쯤 적은 사람이 이 앱을 아는 사람**이다.
+ */
+export const RATING_AFTER_RECORDS = 20;
+
+/**
  * 한 번 닫은 권유를 언제 한 번 더 물을지.
  *
  * 첫 기록 직후에는 이 앱을 계속 쓸지조차 모르는 상태라, 그때 닫은 것은 「싫다」 가 아니라
@@ -59,6 +68,13 @@ export interface HomeView {
   showFirstLead: boolean;
   /** 앱을 친구에게 알리겠냐고 물어볼까. 몇 번 써 본 사람에게만 묻는다. */
   showShareInvite: boolean;
+  /**
+   * 별점을 남기겠냐고 물어볼까.
+   *
+   * 공유보다 한참 뒤에 선다. 토스 버전이 별점 창을 못 띄우면 카드 자체를 안 그리는데,
+   * 그 판정은 브릿지가 하므로 여기서는 「얼마나 적었나」 만 본다.
+   */
+  showRatingAsk: boolean;
   /**
    * 홈 화면에 추가하라고 권할까.
    *
@@ -97,6 +113,7 @@ export function resolveHomeView(input: HomeViewInput): HomeView {
     showBudgetSuggestion: input.hasAnyTransaction && !hasBudget,
     showFirstLead: !input.hasAnyTransaction,
     showShareInvite: input.transactionCount >= SHARE_AFTER_RECORDS,
+    showRatingAsk: input.transactionCount >= RATING_AFTER_RECORDS,
     showHomeAdd: input.hasAnyTransaction,
     showRemind: input.hasAnyTransaction,
     secondChance: input.transactionCount >= SECOND_CHANCE_AFTER_RECORDS,

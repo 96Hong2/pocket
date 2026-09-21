@@ -20,15 +20,20 @@ import { SESSION_CAP, allowedToday, countedToday, readDayCount, writeDayCount } 
 import { useFullScreenAd, type FullScreenAdOutcome } from './useFullScreenAd';
 
 /**
- * 전면 광고가 서는 자리.
+ * 전면 광고가 서는 자리. **지금은 결산 하나뿐이다.**
  *
- * 기록하는 흐름에는 하나도 없다. 전부 「잠깐 멈춰도 되는 곳」 이다: 지난달을 돌아보기 전,
- * 자산을 들여다보러 들어올 때, 옛날 달을 한참 훑을 때.
+ * 세 자리였다. 자산 탭에 들어올 때와 리포트에서 옛날 달을 세 번 훑었을 때가 더 있었는데,
+ * 둘 다 **사람이 광고를 부른 적이 없는 자리**였다. 탭을 눌렀더니 광고가 뜨고, 달을
+ * 넘기다 광고가 뜬다. 토스 노출 가이드가 「광고가 나오는 시점과 광고를 본 뒤 얻는
+ * 내용을 미리 알리라」 고 하는 것이 정확히 이 모양을 두고 하는 말이라 둘을 뺐다.
+ *
+ * 결산만 남긴 이유는 **누르는 버튼이 있어서**다. 버튼에 광고가 한 편 지나간다고 적어 둘
+ * 자리가 있으면 예고가 되고, 없으면 기습이 된다. 두 자리에는 배너가 그대로 서 있다.
  *
  * 생활비 계산기는 여기 없다. 광고와 기능을 맞바꾸겠다고 사람이 먼저 누르는 자리라
  * 리워드 광고(`useRewardedAd`)로 나갔고, 그래서 상한도 안 센다(ADR-0024).
  */
-export type InterstitialWhere = 'closing' | 'assets' | 'report_months';
+export type InterstitialWhere = 'closing';
 
 /** 지나온 결과. `capped` 는 상한에 걸려 광고를 아예 부르지 않은 것이다. */
 export type InterstitialOutcome = FullScreenAdOutcome | { result: 'skipped'; reason: 'capped' };

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { ApiError, useAddGoalContribution } from '../../shared/api';
 import { isFutureDay, toLedgerDate } from '../../shared/lib/format';
 import { FutureDayConfirm } from '../../shared/ledger';
@@ -48,6 +49,9 @@ function ContributionForm({ goalId, onSavingChange, onClose }: ContributionFormP
   const [digits, setDigits] = useState('');
   // 기기 시간대로 오늘을 만들지 않는다. 서버가 가계부 시간대로 날짜를 세므로 같은 기준을 쓴다.
   const [day, setDay] = useState(() => toLedgerDate(new Date()));
+  // 저장 때 「오늘 넣었나」 를 가르는 기준. 시트가 열려 있는 동안에는 안 바뀐다.
+  const [today] = useState(() => toLedgerDate(new Date()));
+  const analytics = useAnalytics();
 
   // 연도 오타(`0202`)는 칸의 min·max 로 안 막힌다.
   const dayOk = isDayInRange(day);
@@ -111,7 +115,22 @@ function ContributionForm({ goalId, onSavingChange, onClose }: ContributionFormP
     onSavingChange(true);
     add.mutate(
       { goalId, body: { amount: Number(digits), occurred_on: day } },
-      { onSettled: () => onSavingChange(false), onSuccess: onClose },
+      {
+        onSettled: () => onSavingChange(false),
+        onSuccess: () => {
+          /*
+            **금액은 안 싣는다.** 얼마를 모으는지가 그 사람의 사정이다. 남기는 것은
+            오늘 넣었나 지난 날로 넣었나까지다. 지난 날로 넣는 사람이 많으면 이
+            시트가 아니라 「모은 뒤에 적는 흐름」 이 필요한 것이다.
+
+            **앞날은 `backdated` 가 아니다.** 이 시트는 앞날도 받는다(한 번 묻고 통과시킨다).
+            `day !== today` 로 세면 앞날에 넣은 것까지 「지난 날」 에 섞여, 두 가지 다른 일이
+            한 칸에 뭉친다.
+          */
+          analytics.log(EVENTS.goalContributed, { backdated: day < today }, { kind: 'click' });
+          onClose();
+        },
+      },
     );
   }
 }

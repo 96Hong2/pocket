@@ -6,11 +6,14 @@ import type { PrepApi } from '../support/api';
 import { expect, test } from '../support/fixtures';
 
 /**
- * 전면 광고가 서는 세 자리와 그 상한.
+ * 전면 광고가 서는 **한 자리**와 그 상한, 그리고 광고를 세우지 않기로 한 두 자리.
  *
- * 여기서 지키는 것 둘이다. **광고가 어떻게 되든 기능은 열린다**, 그리고 **한 세션에
- * 한 편이다**. 자리를 늘리면서 상한을 안 두면, 자리마다 「여기는 괜찮다」 고 판단한 결과가
- * 한 사람에게 다 쌓인다.
+ * 여기서 지키는 것 셋이다. **광고가 어떻게 되든 기능은 열린다**, **한 세션에 한 편이다**,
+ * 그리고 **누르기 전에 광고가 있다고 적혀 있다**.
+ *
+ * 자리가 셋이었다. 자산 탭에 들어올 때와 리포트에서 옛날 달을 세 번 훑었을 때가 더
+ * 있었는데, 둘 다 사람이 광고를 부른 적이 없어 적어 둘 자리도 없었다. 그 둘을 뺀 것이
+ * 되돌아가지 않게 여기서 못 박는다.
  *
  * 생활비 계산기는 여기 없다. 사람이 스스로 광고와 맞바꾸겠다고 누르는 자리라 리워드
  * 광고로 나갔고 상한도 안 센다(ADR-0024). 그 둘이 서로를 안 갉아먹는지를 이 파일 끝에서 본다.
@@ -85,8 +88,7 @@ test('홈 카드로 저절로 열리는 결산에는 광고를 세우지 않는�
   expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
 });
 
-test('자산 화면은 이 세션에 처음 들어올 때만 광고를 띄운다', async ({
-  appShell,
+test('자산 화면에 들어가도 광고가 뜨지 않는다. 탭을 누른 것 말고는 아무것도 안 한 사람이다', async ({
   assets,
   manage,
   page,
@@ -97,28 +99,15 @@ test('자산 화면은 이 세션에 처음 들어올 때만 광고를 띄운다
   // 화면 안 링크로 들어간다. 주소로 열면 화면이 통째로 다시 떠서 세션이 새로 시작된다.
   await manage.assetsEntry.click();
   await assets.waitReady();
-
-  await expect
-    .poll(async () => (await logsNamed(page, 'interstitial_result')).length)
-    .toBeGreaterThan(0);
-  const first = await logsNamed(page, 'interstitial_result');
-  expect(first.map((log) => [log.params.where, log.params.result])).toEqual([
-    ['assets', 'watched'],
-  ]);
-
-  // 자산은 관리 아래 하위 화면이라 탭바가 없다. 시스템 뒤로가기로 부모에 돌아간다.
-  await appShell.pressBack();
-  await manage.waitReady();
-  await manage.assetsEntry.click();
-  await assets.waitReady();
-
-  // 두 번째 진입에서는 아예 묻지 않는다. 로그도 늘지 않아야 자리별 수치가 「들어온 횟수」가
-  // 아니라 「광고를 세운 횟수」로 남는다.
   await expect(assets.netWorth.or(assets.emptyTitle)).toBeVisible();
-  expect((await logsNamed(page, 'interstitial_result')).length).toBe(1);
+
+  expect(
+    await logsNamed(page, 'interstitial_result'),
+    '자산 진입에 전면 광고가 돌아왔다',
+  ).toEqual([]);
 });
 
-test('리포트에서 세 번째로 달을 옮길 때 광고가 한 편 서고, 더 옮겨도 다시 안 선다', async ({
+test('리포트에서 달을 여러 번 옮겨도 광고가 뜨지 않는다. 화살표를 누른 것뿐이다', async ({
   page,
   report,
 }) => {
@@ -127,22 +116,24 @@ test('리포트에서 세 번째로 달을 옮길 때 광고가 한 편 서고, 
 
   await report.goPreviousMonth();
   await report.goPreviousMonth();
-  // 두 번까지는 무언가 확인하러 온 사람이다. 막지 않는다.
-  expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
+  await report.goPreviousMonth();
+  await report.goPreviousMonth();
 
-  await report.goPreviousMonth();
-  await expect
-    .poll(async () => (await logsNamed(page, 'interstitial_result')).length)
-    .toBe(1);
-  const third = await logsNamed(page, 'interstitial_result');
-  expect(third.map((log) => [log.params.where, log.params.result])).toEqual([
-    ['report_months', 'watched'],
-  ]);
+  expect(
+    await logsNamed(page, 'interstitial_result'),
+    '달 이동에 전면 광고가 돌아왔다',
+  ).toEqual([]);
+});
 
-  await report.goPreviousMonth();
-  await report.goPreviousMonth();
-  await report.goPreviousMonth();
-  expect((await logsNamed(page, 'interstitial_result')).length).toBe(1);
+test('결산 입구는 누르기 전에 광고가 있다고 적어 둔다', async ({ prep, report }) => {
+  await seedLastMonth(prep);
+
+  await report.open({ month: shiftMonth(ledgerToday().slice(0, 7), -1) });
+  await report.waitReady();
+
+  // 눌러서 광고를 보기 **전에** 읽혀야 한다. 누른 뒤에 나오는 말은 예고가 아니다.
+  await expect(report.closing.adNote).toBeVisible();
+  await expect(report.closing.adNote).toHaveText(/광고/);
 });
 
 test('하루 두 편을 다 본 사람에게는 안 띄운다. 기능은 그대로 열린다', async ({
@@ -189,10 +180,13 @@ test('하루 두 편을 다 본 사람도 계산기 광고는 본다. 스스로 
 
 test('계산기 광고를 봐도 그 세션의 전면 광고 한 편은 그대로 남는다', async ({
   appShell,
-  assets,
   manage,
   page,
+  prep,
+  report,
 }) => {
+  await seedLastMonth(prep);
+
   await manage.open();
   await manage.waitReady();
   await manage.total.startButton.click();
@@ -200,15 +194,15 @@ test('계산기 광고를 봐도 그 세션의 전면 광고 한 편은 그대�
   await manage.total.sheet.openCalc();
   await manage.calc.waitSheetOpen();
 
-  // 시트를 닫고 같은 세션 그대로 자산으로 간다. 주소로 열면 세션이 새로 시작해 뜻이 없어진다.
+  // 시트를 닫고 같은 세션 그대로 결산으로 간다. 주소로 열면 세션이 새로 시작해 뜻이 없어진다.
   await appShell.pressBack();
   await manage.calc.waitClosed();
-  await manage.assetsEntry.click();
-  await assets.waitReady();
+  await appShell.goToTab('리포트');
+  await report.waitReady();
+  // 결산 입구는 끝난 달에 있다. 탭으로 들어오면 이번 달이라 한 달 뒤로 옮긴다.
+  await report.goPreviousMonth();
+  await report.closing.open();
 
-  await expect
-    .poll(async () => (await logsNamed(page, 'interstitial_result')).length)
-    .toBeGreaterThan(0);
   const logs = await logsNamed(page, 'interstitial_result');
-  expect(logs.map((log) => [log.params.where, log.params.result])).toEqual([['assets', 'watched']]);
+  expect(logs.map((log) => [log.params.where, log.params.result])).toEqual([['closing', 'watched']]);
 });

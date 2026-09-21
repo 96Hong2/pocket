@@ -56,7 +56,7 @@ test('46 내 분류를 만들고 아이콘을 고른다', async ({
   await demo.step('저장하면 다시 불러오지 않고 그 자리에 나타난다');
   await categories.sheet.saveButton.click();
   await categories.sheet.waitClosed();
-  await expect(categories.mineButton(PET)).toBeVisible();
+  await expect(categories.editButton(PET)).toBeVisible();
   await demo.beat(3);
 
   await demo.step('지출 자리 안에 서고, 기본 분류와는 배지로 갈린다');
