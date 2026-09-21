@@ -1,4 +1,4 @@
-import { useId, useState, type CSSProperties } from 'react';
+import { useId, useState } from 'react';
 
 import { EVENTS, useAnalytics, type ItemAction } from '../../shared/analytics';
 import {
@@ -9,9 +9,9 @@ import {
   type TagKind,
   type TagOut,
 } from '../../shared/api';
-import { Button } from '../../shared/ui';
+import { Button, ColorPicker } from '../../shared/ui';
 
-import { TAG_COLOR_NAMES, TAG_COLORS, tagColorVar, tagInkVar } from '../../shared/lib/tagColors';
+import { TAG_COLORS } from '../../shared/lib/tagColors';
 
 /** 서버가 받는 길이. 화면에서 먼저 막아 422 를 왕복하지 않는다. */
 const NAME_MAX = 12;
@@ -98,40 +98,19 @@ export function TagForm({ tag, kind, onDone, onCancel }: TagFormProps) {
         <span className="tag-form__label" id={`${nameId}-color`}>
           색
         </span>
-        <div className="tag-form__colors" role="group" aria-labelledby={`${nameId}-color`}>
-          {TAG_COLORS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className="tag-form__color"
-              aria-pressed={option === color}
-              aria-label={TAG_COLOR_NAMES[option]}
-              disabled={busy}
-              style={
-                {
-                  '--tag-color': tagColorVar(option),
-                  '--tag-ink': tagInkVar(option),
-                } as CSSProperties
-              }
-              onClick={() => setColor(option)}
-            >
-              <span className="tag-form__swatch" aria-hidden="true">
-                {option === color ? (
-                  <svg width="14" height="14" viewBox="0 0 16 16">
-                    <path
-                      d="M3.5 8.5l3 3 6-6.5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : null}
-              </span>
-            </button>
-          ))}
-        </div>
+        {/*
+          카테고리와 같은 것을 쓴다. 두 벌로 두면 한쪽에만 색이 늘거나 동그라미 크기가
+          달라져서, 같은 일을 하는 화면이 앱 안에서 서로 달라 보인다.
+
+          태그는 색을 반드시 하나 고른다(`clearable` 없음). 태그에는 아이콘이 없어서
+          색이 곧 그 태그의 얼굴이다.
+        */}
+        <ColorPicker
+          value={color}
+          disabled={busy}
+          labelledBy={`${nameId}-color`}
+          onChange={(next) => setColor(next ?? TAG_COLORS[0])}
+        />
       </div>
 
       {message ? (

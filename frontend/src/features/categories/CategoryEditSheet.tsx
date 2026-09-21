@@ -1,17 +1,20 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   ApiError,
   useCreateCategory,
   useDeleteCategory,
   useUpdateCategory,
   type CategoryOut,
+  type TagColor,
 } from '../../shared/api';
 import { KindToggle, type LedgerKind } from '../../shared/ledger';
 import {
   BottomSheet,
   Button,
+  ColorPicker,
   FALLBACK_CATEGORY_ICON,
   toIconName,
   type IconName,
@@ -29,7 +32,12 @@ export interface CategoryEditSheetProps {
 /**
  * 카테고리 시트. 만들기와 고치기가 같은 시트다.
  *
- * 기본 카테고리는 여기까지 오지 않는다. 목록에서 아예 누를 수 없다.
+ * **기본 카테고리도 여기까지 온다.** 이름·아이콘·색을 고칠 수 있고, 고친 것은 그 사람
+ * 화면에만 남는다(서버가 내 설정에 덮어쓰기로 적는다). 「식비」 를 「밥값」 이라 부르는
+ * 사람이 기본 분류를 통째로 버리고 같은 것을 손으로 다시 만들지 않아도 된다.
+ *
+ * 기본 분류에서 막히는 것은 둘이다. **지우기**(그 행을 남들도 쓴다)와 **종류 바꾸기**
+ * (그 분류로 적어 둔 지난 기록이 종류와 어긋난다).
  */
 export function CategoryEditSheet({ open, category, onClose }: CategoryEditSheetProps) {
   // 저장·삭제 응답을 기다리는 동안에는 닫히지 않는다.
@@ -92,9 +100,13 @@ export function CategoryEditForm({
   fixedKind,
   onCreated,
 }: CategoryEditFormProps) {
+  const colorId = useId();
+  const analytics = useAnalytics();
   const create = useCreateCategory();
   const update = useUpdateCategory();
   const remove = useDeleteCategory();
+  /** 기본 분류인가. 지우기와 종류 바꾸기만 막힌다. 이름·아이콘·색은 고칠 수 있다. */
+  const isDefault = category?.is_default === true;
 
   const [name, setName] = useState(category?.name ?? '');
   const [icon, setIcon] = useState<IconName>(
@@ -102,6 +114,8 @@ export function CategoryEditForm({
   );
   // 직접 건 이모지·사진. 있으면 아이콘 대신 이게 그려진다.
   const [custom, setCustom] = useState<string | null>(category?.icon_custom ?? null);
+  // 동그라미 바탕색. 안 고르면 null 이고 무채색 기본 바탕이다.
+  const [color, setColor] = useState<TagColor | null>(category?.color ?? null);
   // 종류는 만들 때만 정한다. 나중에 바꾸면 그 분류로 적어 둔 지난 기록이 종류와 어긋난다.
   const [kind, setKind] = useState<LedgerKind>(
     fixedKind ?? (category?.kind === 'income' ? 'income' : 'expense'),
@@ -128,17 +142,47 @@ export function CategoryEditForm({
     failureOf(update.error, '카테고리를 저장하지 못했어요.') ??
     failureOf(create.error, '카테고리를 저장하지 못했어요.');
 
+  /**
+   * 무엇을 건드렸나. 로그에만 쓴다.
+   *
+   * 셋 중 어느 것을 고치려고 들어오는지가 이 화면의 값이다. 색만 바꾸러 오는 사람이
+   * 거의 없으면 색은 없어도 되는 기능이고, 이름만 바꾸러 오는 사람이 많으면 기본
+   * 이름이 그 사람들 말과 어긋난 것이다. **이름 자체는 안 싣는다.**
+   */
+  function touched(): string {
+    if (category == null) return 'new';
+    const parts = [
+      trimmed === category.name ? null : 'name',
+      icon === toIconName(category.icon_key) && custom === (category.icon_custom ?? null)
+        ? null
+        : 'icon',
+      color === (category.color ?? null) ? null : 'color',
+    ].filter((part) => part != null);
+    return parts.length === 0 ? 'none' : parts.join('+');
+  }
+
+  /** 서버가 받아 준 뒤에만 센다. 이름은 안 싣는다. */
+  function logged(action: 'created' | 'updated' | 'deleted', fields: string): void {
+    analytics.log(
+      EVENTS.categoryChanged,
+      { action, scope: isDefault ? 'default' : 'mine', kind, fields },
+      { kind: 'click' },
+    );
+  }
+
   function save(): void {
     if (!canSave) return;
     // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
     onBusyChange?.(true);
+    const fields = touched();
 
     if (category == null) {
       create.mutate(
-        { name: trimmed, icon_key: icon, icon_custom: custom, kind },
+        { name: trimmed, icon_key: icon, icon_custom: custom, color, kind },
         {
           onSettled: () => onBusyChange?.(false),
           onSuccess: (created) => {
+            logged('created', fields);
             // 만든 것을 먼저 넘기고 닫는다. 순서가 뒤집히면 받는 쪽이 이미 사라진 뒤다.
             onCreated?.(created);
             onClose();
@@ -147,15 +191,26 @@ export function CategoryEditForm({
       );
     } else {
       update.mutate(
-        // 아이콘은 한 번에 하나만 보낸다. 서버가 보낸 쪽을 걸고 나머지를 지운다.
+        /*
+          아이콘은 한 번에 하나만 보낸다. 서버가 보낸 쪽을 걸고 나머지를 지운다.
+
+          색은 **늘 보낸다.** null 이 「그대로 둔다」 가 아니라 「색을 뗀다」 라서,
+          안 보내면 한 번 고른 색을 영영 못 뗀다. 이름·아이콘과 규칙이 다르다.
+        */
         {
           id: category.id,
           body:
             custom == null
-              ? { name: trimmed, icon_key: icon }
-              : { name: trimmed, icon_custom: custom },
+              ? { name: trimmed, icon_key: icon, color }
+              : { name: trimmed, icon_custom: custom, color },
         },
-        { onSettled: () => onBusyChange?.(false), onSuccess: onClose },
+        {
+          onSettled: () => onBusyChange?.(false),
+          onSuccess: () => {
+            logged('updated', fields);
+            onClose();
+          },
+        },
       );
     }
   }
@@ -165,7 +220,10 @@ export function CategoryEditForm({
     onBusyChange?.(true);
     remove.mutate(category.id, {
       onSettled: () => onBusyChange?.(false),
-      onSuccess: onClose,
+      onSuccess: () => {
+        logged('deleted', 'none');
+        onClose();
+      },
     });
   }
 
@@ -179,6 +237,16 @@ export function CategoryEditForm({
             기록 시트에서 이 종류를 골랐을 때 나와요. 만든 뒤에는 바꿀 수 없어요
           </span>
         </div>
+      ) : null}
+
+      {/*
+        기본 분류를 고치러 들어온 사람에게 **무엇이 남의 화면에 가는지** 먼저 말한다.
+        이 한 줄이 없으면 「식비」 를 고쳐 놓고 남들 화면도 바뀐 줄 아는 사람이 생긴다.
+      */}
+      {isDefault ? (
+        <p className="cat-sheet__note cat-sheet__note--lead">
+          기본 분류예요. 여기서 바꾼 이름과 그림은 내 화면에만 보여요
+        </p>
       ) : null}
 
       <label className="cat-sheet__field">
@@ -206,6 +274,24 @@ export function CategoryEditForm({
             setCustom(next.custom);
           }}
         />
+      </div>
+
+      <div className="cat-sheet__field">
+        <span className="cat-sheet__label" id={`${colorId}-label`}>
+          색
+        </span>
+        {/*
+          태그와 같은 것을 쓴다. 카테고리는 아이콘이 이미 얼굴이라 **색을 안 골라도 된다.**
+          맨 앞 빗금 칸이 「색 없음」 이고, 한 번 고른 색을 떼는 길도 그것뿐이다.
+        */}
+        <ColorPicker
+          value={color}
+          disabled={busy}
+          clearable
+          labelledBy={`${colorId}-label`}
+          onChange={setColor}
+        />
+        <span className="cat-sheet__note">목록과 기록 화면에서 이 색이 동그라미에 깔려요</span>
       </div>
 
       {failure ? (
@@ -255,7 +341,8 @@ export function CategoryEditForm({
             </p>
           ) : null}
           <div className="cat-sheet__actions">
-            {category != null ? (
+            {/* 기본 분류는 남들도 쓰는 한 행이라 지우는 길을 두지 않는다. */}
+            {category != null && !isDefault ? (
               <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>
                 지우기
               </Button>

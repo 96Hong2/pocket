@@ -8256,6 +8256,16 @@
             ],
             "title": "Icon Custom"
           },
+          "color": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TagColor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "kind": {
             "$ref": "#/components/schemas/CategoryKind",
             "default": "expense"
@@ -8341,6 +8351,16 @@
             ],
             "title": "Icon Custom"
           },
+          "color": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TagColor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "is_quick": {
             "type": "boolean",
             "title": "Is Quick",
@@ -8411,6 +8431,16 @@
             ],
             "title": "Icon Custom"
           },
+          "color": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TagColor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "is_quick": {
             "anyOf": [
               {
@@ -8425,7 +8455,7 @@
         },
         "type": "object",
         "title": "CategoryUpdate",
-        "description": "보낸 필드만 바꾼다. 종류와 순서는 서버가 정한 값을 그대로 둔다.\n\n필드를 빼는 것과 null 을 보내는 것이 같다. 둘 다 \"이 값은 그대로 둔다\" 는 뜻이고\nservice 가 null 을 건너뛴다. 이름과 아이콘은 비워 둘 수 있는 값이 아니라 지우는 길을\n두지 않았다. 목표(`target_date`)·알림(`remind_at`)처럼 null 이 '지운다' 인 곳과 다르다.\n\n**아이콘 둘은 한 번에 하나만 보낸다.** 걸리는 아이콘은 어차피 하나라, 한쪽을 보내면\n다른 쪽이 지워진다. 사진을 걸었다가 기본 아이콘으로 되돌리는 길도 이것뿐이다\n(`icon_custom: null` 은 \"그대로 둔다\" 라서 되돌리기가 되지 않는다)."
+        "description": "보낸 필드만 바꾼다. 종류와 순서는 서버가 정한 값을 그대로 둔다.\n\n필드를 빼는 것과 null 을 보내는 것이 같다. 둘 다 \"이 값은 그대로 둔다\" 는 뜻이고\nservice 가 null 을 건너뛴다. 이름과 아이콘은 비워 둘 수 있는 값이 아니라 지우는 길을\n두지 않았다. 목표(`target_date`)·알림(`remind_at`)처럼 null 이 '지운다' 인 곳과 다르다.\n\n**아이콘 둘은 한 번에 하나만 보낸다.** 걸리는 아이콘은 어차피 하나라, 한쪽을 보내면\n다른 쪽이 지워진다. 사진을 걸었다가 기본 아이콘으로 되돌리는 길도 이것뿐이다\n(`icon_custom: null` 은 \"그대로 둔다\" 라서 되돌리기가 되지 않는다).\n\n**`color` 만 null 이 \"지운다\" 다.** 색은 안 고를 수 있는 값이라 되돌릴 길이 있어야\n하는데, 이름·아이콘처럼 \"그대로 둔다\" 로 읽으면 한 번 고른 색을 영영 못 뗀다.\n목표 기한(`target_date`)·알림 시각(`remind_at`)과 같은 규칙이다. 그래서 service 가\n이 필드만 `None` 을 걸러 내지 않는다."
       },
       "ChangeOut": {
         "properties": {

@@ -18,14 +18,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
-from app.domain.categories import user_sort_order
+from app.domain.categories import CategoryColor, user_sort_order
 from app.models import Category, CategoryBudget, MerchantRule, Transaction, User
 from app.modules.categories.schemas import CategoryCreate, CategoryUpdate
 from app.modules.settings import service as settings_service
 
 __all__ = [
+    "category_overrides",
     "create_category",
     "delete_category",
+    "effective_color",
+    "effective_icon",
+    "effective_name",
     "list_categories",
     "quick_hidden_ids",
     "quick_order_ids",
@@ -148,6 +152,96 @@ def set_quick_order(session: Session, user: User, ids: list[uuid.UUID]) -> None:
     session.commit()
 
 
+# ── 기본 분류를 내 화면에서만 다르게 부르기 ────────────
+#
+# 기본 분류는 **모두가 같은 한 행**을 본다. 이름·아이콘·색을 그 행에 적으면 한 사람이
+# 고친 것이 전부에게 번진다. 그렇다고 못 고치게 막으면 「식비」 를 「밥값」 이라 부르는
+# 사람은 기본 분류를 통째로 버리고 같은 것을 손으로 다시 만들어야 한다.
+# `quick_hidden_category_ids` 와 같은 이유로 내 설정에 둔다.
+
+#: 덮어쓸 수 있는 칸. 종류·순서는 없다. 종류를 바꾸면 그 분류로 적어 둔 지난 기록이
+#: 종류와 어긋나고, 순서는 이미 `quick_category_order` 가 따로 갖고 있다.
+OVERRIDE_KEYS = ("name", "icon_key", "icon_custom", "color")
+
+
+def category_overrides(session: Session, user: User) -> dict[str, dict[str, str | None]]:
+    """기본 분류에 내가 걸어 둔 값. 아무것도 안 고쳤으면 빈 dict 다."""
+    row = settings_service.get_preferences(session, user)
+    return {str(k): dict(v) for k, v in row.category_overrides.items()}
+
+
+def _patch_of(row: Category, overrides: dict[str, dict[str, str | None]]) -> dict[str, str | None]:
+    """그 행에 걸린 덮어쓰기. 내가 만든 분류에는 걸리지 않는다."""
+    if row.user_id is not None:
+        return {}
+    return overrides.get(str(row.id)) or {}
+
+
+def effective_name(row: Category, overrides: dict[str, dict[str, str | None]]) -> str:
+    """화면에 실제로 보이는 이름. 안 고쳤으면 행에 적힌 이름 그대로다."""
+    value = _patch_of(row, overrides).get("name")
+    return value if isinstance(value, str) and value != "" else row.name
+
+
+def effective_icon(
+    row: Category, overrides: dict[str, dict[str, str | None]]
+) -> tuple[str, str | None]:
+    """화면에 실제로 그려지는 (icon_key, icon_custom).
+
+    아이콘은 둘 중 하나만 걸린다. 덮어쓰기에 한 짝이라도 있으면 그 짝을 통째로 쓴다.
+    `icon_key` 만 남기고 `icon_custom` 은 원래 행 것을 쓰면, 기본 사진을 떼려고 아이콘을
+    고른 사람에게 사진이 그대로 남는다.
+    """
+    patch = _patch_of(row, overrides)
+    if "icon_key" not in patch and "icon_custom" not in patch:
+        return row.icon_key, row.icon_custom
+    key = patch.get("icon_key")
+    custom = patch.get("icon_custom")
+    return (key if isinstance(key, str) and key != "" else row.icon_key), custom
+
+
+def effective_color(
+    row: Category, overrides: dict[str, dict[str, str | None]]
+) -> CategoryColor | None:
+    """화면에 깔리는 바탕색. 안 고른 분류는 None 이고 화면이 무채색 바탕을 쓴다.
+
+    **모르는 값은 색이 없는 것으로 본다.** 색 이름은 빼지 않기로 했지만(domain/tags.py),
+    설정 JSON 에는 옛 판이 적어 둔 값이 남을 수 있다. 그 하나 때문에 목록 전체가
+    500 으로 막히면 카테고리를 고칠 길이 아예 사라진다.
+    """
+    patch = _patch_of(row, overrides)
+    value = patch.get("color") if "color" in patch else row.color
+    try:
+        return CategoryColor(value) if value is not None else None
+    except ValueError:
+        return None
+
+
+def _write_override(
+    session: Session, user: User, category_id: uuid.UUID, patch: dict[str, str | None]
+) -> None:
+    """그 분류의 덮어쓰기를 **통째로 갈아 끼운다.** 빈 덮어쓰기는 칸째 지운다.
+
+    칸별로 합치지 않는 이유는 「원래대로 되돌리기」 때문이다. 합치는 방식이면 되돌리는
+    것을 「안 보냈다」 와 구별할 수 없어, 한 번 고친 이름을 영영 못 되돌린다.
+    부르는 쪽이 바뀐 뒤의 전체 상태를 만들어 온다.
+
+    덮어쓰기가 비면 그 사람은 다시 기본값을 따라간다. 나중에 기본 이름이 바뀌면
+    그 사람 화면도 같이 바뀐다.
+    """
+    row = settings_service.get_preferences(session, user)
+    current = {str(k): dict(v) for k, v in row.category_overrides.items()}
+    key = str(category_id)
+    kept = {k: v for k, v in patch.items() if k in OVERRIDE_KEYS}
+    if kept:
+        current[key] = kept
+    else:
+        current.pop(key, None)
+    # JSON 컬럼은 같은 dict 를 고쳐도 더러워졌다고 보지 않는다. 새 dict 를 넣는다.
+    row.category_overrides = current
+    session.commit()
+
+
 def promote_new(session: Session, user: User, category_id: uuid.UUID) -> None:
     """방금 만든 분류를 순서의 맨 앞에 끼운다.
 
@@ -245,9 +339,22 @@ def _comparable(session: Session, user: User) -> list[Category]:
     return list(session.scalars(stmt))
 
 
-def _reject_duplicate(rows: list[Category], key: str, *, skip_id: uuid.UUID | None = None) -> None:
+def _reject_duplicate(
+    rows: list[Category],
+    key: str,
+    overrides: dict[str, dict[str, str | None]],
+    *,
+    skip_id: uuid.UUID | None = None,
+) -> None:
+    """**행에 적힌 이름이 아니라 그 사람 화면에 보이는 이름으로 견준다.**
+
+    기본 「식비」 를 「밥값」 이라 부르기로 한 사람에게는 행 이름이 무엇이든 목록에
+    「밥값」 이 서 있다. 행 이름만 보면 그 사람이 내 분류 「밥값」 을 또 만들 수 있고,
+    그러면 같은 이름 두 줄이 나란히 선다.
+    """
     taken = any(
-        row.deleted_at is None and row.id != skip_id and _key(row.name) == key for row in rows
+        row.deleted_at is None and row.id != skip_id and _key(effective_name(row, overrides)) == key
+        for row in rows
     )
     if taken:
         raise ApiError(ErrorCode.DUPLICATE_CATEGORY, _DUPLICATE, status_code=409)
@@ -308,7 +415,8 @@ def create_category(session: Session, user: User, data: CategoryCreate) -> Categ
     name = _fold(data.name)
     key = _key(name)
     rows = _comparable(session, user)
-    _reject_duplicate(rows, key)
+    overrides = category_overrides(session, user)
+    _reject_duplicate(rows, key, overrides)
 
     revived = next(
         (
@@ -350,28 +458,55 @@ def create_category(session: Session, user: User, data: CategoryCreate) -> Categ
     return row
 
 
+def _payload_of(data: CategoryUpdate) -> dict[str, str | None]:
+    """보낸 칸만 남긴다.
+
+    `color` 만 `None` 을 살려 둔다. 색은 **안 고를 수 있는 값**이라 되돌릴 길이 있어야
+    하는데, 이름·아이콘처럼 null 을 「그대로 둔다」 로 읽으면 한 번 고른 색을 영영 못 뗀다.
+    이름과 아이콘은 비워 둘 수 있는 값이 아니라 지금까지처럼 null 을 걸러 낸다.
+    """
+    sent = data.model_dump(exclude_unset=True)
+    return {k: v for k, v in sent.items() if v is not None or k == "color"}
+
+
 def update_category(
     session: Session, user: User, category_id: uuid.UUID, data: CategoryUpdate
 ) -> Category:
-    """보낸 필드만 바꾼다. 이름을 바꿀 때도 만들 때와 같은 겹침 판정을 지난다."""
+    """보낸 필드만 바꾼다. 이름을 바꿀 때도 만들 때와 같은 겹침 판정을 지난다.
+
+    **기본 분류는 행을 안 고치고 내 설정에 덮어쓰기를 남긴다.** 그 한 행을 모두가 같이
+    보기 때문이다. 어느 쪽이든 돌려주는 것은 행이고, 화면에 실제로 보일 값은 부르는 쪽이
+    `effective_*` 로 합쳐 읽는다.
+    """
+    payload = _payload_of(data)
+    # 소유 판정을 먼저 한다. 남의 분류는 지금까지처럼 404 다. 기본 분류인지 아닌지는
+    # 그다음 문제라, 여기서 순서를 뒤집으면 남의 분류에 422 가 나간다.
+    found = session.get(Category, category_id)
+    if found is None or (found.user_id is not None and found.user_id != user.id):
+        raise ApiError(ErrorCode.NOT_FOUND, _NOT_FOUND, status_code=404)
+    if found.user_id is None:
+        _override_default(session, user, found, payload)
+        return found
+
     row = require_own(session, user, category_id, on_default="기본 카테고리는 고칠 수 없어요.")
-    # null 은 안 보낸 것으로 본다. 이름과 아이콘은 비워 둘 수 있는 값이 아니다.
-    payload = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
+    overrides = category_overrides(session, user)
 
     if "name" in payload:
-        name = _fold(payload["name"])
+        name = _fold(str(payload["name"]))
         key = _key(name)
         rows = _comparable(session, user)
-        _reject_duplicate(rows, key, skip_id=row.id)
+        _reject_duplicate(rows, key, overrides, skip_id=row.id)
         _free_name_slot(session, rows, user, key, keep_id=row.id)
         row.name = name
     # 걸리는 아이콘은 하나다. 한쪽을 보내면 다른 쪽은 지운다.
     # 기본 아이콘으로 되돌리는 길이 이것뿐이다.
     if "icon_key" in payload:
-        row.icon_key = payload["icon_key"]
+        row.icon_key = str(payload["icon_key"])
         row.icon_custom = None
     if "icon_custom" in payload:
         row.icon_custom = payload["icon_custom"]
+    if "color" in payload:
+        row.color = payload["color"]
 
     try:
         session.commit()
@@ -380,6 +515,46 @@ def update_category(
         raise _duplicate_error() from None
     session.refresh(row)
     return row
+
+
+def _override_default(
+    session: Session, user: User, row: Category, payload: dict[str, str | None]
+) -> None:
+    """기본 분류를 내 화면에서만 다르게 만든다. 공용 행에는 손대지 않는다.
+
+    **지금 내 화면에 보이는 값에서 출발해 보낸 칸만 바꾼다.** 그리고 기본값과 같아진
+    칸은 덮어쓰기에서 뺀다. 「밥값」 으로 고쳤다가 「식비」 로 되돌린 사람에게 빈 껍데기가
+    남지 않는다.
+    """
+    overrides = category_overrides(session, user)
+    name = effective_name(row, overrides)
+    icon_key, icon_custom = effective_icon(row, overrides)
+    color = effective_color(row, overrides)
+
+    if "name" in payload:
+        name = _fold(str(payload["name"]))
+        _reject_duplicate(_comparable(session, user), _key(name), overrides, skip_id=row.id)
+    # 아이콘은 한 짝으로 움직인다. 한쪽을 보내면 다른 쪽을 비워, 사진을 떼려고 아이콘을
+    # 고른 사람에게 사진이 남지 않는다.
+    if "icon_key" in payload:
+        icon_key, icon_custom = str(payload["icon_key"]), None
+    if "icon_custom" in payload:
+        icon_custom = payload["icon_custom"]
+    if "color" in payload:
+        # 스키마가 이미 값을 검사했다. 여기서 모르는 색이 들어올 길은 없다.
+        sent = payload["color"]
+        color = CategoryColor(sent) if sent is not None else None
+
+    patch: dict[str, str | None] = {}
+    if name != row.name:
+        patch["name"] = name
+    if icon_key != row.icon_key or icon_custom != row.icon_custom:
+        patch["icon_key"] = icon_key
+        patch["icon_custom"] = icon_custom
+    if color != row.color:
+        patch["color"] = color
+
+    _write_override(session, user, row.id, patch)
 
 
 def _live_category_budgets(session: Session, category_id: uuid.UUID) -> list[CategoryBudget]:

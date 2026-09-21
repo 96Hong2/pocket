@@ -14,7 +14,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, StringConstraints, field_validator, model_validator
 
-from app.domain.categories import CategoryKind
+from app.domain.categories import CategoryColor, CategoryKind
 from app.domain.category_icons import (
     CUSTOM_ICON_MAX_LENGTH,
     InvalidCustomIcon,
@@ -53,6 +53,8 @@ class CategoryOut(BaseModel):
     icon_key: str
     # 내가 건 이모지나 사진. 있으면 화면이 icon_key 대신 이걸 그린다.
     icon_custom: str | None = None
+    # 아이콘 뒤 바탕색. 안 고른 분류는 null 이고, 화면이 무채색 기본 바탕을 쓴다.
+    color: CategoryColor | None = None
     # 기록 시트의 칩에 먼저 보일지. 사람마다 다른 값이라 카테고리 행이 아니라
     # 내 설정에서 나온다(service.quick_hidden_ids). 화면은 이것으로 칩과 「더 보기」 를 가른다.
     is_quick: bool = True
@@ -82,6 +84,8 @@ class CategoryCreate(BaseModel):
     icon_key: IconKey
     # 안 보내면 앱에 든 아이콘(icon_key)을 그린다.
     icon_custom: CustomIcon | None = None
+    # 안 보내면 무채색 기본 바탕이다.
+    color: CategoryColor | None = None
     kind: CategoryKind = CategoryKind.EXPENSE
 
     @field_validator("icon_custom")
@@ -107,11 +111,17 @@ class CategoryUpdate(BaseModel):
     **아이콘 둘은 한 번에 하나만 보낸다.** 걸리는 아이콘은 어차피 하나라, 한쪽을 보내면
     다른 쪽이 지워진다. 사진을 걸었다가 기본 아이콘으로 되돌리는 길도 이것뿐이다
     (`icon_custom: null` 은 "그대로 둔다" 라서 되돌리기가 되지 않는다).
+
+    **`color` 만 null 이 "지운다" 다.** 색은 안 고를 수 있는 값이라 되돌릴 길이 있어야
+    하는데, 이름·아이콘처럼 "그대로 둔다" 로 읽으면 한 번 고른 색을 영영 못 뗀다.
+    목표 기한(`target_date`)·알림 시각(`remind_at`)과 같은 규칙이다. 그래서 service 가
+    이 필드만 `None` 을 걸러 내지 않는다.
     """
 
     name: CategoryName | None = None
     icon_key: IconKey | None = None
     icon_custom: CustomIcon | None = None
+    color: CategoryColor | None = None
     # 이 값만은 false 가 뜻이 있다. null 이 '그대로 둔다' 이고 false 는 '끈다' 다.
     # **기본 분류에도 걸린다.** 이름·아이콘과 달리 내 설정에만 남기 때문이다.
     is_quick: bool | None = None

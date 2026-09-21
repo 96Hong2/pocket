@@ -481,6 +481,18 @@
     color: var(--color-sage-100);
   }
 
+  /*
+    광고 예고. 안내 줄(hint)보다 한 단 더 죽인다. 받는 것이 먼저 읽히고 치르는 것이
+    그다음이어야 한다. 그렇다고 안 보일 만큼 흐리게 두지는 않는다. 못 읽는 예고는
+    예고가 아니다.
+  */
+  .closing-entry__ad {
+    margin-top: 3px;
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-sage-100);
+  }
+
   .closing-entry__chevron {
     flex: none;
     font-size: 18px;

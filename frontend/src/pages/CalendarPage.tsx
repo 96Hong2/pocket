@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
+import { EVENTS, useAnalytics } from '../shared/analytics';
 import { QuickRecordSheet } from '../features/quick-record';
 import {
   CalendarGrid,
@@ -57,6 +58,33 @@ const SEARCH_DEBOUNCE_MS = 250;
 /** `2026-08` 모양인지. 리포트가 붙여 준 값이라 아무 문자열이나 들어올 수 있다. */
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
+/**
+ * 찾아본 것을 한 번만 센다.
+ *
+ * **한 글자 칠 때마다 세지 않는다.** 이미 늦춘 질의(`useDebounced`)가 바뀌고 그 결과까지
+ * 온 뒤에 한 줄 남긴다. 그렇게 해야 「몇 번 찾았나」 가 「몇 자 쳤나」 가 되지 않는다.
+ *
+ * **검색어는 절대 안 싣는다.** 상호와 메모가 그대로 들어 있다. 길이와 결과 수까지다.
+ * 찾은 것이 없는 검색(`hits: 0`)이 그중 제일 값어치 있다. 그 달의 목록이나 달력이
+ * 제 일을 못 했다는 뜻이기 때문이다.
+ */
+function useSearchLog(query: string | null, hits: number | null): void {
+  const analytics = useAnalytics();
+  // 같은 질의의 결과가 여러 번 그려져도 한 번만 센다.
+  const sent = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (query == null || hits == null) {
+      // 검색을 접으면 다음에 같은 말을 찾아도 새로 센다.
+      if (query == null) sent.current = null;
+      return;
+    }
+    if (sent.current === query) return;
+    sent.current = query;
+    analytics.log(EVENTS.searchUsed, { length: query.length, hits }, { kind: 'event' });
+  }, [analytics, query, hits]);
+}
+
 export default function CalendarPage() {
   const today = toLedgerDate(new Date());
   const thisMonth = today.slice(0, 7);
@@ -95,6 +123,7 @@ export default function CalendarPage() {
   });
 
   const items = pages.data?.pages.flatMap((page) => page.items) ?? [];
+  useSearchLog(searching ? query : null, pages.isSuccess ? items.length : null);
   // 안 쓴 날 표시는 금액이 0 이라 거래 한 줄로 그릴 수 없다. 홈과 같은 함수로 가른다.
   const { noSpend, spent } = splitNoSpend(items);
   const categoryItems = categories.data?.items ?? [];

@@ -42,4 +42,7 @@ class Category(Entity, SoftDeleteMixin):
     # 내가 직접 건 이모지나 사진. 있으면 icon_key 대신 이게 그려진다.
     # 형식은 domain.category_icons 가 정한다.
     icon_custom: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 아이콘 뒤에 깔리는 바탕색. 비어 있으면 화면이 무채색 기본 바탕을 쓴다.
+    # 값 목록은 태그와 같다(domain.categories.CategoryColor).
+    color: Mapped[str | None] = mapped_column(String(16), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))

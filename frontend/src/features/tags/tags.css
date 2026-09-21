@@ -285,47 +285,6 @@
     color: var(--color-ink);
   }
 
-  /*
-    색 고르기. **한 줄에 일곱 개씩 두 줄이다.**
-    flex-wrap 으로 두면 화면 폭에 따라 6개·8개로 접혀 줄이 들쭉날쭉해진다.
-    개수는 `shared/lib/tagColors.ts` 의 TAG_COLORS_PER_ROW 와 같은 값이다.
-  */
-  .tag-form__colors {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 6px 2px;
-    justify-items: center;
-  }
-
-  /* 색 고르기. 44px 을 지키려고 겉은 크게 두고 안쪽 동그라미만 작게 그린다. */
-  .tag-form__color {
-    display: grid;
-    place-items: center;
-    /* 손가락이 닿는 자리는 44px 을 지킨다. 좁은 폰에서는 칸을 나눠 가진다. */
-    width: 100%;
-    min-width: 36px;
-    height: 44px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--radius-pill);
-    background: none;
-  }
-
-  .tag-form__swatch {
-    display: grid;
-    place-items: center;
-    width: 30px;
-    height: 30px;
-    border-radius: var(--radius-pill);
-    background: var(--tag-color);
-    color: var(--tag-ink);
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.1);
-  }
-
-  .tag-form__color[aria-pressed='true'] .tag-form__swatch {
-    box-shadow: 0 0 0 3px var(--color-surface), 0 0 0 5px var(--tag-color);
-  }
-
   .tag-form__actions {
     display: flex;
     gap: 8px;

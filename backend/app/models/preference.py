@@ -88,6 +88,24 @@ class UserPreference(Entity):
         JSON, nullable=False, server_default=text("'[]'")
     )
 
+    """기본 분류를 내 화면에서만 다르게 부르고 다르게 그리는 값.
+
+    `{"<카테고리 id>": {"name": "밥값", "icon_key": "09_rice_bowl", "color": "sage"}}` 모양이다.
+    담기는 열쇠는 `name`·`icon_key`·`icon_custom`·`color` 넷뿐이고, 없는 열쇠는
+    「원래 것 그대로」다.
+
+    **기본 분류는 모두가 같은 한 행을 본다.** 거기에 이름을 고쳐 적으면 한 사람이 바꾼
+    이름이 전부에게 번진다. 그렇다고 고치는 길을 막으면, 「식비」 를 「밥값」 이라 부르는
+    사람은 기본 분류를 통째로 버리고 같은 것을 손으로 다시 만들어야 한다.
+    `quick_hidden_category_ids` 와 같은 이유로 여기 둔다.
+
+    내가 만든 분류는 여기 오지 않는다. 그쪽은 행이 이미 내 것이라 행을 고친다.
+    지운 분류의 id 가 남을 수 있는데, 있는 것만 골라 쓰므로 그대로 둔다.
+    """
+    category_overrides: Mapped[dict[str, dict[str, str | None]]] = mapped_column(
+        JSON, nullable=False, server_default=text("'{}'")
+    )
+
 
 class NotificationSetting(Entity):
     __tablename__ = "notification_settings"

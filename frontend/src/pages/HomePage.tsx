@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { IdentityNotice } from '../app/IdentityNotice';
-import { useIdentity } from '../app/providers';
+import { useBridge, useIdentity } from '../app/providers';
 import { AdSlot } from '../features/ads';
 import { AddToHomeCard } from '../features/home-add';
 import { RemindCard } from '../features/notifications';
@@ -14,6 +14,7 @@ import {
   HomeHero,
   RecordDayAsk,
   RecoveryCard,
+  ReviewAskCard,
   ShareAppCard,
   StreakCelebration,
   TodayList,
@@ -74,6 +75,8 @@ function HomeContent({
   recording: boolean;
 }) {
   const { state } = useIdentity();
+  // 별점 창을 못 띄우는 토스 버전에서는 권유 카드를 아예 안 그린다.
+  const bridge = useBridge();
   // 홈에서 바로 고친다. 여기서 못 고치면 달력까지 들어가야 해서 아무도 안 고친다.
   const [editing, setEditing] = useState<TransactionOut | null>(null);
   const today = toLedgerDate(new Date());
@@ -107,6 +110,11 @@ function HomeContent({
   const budgetSuggest = useCardDismiss('budget-suggest', '');
   // 공유 권유는 한 번 닫으면 끝이다. 다시 뜰 「달라진 상황」이 없다.
   const shareInvite = useCardDismiss('share-app', '');
+  /*
+    별점 권유도 한 번뿐이다. 눌렀든 닫았든 다시 안 뜬다.
+    별점을 실제로 남겼는지 토스가 알려 주지 않아, 다시 물을 근거가 우리에게 없다.
+  */
+  const ratingAsk = useCardDismiss('rating-ask', '');
   /*
     홈 화면 추가와 저녁 알림은 **두 번 묻는다.** 첫 기록 직후와 다섯 번째 기록 때다.
     첫 기록 때는 이 앱을 계속 쓸지조차 모르는 상태라 그때 닫은 것은 대답이 아니다.
@@ -149,7 +157,10 @@ function HomeContent({
     - 예산 제안은 비켜 준다. **안 사라지고 기다리기 때문**이다. 예산을 정할 때까지 계속
       뜨고, 카드 자체도 관리 탭에서 언제든 정할 수 있다고 적는다. 반대로 한 번뿐인 안내는
       그 자리를 내주면 영영 안 뜬다(실기기에서 그렇게 안 떴다).
-    - 공유는 맨 뒤다. 다섯 번 넘게 적은 사람에게만 뜨고, 그때까지 기다릴 수 있다.
+    - 별점과 공유가 맨 뒤에서 한 자리를 나눠 쓰고, **별점이 앞이다.** 공유는 다섯 번째
+      기록부터 이미 서 있던 카드라, 스무 번을 적을 때까지 안 누른 사람에게는 답이 나온
+      셈이다. 별점은 한 번뿐이라 닫고 나면 다음 회차부터 공유가 다시 선다.
+      못 뜨는 토스 버전에서는 별점 카드 자체를 그리지 않는다(`supports('review')`).
   */
   const dueSoon = (recurringDue.data?.length ?? 0) > 0;
   // 두 번째 기회면 두 번째 표를 본다. 그래야 첫 번째에 닫은 사람에게 한 번 더 뜬다.
@@ -159,10 +170,25 @@ function HomeContent({
   const showRemind = view?.showRemind === true && !remindCard.hidden && !dueSoon;
   const showBudgetSuggestion =
     view?.showBudgetSuggestion === true && !budgetSuggest.hidden && !showHomeAdd && !showRemind;
+  /*
+    **별점이 공유보다 앞이다.** 둘 다 「한 번 뜨고 닫으면 끝」 인데, 공유는 다섯 번째
+    기록부터 이미 서 있었다. 스무 번을 적을 때까지 안 누르고 안 닫은 사람에게 그 카드는
+    이미 답이 나온 것이라, 그 자리를 별점에 한 번 내준다. 별점은 한 번뿐이라 다음
+    회차부터 공유가 다시 선다.
+  */
+  const showRatingAsk =
+    view?.showRatingAsk === true &&
+    !ratingAsk.hidden &&
+    bridge.supports('review') &&
+    !dueSoon &&
+    !showBudgetSuggestion &&
+    !showHomeAdd &&
+    !showRemind;
   const showShareInvite =
     view?.showShareInvite === true &&
     !shareInvite.hidden &&
     !dueSoon &&
+    !showRatingAsk &&
     !showBudgetSuggestion &&
     !showHomeAdd &&
     !showRemind;
@@ -246,6 +272,7 @@ function HomeContent({
       */}
       {showHomeAdd ? <AddToHomeCard onDismiss={homeAddCard.dismiss} /> : null}
       {showRemind ? <RemindCard onDismiss={remindCard.dismiss} /> : null}
+      {showRatingAsk ? <ReviewAskCard onDismiss={ratingAsk.dismiss} /> : null}
       {showShareInvite ? <ShareAppCard onDismiss={shareInvite.dismiss} /> : null}
 
       {/*

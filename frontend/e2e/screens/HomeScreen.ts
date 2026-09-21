@@ -40,6 +40,8 @@ export class HomeScreen {
   readonly recovery: RecoveryCard;
   /** 기록 버튼 아래 공유 권유 카드. 몇 번 적어 본 사람에게만 뜬다. */
   readonly share: HomeShareCard;
+  /** 그보다 한참 뒤에 서는 별점 권유 카드. 스무 번 넘게 적은 사람에게만 뜬다. */
+  readonly rating: HomeRatingCard;
   /** 오늘·내일 빠져나갈 돈. 걸어 둔 반복 지출이 있을 때만 뜬다. */
   readonly recurring: HomeRecurringCard;
   /** 7일을 이어서 적었을 때 맨 앞에 뜨는 축하. 결산과 같은 전체화면 카드다. */
@@ -58,6 +60,7 @@ export class HomeScreen {
     this.remind = new RemindCardArea(page);
     this.recovery = new RecoveryCard(page);
     this.share = new HomeShareCard(page);
+    this.rating = new HomeRatingCard(page);
     this.recurring = new HomeRecurringCard(page);
     this.streak = new StreakCelebrationArea(page);
   }
@@ -746,6 +749,39 @@ class HomeShareCard {
 
   get closeButton(): Locator {
     return this.root.getByRole('button', { name: '공유 안내 닫기' });
+  }
+}
+
+/**
+ * 별점 권유 카드.
+ *
+ * 공유(5건)보다 한참 뒤인 스무 건부터 뜬다. 눌렀든 닫았든 한 번뿐이다. 별점을 실제로
+ * 남겼는지 토스가 알려 주지 않아 다시 물을 근거가 없다.
+ *
+ * 못 띄우는 토스 버전에서는 카드 자체가 없다. 눌러도 아무 일이 안 일어나는 버튼을
+ * 홈에 세우면 앱이 고장 난 것으로 기억된다.
+ */
+class HomeRatingCard {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('group', { name: '별점 남기기', exact: true });
+  }
+
+  get card(): Locator {
+    return this.root;
+  }
+
+  get title(): Locator {
+    return this.root.getByText('여기까지 이어서 적으셨네요', { exact: true });
+  }
+
+  get button(): Locator {
+    return this.root.getByRole('button', { name: '별점 남기기', exact: true });
+  }
+
+  get closeButton(): Locator {
+    return this.root.getByRole('button', { name: '별점 안내 닫기' });
   }
 }
 

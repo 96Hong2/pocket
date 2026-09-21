@@ -200,9 +200,10 @@ export function CategoryManageList() {
           켜 둔 것이 열한 개 이하면 넘칠 것이 없어 선을 안 긋는다.
         */
         let quickSeen = 0;
-        const edgeIndex = quickCount > QUICK_LIMIT
-          ? rows.findIndex((item) => item.is_quick && (quickSeen += 1) === QUICK_LIMIT)
-          : -1;
+        const edgeIndex =
+          quickCount > QUICK_LIMIT
+            ? rows.findIndex((item) => item.is_quick && (quickSeen += 1) === QUICK_LIMIT)
+            : -1;
 
         return (
           <section className="cat-group" aria-label={group.title} key={group.kind}>
@@ -250,24 +251,33 @@ export function CategoryManageList() {
                           </button>
                         </span>
                       ) : null}
-                      {category.is_default ? (
-                        <span className="cat-row__main">
-                          <CategoryAvatar {...iconOf(category)} size={40} />
-                          <span className="cat-row__name">{category.name}</span>
-                          <Chip variant="kind">기본</Chip>
+                      {/*
+                        **기본 분류도 누를 수 있다.** 이름·그림·색을 고치면 그 사람
+                        화면에만 남는다(서버가 내 설정에 덮어쓴다). 예전에는 못 누르는
+                        줄이라 「식비」 를 「밥값」 이라 부르는 사람이 기본 분류를 통째로
+                        버리고 같은 것을 손으로 다시 만들어야 했다.
+
+                        「기본」 칩은 그대로 둔다. 지우는 길이 없다는 것을 그 칩이 말한다.
+                      */}
+                      <button
+                        type="button"
+                        className="cat-row__main cat-row__main--hit"
+                        aria-label={`${category.name} 고치기`}
+                        onClick={() => setTarget({ category })}
+                      >
+                        <CategoryAvatar {...iconOf(category)} size={40} />
+                        <span className="cat-row__name">{category.name}</span>
+                        {category.is_default ? <Chip variant="kind">기본</Chip> : null}
+                        {/*
+                          「고치기」 라고 적던 자리다. 줄마다 같은 글자가 열여섯 번 서서
+                          정보가 아니라 잡음이었다. 줄 전체가 버튼이고 스크린리더에는
+                          「식비 고치기」 로 읽히므로, 눈에는 방향만 보여 준다.
+                          결산 입구도 같은 모양이라 앱 안에서 뜻이 갈리지 않는다.
+                        */}
+                        <span className="cat-row__go" aria-hidden="true">
+                          ›
                         </span>
-                      ) : (
-                        <button
-                          type="button"
-                          className="cat-row__main cat-row__main--hit"
-                          aria-label={`${category.name} 고치기`}
-                          onClick={() => setTarget({ category })}
-                        >
-                          <CategoryAvatar {...iconOf(category)} size={40} />
-                          <span className="cat-row__name">{category.name}</span>
-                          <span className="cat-row__go">고치기</span>
-                        </button>
-                      )}
+                      </button>
                       {/*
                       기본 분류도 여기서는 끌 수 있다. 그 값은 카테고리 행이 아니라 내 설정에
                       남아 남에게 번지지 않는다. 끈다고 없어지지는 않는다. 기록 시트의

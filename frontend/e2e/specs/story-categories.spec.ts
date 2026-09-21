@@ -189,5 +189,5 @@ test('지우기를 눌렀다가 「그대로 둘게요」로 물러나면 분류
 
   await categories.sheet.closeButton.click();
   await categories.sheet.waitClosed();
-  await expect(categories.mineButton(PET)).toBeVisible();
+  await expect(categories.editButton(PET)).toBeVisible();
 });

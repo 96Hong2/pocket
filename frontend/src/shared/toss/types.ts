@@ -24,7 +24,9 @@ export type BridgeCapability =
   | 'notification'
   | 'analytics'
   /** 시스템 공유 시트. 링크를 만들어 친구에게 보낸다. */
-  | 'share';
+  | 'share'
+  /** 토스가 띄우는 미니앱 별점 창. 낮은 앱 버전에서는 없다. */
+  | 'review';
 
 /**
  * 토스 알림 동의 요청의 결과.
@@ -241,6 +243,13 @@ declare global {
      * 운영 판에서는 채우지 않는다.
      */
     __pocketShares?: RecordedShare[];
+    /**
+     * 별점 창을 몇 번 열었나.
+     *
+     * 토스가 띄우는 창이라 화면에는 아무 흔적도 안 남는다. 검증이 「눌렀더니 열렸다」 를
+     * 볼 길이 이것뿐이다. 운영 판에서는 채우지 않는다.
+     */
+    __pocketReviews?: number;
   }
 }
 
@@ -253,6 +262,12 @@ export function recordLog(
 ): void {
   if (environment === 'toss' || typeof window === 'undefined') return;
   (window.__pocketLogs ??= []).push({ kind, name, params });
+}
+
+/** 운영 판이 아닐 때 별점 창을 연 횟수를 창에 남긴다. */
+export function recordReview(environment: BridgeEnvironment): void {
+  if (environment === 'toss' || typeof window === 'undefined') return;
+  window.__pocketReviews = (window.__pocketReviews ?? 0) + 1;
 }
 
 /** 운영 판이 아닐 때 내보낸 공유를 창에 남긴다. 실패해도 아무 일도 일어나지 않는다. */
@@ -314,6 +329,15 @@ export interface MiniAppBridge {
    * 않는다. 이 버전에서 못 쓰거나 템플릿 코드가 없으면 BridgeError('UNSUPPORTED').
    */
   requestNotificationAgreement(templateCode: string): Promise<NotificationAgreementResult>;
+
+  /**
+   * 토스가 띄우는 별점 창을 연다. **사용자가 남기겠다고 누른 순간에만 부른다.**
+   *
+   * 결과를 돌려주지 않는다. 별점을 실제로 남겼는지, 창을 그냥 닫았는지 SDK 가 알려 주지
+   * 않는다. 그래서 부르는 쪽은 「물어봤다」 까지만 세고 「남겼다」 를 세지 않는다.
+   * 못 쓰는 버전이면 BridgeError('UNSUPPORTED').
+   */
+  requestReview(): Promise<void>;
 
   getSafeAreaInsets(): SafeAreaInsets;
   subscribeSafeArea(listener: (insets: SafeAreaInsets) => void): () => void;

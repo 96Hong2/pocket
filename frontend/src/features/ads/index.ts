@@ -1,3 +1,4 @@
+export { AdAheadNote } from './AdAheadNote';
 export { AdSlot } from './AdSlot';
 export {
   useFullScreenAd,

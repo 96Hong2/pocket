@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  RATING_AFTER_RECORDS,
   RECOVERY_AFTER_DAYS,
   SECOND_CHANCE_AFTER_RECORDS,
   SHARE_AFTER_RECORDS,
@@ -181,5 +182,20 @@ describe('한 번뿐인 안내를 다시 묻는 때', () => {
 
     expect(before.secondChance).toBe(false);
     expect(at.secondChance).toBe(true);
+  });
+});
+
+describe('별점 권유', () => {
+  it('별점은 공유보다 한참 뒤에 묻는다', () => {
+    expect(RATING_AFTER_RECORDS).toBeGreaterThan(SHARE_AFTER_RECORDS);
+    const few = resolveHomeView(
+      input({ hasAnyTransaction: true, transactionCount: SHARE_AFTER_RECORDS }),
+    );
+    expect(few.showShareInvite).toBe(true);
+    expect(few.showRatingAsk).toBe(false);
+    const many = resolveHomeView(
+      input({ hasAnyTransaction: true, transactionCount: RATING_AFTER_RECORDS }),
+    );
+    expect(many.showRatingAsk).toBe(true);
   });
 });

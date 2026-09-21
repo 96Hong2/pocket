@@ -3,6 +3,7 @@ import {
   Device,
   Environment,
   Notification,
+  Review,
   PermissionError,
   SafeArea,
   Screen,
@@ -20,6 +21,7 @@ import {
 import {
   BridgeError,
   recordLog,
+  recordReview,
   type AdsBridge,
   type AnalyticsBridge,
   type AnalyticsKind,
@@ -327,6 +329,10 @@ export class TossMiniAppBridge implements MiniAppBridge {
         // SDK 가 지원 여부를 알려 주지 않는다. 못 쓰는 버전이면 부를 때 던지고,
         // 그 오류를 화면이 그대로 말한다. 여기서 없는 것으로 미리 감추지 않는다.
         return true;
+      case 'review':
+        // 여기는 반대로 미리 감춘다. 별점 창은 **우리가 권유 카드를 먼저 띄우는** 자리라,
+        // 못 뜨는 버전에서 카드만 서면 눌러도 아무 일이 안 일어난다.
+        return Review.request.isSupported();
     }
   }
 
@@ -419,6 +425,20 @@ export class TossMiniAppBridge implements MiniAppBridge {
         },
       });
     });
+  }
+
+  /**
+   * 토스가 띄우는 별점 창.
+   *
+   * 결과가 없다. 별점을 남겼는지 창만 닫았는지 SDK 가 말해 주지 않아, 부르는 쪽은
+   * 「물어봤다」 까지만 센다. 지원 여부는 `supports('review')` 로 미리 가른다.
+   */
+  async requestReview(): Promise<void> {
+    if (!Review.request.isSupported()) {
+      throw new BridgeError('UNSUPPORTED', '이 토스 앱 버전에서는 별점을 남길 수 없어요.');
+    }
+    await Review.request();
+    recordReview(this.environment);
   }
 
   getSafeAreaInsets(): SafeAreaInsets {

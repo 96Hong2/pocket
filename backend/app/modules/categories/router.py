@@ -1,10 +1,10 @@
 """카테고리 엔드포인트.
 
-기본 카테고리는 모든 사용자가 같은 행을 보므로 이름·아이콘은 조회만 된다.
-내가 만든 분류는 이름과 아이콘을 고치고 지울 수 있고, 지워도 과거 거래는 그대로 남는다.
+기본 카테고리는 모든 사용자가 같은 행을 본다. 그래서 이름·아이콘·색을 고치면 그 행이
+아니라 **내 설정에 덮어쓰기**가 남는다. 남의 화면은 그대로다. 지우는 것만은 여전히
+내가 만든 분류에서만 된다. 공용 행을 지우면 그 분류로 적어 둔 남의 기록이 분류를 잃는다.
 
-**`is_quick` 만은 기본 카테고리에도 걸린다.** 그 값은 카테고리 행이 아니라 내 설정에 남아
-다른 사람에게 번지지 않는다. 기록 화면에 무엇을 먼저 둘지는 각자 정할 일이다.
+`is_quick` 도 같은 이유로 내 설정에 남는다. 기록 화면에 무엇을 먼저 둘지는 각자 정할 일이다.
 """
 
 from __future__ import annotations
@@ -28,13 +28,26 @@ from app.modules.categories.schemas import (
 router = APIRouter(prefix="/categories", tags=["categories"], responses=ERROR_RESPONSES)
 
 
-def _out(row: Category, hidden: set[str], usage: dict[str, int] | None = None) -> CategoryOut:
+def _out(
+    row: Category,
+    hidden: set[str],
+    overrides: dict[str, dict[str, str | None]],
+    usage: dict[str, int] | None = None,
+) -> CategoryOut:
+    """행에 적힌 값이 아니라 **이 사람 화면에 보일 값**을 내보낸다.
+
+    기본 분류를 다르게 부르기로 한 사람에게는 덮어쓰기가 이름·아이콘·색을 대신한다.
+    화면이 둘을 합치게 두지 않는다. 합치는 자리가 둘이 되면 목록과 기록 시트가
+    서로 다른 이름을 보여 준다.
+    """
+    icon_key, icon_custom = service.effective_icon(row, overrides)
     return CategoryOut(
         id=row.id,
-        name=row.name,
+        name=service.effective_name(row, overrides),
         kind=row.kind,
-        icon_key=row.icon_key,
-        icon_custom=row.icon_custom,
+        icon_key=icon_key,
+        icon_custom=icon_custom,
+        color=service.effective_color(row, overrides),
         is_quick=str(row.id) not in hidden,
         sort_order=row.sort_order,
         is_default=row.user_id is None,
@@ -46,8 +59,9 @@ def _out(row: Category, hidden: set[str], usage: dict[str, int] | None = None) -
 def index(session: DbSession, user: CurrentUser) -> CategoryListOut:
     hidden = service.quick_hidden_ids(session, user)
     usage = service.usage_counts(session, user)
+    overrides = service.category_overrides(session, user)
     rows = service.list_categories(session, user)
-    return CategoryListOut(items=[_out(row, hidden, usage) for row in rows])
+    return CategoryListOut(items=[_out(row, hidden, overrides, usage) for row in rows])
 
 
 @router.put("/order", status_code=status.HTTP_204_NO_CONTENT)
@@ -63,14 +77,16 @@ def reorder(body: CategoryOrderIn, session: DbSession, user: CurrentUser) -> Res
 @router.post("", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
 def create(body: CategoryCreate, session: DbSession, user: CurrentUser) -> CategoryOut:
     row = service.create_category(session, user, body)
-    return _out(row, service.quick_hidden_ids(session, user))
+    return _out(
+        row, service.quick_hidden_ids(session, user), service.category_overrides(session, user)
+    )
 
 
 @router.patch("/{category_id}", response_model=CategoryOut)
 def update(
     category_id: uuid.UUID, body: CategoryUpdate, session: DbSession, user: CurrentUser
 ) -> CategoryOut:
-    # 기록 화면에 보일지는 내 설정이라 기본 분류에도 건다. 나머지 값은 내가 만든 것만 고친다.
+    # 기록 화면에 보일지는 내 설정이다. 이름·아이콘·색도 기본 분류에서는 내 설정에 남는다.
     if body.is_quick is not None:
         service.require_owned(session, user, category_id)
         service.set_quick(session, user, category_id, body.is_quick)
@@ -80,7 +96,9 @@ def update(
         if body.model_fields_set - {"is_quick"}
         else service.require_seen(session, user, category_id)
     )
-    return _out(row, service.quick_hidden_ids(session, user))
+    return _out(
+        row, service.quick_hidden_ids(session, user), service.category_overrides(session, user)
+    )
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)

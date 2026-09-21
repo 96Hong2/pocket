@@ -178,12 +178,20 @@ export function emojiIcon(glyph: string): string {
 }
 
 /** 아바타에 그대로 펼쳐 넣는다. `<CategoryAvatar {...iconOf(category)} size={52} />` */
-export function iconOf(category: {
-  icon_key?: string | null;
-  icon_custom?: string | null;
-} | null | undefined): { icon: IconName; custom: string | null } {
+export function iconOf(
+  category:
+    | {
+        icon_key?: string | null;
+        icon_custom?: string | null;
+        color?: string | null;
+      }
+    | null
+    | undefined,
+): { icon: IconName; custom: string | null; color: string | null } {
   return {
     icon: toIconName(category?.icon_key),
     custom: category?.icon_custom ?? null,
+    // 고른 적 없으면 null 이고, 아바타가 무채색 기본 바탕을 쓴다.
+    color: category?.color ?? null,
   };
 }
