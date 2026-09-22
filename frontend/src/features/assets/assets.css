@@ -23,6 +23,12 @@
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-card);
     text-decoration: none;
+    /* 링크였다가 버튼이 됐다. 들어가는 길에 광고 한 편이 서서 순서를 우리가 쥔다. */
+    width: 100%;
+    border: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
 
   .assets-entry__body {
@@ -42,6 +48,27 @@
   .assets-entry__sub {
     font-size: var(--text-12);
     color: var(--color-muted);
+  }
+
+  /*
+    숫자 아래 한 줄.
+
+    **각주로 읽히게 둔다.** 순자산 줄에 바로 붙여 두면 카드에 사실이 셋인 것처럼 보여,
+    자산을 보러 온 사람이 광고 이야기를 순자산과 나란히 읽는다. 한 칸 더 띄워 아래로 내린다. 색은 더 못 흐리게 한다(11px 은 이 색이 대비 하한이다).
+  */
+  .assets-entry__ad {
+    margin-top: 6px;
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-regular);
+    color: var(--color-muted);
+  }
+
+  /*
+    광고가 안 서는 기기·시간대. 글자만 지우고 자리는 남긴다.
+    `visibility` 라 스크린리더에서도 함께 빠진다. 읽히지 않으면서 높이는 그대로다.
+  */
+  .assets-entry__ad--off {
+    visibility: hidden;
   }
 
   /* 화살표는 글자에 섞지 않는다. 스크린리더가 함께 읽는다. */

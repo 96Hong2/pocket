@@ -21,7 +21,22 @@ const CALENDAR = '**/api/v1/transactions/calendar?*';
 async function topOf(locator: Locator): Promise<number> {
   const box = await locator.boundingBox();
   expect(box, '잴 대상이 화면에 없다').not.toBeNull();
-  return Math.round(box!.y);
+  return box!.y;
+}
+
+/**
+ * 여기서 잡으려는 것은 **손가락이 빗나갈 만큼의 밀림**이다.
+ *
+ * 예전에는 `Math.round` 로 잰 값을 그대로 맞췄다. 그런데 예산 자리는 불러오는 중과
+ * 다 불러온 뒤가 **0.4px** 다르다(실측 580.015625 → 580.421875). 이건 원래 있던 차이고
+ * 눈에 보이지 않는다. 다만 위쪽 카드 높이가 조금만 바뀌어도 그 0.4px 가 반올림 경계를
+ * 넘나들어, 아무 관계 없는 회차에서 이 검사만 빨개졌다.
+ *
+ * 그래서 재는 자를 뜻에 맞춘다. **1px 미만은 같은 자리로 본다.** 이 검사가 잡으려던
+ * 사고는 예산 카드가 회색 줄 하나로 줄면서 아래가 120px 뛴 것이라 그대로 걸린다.
+ */
+function expectSamePlace(now: number, before: number, message: string): void {
+  expect(Math.abs(now - before), `${message} (${before} → ${now})`).toBeLessThan(1);
 }
 
 test('관리 탭에서 달을 넘겨도 아래 목록이 제자리에 있다', async ({ manage, page }) => {
@@ -46,12 +61,12 @@ test('관리 탭에서 달을 넘겨도 아래 목록이 제자리에 있다', a
   await test.step('불러오는 동안에도 같은 자리다', async () => {
     // 자리표시자가 떠 있는 그 순간을 잡는다.
     await expect(page.getByRole('status', { name: '예산을 불러오는 중이에요' })).toBeVisible();
-    expect(await topOf(below), '예산 자리가 줄어 아래가 밀렸다').toBe(before);
+    expectSamePlace(await topOf(below), before, '예산 자리가 줄어 아래가 밀렸다');
   });
 
   await test.step('다 불러온 뒤에도 같은 자리다', async () => {
     await manage.waitReady();
-    expect(await topOf(below)).toBe(before);
+    expectSamePlace(await topOf(below), before, '다 불러온 뒤 아래가 밀렸다');
   });
 });
 
@@ -75,14 +90,14 @@ test('달력에서 달을 넘겨도 격자와 목록이 제자리에 있다', as
 
   await test.step('합계 자리가 카드로 부풀지 않는다', async () => {
     await expect(page.getByRole('status', { name: '이번 달 합계를 불러오는 중이에요' })).toBeVisible();
-    expect(await topOf(calendar.grid.box), '합계 자리가 부풀어 달력이 밀렸다').toBe(gridTop);
-    expect(await topOf(calendar.search.input)).toBe(searchTop);
+    expectSamePlace(await topOf(calendar.grid.box), gridTop, '합계 자리가 부풀어 달력이 밀렸다');
+    expectSamePlace(await topOf(calendar.search.input), searchTop, '검색 칸이 밀렸다');
   });
 
   await test.step('다 불러온 뒤에도 같은 자리다', async () => {
     await calendar.waitReady();
-    expect(await topOf(calendar.grid.box)).toBe(gridTop);
-    expect(await topOf(calendar.search.input)).toBe(searchTop);
+    expectSamePlace(await topOf(calendar.grid.box), gridTop, '다 불러온 뒤 달력이 밀렸다');
+    expectSamePlace(await topOf(calendar.search.input), searchTop, '다 불러온 뒤 검색 칸이 밀렸다');
   });
 });
 

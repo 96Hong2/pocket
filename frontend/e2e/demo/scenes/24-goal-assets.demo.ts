@@ -31,7 +31,7 @@ test('50 목표를 정하고 모은 돈을 더한다', async ({ appShell, demo, 
 
   await demo.step('관리 탭에서 목표로 들어간다');
   await appShell.goToTab('관리');
-  await appShell.followLink('목표');
+  await appShell.followRow('목표');
   await goal.waitReady();
   await demo.beat(2);
 

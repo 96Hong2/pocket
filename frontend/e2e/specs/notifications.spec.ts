@@ -38,7 +38,7 @@ test('알림 설정은 앱 설정 아래에 있고, 처음 열면 꺼져 있다'
     await manage.waitReady();
     await expect(settings.anyDialog).toHaveCount(0);
 
-    await appShell.followLink('앱 설정');
+    await appShell.followRow('앱 설정');
     await settings.waitReady();
     await expect(settings.anyDialog).toHaveCount(0);
   });
@@ -49,7 +49,7 @@ test('알림 설정은 앱 설정 아래에 있고, 처음 열면 꺼져 있다'
       '알림 설정',
       '개인정보처리방침',
     ]);
-    await appShell.followLink('알림 설정');
+    await appShell.followRow('알림 설정');
     await appShell.expectScreen('알림 설정', '알림은 하나뿐이에요. 언제 받을지만 정하면 돼요');
     await appShell.expectDocumentTitle('알림 설정');
   });
@@ -104,7 +104,7 @@ test('켜는 그 순간에만 동의를 묻고, 정한 시각이 다시 열어�
     await appShell.pressBack();
     await appShell.expectScreen('앱 설정', '홈에 무엇을 먼저 보여줄지 정해요');
 
-    await appShell.followLink('알림 설정');
+    await appShell.followRow('알림 설정');
     await notifications.waitReady();
     await expect(notifications.toggle).toHaveAttribute('aria-checked', 'true');
     await expect(notifications.timeInput).toHaveValue(NEW_TIME);

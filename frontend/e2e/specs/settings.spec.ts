@@ -43,7 +43,7 @@ test('홈 표시 방식을 바꾸면 홈이 그대로 바뀐다', async ({
   await test.step('앱 설정에서 수입·지출로 바꾼다', async () => {
     await appShell.goToTab('관리');
     await manage.waitReady();
-    await appShell.followLink('앱 설정');
+    await appShell.followRow('앱 설정');
     await settings.waitReady();
 
     await expect(settings.preview).toHaveText('홈 맨 위에 남은 예산이 먼저 보여요.');
@@ -66,7 +66,7 @@ test('홈 표시 방식을 바꾸면 홈이 그대로 바뀐다', async ({
   await test.step('남은 예산으로 되돌리면 홈도 원래대로 온다', async () => {
     await appShell.goToTab('관리');
     await manage.waitReady();
-    await appShell.followLink('앱 설정');
+    await appShell.followRow('앱 설정');
     await settings.waitReady();
 
     await settings.chooseHero('남은 예산');
@@ -181,7 +181,7 @@ test('개인정보처리방침 링크가 실제로 도착한다', async ({ appSh
   );
   await expect(settings.privacyLink).toBeVisible();
 
-  await appShell.followLink('개인정보처리방침');
+  await appShell.followRow('개인정보처리방침');
 
   // 링크가 걸려 있는 것으로 끝내지 않는다. 도착한 자리에 실제 화면이 있는지까지 본다.
   await appShell.expectScreen('개인정보처리방침', '무엇을 저장하고 무엇을 안 남기는지 적어 뒀어요');

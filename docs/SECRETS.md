@@ -228,8 +228,9 @@ POCKET_SMTP_HOST=smtp.gmail.com POCKET_SMTP_USER=<메일> ./scripts/deploy-cloud
 | 이름 | 값 | 비고 |
 |---|---|---|
 | `VITE_AD_GROUP_ID` | 콘솔에서 발급한 운영 adGroupId | 번들에 박히므로 "감춰지는" 값은 아니다. 다만 저장소에는 남기지 않는다 |
-| `VITE_AD_FULLSCREEN_GROUP_ID` | 콘솔에서 발급한 운영 **전면** adGroupId | 위와 같다. 비면 월말 결산·자산·리포트 자리가 광고 없이 열린다(오류 없음) |
+| `VITE_AD_FULLSCREEN_GROUP_ID` | 콘솔에서 발급한 운영 **전면** adGroupId | 위와 같다. 비면 결산·자산·관리 탭 하위 화면 넷이 광고 없이 열린다(오류 없음) |
 | `VITE_AD_REWARDED_GROUP_ID` | 콘솔에서 발급한 운영 **리워드** adGroupId | 전면과 다른 그룹이다. 비면 생활비 계산기가 광고 없이 열린다(오류 없음). `make ait` 가 없으면 멈춘다 |
+| `VITE_AD_PHOTO_GROUP_ID` | 사진 한 장을 받는 자리의 **리워드** adGroupId (ADR-0030) | 비면 위 계산기 그룹으로 떨어진다. 광고는 뜨지만 **광고 화면이 말하는 보상과 우리가 주는 것이 어긋난다.** 보상 이름이 「사진」 인 그룹을 따로 만든다 |
 
 값이 비어 있으면 배너 슬롯 자체를 접는다. 빈 자리를 남기지 않는다.
 조용히 접히므로 오류로는 드러나지 않는다. **`ad_result` 로그의 `no_group` 이 유일한 실마리다.**

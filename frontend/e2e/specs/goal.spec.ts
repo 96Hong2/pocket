@@ -35,7 +35,7 @@ test('관리 탭에서 목표로 들어가면 빈 상태가 있다', async ({ ap
 
   // 자산은 순자산을 그 자리에 보여주는 카드라 목록이 아니라 예산 위에 있다.
   // 알림 설정은 여기와 앱 설정 두 곳에 둔다. 켜려는 사람이 어느 쪽을 먼저 뒤질지 갈린다.
-  await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText([
+  await expect(appShell.subScreenRows('관리 하위 화면')).toHaveText([
     '목표',
     '카테고리 관리',
     '태그',
@@ -45,7 +45,7 @@ test('관리 탭에서 목표로 들어가면 빈 상태가 있다', async ({ ap
     '앱 설정',
   ]);
 
-  await appShell.followLink('목표');
+  await appShell.followRow('목표');
   await appShell.expectScreen('목표', '모으고 싶은 것 하나만 정해요');
   await goal.waitReady();
 
@@ -263,7 +263,7 @@ test('시스템 뒤로가기로 관리 탭에 돌아오고, 시트가 열려 있
 }) => {
   await manage.open();
   await manage.waitReady();
-  await appShell.followLink('목표');
+  await appShell.followRow('목표');
   await goal.waitReady();
 
   // 하위 화면이라 탭바가 통째로 빠진다. 화면 안에 뒤로가기를 그리지도 않는다.

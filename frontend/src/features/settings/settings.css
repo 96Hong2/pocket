@@ -191,16 +191,6 @@
 
   /* ── 앱 정보 시트 ─────────────────────────────── */
 
-  /* 버전 줄은 이제 눌린다. 버튼 기본 모양을 지워 옆 줄들과 같은 자리에 선다. */
-  .setting-block--links button.link-row {
-    width: 100%;
-    border: 0;
-    background: none;
-    text-align: left;
-    font: inherit;
-    cursor: pointer;
-  }
-
   .diag-list {
     display: flex;
     flex-direction: column;

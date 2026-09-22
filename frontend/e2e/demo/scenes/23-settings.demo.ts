@@ -44,7 +44,7 @@ test('48 홈 맨 위에 무엇을 보여줄지 고른다', async ({
   await demo.step('관리 탭을 거쳐 앱 설정으로 들어간다');
   await appShell.goToTab('관리');
   await manage.waitReady();
-  await appShell.followLink('앱 설정');
+  await appShell.followRow('앱 설정');
   await settings.waitReady();
   await demo.beat(2);
 
@@ -67,7 +67,7 @@ test('48 홈 맨 위에 무엇을 보여줄지 고른다', async ({
   await demo.step('설정으로 다시 가서 수입·예산을 고른다');
   await appShell.goToTab('관리');
   await manage.waitReady();
-  await appShell.followLink('앱 설정');
+  await appShell.followRow('앱 설정');
   await settings.waitReady();
   await settings.chooseHero('수입·예산');
   await expect(settings.preview).toHaveText('홈 맨 위에 번 돈과 남은 예산이 함께 보여요.');

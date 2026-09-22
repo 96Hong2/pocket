@@ -28,6 +28,8 @@ import {
 
 import { ImportReview } from './ImportReview';
 import { ParseProgress, type ParseStep } from './ParseProgress';
+import { PhotoCreditGate, PhotoCreditLine } from './PhotoCreditLine';
+import type { PhotoCreditsHandle } from './usePhotoCredits';
 
 /** 사진 한 장을 어디서 가져오는가. 그 뒤로는 두 갈래가 같은 길을 지난다. */
 export type ImageImportKind = 'capture' | 'receipt';
@@ -138,6 +140,13 @@ export interface ImageImportTabProps {
   onSaved?: (day: string | null) => void;
   /** 사진으로는 안 될 때 갈 다른 길. 실패 화면과 권한 화면 두 자리에 함께 놓인다. */
   fallbackAction?: ReactNode;
+  /**
+   * 남은 사진 장수. **시트가 하나를 만들어 두 탭에 나눠 준다.**
+   *
+   * 탭마다 따로 세면 두 탭이 동시에 떠 있어(`hidden` 으로 감출 뿐이다) 한쪽에서 쓴 것이
+   * 다른 쪽 숫자에 안 비친다. 실제로 캡처로 한 장 쓰고 영수증 탭에 가면 그대로 세 장이었다.
+   */
+  credits: PhotoCreditsHandle;
 }
 
 /**
@@ -155,6 +164,7 @@ export function ImageImportTab({
   onDone,
   onSaved,
   fallbackAction,
+  credits,
 }: ImageImportTabProps) {
   const mode = MODES[kind];
   const bridge = useBridge();
@@ -250,13 +260,27 @@ export function ImageImportTab({
         <ParseProgress steps={mode.progressSteps} slowHint={mode.slowHint} />
       ) : null}
 
-      <Button fullWidth disabled={analyzing} onClick={() => void pick()}>
-        {pickFailure != null ? '다시 시도' : mode.pickLabel}
-      </Button>
+      {/*
+        다 쓴 사람에게는 고르는 버튼 대신 받는 자리를 둔다. 버튼을 남겨 두고 누른 뒤에
+        막으면, 앨범을 열었다 닫는 헛걸음을 시킨 다음에야 안 된다고 말하는 셈이다.
+      */}
+      {credits.left === 0 ? (
+        <PhotoCreditGate credits={credits} fallback={fallbackAction} />
+      ) : (
+        <>
+          <Button fullWidth disabled={analyzing} onClick={() => void pick()}>
+            {pickFailure != null ? '다시 시도' : mode.pickLabel}
+          </Button>
+          <PhotoCreditLine credits={credits} />
+        </>
+      )}
     </div>
   );
 
   async function pick(): Promise<void> {
+    // 아직 못 읽었으면(`null`) 지나간다. 그 틈은 첫 그림 직후 한순간이고, 넘어가도
+    // 셈이 0 아래로는 안 내려간다. 여기서 막으면 버튼이 그 순간 죽은 것처럼 보인다.
+    if (credits.left === 0) return;
     setPickFailure(null);
     // 직전 분석 오류도 지운다. 안 지우면 취소하고 나왔을 때 붉은 줄이 그대로 남는다.
     analyze.reset();
@@ -291,6 +315,11 @@ export function ImageImportTab({
           },
           { flowId },
         );
+        /*
+          **읽어 낸 뒤에 센다.** 고르다 취소하거나 읽기가 실패한 것까지 세면, 우리 쪽
+          사정으로 못 읽은 값을 사람에게 물리게 된다. 실패한 호출의 값은 우리가 문다.
+        */
+        await credits.spendOne();
         setBatch(result);
       } catch (error) {
         analytics.log(

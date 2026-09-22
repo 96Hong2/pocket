@@ -64,7 +64,7 @@ test('53 정한 시각에 한 번, 기록하러 오라고만 알린다', async (
 
   await demo.step('관리 탭에서 알림 설정으로 들어간다');
   await appShell.goToTab('관리');
-  await appShell.followLink('알림 설정');
+  await appShell.followRow('알림 설정');
   await notifications.waitReady();
   await demo.beat(2);
 
@@ -93,7 +93,7 @@ test('53 정한 시각에 한 번, 기록하러 오라고만 알린다', async (
 
   await demo.step('나갔다 다시 들어와도 켜진 채 그 시각이 남아 있다');
   await appShell.pressBack();
-  await appShell.followLink('알림 설정');
+  await appShell.followRow('알림 설정');
   await notifications.waitReady();
   await expect(notifications.toggle).toHaveAttribute('aria-checked', 'true');
   await expect(notifications.timeInput).toHaveValue(NEW_TIME);

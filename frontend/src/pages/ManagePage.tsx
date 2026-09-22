@@ -1,31 +1,80 @@
-import { Link } from 'react-router';
+import { useNavigate } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
 import { ROUTES } from '../app/router/routes';
 import { KeepDataCard } from '../features/account';
-import { AdSlot } from '../features/ads';
+import { AdAheadListNote, AdSlot, useInterstitial, type InterstitialWhere } from '../features/ads';
 import { AssetsEntryCard } from '../features/assets';
 import { BudgetSection } from '../features/budgets';
 import { Card, CategoryAvatar, type IconName } from '../shared/ui';
 
+interface SubScreen {
+  to: string;
+  label: string;
+  icon: IconName;
+  /**
+   * 들어가는 길에 전면 광고 한 편이 서는 자리. 없으면 곧바로 넘어간다.
+   *
+   * 알림 설정·내 계정·앱 설정에는 두지 않는다. 알림을 켜러 온 사람과 기록을 안전하게
+   * 옮기러 온 사람을 광고로 막으면, 그 둘은 이 앱이 계속 쓰이게 하는 바로 그 길이다.
+   */
+  ad?: InterstitialWhere;
+}
+
 /**
  * 관리 탭 아래에 달린 화면들. 순서가 곧 화면에 보이는 순서다.
+ *
+ * **광고가 서는 넷을 위로 모았다.** 예고를 줄마다 반복하지 않고 목록 머리에 한 줄만
+ * 두려면, 그 한 줄이 가리키는 것들이 붙어 있어야 한다. 흩어 두면 어느 줄이 해당하는지
+ * 알 길이 없어 예고가 예고 구실을 못 한다.
  *
  * 알림 설정은 여기와 앱 설정 두 곳에 있다. 켜려는 사람이 어느 쪽을 먼저 뒤질지
  * 갈려서 한 곳만 두면 못 찾는다.
  */
-const SUB_SCREENS: { to: string; label: string; icon: IconName }[] = [
-  { to: ROUTES.goal, label: '목표', icon: '02_gold_bars' },
-  { to: ROUTES.categories, label: '카테고리 관리', icon: '16_paw' },
-  { to: ROUTES.tags, label: '태그', icon: '05_choice_arrows' },
-  { to: ROUTES.recurring, label: '반복 지출', icon: '27_clock' },
+const SUB_SCREENS: SubScreen[] = [
+  { to: ROUTES.goal, label: '목표', icon: '02_gold_bars', ad: 'goal' },
+  { to: ROUTES.categories, label: '카테고리 관리', icon: '16_paw', ad: 'categories' },
+  { to: ROUTES.tags, label: '태그', icon: '05_choice_arrows', ad: 'tags' },
+  { to: ROUTES.recurring, label: '반복 지출', icon: '27_clock', ad: 'recurring' },
   { to: ROUTES.notifications, label: '알림 설정', icon: '30_bell' },
   { to: ROUTES.account, label: '내 계정', icon: '57_smartphone' },
   { to: ROUTES.settings, label: '앱 설정', icon: '21_shield' },
 ];
 
+/** 광고가 서는 줄과 그렇지 않은 줄. 머리글 한 줄이 가리키는 범위가 눈으로도 갈려야 한다. */
+const AD_ROWS = SUB_SCREENS.filter((screen) => screen.ad != null);
+const PLAIN_ROWS = SUB_SCREENS.filter((screen) => screen.ad == null);
+
 /** 관리 탭. 자산과 예산을 여기서 바로 보고, 나머지는 하위 화면으로 들어간다. */
 export default function ManagePage() {
+  const navigate = useNavigate();
+  const interstitial = useInterstitial();
+
+  /*
+    광고가 뜨든 안 뜨든 화면은 열린다. 광고 서버 사정으로 카테고리를 못 고치게 두지 않는다.
+    같은 세션에서 두 번째 줄을 누르면 상한에 걸려 그냥 지나간다.
+  */
+  async function open(screen: SubScreen): Promise<void> {
+    if (screen.ad != null) await interstitial.show(screen.ad);
+    void navigate(screen.to);
+  }
+
+  function row(screen: SubScreen) {
+    return (
+      <li key={screen.to}>
+        <button
+          type="button"
+          className="link-row"
+          disabled={interstitial.busy}
+          onClick={() => void open(screen)}
+        >
+          <CategoryAvatar icon={screen.icon} size={44} />
+          <span className="link-row__label">{screen.label}</span>
+        </button>
+      </li>
+    );
+  }
+
   return (
     <div className="page">
       <h1 className="page__title">관리</h1>
@@ -46,16 +95,11 @@ export default function ManagePage() {
 
       <nav aria-label="관리 하위 화면">
         <Card padding="list">
-          <ul className="link-rows">
-            {SUB_SCREENS.map((screen) => (
-              <li key={screen.to}>
-                <Link className="link-row" to={screen.to}>
-                  <CategoryAvatar icon={screen.icon} size={44} />
-                  <span className="link-row__label">{screen.label}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {/* 오늘 상한을 이미 채웠으면 예고도 지운다. 안 뜰 광고를 적어 두면 그건 예고가 아니다. */}
+          {interstitial.ready ? <AdAheadListNote className="link-rows__ad" /> : null}
+          <ul className="link-rows">{AD_ROWS.map(row)}</ul>
+          {/* 예고가 가리키는 범위는 여기서 끝난다. 글자 대신 한 칸 띄워서 말한다. */}
+          <ul className="link-rows link-rows--rest">{PLAIN_ROWS.map(row)}</ul>
         </Card>
       </nav>
 

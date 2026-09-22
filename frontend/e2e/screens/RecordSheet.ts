@@ -1096,6 +1096,28 @@ class RecordImageImport {
     return this.root.getByRole('button', { name: this.labels.pickButton });
   }
 
+  /** 버튼 아래 남은 장수 한 줄. 「사진 3장 남음」. */
+  get creditLine(): Locator {
+    return this.root.getByText(/사진 \d+장 남음/);
+  }
+
+  /** 남은 장수 옆에서 한 장을 더 모으는 자리. 평소에는 작게 있다. */
+  get earnLink(): Locator {
+    return this.root.getByRole('button', { name: /광고 보고 한 장 더|광고를 불러오는 중이에요/ });
+  }
+
+  /** 오늘 몫을 다 썼을 때 고르는 버튼 자리에 대신 서는 묶음. */
+  get creditGate(): Locator {
+    return this.root.getByRole('group', { name: '사진 더 받기' });
+  }
+
+  /** 다 쓴 사람이 한 장을 받는 버튼. */
+  get earnButton(): Locator {
+    return this.creditGate.getByRole('button', {
+      name: /광고 한 편 보고 사진 받기|광고를 불러오는 중이에요/,
+    });
+  }
+
   /**
    * 분석 응답을 기다리는 동안의 진행 표시.
    *

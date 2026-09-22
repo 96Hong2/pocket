@@ -6,14 +6,17 @@ import type { PrepApi } from '../support/api';
 import { expect, test } from '../support/fixtures';
 
 /**
- * 전면 광고가 서는 **한 자리**와 그 상한, 그리고 광고를 세우지 않기로 한 두 자리.
+ * 전면 광고가 서는 **여섯 자리**와 그 상한, 그리고 광고를 세우지 않기로 한 자리들.
  *
  * 여기서 지키는 것 셋이다. **광고가 어떻게 되든 기능은 열린다**, **한 세션에 한 편이다**,
  * 그리고 **누르기 전에 광고가 있다고 적혀 있다**.
  *
- * 자리가 셋이었다. 자산 탭에 들어올 때와 리포트에서 옛날 달을 세 번 훑었을 때가 더
- * 있었는데, 둘 다 사람이 광고를 부른 적이 없어 적어 둘 자리도 없었다. 그 둘을 뺀 것이
- * 되돌아가지 않게 여기서 못 박는다.
+ * 자리를 여섯으로 늘려도 한 사람이 겪는 총량은 그대로다. 그 총량이 늘지 않는다는 것이
+ * 이 파일이 지키는 가장 중요한 것이다. 자리마다 「여기는 괜찮다」 고 더하기 시작하면
+ * 아무도 총량을 안 세게 된다.
+ *
+ * 리포트에서 옛날 달을 세 번 훑었을 때는 여전히 뺀 자리다. 화살표를 누른 것 말고는
+ * 아무것도 안 한 사람이고 적어 둘 자리도 없다. 그것이 되돌아가지 않게 여기서 못 박는다.
  *
  * 생활비 계산기는 여기 없다. 사람이 스스로 광고와 맞바꾸겠다고 누르는 자리라 리워드
  * 광고로 나갔고 상한도 안 센다(ADR-0024). 그 둘이 서로를 안 갉아먹는지를 이 파일 끝에서 본다.
@@ -88,7 +91,7 @@ test('홈 카드로 저절로 열리는 결산에는 광고를 세우지 않는�
   expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
 });
 
-test('자산 화면에 들어가도 광고가 뜨지 않는다. 탭을 누른 것 말고는 아무것도 안 한 사람이다', async ({
+test('자산은 광고 한 편을 지나 열린다. 카드에 미리 적혀 있다', async ({
   assets,
   manage,
   page,
@@ -96,15 +99,84 @@ test('자산 화면에 들어가도 광고가 뜨지 않는다. 탭을 누른 �
   await manage.open();
   await manage.waitReady();
 
-  // 화면 안 링크로 들어간다. 주소로 열면 화면이 통째로 다시 떠서 세션이 새로 시작된다.
+  // 눌러서 광고를 보기 **전에** 읽혀야 한다. 누른 뒤에 나오는 말은 예고가 아니다.
+  await expect(manage.assetsAdNote).toBeVisible();
+
+  // 화면 안 카드로 들어간다. 주소로 열면 화면이 통째로 다시 떠서 세션이 새로 시작된다.
   await manage.assetsEntry.click();
   await assets.waitReady();
   await expect(assets.netWorth.or(assets.emptyTitle)).toBeVisible();
 
+  const logs = await logsNamed(page, 'interstitial_result');
+  expect(logs.map((log) => [log.params.where, log.params.result])).toEqual([['assets', 'watched']]);
+});
+
+test('관리 탭 하위 화면 넷은 광고 한 편을 지나 열린다', async ({ categories, manage, page }) => {
+  await manage.open();
+  await manage.waitReady();
+  await expect(manage.subScreenAdNote).toBeVisible();
+
+  await manage.openSub('카테고리 관리');
+  await categories.waitReady();
+
+  const logs = await logsNamed(page, 'interstitial_result');
+  expect(logs.map((log) => [log.params.where, log.params.result])).toEqual([
+    ['categories', 'watched'],
+  ]);
+});
+
+test('같은 세션에서 둘째 줄을 눌러도 광고는 한 편뿐이다. 화면은 그대로 열린다', async ({
+  appShell,
+  categories,
+  manage,
+  page,
+  tags,
+}) => {
+  await manage.open();
+  await manage.waitReady();
+
+  await manage.openSub('카테고리 관리');
+  await categories.waitReady();
+  await appShell.pressBack();
+  await manage.waitReady();
+  await manage.openSub('태그');
+  await tags.waitReady();
+
+  const logs = await logsNamed(page, 'interstitial_result');
+  expect(logs.map((log) => [log.params.where, log.params.result, log.params.reason])).toEqual([
+    ['categories', 'watched'],
+    ['tags', 'skipped', 'capped'],
+  ]);
+});
+
+test('알림 설정·내 계정·앱 설정에는 광고를 세우지 않는다. 앱을 계속 쓰게 하는 길이다', async ({
+  manage,
+  notifications,
+  page,
+}) => {
+  await manage.open();
+  await manage.waitReady();
+
+  await manage.openSub('알림 설정');
+  await notifications.waitReady();
+
   expect(
     await logsNamed(page, 'interstitial_result'),
-    '자산 진입에 전면 광고가 돌아왔다',
+    '알림 설정에 전면 광고가 생겼다',
   ).toEqual([]);
+});
+
+test('상한을 다 쓴 사람에게는 예고도 안 보인다. 안 뜰 광고를 적어 두면 예고가 아니다', async ({
+  manage,
+  page,
+}) => {
+  await seedWatchedToday(page, 2);
+
+  await manage.open();
+  await manage.waitReady();
+
+  await expect(manage.subScreenAdNote).toBeHidden();
+  await expect(manage.assetsAdNote).toBeHidden();
 });
 
 test('리포트에서 달을 여러 번 옮겨도 광고가 뜨지 않는다. 화살표를 누른 것뿐이다', async ({

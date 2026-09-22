@@ -33,7 +33,7 @@ test('54 목표와 결산을 친구에게 보낸다', async ({ appShell, demo, g
 
   await demo.step('관리 탭에서 목표로 들어간다');
   await appShell.goToTab('관리');
-  await appShell.followLink('목표');
+  await appShell.followRow('목표');
   await goal.waitReady();
   await demo.beat(2);
 

@@ -165,7 +165,7 @@ test('상단 뒤로가기를 우리가 그리지 않는다. 화면 제목만 플
   await appShell.expectDocumentTitle('10초 가계부');
 
   await appShell.goToTab('관리');
-  await appShell.followLink('카테고리 관리');
+  await appShell.followRow('카테고리 관리');
   await appShell.expectDocumentTitle('카테고리 관리');
 
   // 상단바는 토스가 그린다. 우리가 하나 더 그리면 뒤로가기가 둘로 보인다.

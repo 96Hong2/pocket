@@ -60,9 +60,12 @@ function resolveGroup(environment: string, configured: unknown): string | null {
 function useAdShow(
   configured: unknown,
   run: (ads: AdsBridge, group: string) => Promise<'earned' | 'watched' | 'failed'>,
-): { busy: boolean; show: () => Promise<RewardedAdOutcome> } {
+): { busy: boolean; available: boolean; show: () => Promise<RewardedAdOutcome> } {
   const bridge = useBridge();
   const [busy, setBusy] = useState(false);
+  // 이 기기에서 애초에 광고가 설 수 있는가. 못 서는 곳에 예고를 적지 않으려고 화면에 알린다.
+  const available =
+    resolveGroup(bridge.environment, configured) != null && bridge.supports('fullScreenAd');
 
   const show = useCallback(async (): Promise<RewardedAdOutcome> => {
     const group = resolveGroup(bridge.environment, configured);
@@ -78,7 +81,7 @@ function useAdShow(
     }
   }, [bridge, configured, run]);
 
-  return { busy, show };
+  return { busy, available, show };
 }
 
 const runFullScreen = (ads: AdsBridge, group: string) => ads.showFullScreen(group);
@@ -91,9 +94,13 @@ const runRewarded = (ads: AdsBridge, group: string) => ads.showRewarded(group);
  */
 export function useFullScreenAd(): {
   busy: boolean;
+  available: boolean;
   show: () => Promise<FullScreenAdOutcome>;
 } {
-  const { busy, show } = useAdShow(import.meta.env.VITE_AD_FULLSCREEN_GROUP_ID, runFullScreen);
+  const { busy, available, show } = useAdShow(
+    import.meta.env.VITE_AD_FULLSCREEN_GROUP_ID,
+    runFullScreen,
+  );
 
   const showInterstitial = useCallback(async (): Promise<FullScreenAdOutcome> => {
     const outcome = await show();
@@ -101,7 +108,7 @@ export function useFullScreenAd(): {
     return outcome.result === 'earned' ? { result: 'watched' } : outcome;
   }, [show]);
 
-  return { busy, show: showInterstitial };
+  return { busy, available, show: showInterstitial };
 }
 
 /**
@@ -113,7 +120,28 @@ export function useFullScreenAd(): {
  */
 export function useRewardedAd(): {
   busy: boolean;
+  available: boolean;
   show: () => Promise<RewardedAdOutcome>;
 } {
   return useAdShow(import.meta.env.VITE_AD_REWARDED_GROUP_ID, runRewarded);
+}
+
+/**
+ * 사진 한 장을 받으려고 스스로 보는 광고.
+ *
+ * **전용 그룹을 먼저 본다.** 콘솔은 광고 그룹마다 보상 이름을 하나만 갖는다. 생활비 계산기
+ * 그룹을 사진에도 쓰면 광고 화면이 말하는 보상과 우리가 실제로 주는 것이 어긋난다.
+ * 전용 그룹 id 가 아직 없는 동안에만 기존 그룹으로 떨어지고, 값이 들어오면 저절로 옮겨 간다.
+ */
+export function usePhotoRewardedAd(): {
+  busy: boolean;
+  available: boolean;
+  show: () => Promise<RewardedAdOutcome>;
+} {
+  const dedicated = import.meta.env.VITE_AD_PHOTO_GROUP_ID;
+  const configured =
+    typeof dedicated === 'string' && dedicated.trim() !== ''
+      ? dedicated
+      : import.meta.env.VITE_AD_REWARDED_GROUP_ID;
+  return useAdShow(configured, runRewarded);
 }

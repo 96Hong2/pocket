@@ -134,7 +134,7 @@ test('카테고리를 지우면 그 카테고리 예산도 함께 사라진다',
   await manage.waitReady();
   await expect(manage.categories.row(PET)).toBeVisible();
 
-  await appShell.followLink('카테고리 관리');
+  await appShell.followRow('카테고리 관리');
   await categories.waitReady();
   await categories.openEdit(PET);
   await categories.sheet.remove();

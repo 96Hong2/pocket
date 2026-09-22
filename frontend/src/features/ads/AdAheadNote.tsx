@@ -12,3 +12,17 @@
 export function AdAheadNote({ className }: { className?: string }) {
   return <span className={className}>짧은 광고가 한 번 지나가요</span>;
 }
+
+/**
+ * 여러 줄이 같은 예고를 공유할 때, 목록 머리에 한 번만 적는 줄.
+ *
+ * 관리 탭 하위 화면 넷이 모두 같은 예고를 갖는다. 줄마다 같은 문장을 붙이면 목록이
+ * 광고 예고로 도배되고, 그 순간 예고가 아니라 광고판이 된다. 한 번만 적고 어느 줄이
+ * 해당하는지는 **이 줄 바로 아래에 그 넷만 둔다**는 배치로 말한다.
+ *
+ * 「한 번」 과 「처음 들어갈 때」 를 같이 적는 이유는, 들어갈 때마다 뜬다고 읽히면
+ * 아예 안 누르기 때문이다. 실제로도 한 세션에 한 편이 상한이다(`SESSION_CAP`).
+ */
+export function AdAheadListNote({ className }: { className?: string }) {
+  return <p className={className}>아래 넷은 처음 열 때 짧은 광고가 한 번 지나가요</p>;
+}
