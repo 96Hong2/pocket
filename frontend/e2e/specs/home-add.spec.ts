@@ -99,24 +99,28 @@ test('닫으면 다시 들어와도 뜨지 않는다', async ({ home, page, prep
 });
 
 /**
- * 알림은 **딴 카드**다.
+ * 알림은 **딴 카드**이고, **한 번에 하나만 선다.**
  *
  * 예전에는 홈 추가 카드 안에 줄 하나로 얹혀 있었다. 그러면 홈에 두기는 싫고 알림만
  * 켜고 싶은 사람이 둘을 같이 닫아야 했고, 그 줄은 설정 화면으로 보내기만 해서 거기서
- * 토글을 찾아 켜는 걸음이 더 있었다.
+ * 토글을 찾아 켜는 걸음이 더 있었다. 그래서 카드를 갈랐다.
+ *
+ * 갈라 두고 **나란히 세우던 것**은 2026-09-22 에 그만뒀다. 출시판을 쓴 사람이 보낸 화면에
+ * 밀린 내역·홈 추가·저녁 알림이 한꺼번에 서 있었다. 하나씩 물어도 각자 닫기 전까지는
+ * 다음 회차에 다시 선다.
  */
-test('저녁 알림은 따로 서고, 닫는 ✕ 도 따로다', async ({ home, prep }) => {
+test('홈 추가를 닫아야 저녁 알림이 선다. 한 번에 하나다', async ({ home, prep }) => {
   await prep.addTransaction({ amount: 12000 });
   await home.open();
   await home.waitReady();
 
   await expect(home.addToHome.card).toBeVisible();
-  await expect(home.remind.card).toBeVisible();
-
-  // 알림만 닫는다. 홈 추가는 그대로 남아야 한다.
-  await home.remind.closeButton.click();
   await expect(home.remind.card).toHaveCount(0);
-  await expect(home.addToHome.card).toBeVisible();
+
+  // 홈 추가를 닫으면 그 자리에 알림이 선다. 닫는 ✕ 는 각자 갖는다.
+  await home.addToHome.closeButton.click();
+  await expect(home.addToHome.card).toHaveCount(0);
+  await expect(home.remind.card).toBeVisible();
 });
 
 test('카드에서 바로 저녁 8시 알림이 켜진다', async ({ home, notifications, prep }) => {
@@ -124,6 +128,8 @@ test('카드에서 바로 저녁 8시 알림이 켜진다', async ({ home, notif
   await home.open();
   await home.waitReady();
 
+  // 권유는 한 번에 하나다. 앞의 것을 닫아야 알림 카드가 선다.
+  await home.addToHome.closeButton.click();
   await home.remind.turnOnButton.click();
 
   // 켠 그 자리에서 답한다. 카드가 말없이 사라지면 눌린 것인지 알 수 없다.
@@ -152,6 +158,8 @@ test.describe('알림 저장 실패', () => {
     await prep.addTransaction({ amount: 12000 });
     await home.open();
     await home.waitReady();
+    // 권유는 한 번에 하나다. 앞의 것을 닫아야 알림 카드가 선다.
+    await home.addToHome.closeButton.click();
 
     await page.route('**/api/v1/notifications/settings', async (route) => {
       if (route.request().method() !== 'PATCH') {
@@ -209,11 +217,13 @@ test('닫았어도 다섯 번째 기록에서 한 번 더 뜬다', async ({ home
   await page.reload();
   await home.waitReady();
 
+  // 두 번째 기회에도 한 번에 하나다. 홈 추가가 먼저다.
   await expect(home.addToHome.card).toBeVisible();
-  await expect(home.remind.card).toBeVisible();
+  await expect(home.remind.card).toHaveCount(0);
 
   await test.step('여기서 닫으면 그게 대답이다', async () => {
     await home.addToHome.closeButton.click();
+    await expect(home.remind.card).toBeVisible();
     await home.remind.closeButton.click();
     await page.reload();
     await home.waitReady();
@@ -235,14 +245,15 @@ test('한 번을 놓쳐도 앱 설정에서 같은 안내를 연다', async ({ p
 });
 
 /**
- * **스스로 서는 카드는 한 번에 둘까지다.**
+ * **스스로 서는 권유 카드는 한 번에 하나다.**
  *
- * 셋이 쌓이면 기록 버튼 아래가 권유 전시장이 되고 정작 급한 것이 안 읽힌다. 카드가 셋
- * 쌓인 화면을 직접 찍어 보고 정한 규칙이다.
+ * 둘까지 허용하던 규칙을 2026-09-22 에 하나로 좁혔다. 출시판을 쓴 사람이 보낸 화면에
+ * 밀린 내역·홈 추가·저녁 알림이 한꺼번에 서 있었고, 초록 버튼이 기록하기까지 넷이라
+ * 무엇을 눌러야 하는 화면인지 안 읽혔다.
  *
- * 한 쌍인 홈 추가·저녁 알림이 앞이고 예산 제안이 비켜 준다. **예산 제안은 안 사라지고
- * 기다리기 때문**이다. 예산을 정할 때까지 계속 뜨고, 카드 자체도 관리 탭에서 언제든
- * 정할 수 있다고 적는다. 반대로 한 번뿐인 안내는 그 자리를 내주면 영영 안 뜬다.
+ * 한 번뿐인 안내가 앞이고 예산 제안이 비켜 준다. **예산 제안은 안 사라지고 기다리기
+ * 때문**이다. 예산을 정할 때까지 계속 뜨고, 카드 자체도 관리 탭에서 언제든 정할 수
+ * 있다고 적는다. 반대로 한 번뿐인 안내는 그 자리를 내주면 영영 안 뜬다.
  */
 test('예산 제안은 한 번뿐인 안내에 비켜 주고, 닫으면 바로 선다', async ({ home, prep }) => {
   await prep.addTransaction({ amount: 12000 });
@@ -251,11 +262,12 @@ test('예산 제안은 한 번뿐인 안내에 비켜 주고, 닫으면 바로 �
   await home.waitReady();
 
   await expect(home.addToHome.card).toBeVisible();
-  await expect(home.remind.card).toBeVisible();
+  await expect(home.remind.card).toHaveCount(0);
   await expect(home.budget.suggestCard).toHaveCount(0);
 
-  await test.step('둘을 닫으면 예산 제안이 그 자리에 선다', async () => {
+  await test.step('앞의 둘을 차례로 닫으면 예산 제안이 그 자리에 선다', async () => {
     await home.addToHome.closeButton.click();
+    await expect(home.budget.suggestCard).toHaveCount(0);
     await home.remind.closeButton.click();
     await expect(home.budget.suggestCard).toBeVisible();
   });
@@ -267,7 +279,41 @@ test('예산 제안은 한 번뿐인 안내에 비켜 주고, 닫으면 바로 �
  * 공유는 다섯 번 넘게 적은 사람에게만 뜨고, 그때까지 기다릴 수 있는 유일한 권유다.
  * 두 번째 기회로 다시 선 카드 둘과 겹치면 홈이 권유 전시장이 된다.
  */
-test('권유 카드가 셋 쌓이지 않는다', async ({ home, prep }) => {
+/**
+ * 밀린 내역이 서면 **다른 권유는 다음 회차로 미룬다.**
+ *
+ * 출시판을 쓴 사람이 보낸 화면에 밀린 내역·홈 화면 추가·저녁 알림이 한꺼번에 서 있었다.
+ * 규칙이 기록 버튼 **아래**만 세고 있었고, 그 위에 서는 밀린 내역 카드는 아무도 안 세고
+ * 있었던 것이 원인이다.
+ *
+ * 며칠 비운 사람이 지금 이 화면에 온 이유가 밀린 내역이다. 나머지는 다음에 물어도 되지만
+ * 이 사람은 지금 이어 붙이지 않으면 다시 안 온다.
+ *
+ * **이 검사는 여기 있어야 한다.** `recovery.spec.ts` 는 권유 카드 표가 기본으로 닫혀 있어
+ * 「안 뜬다」 를 아무리 단언해도 아무것도 증명하지 못한다(`showStarterCards`).
+ */
+test('밀린 내역이 뜨면 다른 권유 카드는 쉰다', async ({ home, prep }) => {
+  // 나흘 비운 사람. 사흘을 넘겨야 밀린 내역 카드가 선다.
+  await prep.addExpense({ amount: 12_000, daysAgo: 4 });
+
+  await home.open();
+  await home.waitReady();
+
+  await expect(home.recovery.card).toBeVisible();
+  await expect(home.addToHome.card).toHaveCount(0);
+  await expect(home.remind.card).toHaveCount(0);
+  await expect(home.budget.suggestCard).toHaveCount(0);
+
+  await test.step('닫으면 그 자리를 다음 것이 이어받는다', async () => {
+    await home.recovery.closeButton.click();
+    await expect(home.recovery.card).toHaveCount(0);
+    // 여기서도 하나뿐이다. 홈 추가가 서고 저녁 알림은 그다음 회차로 간다.
+    await expect(home.addToHome.card).toBeVisible();
+    await expect(home.remind.card).toHaveCount(0);
+  });
+});
+
+test('권유 카드는 한 번에 하나만 선다', async ({ home, prep }) => {
   for (let i = 0; i < 5; i += 1) {
     await prep.addTransaction({ amount: 3000 + i });
   }
@@ -276,7 +322,7 @@ test('권유 카드가 셋 쌓이지 않는다', async ({ home, prep }) => {
   await home.waitReady();
 
   await expect(home.addToHome.card).toBeVisible();
-  await expect(home.remind.card).toBeVisible();
+  await expect(home.remind.card).toHaveCount(0);
   await expect(home.share.card).toHaveCount(0);
   await expect(home.budget.suggestCard).toHaveCount(0);
 });
