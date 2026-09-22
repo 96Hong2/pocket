@@ -470,8 +470,21 @@ def test_새_사용자_행이_한_개만_생긴다(client: TestClient, db: Sessi
 def test_카테고리를_고치면_판정과_예산이_다시_온다(
     client: TestClient, default_categories: list[Category]
 ) -> None:
+    """고친 뒤에도 사실 문장 하나만 온다.
+
+    **날짜를 오늘로 잡는다.** 못 박아 두면 그 날이 지난주가 되는 순간 「지난주보다 줄었다」
+    라는 칭찬이 대신 오고, 그 뒤로 날마다 빨개진다(2026-09-22 에 실제로 그렇게 됐다).
+    이 검사가 보려는 것은 날짜가 아니라 「예산이 없고 큰 지출도 아닐 때 무엇이 오나」 다.
+    """
     food = next(c for c in default_categories if c.name == "식비")
-    created = client.post("/api/v1/transactions", json=_payload(), headers=AUTH).json()
+    today = datetime.now(ZoneInfo(ledger.DEFAULT_TIMEZONE)).replace(
+        hour=12, minute=30, second=0, microsecond=0
+    )
+    created = client.post(
+        "/api/v1/transactions",
+        json=_payload(occurred_at=today.isoformat()),
+        headers=AUTH,
+    ).json()
 
     r = client.patch(
         f"/api/v1/transactions/{created['transaction']['id']}",
