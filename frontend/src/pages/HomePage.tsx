@@ -146,41 +146,56 @@ function HomeContent({
   // 그 자리에서 통째로 return 하면 '10초 기록' 버튼까지 사라져, 읽기 실패가 쓰기 진입점을 막는다.
   const view = budget.data != null ? resolveHomeView(toHomeViewInput(budget.data)) : null;
   /*
-    **스스로 서는 카드는 한 번에 둘까지다.** 셋이 쌓이면 기록 버튼 아래가 권유 전시장이 되고,
-    정작 급한 것이 안 읽힌다. 카드가 셋 쌓인 화면을 직접 찍어 보고 정한 규칙이다.
+    **스스로 서는 권유 카드는 한 번에 하나다.**
 
-    순서는 이렇다: 곧 나갈 돈 → 홈 화면 추가 → 저녁 알림 → 예산 제안 → 공유.
+    둘까지 허용하던 규칙을 하나로 좁혔다. 출시판을 쓴 사람이 보낸 화면에 「밀린 내역 정리」·
+    「홈 화면에 추가」·「저녁 알림」 이 한꺼번에 서 있었다. 초록 버튼이 기록하기까지 넷이라
+    무엇을 눌러야 하는 화면인지 읽히지 않는다. 규칙이 기록 버튼 **아래**만 세고 있었고,
+    그 위에 서는 밀린 내역 카드는 아무도 안 세고 있었던 것이 원인이다.
 
-    - 「곧 나갈 돈」이 맨 위다. 권유가 아니라 오늘 실제로 돈이 빠져나간다는 **사실**이다.
-    - 홈 화면 추가와 저녁 알림은 **한 쌍**이다. 첫 기록을 마친 그 순간이 둘 다 물을 유일한
-      때이고, 둘 다 **한 번뿐인 안내**다. 그래서 둘을 갈라 놓지 않는다.
+    「곧 나갈 돈」 은 이 셈에서 뺀다. 권유가 아니라 오늘 실제로 돈이 빠져나간다는 **사실**이고,
+    그 사람이 걸어 둔 것에만 뜬다. 그래서 최대는 사실 하나 + 권유 하나다.
+
+    순서: 밀린 내역 → 홈 화면 추가 → 저녁 알림 → 예산 제안 → 별점 → 공유.
+
+    - **밀린 내역이 맨 앞이다.** 며칠 비운 사람이 지금 이 화면에 온 이유가 그것이다.
+      나머지는 다음에 물어도 되지만 이 사람은 지금 이어 붙이지 않으면 다시 안 온다.
+    - 홈 화면 추가와 저녁 알림은 **한 쌍으로 두던 것을 떼었다.** 둘 다 한 번뿐인 안내라
+      자리를 내주면 영영 안 뜬다는 것이 붙여 둔 이유였는데, 두 번째 기회(`secondChance`)가
+      이미 있고 각자 닫기 전까지는 다음 회차에 다시 선다. 한 번에 하나씩 물으면 된다.
     - 예산 제안은 비켜 준다. **안 사라지고 기다리기 때문**이다. 예산을 정할 때까지 계속
-      뜨고, 카드 자체도 관리 탭에서 언제든 정할 수 있다고 적는다. 반대로 한 번뿐인 안내는
-      그 자리를 내주면 영영 안 뜬다(실기기에서 그렇게 안 떴다).
-    - 별점과 공유가 맨 뒤에서 한 자리를 나눠 쓰고, **별점이 앞이다.** 공유는 다섯 번째
-      기록부터 이미 서 있던 카드라, 스무 번을 적을 때까지 안 누른 사람에게는 답이 나온
-      셈이다. 별점은 한 번뿐이라 닫고 나면 다음 회차부터 공유가 다시 선다.
+      뜨고, 카드 자체도 관리 탭에서 언제든 정할 수 있다고 적는다.
+    - 별점과 공유가 맨 뒤이고 **별점이 앞이다.** 공유는 다섯 번째 기록부터 이미 서 있던
+      카드라, 스무 번을 적을 때까지 안 누른 사람에게는 답이 나온 셈이다. 별점은 한 번뿐이라
+      닫고 나면 다음 회차부터 공유가 다시 선다.
       못 뜨는 토스 버전에서는 별점 카드 자체를 그리지 않는다(`supports('review')`).
   */
   const dueSoon = (recurringDue.data?.length ?? 0) > 0;
   // 두 번째 기회면 두 번째 표를 본다. 그래야 첫 번째에 닫은 사람에게 한 번 더 뜬다.
   const homeAddCard = view?.secondChance === true ? homeAddAgain : homeAdd;
   const remindCard = view?.secondChance === true ? remindAgain : remind;
-  const showHomeAdd = view?.showHomeAdd === true && !homeAddCard.hidden && !dueSoon;
-  const showRemind = view?.showRemind === true && !remindCard.hidden && !dueSoon;
-  const showBudgetSuggestion =
-    view?.showBudgetSuggestion === true && !budgetSuggest.hidden && !showHomeAdd && !showRemind;
+
   /*
-    **별점이 공유보다 앞이다.** 둘 다 「한 번 뜨고 닫으면 끝」 인데, 공유는 다섯 번째
-    기록부터 이미 서 있었다. 스무 번을 적을 때까지 안 누르고 안 닫은 사람에게 그 카드는
-    이미 답이 나온 것이라, 그 자리를 별점에 한 번 내준다. 별점은 한 번뿐이라 다음
-    회차부터 공유가 다시 선다.
+    앞의 것이 서면 뒤의 것은 다음 회차로 미룬다. 자리마다 「여기는 괜찮다」 고 더하면
+    총량을 아무도 안 세게 되고, 그 결과가 사용자가 보낸 그 화면이다.
   */
+  const showRecovery = view?.mode === 'recovery' && budget.data != null && !recovery.hidden;
+  const showHomeAdd = view?.showHomeAdd === true && !homeAddCard.hidden && !dueSoon && !showRecovery;
+  const showRemind =
+    view?.showRemind === true && !remindCard.hidden && !dueSoon && !showRecovery && !showHomeAdd;
+  const showBudgetSuggestion =
+    view?.showBudgetSuggestion === true &&
+    !budgetSuggest.hidden &&
+    !dueSoon &&
+    !showRecovery &&
+    !showHomeAdd &&
+    !showRemind;
   const showRatingAsk =
     view?.showRatingAsk === true &&
     !ratingAsk.hidden &&
     bridge.supports('review') &&
     !dueSoon &&
+    !showRecovery &&
     !showBudgetSuggestion &&
     !showHomeAdd &&
     !showRemind;
@@ -188,6 +203,7 @@ function HomeContent({
     view?.showShareInvite === true &&
     !shareInvite.hidden &&
     !dueSoon &&
+    !showRecovery &&
     !showRatingAsk &&
     !showBudgetSuggestion &&
     !showHomeAdd &&
@@ -213,7 +229,7 @@ function HomeContent({
       )}
 
       {/* 며칠치를 한 건씩 손으로 적는 것은 애초에 안 될 제안이라 캡처 탭으로 연다. */}
-      {view?.mode === 'recovery' && budget.data != null && !recovery.hidden ? (
+      {showRecovery && budget.data != null ? (
         <RecoveryCard
           progress={budget.data.recovery}
           onCatchUp={() => onRecord('capture')}
@@ -263,13 +279,7 @@ function HomeContent({
       */}
       <RecurringDueCard />
 
-      {/*
-        기록 버튼 바로 아래. 순서는 위 주석에 적어 뒀다.
-
-        홈 화면 추가와 저녁 알림은 **나란히 선다.** 하나는 앱을 찾기 쉽게 하는 일이고
-        하나는 우리가 부르는 일이라, 하나만 하고 싶은 사람이 나머지를 같이 닫게 두지 않는다.
-        닫는 ✕ 도 각자 갖는다.
-      */}
+      {/* 기록 버튼 바로 아래. 여기 서는 것은 **하나뿐**이다. 순서는 위 주석에 적어 뒀다. */}
       {showHomeAdd ? <AddToHomeCard onDismiss={homeAddCard.dismiss} /> : null}
       {showRemind ? <RemindCard onDismiss={remindCard.dismiss} /> : null}
       {showRatingAsk ? <ReviewAskCard onDismiss={ratingAsk.dismiss} /> : null}
