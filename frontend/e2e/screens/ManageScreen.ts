@@ -65,19 +65,22 @@ export class ManageScreen {
 
   /** 자산 카드 안의 광고 예고 한 줄. 누르기 **전에** 읽혀야 하는 줄이다. */
   get assetsAdNote(): Locator {
-    return this.assetsEntry.getByText('짧은 광고가 한 번 지나가요');
+    return this.assetsEntry.getByText('광고가 한 번 나와요');
   }
 
   /** 하위 화면 목록 머리에 한 번만 적는 예고. 상한을 다 쓴 사람에게는 아예 없다. */
   get subScreenAdNote(): Locator {
-    return this.page.getByText('아래 넷은 처음 열 때 짧은 광고가 한 번 지나가요');
+    return this.page.getByText(/앱을 열고 처음 한 번 광고가 나와요/);
   }
 
   /**
    * 하위 화면으로 들어간다. **목록을 눌러서** 간다.
    *
    * 주소로 열면 화면이 통째로 다시 떠서 세션이 새로 시작하고, 그러면 광고가 서는지
-   * 안 서는지를 아예 못 본다. 광고가 걸린 줄은 링크가 아니라 버튼이다.
+   * 안 서는지를 아예 못 본다.
+   *
+   * **광고가 걸린 줄만 버튼이다.** 알림 설정·내 계정·앱 설정은 링크 그대로라 여기 안 잡힌다.
+   * 그쪽은 `appShell.followRow` 로 간다.
    */
   async openSub(label: string): Promise<void> {
     await this.page

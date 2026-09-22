@@ -1096,7 +1096,7 @@ class RecordImageImport {
     return this.root.getByRole('button', { name: this.labels.pickButton });
   }
 
-  /** 버튼 아래 남은 장수 한 줄. 「사진 3장 남음」. */
+  /** 버튼 아래 남은 장수 한 줄. 넉넉할 때는 아예 안 그린다(마지막 한 장부터 뜬다). */
   get creditLine(): Locator {
     return this.root.getByText(/사진 \d+장 남음/);
   }
@@ -1108,7 +1108,7 @@ class RecordImageImport {
 
   /** 오늘 몫을 다 썼을 때 고르는 버튼 자리에 대신 서는 묶음. */
   get creditGate(): Locator {
-    return this.root.getByRole('group', { name: '사진 더 받기' });
+    return this.root.getByRole('group', { name: '오늘 사진을 다 썼어요' });
   }
 
   /** 다 쓴 사람이 한 장을 받는 버튼. */

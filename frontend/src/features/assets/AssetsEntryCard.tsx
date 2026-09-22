@@ -42,6 +42,8 @@ export function AssetsEntryCard() {
     <button
       type="button"
       className="assets-entry"
+      // 누르고 나서 광고가 뜨기까지 최대 8초다. 그동안 화면이 그대로면 먹통으로 읽힌다.
+      aria-busy={interstitial.busy}
       disabled={interstitial.busy}
       onClick={() => void open()}
     >
@@ -55,9 +57,14 @@ export function AssetsEntryCard() {
           **안 보일 때도 자리는 남긴다.** 지워 버리면 카드가 그만큼 낮아지면서 아래
           목록이 통째로 올라온다. 손가락이 이미 내려오는 중이면 다른 것을 누른다.
         */}
-        <AdAheadNote
-          className={`assets-entry__ad${interstitial.ready ? '' : ' assets-entry__ad--off'}`}
-        />
+        {interstitial.busy ? (
+          // 누르고 나서 광고가 뜨기까지 최대 8초다. 그동안 이 자리가 무엇을 기다리는지 말한다.
+          <span className="assets-entry__ad">잠시만요</span>
+        ) : (
+          <AdAheadNote
+            className={`assets-entry__ad${interstitial.ready ? '' : ' assets-entry__ad--off'}`}
+          />
+        )}
       </span>
     </button>
   );

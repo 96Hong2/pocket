@@ -213,7 +213,12 @@
     padding: 0;
     border: 0;
     background: none;
-    font: inherit;
+    /*
+      `font: inherit` 를 쓰면 안 된다. 그 한 줄이 `font-weight` 까지 풀어 써서
+      `.link-row` 가 정한 semibold 를 body 의 medium 으로 덮는다. 같은 목록인데 링크 줄은
+      600, 버튼 줄은 500 으로 갈린다. 글꼴만 물려받고 크기·굵기는 `.link-row` 에 맡긴다.
+    */
+    font-family: inherit;
     text-align: left;
     cursor: pointer;
   }
@@ -227,6 +232,32 @@
     font-size: var(--text-12);
     line-height: 1.5;
     color: var(--color-muted);
+  }
+
+  /*
+    광고가 안 서는 기기·시간대. **글자만 지우고 자리는 남긴다.**
+    지워 버리면 목록 일곱 줄이 30px 만큼 위로 뛴다. 자산 카드와 같은 규칙이다.
+  */
+  .link-rows__ad--off {
+    visibility: hidden;
+  }
+
+  /*
+    광고를 불러오는 동안 그 줄에만 뜨는 한 마디.
+    화면 전체를 덮지 않는다. 덮으면 광고가 이미 시작된 줄 안다.
+  */
+  .link-row__waiting {
+    flex: none;
+    margin-right: 4px;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+  }
+
+  /* 눌러서 기다리는 중이거나, 다른 줄이 기다리는 동안. 눌리지 않는다는 것만 보인다. */
+  button.link-row:disabled {
+    cursor: default;
+    opacity: 0.55;
   }
 
   /* 예고가 가리키는 범위가 끝나는 자리. 선은 다른 줄 사이와 같고 여백만 한 칸 더 준다. */

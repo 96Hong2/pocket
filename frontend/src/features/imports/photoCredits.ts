@@ -43,6 +43,8 @@ export interface PhotoCredits {
 export function parseCredits(raw: string | null | undefined): PhotoCredits | null {
   if (raw == null) return null;
   const [day, rest] = raw.split(':');
+  // `Number('')` 은 0 이고 정수다. 값이 잘려 저장되면 그날이 0장으로 잠긴다.
+  if (rest == null || rest.trim() === '') return null;
   const count = Number(rest);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isInteger(count) || count < 0) return null;
   return { day, count };
@@ -80,8 +82,13 @@ export function earned(record: PhotoCredits): PhotoCredits {
  * 못 읽으면 앱을 열 때마다 3장이 새로 들어오는 셈이 되고, 그러면 셈이 아무것도 안 막는다.
  * 앱이 떠 있는 동안만이라도 이어 세도록 모듈에 들고 있는다. 앱을 다시 열면 사라지는데,
  * 실제로 값을 내는 것은 우리가 세는 숫자가 아니라 광고라 손해는 광고 한 편이다.
+ *
+ * **읽기는 되고 쓰기만 막히는 기기가 있다**(용량이 찼을 때가 그렇다). 그 기기에서 저장된 값만
+ * 믿으면 차감이 한 번도 안 남아 사진이 무제한이 된다. 그래서 한 번이라도 막힌 것을 본 뒤로는
+ * 이쪽을 먼저 본다. 반대로 저장소가 멀쩡한 기기에서는 이 값을 아예 안 본다.
  */
-let inMemory: PhotoCredits | null = null;
+let fallback: PhotoCredits | null = null;
+let storageBroken = false;
 
 /** 오늘 기준 남은 장수를 읽는다. 읽으면서 채운다. */
 export async function readCredits(store: KeyValueStore, today: string): Promise<PhotoCredits> {
@@ -89,19 +96,28 @@ export async function readCredits(store: KeyValueStore, today: string): Promise<
   try {
     stored = parseCredits(await store.get(KEY));
   } catch {
-    stored = inMemory;
+    storageBroken = true;
   }
-  const next = refilled(stored ?? inMemory, today);
-  inMemory = next;
+  const base = storageBroken ? (fallback ?? stored) : stored;
+  const next = refilled(base, today);
+  fallback = next;
   return next;
 }
 
 /** 못 써도 조용히 넘어간다. 그 기기에서는 앱이 떠 있는 동안만 셈이 이어진다. */
 export async function writeCredits(store: KeyValueStore, value: PhotoCredits): Promise<void> {
-  inMemory = value;
+  fallback = value;
   try {
     await store.set(KEY, formatCredits(value));
   } catch {
     // 기록을 남기는 일이 사진을 읽는 일보다 중요하지 않다. 여기서 던지면 기능이 안 열린다.
+    // 다만 막혔다는 것은 기억한다. 안 그러면 다음 읽기가 옛 값을 다시 읽어 차감이 증발한다.
+    storageBroken = true;
   }
+}
+
+/** 테스트에서 모듈에 남은 셈을 지운다. 앱에서는 부르지 않는다. */
+export function resetCreditsMemory(): void {
+  fallback = null;
+  storageBroken = false;
 }

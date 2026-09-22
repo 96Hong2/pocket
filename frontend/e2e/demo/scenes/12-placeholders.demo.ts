@@ -56,11 +56,14 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await expect(manage.total.startButton).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('그 아래 네 줄이 하위 화면으로 들어가는 입구다');
+  await demo.step('그 아래 일곱 줄이 하위 화면으로 들어가는 입구다');
   await expect(appShell.subScreenRows('관리 하위 화면')).toHaveText([
     '목표',
     '카테고리 관리',
+    '태그',
+    '반복 지출',
     '알림 설정',
+    '내 계정',
     '앱 설정',
   ]);
   await demo.beat(2);

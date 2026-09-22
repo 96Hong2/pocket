@@ -150,6 +150,7 @@ test('같은 세션에서 둘째 줄을 눌러도 광고는 한 편뿐이다. �
 });
 
 test('알림 설정·내 계정·앱 설정에는 광고를 세우지 않는다. 앱을 계속 쓰게 하는 길이다', async ({
+  appShell,
   manage,
   notifications,
   page,
@@ -157,7 +158,9 @@ test('알림 설정·내 계정·앱 설정에는 광고를 세우지 않는다.
   await manage.open();
   await manage.waitReady();
 
-  await manage.openSub('알림 설정');
+  // 이 셋은 링크 그대로다. 버튼이면 광고가 걸린 줄이고, 그것 자체가 여기서 보는 것이다.
+  await expect(manage.subScreenAdNote).toBeVisible();
+  await appShell.followRow('알림 설정');
   await notifications.waitReady();
 
   expect(

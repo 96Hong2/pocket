@@ -111,7 +111,7 @@ ait:
 		{ echo "frontend/.env.local 에 VITE_NOTIFICATION_TEMPLATE_CODE 가 없다. 이대로 빌드하면 아무도 알림을 못 켠다(docs/SECRETS.md §6)."; exit 1; }
 	cd frontend && VITE_API_BASE_URL='$(API_BASE_URL)' npm run build
 	@grep -q 'ait\.v2\.live\.' frontend/dist/assets/*.js || \
-		{ echo "실제 광고 그룹 ID 가 번들에 없다. frontend/.env.local 의 VITE_AD_GROUP_ID·VITE_AD_FULLSCREEN_GROUP_ID·VITE_AD_REWARDED_GROUP_ID 를 확인한다."; exit 1; }
+		{ echo "실제 광고 그룹 ID 가 번들에 없다. frontend/.env.local 의 VITE_AD_GROUP_ID·VITE_AD_FULLSCREEN_GROUP_ID·VITE_AD_REWARDED_GROUP_ID 를 확인한다. 사진 자리는 VITE_AD_PHOTO_GROUP_ID 를 따로 본다(없으면 리워드 그룹으로 떨어진다)."; exit 1; }
 	@grep -q '^VITE_AD_REWARDED_GROUP_ID=.' frontend/.env.local 2>/dev/null || \
 		{ echo "frontend/.env.local 에 VITE_AD_REWARDED_GROUP_ID 가 없다. 이대로 빌드하면 계산기 앞 리워드 광고가 통째로 빠진다(docs/SECRETS.md §6)."; exit 1; }
 	@! grep -q 'ait-ad-test-' frontend/dist/assets/*.js || \

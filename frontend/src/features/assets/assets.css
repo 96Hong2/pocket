@@ -45,7 +45,12 @@
     color: var(--color-ink);
   }
 
+  /*
+    불러오는 동안에는 빈 글자라 높이가 0 이다. 예고 줄이 붙으면서 본문이 아바타보다 높아져,
+    숫자가 들어오는 순간 카드가 자라고 아래가 통째로 내려갔다. 한 줄 자리를 늘 잡아 둔다.
+  */
   .assets-entry__sub {
+    min-height: 1lh;
     font-size: var(--text-12);
     color: var(--color-muted);
   }

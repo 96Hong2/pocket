@@ -56,6 +56,18 @@ export type InterstitialOutcome = FullScreenAdOutcome | { result: 'skipped'; rea
  */
 let watchedThisSession = 0;
 
+/**
+ * 지금 광고 한 편이 도는 중인가.
+ *
+ * **상한을 세는 것만으로는 모자랐다.** `watchedThisSession` 은 광고가 **닫힌 뒤에** 오르는데,
+ * 광고를 불러오는 데 최대 8초가 걸린다. 그 사이에 다른 줄을 누르면 두 번째 게이트가 아직
+ * 0 을 보고 통과해, 한 세션에 두 편을 연달아 보게 된다.
+ *
+ * 화면마다 따로 둘 수 없다. 관리 탭에는 `useInterstitial()` 이 둘(자산 카드·목록)이고
+ * 각자의 `busy` 는 서로를 모른다. 그래서 모듈에 둔다.
+ */
+let adInFlight = false;
+
 /** 이 세션에서 이미 물어본 자리. 한 번만 묻기로 한 자리가 다시 묻지 않게 한다. */
 const askedThisSession = new Set<InterstitialWhere>();
 
@@ -75,8 +87,21 @@ async function runGate(
   store: KeyValueStore,
   showAd: () => Promise<FullScreenAdOutcome>,
 ): Promise<InterstitialOutcome> {
-  if (watchedThisSession >= SESSION_CAP) return CAPPED;
+  // 도는 중이면 상한에 걸린 것으로 본다. 두 편이 겹치면 상한이 있으나 마나다.
+  if (adInFlight || watchedThisSession >= SESSION_CAP) return CAPPED;
 
+  adInFlight = true;
+  try {
+    return await gateBody(store, showAd);
+  } finally {
+    adInFlight = false;
+  }
+}
+
+async function gateBody(
+  store: KeyValueStore,
+  showAd: () => Promise<FullScreenAdOutcome>,
+): Promise<InterstitialOutcome> {
   const today = toLedgerDate(new Date());
   const record = await readDayCount(store);
   if (!allowedToday(record, today)) return CAPPED;

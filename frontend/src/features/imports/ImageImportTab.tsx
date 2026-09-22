@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { useBridge } from '../../app/providers';
 import {
@@ -147,6 +147,13 @@ export interface ImageImportTabProps {
    * 다른 쪽 숫자에 안 비친다. 실제로 캡처로 한 장 쓰고 영수증 탭에 가면 그대로 세 장이었다.
    */
   credits: PhotoCreditsHandle;
+  /**
+   * 지금 이 탭이 보이고 있나.
+   *
+   * 두 사진 탭은 한꺼번에 떠 있고 안 보이는 쪽을 `hidden` 으로 감춘다. 「장수가 없어
+   * 되돌아간 사람」 을 그리는 것만으로 세면 한 번 막힐 때마다 둘로 센다.
+   */
+  active?: boolean;
 }
 
 /**
@@ -165,6 +172,7 @@ export function ImageImportTab({
   onSaved,
   fallbackAction,
   credits,
+  active = true,
 }: ImageImportTabProps) {
   const mode = MODES[kind];
   const bridge = useBridge();
@@ -173,6 +181,11 @@ export function ImageImportTab({
 
   const [batch, setBatch] = useState<ImportBatchOut | null>(null);
   const [pickFailure, setPickFailure] = useState<BridgeErrorCode | null>(null);
+  // 보이는 탭에서 막혔을 때만 알린다. 몇 번을 부르든 기록 흐름 하나에 한 줄만 남는다.
+  const { left, markBlocked } = credits;
+  useEffect(() => {
+    if (active && left === 0) markBlocked();
+  }, [active, left, markBlocked]);
 
   if (batch != null) {
     return (
@@ -210,9 +223,11 @@ export function ImageImportTab({
         <PermissionDenied
           resource={mode.permission}
           size="inline"
-          onRetry={() => void pick()}
+          // 장수까지 떨어졌으면 눌러도 아무 일이 없다. 그때는 받는 자리를 함께 보여 준다.
+          onRetry={credits.left === 0 ? undefined : () => void pick()}
           fallbackAction={fallbackAction}
         />
+        {credits.left === 0 ? <PhotoCreditGate credits={credits} /> : null}
       </div>
     );
   }
@@ -220,7 +235,9 @@ export function ImageImportTab({
   if (pickFailure === 'UNSUPPORTED' || !bridge.supports(mode.capability)) {
     return (
       <div className="capture" data-testid={mode.panelTestId}>
+        {/* 권한 갈래와 같다. 여기서 막히면 그 사람은 기록 자체를 포기한다. */}
         <UnsupportedFeature feature={mode.feature} size="inline" />
+        {fallbackAction}
       </div>
     );
   }
@@ -268,10 +285,19 @@ export function ImageImportTab({
         <PhotoCreditGate credits={credits} fallback={fallbackAction} />
       ) : (
         <>
-          <Button fullWidth disabled={analyzing} onClick={() => void pick()}>
+          {/*
+            **장수를 모르는 동안(`null`)에는 눌리지 않는다.** 저장소를 읽는 사이에 눌러 버리면
+            0 장인 사람도 한 장을 공짜로 쓰고, 더 나쁘게는 손가락이 내려오는 사이에 이 버튼이
+            「광고 한 편 보고 사진 받기」 로 바뀌어 누를 생각이 없던 광고를 누른다.
+          */}
+          <Button
+            fullWidth
+            disabled={analyzing || credits.left == null}
+            onClick={() => void pick()}
+          >
             {pickFailure != null ? '다시 시도' : mode.pickLabel}
           </Button>
-          <PhotoCreditLine credits={credits} />
+          <PhotoCreditLine credits={credits} busy={analyzing} />
         </>
       )}
     </div>
@@ -316,10 +342,13 @@ export function ImageImportTab({
           { flowId },
         );
         /*
-          **읽어 낸 뒤에 센다.** 고르다 취소하거나 읽기가 실패한 것까지 세면, 우리 쪽
-          사정으로 못 읽은 값을 사람에게 물리게 된다. 실패한 호출의 값은 우리가 문다.
+          **읽어 낸 뒤에, 읽은 것이 있을 때만 센다.**
+
+          고르다 취소하거나 읽기가 실패한 것까지 세면 우리 쪽 사정으로 못 읽은 값을 사람에게
+          물리게 된다. 한 건도 못 찾은 사진(`empty`)과 아직 모델이 안 붙어 지어낸 결과(스텁)도
+          같다. 영수증을 찍었는데 「읽을 게 없어요」 가 뜨면서 장수가 주는 화면이 제일 나쁘다.
         */
-        await credits.spendOne();
+        if (parseOutcome(result) !== 'empty' && !isStub(result)) await credits.spendOne();
         setBatch(result);
       } catch (error) {
         analytics.log(

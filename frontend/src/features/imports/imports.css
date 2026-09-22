@@ -568,9 +568,13 @@
     text-align: center;
   }
 
-  /* 글 안에 섞인 누를 곳. 밑줄로만 가른다. 버튼 모양을 주면 아래에 버튼이 둘이 된다. */
+  /*
+    글 안에 섞인 누를 곳. 밑줄로만 가른다. 버튼 모양을 주면 아래에 버튼이 둘이 된다.
+    다만 표적은 손가락에 맞춘다. 12px 글자 그대로 두면 옆의 「사진 N장 남음」 과 붙어 오탭이 난다.
+  */
   .capture__earn {
-    padding: 0;
+    min-height: 44px;
+    padding: 0 6px;
     border: 0;
     background: none;
     font: inherit;

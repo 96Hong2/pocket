@@ -8,9 +8,13 @@
  * **작고 담백하게 쓴다.** 광고를 자랑하는 자리가 아니다. 누른 사람이 놀라지 않을 만큼만
  * 미리 말해 두는 것이 목적이라, 버튼보다 눈에 띄면 오히려 그 버튼을 안 누르게 된다.
  * 「보상」·「무료」 같은 말도 쓰지 않는다. 받는 것은 버튼에 이미 적혀 있다.
+ *
+ * **길이를 적지 않는다.** 예전에는 「짧은 광고」 라고 썼는데 길이는 우리가 못 정한다.
+ * 리워드 쪽(`PhotoCreditGate`)은 같은 이유로 처음부터 길이를 안 적었다. 한 저장소에서
+ * 기준이 둘이면 안 된다.
  */
 export function AdAheadNote({ className }: { className?: string }) {
-  return <span className={className}>짧은 광고가 한 번 지나가요</span>;
+  return <span className={className}>광고가 한 번 나와요</span>;
 }
 
 /**
@@ -20,9 +24,24 @@ export function AdAheadNote({ className }: { className?: string }) {
  * 광고 예고로 도배되고, 그 순간 예고가 아니라 광고판이 된다. 한 번만 적고 어느 줄이
  * 해당하는지는 **이 줄 바로 아래에 그 넷만 둔다**는 배치로 말한다.
  *
- * 「한 번」 과 「처음 들어갈 때」 를 같이 적는 이유는, 들어갈 때마다 뜬다고 읽히면
- * 아예 안 누르기 때문이다. 실제로도 한 세션에 한 편이 상한이다(`SESSION_CAP`).
+ * **「앱을 열고 처음 한 번」 이라고 적는다.** 그냥 「처음 열 때」 라고 쓰면 「맨 처음 딱 한 번」
+ * 으로 읽히는데, 상한은 세션당 한 편이라 앱을 새로 열면 다시 뜬다. 내일 또 뜨는 것을
+ * 「처음 한 번」 이라고 적어 두면 그게 거짓말이다.
+ *
+ * 가리키는 줄 수를 문자열에 박지 않는다. 줄을 더하거나 빼면 그 순간 조용히 거짓이 된다.
  */
-export function AdAheadListNote({ className }: { className?: string }) {
-  return <p className={className}>아래 넷은 처음 열 때 짧은 광고가 한 번 지나가요</p>;
+export function AdAheadListNote({
+  count,
+  id,
+  className,
+}: {
+  count: number;
+  id?: string;
+  className?: string;
+}) {
+  return (
+    <p id={id} className={className}>
+      아래 {count}개는 앱을 열고 처음 한 번 광고가 나와요
+    </p>
+  );
 }

@@ -38,7 +38,7 @@
 | 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나와 몇 장짜리인가(`cards`), 몇 장째에서 닫았나(`page`·`total`)와 끝까지 봤나(`finished`) |
 | 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
 | 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(`closing`·**`assets`·`goal`·`categories`·`tags`·`recurring`**)와 결과(`watched`·`skipped`), 지나간 이유(`no_group`·`unsupported`·`failed`·**`capped`**) |
-| 사진을 더 쓰려고 광고를 보나 | `photo_credit` | 받았나 썼나(`action`: `earned`·`spent`), 그러고 몇 장 남았나(`left`), 받을 때 광고가 어떻게 끝났나(`ad`: `earned`·`watched`·`skipped`) |
+| 사진을 더 쓰려고 광고를 보나 | `photo_credit` | 받았나 썼나 막혔나(`action`: `earned`·`spent`·**`blocked`**), 그러고 몇 장 남았나(`left`), 받을 때 광고가 어떻게 끝났나(`ad`: `earned`·`watched`·`skipped`)와 지나간 이유(`reason`: `no_group`·`unsupported`·`failed`) |
 | 분류를 제 말로 바꿔 쓰나 | `category_changed` | 만듦·고침·지움, 기본 분류인가 내가 만든 것인가(`scope`: `default`·`mine`), 갈래, 무엇을 건드렸나(`fields`: `name`·`icon`·`color` 를 `+` 로 이은 값). **이름은 싣지 않는다** |
 | 목표를 세우기만 하나 실제로 모으나 | `goal_changed` · `goal_contributed` | 만듦·고침·지움과 기한을 걸었나(`deadline`)·종잣돈이 있었나(`seeded`), 모을 때 **지난 날**로 넣었나(`backdated`, 앞날은 여기 안 센다). **이름과 금액은 싣지 않는다** |
 | 못 찾아서 찾아보나 | `search_used` | 검색어 길이와 **첫 화면에 걸린 수**(`hits`, 한 장 30줄에서 끊긴다). **검색어는 싣지 않는다** |
@@ -138,6 +138,15 @@
 아예 안 부른 것이다. **이 값이 늘었다고 자리를 더 늘릴 것이 아니라 상한을 다시 볼 때다.**
 자리마다 「그 화면에서 하려던 일을 끝낸 비율」 을 광고 없이 지나간 사람과 견줘야 뜻이 생긴다.
 한 자리만 눈에 띄게 낮으면 그 자리가 잘못 놓인 것이다.
+
+**`blocked` 는 사진 탭을 열었는데 쓸 장수가 없던 사람이다.** 고르는 버튼 자체가 안 그려지므로
+`image_pick_result` 도 안 나간다. 이 값 없이는 **막혀서 그냥 나간 사람이 어디에도 안 남는다.**
+`blocked` 대비 `earned` 가 낮으면 광고를 보느니 그만두는 쪽이 많다는 뜻이라 3장이 모자란 것이다.
+보이는 탭에서만, 시트를 여는 동안 탭마다 한 번씩 남긴다.
+
+**`ad` 가 `skipped` 여도 한 장은 준다.** 그래서 `reason` 을 함께 봐야 한다. `no_group` 은 우리가
+그룹 ID 를 안 넣은 것이고, `failed` 는 광고 서버가 채울 것을 못 찾은 것이다. 앞엣것은 배포 실수고
+뒤엣것은 **값만 내고 수익은 못 받는 중**이라는 신호다.
 
 **`photo_credit` 은 셋을 같이 봐야 한다.** 받은 것(`earned`)보다 쓴 것(`spent`)이 훨씬 많으면
 하루에 채워 주는 3장 안에서 다들 끝난다는 뜻이고, 그러면 이 장치는 수익이 아니라 **값에 천장을
