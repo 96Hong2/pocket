@@ -48,7 +48,7 @@ import {
 } from '../../shared/ui';
 
 import { CategoryEditForm } from '../categories';
-import { ImageImportTab, NaturalLanguageTab } from '../imports';
+import { ImageImportTab, NaturalLanguageTab, usePhotoCredits } from '../imports';
 
 import { FeedbackPanel } from './FeedbackPanel';
 import { toAmount } from './digits';
@@ -315,6 +315,19 @@ function RecordBody({
   */
   const [tab, setTab] = useState<RecordTab>(
     openedOnPastDay ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB),
+  );
+  /*
+    남은 사진 장수. **캡처와 영수증이 하나를 나눠 쓴다.**
+
+    값이 드는 것은 사진을 읽는 일이지 어디서 가져왔는지가 아니다. 탭마다 따로 세면 두 탭이
+    동시에 떠 있어서(`hidden` 으로 감출 뿐이다) 한쪽에서 쓴 것이 다른 쪽에 안 비쳤다.
+  */
+  const photoCredits = usePhotoCredits(flowId);
+  /** 사진이 막혔을 때 갈 길. 두 탭이 같은 버튼을 쓴다. */
+  const keypadFallback = (
+    <Button variant="ghost" onClick={() => setTab('keypad')}>
+      키패드로 입력
+    </Button>
   );
   // 지출인가 수입인가. 이 값이 고를 수 있는 분류와 저장할 종류를 함께 정한다.
   const [kind, setKind] = useState<LedgerKind>('expense');
@@ -662,6 +675,11 @@ function RecordBody({
               markRecorded();
               if (savedDay != null) tellRecorded(savedDay);
             }}
+            // 캡처에도 같은 길을 둔다. 권한이 꺼져 있거나 오늘 몫을 다 쓴 자리에서
+            // 빠져나갈 데가 없으면 그 사람은 기록 자체를 포기한다.
+            fallbackAction={keypadFallback}
+            credits={photoCredits}
+            active={tab === 'capture'}
           />
         </div>
 
@@ -678,11 +696,9 @@ function RecordBody({
               if (savedDay != null) tellRecorded(savedDay);
             }}
             // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
-            fallbackAction={
-              <Button variant="ghost" onClick={() => setTab('keypad')}>
-                키패드로 입력
-              </Button>
-            }
+            fallbackAction={keypadFallback}
+            credits={photoCredits}
+            active={tab === 'receipt'}
           />
         </div>
       </>

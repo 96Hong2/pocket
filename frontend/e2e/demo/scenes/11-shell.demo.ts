@@ -65,7 +65,7 @@ test('18 시스템 뒤로가기는 한 단씩 부모 화면으로 올라간다',
 
   await demo.step('관리 탭에서 카테고리 관리로 들어간다');
   await appShell.goToTab('관리');
-  await appShell.followLink('카테고리 관리');
+  await appShell.followRow('카테고리 관리');
   await appShell.expectScreen('카테고리 관리', '내가 쓰는 카테고리만 남겨요');
   // 하위 화면에는 탭바가 없다. 지금 어디에 있는지가 화면에 드러난다.
   await appShell.expectTabsHidden();
@@ -80,9 +80,9 @@ test('18 시스템 뒤로가기는 한 단씩 부모 화면으로 올라간다',
   await demo.beat(2);
 
   await demo.step('이번에는 두 단 깊이로 들어간다. 앱 설정에서 개인정보처리방침까지');
-  await appShell.followLink('앱 설정');
+  await appShell.followRow('앱 설정');
   await appShell.expectScreen('앱 설정', '홈에 무엇을 먼저 보여줄지 정해요');
-  await appShell.followLink('개인정보처리방침');
+  await appShell.followRow('개인정보처리방침');
   await appShell.expectScreen('개인정보처리방침', '무엇을 저장하고 무엇을 안 남기는지 적어 뒀어요');
   await appShell.expectTabsHidden();
   await demo.beat(2);

@@ -56,17 +56,20 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await expect(manage.total.startButton).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('그 아래 네 줄이 하위 화면으로 들어가는 입구다');
-  await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText([
+  await demo.step('그 아래 일곱 줄이 하위 화면으로 들어가는 입구다');
+  await expect(appShell.subScreenRows('관리 하위 화면')).toHaveText([
     '목표',
     '카테고리 관리',
+    '태그',
+    '반복 지출',
     '알림 설정',
+    '내 계정',
     '앱 설정',
   ]);
   await demo.beat(2);
 
   await demo.step('먼저 목표로 들어간다. 점선 카드가 걷히고 모으는 중인 것을 보는 화면이 들어왔다');
-  await appShell.followLink('목표');
+  await appShell.followRow('목표');
   await appShell.expectScreen('목표', '모으고 싶은 것 하나만 정해요');
   await goal.waitReady();
   await demo.beat(2);
@@ -160,7 +163,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await demo.beat(2);
 
   await demo.step('이번에는 카테고리 관리로 들어간다');
-  await appShell.followLink('카테고리 관리');
+  await appShell.followRow('카테고리 관리');
   await appShell.expectScreen('카테고리 관리', '내가 쓰는 카테고리만 남겨요');
   await categories.waitReady();
   await demo.beat(2);
@@ -189,7 +192,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await demo.beat(2);
 
   await demo.step('이번에는 앱 설정으로 들어간다');
-  await appShell.followLink('앱 설정');
+  await appShell.followRow('앱 설정');
   await appShell.expectScreen('앱 설정', '홈에 무엇을 먼저 보여줄지 정해요');
   await settings.waitReady();
   await demo.beat(2);
@@ -211,7 +214,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
     '알림 설정',
     '개인정보처리방침',
   ]);
-  await appShell.followLink('알림 설정');
+  await appShell.followRow('알림 설정');
   await appShell.expectScreen('알림 설정', '알림은 하나뿐이에요. 언제 받을지만 정하면 돼요');
   await notifications.waitReady();
   await demo.beat(2);
@@ -233,7 +236,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await demo.step('앱 설정으로 나왔다가 이번에는 개인정보처리방침으로 들어간다');
   await appShell.pressBack();
   await appShell.expectScreen('앱 설정', '홈에 무엇을 먼저 보여줄지 정해요');
-  await appShell.followLink('개인정보처리방침');
+  await appShell.followRow('개인정보처리방침');
   await appShell.expectScreen('개인정보처리방침', '무엇을 저장하고 무엇을 안 남기는지 적어 뒀어요');
   await appShell.expectDocumentTitle('개인정보처리방침');
   await demo.beat(2);
@@ -275,7 +278,7 @@ test('21 없는 주소로 들어갔을 때', async ({ appShell, home, prep, demo
   await demo.beat(2);
 
   await demo.step('홈으로 가기를 누르면 제자리로 돌아온다');
-  await appShell.followLink('홈으로 가기');
+  await appShell.followRow('홈으로 가기');
   await home.waitReady();
   // 앞에서 심어 둔 예산이 그대로 그려진다. 없는 주소를 다녀왔다고 상태가 날아가지 않는다.
   await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET));

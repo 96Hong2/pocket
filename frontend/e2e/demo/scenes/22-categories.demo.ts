@@ -28,7 +28,7 @@ test('46 내 분류를 만들고 아이콘을 고른다', async ({
 
   await demo.step('관리 탭에서 카테고리 관리로 들어간다');
   await appShell.goToTab('관리');
-  await appShell.followLink('카테고리 관리');
+  await appShell.followRow('카테고리 관리');
   await categories.waitReady();
   await expect(categories.basicRows).toHaveCount(13);
   await demo.beat(3);

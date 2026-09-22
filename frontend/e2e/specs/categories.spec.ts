@@ -70,7 +70,7 @@ test('지출·수입·이체가 다른 구획에 놓인다', async ({ appShell, 
   // 사용자가 이 화면에 닿는 길은 관리 탭 하나뿐이다. 주소로 바로 들어가지 않는다.
   await appShell.open();
   await appShell.goToTab('관리');
-  await appShell.followLink('카테고리 관리');
+  await appShell.followRow('카테고리 관리');
 
   await appShell.expectScreen('카테고리 관리', '내가 쓰는 카테고리만 남겨요');
   await categories.waitReady();
@@ -368,7 +368,7 @@ test('카테고리를 지워도 그 분류로 적어 둔 기록은 남는다', a
 
   await test.step('카테고리를 지운다', async () => {
     await appShell.goToTab('관리');
-    await appShell.followLink('카테고리 관리');
+    await appShell.followRow('카테고리 관리');
     await categories.waitReady();
 
     await categories.openEdit(PET);

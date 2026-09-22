@@ -59,9 +59,16 @@ export class AppShell {
     await expect(this.page.getByText(lead, { exact: true })).toBeVisible();
   }
 
-  /** 화면 안 링크로 하위 화면에 들어간다. 탭바가 아닌 곳에서 옮겨 갈 때 쓴다. */
-  async followLink(name: string): Promise<void> {
-    await this.page.getByRole('link', { name, exact: true }).click();
+  /**
+   * 화면 안 줄을 눌러 하위 화면에 들어간다. 탭바가 아닌 곳에서 옮겨 갈 때 쓴다.
+   *
+   * 링크일 수도 버튼일 수도 있다. 관리 탭 줄 넷은 들어가는 길에 광고가 한 편 서서
+   * 화면이 순서를 쥐어야 하므로 버튼이고, 설정 탭 줄은 그대로 링크다.
+   * 들어가는 사람에게는 둘이 같은 줄이라 검사도 같은 자로 잰다.
+   */
+  async followRow(name: string): Promise<void> {
+    const byLink = this.page.getByRole('link', { name, exact: true });
+    await byLink.or(this.page.getByRole('button', { name, exact: true })).click();
   }
 
   /**
@@ -86,10 +93,21 @@ export class AppShell {
 
   /**
    * 본문에 놓인 하위 화면 입구 목록. 탭바 링크가 아니라 그 화면이 데리고 있는 갈래다.
-   * `관리 하위 화면`·`설정 하위 화면` 처럼 그 nav 의 접근성 이름으로 집는다.
+   * `설정 하위 화면` 처럼 그 nav 의 접근성 이름으로 집는다.
    */
   subScreenLinks(navLabel: string): Locator {
     return this.page.getByRole('navigation', { name: navLabel }).getByRole('link');
+  }
+
+  /**
+   * 같은 목록을 **줄을 담은 항목**으로 센다.
+   *
+   * 관리 탭 줄은 들어가는 길에 광고가 한 편 서느라 링크가 아니라 버튼이다. 그 목록에
+   * 무엇이 있는지를 물을 때 링크만 세면 넷이 통째로 빠진다. 설정 탭에는 갈 곳 없는
+   * 줄(버전·CSV)도 섞여 있어 이쪽 자를 쓰면 안 된다. 그래서 둘을 나눠 둔다.
+   */
+  subScreenRows(navLabel: string): Locator {
+    return this.page.getByRole('navigation', { name: navLabel }).getByRole('listitem');
   }
 
   /**

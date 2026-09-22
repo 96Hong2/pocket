@@ -558,6 +558,52 @@
     color: var(--color-muted);
   }
 
+  /*
+    사진 버튼 아래 한 줄. 남은 장수와 한 장 더 모으는 길.
+    버튼보다 눈에 띄면 안 된다. 평소에 읽을 줄이 아니라 남은 것이 적을 때 찾는 줄이다.
+  */
+  .capture__credit {
+    font-size: var(--text-12);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  /*
+    글 안에 섞인 누를 곳. 밑줄로만 가른다. 버튼 모양을 주면 아래에 버튼이 둘이 된다.
+    다만 표적은 손가락에 맞춘다. 12px 글자 그대로 두면 옆의 「사진 N장 남음」 과 붙어 오탭이 난다.
+  */
+  .capture__earn {
+    min-height: 44px;
+    padding: 0 6px;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+
+  .capture__earn:disabled {
+    color: var(--color-muted);
+    text-decoration: none;
+    cursor: default;
+  }
+
+  /* 오늘 몫을 다 쓴 자리. 고르는 버튼이 있던 자리를 그대로 이어받는다. */
+  .capture__gate {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .capture__gate-text {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    text-align: center;
+  }
+
   /* ── 기억한 분류 ──────────────────────── */
   .rules {
     display: flex;

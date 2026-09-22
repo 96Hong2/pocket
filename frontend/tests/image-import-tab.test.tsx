@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { AnalyticsProvider, BridgeProvider } from '../src/app/providers';
-import { ImageImportTab, type ImageImportKind } from '../src/features/imports';
+import { ImageImportTab, usePhotoCredits, type ImageImportKind } from '../src/features/imports';
 import { ApiContext, createApiClient } from '../src/shared/api';
 import { createBridge, type MockScenario } from '../src/shared/toss';
 
@@ -40,10 +40,24 @@ function renderTab(kind: ImageImportKind, scenario: MockScenario) {
     );
   }
 
-  return render(
-    <ImageImportTab kind={kind} flowId="test-flow" onBusyChange={() => {}} onDone={() => {}} />,
-    { wrapper: Wrapper },
-  );
+  /*
+    남은 사진 장수는 **시트가 만들어 내려 준다.** 여기서도 진짜 훅을 쓴다. 가짜 값을 끼우면
+    저장소를 못 읽는 갈래에서 화면이 무엇을 그리는지 이 표가 영영 안 보게 된다.
+  */
+  function Tab() {
+    const credits = usePhotoCredits('test-flow');
+    return (
+      <ImageImportTab
+        kind={kind}
+        flowId="test-flow"
+        onBusyChange={() => {}}
+        onDone={() => {}}
+        credits={credits}
+      />
+    );
+  }
+
+  return render(<Tab />, { wrapper: Wrapper });
 }
 
 /** 두 탭이 같은 세 갈래를 각자의 자원·문구로 지난다. */

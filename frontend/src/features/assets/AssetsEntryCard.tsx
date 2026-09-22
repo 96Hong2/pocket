@@ -1,9 +1,10 @@
-import { Link } from 'react-router';
+import { useNavigate } from 'react-router';
 
 import { ROUTES } from '../../app/router/routes';
 import { parseDecimalOr, useAssets } from '../../shared/api';
 import { formatCurrency, formatDayLabel } from '../../shared/lib/format';
 import { CategoryAvatar } from '../../shared/ui';
+import { AdAheadNote, useInterstitial } from '../ads';
 
 /**
  * 관리 탭 맨 위의 자산 입구.
@@ -12,9 +13,14 @@ import { CategoryAvatar } from '../../shared/ui';
  * 있는지 알 수 없어, 자산을 적어 둔 사람도 다시 안 들어온다.
  *
  * **못 불러오면 숫자 없이 이름만 남긴다.** 카드를 통째로 감추면 자산으로 가는 길이 사라진다.
+ *
+ * 들어가는 길에 전면 광고 한 편이 선다. 그래서 카드 안에 미리 적어 둔다. 한 번 적어 둘
+ * 자리가 있어서 고른 자리다(ADR-0028). 광고가 안 떠도 자산은 열린다.
  */
 export function AssetsEntryCard() {
   const assets = useAssets();
+  const navigate = useNavigate();
+  const interstitial = useInterstitial();
   const data = assets.data;
   const netWorth = data == null ? null : parseDecimalOr(data.summary.net_worth, 0);
   const basis = data?.snapshot?.effective_on;
@@ -27,13 +33,39 @@ export function AssetsEntryCard() {
         ? `순자산 ${formatCurrency(netWorth)}`
         : `순자산 ${formatCurrency(netWorth)} · ${formatDayLabel(basis)} 기준`;
 
+  async function open(): Promise<void> {
+    await interstitial.show('assets');
+    void navigate(ROUTES.assets);
+  }
+
   return (
-    <Link className="assets-entry" to={ROUTES.assets}>
+    <button
+      type="button"
+      className="assets-entry"
+      // 누르고 나서 광고가 뜨기까지 최대 8초다. 그동안 화면이 그대로면 먹통으로 읽힌다.
+      aria-busy={interstitial.busy}
+      disabled={interstitial.busy}
+      onClick={() => void open()}
+    >
       <CategoryAvatar icon="28_cash" size={52} />
       <span className="assets-entry__body">
         <span className="assets-entry__title">자산관리</span>
         <span className="assets-entry__sub">{sub}</span>
+        {/*
+          숫자 바로 아래다. 무엇을 보러 가는지와 무엇을 치르는지가 한눈에 붙어 있다.
+
+          **안 보일 때도 자리는 남긴다.** 지워 버리면 카드가 그만큼 낮아지면서 아래
+          목록이 통째로 올라온다. 손가락이 이미 내려오는 중이면 다른 것을 누른다.
+        */}
+        {interstitial.busy ? (
+          // 누르고 나서 광고가 뜨기까지 최대 8초다. 그동안 이 자리가 무엇을 기다리는지 말한다.
+          <span className="assets-entry__ad">잠시만요</span>
+        ) : (
+          <AdAheadNote
+            className={`assets-entry__ad${interstitial.ready ? '' : ' assets-entry__ad--off'}`}
+          />
+        )}
       </span>
-    </Link>
+    </button>
   );
 }

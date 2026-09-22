@@ -4,3 +4,4 @@ export { ImportReview, type ImportReviewProps } from './ImportReview';
 export { MerchantRuleList } from './MerchantRuleList';
 export { MerchantRuleSheet } from './MerchantRuleSheet';
 export { NaturalLanguageTab, type NaturalLanguageTabProps } from './NaturalLanguageTab';
+export { usePhotoCredits, type PhotoCreditsHandle } from './usePhotoCredits';

@@ -56,9 +56,37 @@ export class ManageScreen {
    *
    * 목록 줄이 아니라 순자산을 그 자리에 그리는 카드라 이름에 금액이 붙는다.
    * 이름을 못 박으면 안 잡혀서 제목으로 시작하는지만 본다.
+   *
+   * 링크였다가 버튼이 됐다. 들어가는 길에 전면 광고가 한 편 서면서 순서를 화면이 쥔다.
    */
   get assetsEntry(): Locator {
-    return this.page.getByRole('link', { name: /^자산관리/ });
+    return this.page.getByRole('button', { name: /^자산관리/ });
+  }
+
+  /** 자산 카드 안의 광고 예고 한 줄. 누르기 **전에** 읽혀야 하는 줄이다. */
+  get assetsAdNote(): Locator {
+    return this.assetsEntry.getByText('광고가 한 번 나와요');
+  }
+
+  /** 하위 화면 목록 머리에 한 번만 적는 예고. 상한을 다 쓴 사람에게는 아예 없다. */
+  get subScreenAdNote(): Locator {
+    return this.page.getByText(/앱을 열고 처음 한 번 광고가 나와요/);
+  }
+
+  /**
+   * 하위 화면으로 들어간다. **목록을 눌러서** 간다.
+   *
+   * 주소로 열면 화면이 통째로 다시 떠서 세션이 새로 시작하고, 그러면 광고가 서는지
+   * 안 서는지를 아예 못 본다.
+   *
+   * **광고가 걸린 줄만 버튼이다.** 알림 설정·내 계정·앱 설정은 링크 그대로라 여기 안 잡힌다.
+   * 그쪽은 `appShell.followRow` 로 간다.
+   */
+  async openSub(label: string): Promise<void> {
+    await this.page
+      .getByRole('navigation', { name: '관리 하위 화면' })
+      .getByRole('button', { name: label, exact: true })
+      .click();
   }
 
   /**

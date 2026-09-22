@@ -19,7 +19,7 @@ test('관리 탭에서 자산으로 들어가면 빈 상태가 있다', async ({
   await manage.waitReady();
 
   // 자산은 목록 줄이 아니라 예산 위의 요약 카드다. 순자산을 그 자리에서 보여준다.
-  await expect(appShell.subScreenLinks('관리 하위 화면')).toHaveText([
+  await expect(appShell.subScreenRows('관리 하위 화면')).toHaveText([
     '목표',
     '카테고리 관리',
     '태그',
