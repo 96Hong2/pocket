@@ -9707,13 +9707,13 @@
                   "type": "string"
                 },
                 "type": "array",
-                "maxItems": 5,
                 "minItems": 1
               },
               {
                 "type": "null"
               }
             ],
+            "maxItems": 5,
             "title": "Images"
           }
         },

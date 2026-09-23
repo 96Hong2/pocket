@@ -26,9 +26,9 @@ import { readCredits, spent, writeCredits } from './photoCredits';
  * - `interstitial`  한 장인데 무료분을 이미 썼다. 짧은 전면 광고
  * - `rewarded`      한 번에 여러 장이다. 읽는 데 오래 걸려서 긴 광고가 들어간다
  *
- * **여러 장에 긴 광고를 붙인 것은 시간이 길어서다.** 다섯 장을 읽는 데 30초쯤 걸리는데
- * 짧은 광고를 붙이면 광고가 끝나고도 사람이 빈 화면을 본다. 값 쪽도 맞다. 다섯 장이면
- * 우리가 11원을 쓰고 리워드 한 편이 10원이다.
+ * **여러 장에 긴 광고를 붙인 것은 시간이 길어서다.** 짧은 광고를 붙이면 광고가 끝나고도
+ * 사람이 빈 화면을 볼 수 있다. 값 쪽도 맞다. 다섯 장이면 우리가 11원을 쓰고
+ * 리워드 한 편이 10원이다.
  */
 export type PhotoAdPlan = 'none' | 'interstitial' | 'rewarded';
 
@@ -73,7 +73,7 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
     (count: number): PhotoAdPlan => {
       /*
         여러 장은 긴 광고다. 그 그룹을 못 쓰는 기기에서는 짧은 쪽으로 내려간다.
-        읽는 데 30초가 걸리는 일에 아무것도 안 붙이는 것보다는 낫고, 어차피 확인 창이
+        오래 걸리는 일에 아무것도 안 붙이는 것보다는 낫고, 어차피 확인 창이
         무엇이 나오는지 먼저 말한다.
       */
       if (count > 1) {

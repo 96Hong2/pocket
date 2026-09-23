@@ -76,7 +76,7 @@ __all__ = [
 MAX_CANDIDATES = 20
 
 # 한 번에 받는 사진 장수. 화면이 고르게 하는 수와 같아야 한다(`MAX_PHOTOS` 프론트).
-# 다섯인 이유는 광고 한 편(30초) 안에 읽기가 끝나는 선이기 때문이다. 더 받으면
+# 다섯인 이유는 리워드 광고 한 편 안에 읽기가 끝나리라 보는 선이기 때문이다. 더 받으면
 # 광고가 끝난 뒤에도 사람이 빈 화면을 본다.
 MAX_IMAGES = 5
 
@@ -253,7 +253,7 @@ def parse_images(
         input_length=total_bytes,
         redacted_count=0,
     ):
-        reads = _read_all(
+        reads, attempts = _read_all(
             client,
             escalation,
             prompt=prompt,
@@ -266,6 +266,7 @@ def parse_images(
         user,
         source=source,
         reads=reads,
+        attempts=attempts,
         day=day,
         client=client,
         # 이미지에서는 글자 수가 없다. 실제로 보낸 바이트 수를 센다.
@@ -286,6 +287,7 @@ def _build_batch(
     client: LlmStructuredClient,
     input_length: int,
     redacted_count: int,
+    attempts: int | None = None,
 ) -> ImportBatch:
     """추출 결과를 검토 단위로 옮긴다. 줄글·캡처·영수증이 이 뒤로는 같은 길을 지난다.
 
@@ -335,19 +337,25 @@ def _build_batch(
 
     # **호출 한 번에 한 줄이다.** 사진 다섯 장이면 다섯 줄이 남는다. 값은 답이 아니라
     # 호출에 붙어서, 한 줄로 뭉치면 사진 한 장당 얼마가 드는지 영영 알 수 없게 된다.
-    share = input_length // len(reads) if reads else input_length
-    for index, read in enumerate(reads):
+    #
+    # **실패한 장도 센다.** 성공한 것만 세면 실패하는 동안 하루·1분 상한이 안 줄어서,
+    # 매번 실패하는 다섯 장을 되풀이하는 것으로 상한을 두 배 넘게 쓸 수 있다.
+    tried = attempts if attempts is not None else len(reads)
+    share = input_length // tried if tried else input_length
+    for index in range(tried):
+        done = reads[index] if index < len(reads) else None
         _record_usage(
             session,
             user,
             client=client,
             source=source,
             # 나눠 떨어지지 않는 나머지는 첫 줄이 가져간다. 합이 실제 보낸 바이트와 맞는다.
-            input_length=share + (input_length - share * len(reads) if index == 0 else 0),
+            input_length=share + (input_length - share * tried if index == 0 else 0),
             redacted_count=redacted_count if index == 0 else 0,
             candidate_count=len(candidates) if index == 0 else 0,
-            model=read.model,
-            escalated=read.escalated,
+            model=done.model if done is not None else None,
+            escalated=done.escalated if done is not None else False,
+            failed=done is None,
         )
     return batch
 
@@ -399,7 +407,7 @@ def update_candidate(
         fingerprint = _fingerprint_of(row, user)
         row.fingerprint = fingerprint.value
         row.is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in (
-            _known_fingerprints(session, user)
+            _known_fingerprints(session, user) | _siblings_before(session, row)
         )
         if "is_selected" not in data:
             now_refund = row.type == TransactionType.REFUND
@@ -596,8 +604,12 @@ def _read_all(
     today: date,
     subject: str,
     images: list[LlmImage],
-) -> list[_ReadResult]:
+) -> tuple[list[_ReadResult], int]:
     """사진들을 읽는다. 한 장이면 지금까지와 똑같고, 여러 장이면 **한꺼번에** 부른다.
+
+    돌려주는 둘째 값은 **실제로 부른 횟수**다. 성공한 것만 세면 실패하는 동안 하루 상한이
+    줄지 않아, 매번 실패하는 사진 다섯 장을 되풀이하는 것으로 1분 상한을 두 배 넘게 쓸 수
+    있다. 돈이 나가는 것은 답이 아니라 호출이다.
 
     **여러 장에서는 두 번째 모델을 안 부른다.** 재시도는 한 장에서만 한다. 다섯 장이
     다 이상하면 비싼 모델을 다섯 번 부르게 되는데, 그 값이 이 자리에 붙은 광고 한 편이
@@ -617,7 +629,7 @@ def _read_all(
                 subject=subject,
                 image=images[0],
             )
-        ]
+        ], 1
 
     extractions = _extract_many(client, prompt=prompt, today=today, subject=subject, images=images)
     reads: list[_ReadResult] = []
@@ -636,7 +648,7 @@ def _read_all(
         )
     if len(reads) < len(images):
         logger.warning("사진 %d장 중 %d장만 읽었다", len(images), len(reads))
-    return reads
+    return reads, len(images)
 
 
 def _extract_many(
@@ -649,8 +661,8 @@ def _extract_many(
 ) -> list[TransactionExtraction | None]:
     """사진들을 **동시에** 읽는다. 못 읽은 자리는 None 이다.
 
-    차례로 부르면 다섯 장에 1분이 걸린다. 그동안 보여 줄 광고는 30초짜리라, 광고가 끝나고도
-    사람이 30초를 더 기다린다. 동시에 부르면 가장 느린 한 장만큼만 걸린다.
+    차례로 부르면 장수만큼 곱해져서, 그동안 보여 줄 광고가 끝나고도 사람이 빈 화면을
+    한참 본다. 동시에 부르면 가장 느린 한 장만큼만 걸린다.
 
     `_extract` 와 같은 이유로 `anyio.from_thread.run` 을 지난다. 핸들러가 동기라
     워커 스레드에서 도는데, 코루틴은 본래 이벤트 루프에서 돌아야 한다.
@@ -668,8 +680,11 @@ def _extract_many(
                     image=image,
                     today=today,
                 )
-            except LlmError:
-                # 한 장이 죽어도 task group 을 무너뜨리지 않는다. 나머지는 계속 읽는다.
+            except Exception:
+                # **`LlmError` 만 잡지 않는다.** 다른 예외가 새면 anyio task group 이 나머지
+                # 네 장을 취소하고 ExceptionGroup 으로 올라가, 이미 읽어 낸 것까지 통째로
+                # 버리면서 500 이 된다. 다섯 번 낸 돈은 어디에도 안 남는다.
+                # 취소는 BaseException 이라 여기 안 걸리고 그대로 올라간다.
                 logger.warning("사진 %d번째를 읽지 못했다", index + 1, exc_info=True)
 
         async with anyio.create_task_group() as group:
@@ -881,6 +896,25 @@ def _known_fingerprints(session: Session, user: User) -> set[str]:
         Transaction.user_id == user.id,
         Transaction.deleted_at.is_(None),
         Transaction.fingerprint.is_not(None),
+    )
+    return {value for value in session.scalars(stmt) if value}
+
+
+def _siblings_before(session: Session, row: ImportCandidate) -> set[str]:
+    """같은 묶음에서 이 줄보다 앞에 선 줄들의 지문.
+
+    사진 여러 장을 한 묶음으로 읽으면서 생긴 자리다. 이어 찍은 캡처는 경계의 한두 줄이
+    두 장에 다 찍히고, 그 쌍둥이는 **아직 거래가 아니라서** 저장된 표에는 안 보인다.
+    그래서 뒤엣줄을 한 번 고치면 「이제 중복이 아니다」 로 판정돼 스스로 다시 켜지고,
+    같은 결제가 두 번 저장됐다.
+
+    앞에 선 것만 본다. 서로를 보면 둘 다 중복이 되어 둘 다 꺼진다.
+    """
+    stmt = select(ImportCandidate.fingerprint).where(
+        ImportCandidate.import_batch_id == row.import_batch_id,
+        ImportCandidate.id != row.id,
+        ImportCandidate.sort_order < row.sort_order,
+        ImportCandidate.fingerprint.is_not(None),
     )
     return {value for value in session.scalars(stmt) if value}
 

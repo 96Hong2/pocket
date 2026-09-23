@@ -624,3 +624,80 @@ def test_두_장에_겹쳐_찍힌_결제는_한_번만_켜진다(
     assert [one["is_selected"] for one in body["candidates"]] == [True, False]
     assert [one["is_duplicate"] for one in body["candidates"]] == [False, True]
     assert body["selected_count"] == 1
+
+
+def test_여섯_장은_왜_안_되는지_한국어로_말한다(client: TestClient, default_categories) -> None:
+    response = _analyze_many(client, 6)
+
+    assert response.status_code == 422, response.text
+    # 「요청 형식이 올바르지 않아요」 가 뜨면 사진이 많아서 막혔다는 것을 알 수 없다.
+    assert "5장까지" in response.json()["error"]["message"]
+
+
+def test_읽지_못한_장도_호출로_센다(client: TestClient, db: Session, default_categories) -> None:
+    with _using(client, _SecondFails):
+        _analyze_many(client, 3)
+
+    rows = db.scalars(select(ParseUsage)).all()
+    # 돈이 나가는 것은 답이 아니라 호출이다. 실패한 장을 빼고 세면 상한이 헐거워진다.
+    assert len(rows) == 3
+    # 어느 장이 죽었는지는 안 남는다(성공한 것만 순서를 안다). 몇 번 불렀는지가 상한을 정한다.
+    assert sum(1 for row in rows if row.failed) == 1
+
+
+class _SecondBlowsUp(_OnePerImage):
+    """두 번째 사진에서 `LlmError` 가 아닌 예외가 나는 모델."""
+
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        result = await super().extract(
+            prompt=prompt, schema=schema, text=text, image=image, today=today
+        )
+        if self.calls == 2:
+            raise RuntimeError("포트가 감싸지 못한 예외")
+        return result
+
+
+def test_한_장이_딴_예외로_죽어도_나머지는_온다(client: TestClient, default_categories) -> None:
+    with _using(client, _SecondBlowsUp):
+        response = _analyze_many(client, 3)
+
+    # `LlmError` 만 잡으면 task group 이 나머지를 취소하고 500 이 됐다.
+    assert response.status_code == 201, response.text
+    merchants = [candidate["merchant"] for candidate in response.json()["candidates"]]
+    assert merchants == ["가게1", "가게3"]
+
+
+def test_겹친_줄은_고쳐도_다시_켜지지_않는다(client: TestClient, default_categories) -> None:
+    with _using(client, _SameRowTwice):
+        created = _analyze_many(client, 2)
+
+    body = created.json()
+    second = body["candidates"][1]
+    # 분류만 바꿔도 「내용 고침」 이라 중복 판정이 다시 돈다.
+    patched = client.patch(
+        f"/api/v1/imports/{body['id']}/candidates/{second['id']}",
+        json={"merchant": "스타벅스 강남"},
+        headers=AUTH,
+    )
+
+    assert patched.status_code == 200, patched.text
+    rows = patched.json()["candidates"]
+    # 상호를 바꿨으니 이제 정말 다른 거래다. 여기서는 켜지는 것이 맞다.
+    assert [one["is_selected"] for one in rows] == [True, True]
+
+    with _using(client, _SameRowTwice):
+        again = _analyze_many(client, 2)
+
+    body2 = again.json()
+    third = body2["candidates"][1]
+    # 내용을 안 바꾸고 분류만 건드리면 여전히 같은 거래다. 되켜지면 두 번 저장된다.
+    touched = client.patch(
+        f"/api/v1/imports/{body2['id']}/candidates/{third['id']}",
+        json={"category_id": rows[0]["category_id"]},
+        headers=AUTH,
+    )
+
+    assert touched.status_code == 200, touched.text
+    after = touched.json()["candidates"]
+    assert [one["is_selected"] for one in after] == [True, False]
+    assert touched.json()["selected_count"] == 1

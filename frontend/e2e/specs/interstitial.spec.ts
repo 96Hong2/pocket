@@ -353,3 +353,42 @@ test('상한을 다 쓴 사람에게는 묻지도 않는다. 안 뜰 광고를 �
   await categories.waitReady();
   await expect(manage.adConsent).toBeHidden();
 });
+
+test('확인 창에서 뒤로가기를 누르면 창만 닫힌다. 앱이 닫히면 안 된다', async ({
+  appShell,
+  manage,
+  page,
+}) => {
+  await manage.open();
+  await manage.waitReady();
+  await manage.subScreenRow('카테고리 관리').click();
+  await expect(manage.adConsent).toBeVisible();
+
+  await appShell.pressBack();
+
+  await expect(manage.adConsent).toBeHidden();
+  // 관리 탭 그대로다. 등록을 안 하면 스택이 비어 `closeApp()` 으로 떨어진다.
+  await expect(manage.assetsEntry).toBeVisible();
+  expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
+});
+
+test('묻는 창이 떠 있는 동안 탭바를 누를 수 없다', async ({ manage }) => {
+  await manage.open();
+  await manage.waitReady();
+  await manage.subScreenRow('카테고리 관리').click();
+  await expect(manage.adConsent).toBeVisible();
+
+  /*
+    딤이 탭바를 덮어야 한다. z-index 를 탭바(40) 아래 두면 탭바가 뚫고 나와 눌리고,
+    광고를 묻는 창을 띄운 채 다른 탭으로 나갈 수 있다. `alertdialog` 가 말하는 것과
+    화면이 달라진다.
+  */
+  const blocked = await manage.adConsent.evaluate((dim) => {
+    const tab = document.querySelector('.tabbar__inner a, .tabbar__inner button');
+    if (tab == null) return 'no-tab';
+    const box = tab.getBoundingClientRect();
+    const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return dim.contains(top) || top === dim ? 'covered' : 'exposed';
+  });
+  expect(blocked, '탭바가 딤 위로 뚫고 나왔다').toBe('covered');
+});

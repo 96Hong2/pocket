@@ -39,7 +39,7 @@ export function useAdConsent(): AdConsentHandle {
   const interstitial = useInterstitial();
   const [asking, setAsking] = useState<AdConsentRequest | null>(null);
   const [pending, setPending] = useState<string | null>(null);
-  const { ready, show } = interstitial;
+  const { canShow, ready, show } = interstitial;
 
   const play = useCallback(
     async (input: AdConsentRequest): Promise<void> => {
@@ -58,20 +58,25 @@ export function useAdConsent(): AdConsentHandle {
   const request = useCallback(
     (input: AdConsentRequest): void => {
       /*
-        **광고가 안 설 자리에서는 안 묻는다.** 상한을 이미 채웠거나 광고 그룹이 없는
-        기기면 창을 띄우지 않는다. 아무 일도 안 일어나는데 묻기부터 하면 방해다.
+        **묻지 않은 광고가 뜨는 일이 없어야 한다.** 그게 콘솔이 반려한 사유다.
 
-        그래도 `play()` 는 지난다. 그 안에서 `show()` 가 상한에 걸린 것을
-        `skipped`·`capped` 로 남기기 때문이다. 여기서 곧바로 `go()` 로 빠지면 상한이
-        몇 번 걸렸는지가 어디에도 안 남아, 세션당 한 편이 맞는 선인지 알 수 없게 된다.
+        그래서 `ready`(그릴 때 쓰는 캐시)가 아니라 `canShow()` 로 **그 자리에서 다시
+        읽어** 가른다. 둘이 어긋나는 창이 실제로 있다: 어제 상한을 채운 채 앱을 켜 두고
+        자정을 넘기면 `ready` 는 거짓으로 굳어 있는데 문은 열려 있다.
+
+        설 수 없으면 `play()` 로 지나간다. 그 안의 `show()` 가 상한에 걸린 것을
+        `skipped`·`capped` 로 남긴다. 곧바로 `go()` 로 빠지면 상한이 몇 번 걸렸는지가
+        어디에도 안 남아, 세션당 한 편이 맞는 선인지 알 수 없게 된다.
       */
-      if (!ready) {
+      void canShow().then((allowed) => {
+        if (allowed) {
+          setAsking(input);
+          return;
+        }
         void play(input);
-        return;
-      }
-      setAsking(input);
+      });
     },
-    [play, ready],
+    [canShow, play],
   );
 
   return {

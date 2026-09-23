@@ -111,6 +111,8 @@ test('두 장째부터는 광고를 묻고, 읽는 동안이라고 말한다', a
   // 「광고를 보면 읽어 드려요」 가 아니라 「읽는 데 걸려요, 그동안 광고가 나와요」 다.
   await expect(recordSheet.capture.adConsent).toContainText('읽는 데');
   await expect(recordSheet.capture.adConsent).toContainText('그동안 광고가 한 번 나와요');
+  // 초를 적지 않는다. 실제 기다림은 읽기와 광고 중 긴 쪽이라 지킬 수 없는 약속이 된다.
+  await expect(recordSheet.capture.adConsent).not.toContainText(/\d+초/);
   await expect(recordSheet.capture.adConsentConfirm).toBeVisible();
 });
 
@@ -229,7 +231,7 @@ test('여러 장을 고르면 한 묶음으로 읽고 긴 광고를 판다', asy
 
   // 장수를 말해 준다. 「몇 장을 읽는 데 얼마나」 가 맞아야 예고가 예고다.
   await expect(recordSheet.capture.adConsent).toContainText('사진 3장 읽기');
-  await expect(recordSheet.capture.adConsent).toContainText('읽는 데 30초쯤');
+  await expect(recordSheet.capture.adConsent).toContainText('읽는 데 시간이 조금 걸려요');
   await recordSheet.capture.adConsentConfirm.click();
   // 스텁이 사진 한 장에 여섯 건을 낸다. 세 장이 **한 화면에** 열여덟 줄로 모인 것이
   // 곧 배치가 하나라는 뜻이다. 세 번 불렀으면 여섯 줄짜리 화면을 세 번 지나야 한다.

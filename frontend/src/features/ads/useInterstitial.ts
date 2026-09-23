@@ -129,6 +129,15 @@ async function gateBody(
 export function useInterstitial(): {
   busy: boolean;
   /**
+   * **지금 이 순간** 한 편이 설 수 있나. 저장소를 그 자리에서 다시 읽는다.
+   *
+   * `ready` 는 그릴 때 쓰라고 캐시해 둔 값이라 **낡을 수 있다.** 어제 하루 상한을 채운
+   * 채 앱을 켜 두고 자정을 넘기면 `ready` 는 거짓으로 굳어 있는데 실제 문은 열려 있다.
+   * 그 상태로 「안 물어도 되겠다」 고 판단하면 **묻지 않은 광고가 뜬다.** 콘솔이 반려한
+   * 바로 그 상황이라, 물을지 말지는 이 값으로 가른다.
+   */
+  canShow: () => Promise<boolean>;
+  /**
    * 지금 이 기기에서 한 편이 더 설 수 있나.
    *
    * **예고를 적을지 말지를 이 값으로 가른다.** 상한을 이미 채웠거나 광고 그룹이 없는
@@ -173,6 +182,11 @@ export function useInterstitial(): {
     };
   }, [available, bridge, capped, round]);
 
+  const canShow = useCallback(async (): Promise<boolean> => {
+    if (!available || adInFlight || watchedThisSession >= SESSION_CAP) return false;
+    return allowedToday(await readDayCount(bridge.storage), toLedgerDate(new Date()));
+  }, [available, bridge]);
+
   const show = useCallback(
     async (where: InterstitialWhere, options?: ShowOptions): Promise<InterstitialOutcome> => {
       /*
@@ -197,5 +211,5 @@ export function useInterstitial(): {
     [analytics, bridge, showAd],
   );
 
-  return { busy, ready, show };
+  return { busy, canShow, ready, show };
 }

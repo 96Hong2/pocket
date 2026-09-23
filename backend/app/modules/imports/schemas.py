@@ -72,7 +72,12 @@ class ImportImageIn(BaseModel):
         min_length=32,
         json_schema_extra={"maxLength": MAX_IMAGE_DATA_URL_LENGTH},
     )
-    images: list[str] | None = Field(default=None, min_length=1, max_length=MAX_IMAGES)
+    # 위 `image` 와 같은 이유로 상한을 `max_length` 로 걸지 않는다. 그쪽에 걸리면
+    # 영어 형식 오류가 나서 화면에 「요청 형식이 올바르지 않아요」 가 뜬다. 앨범 SDK 가
+    # `maxCount` 를 안 지키는 기기에서 실제로 보이는 문구다. 스펙에는 같은 값이 실린다.
+    images: list[str] | None = Field(
+        default=None, min_length=1, json_schema_extra={"maxItems": MAX_IMAGES}
+    )
 
     @field_validator("image")
     @classmethod
@@ -84,6 +89,8 @@ class ImportImageIn(BaseModel):
     @field_validator("images")
     @classmethod
     def _each_within_limit(cls, value: list[str] | None) -> list[str] | None:
+        if value is not None and len(value) > MAX_IMAGES:
+            raise ValueError(f"사진은 한 번에 {MAX_IMAGES}장까지 읽을 수 있어요.")
         for one in value or []:
             if len(one) < 32 or len(one) > MAX_IMAGE_DATA_URL_LENGTH:
                 raise ValueError("사진이 너무 커요. 조금 작게 찍거나 다른 사진으로 골라 주세요.")

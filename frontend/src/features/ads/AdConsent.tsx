@@ -14,10 +14,18 @@
  * 것이 곧 광고를 보겠다는 뜻이고, 그 버튼이 CTA 다.
  *
  * **자리마다 다시 만들지 않는다.** 전면 광고가 서는 자리가 여덟이라 문구가 갈리면
- * 어떤 자리는 빠뜨린다. 모양은 [[FutureDayConfirm]] 과 같게 맞췄다. 같은 무게의
- * 물음이라 같게 그린다.
+ * 어떤 자리는 빠뜨린다. 모양은 `FutureDayConfirm` 과 같게 맞췄다.
+ *
+ * **다만 동작은 시트가 대신 해 주지 않는다.** `FutureDayConfirm` 은 늘 `BottomSheet`
+ * 안에 있어 초점 가두기·뒤로가기 닫기를 상속하는데, 이 창은 관리 탭·리포트 본문 위에
+ * 직접 선다. 그래서 여기서 직접 한다. 안 하면 뒤로가기가 스택을 못 찾아 **미니앱이
+ * 통째로 닫힌다.**
  */
 
+import { useEffect, useRef } from 'react';
+
+import { useOverlayBackClose } from '../../app/providers';
+import { trapTab } from '../../shared/ui/focusTrap';
 import { Button } from '../../shared/ui';
 
 export interface AdConsentProps {
@@ -37,9 +45,34 @@ export interface AdConsentProps {
 }
 
 export function AdConsent({ what, meanwhile, onConfirm, onCancel }: AdConsentProps) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  // 뒤로가기를 이 창의 닫기로 가져간다. 등록하지 않으면 스택이 비어 미니앱이 닫힌다.
+  useOverlayBackClose(true, onCancel);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    boxRef.current?.focus();
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCancel();
+        return;
+      }
+      if (event.key !== 'Tab' || !boxRef.current) return;
+      trapTab(boxRef.current, event);
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [onCancel]);
+
   return (
-    <div className="ad-consent" role="alertdialog" aria-label="광고가 한 번 나와요">
-      <div className="ad-consent__box">
+    <div className="ad-consent" role="alertdialog" aria-modal="true" aria-label="광고가 한 번 나와요">
+      <div className="ad-consent__box" ref={boxRef} tabIndex={-1}>
         <p className="ad-consent__title">{what}</p>
         {meanwhile ? (
           /*

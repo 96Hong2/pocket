@@ -78,7 +78,8 @@ export function ClosingSection({ month, autoOpen = false, onAutoOpened }: Closin
               카드 {CLOSING_CARDS.length}장 · 잘한 것부터 열어봐요
             </span>
             {/* 받는 것(카드 넉 장) 바로 아래다. 무엇을 얻고 무엇을 치르는지 한눈에 붙어 있다. */}
-            <AdAheadNote className="closing-entry__ad" />
+            {/* 상한을 다 쓴 사람에게는 글자를 지운다. 안 뜰 광고를 적어 두면 그건 예고가 아니다. */}
+            <AdAheadNote className={`closing-entry__ad${ad.ready ? '' : ' closing-entry__ad--off'}`} />
           </span>
           {/* 눌러서 들어가는 자리라는 표시. 읽을 것이 아니라 방향이다. */}
           <span className="closing-entry__chevron" aria-hidden="true">
