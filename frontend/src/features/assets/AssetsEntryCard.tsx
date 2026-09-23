@@ -4,7 +4,7 @@ import { ROUTES } from '../../app/router/routes';
 import { parseDecimalOr, useAssets } from '../../shared/api';
 import { formatCurrency, formatDayLabel } from '../../shared/lib/format';
 import { CategoryAvatar } from '../../shared/ui';
-import { AdAheadNote, useInterstitial } from '../ads';
+import { AdAheadNote, useAdConsent } from '../ads';
 
 /**
  * 관리 탭 맨 위의 자산 입구.
@@ -20,7 +20,8 @@ import { AdAheadNote, useInterstitial } from '../ads';
 export function AssetsEntryCard() {
   const assets = useAssets();
   const navigate = useNavigate();
-  const interstitial = useInterstitial();
+  const ad = useAdConsent();
+  const waiting = ad.pending != null;
   const data = assets.data;
   const netWorth = data == null ? null : parseDecimalOr(data.summary.net_worth, 0);
   const basis = data?.snapshot?.effective_on;
@@ -33,19 +34,19 @@ export function AssetsEntryCard() {
         ? `순자산 ${formatCurrency(netWorth)}`
         : `순자산 ${formatCurrency(netWorth)} · ${formatDayLabel(basis)} 기준`;
 
-  async function open(): Promise<void> {
-    await interstitial.show('assets');
-    void navigate(ROUTES.assets);
+  function open(): void {
+    ad.request({ where: 'assets', what: '자산관리', go: () => void navigate(ROUTES.assets) });
   }
 
   return (
+    <>
     <button
       type="button"
       className="assets-entry"
       // 누르고 나서 광고가 뜨기까지 최대 8초다. 그동안 화면이 그대로면 먹통으로 읽힌다.
-      aria-busy={interstitial.busy}
-      disabled={interstitial.busy}
-      onClick={() => void open()}
+      aria-busy={waiting}
+      disabled={waiting}
+      onClick={open}
     >
       <CategoryAvatar icon="28_cash" size={52} />
       <span className="assets-entry__body">
@@ -57,15 +58,15 @@ export function AssetsEntryCard() {
           **안 보일 때도 자리는 남긴다.** 지워 버리면 카드가 그만큼 낮아지면서 아래
           목록이 통째로 올라온다. 손가락이 이미 내려오는 중이면 다른 것을 누른다.
         */}
-        {interstitial.busy ? (
+        {waiting ? (
           // 누르고 나서 광고가 뜨기까지 최대 8초다. 그동안 이 자리가 무엇을 기다리는지 말한다.
           <span className="assets-entry__ad">잠시만요</span>
         ) : (
-          <AdAheadNote
-            className={`assets-entry__ad${interstitial.ready ? '' : ' assets-entry__ad--off'}`}
-          />
+          <AdAheadNote className={`assets-entry__ad${ad.ready ? '' : ' assets-entry__ad--off'}`} />
         )}
       </span>
     </button>
+    {ad.prompt}
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { useBridge } from '../../app/providers';
 import {
@@ -26,16 +26,26 @@ import {
   type PermissionResource,
 } from '../../shared/ui';
 
+import { AdConsent } from '../ads';
+
 import { ImportReview } from './ImportReview';
 import { ParseProgress, type ParseStep } from './ParseProgress';
-import { PhotoCreditGate, PhotoCreditLine } from './PhotoCreditLine';
-import type { PhotoCreditsHandle } from './usePhotoCredits';
+import { PhotoCreditLine } from './PhotoCreditLine';
+import type { PhotoAdPlan, PhotoCreditsHandle } from './usePhotoCredits';
 
 /** 사진 한 장을 어디서 가져오는가. 그 뒤로는 두 갈래가 같은 길을 지난다. */
 export type ImageImportKind = 'capture' | 'receipt';
 
 /** 서버가 스텁 결과라고 알리는 코드값. 한국어 문구는 화면이 정한다. */
 const STUB_NOTE = 'stub_image';
+
+/**
+ * 앨범에서 한 번에 고를 수 있는 장수. 서버 상한(`service.MAX_IMAGES`)과 같아야 한다.
+ *
+ * 다섯인 이유는 리워드 광고 한 편 안에 읽기가 끝나리라 보는 선이기 때문이다. 더 받으면 광고가
+ * 끝난 뒤에도 사람이 빈 화면을 본다.
+ */
+export const MAX_PHOTOS = 5;
 
 interface ImageImportMode {
   capability: BridgeCapability;
@@ -56,8 +66,8 @@ interface ImageImportMode {
   panelTestId: string;
   restartLabel: string;
   emptyMessage: ReactNode;
-  /** 한 장을 가져온다. 취소는 두 갈래 모두 null 로 맞춰 돌려준다. */
-  pick: (bridge: MiniAppBridge) => Promise<PickedImage | null>;
+  /** 사진을 가져온다. 취소는 두 갈래 모두 빈 배열로 맞춰 돌려준다. */
+  pick: (bridge: MiniAppBridge) => Promise<PickedImage[]>;
 }
 
 /**
@@ -93,7 +103,12 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
     panelTestId: TEST_IDS.capturePanel,
     restartLabel: '다시 고르기',
     emptyMessage: '캡처에서 거래를 찾지 못했어요',
-    pick: async (bridge) => (await bridge.pickPhotos({ maxCount: 1, maxWidth: 1600 }))[0] ?? null,
+    /*
+      **여러 장을 고르게 한다.** 카드 내역은 한 화면에 다 안 들어와서 두세 장을 이어 찍는
+      일이 잦은데, 예전에는 한 장씩 고르고 검토하고 저장하기를 되풀이해야 했다.
+      읽는 것은 서버가 겹쳐서 하므로 다섯 장이 한 장보다 그리 오래 걸리지 않는다.
+    */
+    pick: (bridge) => bridge.pickPhotos({ maxCount: MAX_PHOTOS, maxWidth: 1600 }),
   },
   receipt: {
     capability: 'camera',
@@ -123,7 +138,11 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
         <span>사진이 어둡거나 구겨져 있으면 그럴 수 있어요</span>
       </>
     ),
-    pick: (bridge) => bridge.captureReceipt({ maxWidth: 1600 }),
+    // 카메라는 한 번에 한 장이다. 여러 장은 앨범 쪽(캡처)에서만 고를 수 있다.
+    pick: async (bridge) => {
+      const one = await bridge.captureReceipt({ maxWidth: 1600 });
+      return one == null ? [] : [one];
+    },
   },
 };
 
@@ -141,19 +160,12 @@ export interface ImageImportTabProps {
   /** 사진으로는 안 될 때 갈 다른 길. 실패 화면과 권한 화면 두 자리에 함께 놓인다. */
   fallbackAction?: ReactNode;
   /**
-   * 남은 사진 장수. **시트가 하나를 만들어 두 탭에 나눠 준다.**
+   * 오늘 무료분과 광고 계획. **시트가 하나를 만들어 두 탭에 나눠 준다.**
    *
    * 탭마다 따로 세면 두 탭이 동시에 떠 있어(`hidden` 으로 감출 뿐이다) 한쪽에서 쓴 것이
-   * 다른 쪽 숫자에 안 비친다. 실제로 캡처로 한 장 쓰고 영수증 탭에 가면 그대로 세 장이었다.
+   * 다른 쪽 숫자에 안 비친다. 실제로 캡처로 한 장 쓰고 영수증 탭에 가면 그대로 남아 있었다.
    */
   credits: PhotoCreditsHandle;
-  /**
-   * 지금 이 탭이 보이고 있나.
-   *
-   * 두 사진 탭은 한꺼번에 떠 있고 안 보이는 쪽을 `hidden` 으로 감춘다. 「장수가 없어
-   * 되돌아간 사람」 을 그리는 것만으로 세면 한 번 막힐 때마다 둘로 센다.
-   */
-  active?: boolean;
 }
 
 /**
@@ -172,7 +184,6 @@ export function ImageImportTab({
   onSaved,
   fallbackAction,
   credits,
-  active = true,
 }: ImageImportTabProps) {
   const mode = MODES[kind];
   const bridge = useBridge();
@@ -181,11 +192,17 @@ export function ImageImportTab({
 
   const [batch, setBatch] = useState<ImportBatchOut | null>(null);
   const [pickFailure, setPickFailure] = useState<BridgeErrorCode | null>(null);
-  // 보이는 탭에서 막혔을 때만 알린다. 몇 번을 부르든 기록 흐름 하나에 한 줄만 남는다.
-  const { left, markBlocked } = credits;
-  useEffect(() => {
-    if (active && left === 0) markBlocked();
-  }, [active, left, markBlocked]);
+  /*
+    광고를 보겠냐고 묻는 중. `resolve` 는 사진을 고른 쪽이 기다리고 있는 답이다.
+
+    상태로 들고 있는 이유는 확인 창이 화면이기 때문이다. `pick()` 한가운데서 사람의
+    답을 기다려야 해서, 창을 띄우고 그 답을 약속으로 돌려준다.
+  */
+  const [asking, setAsking] = useState<{
+    plan: PhotoAdPlan;
+    count: number;
+    resolve: (allowed: boolean) => void;
+  } | null>(null);
 
   if (batch != null) {
     return (
@@ -223,11 +240,9 @@ export function ImageImportTab({
         <PermissionDenied
           resource={mode.permission}
           size="inline"
-          // 장수까지 떨어졌으면 눌러도 아무 일이 없다. 그때는 받는 자리를 함께 보여 준다.
-          onRetry={credits.left === 0 ? undefined : () => void pick()}
+          onRetry={() => void pick()}
           fallbackAction={fallbackAction}
         />
-        {credits.left === 0 ? <PhotoCreditGate credits={credits} /> : null}
       </div>
     );
   }
@@ -278,35 +293,38 @@ export function ImageImportTab({
       ) : null}
 
       {/*
-        다 쓴 사람에게는 고르는 버튼 대신 받는 자리를 둔다. 버튼을 남겨 두고 누른 뒤에
-        막으면, 앨범을 열었다 닫는 헛걸음을 시킨 다음에야 안 된다고 말하는 셈이다.
+        **버튼은 늘 같은 자리에 같은 말로 있다.** 예전에는 장수가 떨어지면 이 자리가
+        「광고 한 편 보고 사진 받기」 로 바뀌었는데, 손가락이 내려오는 사이에 버튼이
+        바뀌면 누를 생각이 없던 광고를 누르게 된다. 지금은 사진을 고른 **뒤에** 묻는다.
+
+        **장수를 모르는 동안(`null`)에는 눌리지 않는다.** 저장소를 읽는 사이에 눌러 버리면
+        무료분을 다 쓴 사람도 광고 없이 한 장을 더 쓴다. 그 틈은 첫 그림 직후 한순간이다.
       */}
-      {credits.left === 0 ? (
-        <PhotoCreditGate credits={credits} fallback={fallbackAction} />
-      ) : (
-        <>
-          {/*
-            **장수를 모르는 동안(`null`)에는 눌리지 않는다.** 저장소를 읽는 사이에 눌러 버리면
-            0 장인 사람도 한 장을 공짜로 쓰고, 더 나쁘게는 손가락이 내려오는 사이에 이 버튼이
-            「광고 한 편 보고 사진 받기」 로 바뀌어 누를 생각이 없던 광고를 누른다.
-          */}
-          <Button
-            fullWidth
-            disabled={analyzing || credits.left == null}
-            onClick={() => void pick()}
-          >
-            {pickFailure != null ? '다시 시도' : mode.pickLabel}
-          </Button>
-          <PhotoCreditLine credits={credits} busy={analyzing} />
-        </>
-      )}
+      <Button fullWidth disabled={analyzing || credits.free == null} onClick={() => void pick()}>
+        {pickFailure != null ? '다시 시도' : mode.pickLabel}
+      </Button>
+      <PhotoCreditLine credits={credits} />
+
+      {/* 사진을 고른 뒤, 광고가 뜨기 바로 전에 선다. 여기서 「닫기」 면 아무 일도 없다. */}
+      {asking != null ? (
+        <AdConsent
+          what={asking.count > 1 ? `사진 ${asking.count}장 읽기` : '사진 읽기'}
+          meanwhile={waitHint(asking.count)}
+          onCancel={() => {
+            credits.markDeclined(asking.plan, asking.count);
+            asking.resolve(false);
+            setAsking(null);
+          }}
+          onConfirm={() => {
+            asking.resolve(true);
+            setAsking(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 
   async function pick(): Promise<void> {
-    // 아직 못 읽었으면(`null`) 지나간다. 그 틈은 첫 그림 직후 한순간이고, 넘어가도
-    // 셈이 0 아래로는 안 내려간다. 여기서 막으면 버튼이 그 순간 죽은 것처럼 보인다.
-    if (credits.left === 0) return;
     setPickFailure(null);
     // 직전 분석 오류도 지운다. 안 지우면 취소하고 나왔을 때 붉은 줄이 그대로 남는다.
     analyze.reset();
@@ -314,55 +332,80 @@ export function ImageImportTab({
     onBusyChange(true);
     try {
       const picked = await mode.pick(bridge);
-      // 취소하면 null 이다. 사용자가 스스로 그만둔 것이라 아무 말도 하지 않는다.
-      if (picked == null) {
+      // 아무것도 안 골랐으면 스스로 그만둔 것이라 아무 말도 하지 않는다.
+      if (picked.length === 0) {
         analytics.log(EVENTS.imagePickResult, { method: kind, result: 'cancelled' }, { flowId });
         return;
       }
       // 몇 장을 골랐는지만 남긴다. 그림도, 파일 이름도, 크기도 싣지 않는다.
       analytics.log(
         EVENTS.imagePickResult,
-        { method: kind, result: 'ok', image_count: 1 },
+        { method: kind, result: 'ok', image_count: picked.length },
         { flowId },
       );
 
-      analytics.log(EVENTS.parseStarted, { method: kind }, { flowId });
+      /*
+        **광고가 필요하면 여기서 묻는다.** 앨범을 열기 전이 아니라 연 다음이다.
+        무엇을 몇 장 골랐는지 알아야 창에 장수를 적을 수 있고,
+        고르다 그만둔 사람에게는 광고 이야기를 아예 안 꺼내게 된다.
+      */
+      const plan = credits.planFor(picked.length);
+      if (plan !== 'none' && !(await askConsent(plan, picked.length))) return;
+
+      analytics.log(EVENTS.parseStarted, { method: kind, image_count: picked.length }, { flowId });
       // 걸린 시간은 우리가 잰다. 서버 로그로는 사용자가 실제로 기다린 시간을 알 수 없다.
       const startedAt = Date.now();
-      try {
-        const result = await analyze.mutateAsync(picked.dataUri);
-        analytics.log(
-          EVENTS.parseFinished,
-          {
-            method: kind,
-            result: parseOutcome(result),
-            elapsed_ms: Date.now() - startedAt,
-            candidate_count: result.candidates?.length ?? 0,
-          },
-          { flowId },
-        );
-        /*
-          **읽어 낸 뒤에, 읽은 것이 있을 때만 센다.**
+      /*
+        **읽기를 먼저 띄우고 광고를 그 위에 얹는다.** 광고가 끝나기를 기다렸다가 보내면
+        사람이 광고 시간 + 읽는 시간을 다 기다린다. 광고는 이미 있는 기다림을 채우는
+        것이지 새 기다림을 만드는 것이 아니다.
 
-          고르다 취소하거나 읽기가 실패한 것까지 세면 우리 쪽 사정으로 못 읽은 값을 사람에게
-          물리게 된다. 한 건도 못 찾은 사진(`empty`)과 아직 모델이 안 붙어 지어낸 결과(스텁)도
-          같다. 영수증을 찍었는데 「읽을 게 없어요」 가 뜨면서 장수가 주는 화면이 제일 나쁘다.
-        */
-        if (parseOutcome(result) !== 'empty' && !isStub(result)) await credits.spendOne();
-        setBatch(result);
-      } catch (error) {
+        약속을 곧바로 받아 둔다(`then` 두 갈래). 광고가 도는 동안 읽기가 실패하면
+        아무도 안 받은 거절이 되어 브라우저가 경고를 찍는다.
+      */
+      const pending = analyze
+        .mutateAsync(picked.map((one) => one.dataUri))
+        .then((ok) => ({ ok }) as const)
+        .catch((error: unknown) => ({ error }) as const);
+      await credits.play(plan, picked.length);
+      const settled = await pending;
+
+      if ('error' in settled) {
         analytics.log(
           EVENTS.parseFinished,
           {
             method: kind,
             result: 'failed',
             elapsed_ms: Date.now() - startedAt,
-            error_code: error instanceof ApiError ? error.code : 'unknown',
+            image_count: picked.length,
+            error_code: settled.error instanceof ApiError ? settled.error.code : 'unknown',
           },
           { flowId },
         );
-        throw error;
+        return;
       }
+
+      const result = settled.ok;
+      analytics.log(
+        EVENTS.parseFinished,
+        {
+          method: kind,
+          result: parseOutcome(result),
+          elapsed_ms: Date.now() - startedAt,
+          image_count: picked.length,
+          candidate_count: result.candidates?.length ?? 0,
+        },
+        { flowId },
+      );
+      /*
+        **읽어 낸 뒤에, 읽은 것이 있을 때만 센다.**
+
+        고르다 취소하거나 읽기가 실패한 것까지 세면 우리 쪽 사정으로 못 읽은 값을 사람에게
+        물리게 된다. 한 건도 못 찾은 사진(`empty`)과 아직 모델이 안 붙어 지어낸 결과(스텁)도
+        같다. 영수증을 찍었는데 「읽을 게 없어요」 가 뜨면서 장수가 주는 화면이 제일 나쁘다.
+      */
+      if (parseOutcome(result) !== 'empty' && !isStub(result)) await credits.spend(picked.length);
+      setBatch(result);
     } catch (error) {
       // 사진을 가져오는 쪽 실패만 여기서 화면을 가른다. 읽기 실패는 analyze.error 가 이미 들고 있다.
       if (error instanceof BridgeError) {
@@ -378,6 +421,26 @@ export function ImageImportTab({
       onBusyChange(false);
     }
   }
+
+  /** 확인 창을 띄우고 사람의 답을 기다린다. 「닫기」 면 아무 일도 일어나지 않는다. */
+  function askConsent(plan: PhotoAdPlan, count: number): Promise<boolean> {
+    return new Promise<boolean>((resolve) => setAsking({ plan, count, resolve }));
+  }
+}
+
+/**
+ * 얼마나 기다리는지 한 줄.
+ *
+ * **광고가 아니라 기다림을 주어로 쓴다.** 「광고를 보면 읽어 드려요」 는 광고를 치르고
+ * 기능을 사는 거래로 읽히는데, 실제로는 어차피 걸리는 시간이다.
+ *
+ * **초를 적지 않는다.** 이 저장소가 `AdAheadNote` 와 `BudgetCalcAsk` 에서 이미 정한
+ * 규칙이다. 광고 길이는 우리가 못 정하고, 실제 기다림은 읽기와 광고 중 **긴 쪽**이라
+ * 「10초쯤」 이라고 적으면 지키지 못할 약속이 된다.
+ */
+function waitHint(count: number): string {
+  // 몇 장인지는 제목이 이미 말한다. 여기서 또 적으면 한 창에 같은 숫자가 두 번 나온다.
+  return count > 1 ? '읽는 데 시간이 조금 걸려요.' : '읽는 데 잠깐 걸려요.';
 }
 
 /** 브릿지 실패를 로그 값으로 옮긴다. 취소는 여기 오지 않는다(null 로 먼저 빠진다). */

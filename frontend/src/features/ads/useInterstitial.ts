@@ -32,9 +32,14 @@ import { useFullScreenAd, type FullScreenAdOutcome } from './useFullScreenAd';
  * 자리를 늘려도 **한 사람이 겪는 총량은 그대로다**(`SESSION_CAP`·`DAILY_CAP`).
  * 관리 탭에서 이것저것 눌러 봐도 한 세션에 한 편이고, 그 뒤로는 예고 줄까지 사라진다.
  *
+ * **`photo` 만 관리 탭 밖이다.** 오늘 무료 한 장을 이미 쓴 사람이 사진을 한 장 더
+ * 읽을 때 **읽는 동안** 도는 광고다. 기다림을 새로 만드는 것이 아니라 이미 있는 몇 초를
+ * 채우는 자리라 넣었다. 상한을 함께 세는 이유도 그것이다. 관리 탭에서 한 편을 본 사람이
+ * 사진에서 또 보지 않는다.
+ *
  * 생활비 계산기는 여기 없다. 광고와 기능을 맞바꾸겠다고 사람이 먼저 누르는 자리라
  * 리워드 광고(`useRewardedAd`)로 나갔고, 그래서 상한도 안 센다(ADR-0024).
- * 사진 크레딧도 같은 이유로 여기 없다(`usePhotoRewardedAd`).
+ * 사진 여러 장도 같은 이유로 여기 없다(`usePhotoRewardedAd`).
  */
 export type InterstitialWhere =
   | 'closing'
@@ -42,7 +47,8 @@ export type InterstitialWhere =
   | 'categories'
   | 'tags'
   | 'recurring'
-  | 'assets';
+  | 'assets'
+  | 'photo';
 
 /** 지나온 결과. `capped` 는 상한에 걸려 광고를 아예 부르지 않은 것이다. */
 export type InterstitialOutcome = FullScreenAdOutcome | { result: 'skipped'; reason: 'capped' };
@@ -123,6 +129,15 @@ async function gateBody(
 export function useInterstitial(): {
   busy: boolean;
   /**
+   * **지금 이 순간** 한 편이 설 수 있나. 저장소를 그 자리에서 다시 읽는다.
+   *
+   * `ready` 는 그릴 때 쓰라고 캐시해 둔 값이라 **낡을 수 있다.** 어제 하루 상한을 채운
+   * 채 앱을 켜 두고 자정을 넘기면 `ready` 는 거짓으로 굳어 있는데 실제 문은 열려 있다.
+   * 그 상태로 「안 물어도 되겠다」 고 판단하면 **묻지 않은 광고가 뜬다.** 콘솔이 반려한
+   * 바로 그 상황이라, 물을지 말지는 이 값으로 가른다.
+   */
+  canShow: () => Promise<boolean>;
+  /**
    * 지금 이 기기에서 한 편이 더 설 수 있나.
    *
    * **예고를 적을지 말지를 이 값으로 가른다.** 상한을 이미 채웠거나 광고 그룹이 없는
@@ -167,6 +182,11 @@ export function useInterstitial(): {
     };
   }, [available, bridge, capped, round]);
 
+  const canShow = useCallback(async (): Promise<boolean> => {
+    if (!available || adInFlight || watchedThisSession >= SESSION_CAP) return false;
+    return allowedToday(await readDayCount(bridge.storage), toLedgerDate(new Date()));
+  }, [available, bridge]);
+
   const show = useCallback(
     async (where: InterstitialWhere, options?: ShowOptions): Promise<InterstitialOutcome> => {
       /*
@@ -191,5 +211,5 @@ export function useInterstitial(): {
     [analytics, bridge, showAd],
   );
 
-  return { busy, ready, show };
+  return { busy, canShow, ready, show };
 }

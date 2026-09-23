@@ -1706,11 +1706,16 @@ export interface components {
         };
         /**
          * ImportImageIn
-         * @description 캡처 한 장. `data:image/png;base64,...` 형태의 문자열로 받는다.
+         * @description 캡처. `data:image/png;base64,...` 형태의 문자열을 한 장 또는 여러 장 받는다.
+         *
+         *     **`image` 를 남겨 둔다.** 이미 나간 번들이 그 이름으로 보내고 있어서, 지우면 앱을
+         *     업데이트하지 않은 사람이 사진으로 적는 길을 통째로 잃는다.
          */
         ImportImageIn: {
             /** Image */
-            image: string;
+            image?: string | null;
+            /** Images */
+            images?: string[] | null;
         };
         /**
          * ImportMetaOut

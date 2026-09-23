@@ -45,35 +45,42 @@ export const CANCELLED_SHOT = '';
 /**
  * 앨범·카메라가 돌려줄 사진을 심는다. `page.addInitScript` 로 넘긴다.
  *
+ * `count` 를 주면 같은 사진을 그만큼 심는다. **여러 장 고르기**를 재려면 목에 여러 장이
+ * 있어야 한다(`pickPhotos({maxCount})` 는 있는 만큼만 돌려준다).
+ *
  * 본문은 브라우저에서 돈다. 바깥 스코프를 참조하면 안 된다.
  * 목이 붙는 순간을 놓치지 않게 짧은 주기로 확인만 하고, 값이 박히면 멈춘다.
  */
-export function seedMockImages(dataUri: string): (page: Page) => Promise<void> {
+export function seedMockImages(dataUri: string, count = 1): (page: Page) => Promise<void> {
   return async (page) => {
-    await page.addInitScript((uri: string) => {
-      interface Manager {
-        state?: { mockData?: { images?: string[] } };
-        patch?: (slice: string, partial: Record<string, unknown>) => void;
-      }
-
-      const deadline = Date.now() + 10_000;
-      const timer = setInterval(() => {
-        const manager = (window as unknown as { __ait?: Manager }).__ait;
-        if (manager?.state?.mockData?.images?.length === 1 || Date.now() > deadline) {
-          clearInterval(timer);
-          return;
+    await page.addInitScript(
+      ({ uri, want }: { uri: string; want: number }) => {
+        interface Manager {
+          state?: { mockData?: { images?: string[] } };
+          patch?: (slice: string, partial: Record<string, unknown>) => void;
         }
-        manager?.patch?.('mockData', { images: [uri] });
-      }, 1);
-    }, dataUri);
+
+        const deadline = Date.now() + 10_000;
+        const timer = setInterval(() => {
+          const manager = (window as unknown as { __ait?: Manager }).__ait;
+          if (manager?.state?.mockData?.images?.length === want || Date.now() > deadline) {
+            clearInterval(timer);
+            return;
+          }
+          manager?.patch?.('mockData', { images: Array.from({ length: want }, () => uri) });
+        }, 1);
+      },
+      { uri: dataUri, want: count },
+    );
   };
 }
 
 /** 사진이 실제로 심겼는지. 안 심겼으면 목이 만든 기본 그림 세 장을 보고 있는 것이다. */
-export async function mockImagesSeeded(page: Page): Promise<boolean> {
+export async function mockImagesSeeded(page: Page, count = 1): Promise<boolean> {
   return page.evaluate(
-    () =>
-      (window as unknown as { __ait?: AitManager }).__ait?.state?.mockData?.images?.length === 1,
+    (want) =>
+      (window as unknown as { __ait?: AitManager }).__ait?.state?.mockData?.images?.length === want,
+    count,
   );
 }
 

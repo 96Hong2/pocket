@@ -47,6 +47,9 @@ MAX_TEXT_LENGTH = 2000
 # 진짜 바이트 상한은 app/api/images.py 가 디코드한 뒤에 본다.
 MAX_IMAGE_DATA_URL_LENGTH = 6_000_000
 
+# 한 번에 받는 사진 장수. 서비스 쪽 상한(`service.MAX_IMAGES`)과 같은 값이라야 한다.
+MAX_IMAGES = 5
+
 
 class ImportTextIn(BaseModel):
     """줄글 한 덩어리. 여러 건이 들어 있을 수 있다."""
@@ -55,22 +58,53 @@ class ImportTextIn(BaseModel):
 
 
 class ImportImageIn(BaseModel):
-    """캡처 한 장. `data:image/png;base64,...` 형태의 문자열로 받는다."""
+    """캡처. `data:image/png;base64,...` 형태의 문자열을 한 장 또는 여러 장 받는다.
+
+    **`image` 를 남겨 둔다.** 이미 나간 번들이 그 이름으로 보내고 있어서, 지우면 앱을
+    업데이트하지 않은 사람이 사진으로 적는 길을 통째로 잃는다.
+    """
 
     # 상한을 `max_length` 로 걸지 않는다. 그쪽에 걸리면 영어 형식 오류가 나서 화면에
     # 「요청 형식이 올바르지 않아요」 가 뜬다. 사진이 커서 막혔다는 것을 알아야 다른 사진을
     # 고른다. 판정은 아래 검증기가 하고, 스펙에는 같은 값이 그대로 실린다.
-    image: str = Field(
+    image: str | None = Field(
+        default=None,
         min_length=32,
         json_schema_extra={"maxLength": MAX_IMAGE_DATA_URL_LENGTH},
+    )
+    # 위 `image` 와 같은 이유로 상한을 `max_length` 로 걸지 않는다. 그쪽에 걸리면
+    # 영어 형식 오류가 나서 화면에 「요청 형식이 올바르지 않아요」 가 뜬다. 앨범 SDK 가
+    # `maxCount` 를 안 지키는 기기에서 실제로 보이는 문구다. 스펙에는 같은 값이 실린다.
+    images: list[str] | None = Field(
+        default=None, min_length=1, json_schema_extra={"maxItems": MAX_IMAGES}
     )
 
     @field_validator("image")
     @classmethod
-    def _within_limit(cls, value: str) -> str:
-        if len(value) > MAX_IMAGE_DATA_URL_LENGTH:
+    def _within_limit(cls, value: str | None) -> str | None:
+        if value is not None and len(value) > MAX_IMAGE_DATA_URL_LENGTH:
             raise ValueError("사진이 너무 커요. 조금 작게 찍거나 다른 사진으로 골라 주세요.")
         return value
+
+    @field_validator("images")
+    @classmethod
+    def _each_within_limit(cls, value: list[str] | None) -> list[str] | None:
+        if value is not None and len(value) > MAX_IMAGES:
+            raise ValueError(f"사진은 한 번에 {MAX_IMAGES}장까지 읽을 수 있어요.")
+        for one in value or []:
+            if len(one) < 32 or len(one) > MAX_IMAGE_DATA_URL_LENGTH:
+                raise ValueError("사진이 너무 커요. 조금 작게 찍거나 다른 사진으로 골라 주세요.")
+        return value
+
+    @model_validator(mode="after")
+    def _one_of(self) -> ImportImageIn:
+        if (self.image is None) == (self.images is None):
+            raise ValueError("사진을 한 장 또는 여러 장 중 한 가지 방식으로 보내 주세요.")
+        return self
+
+    def all_images(self) -> list[str]:
+        """어느 쪽으로 왔든 같은 목록으로 돌려준다. 라우터가 갈래를 안 보게 한다."""
+        return self.images if self.images is not None else [self.image or ""]
 
 
 class ImportMetaOut(BaseModel):

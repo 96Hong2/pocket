@@ -1096,26 +1096,35 @@ class RecordImageImport {
     return this.root.getByRole('button', { name: this.labels.pickButton });
   }
 
-  /** 버튼 아래 남은 장수 한 줄. 넉넉할 때는 아예 안 그린다(마지막 한 장부터 뜬다). */
+  /**
+   * 버튼 아래 한 줄. **오늘 무료분을 이미 쓴 사람에게만** 뜬다.
+   *
+   * 아직 안 쓴 사람에게는 「무료」 도 「광고」 도 꺼내지 않는다. 10초 안에 한 건 적으러
+   * 온 사람 앞에 셈이라는 새 개념을 먼저 세울 이유가 없다.
+   */
   get creditLine(): Locator {
-    return this.root.getByText(/사진 \d+장 남음/);
+    return this.root.getByText(/오늘 무료 \d+장을 다 썼어요/);
   }
 
-  /** 남은 장수 옆에서 한 장을 더 모으는 자리. 평소에는 작게 있다. */
-  get earnLink(): Locator {
-    return this.root.getByRole('button', { name: /광고 보고 한 장 더|광고를 불러오는 중이에요/ });
+  /**
+   * 사진을 고른 뒤, 광고가 뜨기 **바로 전에** 서는 확인 창.
+   *
+   * 2026-09-23 반려 사유가 「유저가 예상하기 어려운 시점에 광고가 노출돼요」 였다.
+   * 버튼 곁에 적어 두는 것만으로는 안 읽고 누른 사람에게 아무 예고도 아니었다.
+   */
+  get adConsent(): Locator {
+    // 창은 화면에 못 박혀 떠서 이 패널 밖이다. 페이지 전체에서 잡는다.
+    return this.root.page().getByRole('alertdialog', { name: '광고가 한 번 나와요' });
   }
 
-  /** 오늘 몫을 다 썼을 때 고르는 버튼 자리에 대신 서는 묶음. */
-  get creditGate(): Locator {
-    return this.root.getByRole('group', { name: '오늘 사진을 다 썼어요' });
+  /** 「광고 보고 읽기」. 이 버튼을 누른 것이 곧 광고를 보겠다는 뜻이다. */
+  get adConsentConfirm(): Locator {
+    return this.adConsent.getByRole('button', { name: '광고 보고 읽기' });
   }
 
-  /** 다 쓴 사람이 한 장을 받는 버튼. */
-  get earnButton(): Locator {
-    return this.creditGate.getByRole('button', {
-      name: /광고 한 편 보고 사진 받기|광고를 불러오는 중이에요/,
-    });
+  /** 「닫기」. 아무 일도 일어나지 않는다. */
+  get adConsentCancel(): Locator {
+    return this.adConsent.getByRole('button', { name: '닫기' });
   }
 
   /**
@@ -1305,8 +1314,15 @@ class RecordImageImport {
   }
 
   /** 사진을 가져와 검토 화면에 닿을 때까지. */
+  /**
+   * 사진을 고르고 결과 화면까지 간다.
+   *
+   * 광고가 붙는 자리면 확인 창이 한 번 서고, 그때는 「광고 보고 읽기」 를 눌러 지난다.
+   * 창이 안 서는 자리(오늘 무료분)에서는 그냥 지나간다.
+   */
   async pick(): Promise<void> {
     await this.pickButton.click();
+    if (await this.adConsentConfirm.isVisible()) await this.adConsentConfirm.click();
     /*
       아래 버튼 줄로 기다린다. 한 건도 못 읽으면 `이렇게 이해했어요` 가 안 뜨고,
       그때는 되돌리기가, 읽어 온 것이 있으면 취소가 선다. 둘 중 하나는 늘 있다.

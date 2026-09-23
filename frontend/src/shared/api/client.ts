@@ -97,6 +97,26 @@ export interface TransactionListParams extends Partial<MonthParams> {
 const IMAGE_TIMEOUT_MS = 30_000;
 
 /**
+ * 사진 여러 장을 보낼 때 더 기다려 주는 시간.
+ *
+ * 서버는 장들을 **겹쳐** 읽어서 가장 느린 한 장만큼만 걸린다. 그래도 장이 늘면 느린
+ * 한 장이 나올 확률도 같이 는다. 장당 조금씩만 더 준다.
+ */
+function imageTimeout(count: number): number {
+  return IMAGE_TIMEOUT_MS + Math.max(0, count - 1) * 10_000;
+}
+
+/**
+ * 한 장이면 `image`, 여러 장이면 `images`.
+ *
+ * 서버가 둘 다 받는다. 한 장을 `images` 로 보내도 되지만 그러면 이미 나간 번들과
+ * 새 번들이 서로 다른 모양을 쓰게 되고, 로그를 볼 때 그 둘이 갈리지 않는다.
+ */
+function imageBody(dataUris: string[]): { image: string } | { images: string[] } {
+  return dataUris.length === 1 ? { image: dataUris[0] } : { images: dataUris };
+}
+
+/**
  * 줄글 한 덩이를 읽는 요청에 주는 제한 시간.
  *
  * 서버는 모델을 한 번 부르는 데 20초까지 기다리고, 줄이 홀수로 끊기면 **한 번 더** 부른다.
@@ -306,13 +326,16 @@ export interface ApiClient extends Transport {
   /**
    * 캡처 분석. 줄글과 같은 검토 단위를 돌려준다.
    *
-   * `dataUri` 는 `data:image/png;base64,...` 통째로 보낸다. 멀티파트를 쓰지 않는 이유는
+   * `dataUris` 는 `data:image/png;base64,...` 를 통째로 보낸다. 멀티파트를 쓰지 않는 이유는
    * 이 계층이 JSON 한 길만 알기 때문이다.
+   *
+   * **여러 장이어도 검토 단위는 하나다.** 장마다 따로 부르면 사람이 같은 화면을
+   * 다섯 번 지나야 한다.
    */
-  analyzeCapture(dataUri: string, options?: CallOptions): Promise<ImportBatchOut>;
+  analyzeCapture(dataUris: string[], options?: CallOptions): Promise<ImportBatchOut>;
 
-  /** 영수증 한 장 분석. 캡처와 같은 배관이고 경로와 지시만 다르다. */
-  analyzeReceipt(dataUri: string, options?: CallOptions): Promise<ImportBatchOut>;
+  /** 영수증 분석. 캡처와 같은 배관이고 경로와 지시만 다르다. */
+  analyzeReceipt(dataUris: string[], options?: CallOptions): Promise<ImportBatchOut>;
   /** 후보 한 줄 고치기. 보낸 항목만 바뀌고, 응답은 묶음 전체다. */
   patchImportCandidate(
     batchId: string,
@@ -742,23 +765,23 @@ export function createApiClient(options: TransportOptions): ApiClient {
       });
     },
 
-    analyzeCapture(dataUri, call) {
+    analyzeCapture(dataUris, call) {
       return transport.request<ImportBatchOut>({
         method: 'POST',
         path: `${PATHS.imports}/capture`,
-        body: { image: dataUri },
+        body: imageBody(dataUris),
         signal: call?.signal,
-        timeoutMs: IMAGE_TIMEOUT_MS,
+        timeoutMs: imageTimeout(dataUris.length),
       });
     },
 
-    analyzeReceipt(dataUri, call) {
+    analyzeReceipt(dataUris, call) {
       return transport.request<ImportBatchOut>({
         method: 'POST',
         path: `${PATHS.imports}/receipt`,
-        body: { image: dataUri },
+        body: imageBody(dataUris),
         signal: call?.signal,
-        timeoutMs: IMAGE_TIMEOUT_MS,
+        timeoutMs: imageTimeout(dataUris.length),
       });
     },
 

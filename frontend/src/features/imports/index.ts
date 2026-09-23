@@ -4,4 +4,9 @@ export { ImportReview, type ImportReviewProps } from './ImportReview';
 export { MerchantRuleList } from './MerchantRuleList';
 export { MerchantRuleSheet } from './MerchantRuleSheet';
 export { NaturalLanguageTab, type NaturalLanguageTabProps } from './NaturalLanguageTab';
-export { usePhotoCredits, type PhotoCreditsHandle } from './usePhotoCredits';
+export { MAX_PHOTOS } from './ImageImportTab';
+export {
+  usePhotoCredits,
+  type PhotoAdPlan,
+  type PhotoCreditsHandle,
+} from './usePhotoCredits';

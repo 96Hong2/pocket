@@ -53,11 +53,11 @@ def analyze_capture(
     escalation: EscalationLlmClient,
 ) -> ImportBatchOut:
     # async 로 바꾸지 않는다. service._extract 의 anyio.from_thread.run 이 워커 스레드를 전제한다.
-    image = decode_data_url(body.image)
-    batch = service.parse_image(
+    images = [decode_data_url(one) for one in body.all_images()]
+    batch = service.parse_images(
         session,
         user,
-        image=image,
+        images=images,
         source=TransactionSource.SCREENSHOT,
         client=client,
         escalation=escalation,
@@ -74,11 +74,11 @@ def analyze_receipt(
     escalation: EscalationLlmClient,
 ) -> ImportBatchOut:
     # 캡처와 같은 이유로 async 로 바꾸지 않는다.
-    image = decode_data_url(body.image)
-    batch = service.parse_image(
+    images = [decode_data_url(one) for one in body.all_images()]
+    batch = service.parse_images(
         session,
         user,
-        image=image,
+        images=images,
         source=TransactionSource.RECEIPT,
         client=client,
         escalation=escalation,

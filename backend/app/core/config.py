@@ -13,6 +13,10 @@ LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 # 줄글·사진을 읽는 모델. stub 은 규칙 파서라 사진을 한 바이트도 읽지 않는다.
 LlmProvider = Literal["stub", "gemini", "openai"]
 
+# 사진을 읽을 때 드는 값을 가르는 두 손잡이. 자세한 것은 Settings 쪽 주석에 적었다.
+ReasoningEffort = Literal["none", "minimal", "low", "medium", "high"]
+ImageDetail = Literal["low", "auto", "high"]
+
 # 3.x 번들이 2.x origin 으로도 서비스되므로 두 도메인을 모두 허용한다.
 DEFAULT_CORS_ORIGINS: tuple[str, ...] = (
     "https://pocket-ledger.web.tossmini.com",
@@ -68,8 +72,12 @@ class Settings(BaseSettings):
 
     # 1분 안에 몇 번까지. 하루 상한만으로는 **몰아치기**를 못 막는다. 스크립트 하나가
     # 몇 초 만에 하루치를 다 태워 모델 비용과 토스 API 한도를 함께 밀어낼 수 있다.
-    # 사람은 1분에 사진 열 장을 고르고 검토할 수 없다. 쓰는 사람은 이 문을 볼 일이 없다.
-    nl_parse_burst_limit: int = 10
+    #
+    # **2026-09-23 에 10 에서 25 로 올렸다.** 앨범에서 한 번에 다섯 장을 고를 수 있게
+    # 되면서 한 번 읽기가 상한의 절반을 먹는다. 두 번째 묶음에서 막히면 그 사람은
+    # **광고를 이미 다 보고 나서** 오류만 본다. 사람이 1분에 다섯 장짜리를 다섯 번
+    # 고르고 검토할 수는 없어서, 몰아치기를 막는다는 뜻은 그대로다.
+    nl_parse_burst_limit: int = 25
     nl_parse_burst_window_seconds: int = 60
 
     # 어떤 모델이 읽는지. 기본은 스텁이라 키 없이 개발·검증이 돈다. 운영은 gemini 로 띄운다.
@@ -86,6 +94,29 @@ class Settings(BaseSettings):
     llm_escalation_model: str | None = None
     # 한 번 부르는 데 기다리는 시간. 한 번 재시도하므로 최악은 두 배다.
     llm_timeout_seconds: float = 20.0
+
+    # ── 사진 한 장에 드는 값 ────────────────────────────────
+    #
+    # 실측(2026-09-22, 영수증 한 장): 입력 2,312 · 출력 868 토큰 = 약 2.2원.
+    # **값의 69% 가 출력 쪽이다.** 사진을 줄이면 입력만 줄어서 티가 잘 안 나고,
+    # 실제로 반으로 내리려면 추론 토큰을 줄여야 한다. 그게 곧 인식률 위험이라
+    # 셋 다 환경변수로 뺐다. 화면을 다시 배포하지 않고 되돌릴 수 있어야 한다.
+    #
+    #   gcloud run services update pocket-backend --region asia-northeast3 \
+    #     --update-env-vars LLM_REASONING_EFFORT=low,LLM_IMAGE_DETAIL=high
+    #
+    # 어느 쪽이 얼마나 들었는지는 호출마다 로그에 남는다(`tokens ... won=`).
+
+    # 사진을 얼마나 오래 들여다볼지. `low` 가 가장 싸고 `high` 가 가장 정확하다.
+    # `minimal` 은 5.6 계열이 받는 가장 낮은 값이다. 영수증 자릿수가 여기서 갈린다.
+    llm_reasoning_effort: ReasoningEffort = "minimal"
+
+    # 모델에게 사진을 얼마나 잘게 쪼개 보여 줄지. `high` 는 512px 조각마다 토큰을 쓴다.
+    # `auto` 면 모델이 정한다. 입력 토큰이 여기서 갈린다.
+    llm_image_detail: ImageDetail = "auto"
+
+    # 보내기 전에 긴 변을 이만큼으로 줄인다. 작을수록 싸고, 작은 글자가 먼저 뭉갠다.
+    llm_image_max_long_edge: int = Field(default=1024, ge=512, le=2048)
 
     # 로그인 코드를 실어 보낼 메일. SMTP 호스트가 비면 발송기가 로그 스텁으로 돈다.
     # local 에서는 그것으로 화면을 끝까지 눌러 볼 수 있고(코드를 /account/email/peek 로 읽는다),

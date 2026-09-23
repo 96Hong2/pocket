@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useClosing } from '../../shared/api';
 import { formatMonthLabel } from '../../shared/lib/format';
 import { Card, iconUrl } from '../../shared/ui';
-import { AdAheadNote, useInterstitial } from '../ads';
+import { AdAheadNote, useAdConsent } from '../ads';
 
 import { ClosingOverlay } from './ClosingOverlay';
 import { CLOSING_CARDS } from './closingText';
@@ -40,7 +40,7 @@ export function ClosingSection({ month, autoOpen = false, onAutoOpened }: Closin
   const closing = useClosing({ year, month: monthNumber });
   // 열린 달을 들고 있는다. 달을 옮기면 저절로 닫혀서, 옆 달 결산이 그대로 떠 있지 않는다.
   const [openMonth, setOpenMonth] = useState<string | null>(autoOpen ? month : null);
-  const interstitial = useInterstitial();
+  const ad = useAdConsent();
 
   // 달을 옮기면 이 자리가 통째로 다시 마운트되면서 위 초기값을 또 읽는다. 열어 달라는
   // 부탁을 쓴 즉시 알려서, 다음 마운트에는 닫힌 채로 시작하게 한다.
@@ -51,9 +51,12 @@ export function ClosingSection({ month, autoOpen = false, onAutoOpened }: Closin
   const data = closing.data;
 
   // 광고가 뜨든 안 뜨든 결산은 연다. 광고 서버 사정으로 지난달을 못 보게 두지 않는다.
-  async function openAfterAd(): Promise<void> {
-    await interstitial.show('closing');
-    setOpenMonth(month);
+  function openAfterAd(): void {
+    ad.request({
+      where: 'closing',
+      what: `${formatMonthLabel(month)} 결산`,
+      go: () => setOpenMonth(month),
+    });
   }
 
   if (data == null || !data.is_closed || !data.has_any_transaction) return null;
@@ -65,8 +68,8 @@ export function ClosingSection({ month, autoOpen = false, onAutoOpened }: Closin
         <button
           type="button"
           className="closing-entry__button"
-          disabled={interstitial.busy}
-          onClick={() => void openAfterAd()}
+          disabled={ad.pending != null}
+          onClick={openAfterAd}
         >
           <img className="closing-entry__icon" src={iconUrl('31_gift')} alt="" aria-hidden />
           <span className="closing-entry__text">
@@ -75,7 +78,8 @@ export function ClosingSection({ month, autoOpen = false, onAutoOpened }: Closin
               카드 {CLOSING_CARDS.length}장 · 잘한 것부터 열어봐요
             </span>
             {/* 받는 것(카드 넉 장) 바로 아래다. 무엇을 얻고 무엇을 치르는지 한눈에 붙어 있다. */}
-            <AdAheadNote className="closing-entry__ad" />
+            {/* 상한을 다 쓴 사람에게는 글자를 지운다. 안 뜰 광고를 적어 두면 그건 예고가 아니다. */}
+            <AdAheadNote className={`closing-entry__ad${ad.ready ? '' : ' closing-entry__ad--off'}`} />
           </span>
           {/* 눌러서 들어가는 자리라는 표시. 읽을 것이 아니라 방향이다. */}
           <span className="closing-entry__chevron" aria-hidden="true">
@@ -90,6 +94,9 @@ export function ClosingSection({ month, autoOpen = false, onAutoOpened }: Closin
         open={openMonth === month}
         onClose={() => setOpenMonth(null)}
       />
+
+      {/* 누른 자리와 광고 사이에 서는 확인 창. */}
+      {ad.prompt}
     </>
   );
 }

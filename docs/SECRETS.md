@@ -126,7 +126,31 @@ provider 는 `LLM_PROVIDER` 로 고른다. SDK 없이 httpx 로 부르고, 어�
 | `LLM_MODEL` | 비우면 `gemini-3.6-flash` / `gpt-5.6-luna` | 1차로 늘 부르는 모델 |
 | `LLM_ESCALATION_MODEL` | 비우면 `gemini-3.5-flash-lite` / `gpt-5.6-terra` | **서버 검증에 걸렸을 때만** 부른다(ADR-0018). 비우면 재시도 없이 사용자 확인 |
 | `LLM_TIMEOUT_SECONDS` | 기본 20 | 한 번 재시도하므로 최악은 두 배 |
+| `LLM_REASONING_EFFORT` | `none`·`minimal`(기본)·`low`·`medium`·`high` | **값이 가장 많이 갈리는 손잡이.** 사진 한 장 값의 69% 가 출력 토큰이고 그 안에 추론이 들어 있다. 낮출수록 싸고, 영수증 자릿수가 먼저 틀린다 |
+| `LLM_IMAGE_DETAIL` | `low`·`auto`(기본)·`high` | 사진을 얼마나 잘게 쪼개 보여 줄지. 입력 토큰이 여기서 갈린다 |
+| `LLM_IMAGE_MAX_LONG_EDGE` | 512~2048, 기본 1024 | 보내기 전에 긴 변을 이만큼으로 줄인다. 작은 글자가 먼저 뭉갠다 |
 | `TOSS_REMINDER_TEMPLATE_SET_CODE` | 콘솔 스마트 발송의 발송 코드 | 알림 잡만 읽는다. 비면 알림이 안 간다(§6) |
+
+### 사진 값을 조절하는 손잡이 셋 (2026-09-23)
+
+셋 다 **화면을 다시 배포하지 않고** 되돌릴 수 있어야 해서 환경변수로 뺐다. 인식률은 실물
+사진으로만 판정되는데, 그 판정이 배포를 한 번 더 도는 일이 되면 아무도 안 돌린다.
+
+```bash
+# 되돌리기 (2026-09-22 이전 설정)
+gcloud run services update pocket-backend --region asia-northeast3 \
+  --project project-cbd3c581-09b0-42f2-9f7 \
+  --update-env-vars LLM_REASONING_EFFORT=low,LLM_IMAGE_DETAIL=high,LLM_IMAGE_MAX_LONG_EDGE=1600
+```
+
+든 값은 호출마다 로그에 남는다. Cloud Run 로그에서 `won=` 을 찾으면 된다.
+
+```
+tokens input=2312 output=868 reasoning=512 won=2.20 detail=high effort=low
+```
+
+**`won` 은 청구액이 아니라 어림수다.** 어느 손잡이가 값을 쓰는지 비교하려고 적는다.
+단가가 바뀌면 `app/integrations/llm/openai.py` 의 `_PRICES_USD` 만 고친다.
 
 ### Gemini 키는 유료 등급으로 발급한다
 

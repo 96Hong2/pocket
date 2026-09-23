@@ -32,11 +32,11 @@ function makeClient() {
 const IMAGE_CALLS = [
   {
     label: '캡처',
-    run: (client: ReturnType<typeof makeClient>) => client.analyzeCapture(DATA_URI),
+    run: (client: ReturnType<typeof makeClient>) => client.analyzeCapture([DATA_URI]),
   },
   {
     label: '영수증',
-    run: (client: ReturnType<typeof makeClient>) => client.analyzeReceipt(DATA_URI),
+    run: (client: ReturnType<typeof makeClient>) => client.analyzeReceipt([DATA_URI]),
   },
 ];
 
