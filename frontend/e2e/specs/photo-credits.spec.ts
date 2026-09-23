@@ -219,7 +219,9 @@ test('여러 장을 고르면 한 묶음으로 읽고 긴 광고를 판다', asy
   const bodies: unknown[] = [];
   await page.route('**/api/v1/imports/capture', async (route) => {
     bodies.push(route.request().postDataJSON());
-    await route.continue();
+    // `continue()` 면 그물로 바로 나가서 위에 건 `answerAsRealModel` 을 건너뛴다.
+    // `fallback()` 이라야 먼저 건 핸들러로 넘어간다.
+    await route.fallback();
   });
 
   await openCaptureTab(home, recordSheet);
@@ -227,9 +229,11 @@ test('여러 장을 고르면 한 묶음으로 읽고 긴 광고를 판다', asy
 
   // 장수를 말해 준다. 「몇 장을 읽는 데 얼마나」 가 맞아야 예고가 예고다.
   await expect(recordSheet.capture.adConsent).toContainText('사진 3장 읽기');
-  await expect(recordSheet.capture.adConsent).toContainText('3장을 읽는 데');
+  await expect(recordSheet.capture.adConsent).toContainText('읽는 데 30초쯤');
   await recordSheet.capture.adConsentConfirm.click();
-  await expect(recordSheet.capture.rows).toHaveCount(6);
+  // 스텁이 사진 한 장에 여섯 건을 낸다. 세 장이 **한 화면에** 열여덟 줄로 모인 것이
+  // 곧 배치가 하나라는 뜻이다. 세 번 불렀으면 여섯 줄짜리 화면을 세 번 지나야 한다.
+  await expect(recordSheet.capture.rows).toHaveCount(18);
 
   // 세 번이 아니라 한 번이다. 세 번이면 검토 화면을 세 번 지나야 한다.
   expect(bodies).toHaveLength(1);
@@ -267,7 +271,7 @@ test('영수증은 한 장씩이다. 카메라로는 여러 장을 못 찍는다
   const bodies: unknown[] = [];
   await page.route('**/api/v1/imports/receipt', async (route) => {
     bodies.push(route.request().postDataJSON());
-    await route.continue();
+    await route.fallback();
   });
 
   await home.open();
@@ -276,7 +280,7 @@ test('영수증은 한 장씩이다. 카메라로는 여러 장을 못 찍는다
   await recordSheet.waitOpen();
   await recordSheet.methodTab('영수증').click();
   await recordSheet.receipt.pick();
-  await expect(recordSheet.receipt.rows).toHaveCount(6);
+  await expect(recordSheet.receipt.rows).toHaveCount(1);
 
   // 앨범에 세 장이 있어도 카메라는 한 장이다. 한 장이면 `images` 가 아니라 `image` 로 간다.
   expect((bodies[0] as { image?: string }).image).toBeTruthy();
@@ -292,7 +296,7 @@ test('사진의 긴 광고는 전면 광고 상한을 건드리지 않는다. �
   await openCaptureTab(home, recordSheet);
 
   await recordSheet.capture.pick();
-  await expect(recordSheet.capture.rows).toHaveCount(6);
+  await expect(recordSheet.capture.rows).toHaveCount(12);
 
   // 상한에 적혔다면 이 로그가 생겼을 것이다.
   expect(await logsNamed(page, 'interstitial_result')).toEqual([]);

@@ -57,13 +57,21 @@ export function useAdConsent(): AdConsentHandle {
 
   const request = useCallback(
     (input: AdConsentRequest): void => {
+      /*
+        **광고가 안 설 자리에서는 안 묻는다.** 상한을 이미 채웠거나 광고 그룹이 없는
+        기기면 창을 띄우지 않는다. 아무 일도 안 일어나는데 묻기부터 하면 방해다.
+
+        그래도 `play()` 는 지난다. 그 안에서 `show()` 가 상한에 걸린 것을
+        `skipped`·`capped` 로 남기기 때문이다. 여기서 곧바로 `go()` 로 빠지면 상한이
+        몇 번 걸렸는지가 어디에도 안 남아, 세션당 한 편이 맞는 선인지 알 수 없게 된다.
+      */
       if (!ready) {
-        input.go();
+        void play(input);
         return;
       }
       setAsking(input);
     },
-    [ready],
+    [play, ready],
   );
 
   return {

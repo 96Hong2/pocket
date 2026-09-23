@@ -71,7 +71,15 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
 
   const planFor = useCallback(
     (count: number): PhotoAdPlan => {
-      if (count > 1) return rewarded.available ? 'rewarded' : 'none';
+      /*
+        여러 장은 긴 광고다. 그 그룹을 못 쓰는 기기에서는 짧은 쪽으로 내려간다.
+        읽는 데 30초가 걸리는 일에 아무것도 안 붙이는 것보다는 낫고, 어차피 확인 창이
+        무엇이 나오는지 먼저 말한다.
+      */
+      if (count > 1) {
+        if (rewarded.available) return 'rewarded';
+        return interstitial.ready ? 'interstitial' : 'none';
+      }
       /*
         아직 저장소를 못 읽었으면(`null`) 무료분이 남은 것으로 본다. 버튼이 그동안
         잠겨 있어 여기까지 오는 일은 거의 없고, 넘어와도 손해는 사진 한 장이다.

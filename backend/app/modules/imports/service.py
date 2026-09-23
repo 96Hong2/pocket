@@ -742,6 +742,12 @@ def _to_row(
         merchant=merchant,
     )
     is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in known
+    # 이 줄도 「이미 본 것」 에 넣는다. 사진 여러 장을 한 묶음으로 읽으면서 생긴 자리다.
+    # 카드 내역이 한 화면에 안 들어와 두세 장을 이어 찍으면 **경계의 한두 줄이 두 장에
+    # 다 찍힌다.** 저장된 거래하고만 대조하면 그 둘이 서로를 못 보고 둘 다 켜진 채로
+    # 올라가, 같은 결제가 두 번 저장된다.
+    if fingerprint.duplicate_eligible:
+        known.add(fingerprint.value)
     low = candidate.confidence < LOW_CONFIDENCE_THRESHOLD
     # 환불은 되돌릴 지출을 골라야 한다. 대상 없이 저장하면 쓴 적 없는 돈이 예산으로 돌아온다.
     needs_target = candidate.type == TransactionType.REFUND

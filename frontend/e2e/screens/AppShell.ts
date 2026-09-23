@@ -69,6 +69,14 @@ export class AppShell {
   async followRow(name: string): Promise<void> {
     const byLink = this.page.getByRole('link', { name, exact: true });
     await byLink.or(this.page.getByRole('button', { name, exact: true })).click();
+    /*
+      광고가 붙는 줄이면 누른 뒤 확인 창이 한 번 선다(2026-09-23 반려 대응).
+      광고가 안 설 자리에서는 안 뜨므로 그때는 그냥 지나간다.
+    */
+    const confirm = this.page
+      .getByRole('alertdialog', { name: '광고가 한 번 나와요' })
+      .getByRole('button', { name: '광고 보고 열기' });
+    if (await confirm.isVisible()) await confirm.click();
   }
 
   /**

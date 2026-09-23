@@ -591,3 +591,36 @@ def test_사진_한_장은_겹칠_것이_없다(client: TestClient, default_cate
         _analyze(client)
 
     assert model.most == 1
+
+
+class _SameRowTwice(StubLlmStructuredClient):
+    """두 장에 같은 결제가 찍혀 있는 모델. 이어 찍은 캡처의 경계가 이렇다."""
+
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        return TransactionExtraction(
+            candidates=[
+                ExtractedTransaction(
+                    amount=4500,
+                    type=TransactionType.EXPENSE,
+                    merchant="스타벅스",
+                    category="카페·간식",
+                    confidence=0.95,
+                    occurred_at=datetime.now(TZ).date(),
+                )
+            ]
+        )
+
+
+def test_두_장에_겹쳐_찍힌_결제는_한_번만_켜진다(
+    client: TestClient, db: Session, default_categories
+) -> None:
+    with _using(client, _SameRowTwice):
+        response = _analyze_many(client, 2)
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    # 두 줄 다 올라오되 뒤엣것은 꺼져 있어야 한다. 조용히 버리면 사용자가 잃은 줄을 모른다.
+    assert len(body["candidates"]) == 2
+    assert [one["is_selected"] for one in body["candidates"]] == [True, False]
+    assert [one["is_duplicate"] for one in body["candidates"]] == [False, True]
+    assert body["selected_count"] == 1

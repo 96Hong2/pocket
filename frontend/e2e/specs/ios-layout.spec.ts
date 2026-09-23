@@ -1,3 +1,4 @@
+import { CAPTURE_DATA_URI, seedMockImages } from '../support/deviceMock';
 import { expect, test } from '../support/fixtures';
 import { horizontalScrollers } from '../support/overflow';
 
@@ -27,6 +28,12 @@ test('홈과 기록 시트가 가로로 넘치지 않는다', async ({ page, hom
 });
 
 test('사진에서 읽어 온 줄을 펼쳐도 가로로 넘치지 않는다', async ({ page, home, recordSheet }) => {
+  /*
+    한 장만 심는다. 안 심으면 목이 기본 그림 **세 장**을 들고 있고, 앨범은 이제 다섯
+    장까지 고르므로 같은 상호가 세 벌 읽혀 줄을 못 고른다. 여기서 재는 것은 장수가
+    아니라 한 줄을 펼쳤을 때의 가로 폭이다.
+  */
+  await seedMockImages(CAPTURE_DATA_URI)(page);
   await home.open();
   await home.waitReady();
   await home.recordButton.click();

@@ -438,7 +438,8 @@ export function ImageImportTab({
  * 늘지 않는다. 지키지 못할 숫자를 적으면 그 순간 예고가 거짓이 된다.
  */
 function waitHint(count: number): string {
-  return count > 1 ? `${count}장을 읽는 데 30초쯤 걸려요.` : '읽는 데 10초쯤 걸려요.';
+  // 몇 장인지는 제목이 이미 말한다. 여기서 또 적으면 한 창에 같은 숫자가 두 번 나온다.
+  return count > 1 ? '읽는 데 30초쯤 걸려요.' : '읽는 데 10초쯤 걸려요.';
 }
 
 /** 브릿지 실패를 로그 값으로 옮긴다. 취소는 여기 오지 않는다(null 로 먼저 빠진다). */

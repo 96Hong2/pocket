@@ -38,7 +38,7 @@
 | 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나와 몇 장짜리인가(`cards`), 몇 장째에서 닫았나(`page`·`total`)와 끝까지 봤나(`finished`) |
 | 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
 | 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(`closing`·**`assets`·`goal`·`categories`·`tags`·`recurring`**)와 결과(`watched`·`skipped`), 지나간 이유(`no_group`·`unsupported`·`failed`·**`capped`**) |
-| 사진을 더 쓰려고 광고를 보나 | `photo_credit` | 받았나 썼나 막혔나(`action`: `earned`·`spent`·**`blocked`**), 그러고 몇 장 남았나(`left`), 받을 때 광고가 어떻게 끝났나(`ad`: `earned`·`watched`·`skipped`)와 지나간 이유(`reason`: `no_group`·`unsupported`·`failed`) |
+| 사진을 읽으려고 광고를 보나 | `photo_credit` | 봤나 마다했나 썼나(`action`: `watched`·**`declined`**·`spent`), 어떤 광고였나(`plan`: `interstitial`·`rewarded`), 몇 장짜리였나(`image_count`), 쓰고 나서 무료분이 몇 장 남았나(`left`), 광고가 어떻게 끝났나(`ad`: `earned`·`watched`·`skipped`)와 지나간 이유(`reason`: `no_group`·`unsupported`·`failed`) |
 | 분류를 제 말로 바꿔 쓰나 | `category_changed` | 만듦·고침·지움, 기본 분류인가 내가 만든 것인가(`scope`: `default`·`mine`), 갈래, 무엇을 건드렸나(`fields`: `name`·`icon`·`color` 를 `+` 로 이은 값). **이름은 싣지 않는다** |
 | 목표를 세우기만 하나 실제로 모으나 | `goal_changed` · `goal_contributed` | 만듦·고침·지움과 기한을 걸었나(`deadline`)·종잣돈이 있었나(`seeded`), 모을 때 **지난 날**로 넣었나(`backdated`, 앞날은 여기 안 센다). **이름과 금액은 싣지 않는다** |
 | 못 찾아서 찾아보나 | `search_used` | 검색어 길이와 **첫 화면에 걸린 수**(`hits`, 한 장 30줄에서 끊긴다). **검색어는 싣지 않는다** |
@@ -148,11 +148,15 @@
 그룹 ID 를 안 넣은 것이고, `failed` 는 광고 서버가 채울 것을 못 찾은 것이다. 앞엣것은 배포 실수고
 뒤엣것은 **값만 내고 수익은 못 받는 중**이라는 신호다.
 
-**`photo_credit` 은 셋을 같이 봐야 한다.** 받은 것(`earned`)보다 쓴 것(`spent`)이 훨씬 많으면
-하루에 채워 주는 3장 안에서 다들 끝난다는 뜻이고, 그러면 이 장치는 수익이 아니라 **값에 천장을
-씌우는 쪽으로만** 돌고 있는 것이다(그것도 목적의 절반이다). `left` 를 함께 싣는 이유는 몇 장쯤에서
-사람들이 광고를 보기로 하는지가 그 값 없이는 안 보이기 때문이다. `ad` 가 `skipped` 인 비율이
-높으면 광고 그룹이 채울 것을 못 찾는 것이라, 우리가 값만 내고 수익은 못 받는 중이다.
+**`photo_credit` 은 `watched` 와 `declined` 의 비로 읽는다**(2026-09-23 개편, ADR-0031).
+확인 창을 보고 되돌아간 사람이 잦으면 광고가 문제가 아니라 **그 자리가 틀린 것**이다.
+`plan` 으로 갈라 보면 짧은 광고(한 장)와 긴 광고(여러 장) 중 어느 쪽에서 더 마다하는지가 나온다.
+`image_count` 가 여러 장 고르기가 실제로 쓰이는지를 말한다. 이 값이 늘 1 이면 앨범에서
+여러 장을 고를 수 있다는 것을 아무도 모르는 것이다.
+
+`spent` 의 `left` 는 이제 0 또는 1 뿐이다. 하루 무료분이 한 장이라, 예전처럼 「몇 장쯤에서
+광고를 보기로 하나」 를 이 값으로 잴 수는 없다. `ad` 가 `skipped` 인 비율이 높으면 광고 그룹이
+채울 것을 못 찾는 것이라, 우리가 값만 내고 수익은 못 받는 중이다.
 
 **`rating_asked` 는 「물어봤다」 까지만 센다.** 별점 창은 토스가 띄우고, 실제로 남겼는지
 SDK 가 알려 주지 않는다. 그래서 우리가 볼 수 있는 것은 누른 비율뿐이다. 그 비율이 낮으면

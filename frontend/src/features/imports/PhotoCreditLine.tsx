@@ -20,7 +20,8 @@ export function PhotoCreditLine({ credits }: { credits: PhotoCreditsHandle }) {
   if (credits.free == null || credits.free > 0) return null;
   return (
     <p className="capture__credit">
-      오늘 무료 {DAILY_FREE}장을 다 썼어요. 다음부터는 읽는 동안 광고가 한 번 나와요
+      오늘 무료 {DAILY_FREE}장을 다 썼어요
+      <span>다음부터는 읽는 동안 광고가 한 번 나와요</span>
     </p>
   );
 }
