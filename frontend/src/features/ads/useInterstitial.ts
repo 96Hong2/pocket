@@ -32,9 +32,14 @@ import { useFullScreenAd, type FullScreenAdOutcome } from './useFullScreenAd';
  * 자리를 늘려도 **한 사람이 겪는 총량은 그대로다**(`SESSION_CAP`·`DAILY_CAP`).
  * 관리 탭에서 이것저것 눌러 봐도 한 세션에 한 편이고, 그 뒤로는 예고 줄까지 사라진다.
  *
+ * **`photo` 만 관리 탭 밖이다.** 오늘 무료 한 장을 이미 쓴 사람이 사진을 한 장 더
+ * 읽을 때 **읽는 동안** 도는 광고다. 기다림을 새로 만드는 것이 아니라 이미 있는 몇 초를
+ * 채우는 자리라 넣었다. 상한을 함께 세는 이유도 그것이다. 관리 탭에서 한 편을 본 사람이
+ * 사진에서 또 보지 않는다.
+ *
  * 생활비 계산기는 여기 없다. 광고와 기능을 맞바꾸겠다고 사람이 먼저 누르는 자리라
  * 리워드 광고(`useRewardedAd`)로 나갔고, 그래서 상한도 안 센다(ADR-0024).
- * 사진 크레딧도 같은 이유로 여기 없다(`usePhotoRewardedAd`).
+ * 사진 여러 장도 같은 이유로 여기 없다(`usePhotoRewardedAd`).
  */
 export type InterstitialWhere =
   | 'closing'
@@ -42,7 +47,8 @@ export type InterstitialWhere =
   | 'categories'
   | 'tags'
   | 'recurring'
-  | 'assets';
+  | 'assets'
+  | 'photo';
 
 /** 지나온 결과. `capped` 는 상한에 걸려 광고를 아예 부르지 않은 것이다. */
 export type InterstitialOutcome = FullScreenAdOutcome | { result: 'skipped'; reason: 'capped' };

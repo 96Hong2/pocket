@@ -1,14 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  AD_GRANT,
-  DAILY_FREE,
-  earned,
-  formatCredits,
-  parseCredits,
-  refilled,
-  spent,
-} from './photoCredits';
+import { DAILY_FREE, formatCredits, parseCredits, refilled, spent } from './photoCredits';
 
 describe('parseCredits', () => {
   it('저장해 둔 줄을 날짜와 장수로 읽는다', () => {
@@ -48,10 +40,18 @@ describe('refilled', () => {
     });
   });
 
-  it('모아 둔 것이 오늘치보다 많으면 깎지 않는다', () => {
+  it('옛 판이 모아 둔 것은 오늘치로 깎는다', () => {
+    // 3장 제도에서 광고로 모아 둔 장수다. 그대로 들고 오면 오늘 무료분이 며칠씩 이어진다.
     expect(refilled({ day: '2026-09-21', count: 9 }, '2026-09-22')).toEqual({
       day: '2026-09-22',
-      count: 9,
+      count: DAILY_FREE,
+    });
+  });
+
+  it('오늘 것이라도 옛 판이 남긴 큰 수는 깎는다', () => {
+    expect(refilled({ day: '2026-09-22', count: 3 }, '2026-09-22')).toEqual({
+      day: '2026-09-22',
+      count: DAILY_FREE,
     });
   });
 
@@ -68,22 +68,16 @@ describe('spent', () => {
     expect(spent({ day: '2026-09-22', count: 3 })).toEqual({ day: '2026-09-22', count: 2 });
   });
 
+  it('여러 장을 한꺼번에 뺀다', () => {
+    expect(spent({ day: '2026-09-22', count: 3 }, 3)).toEqual({ day: '2026-09-22', count: 0 });
+  });
+
+  it('여러 장을 빼도 0 아래로 안 간다', () => {
+    expect(spent({ day: '2026-09-22', count: 1 }, 5)).toEqual({ day: '2026-09-22', count: 0 });
+  });
+
   it('0 아래로 내려가지 않는다', () => {
     expect(spent({ day: '2026-09-22', count: 0 })).toEqual({ day: '2026-09-22', count: 0 });
   });
 });
 
-describe('earned', () => {
-  it('광고 한 편에 한 장을 더한다', () => {
-    expect(earned({ day: '2026-09-22', count: 0 })).toEqual({
-      day: '2026-09-22',
-      count: AD_GRANT,
-    });
-  });
-
-  it('모으는 데 상한이 없다', () => {
-    let value = { day: '2026-09-22', count: 0 };
-    for (let i = 0; i < 20; i += 1) value = earned(value);
-    expect(value.count).toBe(20 * AD_GRANT);
-  });
-});

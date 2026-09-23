@@ -73,6 +73,21 @@ export class ManageScreen {
     return this.page.getByText(/앱을 열고 처음 한 번 광고가 나와요/);
   }
 
+  /** 누른 뒤, 광고가 뜨기 **바로 전에** 서는 확인 창. 2026-09-23 반려 대응이다. */
+  get adConsent(): Locator {
+    return this.page.getByRole('alertdialog', { name: '광고가 한 번 나와요' });
+  }
+
+  /** 「광고 보고 열기」. 이 버튼이 곧 CTA 다. */
+  get adConsentConfirm(): Locator {
+    return this.adConsent.getByRole('button', { name: '광고 보고 열기' });
+  }
+
+  /** 「닫기」. 화면도 안 열리고 광고도 안 뜬다. */
+  get adConsentCancel(): Locator {
+    return this.adConsent.getByRole('button', { name: '닫기' });
+  }
+
   /**
    * 하위 화면으로 들어간다. **목록을 눌러서** 간다.
    *
@@ -82,11 +97,23 @@ export class ManageScreen {
    * **광고가 걸린 줄만 버튼이다.** 알림 설정·내 계정·앱 설정은 링크 그대로라 여기 안 잡힌다.
    * 그쪽은 `appShell.followRow` 로 간다.
    */
-  async openSub(label: string): Promise<void> {
-    await this.page
+  /** 하위 화면 목록의 한 줄. 확인 창을 따로 재려고 누르기만 할 때 쓴다. */
+  subScreenRow(label: string): Locator {
+    return this.page
       .getByRole('navigation', { name: '관리 하위 화면' })
-      .getByRole('button', { name: label, exact: true })
-      .click();
+      .getByRole('button', { name: label, exact: true });
+  }
+
+  async openSub(label: string): Promise<void> {
+    await this.subScreenRow(label).click();
+    // 광고가 붙는 자리면 확인 창이 한 번 선다(2026-09-23 반려 대응).
+    if (await this.adConsentConfirm.isVisible()) await this.adConsentConfirm.click();
+  }
+
+  /** 자산 카드를 눌러 들어간다. 광고가 붙는 자리면 확인 창을 지난다. */
+  async openAssets(): Promise<void> {
+    await this.assetsEntry.click();
+    if (await this.adConsentConfirm.isVisible()) await this.adConsentConfirm.click();
   }
 
   /**

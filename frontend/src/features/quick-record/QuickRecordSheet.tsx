@@ -679,7 +679,6 @@ function RecordBody({
             // 빠져나갈 데가 없으면 그 사람은 기록 자체를 포기한다.
             fallbackAction={keypadFallback}
             credits={photoCredits}
-            active={tab === 'capture'}
           />
         </div>
 
@@ -698,7 +697,6 @@ function RecordBody({
             // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
             fallbackAction={keypadFallback}
             credits={photoCredits}
-            active={tab === 'receipt'}
           />
         </div>
       </>

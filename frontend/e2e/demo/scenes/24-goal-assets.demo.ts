@@ -95,7 +95,7 @@ test('51 자산을 적으면 순자산이 나온다', async ({ appShell, assets,
   await demo.beat(3);
 
   await demo.step('눌러서 들어가면 아직 아무것도 없다');
-  await manage.assetsEntry.click();
+  await manage.openAssets();
   await assets.waitReady();
   await expect(assets.emptyTitle).toBeVisible();
   await demo.beat(2);

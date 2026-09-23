@@ -1,107 +1,147 @@
 /**
- * 사진 장수를 화면에 이어 주는 자리.
+ * 사진을 읽는 동안 광고를 함께 돌리는 자리.
  *
  * 셈 자체는 `photoCredits.ts` 가 하고, 여기는 저장소·광고·로그를 묶는다.
- * 두 탭(캡처·영수증)이 같은 장수를 나눠 쓴다. 값이 드는 쪽은 사진이지 어디서 가져왔는지가
- * 아니라서, 탭마다 따로 세면 한 사람이 하루에 여섯 장을 읽게 된다.
+ * 두 탭(캡처·영수증)이 같은 셈을 나눠 쓴다. 값이 드는 쪽은 사진이지 어디서 가져왔는지가
+ * 아니라서, 탭마다 따로 세면 한 사람이 하루에 무료 두 장을 쓴다.
+ *
+ * **광고가 기다림을 뺏지 않는다.** 사진은 어차피 읽는 데 몇 초가 걸린다. 그 몇 초를
+ * 광고가 채우는 것이지, 광고를 보고 나서 읽기 시작하는 것이 아니다. 그래서 부르는 쪽은
+ * 분석 요청을 **먼저 띄우고** `play()` 를 그 위에 얹는다.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
 import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
 import { toLedgerDate } from '../../shared/lib/format';
-import { usePhotoRewardedAd } from '../ads';
+import { useInterstitial, usePhotoRewardedAd } from '../ads';
 
-import { earned, readCredits, spent, writeCredits } from './photoCredits';
+import { readCredits, spent, writeCredits } from './photoCredits';
+
+/**
+ * 이번 읽기에 어떤 광고가 함께 도는가.
+ *
+ * - `none`          오늘 무료분이다. 아무것도 안 뜬다
+ * - `interstitial`  한 장인데 무료분을 이미 썼다. 짧은 전면 광고
+ * - `rewarded`      한 번에 여러 장이다. 읽는 데 오래 걸려서 긴 광고가 들어간다
+ *
+ * **여러 장에 긴 광고를 붙인 것은 시간이 길어서다.** 다섯 장을 읽는 데 30초쯤 걸리는데
+ * 짧은 광고를 붙이면 광고가 끝나고도 사람이 빈 화면을 본다. 값 쪽도 맞다. 다섯 장이면
+ * 우리가 11원을 쓰고 리워드 한 편이 10원이다.
+ */
+export type PhotoAdPlan = 'none' | 'interstitial' | 'rewarded';
 
 export interface PhotoCreditsHandle {
-  /** 남은 장수. 아직 저장소를 못 읽었으면 `null` 이다. */
-  left: number | null;
+  /** 오늘 광고 없이 읽을 수 있는 장수. 아직 저장소를 못 읽었으면 `null` 이다. */
+  free: number | null;
   /** 광고가 도는 중. 버튼을 잠가 두 편이 겹치지 않게 한다. */
   busy: boolean;
-  /** 이 기기에서 광고를 붙일 수 있나. 못 붙이면 모으기 자리를 아예 안 그린다. */
-  canEarn: boolean;
-  /** 광고를 한 편 보고 한 장 받는다. */
-  earnOne: () => Promise<void>;
-  /** 사진 탭을 열었는데 쓸 장수가 없었다. 그 사람을 한 번만 센다. */
-  markBlocked: () => void;
-  /** 한 장 쓴다. 사진을 **읽어 낸 뒤에** 부른다. */
-  spendOne: () => Promise<void>;
+  /** 이번에 고른 장수라면 어떤 광고가 함께 도는가. */
+  planFor: (count: number) => PhotoAdPlan;
+  /** 광고를 띄운다. 분석 요청을 먼저 띄운 뒤에 부른다. */
+  play: (plan: PhotoAdPlan, count: number) => Promise<void>;
+  /** 확인 창에서 「닫기」 를 눌렀다. 몇 사람이 광고를 마다하는지 센다. */
+  markDeclined: (plan: PhotoAdPlan, count: number) => void;
+  /** 읽어 낸 뒤에 부른다. 무료분을 그만큼 깎는다. */
+  spend: (count: number) => Promise<void>;
 }
 
 export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
   const bridge = useBridge();
   const analytics = useAnalytics();
-  const ad = usePhotoRewardedAd();
-  const [left, setLeft] = useState<number | null>(null);
-  // 이 기록 흐름에서 한 번만 남긴다. 탭마다 세면 한 번 막힌 사람이 둘로 잡힌다.
-  const blockedLogged = useRef(false);
+  const rewarded = usePhotoRewardedAd();
+  /*
+    짧은 쪽은 상한을 함께 센다. 관리 탭에서 이미 한 편을 본 사람이 사진에서 또 보지
+    않는다. 긴 쪽(리워드)은 상한 밖이다. 무엇을 치르는지 먼저 읽고 스스로 누른 자리라
+    「오늘 이미 보셨어요」 라고 답하면 우리가 약속을 깨는 셈이 된다(ADR-0024).
+  */
+  const interstitial = useInterstitial();
+  const [free, setFree] = useState<number | null>(null);
 
   useEffect(() => {
     let alive = true;
     void readCredits(bridge.storage, toLedgerDate(new Date())).then((record) => {
-      if (alive) setLeft(record.count);
+      if (alive) setFree(record.count);
     });
     return () => {
       alive = false;
     };
   }, [bridge]);
 
-  const earnOne = useCallback(async (): Promise<void> => {
-    const outcome = await ad.show();
-    /*
-      **광고가 어떻게 끝나든 한 장을 준다.** 생활비 계산기와 같은 규칙이다(ADR-0024).
+  const planFor = useCallback(
+    (count: number): PhotoAdPlan => {
+      if (count > 1) return rewarded.available ? 'rewarded' : 'none';
+      /*
+        아직 저장소를 못 읽었으면(`null`) 무료분이 남은 것으로 본다. 버튼이 그동안
+        잠겨 있어 여기까지 오는 일은 거의 없고, 넘어와도 손해는 사진 한 장이다.
+        반대로 두면 무료분이 남은 사람에게 광고를 물린다.
+      */
+      if (free == null || free > 0) return 'none';
+      // 광고를 못 띄우는 기기에서 사진을 막지 않는다. 우리 사정으로 기능을 닫는 셈이 된다.
+      return interstitial.ready ? 'interstitial' : 'none';
+    },
+    [free, interstitial.ready, rewarded.available],
+  );
 
-      끝까지 본 사람에게만 주자는 안을 버렸다. 리워드 수익은 노출에 붙지 완주에 붙지
-      않아서 중간에 닫은 사람에게 안 준다고 우리가 더 버는 것이 없고, 광고 서버가 채울
-      것을 못 찾았을 때(`skipped`)까지 막으면 우리 사정으로 사람이 하려던 일을 막는다.
-      「광고 한 편 보고」 라고 적어 두고 봤는데 안 주는 화면이 제일 나쁘다.
+  const play = useCallback(
+    async (plan: PhotoAdPlan, count: number): Promise<void> => {
+      if (plan === 'none') return;
+      const outcome =
+        plan === 'rewarded' ? await rewarded.show() : await interstitial.show('photo');
+      analytics.log(
+        EVENTS.photoCredit,
+        {
+          action: 'watched',
+          plan,
+          image_count: count,
+          ...(outcome.result === 'skipped'
+            ? { ad: 'skipped', reason: outcome.reason }
+            : { ad: outcome.result }),
+        },
+        { kind: 'click', flowId },
+      );
+    },
+    [analytics, flowId, interstitial, rewarded],
+  );
 
-      실제로 몇 편이 노출로 잡혔는지는 `ad` 값으로 따로 센다.
-    */
-    const today = toLedgerDate(new Date());
-    const next = earned(await readCredits(bridge.storage, today));
-    await writeCredits(bridge.storage, next);
-    setLeft(next.count);
-    analytics.log(
-      EVENTS.photoCredit,
-      {
-        action: 'earned',
-        left: next.count,
-        ...(outcome.result === 'skipped'
-          ? { ad: 'skipped', reason: outcome.reason }
-          : { ad: outcome.result }),
-      },
-      { kind: 'click', flowId },
-    );
-  }, [ad, analytics, bridge, flowId]);
+  const markDeclined = useCallback(
+    (plan: PhotoAdPlan, count: number): void => {
+      /*
+        **마다한 사람이 안 보이면 이 자리가 맞는지 알 수 없다.** 광고를 본 사람은
+        `watched` 로 남고 읽은 사람은 `spent` 로 남는데, 확인 창을 보고 되돌아간 사람은
+        어디에도 안 남았다. 이 값이 잦으면 광고가 아니라 자리가 틀린 것이다.
+      */
+      analytics.log(
+        EVENTS.photoCredit,
+        { action: 'declined', plan, image_count: count },
+        { kind: 'click', flowId },
+      );
+    },
+    [analytics, flowId],
+  );
 
-  const spendOne = useCallback(async (): Promise<void> => {
-    const today = toLedgerDate(new Date());
-    const next = spent(await readCredits(bridge.storage, today));
-    await writeCredits(bridge.storage, next);
-    setLeft(next.count);
-    analytics.log(EVENTS.photoCredit, { action: 'spent', left: next.count }, { flowId });
-  }, [analytics, bridge, flowId]);
+  const spend = useCallback(
+    async (count: number): Promise<void> => {
+      const today = toLedgerDate(new Date());
+      const next = spent(await readCredits(bridge.storage, today), count);
+      await writeCredits(bridge.storage, next);
+      setFree(next.count);
+      analytics.log(
+        EVENTS.photoCredit,
+        { action: 'spent', left: next.count, image_count: count },
+        { flowId },
+      );
+    },
+    [analytics, bridge, flowId],
+  );
 
-  /*
-    **막혀서 그냥 나간 사람이 안 보이면 3장이 맞는 선인지 알 수 없다.**
-
-    광고를 보기로 한 사람은 `earned` 로 남고, 쓴 사람은 `spent` 로 남는데, 사진으로 적으러
-    왔다가 장수가 없어 되돌아간 사람은 어디에도 안 남았다. 고르는 버튼 자체가 안 그려져서
-    `image_pick_result` 도 안 나간다. 이 값이 잦으면 3장이 모자란 것이다.
-
-    **한 사람을 한 번만 센다.** 두 사진 탭은 한꺼번에 떠 있고 안 보이는 쪽은 `hidden` 으로
-    감출 뿐이라, 탭마다 세면 캡처에서 막히고 영수증으로 옮긴 한 사람이 둘로 잡힌다.
-    시트가 살아 있는 동안이 기록 흐름 하나이므로 그 단위로 한 번만 남긴다.
-  */
-  const markBlocked = useCallback(() => {
-    if (blockedLogged.current) return;
-    blockedLogged.current = true;
-    analytics.log(EVENTS.photoCredit, { action: 'blocked', left: 0 }, { flowId });
-  }, [analytics, flowId]);
-
-  return { left, busy: ad.busy, canEarn: ad.available, earnOne, spendOne, markBlocked };
+  return {
+    free,
+    busy: rewarded.busy || interstitial.busy,
+    planFor,
+    play,
+    markDeclined,
+    spend,
+  };
 }
-

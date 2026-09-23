@@ -17,6 +17,7 @@ from decimal import Decimal
 from functools import partial
 from typing import NamedTuple
 
+import anyio
 import anyio.from_thread
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -66,12 +67,18 @@ __all__ = [
     "delete_batch",
     "get_batch",
     "parse_image",
+    "parse_images",
     "parse_text",
     "update_candidate",
 ]
 
 # 검토 화면에 한 번에 올리는 상한. 그 이상은 사람이 훑어보지 못한다.
 MAX_CANDIDATES = 20
+
+# 한 번에 받는 사진 장수. 화면이 고르게 하는 수와 같아야 한다(`MAX_PHOTOS` 프론트).
+# 다섯인 이유는 광고 한 편(30초) 안에 읽기가 끝나는 선이기 때문이다. 더 받으면
+# 광고가 끝난 뒤에도 사람이 빈 화면을 본다.
+MAX_IMAGES = 5
 
 
 class _ImageKind(NamedTuple):
@@ -170,7 +177,7 @@ def parse_text(
         session,
         user,
         source=TransactionSource.NL,
-        read=read,
+        reads=[read],
         day=day,
         client=client,
         input_length=len(text),
@@ -188,44 +195,81 @@ def parse_image(
     escalation: LlmStructuredClient | None = None,
     today: date | None = None,
 ) -> ImportBatch:
-    """이미지 한 장에서 거래 후보를 뽑아 검토 단위를 만든다.
+    """이미지 한 장에서 거래 후보를 뽑아 검토 단위를 만든다. 아래 여러 장짜리의 한 장 갈래다."""
+    return parse_images(
+        session,
+        user,
+        images=[image],
+        source=source,
+        client=client,
+        escalation=escalation,
+        today=today,
+    )
+
+
+def parse_images(
+    session: Session,
+    user: User,
+    *,
+    images: list[LlmImage],
+    source: TransactionSource,
+    client: LlmStructuredClient,
+    escalation: LlmStructuredClient | None = None,
+    today: date | None = None,
+) -> ImportBatch:
+    """사진 여러 장에서 거래 후보를 뽑아 **검토 단위 하나**를 만든다.
 
     캡처와 영수증이 이 함수를 나눠 쓴다. 갈리는 것은 프롬프트와 문구뿐이고
     자르기·중복 판정·상호 학습·저장은 그 아래로 같은 길이다.
 
+    **한 장씩 따로 부르지 않고 한 번에 받는 이유**는 검토 화면이 배치 하나를 그리기
+    때문이다. 다섯 번 부르면 배치가 다섯이 되고, 사람은 같은 화면을 다섯 번 지나야 한다.
+
     이미지는 어디에도 저장하지 않는다. 요청이 끝나면 파이썬 객체와 함께 사라진다.
     """
+    if not images:
+        raise ApiError(ErrorCode.INVALID_REQUEST, "사진이 없어요.", status_code=422)
+    if len(images) > MAX_IMAGES:
+        raise ApiError(
+            ErrorCode.INVALID_REQUEST,
+            f"사진은 한 번에 {MAX_IMAGES}장까지 읽을 수 있어요.",
+            status_code=422,
+        )
+
     kind = _IMAGE_KINDS[source]
     day = today or ledger.today_for(user)
-    _require_quota(session, user, day, label=kind.quota_label)
+    _require_quota(session, user, day, label=kind.quota_label, count=len(images))
 
     # 돌리고 · 여백을 잘라내고 · 줄인 뒤에 보낸다. 위치 정보도 여기서 끊긴다.
-    sent = prepare_image(image)
+    sent = [prepare_image(image) for image in images]
+    total_bytes = sum(len(one.data) for one in sent)
+    prompt = kind.prompt(day, _category_names(session, user))
+
     with _counted(
         session,
         user,
         client=client,
         source=source,
-        input_length=len(sent.data),
+        input_length=total_bytes,
         redacted_count=0,
     ):
-        read = _read_twice_if_odd(
+        reads = _read_all(
             client,
             escalation,
-            prompt=kind.prompt(day, _category_names(session, user)),
+            prompt=prompt,
             today=day,
             subject=kind.subject,
-            image=sent,
+            images=sent,
         )
     return _build_batch(
         session,
         user,
         source=source,
-        read=read,
+        reads=reads,
         day=day,
         client=client,
         # 이미지에서는 글자 수가 없다. 실제로 보낸 바이트 수를 센다.
-        input_length=len(sent.data),
+        input_length=total_bytes,
         # redact() 는 문자열만 가린다. 이미지 안의 카드번호는 가릴 수단이 없고,
         # 0 이 그 사실을 표에 남긴 것이다.
         redacted_count=0,
@@ -237,14 +281,23 @@ def _build_batch(
     user: User,
     *,
     source: TransactionSource,
-    read: _ReadResult,
+    reads: list[_ReadResult],
     day: date,
     client: LlmStructuredClient,
     input_length: int,
     redacted_count: int,
 ) -> ImportBatch:
-    """추출 결과를 검토 단위로 옮긴다. 줄글·캡처·영수증이 이 뒤로는 같은 길을 지난다."""
-    found = attach_source(read.extraction, source)
+    """추출 결과를 검토 단위로 옮긴다. 줄글·캡처·영수증이 이 뒤로는 같은 길을 지난다.
+
+    사진이 여러 장이면 **한 배치로 합친다.** 사람이 보는 것은 「내가 방금 올린 것들」
+    하나라서, 장마다 화면을 나누면 다섯 번 저장하게 된다.
+    """
+    # 판정은 그 사진 안에서의 자리로 매겨진다. 합치기 전에 짝지어 둔다.
+    found: list[tuple[TransactionCandidate, bool]] = []
+    for read in reads:
+        for order, candidate in enumerate(attach_source(read.extraction, source)):
+            found.append((candidate, read.verdict.flags(order)))
+
     candidates = found[:MAX_CANDIDATES]
     dropped = len(found) - len(candidates)
 
@@ -261,7 +314,7 @@ def _build_batch(
 
     known = _known_fingerprints(session, user)
     rules = _rules_by_merchant(session, user)
-    for order, candidate in enumerate(candidates):
+    for order, (candidate, needs_eyes) in enumerate(candidates):
         session.add(
             _to_row(
                 session,
@@ -273,24 +326,29 @@ def _build_batch(
                 known,
                 rules,
                 # 두 모델을 다 거치고도 이상한 줄은 사람이 봐야 한다.
-                needs_eyes=read.verdict.flags(order),
+                needs_eyes=needs_eyes,
             )
         )
 
     session.commit()
     session.refresh(batch)
 
-    _record_usage(
-        session,
-        user,
-        client=client,
-        source=source,
-        input_length=input_length,
-        redacted_count=redacted_count,
-        candidate_count=len(candidates),
-        model=read.model,
-        escalated=read.escalated,
-    )
+    # **호출 한 번에 한 줄이다.** 사진 다섯 장이면 다섯 줄이 남는다. 값은 답이 아니라
+    # 호출에 붙어서, 한 줄로 뭉치면 사진 한 장당 얼마가 드는지 영영 알 수 없게 된다.
+    share = input_length // len(reads) if reads else input_length
+    for index, read in enumerate(reads):
+        _record_usage(
+            session,
+            user,
+            client=client,
+            source=source,
+            # 나눠 떨어지지 않는 나머지는 첫 줄이 가져간다. 합이 실제 보낸 바이트와 맞는다.
+            input_length=share + (input_length - share * len(reads) if index == 0 else 0),
+            redacted_count=redacted_count if index == 0 else 0,
+            candidate_count=len(candidates) if index == 0 else 0,
+            model=read.model,
+            escalated=read.escalated,
+        )
     return batch
 
 
@@ -528,6 +586,98 @@ def _read_twice_if_odd(
     else:
         logger.info("다시 읽어도 이상해 사람에게 넘긴다: %s", retried.summary())
     return _ReadResult(extraction=second, verdict=retried, escalated=True, model=escalation.model)
+
+
+def _read_all(
+    client: LlmStructuredClient,
+    escalation: LlmStructuredClient | None,
+    *,
+    prompt: str,
+    today: date,
+    subject: str,
+    images: list[LlmImage],
+) -> list[_ReadResult]:
+    """사진들을 읽는다. 한 장이면 지금까지와 똑같고, 여러 장이면 **한꺼번에** 부른다.
+
+    **여러 장에서는 두 번째 모델을 안 부른다.** 재시도는 한 장에서만 한다. 다섯 장이
+    다 이상하면 비싼 모델을 다섯 번 부르게 되는데, 그 값이 이 자리에 붙은 광고 한 편이
+    버는 것을 훌쩍 넘는다. 시간도 광고보다 길어져서 사람이 빈 화면을 보게 된다.
+    이상한 줄은 그대로 `needs_eyes` 로 검토 화면에 올라가 사람이 고친다.
+
+    **한 장이 실패해도 나머지는 살린다.** 다섯 장을 골라 광고까지 본 사람에게 한 장
+    때문에 아무것도 못 준다고 하지 않는다. 전부 실패했을 때만 오류로 올린다.
+    """
+    if len(images) == 1:
+        return [
+            _read_twice_if_odd(
+                client,
+                escalation,
+                prompt=prompt,
+                today=today,
+                subject=subject,
+                image=images[0],
+            )
+        ]
+
+    extractions = _extract_many(client, prompt=prompt, today=today, subject=subject, images=images)
+    reads: list[_ReadResult] = []
+    for extraction in extractions:
+        if extraction is None:
+            continue
+        verdict = review_extraction(extraction, today=today)
+        reads.append(
+            _ReadResult(extraction=extraction, verdict=verdict, escalated=False, model=client.model)
+        )
+    if not reads:
+        raise ApiError(
+            ErrorCode.PARSE_UNAVAILABLE,
+            f"지금은 {subject} 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+            status_code=503,
+        )
+    if len(reads) < len(images):
+        logger.warning("사진 %d장 중 %d장만 읽었다", len(images), len(reads))
+    return reads
+
+
+def _extract_many(
+    client: LlmStructuredClient,
+    *,
+    prompt: str,
+    today: date,
+    subject: str,
+    images: list[LlmImage],
+) -> list[TransactionExtraction | None]:
+    """사진들을 **동시에** 읽는다. 못 읽은 자리는 None 이다.
+
+    차례로 부르면 다섯 장에 1분이 걸린다. 그동안 보여 줄 광고는 30초짜리라, 광고가 끝나고도
+    사람이 30초를 더 기다린다. 동시에 부르면 가장 느린 한 장만큼만 걸린다.
+
+    `_extract` 와 같은 이유로 `anyio.from_thread.run` 을 지난다. 핸들러가 동기라
+    워커 스레드에서 도는데, 코루틴은 본래 이벤트 루프에서 돌아야 한다.
+    """
+
+    async def run_all() -> list[TransactionExtraction | None]:
+        results: list[TransactionExtraction | None] = [None] * len(images)
+
+        async def one(index: int, image: LlmImage) -> None:
+            try:
+                results[index] = await client.extract(
+                    prompt=prompt,
+                    schema=TransactionExtraction,
+                    text=None,
+                    image=image,
+                    today=today,
+                )
+            except LlmError:
+                # 한 장이 죽어도 task group 을 무너뜨리지 않는다. 나머지는 계속 읽는다.
+                logger.warning("사진 %d번째를 읽지 못했다", index + 1, exc_info=True)
+
+        async with anyio.create_task_group() as group:
+            for index, image in enumerate(images):
+                group.start_soon(one, index, image)
+        return results
+
+    return anyio.from_thread.run(run_all)
 
 
 def _extract(
@@ -840,7 +990,9 @@ def _record_usage(
     session.commit()
 
 
-def _require_quota(session: Session, user: User, today: date, *, label: str) -> None:
+def _require_quota(
+    session: Session, user: User, today: date, *, label: str, count: int = 1
+) -> None:
     """쓸 수 있는 만큼을 넘겼는지 본다. 하루치와 **몰아치기** 둘을 함께 본다.
 
     하루 상한은 넉넉하다. 습관이 붙기 전에 막으면 앱을 쓸 이유가 사라진다.
@@ -855,7 +1007,9 @@ def _require_quota(session: Session, user: User, today: date, *, label: str) -> 
     """
     settings = get_settings()
     start, _ = ledger.day_bounds(today, ledger.user_tz(user))
-    if _used_since(session, user, start) >= settings.nl_parse_daily_limit:
+    # `count` 는 이번에 부를 횟수다. 사진 다섯 장이면 호출도 다섯 번이라 상한을 그만큼 먹는다.
+    # 1 로 보면 상한 바로 앞에 선 사람이 다섯 번을 한꺼번에 넘어간다.
+    if _used_since(session, user, start) + count > settings.nl_parse_daily_limit:
         raise ApiError(
             ErrorCode.USAGE_LIMIT,
             f"오늘은 {label}을 충분히 썼어요. 키패드로는 계속 기록할 수 있어요.",
@@ -863,7 +1017,7 @@ def _require_quota(session: Session, user: User, today: date, *, label: str) -> 
         )
 
     window = datetime.now(UTC) - timedelta(seconds=settings.nl_parse_burst_window_seconds)
-    if _used_since(session, user, window) >= settings.nl_parse_burst_limit:
+    if _used_since(session, user, window) + count > settings.nl_parse_burst_limit:
         raise ApiError(
             ErrorCode.USAGE_LIMIT,
             "조금 빠르게 이어서 부르고 있어요. 잠시 뒤에 다시 해 주세요.",

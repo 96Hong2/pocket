@@ -21,14 +21,22 @@ import logging
 
 from PIL import Image, ImageChops, ImageOps
 
+from app.core.config import get_settings
 from app.integrations.llm import LlmImage
 
-__all__ = ["MAX_LONG_EDGE", "prepare_image"]
+__all__ = ["max_long_edge", "prepare_image"]
 
 logger = logging.getLogger(__name__)
 
-# 긴 변 상한. 영수증 글자가 읽히는 선에서 이미지 토큰을 가장 많이 줄이는 지점이다.
-MAX_LONG_EDGE = 1600
+
+def max_long_edge() -> int:
+    """긴 변 상한. 값이 여기서 가장 많이 갈려서 환경변수로 뺐다(`LLM_IMAGE_MAX_LONG_EDGE`).
+
+    작을수록 싸고, 작은 글자가 먼저 뭉갠다. 인식률은 실물 사진으로만 판정되므로
+    화면을 다시 배포하지 않고 되돌릴 수 있어야 한다.
+    """
+    return get_settings().llm_image_max_long_edge
+
 
 # 여백으로 볼 색 차이. 압축 잡티가 있어 완전히 같은 색은 아니다.
 _BORDER_TOLERANCE = 12
@@ -94,10 +102,11 @@ def _trim_border(picture: Image.Image) -> Image.Image:
 
 
 def _shrink(picture: Image.Image) -> Image.Image:
+    limit = max_long_edge()
     longest = max(picture.size)
-    if longest <= MAX_LONG_EDGE:
+    if longest <= limit:
         return picture
-    ratio = MAX_LONG_EDGE / longest
+    ratio = limit / longest
     size = (max(1, round(picture.width * ratio)), max(1, round(picture.height * ratio)))
     return picture.resize(size, Image.Resampling.LANCZOS)
 

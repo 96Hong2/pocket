@@ -1,10 +1,9 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
 import { ROUTES } from '../app/router/routes';
 import { KeepDataCard } from '../features/account';
-import { AdAheadListNote, AdSlot, useInterstitial, type InterstitialWhere } from '../features/ads';
+import { AdAheadListNote, AdSlot, useAdConsent, type InterstitialWhere } from '../features/ads';
 import { AssetsEntryCard } from '../features/assets';
 import { BudgetSection } from '../features/budgets';
 import { Card, CategoryAvatar, type IconName } from '../shared/ui';
@@ -52,29 +51,25 @@ const AD_NOTE_ID = 'manage-ad-note';
 /** 관리 탭. 자산과 예산을 여기서 바로 보고, 나머지는 하위 화면으로 들어간다. */
 export default function ManagePage() {
   const navigate = useNavigate();
-  const interstitial = useInterstitial();
   /*
-    지금 어느 줄을 눌러 기다리는 중인가.
+    누르는 순간 한 번 묻고, 「광고 보고 열기」 를 누르면 그때 광고를 띄운다.
+    `pending` 이 지금 어느 줄을 눌러 기다리는 중인지 말한다.
 
     **누르고 나서 최대 8초 동안 아무 일도 안 일어나던 자리다.** 광고를 불러오는 데 그만큼
     걸리는데 화면은 그대로여서, 한 번 더 누르거나 먹통으로 여기고 나갔다. 누른 줄에만
     표시를 낸다. 화면 전체를 덮으면 그것대로 광고가 시작된 줄 안다.
   */
-  const [waiting, setWaiting] = useState<string | null>(null);
+  const ad = useAdConsent();
+  const waiting = ad.pending;
 
-  /*
-    광고가 뜨든 안 뜨든 화면은 열린다. 광고 서버 사정으로 카테고리를 못 고치게 두지 않는다.
-    같은 세션에서 두 번째 줄을 누르면 상한에 걸려 그냥 지나간다.
-  */
-  async function open(screen: SubScreen): Promise<void> {
+  function open(screen: SubScreen): void {
     if (screen.ad == null) return;
-    setWaiting(screen.to);
-    try {
-      await interstitial.show(screen.ad);
-    } finally {
-      setWaiting(null);
-    }
-    void navigate(screen.to);
+    ad.request({
+      where: screen.ad,
+      what: screen.label,
+      key: screen.to,
+      go: () => void navigate(screen.to),
+    });
   }
 
   /**
@@ -102,10 +97,10 @@ export default function ManagePage() {
           type="button"
           className="link-row"
           // 예고 한 줄이 이 줄들을 가리킨다는 것을 눈이 아니라 표시로도 묶어 둔다.
-          aria-describedby={interstitial.ready ? AD_NOTE_ID : undefined}
+          aria-describedby={ad.ready ? AD_NOTE_ID : undefined}
           aria-busy={busy}
           disabled={waiting != null}
-          onClick={() => void open(screen)}
+          onClick={() => open(screen)}
         >
           <CategoryAvatar icon={screen.icon} size={44} />
           <span className="link-row__label">{screen.label}</span>
@@ -142,7 +137,7 @@ export default function ManagePage() {
           <AdAheadListNote
             id={AD_NOTE_ID}
             count={AD_ROWS.length}
-            className={`link-rows__ad${interstitial.ready ? '' : ' link-rows__ad--off'}`}
+            className={`link-rows__ad${ad.ready ? '' : ' link-rows__ad--off'}`}
           />
           <ul className="link-rows">{AD_ROWS.map(row)}</ul>
           {/* 예고가 가리키는 범위는 여기서 끝난다. 글자 대신 한 칸 띄워서 말한다. */}
@@ -155,6 +150,9 @@ export default function ManagePage() {
         이 화면은 모드에 따라 갈리지 않아 늘 같은 자리다.
       */}
       <AdSlot placement="manage" />
+
+      {/* 누른 줄과 광고 사이에 서는 확인 창. 물을 것이 없으면 아무것도 안 그린다. */}
+      {ad.prompt}
     </div>
   );
 }

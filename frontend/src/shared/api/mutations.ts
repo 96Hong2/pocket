@@ -415,8 +415,8 @@ export function useAnalyzeImage(kind: 'capture' | 'receipt') {
   const client = useApiClient();
 
   return useMutation({
-    mutationFn: (dataUri: string): Promise<ImportBatchOut> =>
-      kind === 'receipt' ? client.analyzeReceipt(dataUri) : client.analyzeCapture(dataUri),
+    mutationFn: (dataUris: string[]): Promise<ImportBatchOut> =>
+      kind === 'receipt' ? client.analyzeReceipt(dataUris) : client.analyzeCapture(dataUris),
   });
 }
 

@@ -322,9 +322,31 @@ export class ClosingArea {
   }
 
   /** 입구를 눌러 연다. 열린 것까지 확인하고 돌아온다. */
+  /**
+   * 결산을 연다. 광고가 붙는 자리면 확인 창이 한 번 서고 그때는 「광고 보고 열기」 를 누른다.
+   *
+   * 2026-09-23 반려 대응으로 생긴 단계다. 적어 두는 것만으로는 안 읽고 누른 사람에게
+   * 아무 예고도 아니어서, 누른 뒤 광고 앞에서 한 번 묻는다.
+   */
   async open(): Promise<void> {
     await this.card.click();
+    if (await this.adConsentConfirm.isVisible()) await this.adConsentConfirm.click();
     await expect(this.overlay).toBeVisible();
+  }
+
+  /** 누른 뒤 광고 앞에 서는 확인 창. */
+  get adConsent(): Locator {
+    return this.page.getByRole('alertdialog', { name: '광고가 한 번 나와요' });
+  }
+
+  /** 「광고 보고 열기」. 이 버튼이 곧 CTA 다. */
+  get adConsentConfirm(): Locator {
+    return this.adConsent.getByRole('button', { name: '광고 보고 열기' });
+  }
+
+  /** 「닫기」. 결산도 안 열리고 광고도 안 뜬다. */
+  get adConsentCancel(): Locator {
+    return this.adConsent.getByRole('button', { name: '닫기' });
   }
 
   /** 지금 펼쳐진 카드의 제목. 순서가 고정인지 여기로 본다. */

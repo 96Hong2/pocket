@@ -1,34 +1,29 @@
 /**
- * 사진으로 적을 수 있는 장수.
+ * 오늘 광고 없이 읽을 수 있는 사진 장수.
  *
  * 사진 한 장은 우리가 실제로 돈을 내고 읽는다(실측 약 2.2원). 키패드로 적는 길은 공짜라
- * **값이 드는 유일한 행동**이다. 그런데 지금까지 이 길만 상한이 없었다.
+ * **값이 드는 유일한 행동**이다.
  *
- * 세는 단위를 새로 만들지 않았다. 「크레딧」·「이용권」 같은 말을 들여오면 그것이 무엇인지
- * 부터 배워야 한다. 화면에 적는 것은 **사진 몇 장**이고, 그게 곧 할 수 있는 일의 개수다.
+ * **2026-09-23 에 3장에서 1장으로 내렸다.** 3장은 아무도 안 닿는 선이었다. 콘솔 실측으로
+ * 한 사람이 하루에 넣는 사진이 0.4~0.7장이라, 천장이 한 번도 안 걸렸고 그래서 이 장치가
+ * 버는 돈이 0 이었다. 동시에 **막는 방식도 버렸다.** 예전에는 다 쓰면 「오늘은 여기까지」
+ * 라고 막고 광고를 봐야 한 장을 더 줬는데, 지금은 막지 않는다. 두 장째부터는 **읽는 동안**
+ * 광고가 함께 돌 뿐이다(`usePhotoCredits` 의 `planFor`).
  *
- * | 규칙 | 값 |
+ * | 무엇 | 광고 |
  * | --- | --- |
- * | 처음 열면 | 3장 |
- * | 날이 바뀌면 | 3장 아래일 때만 3장으로 채운다. 그 위는 건드리지 않는다 |
- * | 광고 한 편 | 1장. 상한 없다 |
- * | 사진 한 장을 읽으면 | 1장 |
+ * | 오늘 첫 한 장 | 없다 |
+ * | 두 장째부터 (한 장씩) | 읽는 동안 전면 광고 한 편 |
+ * | 한 번에 여러 장 | 읽는 동안 리워드 광고 한 편 |
  *
- * **하루 3장은 일반적인 쓰임에 닿지 않는 선이다.** 실측 사용량이 하루 한 장 아래라,
- * 광고는 몰아서 적는 사람에게만 보인다. 그러면서도 한 사람이 하루에 태울 수 있는 값에
- * 천장이 생긴다. 무제한이던 것이 유한해지는 것 자체가 이 장치의 목적이다.
- *
- * 날이 바뀌어도 **깎지 않는다.** 미리 모아 둘 수 있어야 「오늘 광고 세 편 보고 주말에
- * 몰아 적기」 가 성립한다. 깎으면 모을 이유가 사라지고 그 자리에서 광고를 봐야만 한다.
+ * 그래서 여기 남은 것은 **오늘 무료분을 썼나** 하나뿐이다. 모아 두는 개념도 함께 없앴다.
+ * 광고가 장수를 주지 않으니 모을 것이 없다.
  */
 
 import type { KeyValueStore } from '../../shared/toss';
 
-/** 날이 바뀔 때 여기까지 저절로 채운다. 이 위로는 채우지도, 깎지도 않는다. */
-export const DAILY_FREE = 3;
-
-/** 광고 한 편에 몇 장. */
-export const AD_GRANT = 1;
+/** 날이 바뀌면 여기까지 채운다. 오늘 광고 없이 읽을 수 있는 장수다. */
+export const DAILY_FREE = 1;
 
 const KEY = 'photo-credits';
 
@@ -57,29 +52,29 @@ export function formatCredits(value: PhotoCredits): string {
 /**
  * 오늘 기준으로 채운 값.
  *
- * 처음 쓰는 사람과 하루가 지난 사람이 같은 길을 지난다. 둘 다 「3장 아래면 3장으로」 다.
- * 모아 둔 것이 3장을 넘으면 그대로 둔다.
+ * 처음 쓰는 사람과 하루가 지난 사람이 같은 길을 지난다. 둘 다 오늘치로 새로 채운다.
+ *
+ * **옛 판이 모아 둔 장수는 버린다.** 3장 제도에서 광고를 보고 모아 둔 사람이 있을 수
+ * 있는데, 그 장수를 그대로 들고 오면 오늘 무료분이 며칠씩 이어진다. 세는 뜻이 달라져서
+ * 같은 숫자를 다른 의미로 읽게 된다.
  */
 export function refilled(record: PhotoCredits | null, today: string): PhotoCredits {
-  if (record == null) return { day: today, count: DAILY_FREE };
-  if (record.day === today) return record;
-  return { day: today, count: Math.max(record.count, DAILY_FREE) };
+  if (record != null && record.day === today) {
+    // 오늘 것이라도 옛 판이 남긴 큰 수는 오늘치로 깎는다. 안 그러면 오늘 하루가 3장이다.
+    return { day: today, count: Math.min(record.count, DAILY_FREE) };
+  }
+  return { day: today, count: DAILY_FREE };
 }
 
-/** 한 장 썼을 때의 값. 0 아래로 내려가지 않는다. */
-export function spent(record: PhotoCredits): PhotoCredits {
-  return { day: record.day, count: Math.max(0, record.count - 1) };
-}
-
-/** 광고를 끝까지 봤을 때의 값. */
-export function earned(record: PhotoCredits): PhotoCredits {
-  return { day: record.day, count: record.count + AD_GRANT };
+/** 사진 `count` 장을 읽었을 때의 값. 0 아래로 내려가지 않는다. */
+export function spent(record: PhotoCredits, count = 1): PhotoCredits {
+  return { day: record.day, count: Math.max(0, record.count - count) };
 }
 
 /**
  * 저장소가 막힌 기기를 위한 자리.
  *
- * 못 읽으면 앱을 열 때마다 3장이 새로 들어오는 셈이 되고, 그러면 셈이 아무것도 안 막는다.
+ * 못 읽으면 앱을 열 때마다 무료 한 장이 새로 들어오는 셈이 되고, 그러면 셈이 아무것도 안 한다.
  * 앱이 떠 있는 동안만이라도 이어 세도록 모듈에 들고 있는다. 앱을 다시 열면 사라지는데,
  * 실제로 값을 내는 것은 우리가 세는 숫자가 아니라 광고라 손해는 광고 한 편이다.
  *

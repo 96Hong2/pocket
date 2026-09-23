@@ -9,7 +9,7 @@ import io
 
 from PIL import Image
 
-from app.integrations.imaging import MAX_LONG_EDGE, prepare_image
+from app.integrations.imaging import max_long_edge, prepare_image
 from app.integrations.llm import LlmImage
 
 
@@ -28,7 +28,7 @@ def test_긴_변을_상한까지_줄인다() -> None:
 
     after = prepare_image(before)
 
-    assert max(_opened(after).size) == MAX_LONG_EDGE
+    assert max(_opened(after).size) == max_long_edge()
     assert len(after.data) < len(before.data)
 
 

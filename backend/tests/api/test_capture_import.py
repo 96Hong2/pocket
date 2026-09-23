@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
+import anyio
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import inspect, select
@@ -438,3 +439,155 @@ def test_읽기가_실패해도_그_호출은_사용량에_남는다(
     assert all(row.candidate_count == 0 for row in rows)
     # 어느 길에서 죽었는지는 남아야 한다. 둘을 못 가르면 어디를 고칠지 모른다.
     assert sorted(row.source.value for row in rows) == ["nl", "screenshot"]
+
+
+# ── 사진 여러 장 ─────────────────────────────────────────────
+
+
+class _OnePerImage(StubLlmStructuredClient):
+    """사진마다 다른 상호 한 건을 돌려준다. 몇 장이 실제로 읽혔는지 셀 수 있다."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls = 0
+
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        self.calls += 1
+        return TransactionExtraction(
+            candidates=[
+                ExtractedTransaction(
+                    amount=1000 * self.calls,
+                    type=TransactionType.EXPENSE,
+                    merchant=f"가게{self.calls}",
+                    category="식비",
+                    confidence=0.95,
+                )
+            ]
+        )
+
+
+class _SecondFails(_OnePerImage):
+    """두 번째 사진만 실패한다. 한 장이 죽어도 나머지가 살아 오는지 본다."""
+
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        result = await super().extract(
+            prompt=prompt, schema=schema, text=text, image=image, today=today
+        )
+        if self.calls == 2:
+            raise LlmError("두 번째 사진을 읽지 못했다")
+        return result
+
+
+def _analyze_many(client: TestClient, count: int):
+    return client.post("/api/v1/imports/capture", json={"images": [IMAGE] * count}, headers=AUTH)
+
+
+def test_사진_세_장이_한_묶음으로_온다(client: TestClient, default_categories) -> None:
+    model = _OnePerImage()
+    with _using(client, lambda: model):
+        response = _analyze_many(client, 3)
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert model.calls == 3
+    # 배치가 셋이 아니라 하나다. 사람이 검토 화면을 세 번 지나지 않는다.
+    assert body["id"]
+    assert body["detected_count"] == 3
+    merchants = [candidate["merchant"] for candidate in body["candidates"]]
+    assert merchants == ["가게1", "가게2", "가게3"]
+
+
+def test_사진_한_장이_실패해도_나머지는_온다(client: TestClient, default_categories) -> None:
+    with _using(client, _SecondFails):
+        response = _analyze_many(client, 3)
+
+    assert response.status_code == 201, response.text
+    merchants = [candidate["merchant"] for candidate in response.json()["candidates"]]
+    # 다섯 장을 골라 광고까지 본 사람에게 한 장 때문에 아무것도 못 준다고 하지 않는다.
+    assert merchants == ["가게1", "가게3"]
+
+
+def test_전부_실패하면_사진_문구로_막는다(client: TestClient, default_categories) -> None:
+    with _using(client, _BrokenClient):
+        response = _analyze_many(client, 3)
+
+    assert response.status_code == 503, response.text
+    assert response.json()["error"]["message"].startswith("지금은 캡처를")
+
+
+def test_사진_장수만큼_사용량이_남는다(client: TestClient, db: Session, default_categories) -> None:
+    with _using(client, _OnePerImage):
+        _analyze_many(client, 3)
+
+    rows = db.scalars(select(ParseUsage)).all()
+    # 돈이 나가는 것은 답이 아니라 호출이다. 세 번 불렀으면 세 줄이어야 한다.
+    assert len(rows) == 3
+    assert sum(row.input_length for row in rows) > 0
+
+
+def test_여섯_장은_받지_않는다(client: TestClient, default_categories) -> None:
+    response = _analyze_many(client, 6)
+
+    assert response.status_code == 422, response.text
+
+
+def test_한_장도_여러_장도_아니면_막는다(client: TestClient, default_categories) -> None:
+    both = client.post(
+        "/api/v1/imports/capture", json={"image": IMAGE, "images": [IMAGE]}, headers=AUTH
+    )
+    neither = client.post("/api/v1/imports/capture", json={}, headers=AUTH)
+
+    assert both.status_code == 422, both.text
+    assert neither.status_code == 422, neither.text
+
+
+def test_영수증도_여러_장을_받는다(client: TestClient, default_categories) -> None:
+    model = _OnePerImage()
+    with _using(client, lambda: model):
+        response = client.post(
+            "/api/v1/imports/receipt", json={"images": [IMAGE, IMAGE]}, headers=AUTH
+        )
+
+    assert response.status_code == 201, response.text
+    assert model.calls == 2
+
+
+class _Overlapping(StubLlmStructuredClient):
+    """언제 들어가고 언제 나왔는지 받아 적는 모델.
+
+    다섯 장을 차례로 부르면 광고 한 편(30초)보다 오래 걸려서, 광고가 끝난 뒤에도 사람이
+    빈 화면을 본다. 그래서 겹쳐 도는 것 자체가 지켜야 할 동작이다.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.inside = 0
+        self.most = 0
+
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        self.inside += 1
+        self.most = max(self.most, self.inside)
+        try:
+            # 다른 작업이 끼어들 틈을 준다. 차례로 돌면 이 틈에도 혼자다.
+            await anyio.sleep(0.05)
+            return await super().extract(
+                prompt=prompt, schema=schema, text=text, image=image, today=today
+            )
+        finally:
+            self.inside -= 1
+
+
+def test_사진_여러_장을_겹쳐_읽는다(client: TestClient, default_categories) -> None:
+    model = _Overlapping()
+    with _using(client, lambda: model):
+        _analyze_many(client, 4)
+
+    assert model.most == 4, f"한 번에 {model.most}장만 돌았다. 차례로 부르면 광고보다 오래 걸린다"
+
+
+def test_사진_한_장은_겹칠_것이_없다(client: TestClient, default_categories) -> None:
+    model = _Overlapping()
+    with _using(client, lambda: model):
+        _analyze(client)
+
+    assert model.most == 1

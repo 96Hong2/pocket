@@ -1,4 +1,5 @@
 export { AdAheadNote, AdAheadListNote } from './AdAheadNote';
+export { AdConsent } from './AdConsent';
 export { AdSlot } from './AdSlot';
 export {
   useFullScreenAd,
@@ -8,4 +9,5 @@ export {
   type RewardedAdOutcome,
 } from './useFullScreenAd';
 export { DAILY_CAP, SESSION_CAP } from './adFrequency';
+export { useAdConsent, type AdConsentHandle } from './useAdConsent';
 export { useInterstitial, type InterstitialOutcome, type InterstitialWhere } from './useInterstitial';
