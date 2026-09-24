@@ -223,12 +223,13 @@ class RecordInput {
   }
 
   /**
-   * 방식 알약이 왜 잠겼는지 말하는 한 줄. 알약 **바로 아래**에 선다.
+   * 지난 날에 줄글·캡처·영수증으로 적을 때 어디로 떨어지는지 말하는 한 줄.
    *
-   * 잠긴 버튼은 초점을 못 받아, 읽는 프로그램에는 이 줄이 이유에 닿는 유일한 길이다.
+   * 알약 **바로 아래**에 선다. 적힌 날짜가 있으면 그쪽이 이기므로 「무조건 이 날」 이라고
+   * 적지 않는다. 그 사실이 화면에 남아 있는지를 이 로케이터가 지킨다.
    */
-  get dayLockNotice(): Locator {
-    return this.root.getByText('오늘이 아닌 날은 키패드로만 적어요', { exact: true });
+  dayBaseNotice(label: string): Locator {
+    return this.root.getByText(`날짜가 없는 건 ${label}로 적어요`, { exact: true });
   }
 
   /** 저장이 실패했을 때 뜨는 안내. */
@@ -238,6 +239,16 @@ class RecordInput {
 
   get backspaceKey(): Locator {
     return this.root.getByRole('button', { name: '한 자리 지우기' });
+  }
+
+  /**
+   * 숫자판 전체.
+   *
+   * **늘 서 있지 않다.** 분류 목록을 「더 보기」로 끝까지 펼친 동안과 새 분류 만들기 화면에서는
+   * 접힌다. 고를 것이 화면을 채운 자리에 숫자판까지 서면 지금 무엇을 하는 중인지 흐려진다.
+   */
+  get keypad(): Locator {
+    return this.root.locator('.keypad__keys');
   }
 
   /**
@@ -392,6 +403,21 @@ class RecordInput {
   }
 
   /** 금액보다 먼저 고른 뒤 접혀 있는 한 줄. 누르면 목록이 다시 펴진다. */
+  /** 키패드에서 이체로 들어가는 조용한 줄. 분류 목록 아래, 저장 버튼 아래에 선다. */
+  get transferButton(): Locator {
+    return this.root.getByRole('button', { name: '계좌 사이 옮긴 돈이에요' });
+  }
+
+  /** 이체로 켠 뒤 분류 자리를 대신 채우는 설명. 켜졌다는 것이 화면에 보여야 한다. */
+  get transferPanel(): Locator {
+    return this.root.getByText('계좌 사이 옮긴 돈', { exact: true });
+  }
+
+  /** 이체를 끄고 지출·수입으로 돌아가는 줄. */
+  get transferOffButton(): Locator {
+    return this.root.getByRole('button', { name: '지출이나 수입으로 적기' });
+  }
+
   get pickedCategory(): Locator {
     return this.root.getByRole('button', { name: /다시 고르기$/ });
   }
@@ -404,9 +430,11 @@ class RecordInput {
 
 /** 저장 후 얼굴. */
 /**
- * 기록 시트 안의 분류 만들기 자리.
+ * 기록 시트 안의 분류 만들기 화면.
  *
- * 시트가 하나 더 뜨는 것이 아니라 칩 자리가 바뀌는 것이다. 그래야 적던 금액이 살아 있다.
+ * 시트가 하나 더 뜨는 것이 아니라 **시트 안쪽이 통째로 이 화면이 된다.** 그래야 적던 금액이
+ * 살아 있고, 탭·키패드가 함께 보여 헷갈릴 일도 없다.
+ * 「이전」 과 「저장」 은 맨 위에 붙어 있어 아이콘 격자를 내려도 자리가 안 바뀐다.
  */
 class RecordNewCategory {
   private readonly root: Locator;
@@ -424,12 +452,21 @@ class RecordNewCategory {
   }
 
   get saveButton(): Locator {
-    return this.root.getByRole('button', { name: '새 카테고리 저장', exact: true });
+    return this.root.getByRole('button', { name: '저장', exact: true });
   }
 
-  /** 만들지 않고 그만둔다. 돌아갈 길이 화면에 적혀 있어야 한다. */
+  /** 만들지 않고 그만둔다. 저장과 한 줄에 나란히 있다. */
   get backButton(): Locator {
-    return this.root.getByRole('button', { name: '기록으로 돌아가기', exact: true });
+    return this.root.getByRole('button', { name: '이전', exact: true });
+  }
+
+  /**
+   * 저장이 왜 회색인지 적는 한 줄. 버튼 바로 아래에 있다.
+   *
+   * 이름이 비었을 때와 겹칠 때가 서로 다른 말을 한다. 겹침은 서버를 다녀오지 않고 화면이 막는다.
+   */
+  get reason(): Locator {
+    return this.root.getByRole('status');
   }
 
   /** 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다. */
@@ -437,12 +474,46 @@ class RecordNewCategory {
     return this.root.getByRole('group', { name: '분류의 종류' });
   }
 
+  /** 접혀 있는 아이콘 격자를 펴는 줄. 아직 아무것도 안 골랐을 때의 글자다. */
+  get openIconsButton(): Locator {
+    return this.root.getByRole('button', { name: '아이콘 고르기', exact: true });
+  }
+
+  /** 한 번 고른 뒤의 글자. 격자가 접혔다는 증거이기도 하다. */
+  get reopenIconsButton(): Locator {
+    return this.root.getByRole('button', { name: '아이콘 다시 고르기', exact: true });
+  }
+
+  /** 색 고르기. **아이콘을 고르기 전에는 아예 없다.** */
+  get colorGroup(): Locator {
+    return this.root.getByRole('group', { name: '색', exact: true });
+  }
+
+  /** 펼쳐진 아이콘 격자. 접혀 있으면 아예 없다. */
+  get iconGrid(): Locator {
+    return this.root.getByRole('group', { name: '아이콘' });
+  }
+
+  /** 격자 칸 하나. 읽어 주는 이름은 파일 이름에서 앞 번호를 뗀 영어다(`16_paw` 는 `paw`). */
+  iconCell(label: string): Locator {
+    return this.iconGrid.getByRole('button', { name: label, exact: true });
+  }
+
+  /** 격자는 접힌 채로 열린다. 펴고, 고르고, 다시 접히는 것까지가 한 동작이다. */
+  async pickIcon(label: string): Promise<void> {
+    await this.openIconsButton.click();
+    await this.iconCell(label).click();
+  }
+
   async create(name: string, iconLabel: string): Promise<void> {
     await this.nameField.fill(name);
-    await this.root
-      .getByRole('group', { name: '아이콘' })
-      .getByRole('button', { name: iconLabel, exact: true })
-      .click();
+    await this.pickIcon(iconLabel);
+    await this.saveButton.click();
+  }
+
+  /** 이름만 적고 저장한다. 아이콘도 색도 안 고른 채로 만들어지는지 보는 자리다. */
+  async createByName(name: string): Promise<void> {
+    await this.nameField.fill(name);
     await this.saveButton.click();
   }
 }

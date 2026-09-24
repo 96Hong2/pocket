@@ -29,6 +29,7 @@
 | 고를 것이 너무 많나 | `category_more_opened` · `category_order_changed` | 「더 보기」를 편 화면과 그때 보이던 칩 수, 순서를 바꾼 방식(한 칸 옮기기·자주 쓴 순서)와 종류 |
 | 빈 날에 무엇을 고르나 | `no_spend_marked` | 누른 화면, 그 날짜 |
 | 떠나기로 마음먹나 | `data_reset_result` | 성공·실패, 걸린 시간, 오류 코드 |
+| 적어 둔 것을 꺼내 가나, 꺼내다 막히나 | `export_result` | 형식(`format`: `xlsx`·`csv`), 기간(`period`: `this_month`·`last_month`·`this_year`·`all`), 결과(`result`: `ok`·`failed`·`unsupported`)와 줄 수(`rows`), 막힌 이유(`error_code`, 내보낼 것이 없었으면 `empty`). **파일 안의 값은 한 글자도 싣지 않는다** |
 | 남에게 알릴 만하다고 느끼나 | `share_result` · `share_card_dismissed` | 누른 자리(`home`·`goal`·`goal_done`·`manage`·`manage_past`·`closing`·`streak`), 갈래(`app`·`goal`·`goal_done`·`budget`·`closing`·`streak`), 성공·실패와 실패 코드. **보낸 글은 싣지 않는다** |
 | 꾸준히 적는 사람이 늘어나나 | `streak_celebrated` | 몇 일째 축하가 떴나(7·14·21…). **끊긴 것은 싣지 않는다** |
 | 미리 적어 둔 돈을 실제로 적나 | `recurring_result` | 적었나(`recorded`)·미뤘나(`dismissed`), 전날인가 당일인가(`eve`·`today`). **항목 이름과 금액은 싣지 않는다** |
@@ -93,6 +94,12 @@
 **`no_spend_marked` 는 빈 날 카드의 답을 준다.** 그 카드에는 안 썼다는 줄과 기록하기 버튼
 둘뿐이라, 둘 중 무엇을 누르는지가 곧 「적을 것이 없는 날에 사람들이 무엇을 하나」다.
 안 쓴 날 표시는 이 자리가 유일한 입구라 여기서 안 세면 셀 곳이 없다.
+
+**`export_result` 는 쓰는 횟수로 판단하지 않는다(ADR-0032).** 내보내기는 자주 눌리라고 만든
+기능이 아니라 **꺼내 갈 수 있다**는 것을 보여 주려고 만든 자리다. 그래서 볼 것은 막히는
+쪽이다. `failed` 가 잦으면 파일을 못 만드는 것이고, `unsupported` 가 잦으면 낮은 토스 앱
+버전을 쓰는 사람이 그만큼 많다는 뜻이다. `rows` 가 1만에 붙는 사람이 나오면 한 번에 담는
+천장을 다시 볼 때다. 파일 안의 값은 어느 것도 로그에 실리지 않는다.
 
 **`record_leave_asked` 가 닫기 확인의 성적표다.** 읽어 온 것을 두고 시트를 닫으려 하면
 한 번 묻는데, 그때 「계속 고치기」를 고른 비율이 곧 이 창이 구해 낸 기록이다. 그 비율이

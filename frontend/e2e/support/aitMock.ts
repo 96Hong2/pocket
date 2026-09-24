@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import type { RecordedLog, RecordedShare } from '../../src/shared/toss';
+import type { RecordedFileSave, RecordedLog, RecordedShare } from '../../src/shared/toss';
 
 /**
  * 앱인토스 devtools 목의 다이얼을 돌린다.
@@ -243,6 +243,31 @@ export function installShareSheetStub(): void {
  */
 export async function readShares(page: Page): Promise<RecordedShare[]> {
   return page.evaluate(() => window.__pocketShares ?? []);
+}
+
+/**
+ * 앱이 기기에 내려놓은 파일 한 건씩.
+ *
+ * 운영 판에는 없는 사본이다(`shared/toss/types.ts` 의 `recordFileSave`). 저장은 웹 페이지
+ * 바깥에서 일어나 화면에 아무 흔적도 안 남는다. 어떤 이름·어떤 MIME 으로 무엇을 담아
+ * 보냈는지 볼 길이 이것뿐이다.
+ */
+export async function readSavedFiles(page: Page): Promise<RecordedFileSave[]> {
+  return page.evaluate(() => window.__pocketFiles ?? []);
+}
+
+/**
+ * 내려놓은 CSV 파일의 줄.
+ *
+ * base64 를 풀어 실제 글자로 돌린다. 「몇 건을 담았다」 는 화면 문구와 파일 안의 줄 수가
+ * 같은지 여기서만 맞춰 볼 수 있다. 맨 앞 BOM 은 엑셀이 인코딩을 알아보라고 붙인 것이라
+ * 줄을 세기 전에 떼어 낸다.
+ */
+export function csvLines(file: RecordedFileSave): string[] {
+  return Buffer.from(file.data, 'base64')
+    .toString('utf8')
+    .replace(/^﻿/, '')
+    .split('\r\n');
 }
 
 /** 시스템 공유 시트까지 실제로 간 글. 문구 다음 줄에 링크가 붙어 있어야 한다. */

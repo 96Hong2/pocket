@@ -1712,6 +1712,8 @@ export interface components {
          *     업데이트하지 않은 사람이 사진으로 적는 길을 통째로 잃는다.
          */
         ImportImageIn: {
+            /** Base Day */
+            base_day?: string | null;
             /** Image */
             image?: string | null;
             /** Images */
@@ -1734,6 +1736,8 @@ export interface components {
          * @description 줄글 한 덩어리. 여러 건이 들어 있을 수 있다.
          */
         ImportTextIn: {
+            /** Base Day */
+            base_day?: string | null;
             /** Text */
             text: string;
         };

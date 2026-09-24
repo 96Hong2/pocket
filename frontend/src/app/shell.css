@@ -277,11 +277,6 @@
     transform: rotate(45deg);
   }
 
-  /* 갈 곳이 없는 줄. 값을 보여 주기만 한다. 화살표를 두면 눌러 보게 된다. */
-  .link-row--static::after {
-    content: none;
-  }
-
   /* 이름 칸이 남는 자리를 다 먹어야 값이 오른쪽 끝에 붙는다. */
   .link-row__label {
     flex: 1;

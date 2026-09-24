@@ -2,6 +2,9 @@ import {
   Analytics,
   Device,
   Environment,
+  // SDK 가 내보내는 이름이 `File` 이라 그대로 쓰면 브라우저의 File 을 가린다.
+  // 이 파일에서 `new File(...)` 을 쓸 일이 생기면 조용히 엉뚱한 것이 잡힌다. 이름만 비킨다.
+  File as TossFile,
   Notification,
   Review,
   PermissionError,
@@ -32,6 +35,7 @@ import {
   type BridgeEnvironment,
   type BridgePlatform,
   type CaptureOptions,
+  type FileBridge,
   type FullScreenAdResult,
   type Identity,
   type KeyValueStore,
@@ -42,8 +46,10 @@ import {
   type PickPhotosOptions,
   type PickedImage,
   type SafeAreaInsets,
+  type SaveFileTarget,
   type ShareBridge,
   type ShareTarget,
+  recordFileSave,
   recordShare,
 } from './types';
 
@@ -279,6 +285,46 @@ class TossShareBridge implements ShareBridge {
   }
 }
 
+/**
+ * 만든 파일을 기기에 내려놓는다.
+ *
+ * SDK 는 base64 본문과 이름과 MIME 셋만 받는다. 저장 위치를 고르는 창은 토스가 띄우고
+ * 우리는 결과를 받지 않는다. 그래서 부르는 쪽은 「던졌다」 까지만 세고 「사용자가 정말
+ * 저장했다」 를 세지 않는다.
+ */
+class TossFileBridge implements FileBridge {
+  private readonly environment: BridgeEnvironment;
+
+  constructor(environment: BridgeEnvironment) {
+    this.environment = environment;
+  }
+
+  async save(target: SaveFileTarget): Promise<void> {
+    try {
+      await TossFile.saveBase64({
+        data: target.data,
+        fileName: target.fileName,
+        mimeType: target.mimeType,
+      });
+      recordFileSave(this.environment, target);
+    } catch (error) {
+      throw toBridgeError(error, '파일을 저장하지 못했어요.');
+    }
+  }
+}
+
+/**
+ * 버전으로 갈리는 기능과 그 하한. 숫자는 SDK 가 들고 있는 것을 가리키기만 한다.
+ *
+ * 여기 없는 기능은 앱 버전과 무관하거나 SDK 가 하한을 알려 주지 않는다.
+ * 별점 창은 권유 카드를 아예 안 그리는 자리라, 왜 안 뜨는지 말할 값이 있어야 한다.
+ */
+const VERSION_GATES: Partial<Record<BridgeCapability, { android: string; ios: string }>> = {
+  notification: Notification.requestAgreement.MIN_TOSS_APP_VERSION,
+  review: Review.request.MIN_TOSS_APP_VERSION,
+  file: TossFile.saveBase64.MIN_TOSS_APP_VERSION,
+};
+
 export class TossMiniAppBridge implements MiniAppBridge {
   readonly environment: BridgeEnvironment;
   readonly platform: BridgePlatform;
@@ -289,6 +335,7 @@ export class TossMiniAppBridge implements MiniAppBridge {
   readonly ads = new TossAdsBridge();
   readonly analytics = new TossAnalyticsBridge();
   readonly share: ShareBridge;
+  readonly file: FileBridge;
 
   constructor() {
     this.environment = Environment.environment;
@@ -297,6 +344,7 @@ export class TossMiniAppBridge implements MiniAppBridge {
     this.deviceId = Environment.deviceId;
     this.deploymentId = Environment.deploymentId;
     this.share = new TossShareBridge(this.environment);
+    this.file = new TossFileBridge(this.environment);
   }
 
   supports(capability: BridgeCapability): boolean {
@@ -333,18 +381,14 @@ export class TossMiniAppBridge implements MiniAppBridge {
         // 여기는 반대로 미리 감춘다. 별점 창은 **우리가 권유 카드를 먼저 띄우는** 자리라,
         // 못 뜨는 버전에서 카드만 서면 눌러도 아무 일이 안 일어난다.
         return Review.request.isSupported();
+      case 'file':
+        // 별점과 같다. 못 쓰는 버전에서 내보내기 버튼만 서면 눌러도 아무 일이 안 일어난다.
+        return TossFile.saveBase64.isSupported();
     }
   }
 
   minAppVersion(capability: BridgeCapability): string | null {
-    // 버전으로 갈리는 것만 적는다. 나머지는 앱 버전과 무관하거나 SDK 가 하한을 알려 주지 않는다.
-    const gate =
-      capability === 'notification'
-        ? Notification.requestAgreement.MIN_TOSS_APP_VERSION
-        : // 별점 창은 권유 카드를 아예 안 그리는 자리라, 왜 안 뜨는지 말할 값이 있어야 한다.
-          capability === 'review'
-          ? Review.request.MIN_TOSS_APP_VERSION
-          : null;
+    const gate = VERSION_GATES[capability];
     if (gate == null) return null;
     if (this.platform === 'ios') return gate.ios;
     if (this.platform === 'android') return gate.android;

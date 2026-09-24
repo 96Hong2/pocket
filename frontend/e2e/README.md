@@ -18,6 +18,7 @@ e2e/
                  남은 행동 로그를 읽는 `readLogs`·`logsNamed` 도 여기 있다(운영 판에는 없는 사본이다)
                  공유 시트 자리를 대신 받는 `installShareSheetStub` 과 그 결과를 읽는
                  `readShares`(브릿지가 들고 나간 것)·`readShareSheet`(시트까지 간 글)도 여기 있다
+                 기기에 내려놓은 파일을 읽는 `readSavedFiles` 와 그 CSV 를 줄로 푸는 `csvLines` 도 여기 있다
     servers.ts   playwright.config 가 띄우는 dev 서버 정의
     fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다. spec 은 여기서 시작한다
   fixtures/    테스트가 쓰는 파일. 지금은 사진용 PNG 한 장(capture.png). 캡처와 영수증이 함께 쓴다
@@ -62,6 +63,9 @@ e2e/
                      기억한 분류는 목록·검색칸·걸러 보기 칩·걸어두기 시트를 한 덩어리로 들고 있다
                      (스무 줄을 넘어야 검색칸이 열리고, 손으로 건 것이 있어야 칩이 나온다)
     SettingsScreen   앱 설정 화면. 홈 표시 방식·개인정보 안내·홈 화면 추가 안내·배너 자리
+                     `ledgerExport` 는 가계부를 파일로 내려받는 줄과 그 시트다. 저장은 페이지 바깥에서
+                     일어나 화면에 흔적이 없으니, 무엇이 나갔는지는 `support/aitMock.ts` 의
+                     `readSavedFiles` 로 본다
     NotificationsScreen 알림 설정 화면. 켜기와 시각 둘뿐이라 안을 더 쪼개지 않았다
     TagsScreen       태그 관리. 지출·수입 두 묶음과 만들기·고치기·지우기 시트
     RecurringScreen  반복 지출. 목록·켜기끄기와 만들기·고치기 시트.
@@ -173,6 +177,10 @@ toLedgerDate(new Date())
   `features/share/shareText.ts`(공유 문구), `features/share/shareLink.ts`(딥링크 주소).
   셋 다 화면 문구·규칙의 정본이라 spec 이 같은 값을 다시 적지 않으려고 가져온다.
   뒤의 둘은 화면 문구·표시 규칙의 정본이라 spec 이 같은 값을 다시 적지 않으려고 가져온다.
+  내보내기에서 둘을 더 쓴다: `features/export/period.ts`(파일 이름 짓는 규칙),
+  `features/export/workbook.ts`(형식별 MIME). 둘 다 spec 이 파일 이름과 MIME 을 손으로
+  다시 적지 않으려고 가져온다. `workbook.ts` 의 `xlsx` 는 함수 안에서 동적으로 부르므로
+  Node 로 끌려오지 않는다.
   **배럴(`features/*/index.ts`)로 가져오지 않는다.** 배럴은 `.tsx` 를 함께 내보내서,
   상수 하나만 쓰려 해도 화면 컴포넌트가 Node 로 끌려온다. 순수 모듈을 경로로 직접 가져온다.
   목록에 없는 것을 가져오려면 `tsconfig.test.json` 을 먼저 본다. e2e·tests 프로그램이 그 모듈까지 타입 검사한다.

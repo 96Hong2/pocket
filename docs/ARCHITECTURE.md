@@ -60,9 +60,11 @@ flowchart LR
 - `tossBridge.ts`: 실기기·샌드박스. SDK 를 부르고, 실패를 `BridgeError`(`UNSUPPORTED` / `PERMISSION_DENIED` / `CANCELLED` / `UNKNOWN`)로 바꿔 던진다.
 - `mockBridge.ts`: 브라우저 개발과 테스트. 같은 계약을 만족하는 가짜다.
 
-브릿지가 데리고 있는 것은 넷이다: `storage` · `ads` · `analytics` · `share`.
+브릿지가 데리고 있는 것은 다섯이다: `storage` · `ads` · `analytics` · `share` · `file`.
 `share` 는 링크 만들기와 시스템 공유 시트 열기를 **한 번으로 묶는다.** 둘을 따로 열어 두면
 링크만 만들고 시트를 못 연 상태가 생기는데, 그때 사용자에게는 아무 일도 안 일어난 것으로 보인다.
+`file` 은 만든 파일을 기기에 내려놓는 자리다(가계부 내보내기, ADR-0032). SDK 가 결과를 안
+돌려줘서 「던졌다」 까지만 알 수 있고, 안드로이드 5.218.0 · iOS 5.216.0 아래에서는 못 쓴다.
 
 `createBridge()` 가 실행 환경을 보고 둘 중 하나를 고른다.
 이 경계가 있어서 SDK 버전이 바뀌어도 고칠 자리가 한 폴더이고, 권한 거부·미지원 같은 엣지 상태를 브라우저에서 재현할 수 있다.
@@ -146,15 +148,18 @@ src/
   features/   home · home-add · quick-record · ads
               transactions · budgets · imports · reports
               categories · tags · recurring · settings
-              assets · goals · notifications · share       ← 있다
+              assets · goals · notifications · share
+              export                                       ← 있다
 ```
 
-**`features/` 에는 지금 화면 열넷과 화면 아닌 것 둘이 있다.** 홈(`home`), 기록 시트
+**`features/` 에는 지금 화면 열넷과 화면 아닌 것 셋이 있다.** 홈(`home`), 기록 시트
 (`quick-record`), 배너 슬롯(`ads`), 내역·달력·수정(`transactions`), 관리 탭 예산 섹션
 (`budgets`), 줄글·캡처·영수증 검토(`imports`), 월 리포트(`reports`), 카테고리 관리
 (`categories`), 태그 관리(`tags`), 반복 지출(`recurring`), 앱 설정(`settings`),
-자산(`assets`), 목표(`goals`), 알림 설정(`notifications`), 그리고 화면이 없는 둘,
-친구에게 보내기(`share`) 와 홈 화면에 추가(`home-add`) 다.
+자산(`assets`), 목표(`goals`), 알림 설정(`notifications`), 그리고 화면이 없는 셋,
+친구에게 보내기(`share`) 와 홈 화면에 추가(`home-add`), 가계부 내보내기(`export`) 다.
+`export` 도 자기 화면이 없다. 앱 설정 목록의 한 줄과 거기서 열리는 시트뿐이라, 그 줄을
+`settings` 가 자리에 끼운다(`share` 와 같은 모양이다).
 `share` 는 자기 화면이 없다. 목표·예산·결산·홈 넷이 같은 버튼과 같은 문구를 쓰는 자리라
 `ads` 처럼 부품만 모아 두고 부르는 쪽이 자기 화면에 끼운다. 자리마다 문구를 새로 적으면
 같은 앱이 화면마다 다른 말을 하고, 「금액은 안 보낸다」 같은 약속이 한 자리에서만 지켜진다.

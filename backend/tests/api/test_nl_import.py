@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
@@ -50,6 +50,66 @@ def test_어제라고_적으면_어제_날짜로_잡힌다(client: TestClient, d
     assert localized[0] == TODAY
     assert localized[1] == TODAY
     assert (TODAY - localized[2]).days == 1
+
+
+def test_고른_날을_보내면_날짜_없는_줄이_그_날로_간다(
+    client: TestClient, default_categories
+) -> None:
+    """화면에서 지난 날을 골라 두고 줄글로 적는 길.
+
+    **적힌 날짜가 있으면 그쪽이 이긴다.** 고른 날은 못 찾은 줄만 받는다. 이 둘이
+    갈리지 않으면 「어제 커피」 라고 적어도 고른 날로 끌려가고, 반대로 두면 고른 날이
+    통째로 버려진다(예전에 그래서 세 방식을 아예 잠가 뒀었다).
+    """
+    chosen = TODAY - timedelta(days=5)
+    response = client.post(
+        "/api/v1/imports/text",
+        json={"text": THREE_ITEMS, "base_day": chosen.isoformat()},
+        headers=AUTH,
+    )
+    assert response.status_code == 201, response.text
+
+    tz = ZoneInfo(ledger.DEFAULT_TIMEZONE)
+    localized = [
+        datetime.fromisoformat(item["occurred_at"]).astimezone(tz).date()
+        for item in response.json()["candidates"]
+    ]
+    assert localized[0] == chosen
+    assert localized[1] == chosen
+    # '어제' 라고 적힌 것은 고른 날이 아니라 어제 그대로다.
+    assert (TODAY - localized[2]).days == 1
+
+
+def test_오래된_기준일도_그_날로_간다(client: TestClient, default_categories) -> None:
+    """**좁히지 않는다.** 날짜 칸이 36개월 전까지 열려 있어서, 여기서 잘라 내면 같은 날을
+    골라 두고 키패드로 적으면 그 날에, 줄글로 적으면 오늘에 저장된다.
+    """
+    old_day = TODAY - timedelta(days=800)
+    response = client.post(
+        "/api/v1/imports/text",
+        json={"text": THREE_ITEMS, "base_day": old_day.isoformat()},
+        headers=AUTH,
+    )
+    assert response.status_code == 201, response.text
+
+    tz = ZoneInfo(ledger.DEFAULT_TIMEZONE)
+    first = datetime.fromisoformat(response.json()["candidates"][0]["occurred_at"])
+    assert first.astimezone(tz).date() == old_day
+
+
+def test_기간을_만들_수_없는_연도는_막는다(client: TestClient, default_categories) -> None:
+    """`9999-12-31` 은 후보로 들어오면 저장할 때 OverflowError 로 500 이 된다.
+
+    막는 자리를 커밋이 아니라 입구에 둔다. 커밋에서 터지면 그 배치가 READY 로 남아
+    다시 눌러도 계속 500 이다. 키패드로 같은 값을 보내면 이미 422 로 막힌다.
+    """
+    for bad in ("9999-12-31", "1899-01-01"):
+        response = client.post(
+            "/api/v1/imports/text",
+            json={"text": THREE_ITEMS, "base_day": bad},
+            headers=AUTH,
+        )
+        assert response.status_code == 422, f"{bad}: {response.text}"
 
 
 def test_상호로_분류를_붙인다(client: TestClient, default_categories) -> None:

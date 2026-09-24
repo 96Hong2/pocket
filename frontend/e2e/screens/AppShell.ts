@@ -111,8 +111,9 @@ export class AppShell {
    * 같은 목록을 **줄을 담은 항목**으로 센다.
    *
    * 관리 탭 줄은 들어가는 길에 광고가 한 편 서느라 링크가 아니라 버튼이다. 그 목록에
-   * 무엇이 있는지를 물을 때 링크만 세면 넷이 통째로 빠진다. 설정 탭에는 갈 곳 없는
-   * 줄(버전·CSV)도 섞여 있어 이쪽 자를 쓰면 안 된다. 그래서 둘을 나눠 둔다.
+   * 무엇이 있는지를 물을 때 링크만 세면 넷이 통째로 빠진다. 설정 탭에는 다른 화면으로
+   * 가지 않고 그 자리에서 시트를 여는 줄(버전·엑셀로 내보내기)이 섞여 있어 이쪽 자를 쓰면
+   * 안 된다. 그래서 둘을 나눠 둔다.
    */
   subScreenRows(navLabel: string): Locator {
     return this.page.getByRole('navigation', { name: navLabel }).getByRole('listitem');

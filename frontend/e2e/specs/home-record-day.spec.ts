@@ -1,4 +1,9 @@
-import { formatDayLabel, shiftDay, toLedgerDate } from '../../src/shared/lib/format';
+import {
+  formatCurrency,
+  formatDayLabel,
+  shiftDay,
+  toLedgerDate,
+} from '../../src/shared/lib/format';
 import { expect, test } from '../support/fixtures';
 
 /** 알약에 적히는 오늘. 「오늘」 이 아니라 날짜 그대로다. */
@@ -163,4 +168,52 @@ test('물음에서 오늘을 고르면 오늘에 적히고 방식도 고를 수 
   await home.today.prevDayButton.click();
   await expect(home.today.title).toHaveText('어제');
   await expect(home.today.emptyButton).toBeVisible();
+});
+
+/**
+ * **이미 적어 둔 지난 날에 하나 더.**
+ *
+ * 기록이 있는 날은 카드가 「전체 내역 보기」 로 끝나서, 어제 것을 뒤늦게 떠올린 사람은
+ * 달력으로 들어가거나 큰 기록하기를 눌러 날을 다시 고르는 수밖에 없었다.
+ * 보고 있는 날이 화면에 떠 있는데 그 날에 적을 자리가 없던 셈이다.
+ */
+test('기록이 있는 지난 날에도 목록 아래에서 하나 더 적는다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.today.prevDayButton.click();
+  await expect(home.today.title).toHaveText('어제');
+
+  // 먼저 한 건 적어 어제를 빈 날이 아니게 만든다.
+  await home.today.emptyButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.input.enterAmount(7000);
+  await recordSheet.input.pickCategory('식비');
+  await recordSheet.feedback.waitSaved();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+  await expect(home.today.title).toHaveText('어제');
+  await expect(home.today.emptyButton).toHaveCount(0);
+
+  // 「전체 내역 보기」 는 그대로 두고, 그 아래에 따로 선다.
+  await expect(home.today.moreLink).toBeVisible();
+  await expect(home.today.addMoreButton).toHaveText('어제 기록 더하기');
+
+  await home.today.addMoreButton.click();
+  await recordSheet.waitOpen();
+  // 보고 있던 날 그대로 열린다. 오늘로 새지 않는다.
+  await expect(recordSheet.input.dayChip).toHaveText(yesterdayLabel());
+  await recordSheet.input.enterAmount(1200);
+  await recordSheet.input.pickCategory('식비');
+  await recordSheet.feedback.waitSaved();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  // 두 건이 같은 날에 쌓인다. 합계로 본다.
+  await expect(home.today.title).toHaveText('어제');
+  await expect(home.today.spentTotal).toHaveText(`${formatCurrency(8_200)} 씀`);
+
+  // 오늘에는 세우지 않는다. 맨 위 큰 「기록하기」 가 이미 오늘에 적는다.
+  await home.today.jumpTodayButton.click();
+  await expect(home.today.title).toHaveText('오늘');
+  await expect(home.today.addMoreButton).toHaveCount(0);
 });

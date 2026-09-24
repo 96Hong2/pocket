@@ -150,9 +150,11 @@ def parse_text(
     client: LlmStructuredClient,
     escalation: LlmStructuredClient | None = None,
     today: date | None = None,
+    base_day: date | None = None,
 ) -> ImportBatch:
     """줄글에서 거래 후보를 뽑아 검토 단위를 만든다."""
     day = today or ledger.today_for(user)
+    base = _base_day(base_day, day)
     _require_quota(session, user, day, label="줄글 분석")
 
     # 저장하지 않는 것만으로는 부족하다. 보내기 전에 가린다.
@@ -179,6 +181,7 @@ def parse_text(
         source=TransactionSource.NL,
         reads=[read],
         day=day,
+        base_day=base,
         client=client,
         input_length=len(text),
         redacted_count=cleaned.count,
@@ -194,6 +197,7 @@ def parse_image(
     client: LlmStructuredClient,
     escalation: LlmStructuredClient | None = None,
     today: date | None = None,
+    base_day: date | None = None,
 ) -> ImportBatch:
     """이미지 한 장에서 거래 후보를 뽑아 검토 단위를 만든다. 아래 여러 장짜리의 한 장 갈래다."""
     return parse_images(
@@ -204,6 +208,7 @@ def parse_image(
         client=client,
         escalation=escalation,
         today=today,
+        base_day=base_day,
     )
 
 
@@ -216,6 +221,7 @@ def parse_images(
     client: LlmStructuredClient,
     escalation: LlmStructuredClient | None = None,
     today: date | None = None,
+    base_day: date | None = None,
 ) -> ImportBatch:
     """사진 여러 장에서 거래 후보를 뽑아 **검토 단위 하나**를 만든다.
 
@@ -238,6 +244,7 @@ def parse_images(
 
     kind = _IMAGE_KINDS[source]
     day = today or ledger.today_for(user)
+    base = _base_day(base_day, day)
     _require_quota(session, user, day, label=kind.quota_label, count=len(images))
 
     # 돌리고 · 여백을 잘라내고 · 줄인 뒤에 보낸다. 위치 정보도 여기서 끊긴다.
@@ -268,6 +275,7 @@ def parse_images(
         reads=reads,
         attempts=attempts,
         day=day,
+        base_day=base,
         client=client,
         # 이미지에서는 글자 수가 없다. 실제로 보낸 바이트 수를 센다.
         input_length=total_bytes,
@@ -284,6 +292,7 @@ def _build_batch(
     source: TransactionSource,
     reads: list[_ReadResult],
     day: date,
+    base_day: date,
     client: LlmStructuredClient,
     input_length: int,
     redacted_count: int,
@@ -325,6 +334,7 @@ def _build_batch(
                 candidate,
                 order,
                 day,
+                base_day,
                 known,
                 rules,
                 # 두 모델을 다 거치고도 이상한 줄은 사람이 봐야 한다.
@@ -739,11 +749,12 @@ def _to_row(
     candidate: TransactionCandidate,
     order: int,
     today: date,
+    base_day: date,
     known: set[str],
     rules: dict[str, _LearnedRule],
     needs_eyes: bool = False,
 ) -> ImportCandidate:
-    occurred_at = _occurred_at(candidate.occurred_at, user, today)
+    occurred_at = _occurred_at(candidate.occurred_at, user, today, base_day)
     # 돌아온 값도 가린다. 캡처는 입력을 가릴 수단이 없어(이미지다) 여기가 유일한 그물이고,
     # 줄글도 모델이 지어낸 숫자가 섞일 수 있다. 여기서 막지 않으면 거래·기억한 분류에 영구히 남는다.
     merchant = redact(candidate.merchant).text if candidate.merchant else None
@@ -785,14 +796,36 @@ def _to_row(
     )
 
 
-def _occurred_at(occurred_on: date | None, user: User, today: date) -> datetime:
+def _base_day(chosen: date | None, today: date) -> date:
+    """화면이 보낸 「적을 날」. 안 보냈으면 오늘이다.
+
+    **좁히지 않는다.** 한때 여기서 730일보다 오래된 값을 오늘로 눕혔는데, 날짜 칸은
+    36개월 전까지 고를 수 있어서 **1년 넘는 구간이 「고를 수는 있고 전부 버려지는」 자리**가
+    됐다. 같은 날을 골라 두고 키패드로 적으면 그 날에, 줄글로 적으면 오늘에 저장됐다.
+    ADR-0033 이 앞날을 안 막는 이유로 든 바로 그 어긋남이다.
+
+    쓸 수 없는 연도는 스키마(`BaseDayIn._in_range`)가 422 로 막는다. 거래 저장과 같은
+    규칙이라 어느 길로 들어와도 판정이 같다.
+    """
+    return chosen if chosen is not None else today
+
+
+def _occurred_at(
+    occurred_on: date | None, user: User, today: date, base_day: date | None = None
+) -> datetime:
     """날짜만 아는 값을 시각으로 옮긴다.
 
     오늘 것은 지금 시각이고, 지난 날은 그 날 정오다. 자정에 가까운 시각을 골라 두면
     시간대 계산에서 하루가 밀린다.
+
+    **모델이 날짜를 못 찾았으면 화면에서 고른 날(`base_day`)에 놓는다.** 안 받았으면
+    예전대로 오늘이다. 적힌 날짜가 있으면 그쪽이 언제나 이긴다: 9월 23일을 골라 두고
+    「어제 커피」 라고 적으면 어제로 간다.
     """
     tz = ledger.user_tz(user)
-    if occurred_on is None or occurred_on == today:
+    if occurred_on is None:
+        occurred_on = base_day or today
+    if occurred_on == today:
         return datetime.now(UTC)
     return datetime.combine(occurred_on, time(hour=12), tzinfo=tz).astimezone(UTC)
 

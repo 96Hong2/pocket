@@ -219,10 +219,7 @@ test('수입 카테고리를 만들어 키패드에서 수입으로 저장한다
 
     await recordSheet.input.pickKind('수입');
     // 지출 분류가 남아 있으면 수입이 '식비' 로 저장된다.
-    expect(await recordSheet.input.categoryChipNames()).toEqual([
-      ...INCOME_CATEGORIES,
-      DIVIDEND,
-    ]);
+    expect(await recordSheet.input.categoryChipNames()).toEqual([...INCOME_CATEGORIES, DIVIDEND]);
   });
 
   await test.step('수입으로 저장된다', async () => {
@@ -512,15 +509,152 @@ test('기록하다 분류를 만들면 그 자리로 돌아와 이어서 적는�
   // 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다.
   await expect(recordSheet.input.newCategoryForm.kindToggle).toHaveCount(0);
 
+  /*
+    만드는 동안에는 시트가 통째로 이 화면이다. 탭도 금액도 숫자판도 안 보인다.
+    같이 보이면 지금 무엇을 하는 중인지가 흐려지고, 숫자가 눌려 금액이 바뀐다.
+  */
+  await expect(recordSheet.input.amountText).toBeHidden();
+  await expect(recordSheet.input.keypad).toBeHidden();
+  await expect(recordSheet.methodTabs).toHaveCount(0);
+
   await recordSheet.input.newCategoryForm.create(NAME, 'paw');
 
-  // 만든 것으로 곧바로 저장된다. 금액이 살아 있었다는 증거다.
+  // 만든 것이 골라진 채로 기록 화면이 돌아온다. 저장은 이 사람이 누른다.
+  await expect(recordSheet.input.newCategoryForm.title).toHaveCount(0);
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(30_000));
+  await expect(recordSheet.input.pickedCategory).toContainText(NAME);
+
+  await recordSheet.input.saveButton.click();
   await recordSheet.feedback.waitSaved();
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
 
   await home.waitReady();
   await expect(home.today.row(NAME)).toBeVisible();
+});
+
+/**
+ * 이름 하나면 분류가 만들어진다.
+ *
+ * 아이콘 일흔여덟 칸과 색 열넷이 이름 칸 아래 한꺼번에 서 있으면, 그것까지 골라야 하는 줄 안다.
+ * 아이콘은 접혀 있고 색은 아이콘을 고른 뒤에야 나온다. 둘 다 안 골라도 저장된다.
+ */
+test('이름만 적어도 분류가 만들어지고, 적던 금액은 그대로다', async ({ home, recordSheet }) => {
+  const NAME = '데이트';
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.enterAmount(8_000);
+  await recordSheet.input.openNewCategory();
+
+  const form = recordSheet.input.newCategoryForm;
+  // 아이콘은 접혀 있다. 격자가 아니라 한 줄이다.
+  await expect(form.openIconsButton).toBeVisible();
+  await expect(form.iconGrid).toHaveCount(0);
+  // 색은 아이콘을 고르기 전에는 아예 없다.
+  await expect(form.colorGroup).toHaveCount(0);
+
+  await form.createByName(NAME);
+
+  await expect(form.title).toHaveCount(0);
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(8_000));
+  await expect(recordSheet.input.pickedCategory).toContainText(NAME);
+
+  await recordSheet.input.saveButton.click();
+  await recordSheet.feedback.waitSaved();
+});
+
+test('아이콘을 고르면 격자가 접히고 그때 색이 나온다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.openNewCategory();
+  const form = recordSheet.input.newCategoryForm;
+
+  await form.openIconsButton.click();
+  await expect(form.iconGrid).toBeVisible();
+  // 격자를 펴도 색은 아직 없다. 고른 것이 없으니 깔 색도 없다.
+  await expect(form.colorGroup).toHaveCount(0);
+
+  /*
+    격자를 끝까지 내려도 나가는 길과 저장이 제자리다. 맨 위에 붙여 둔 줄이라
+    아래로 아무리 굴려도 화면 안에 있어야 한다.
+  */
+  await form.iconCell('calendar clock').scrollIntoViewIfNeeded();
+  await expect(form.saveButton).toBeInViewport();
+  await expect(form.backButton).toBeInViewport();
+
+  await form.iconCell(PET_ICON).click();
+
+  await expect(form.iconGrid).toHaveCount(0);
+  await expect(form.reopenIconsButton).toBeVisible();
+  await expect(form.colorGroup).toBeVisible();
+});
+
+/**
+ * 왜 저장이 안 되는지 그 자리에서 말한다.
+ *
+ * 겹치는 이름은 **서버를 다녀오지 않고 화면이 먼저 막는다.** 접는 규칙은 서버와 같아서
+ * (`categoryNameKey`) 화면이 통과시킨 것을 서버가 다시 막는 일이 없다.
+ */
+test('이름이 비었거나 겹치면 저장이 막히고 이유가 적힌다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.openNewCategory();
+  const form = recordSheet.input.newCategoryForm;
+
+  await expect(form.reason).toHaveText('이름을 적어 주세요');
+  await expect(form.saveButton).toBeDisabled();
+
+  // 기본 분류와 같은 이름. 공백과 대소문자 차이는 같은 이름으로 본다.
+  await form.nameField.fill(' 식비 ');
+  await expect(form.reason).toHaveText('같은 이름의 분류가 이미 있어요. 다른 이름으로 적어 주세요');
+  await expect(form.saveButton).toBeDisabled();
+
+  await form.nameField.fill('식비 그리고');
+  await expect(form.reason).toHaveCount(0);
+  await expect(form.saveButton).toBeEnabled();
+});
+
+/**
+ * 시스템 뒤로가기도 화면의 「이전」 과 같은 일을 해야 한다.
+ *
+ * 만들기 화면은 시트 안쪽을 통째로 먹고 맨 위에 「이전」 이 붙어 있어, 안드로이드에서는
+ * 뒤로가기가 그 「이전」 으로 읽힌다. 시트째 닫히면 적던 이름도, 금액도, 고른 날도
+ * 확인 한 번 없이 사라진다(읽어 둔 것이 없으면 그만둘지 묻지도 않는다).
+ */
+test('분류를 만들다 시스템 뒤로가기를 누르면 만들기만 닫히고 시트는 남는다', async ({
+  appShell,
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.enterAmount(12_000);
+  await recordSheet.input.openNewCategory();
+  await recordSheet.input.newCategoryForm.nameField.fill(PET);
+
+  await appShell.pressBack();
+
+  await expect(recordSheet.input.newCategoryForm.title).toHaveCount(0);
+  await recordSheet.waitOpen();
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(12_000));
+  await expect(recordSheet.input.categoryChip('식비')).toBeVisible();
+
+  // 한 번 더 누르면 그때는 시트가 닫힌다. 만들기만 삼키고 갇히면 그것도 막다른 길이다.
+  await appShell.pressBack();
+  await recordSheet.waitClosed();
 });
 
 test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', async ({ home, recordSheet }) => {
@@ -532,17 +666,28 @@ test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', as
   await recordSheet.input.enterAmount(12_000);
   await recordSheet.input.openNewCategory();
   await expect(recordSheet.input.newCategoryForm.title).toBeVisible();
+  /*
+    누른 「새 분류」 칩이 그 클릭으로 사라진다. 안 잡아 주면 포커스가 시트 밖 body 로 떨어져
+    읽는 프로그램에는 화면이 바뀐 것이 한마디도 안 닿는다. 여기서 처음 할 일이 이름 적기다.
+  */
+  await expect(recordSheet.input.newCategoryForm.nameField).toBeFocused();
 
   await recordSheet.input.newCategoryForm.backButton.click();
 
   await expect(recordSheet.input.newCategoryForm.title).toHaveCount(0);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(12_000));
   await expect(recordSheet.input.categoryChip('식비')).toBeVisible();
+  // 돌아올 때도 마찬가지다. 왔던 자리인 「새 분류」 칩이 포커스를 되받는다.
+  await expect(recordSheet.input.newCategoryButton).toBeFocused();
 });
 
 // ── 기록 화면에 먼저 보일 분류 고르기 ─────────────────────
 
-test('기록 화면에 보이기를 끄면 「더 보기」 뒤로 간다', async ({ categories, home, recordSheet }) => {
+test('기록 화면에 보이기를 끄면 「더 보기」 뒤로 간다', async ({
+  categories,
+  home,
+  recordSheet,
+}) => {
   await categories.open();
   await categories.waitReady();
 
@@ -559,8 +704,51 @@ test('기록 화면에 보이기를 끄면 「더 보기」 뒤로 간다', asyn
   await expect(recordSheet.input.categoryChip('식비')).toBeVisible();
 
   // 없애는 것이 아니라 뒤로 미는 것이다. 없애면 그 분류로 적을 길이 사라진다.
+  await expect(recordSheet.input.keypad).toBeVisible();
   await recordSheet.input.moreCategoriesButton.click();
   await expect(recordSheet.input.categoryChip('기타')).toBeVisible();
+
+  /*
+    펼친 동안에는 숫자판을 접는다. 칩이 화면을 채운 아래로 숫자판이 밀려 있는데도 눌려서,
+    고르는 중인지 적는 중인지가 흐려진다는 말을 들었다. 접으면 바로 돌아온다.
+  */
+  await expect(recordSheet.input.keypad).toBeHidden();
+  await recordSheet.input.foldCategoriesButton.click();
+  await expect(recordSheet.input.keypad).toBeVisible();
+});
+
+/**
+ * 뒤로 밀린 분류를 골라 두면 목록이 저절로 펼쳐진다. 눌러 둔 표시가 갈 곳이 없어서다.
+ *
+ * 그 상태에는 **접기가 없다.** 「더 보기」로 직접 편 것과 같이 세어 숫자판까지 감추면,
+ * 금액을 고칠 길도 저장 버튼도 함께 사라져 아무 분류나 한 번 골라야만 빠져나올 수 있었다.
+ */
+test('뒤로 밀린 분류를 골라 두고 다시 고르기를 눌러도 숫자판이 남는다', async ({
+  home,
+  prep,
+  recordSheet,
+}) => {
+  // 앞자리가 차면 마지막 기본 분류('기타')가 「더 보기」 뒤로 밀린다.
+  await prep.addCategory(PET);
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.moreCategoriesButton.click();
+  // 금액이 아직 없으면 고르기만 하고 목록이 접힌다.
+  await recordSheet.input.categoryChip('기타').click();
+  await expect(recordSheet.input.pickedCategory).toContainText('기타');
+
+  await recordSheet.input.pickedCategory.click();
+  // 눌러 둔 표시를 보이려고 펼친 채로 열린다. 그래서 접기가 없다.
+  await expect(recordSheet.input.foldCategoriesButton).toHaveCount(0);
+  // 되돌릴 버튼이 없는 만큼, 감추는 것도 없어야 한다.
+  await expect(recordSheet.input.keypad).toBeVisible();
+
+  await recordSheet.input.enterAmount(12_000);
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(12_000));
 });
 
 test('끈 것을 다시 켜면 곧바로 앞자리로 돌아온다', async ({ categories, home, recordSheet }) => {
@@ -611,9 +799,7 @@ test('이모지가 아닌 글자는 그 자리에서 왜 안 되는지 말한다
 
   await categories.sheet.saveButton.click();
   await categories.sheet.waitClosed();
-  await expect(
-    categories.row('데이트').getByText('7️⃣', { exact: true }),
-  ).toBeVisible();
+  await expect(categories.row('데이트').getByText('7️⃣', { exact: true })).toBeVisible();
 });
 
 /**

@@ -1,15 +1,17 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   ApiError,
+  useCategories,
   useCreateCategory,
   useDeleteCategory,
   useUpdateCategory,
   type CategoryOut,
   type TagColor,
 } from '../../shared/api';
+import { cx } from '../../shared/lib/cx';
 import { KindToggle, type LedgerKind } from '../../shared/ledger';
 import {
   BottomSheet,
@@ -22,6 +24,10 @@ import {
 } from '../../shared/ui';
 
 import { IconPicker } from './IconPicker';
+import { categoryNameKey } from './nameKey';
+
+/** 이모지 칸에 이모지가 아닌 글자가 남았을 때. 두 자리에서 같은 말을 쓴다. */
+const NOT_EMOJI_REASON = '이모지가 아닌 글자가 들어 있어요. 지우거나 이모지를 골라 주세요';
 
 export interface CategoryEditSheetProps {
   open: boolean;
@@ -86,6 +92,17 @@ export interface CategoryEditFormProps {
   fixedKind?: LedgerKind;
   /** 만들어진 직후. 만든 것을 그 자리에서 바로 고르게 하려고 돌려준다. */
   onCreated?: (created: CategoryOut) => void;
+  /**
+   * 어디에 서는 폼인가.
+   *
+   * - `sheet` 시트 안이나 다른 내용 사이에 낀 자리. 저장은 아래에 선다
+   * - `page`  화면 하나를 통째로 먹는 자리(기록 시트의 새 분류 만들기).
+   *   「이전·저장」 이 맨 위에 붙어 스크롤과 무관하게 늘 보이고, 아이콘 격자는 접힌 채로 열리며
+   *   색은 아이콘을 고른 뒤에 나온다. 한 번에 하나씩만 묻는 자리다
+   */
+  layout?: 'sheet' | 'page';
+  /** `page` 에서 맨 위 「이전」 을 눌렀을 때. 만들지 않고 왔던 화면으로 돌아간다. */
+  onBack?: () => void;
 }
 
 /**
@@ -100,9 +117,14 @@ export function CategoryEditForm({
   onClose,
   fixedKind,
   onCreated,
+  layout = 'sheet',
+  onBack,
 }: CategoryEditFormProps) {
   const colorId = useId();
   const analytics = useAnalytics();
+  /** 화면 하나를 통째로 쓰는 자리인가. 묻는 순서와 버튼 자리가 이 값을 따라간다. */
+  const page = layout === 'page';
+  const categories = useCategories();
   const create = useCreateCategory();
   const update = useUpdateCategory();
   const remove = useDeleteCategory();
@@ -110,6 +132,22 @@ export function CategoryEditForm({
   const isDefault = category?.is_default === true;
 
   const [name, setName] = useState(category?.name ?? '');
+
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  /*
+    화면 하나를 통째로 쓰는 자리에서는 이름 칸을 잡아 준다.
+
+    이 화면을 연 버튼(「새 분류」 칩)은 그 클릭으로 사라져서, 안 잡으면 포커스가 시트 밖
+    body 로 떨어진다. 읽는 프로그램에는 화면이 바뀐 것이 한마디도 안 닿는다.
+    여기서 처음 할 일이 이름을 적는 것이라 그 칸이 곧 첫 자리다.
+  */
+  useEffect(() => {
+    if (page) nameRef.current?.focus();
+    // 이 폼이 사는 동안 한 번이다. 뒤에 다시 잡으면 적던 자리에서 커서가 튄다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [icon, setIcon] = useState<IconName>(
     category == null ? FALLBACK_CATEGORY_ICON : toIconName(category.icon_key),
   );
@@ -131,12 +169,50 @@ export function CategoryEditForm({
     **막고 왜 막혔는지 그 자리에 적는다.**
   */
   const [iconInvalid, setIconInvalid] = useState(false);
+  /*
+    아이콘을 골랐나. **색은 그 뒤에 나온다**(`page` 에서만).
+
+    이름 칸 아래에 격자 일흔여덟 칸과 색 열넷이 한꺼번에 서 있으면, 이름만 적으면 된다는 것이
+    안 보인다. 한 번에 하나씩 묻고, 고르고 나면 다음 것이 나온다.
+  */
+  const [iconPicked, setIconPicked] = useState(category != null);
 
   const busy = create.isPending || update.isPending || remove.isPending;
   /** 사진을 걸었나. 사진은 동그라미를 꽉 채워 바탕색이 안 드러난다. */
   const photoPicked = parseCustomIcon(custom)?.kind === 'photo';
   const trimmed = name.trim();
-  const canSave = trimmed !== '' && !iconInvalid && !busy;
+
+  /*
+    이미 쓰는 이름인가. **서버에 보내기 전에 화면이 먼저 막는다.**
+
+    한 화면을 통째로 쓰는 자리에서만 그런다. 시트에서는 서버가 막는 대로 두어, 기본 분류를
+    다른 이름으로 부르는 사람의 겹침까지 한 규칙(ADR-0027)으로 판정하게 한다.
+    접는 방식은 서버와 같다(`categoryNameKey`).
+  */
+  const takenNames = useMemo(() => {
+    const items = categories.data?.items ?? [];
+    return new Set(
+      items.filter((item) => item.id !== category?.id).map((item) => categoryNameKey(item.name)),
+    );
+  }, [categories.data, category?.id]);
+  const duplicate = page && trimmed !== '' && takenNames.has(categoryNameKey(trimmed));
+
+  const canSave = trimmed !== '' && !iconInvalid && !duplicate && !busy;
+
+  /**
+   * 저장이 왜 회색인지 한 줄로.
+   *
+   * 버튼이 맨 위에 있으니 이유도 그 바로 아래에 있어야 한다. 이유가 아래쪽 칸에만 있으면
+   * 버튼만 보고 있는 사람에게는 앱이 고장 난 것으로 읽힌다.
+   */
+  const blocked =
+    trimmed === ''
+      ? '이름을 적어 주세요'
+      : duplicate
+        ? '같은 이름의 분류가 이미 있어요. 다른 이름으로 적어 주세요'
+        : iconInvalid
+          ? NOT_EMOJI_REASON
+          : null;
 
   // 지우기 실패 문구가 남아 있으면 그다음 저장이 왜 막혔는지 말하지 못한다.
   // 확인을 접을 때 지우기 오류를 함께 지운다.
@@ -231,7 +307,34 @@ export function CategoryEditForm({
   }
 
   return (
-    <div className="cat-sheet__body">
+    <div className={cx('cat-sheet__body', page && 'cat-sheet__body--page')}>
+      {/*
+        맨 위에 붙는 줄. **스크롤해도 안 밀린다.**
+
+        나가는 길과 저장이 한 줄에 나란히 서서, 아이콘 격자를 아무리 내려도 둘 다 늘 보인다.
+        아래에 두면 격자를 편 사람에게는 접힌 화면 밖으로 밀려 안 보인다.
+      */}
+      {page ? (
+        <div className="cat-sheet__bar">
+          <button type="button" className="cat-sheet__back" disabled={busy} onClick={onBack}>
+            이전
+          </button>
+          <span className="cat-sheet__bar-title">
+            {category == null ? '새 분류 만들기' : '분류 고치기'}
+          </span>
+          <Button variant="primarySmall" disabled={!canSave} onClick={save}>
+            저장
+          </Button>
+        </div>
+      ) : null}
+
+      {/* 왜 저장이 안 되는지. 버튼 바로 아래라 누르려다 막힌 사람이 그 자리에서 읽는다. */}
+      {page && blocked != null ? (
+        <p className="cat-sheet__notice" role="status">
+          {blocked}
+        </p>
+      ) : null}
+
       {category == null && fixedKind == null ? (
         <div className="cat-sheet__field">
           <span className="cat-sheet__label">종류</span>
@@ -255,6 +358,7 @@ export function CategoryEditForm({
       <label className="cat-sheet__field">
         <span className="cat-sheet__label">이름</span>
         <input
+          ref={nameRef}
           className="cat-sheet__input"
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -271,41 +375,51 @@ export function CategoryEditForm({
           custom={custom}
           color={color}
           disabled={busy}
-          startOpen={category == null}
+          // 화면 하나를 쓰는 자리에서는 접어 둔다. 일흔여덟 칸이 먼저 펴지면 이름 칸이 밀려난다.
+          startOpen={page ? false : category == null}
+          hasPick={iconPicked}
           onInvalidChange={setIconInvalid}
           onChange={(next) => {
             setIcon(next.icon);
             setCustom(next.custom);
+            setIconPicked(true);
           }}
         />
       </div>
 
-      <div className="cat-sheet__field">
-        <span className="cat-sheet__label" id={`${colorId}-label`}>
-          색
-        </span>
-        {/*
-          태그와 같은 것을 쓴다. 카테고리는 아이콘이 이미 얼굴이라 **색을 안 골라도 된다.**
-          격자 위의 「색 없음」 이 그 자리이고, 한 번 고른 색을 떼는 길도 그것뿐이다.
-        */}
-        <ColorPicker
-          value={color}
-          disabled={busy || photoPicked}
-          clearable
-          labelledBy={`${colorId}-label`}
-          onChange={setColor}
-        />
-        {/*
-          **사진을 건 분류에는 색이 안 보인다.** 사진이 동그라미를 꽉 채워서 바탕이
-          한 픽셀도 안 드러난다. 고를 수 있게 두고 아무 일도 안 일어나면 고장으로
-          읽히므로, 잠그고 왜 잠겼는지 그 자리에 적는다.
-        */}
-        <span className="cat-sheet__note">
-          {photoPicked
-            ? '사진은 동그라미를 꽉 채워서 색이 보이지 않아요. 아이콘이나 이모지로 바꾸면 고를 수 있어요'
-            : '목록과 기록 화면에서 이 색이 동그라미에 깔려요'}
-        </span>
-      </div>
+      {/*
+        색은 아이콘을 고른 뒤에 나온다. 고른 색은 이 폼이 들고 있어서 트리에 없는 동안에도
+        잃지 않고, 안 골라도 저장되는 값이라 없는 동안 막히는 것도 없다.
+        (`hidden` 으로 감추지 않는다. 이 칸은 `display: flex` 라 그 속성이 안 먹는다)
+      */}
+      {page && !iconPicked ? null : (
+        <div className="cat-sheet__field">
+          <span className="cat-sheet__label" id={`${colorId}-label`}>
+            색
+          </span>
+          {/*
+            태그와 같은 것을 쓴다. 카테고리는 아이콘이 이미 얼굴이라 **색을 안 골라도 된다.**
+            격자 위의 「색 없음」 이 그 자리이고, 한 번 고른 색을 떼는 길도 그것뿐이다.
+          */}
+          <ColorPicker
+            value={color}
+            disabled={busy || photoPicked}
+            clearable
+            labelledBy={`${colorId}-label`}
+            onChange={setColor}
+          />
+          {/*
+            **사진을 건 분류에는 색이 안 보인다.** 사진이 동그라미를 꽉 채워서 바탕이
+            한 픽셀도 안 드러난다. 고를 수 있게 두고 아무 일도 안 일어나면 고장으로
+            읽히므로, 잠그고 왜 잠겼는지 그 자리에 적는다.
+          */}
+          <span className="cat-sheet__note">
+            {photoPicked
+              ? '사진은 동그라미를 꽉 채워서 색이 보이지 않아요. 아이콘이나 이모지로 바꾸면 고를 수 있어요'
+              : '목록과 기록 화면에서 이 색이 동그라미에 깔려요'}
+          </span>
+        </div>
+      )}
 
       {failure ? (
         <p className="cat-sheet__notice" role="alert">
@@ -313,7 +427,8 @@ export function CategoryEditForm({
         </p>
       ) : null}
 
-      {confirming ? (
+      {/* 맨 위 줄이 저장을 들고 있는 자리에서는 아래에 또 두지 않는다. 저장이 둘이면 어느 쪽이 진짜인지 묻게 된다. */}
+      {page ? null : confirming ? (
         <div className="cat-sheet__confirm" role="group" aria-label="지우기 확인">
           <p className="cat-sheet__confirm-text">
             지울까요? 이 카테고리로 적어 둔 기록은 그대로 남아요. 대신 걸어 둔 한도와 기억한 분류는
@@ -344,7 +459,7 @@ export function CategoryEditForm({
           */}
           {iconInvalid ? (
             <p className="cat-sheet__notice" role="status">
-              이모지가 아닌 글자가 들어 있어요. 지우거나 이모지를 골라 주세요
+              {NOT_EMOJI_REASON}
             </p>
           ) : null}
           {/* 같은 규칙이 이름에도 걸린다. 이쪽만 이유 없이 회색이면 앱이 고장 난 것으로 읽힌다. */}

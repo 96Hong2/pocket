@@ -40,7 +40,14 @@ def analyze_text(
     client: LlmClient,
     escalation: EscalationLlmClient,
 ) -> ImportBatchOut:
-    batch = service.parse_text(session, user, text=body.text, client=client, escalation=escalation)
+    batch = service.parse_text(
+        session,
+        user,
+        text=body.text,
+        client=client,
+        escalation=escalation,
+        base_day=body.base_day,
+    )
     return to_batch(batch, client=client)
 
 
@@ -61,6 +68,7 @@ def analyze_capture(
         source=TransactionSource.SCREENSHOT,
         client=client,
         escalation=escalation,
+        base_day=body.base_day,
     )
     return to_batch(batch, client=client)
 
@@ -82,6 +90,7 @@ def analyze_receipt(
         source=TransactionSource.RECEIPT,
         client=client,
         escalation=escalation,
+        base_day=body.base_day,
     )
     return to_batch(batch, client=client)
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { cx } from '../lib/cx';
 import { CategoryAvatar, iconOf } from '../ui';
@@ -34,6 +34,17 @@ export interface CategoryPickerProps {
    * 이 컴포넌트가 직접 남기면 어느 화면에서 편 것인지, 어느 기록 흐름인지를 알 수 없다.
    */
   onExpand?: () => void;
+  /**
+   * **「더 보기」로 직접 펼쳤는지** 바뀔 때.
+   *
+   * 펼치면 칩이 화면을 채운다. 그 아래에 무엇을 세워 둘지는 자리마다 다르므로
+   * 여기서 정하지 않고 알리기만 한다(기록 시트는 이때 키패드를 접는다).
+   *
+   * **고른 것이 뒤에 숨어 있어 저절로 펼쳐진 경우는 안 센다.** 그 상태에는 접는 버튼이
+   * 없어서(접어도 눌러 둔 표시가 갈 곳이 없다) 받는 쪽이 감춘 것을 되돌릴 길이 사라진다.
+   * 실제로 기록 시트에서 키패드도 저장 버튼도 없는 막다른 화면이 됐다.
+   */
+  onOpenChange?: (open: boolean) => void;
   /** 작은 자리(수정 시트·검토 목록)에서는 칩을 낮게 그린다. */
   size?: 'lg' | 'sm';
   className?: string;
@@ -62,6 +73,7 @@ export function CategoryPicker({
   onManage,
   onCreate,
   onExpand,
+  onOpenChange,
   size = 'lg',
   className,
   ariaLabel = '분류',
@@ -83,6 +95,20 @@ export function CategoryPicker({
   const hasHidden = rest.length > 0;
   // 「더 보기」는 숨긴 것이 있을 때만 있다. 그래서 open 이면 숨긴 것도 반드시 있다.
   const showCreate = onCreate != null && (open || !hasHidden);
+
+  /*
+    **직접 펼친 것만** 부르는 쪽에 알린다. 목록이 사라질 때는 접힌 것으로 알린다.
+
+    고른 것이 뒤에 숨어 저절로 펼쳐진 경우는 안 알린다. 그때는 접기가 서지 않아
+    (접어도 눌러 둔 표시가 갈 곳이 없다) 되돌릴 길이 없는데, 받는 쪽이 이 값을 보고
+    무언가를 감추면 그것도 함께 못 되돌린다.
+  */
+  useEffect(() => {
+    onOpenChange?.(showAll);
+    return () => onOpenChange?.(false);
+    // 부르는 쪽이 인라인 함수를 넘겨도 펼침이 안 바뀌면 아무것도 다시 부르지 않는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAll]);
 
   const avatar = size === 'lg' ? 40 : 32;
 

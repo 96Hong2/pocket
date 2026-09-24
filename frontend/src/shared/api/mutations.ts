@@ -393,6 +393,18 @@ export function useSaveNotificationSettings() {
 }
 
 /**
+ * 분석 요청에 싣는 것. 읽을 것과 고른 날을 함께 넘긴다.
+ *
+ * 인자를 스칼라 하나로 두면 날짜가 낄 자리가 없어, 지난 날을 고르고 줄글로 적으면
+ * 고른 날이 조용히 버려졌다. 그래서 세 방식이 아예 잠겨 있었다.
+ */
+export interface AnalyzeInput<T> {
+  value: T;
+  /** 화면에서 고른 「적을 날」. 오늘이면 `null` 이다. */
+  baseDay: string | null;
+}
+
+/**
  * 줄글 분석.
  *
  * 여기서는 캐시를 건드리지 않는다. 분석은 아직 거래를 만들지 않아 돈이 움직이지 않는다.
@@ -401,7 +413,7 @@ export function useAnalyzeText() {
   const client = useApiClient();
 
   return useMutation({
-    mutationFn: (text: string) => client.analyzeText(text),
+    mutationFn: (input: AnalyzeInput<string>) => client.analyzeText(input.value, input.baseDay),
   });
 }
 
@@ -415,8 +427,10 @@ export function useAnalyzeImage(kind: 'capture' | 'receipt') {
   const client = useApiClient();
 
   return useMutation({
-    mutationFn: (dataUris: string[]): Promise<ImportBatchOut> =>
-      kind === 'receipt' ? client.analyzeReceipt(dataUris) : client.analyzeCapture(dataUris),
+    mutationFn: (input: AnalyzeInput<string[]>): Promise<ImportBatchOut> =>
+      kind === 'receipt'
+        ? client.analyzeReceipt(input.value, input.baseDay)
+        : client.analyzeCapture(input.value, input.baseDay),
   });
 }
 
@@ -629,7 +643,6 @@ export function useDeleteGoalContribution() {
     onSuccess: () => invalidateGoal(queryClient),
   });
 }
-
 
 /**
  * 태그 쓰기.

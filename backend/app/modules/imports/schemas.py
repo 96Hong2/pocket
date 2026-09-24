@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
@@ -51,13 +51,41 @@ MAX_IMAGE_DATA_URL_LENGTH = 6_000_000
 MAX_IMAGES = 5
 
 
-class ImportTextIn(BaseModel):
+class BaseDayIn(BaseModel):
+    """날짜를 못 읽었을 때 어느 날에 놓을지.
+
+    **화면에서 「적을 날」 을 고른 그 날이다.** 안 보내면 서버가 잰 오늘로 둔다.
+
+    이것이 없던 동안에는 지난 날을 고르고 줄글·캡처·영수증으로 적으면 고른 날이 조용히
+    버려지고 오늘에 저장됐다. 그래서 화면이 아예 그 세 가지를 잠가 뒀었다.
+
+    **진짜 오늘(`today`)을 대신하지 않는다.** 하루 상한·추출 검증·예산 기간은 그대로
+    진짜 오늘로 돈다. 이 값이 하는 일은 하나뿐이다: 모델이 날짜를 못 찾은 후보를 놓을 자리.
+    """
+
+    base_day: date | None = None
+
+    @field_validator("base_day")
+    @classmethod
+    def _in_range(cls, value: date | None) -> date | None:
+        """기간을 만들 수 없는 연도를 막는다. 거래 저장과 **같은 규칙**을 쓴다.
+
+        이 가드가 없으면 `9999-12-31` 이 후보로 들어오고, 저장할 때 `day + timedelta(days=1)`
+        이 `OverflowError` 로 터져 500 이 난다. 그 배치는 READY 로 남아 다시 눌러도 계속 500 이다.
+        같은 값을 키패드로 저장하면 422 로 제대로 막히는데, 여기만 뚫려 있었다.
+        """
+        if value is not None and not MIN_YEAR <= value.year <= MAX_YEAR:
+            raise ValueError(f"적을 날은 {MIN_YEAR}년부터 {MAX_YEAR}년 사이여야 해요.")
+        return value
+
+
+class ImportTextIn(BaseDayIn):
     """줄글 한 덩어리. 여러 건이 들어 있을 수 있다."""
 
     text: str = Field(min_length=1, max_length=MAX_TEXT_LENGTH)
 
 
-class ImportImageIn(BaseModel):
+class ImportImageIn(BaseDayIn):
     """캡처. `data:image/png;base64,...` 형태의 문자열을 한 장 또는 여러 장 받는다.
 
     **`image` 를 남겨 둔다.** 이미 나간 번들이 그 이름으로 보내고 있어서, 지우면 앱을

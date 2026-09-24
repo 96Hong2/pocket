@@ -17,6 +17,25 @@
 | react-router | 8.3.1 | 8.3.1 | 화면 18개에 뒤로가기·딥링크가 필요하다. v8 은 `react-router-dom` 없이 단일 패키지다 |
 | @tanstack/react-query | 5.102.8 | 5.102.8 | 서버 상태 캐시·무효화. 저장 직후 홈이 즉시 갱신돼야 해서 필요하다 |
 | @apps-in-toss/web-framework | 3.2.0 | 3.2.0 | 미니앱 SDK. 최신 안정 3.x |
+| xlsx | 0.18.5 | 0.18.5 | 가계부를 엑셀로 내보낸다(ADR-0032). **동적 import 로만 쓴다**: 424KB(gzip 141KB)라 정적으로 실으면 한 번도 안 내보내는 사람까지 첫 화면에서 받는다. 나눠 두면 첫 화면이 받는 양은 1KB 아래로만 는다. 주의 둘은 아래에 적었다 |
+
+#### xlsx 를 넣으면서 감수한 것
+
+**npm 에 올라오는 마지막 판이 0.18.5 다.** SheetJS 가 그 뒤로는 자기 CDN(`cdn.sheetjs.com`)
+으로만 낸다. 그 주소를 의존성에 박으면 `package-lock.json` 이 npm 레지스트리 밖을 가리키게
+되고 CI 가 그 CDN 에 닿아야 빌드된다. 그래서 레지스트리 판을 쓴다.
+
+**`npm audit` 에 high 하나가 남고, 고칠 판이 없다**(`fixAvailable: false`).
+
+| 권고 | 무엇 | 우리에게 |
+| --- | --- | --- |
+| [GHSA-4r6h-8v6p-xvw6](https://github.com/advisories/GHSA-4r6h-8v6p-xvw6) | 프로토타입 오염 | **파일을 읽을 때** 난다 |
+| [GHSA-5pgg-2g8v-p4x9](https://github.com/advisories/GHSA-5pgg-2g8v-p4x9) | 정규식 ReDoS | **파일을 읽을 때** 난다 |
+
+둘 다 공격자가 만든 파일을 `read`·`readFile` 로 파싱하는 경로다. 우리는 `write` 만 부르고
+(`frontend/src/features/export/workbook.ts`) 파일을 읽어 들이는 자리가 앱에 하나도 없다.
+**읽기가 생기면 이 판단은 그날로 끝난다.** 가져오기(import) 기능을 만들게 되면 라이브러리부터
+다시 고른다. CI 는 `npm audit` 을 돌리지 않으므로 이 줄이 유일한 기록이다.
 
 ### 빌드·개발 도구
 

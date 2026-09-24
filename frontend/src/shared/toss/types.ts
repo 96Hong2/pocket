@@ -26,7 +26,9 @@ export type BridgeCapability =
   /** 시스템 공유 시트. 링크를 만들어 친구에게 보낸다. */
   | 'share'
   /** 토스가 띄우는 미니앱 별점 창. 낮은 앱 버전에서는 없다. */
-  | 'review';
+  | 'review'
+  /** 만든 파일을 기기에 내려놓기. 낮은 앱 버전에서는 없다. */
+  | 'file';
 
 /**
  * 토스 알림 동의 요청의 결과.
@@ -208,11 +210,45 @@ export interface ShareBridge {
   send(target: ShareTarget): Promise<void>;
 }
 
+/**
+ * 기기에 내려놓을 파일 한 벌.
+ *
+ * `data` 는 base64 본문만 담는다. `data:...;base64,` 접두사를 같이 넘기면 그 글자가 파일
+ * 첫 줄로 들어가서 엑셀이 열지 못한다.
+ *
+ * `fileName` 에는 확장자가 있어야 한다. 확장자로 기기가 열 앱을 고르기 때문에, 없으면
+ * 저장은 되고 어디서도 안 열리는 파일이 남는다.
+ */
+export interface SaveFileTarget {
+  fileName: string;
+  mimeType: string;
+  data: string;
+}
+
+/**
+ * 만든 파일을 기기에 내려놓는 자리.
+ *
+ * **실패하면 던진다.** 공유와 같은 이유다. 아무 일도 안 일어나면 사용자는 버튼이 고장 난
+ * 줄 안다. 못 쓰는 앱 버전이면 BridgeError('UNSUPPORTED') 이고, 그때 화면은
+ * `minAppVersion('file')` 로 필요한 숫자까지 적는다.
+ */
+export interface FileBridge {
+  save(target: SaveFileTarget): Promise<void>;
+}
+
 /** 내보낸 공유 한 건. 운영 판이 아닐 때만 창에 쌓인다. */
 export interface RecordedShare {
   path: string;
   ogImageUrl: string | null;
   message: string;
+}
+
+/** 기기에 내려놓은 파일 한 건. 운영 판이 아닐 때만 창에 쌓인다. */
+export interface RecordedFileSave {
+  fileName: string;
+  mimeType: string;
+  /** base64 본문 그대로. 검증이 행 수를 세려면 내용까지 있어야 한다. */
+  data: string;
 }
 
 /** 남긴 행동 로그 한 줄. 운영 판이 아닐 때만 창에 쌓인다. */
@@ -243,6 +279,14 @@ declare global {
      * 운영 판에서는 채우지 않는다.
      */
     __pocketShares?: RecordedShare[];
+    /**
+     * 브라우저·샌드박스에서만 있는 저장 파일 사본.
+     *
+     * 파일은 웹 페이지 바깥으로 나간다. 무엇을 어떤 이름으로 내려놓았는지 화면에 흔적이
+     * 남지 않아, 이 배열이 없으면 개발 중에도 e2e 에서도 확인할 방법이 없다.
+     * 공유 사본과 같은 자리다. 운영 판에서는 채우지 않는다.
+     */
+    __pocketFiles?: RecordedFileSave[];
     /**
      * 별점 창을 몇 번 열었나.
      *
@@ -280,6 +324,19 @@ export function recordShare(
     path: target.path,
     ogImageUrl: target.ogImageUrl ?? null,
     message: target.message,
+  });
+}
+
+/** 운영 판이 아닐 때 내려놓은 파일을 창에 남긴다. 실패해도 아무 일도 일어나지 않는다. */
+export function recordFileSave(
+  environment: BridgeEnvironment,
+  target: SaveFileTarget,
+): void {
+  if (environment === 'toss' || typeof window === 'undefined') return;
+  (window.__pocketFiles ??= []).push({
+    fileName: target.fileName,
+    mimeType: target.mimeType,
+    data: target.data,
   });
 }
 
@@ -363,4 +420,5 @@ export interface MiniAppBridge {
   readonly ads: AdsBridge;
   readonly analytics: AnalyticsBridge;
   readonly share: ShareBridge;
+  readonly file: FileBridge;
 }

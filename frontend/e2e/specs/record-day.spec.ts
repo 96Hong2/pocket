@@ -53,7 +53,7 @@ test('기록 시트에서 날짜를 지난 날로 바꿔 적으면 홈 목록이
   await expect(home.today.noSpendButton).toHaveCount(0);
 });
 
-test('지난 날을 고르면 방식 알약이 잠기고, 오늘로 되돌리면 다시 풀린다', async ({
+test('지난 날을 골라도 네 방식을 다 쓰고, 어디로 떨어지는지 적어 준다', async ({
   home,
   recordSheet,
 }) => {
@@ -64,16 +64,27 @@ test('지난 날을 고르면 방식 알약이 잠기고, 오늘로 되돌리면
 
   await expect(recordSheet.methodTab('줄글')).toBeEnabled();
 
-  await recordSheet.input.dayField.fill(ledgerDay(-3));
-  // 눌리지 않는 자리를 말없이 두면 고장으로 읽힌다. 이유를 그 자리에서 말한다.
-  await expect(recordSheet.input.dayLockNotice).toBeVisible();
-  await expect(recordSheet.methodTab('줄글')).toBeDisabled();
-  await expect(recordSheet.methodTab('캡처')).toBeDisabled();
-  await expect(recordSheet.methodTab('영수증')).toBeDisabled();
-
-  await recordSheet.input.dayField.fill(toLedgerDate(new Date()));
-  await expect(recordSheet.input.dayLockNotice).toHaveCount(0);
+  const past = ledgerDay(-3);
+  await recordSheet.input.dayField.fill(past);
+  // 잠그지 않는다. 고른 날이 세 탭에 함께 내려가므로 옮겨도 잃을 것이 없다.
   await expect(recordSheet.methodTab('줄글')).toBeEnabled();
+  await expect(recordSheet.methodTab('캡처')).toBeEnabled();
+  await expect(recordSheet.methodTab('영수증')).toBeEnabled();
+
+  // 키패드에는 이 줄이 안 뜬다. 키패드는 고른 날에 그대로 적는 것이라 설명할 것이 없다.
+  await expect(recordSheet.input.dayBaseNotice(formatDayLabel(past))).toHaveCount(0);
+  await recordSheet.methodTab('줄글').click();
+  await expect(recordSheet.input.dayBaseNotice(formatDayLabel(past))).toBeVisible();
+
+  /*
+    **날짜 칸은 키패드 패널 안에 있다.** 줄글·캡처·영수증 쪽에서는 고른 날이 위의 한 줄로
+    보이기만 하고 바꾸지는 못한다. 바꾸려면 키패드로 돌아온다. 그 왕복이 실제로 되는지를
+    여기서 지킨다. 돌아올 길이 막히면 잘못 고른 날에 갇힌다.
+  */
+  await recordSheet.methodTab('키패드').click();
+  await recordSheet.input.dayField.fill(toLedgerDate(new Date()));
+  await recordSheet.methodTab('줄글').click();
+  await expect(recordSheet.input.dayBaseNotice(formatDayLabel(past))).toHaveCount(0);
 });
 
 /*
@@ -83,10 +94,7 @@ test('지난 날을 고르면 방식 알약이 잠기고, 오늘로 되돌리면
   있고, 읽어 온 것에 앞날이 섞여 들어오기도 한다. 잠가 두면 앞엣사람은 아예 못 적는다.
   고를 수는 있게 두고 **저장하는 순간에** 한 번 묻는다.
 */
-test('앞날을 고르면 저장할 때 한 번 묻고, 그대로 저장할 수 있다', async ({
-  home,
-  recordSheet,
-}) => {
+test('앞날을 고르면 저장할 때 한 번 묻고, 그대로 저장할 수 있다', async ({ home, recordSheet }) => {
   const future = ledgerDay(3);
 
   await home.open();
