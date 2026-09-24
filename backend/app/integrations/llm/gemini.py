@@ -106,7 +106,8 @@ class GeminiStructuredClient(RemoteStructuredClient):
             raise LlmSchemaError("gemini 응답 본문이 비었다")
         return text
 
-    def _usage_summary(self, payload: dict[str, Any]) -> str:
+    def _usage_summary(self, payload: dict[str, Any], body: dict[str, Any]) -> str:
+        del body
         usage = payload.get("usageMetadata")
         if not isinstance(usage, dict):
             return ""

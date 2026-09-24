@@ -84,7 +84,8 @@ class RemoteStructuredClient(ABC):
             image=image,
         )
         started = time.monotonic()
-        payload = await self._post(body)
+        # 보낸 body 를 돌려받는다. 거절당한 칸을 빼고 다시 불렀으면 이쪽이 그 사실을 안다.
+        payload, sent_body = await self._post(body)
         result = validate_response(self._text_from(payload), schema)
         logger.info(
             "LLM extract provider=%s model=%s input=%s elapsed_ms=%d %s",
@@ -92,7 +93,7 @@ class RemoteStructuredClient(ABC):
             self.model,
             "image" if image is not None else "text",
             int((time.monotonic() - started) * 1000),
-            self._usage_summary(payload),
+            self._usage_summary(payload, sent_body),
         )
         return result
 
@@ -119,14 +120,31 @@ class RemoteStructuredClient(ABC):
     def _text_from(self, payload: dict[str, Any]) -> str:
         """응답 봉투에서 JSON 본문을 꺼낸다. 거부·잘림이면 예외."""
 
-    def _usage_summary(self, payload: dict[str, Any]) -> str:
-        del payload
+    def _usage_summary(self, payload: dict[str, Any], body: dict[str, Any]) -> str:
+        del payload, body
         return ""
+
+    def _without_rejected_option(
+        self, response: httpx.Response, body: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """provider 가 거절한 칸을 빼고 다시 보낼 수 있으면 고친 body 를, 아니면 None 을 준다."""
+        del response, body
+        return None
 
     # ── 공통 ──────────────────────────────────────────────
 
-    async def _post(self, body: dict[str, Any]) -> dict[str, Any]:
-        for attempt in (1, 2):
+    async def _post(self, body: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        """한 번 더 부르는 길이 둘이다. 같은 요청을 다시(`retried`), 거절당한 칸을 빼고(`dropped`).
+
+        둘을 따로 세는 것은 뜻이 달라서다. 앞은 저쪽이 잠깐 아픈 것이고, 뒤는 우리가 보낸
+        요청에 저 모델이 못 알아듣는 칸이 있는 것이라 그대로 다시 보내 봐야 또 거절당한다.
+
+        응답과 **실제로 보낸 body** 를 함께 돌려준다. 칸을 뺀 채 성공한 호출을 설정값 그대로
+        로그에 적으면, 값을 판정하는 근거가 틀어진다.
+        """
+        retried = False
+        dropped = False
+        while True:
             error: LlmError
             cause: BaseException | None = None
             try:
@@ -137,12 +155,17 @@ class RemoteStructuredClient(ABC):
                 error, cause = LlmUnavailableError(f"{self.provider} 연결 실패"), exc
             else:
                 if response.status_code == 200:
-                    return self._json_object(response)
+                    return self._json_object(response), body
+                if not dropped:
+                    fixed = self._without_rejected_option(response, body)
+                    if fixed is not None:
+                        dropped, body = True, fixed
+                        continue
                 error = self._http_error(response)
-            if not error.retryable or attempt == 2:
+            if not error.retryable or retried:
                 raise error from cause
+            retried = True
             await asyncio.sleep(RETRY_DELAY_SECONDS)
-        raise AssertionError("unreachable")
 
     def _json_object(self, response: httpx.Response) -> dict[str, Any]:
         try:
@@ -155,19 +178,29 @@ class RemoteStructuredClient(ABC):
 
     def _http_error(self, response: httpx.Response) -> LlmError:
         status = response.status_code
-        logger.warning("LLM provider=%s HTTP %d %s", self.provider, status, _error_detail(response))
+        logger.warning("LLM provider=%s HTTP %d %s", self.provider, status, error_detail(response))
         message = f"{self.provider} HTTP {status}"
         if status in _RETRYABLE_STATUS:
             return LlmUnavailableError(message)
         return LlmError(message)
 
 
-def _error_detail(response: httpx.Response) -> str:
+def error_detail(response: httpx.Response) -> str:
     """provider 오류 메시지 앞부분. 키·입력이 섞일 수 있어 길이를 자른다."""
+    return str(_error_field(response, "message"))[:_ERROR_DETAIL_LIMIT]
+
+
+def error_param(response: httpx.Response) -> str:
+    """오류가 어느 칸 때문인지. OpenAI 는 `reasoning.effort` 처럼 적어 준다."""
+    # 메시지와 같은 이유로 자른다. 지금은 안 찍지만 찍는 날이 오면 이미 잘려 있어야 한다.
+    return str(_error_field(response, "param"))[:_ERROR_DETAIL_LIMIT]
+
+
+def _error_field(response: httpx.Response, name: str) -> str:
     try:
         payload = response.json()
     except ValueError:
         return ""
     error = payload.get("error") if isinstance(payload, dict) else None
-    message = error.get("message") if isinstance(error, dict) else None
-    return str(message)[:_ERROR_DETAIL_LIMIT] if message else ""
+    value = error.get(name) if isinstance(error, dict) else None
+    return str(value) if value else ""

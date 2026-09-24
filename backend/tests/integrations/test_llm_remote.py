@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import httpx
 import pytest
 
 from app.integrations.llm.contracts import TransactionExtraction
@@ -173,3 +174,84 @@ def test_openai_응답에서_본문을_읽고_거부는_예외다(openai) -> Non
         )
     with pytest.raises(LlmSchemaError):
         openai._text_from({"status": "incomplete", "incomplete_details": {"reason": "max"}})
+
+
+# ── 모델이 안 받는 손잡이 ─────────────────────────────────────
+#
+# 2026-09-23 밤에 실제로 난 일이다. 이 모델에 없는 추론 강도를 기본값으로 올려 모든 캡처가
+# 400 을 받았고, 화면에는 「읽는데 실패했어요」 만 떴다. 광고는 이미 본 뒤였다.
+# 아래 400 본문은 그때 운영 로그에 찍힌 것과 같은 모양이다.
+
+_REJECTED = {
+    "error": {
+        "message": (
+            "Unsupported value: 'minimal' is not supported with the 'gpt-5.6-luna' model. "
+            "Supported values are: 'none', 'low', 'medium', 'high', 'xhigh', and 'max'."
+        ),
+        "type": "invalid_request_error",
+        "param": "reasoning.effort",
+        "code": "unsupported_value",
+    }
+}
+
+
+def test_모델이_안_받는_추론_강도는_빼고_다시_보낸다(openai) -> None:
+    body = {"model": "gpt-5.6-luna", "input": [], "reasoning": {"effort": "minimal"}}
+
+    fixed = openai._without_rejected_option(httpx.Response(400, json=_REJECTED), body)
+
+    assert fixed is not None
+    assert "reasoning" not in fixed
+    # 뺀 것은 그 칸 하나뿐이다. 사진과 스키마까지 같이 날아가면 다시 불러도 소용없다.
+    assert fixed["model"] == "gpt-5.6-luna" and fixed["input"] == []
+
+
+def test_param_이_비어_있어도_메시지가_그_값을_물면_알아본다(openai) -> None:
+    payload = {"error": {"message": "Unsupported value: 'minimal' is not supported."}}
+    body = {"model": "gpt-5.6-luna", "reasoning": {"effort": "minimal"}}
+
+    assert openai._without_rejected_option(httpx.Response(400, json=payload), body) is not None
+
+
+def test_다른_이유의_400_은_그냥_오류다(openai) -> None:
+    payload = {"error": {"message": "image is too large", "param": "input"}}
+    body = {"model": "gpt-5.6-luna", "reasoning": {"effort": "low"}}
+
+    assert openai._without_rejected_option(httpx.Response(400, json=payload), body) is None
+    # 429·500 은 같은 요청을 그대로 다시 보내는 자리다. 손잡이를 빼면 안 된다.
+    assert openai._without_rejected_option(httpx.Response(429, json=_REJECTED), body) is None
+
+
+def test_사진_detail_때문에_난_400_에_추론_강도를_빼지_않는다(openai) -> None:
+    """거절 메시지가 **받는 값의 목록**을 함께 적는다. 거기 `'low'` 가 들어 있다.
+
+    사진 detail 도 `low`·`high` 라는 같은 이름을 쓰기 때문에, 메시지만 보고 가르면
+    detail 이 틀려서 난 400 을 「추론 강도가 거절당했다」 로 읽는다. 엉뚱한 칸을 빼고
+    한 번 더 불러 실패가 두 배 느려지고, 남는 로그가 진짜 원인을 가린다.
+    """
+    payload = {
+        "error": {
+            "message": (
+                "Unsupported value: 'ultra' is not supported with the 'gpt-5.6-luna' model. "
+                "Supported values are: 'low', 'high', and 'auto'."
+            ),
+            "param": "input[0].content[1].detail",
+        }
+    }
+    body = {"model": "gpt-5.6-luna", "reasoning": {"effort": "low"}}
+
+    assert openai._without_rejected_option(httpx.Response(400, json=payload), body) is None
+
+
+def test_param_이_비어도_받는_값_목록에_끼인_것은_안_집는다(openai) -> None:
+    payload = {
+        "error": {
+            "message": (
+                "Unsupported value: 'ultra' is not supported. "
+                "Supported values are: 'low', 'high', and 'auto'."
+            )
+        }
+    }
+    body = {"model": "gpt-5.6-luna", "reasoning": {"effort": "low"}}
+
+    assert openai._without_rejected_option(httpx.Response(400, json=payload), body) is None

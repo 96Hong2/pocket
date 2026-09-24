@@ -303,3 +303,81 @@ test('사진의 긴 광고는 전면 광고 상한을 건드리지 않는다. �
   // 상한에 적혔다면 이 로그가 생겼을 것이다.
   expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
 });
+
+/**
+ * 광고를 끝까지 봤는데 읽기가 실패했을 때.
+ *
+ * 광고는 읽기 요청과 **겹쳐** 돌아서, 서버가 실패해도 사용자는 이미 다 봤다. 그 상태에서
+ * 다시 누를 때 또 틀면 우리 쪽 사정으로 값을 두 번 받는 셈이 된다. 2026-09-23 밤에
+ * 서버가 사진을 통째로 못 읽는 동안 사용자가 겪은 자리가 여기다.
+ */
+async function answerWithFailure(page: Page, failFirst: number): Promise<void> {
+  let seen = 0;
+  await page.route('**/api/v1/imports/capture', async (route) => {
+    seen += 1;
+    if (seen > failFirst) {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: { code: 'PARSE_UNAVAILABLE', message: '지금은 캡처를 읽지 못했어요.' },
+      }),
+    });
+  });
+}
+
+test.describe('광고는 봤는데 못 읽었을 때', () => {
+  // 일부러 503 을 돌려주는 검사라 그 콘솔 오류는 눈감는다. 다른 오류는 그대로 잡힌다.
+  test.use({ consoleErrorAllowList: [/Failed to load resource[\s\S]*503/] });
+
+  test('다시 시도할 때 광고를 또 틀지 않고, 읽어 내면 다시 묻는다', async ({
+    home,
+    page,
+    recordSheet,
+  }) => {
+    /*
+      **여러 장(리워드)으로 잰다.** 짧은 광고는 세션 상한이 스스로 멎게 해서, 두 번째에
+      광고가 안 뜬 것이 이 장치 덕인지 상한 덕인지 가릴 수 없다. 긴 광고는 상한 밖이라
+      (ADR-0024) 장치가 없으면 시도할 때마다 한 편씩 돈다.
+    */
+    await seedCredits(page, 0);
+    await seedMockImages(CAPTURE_DATA_URI, 2)(page);
+    /*
+      **순서가 뜻을 가진다.** 나중에 건 것이 먼저 잡는다. 실패를 나중에 걸어야 그것이
+      먼저 받고, 넘길 차례가 되면 `fallback()` 이 아래의 스텁 손질로 내려간다.
+      반대로 걸면 스텁 쪽 `fetch()` 가 실패 손질을 건너뛴다.
+    */
+    await answerAsRealModel(page);
+    await answerWithFailure(page, 1);
+    await openCaptureTab(home, recordSheet);
+
+    await recordSheet.capture.pickButton.click();
+    await recordSheet.capture.adConsentConfirm.click();
+    await expect(recordSheet.capture.pickAlert).toBeVisible();
+    // 치른 값을 말해 준다. 이 줄이 없으면 다시 누르기가 망설여진다.
+    await expect(recordSheet.capture.adFreeNextNotice).toBeVisible();
+    // 「다음부터는 광고가 나와요」 는 지운다. 두 줄이 서로 다른 말을 하면 안 된다.
+    await expect(recordSheet.capture.creditLine).toBeHidden();
+
+    await recordSheet.capture.pickButton.click();
+    // 묻지도 않고 광고도 안 뜬다. 이미 한 편 봤다.
+    await expect(recordSheet.capture.adConsent).toBeHidden();
+    await expect(recordSheet.capture.rows).toHaveCount(12);
+
+    const logs = await logsNamed(page, 'photo_credit');
+    expect(logs.filter((log) => log.params.action === 'watched')).toHaveLength(1);
+    expect(logs.filter((log) => log.params.action === 'wasted')).toHaveLength(1);
+
+    // 읽어 냈으니 치른 값을 받은 셈이다. 그다음부터는 평소대로 묻는다. 공짜가 이어지지 않는다.
+    await recordSheet.capture.cancelButton.click();
+    await recordSheet.waitClosed();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.methodTab('캡처').click();
+    await recordSheet.capture.pickButton.click();
+    await expect(recordSheet.capture.adConsent).toBeVisible();
+  });
+});

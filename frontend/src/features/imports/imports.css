@@ -548,6 +548,14 @@
     color: var(--color-amber-700);
   }
 
+  /* 실패 줄에 덧붙는 한마디. 경고가 아니라 안심시키는 말이라 세우지 않는다. */
+  .capture__alert span {
+    display: block;
+    margin-top: 2px;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
   /* 결과를 지어냈다는 사실을 알리는 줄. 다시 할 일이 없어 눈에 세우지 않는다. */
   .capture__stub {
     padding: 10px 12px;

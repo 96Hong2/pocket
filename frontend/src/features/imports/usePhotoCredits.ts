@@ -43,6 +43,10 @@ export interface PhotoCreditsHandle {
   play: (plan: PhotoAdPlan, count: number) => Promise<void>;
   /** 확인 창에서 「닫기」 를 눌렀다. 몇 사람이 광고를 마다하는지 센다. */
   markDeclined: (plan: PhotoAdPlan, count: number) => void;
+  /** 광고는 돌았는데 읽기가 실패했다. 다음 한 번은 광고 없이 읽는다. */
+  markWasted: (plan: PhotoAdPlan, count: number) => void;
+  /** 이미 치른 광고가 있어 다음 한 번은 공짜다. 화면이 그 사실을 적을 때 쓴다. */
+  owed: boolean;
   /** 읽어 낸 뒤에 부른다. 무료분을 그만큼 깎는다. */
   spend: (count: number) => Promise<void>;
 }
@@ -58,6 +62,15 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
   */
   const interstitial = useInterstitial();
   const [free, setFree] = useState<number | null>(null);
+  /*
+    **치른 광고 한 편은 한 번만 받는다.** 광고는 읽기 요청과 겹쳐 돌아서, 읽기가 실패해도
+    사용자는 이미 끝까지 봤다. 그 상태에서 다시 누를 때 또 틀면 우리 쪽 사정으로 값을 두 번
+    받는 셈이 된다. 사용자가 「광고까지 다 봤는데 자꾸 실패한다」 고 신고한 자리다.
+
+    여러 장 쪽이 특히 그랬다. 긴 광고는 세션 상한 밖이라(ADR-0024) 스스로 멎지 않아,
+    실패가 이어지면 시도할 때마다 한 편씩 돌았다.
+  */
+  const [owed, setOwed] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -71,6 +84,8 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
 
   const planFor = useCallback(
     (count: number): PhotoAdPlan => {
+      // 앞선 시도에서 이미 한 편 치렀다. 읽어 낼 때까지는 더 받지 않는다.
+      if (owed) return 'none';
       /*
         여러 장은 긴 광고다. 그 그룹을 못 쓰는 기기에서는 짧은 쪽으로 내려간다.
         오래 걸리는 일에 아무것도 안 붙이는 것보다는 낫고, 어차피 확인 창이
@@ -89,7 +104,7 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
       // 광고를 못 띄우는 기기에서 사진을 막지 않는다. 우리 사정으로 기능을 닫는 셈이 된다.
       return interstitial.ready ? 'interstitial' : 'none';
     },
-    [free, interstitial.ready, rewarded.available],
+    [free, interstitial.ready, owed, rewarded.available],
   );
 
   const play = useCallback(
@@ -129,12 +144,26 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
     [analytics, flowId],
   );
 
+  const markWasted = useCallback(
+    (plan: PhotoAdPlan, count: number): void => {
+      setOwed(true);
+      /*
+        **이 값이 늘면 광고는 도는데 읽기가 안 되는 것이다.** `watched` 는 그대로 쌓이고
+        `spent` 만 안 쌓이는 상태라, 둘만 보면 무엇이 어긋났는지 가려내는 데 시간이 걸린다.
+      */
+      analytics.log(EVENTS.photoCredit, { action: 'wasted', plan, image_count: count }, { flowId });
+    },
+    [analytics, flowId],
+  );
+
   const spend = useCallback(
     async (count: number): Promise<void> => {
       const today = toLedgerDate(new Date());
       const next = spent(await readCredits(bridge.storage, today), count);
       await writeCredits(bridge.storage, next);
       setFree(next.count);
+      // 읽어 냈으니 치른 값을 받은 셈이다. 다음부터는 다시 평소대로 묻는다.
+      setOwed(false);
       analytics.log(
         EVENTS.photoCredit,
         { action: 'spent', left: next.count, image_count: count },
@@ -146,10 +175,12 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
 
   return {
     free,
+    owed,
     busy: rewarded.busy || interstitial.busy,
     planFor,
     play,
     markDeclined,
+    markWasted,
     spend,
   };
 }
