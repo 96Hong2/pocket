@@ -1171,6 +1171,16 @@ class RecordImageImport {
     return this.root.getByRole('alert');
   }
 
+  /**
+   * 읽기가 실패한 뒤 덧붙는 한마디.
+   *
+   * 광고는 끝까지 보고 빈손으로 남은 사람에게만 뜬다. 다음 한 번이 공짜라는 것을 여기서
+   * 말하지 않으면 사용자는 알 방법이 없어 다시 누르기를 망설인다.
+   */
+  get adFreeNextNotice(): Locator {
+    return this.root.getByText('광고는 다시 안 나와요');
+  }
+
   /** 한 건도 못 읽었을 때의 안내. */
   get emptyNotice(): Locator {
     return this.root.getByText(this.labels.emptyNotice, { exact: false });

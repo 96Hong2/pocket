@@ -14,7 +14,7 @@ LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 LlmProvider = Literal["stub", "gemini", "openai"]
 
 # 사진을 읽을 때 드는 값을 가르는 두 손잡이. 자세한 것은 Settings 쪽 주석에 적었다.
-ReasoningEffort = Literal["none", "minimal", "low", "medium", "high"]
+ReasoningEffort = Literal["none", "low", "medium", "high", "xhigh", "max"]
 ImageDetail = Literal["low", "auto", "high"]
 
 # 3.x 번들이 2.x origin 으로도 서비스되므로 두 도메인을 모두 허용한다.
@@ -92,7 +92,9 @@ class Settings(BaseSettings):
     # 1차 결과가 서버 검증에 걸렸을 때만 부르는 모델. 값이 비싸서 되도록 안 부른다.
     # 같은 provider 의 다른 모델이다. 비우면 재시도 없이 바로 사용자 확인으로 간다.
     llm_escalation_model: str | None = None
-    # 한 번 부르는 데 기다리는 시간. 한 번 재시도하므로 최악은 두 배다.
+    # 한 번 부르는 데 기다리는 시간. 한 번 재시도하므로 최악은 두 배이고, 모델이 거절한
+    # 칸을 빼고 다시 부르는 길까지 겹치면 세 배다. 거절은 모델이 생각하기 전에 빨리 오므로
+    # 실제로 늘어나는 것은 왕복 한 번이다.
     llm_timeout_seconds: float = 20.0
 
     # ── 사진 한 장에 드는 값 ────────────────────────────────
@@ -107,9 +109,12 @@ class Settings(BaseSettings):
     #
     # 어느 쪽이 얼마나 들었는지는 호출마다 로그에 남는다(`tokens ... won=`).
 
-    # 사진을 얼마나 오래 들여다볼지. `low` 가 가장 싸고 `high` 가 가장 정확하다.
-    # `minimal` 은 5.6 계열이 받는 가장 낮은 값이다. 영수증 자릿수가 여기서 갈린다.
-    llm_reasoning_effort: ReasoningEffort = "minimal"
+    # 사진을 얼마나 오래 들여다볼지. 영수증 자릿수가 여기서 갈린다.
+    # **여기 적는 값은 모델이 받는 값이어야 한다.** 목록은 이 모델이 400 과 함께 돌려준 것이고
+    # (`none` `low` `medium` `high` `xhigh` `max`), 없는 값을 넣었더니 사진 읽기가 통째로
+    # 막혔다. 그래서 `ReasoningEffort` 를 그 여섯으로 좁혀 뒀다.
+    # 기본값은 09-19 부터 운영에서 돌던 `low` 다. 더 싼 `none` 은 인식률을 못 재서 기본이 아니다.
+    llm_reasoning_effort: ReasoningEffort = "low"
 
     # 모델에게 사진을 얼마나 잘게 쪼개 보여 줄지. `high` 는 512px 조각마다 토큰을 쓴다.
     # `auto` 면 모델이 정한다. 입력 토큰이 여기서 갈린다.

@@ -12,8 +12,8 @@ git 에 올리지 않는 것: mTLS 인증서와 개인키, LLM API 키, 운영 �
 | 비밀값 | 어디서 받나 | 로컬 | 운영(Cloud Run) | 없으면 |
 |---|---|---|---|---|
 | 토스 mTLS 클라이언트 인증서 + 개인키 | 콘솔 [mTLS 인증서] › [+ 발급받기] (아래 §2) | 파일 경로를 `.env` 로 지정 | Secret Manager 볼륨 마운트 | 운영 기동 실패 / 로컬은 검증 생략 모드 |
-| Gemini API 키 (기본 provider) | Google AI Studio, **유료 등급** 프로젝트 (아래 §4) | `.env` | Secret Manager 환경변수 | 스텁 파서로 동작(사진을 안 읽는다) |
-| OpenAI API 키 (예비 provider) | OpenAI 플랫폼 | `.env` | Secret Manager 환경변수 | `LLM_PROVIDER=openai` 일 때만 필요 |
+| Gemini API 키 (예비 provider) | Google AI Studio, **유료 등급** 프로젝트 (아래 §4) | `.env` | Secret Manager 환경변수 | 스텁 파서로 동작(사진을 안 읽는다) |
+| OpenAI API 키 (**운영에서 쓰는 쪽**) | OpenAI 플랫폼 | `.env` | Secret Manager 환경변수 | `LLM_PROVIDER=openai` 일 때만 필요 |
 | 운영 광고 adGroupId | Apps in Toss 파트너 콘솔 광고 설정 | 안 씀(테스트 ID 사용) | 프론트 빌드 환경변수 | 배너 슬롯을 접는다 |
 | 스마트발송 템플릿 코드 | 콘솔 [스마트 발송] › [기능성] (아래 §6) | `.env`(선택) | 알림 잡 환경변수 + 프론트 빌드 | 알림이 안 간다(잡은 로그만 남긴다) |
 
@@ -120,13 +120,13 @@ provider 는 `LLM_PROVIDER` 로 고른다. SDK 없이 httpx 로 부르고, 어�
 
 | 이름 | 값 | 비고 |
 |---|---|---|
-| `LLM_PROVIDER` | `stub` / `gemini` / `openai` | 기본 `stub`. 운영은 `gemini`. 키 없는 provider 를 고르면 기동에 실패한다 |
+| `LLM_PROVIDER` | `stub` / `gemini` / `openai` | 기본 `stub`. **운영은 `openai` 다**(2026-09-24 `gcloud run services describe` 로 확인). 배포 스크립트가 OpenAI 키가 있으면 그쪽을 먼저 고른다. 키 없는 provider 를 고르면 기동에 실패한다 |
 | `GEMINI_API_KEY` | Google AI Studio 에서 발급 | **유료 등급 프로젝트의 키**여야 한다(아래) |
 | `OPENAI_API_KEY` | OpenAI 플랫폼에서 발급 | `LLM_PROVIDER=openai` 일 때만 읽는다 |
 | `LLM_MODEL` | 비우면 `gemini-3.6-flash` / `gpt-5.6-luna` | 1차로 늘 부르는 모델 |
 | `LLM_ESCALATION_MODEL` | 비우면 `gemini-3.5-flash-lite` / `gpt-5.6-terra` | **서버 검증에 걸렸을 때만** 부른다(ADR-0018). 비우면 재시도 없이 사용자 확인 |
-| `LLM_TIMEOUT_SECONDS` | 기본 20 | 한 번 재시도하므로 최악은 두 배 |
-| `LLM_REASONING_EFFORT` | `none`·`minimal`(기본)·`low`·`medium`·`high` | **값이 가장 많이 갈리는 손잡이.** 사진 한 장 값의 69% 가 출력 토큰이고 그 안에 추론이 들어 있다. 낮출수록 싸고, 영수증 자릿수가 먼저 틀린다 |
+| `LLM_TIMEOUT_SECONDS` | 기본 20 | 한 번 재시도하므로 최악은 두 배. 모델이 거절한 칸을 빼고 다시 부르는 길까지 겹치면 세 배다(아래) |
+| `LLM_REASONING_EFFORT` | `none`·`low`(기본)·`medium`·`high`·`xhigh`·`max` | **openai 의 `gpt-5` 계열에서만 읽는다.** gemini 는 이 값을 안 본다. **값이 가장 많이 갈리는 손잡이.** 사진 한 장 값의 69% 가 출력 토큰이고 그 안에 추론이 들어 있다. 낮출수록 싸고, 영수증 자릿수가 먼저 틀린다. **목록에 없는 값은 모델이 400 으로 거절한다**(아래) |
 | `LLM_IMAGE_DETAIL` | `low`·`auto`(기본)·`high` | 사진을 얼마나 잘게 쪼개 보여 줄지. 입력 토큰이 여기서 갈린다 |
 | `LLM_IMAGE_MAX_LONG_EDGE` | 512~2048, 기본 1024 | 보내기 전에 긴 변을 이만큼으로 줄인다. 작은 글자가 먼저 뭉갠다 |
 | `TOSS_REMINDER_TEMPLATE_SET_CODE` | 콘솔 스마트 발송의 발송 코드 | 알림 잡만 읽는다. 비면 알림이 안 간다(§6) |
@@ -143,11 +143,32 @@ gcloud run services update pocket-backend --region asia-northeast3 \
   --update-env-vars LLM_REASONING_EFFORT=low,LLM_IMAGE_DETAIL=high,LLM_IMAGE_MAX_LONG_EDGE=1600
 ```
 
+**추론 강도는 모델이 받는 값이어야 한다.** 목록은 모델마다 다르다. 2026-09-23 밤에
+`gpt-5.6-luna` 에 없는 `minimal` 을 올렸다가 모든 캡처가 400 을 받았고, 화면에는
+「지금은 캡처를 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.」 만 떴다. 광고는 이미 본 뒤였다.
+
+실제로 막아 주는 것은 **모델이 거절하면 그 칸을 빼고 한 번 더 부르는 것**이다. 값은 조금
+더 들어도 사진은 읽힌다. 뺐다는 것은 로그에 남고, 그 호출의 `effort=` 도 설정값이 아니라
+`dropped` 로 적힌다.
+
+```
+openai 가 effort=minimal 를 안 받아서 빼고 다시 부른다
+```
+
+`ReasoningEffort` 목록이 기동할 때 한 번 더 걸러 주기는 한다. 다만 그 목록은 2026-09-23 에
+루나가 400 과 함께 돌려준 **한 시점의 스냅샷**이다. 모델이 바뀌면 같이 낡고, 재시도용
+`gpt-5.6-terra` 가 같은 여섯을 받는지는 확인한 바 없다. 목록 안이라고 안전하지 않다.
+
 든 값은 호출마다 로그에 남는다. Cloud Run 로그에서 `won=` 을 찾으면 된다.
 
 ```
-tokens input=2312 output=868 reasoning=512 won=2.20 detail=high effort=low
+tokens input=2142 output=111 reasoning=45 won=0.81 detail=auto effort=low
 ```
+
+실측(2026-09-24, 720x1240 영수증 한 장): **한 장에 0.73~0.88원.**
+09-22 에 detail 을 `high`, 긴 변을 1600 으로 두고 잰 2.2원과는 사진이 달라 곧바로 견줄 수 없다. 같은 사진으로 `effort` 를 `low`·`none` 으로,
+`detail` 을 `auto`·`high` 로 바꿔 재 보니 **셋 다 같은 값이 나왔다.** 깨끗한 영수증에서는
+손잡이가 티가 안 난다는 뜻이고, 실제 캡처로는 다를 수 있다.
 
 **`won` 은 청구액이 아니라 어림수다.** 어느 손잡이가 값을 쓰는지 비교하려고 적는다.
 단가가 바뀌면 `app/integrations/llm/openai.py` 의 `_PRICES_USD` 만 고친다.

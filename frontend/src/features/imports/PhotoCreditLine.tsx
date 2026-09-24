@@ -18,6 +18,12 @@ import type { PhotoCreditsHandle } from './usePhotoCredits';
 export function PhotoCreditLine({ credits }: { credits: PhotoCreditsHandle }) {
   // 아직 못 읽었거나(`null`) 무료분이 남았으면 아무 말도 안 한다.
   if (credits.free == null || credits.free > 0) return null;
+  /*
+    이미 광고를 치렀는데 못 읽은 사람에게는 이 줄을 안 적는다. 다음 한 번은 광고가 안
+    나오는데 「다음부터는 광고가 나와요」 라고 적으면 두 줄이 서로 다른 말을 한다.
+    치른 값은 실패 줄이 대신 말한다.
+  */
+  if (credits.owed) return null;
   return (
     <p className="capture__credit">
       오늘 무료 {DAILY_FREE}장을 다 썼어요

@@ -1,12 +1,7 @@
 import { useState, type ReactNode } from 'react';
 
 import { useBridge } from '../../app/providers';
-import {
-  EVENTS,
-  useAnalytics,
-  type FlowId,
-  type PickOutcome,
-} from '../../shared/analytics';
+import { EVENTS, useAnalytics, type FlowId, type PickOutcome } from '../../shared/analytics';
 import { ApiError, useAnalyzeImage, type ImportBatchOut } from '../../shared/api';
 import { TEST_IDS } from '../../shared/testIds';
 import { parseOutcome } from './parseOutcome';
@@ -281,6 +276,11 @@ export function ImageImportTab({
       {message ? (
         <p className="capture__alert" role="alert">
           {message}
+          {/*
+            **치른 값을 말해 준다.** 광고를 끝까지 보고도 빈손이면 다시 누르기가 망설여진다.
+            다음 한 번이 공짜라는 것을 여기서 말하지 않으면 사용자는 알 방법이 없다.
+          */}
+          {credits.owed ? <span>광고는 다시 안 나와요</span> : null}
         </p>
       ) : null}
 
@@ -288,19 +288,25 @@ export function ImageImportTab({
         스피너 하나만 돌던 자리다. 12초 안팎이 걸리는데 아무 변화가 없어, 멈춘 줄 알고
         뒤로 나가는 사람이 있었다. 남은 시간 대신 지금 무엇을 하는 중인지를 보여 준다.
       */}
-      {analyzing ? (
-        <ParseProgress steps={mode.progressSteps} slowHint={mode.slowHint} />
-      ) : null}
+      {analyzing ? <ParseProgress steps={mode.progressSteps} slowHint={mode.slowHint} /> : null}
 
       {/*
         **버튼은 늘 같은 자리에 같은 말로 있다.** 예전에는 장수가 떨어지면 이 자리가
         「광고 한 편 보고 사진 받기」 로 바뀌었는데, 손가락이 내려오는 사이에 버튼이
         바뀌면 누를 생각이 없던 광고를 누르게 된다. 지금은 사진을 고른 **뒤에** 묻는다.
 
+        **광고가 도는 동안에도 잠근다.** 읽기 요청이 먼저 끝나면(실패도 끝이다) `analyzing`
+        이 풀리는데, 그때 광고는 아직 화면을 덮고 있다. 여기를 안 잠그면 광고가 닫히는
+        순간에 한 번 더 눌려 두 편이 겹친다.
+
         **장수를 모르는 동안(`null`)에는 눌리지 않는다.** 저장소를 읽는 사이에 눌러 버리면
         무료분을 다 쓴 사람도 광고 없이 한 장을 더 쓴다. 그 틈은 첫 그림 직후 한순간이다.
       */}
-      <Button fullWidth disabled={analyzing || credits.free == null} onClick={() => void pick()}>
+      <Button
+        fullWidth
+        disabled={analyzing || credits.busy || credits.free == null}
+        onClick={() => void pick()}
+      >
         {pickFailure != null ? '다시 시도' : mode.pickLabel}
       </Button>
       <PhotoCreditLine credits={credits} />
@@ -382,6 +388,8 @@ export function ImageImportTab({
           },
           { flowId },
         );
+        // 광고는 끝까지 봤는데 읽어 내지 못했다. 다음 한 번은 광고 없이 간다.
+        if (plan !== 'none') credits.markWasted(plan, picked.length);
         return;
       }
 
@@ -450,7 +458,6 @@ function pickOutcome(code: BridgeErrorCode): PickOutcome {
   if (code === 'CANCELLED') return 'cancelled';
   return 'failed';
 }
-
 
 /** 스텁이 지어낸 결과인지. provider 가 붙으면 이 코드값이 사라져 안내도 함께 사라진다. */
 function isStub(batch: ImportBatchOut): boolean {
