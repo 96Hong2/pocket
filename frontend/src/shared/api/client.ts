@@ -117,6 +117,16 @@ function imageBody(dataUris: string[]): { image: string } | { images: string[] }
 }
 
 /**
+ * 고른 날을 요청에 싣는다. 오늘이면 아무것도 안 싣는다.
+ *
+ * 빈 값을 굳이 빼는 이유는 이미 나간 번들과 모양을 맞추기 위해서다. 오늘 적는 요청은
+ * 예전과 똑같은 본문으로 나가서, 서버 로그에서 둘이 갈리지 않는다.
+ */
+function baseDayBody(day: string | null | undefined): { base_day?: string } {
+  return day ? { base_day: day } : {};
+}
+
+/**
  * 줄글 한 덩이를 읽는 요청에 주는 제한 시간.
  *
  * 서버는 모델을 한 번 부르는 데 20초까지 기다리고, 줄이 홀수로 끊기면 **한 번 더** 부른다.
@@ -321,8 +331,17 @@ export interface ApiClient extends Transport {
     body: NotificationSettingsPatch,
     options?: CallOptions,
   ): Promise<NotificationSettingsOut>;
-  /** 줄글 분석. 거래를 만들지 않고 검토 단위만 만든다. */
-  analyzeText(text: string, options?: CallOptions): Promise<ImportBatchOut>;
+  /**
+   * 줄글 분석. 거래를 만들지 않고 검토 단위만 만든다.
+   *
+   * `baseDay` 는 화면에서 고른 「적을 날」 이다. **적힌 날짜가 있으면 그쪽이 이기고**,
+   * 모델이 날짜를 못 찾은 줄만 이 날로 간다. 안 보내면 서버가 잰 오늘이다.
+   */
+  analyzeText(
+    text: string,
+    baseDay?: string | null,
+    options?: CallOptions,
+  ): Promise<ImportBatchOut>;
   /**
    * 캡처 분석. 줄글과 같은 검토 단위를 돌려준다.
    *
@@ -332,10 +351,18 @@ export interface ApiClient extends Transport {
    * **여러 장이어도 검토 단위는 하나다.** 장마다 따로 부르면 사람이 같은 화면을
    * 다섯 번 지나야 한다.
    */
-  analyzeCapture(dataUris: string[], options?: CallOptions): Promise<ImportBatchOut>;
+  analyzeCapture(
+    dataUris: string[],
+    baseDay?: string | null,
+    options?: CallOptions,
+  ): Promise<ImportBatchOut>;
 
   /** 영수증 분석. 캡처와 같은 배관이고 경로와 지시만 다르다. */
-  analyzeReceipt(dataUris: string[], options?: CallOptions): Promise<ImportBatchOut>;
+  analyzeReceipt(
+    dataUris: string[],
+    baseDay?: string | null,
+    options?: CallOptions,
+  ): Promise<ImportBatchOut>;
   /** 후보 한 줄 고치기. 보낸 항목만 바뀌고, 응답은 묶음 전체다. */
   patchImportCandidate(
     batchId: string,
@@ -755,31 +782,31 @@ export function createApiClient(options: TransportOptions): ApiClient {
       });
     },
 
-    analyzeText(text, call) {
+    analyzeText(text, baseDay, call) {
       return transport.request<ImportBatchOut>({
         method: 'POST',
         path: `${PATHS.imports}/text`,
-        body: { text },
+        body: { text, ...baseDayBody(baseDay) },
         signal: call?.signal,
         timeoutMs: TEXT_TIMEOUT_MS,
       });
     },
 
-    analyzeCapture(dataUris, call) {
+    analyzeCapture(dataUris, baseDay, call) {
       return transport.request<ImportBatchOut>({
         method: 'POST',
         path: `${PATHS.imports}/capture`,
-        body: imageBody(dataUris),
+        body: { ...imageBody(dataUris), ...baseDayBody(baseDay) },
         signal: call?.signal,
         timeoutMs: imageTimeout(dataUris.length),
       });
     },
 
-    analyzeReceipt(dataUris, call) {
+    analyzeReceipt(dataUris, baseDay, call) {
       return transport.request<ImportBatchOut>({
         method: 'POST',
         path: `${PATHS.imports}/receipt`,
-        body: imageBody(dataUris),
+        body: { ...imageBody(dataUris), ...baseDayBody(baseDay) },
         signal: call?.signal,
         timeoutMs: imageTimeout(dataUris.length),
       });

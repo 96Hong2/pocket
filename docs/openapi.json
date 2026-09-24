@@ -9687,6 +9687,18 @@
       },
       "ImportImageIn": {
         "properties": {
+          "base_day": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Day"
+          },
           "image": {
             "anyOf": [
               {
@@ -9749,6 +9761,18 @@
       },
       "ImportTextIn": {
         "properties": {
+          "base_day": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Day"
+          },
           "text": {
             "type": "string",
             "maxLength": 2000,

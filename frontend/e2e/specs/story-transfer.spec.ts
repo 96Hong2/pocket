@@ -7,9 +7,11 @@ import { expect, test } from '../support/fixtures';
  * 이체를 **손으로** 적는 길.
  *
  * 이체를 다루는 자리는 여럿인데 전부 `prep` 으로 심어 두고 본다. 그래서 사람이 이체를
- * 만드는 길은 한 번도 밟힌 적이 없다. 키패드와 달력 수정 시트는 지출과 수입만 오가고,
- * 이체로 가는 입구는 **검토 폼의 종류 고르기 하나뿐**이다. 그 입구가 막히면 이체는
- * 화면으로 만들 수 없는 종류가 되는데, 테스트는 전부 초록인 채다.
+ * 만드는 길은 한 번도 밟힌 적이 없었다.
+ *
+ * 입구는 둘이다. **검토 폼의 종류 고르기**와 **키패드의 「계좌 사이 옮긴 돈이에요」**
+ * (ADR-0034). 어느 쪽으로 들어와도 같은 것이 나와야 한다. 한쪽만 지키면 두 입구가
+ * 갈린 줄 모른 채 테스트는 전부 초록이다.
  *
  * 여기서 지키는 것은 하나로 이어진다. 이체는 돈이 나간 것이 아니다. 목록에는 남되
  * **그 달 지출 합계는 움직이지 않는다.** 카드값이 지출로 들어가면 카드로 이미 적어 둔
@@ -197,4 +199,63 @@ test('저장한 뒤 그 자리에서 분류를 바꾸면 홈 목록도 그 분�
   // 시트 안에서만 바뀌고 목록이 옛 분류로 남으면, 다음에 열었을 때 어느 쪽이 맞는지 알 수 없다.
   await expect(home.today.row('기타')).toBeVisible();
   await expect(home.today.row('식비')).toHaveCount(0);
+});
+
+/*
+  키패드로 직접 적는 길 (ADR-0034).
+
+  검토 폼 쪽과 **같은 것을 확인한다.** 분류 자리가 사라지고, 목록에는 서고,
+  그 달 지출 합계는 안 움직인다. 두 입구가 같은 말을 하는지가 이 파일의 일이다.
+*/
+test('키패드에서 이체로 적으면 분류 없이 저장되고 그 달 지출에 안 들어간다', async ({
+  home,
+  prep,
+  recordSheet,
+}) => {
+  await prep.addTransaction({ amount: SPENT, merchant: '편의점' });
+
+  await home.open();
+  await home.waitReady();
+  await expect(home.hero.monthSpent).toHaveText(formatCurrency(SPENT));
+
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  // 켜기 전에는 분류를 골라야 저장 버튼이 선다.
+  await recordSheet.input.enterAmount(TRANSFER_AMOUNT);
+  await expect(recordSheet.input.saveButton).toHaveCount(0);
+
+  await recordSheet.input.transferButton.click();
+  // 켜졌다는 것이 화면에 보여야 한다. 분류 자리를 비우기만 하면 이체인 줄 모르고 저장한다.
+  await expect(recordSheet.input.transferPanel).toBeVisible();
+  // 이체에는 분류가 없다. 목록이 자리째 사라진다.
+  await expect(recordSheet.input.newCategoryButton).toHaveCount(0);
+  // 고를 것이 없으니 금액만으로 저장할 수 있다.
+  await expect(recordSheet.input.saveButton).toBeEnabled();
+
+  await recordSheet.input.saveButton.click();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  // 80만원이 여기 더해지면 이번 달 쓴 돈이 통째로 거짓말이 된다.
+  await expect(home.hero.monthSpent).toHaveText(formatCurrency(SPENT));
+  await expect(home.today.spentTotal).toHaveText(`${formatCurrency(SPENT)} 씀`);
+  // 합계에서만 빠질 뿐 목록에는 남는다.
+  await expect(home.today.chip('이체')).toBeVisible();
+});
+
+test('이체를 켰다가 끄면 분류 목록이 그대로 돌아온다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.transferButton.click();
+  await expect(recordSheet.input.transferPanel).toBeVisible();
+
+  await recordSheet.input.transferOffButton.click();
+  await expect(recordSheet.input.transferPanel).toHaveCount(0);
+  // 되돌아왔으면 분류를 다시 고를 수 있어야 한다. 입구가 한 방향이면 갇힌다.
+  await expect(recordSheet.input.transferButton).toBeVisible();
+  await expect(recordSheet.input.newCategoryButton).toBeVisible();
 });

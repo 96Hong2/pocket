@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
@@ -50,6 +50,48 @@ def test_어제라고_적으면_어제_날짜로_잡힌다(client: TestClient, d
     assert localized[0] == TODAY
     assert localized[1] == TODAY
     assert (TODAY - localized[2]).days == 1
+
+
+def test_고른_날을_보내면_날짜_없는_줄이_그_날로_간다(
+    client: TestClient, default_categories
+) -> None:
+    """화면에서 지난 날을 골라 두고 줄글로 적는 길.
+
+    **적힌 날짜가 있으면 그쪽이 이긴다.** 고른 날은 못 찾은 줄만 받는다. 이 둘이
+    갈리지 않으면 「어제 커피」 라고 적어도 고른 날로 끌려가고, 반대로 두면 고른 날이
+    통째로 버려진다(예전에 그래서 세 방식을 아예 잠가 뒀었다).
+    """
+    chosen = TODAY - timedelta(days=5)
+    response = client.post(
+        "/api/v1/imports/text",
+        json={"text": THREE_ITEMS, "base_day": chosen.isoformat()},
+        headers=AUTH,
+    )
+    assert response.status_code == 201, response.text
+
+    tz = ZoneInfo(ledger.DEFAULT_TIMEZONE)
+    localized = [
+        datetime.fromisoformat(item["occurred_at"]).astimezone(tz).date()
+        for item in response.json()["candidates"]
+    ]
+    assert localized[0] == chosen
+    assert localized[1] == chosen
+    # '어제' 라고 적힌 것은 고른 날이 아니라 어제 그대로다.
+    assert (TODAY - localized[2]).days == 1
+
+
+def test_너무_오래된_기준일은_오늘로_눕힌다(client: TestClient, default_categories) -> None:
+    """막지 않고 눕힌다. 여기서 422 를 내면 다 적고 나서 형식 오류를 받는다."""
+    response = client.post(
+        "/api/v1/imports/text",
+        json={"text": THREE_ITEMS, "base_day": (TODAY - timedelta(days=5_000)).isoformat()},
+        headers=AUTH,
+    )
+    assert response.status_code == 201, response.text
+
+    tz = ZoneInfo(ledger.DEFAULT_TIMEZONE)
+    first = datetime.fromisoformat(response.json()["candidates"][0]["occurred_at"])
+    assert first.astimezone(tz).date() == TODAY
 
 
 def test_상호로_분류를_붙인다(client: TestClient, default_categories) -> None:

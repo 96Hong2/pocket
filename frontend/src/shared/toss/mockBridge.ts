@@ -12,6 +12,7 @@ import {
   type BridgeEnvironment,
   type BridgePlatform,
   type CaptureOptions,
+  type FileBridge,
   type FullScreenAdResult,
   type Identity,
   type KeyValueStore,
@@ -22,8 +23,10 @@ import {
   type PickPhotosOptions,
   type PickedImage,
   type SafeAreaInsets,
+  type SaveFileTarget,
   type ShareBridge,
   type ShareTarget,
+  recordFileSave,
   recordShare,
 } from './types';
 
@@ -52,6 +55,8 @@ export interface MockScenario {
   ads?: 'ok' | 'noFill' | 'failed' | 'unsupported';
   /** 공유 시트. `failed` 면 링크를 못 만든 것으로 친다. */
   share?: 'ok' | 'failed';
+  /** 파일 저장. `failed` 면 다 만들어 놓고 기기에 못 내려놓은 것으로 친다. */
+  file?: 'ok' | 'failed';
   /** 전면 광고. `ok` 면 잠깐 덮었다가 「봤다」 로 끝난다. */
   fullScreenAd?: 'ok' | 'failed' | 'unsupported';
   /**
@@ -190,6 +195,27 @@ class MockShareBridge implements ShareBridge {
   }
 }
 
+/**
+ * 브라우저에는 기기 저장소가 없다. 무엇을 어떤 이름으로 내려놓으려 했는지만 창에 적어 둔다.
+ *
+ * 실기기에서는 토스가 저장 창을 띄우고 결과를 안 돌려준다. 그래서 목도 결과를 지어내지
+ * 않고, 「던졌다」 는 사실만 남긴다.
+ */
+class MockFileBridge implements FileBridge {
+  private readonly scenario: MockScenario;
+
+  constructor(scenario: MockScenario) {
+    this.scenario = scenario;
+  }
+
+  async save(target: SaveFileTarget): Promise<void> {
+    if (this.scenario.file === 'failed') {
+      throw new BridgeError('UNKNOWN', '목: 파일을 저장하지 못했어요.');
+    }
+    recordFileSave('browser', target);
+  }
+}
+
 /** 브라우저·테스트용 로그 수집. 창에 쌓아 두고 e2e 가 읽는다. */
 class MockAnalyticsBridge implements AnalyticsBridge {
   log(kind: AnalyticsKind, name: string, params: AnalyticsParams = {}): void {
@@ -207,6 +233,7 @@ export class MockMiniAppBridge implements MiniAppBridge {
   readonly ads: AdsBridge;
   readonly analytics: AnalyticsBridge = new MockAnalyticsBridge();
   readonly share: ShareBridge;
+  readonly file: FileBridge;
 
   private accessoryListeners = new Set<(id: string) => void>();
   private backListeners = new Set<() => void>();
@@ -218,6 +245,7 @@ export class MockMiniAppBridge implements MiniAppBridge {
     this.scenario = scenario;
     this.ads = new MockAdsBridge(scenario);
     this.share = new MockShareBridge(scenario);
+    this.file = new MockFileBridge(scenario);
   }
 
   supports(capability: BridgeCapability): boolean {

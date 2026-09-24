@@ -26,7 +26,8 @@
     "@tanstack/react-query": "^5.102.8",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router": "^8.3.1"
+    "react-router": "^8.3.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@apps-in-toss/devtools": "^3.2.0",

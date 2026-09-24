@@ -179,7 +179,13 @@ export function QuickRecordSheet({
       open={open}
       onClose={requestClose}
       dismissible={!saving}
-      // 검토 화면은 고칠 칸이 많다. 내용만큼 열면 저장 버튼이 접힌 아래로 밀린다.
+      /*
+        검토 화면은 고칠 칸이 많다. 내용만큼 열면 저장 버튼이 접힌 아래로 밀린다.
+
+        **새 분류 만들기는 내용만큼 연다.** 거기서는 「이전·저장」 이 맨 위에 붙어 있어 높이를
+        못 박을 이유가 없고, 못 박으면 이름 칸 하나만 물은 화면이 화면 높이의 태반을 빈 채로 먹는다.
+        아이콘 격자를 펴면 그때 시트가 알아서 자란다.
+      */
       size={reviewing ? 'tall' : 'auto'}
       ariaLabel="10초 기록"
     >
@@ -303,15 +309,14 @@ function RecordBody({
   const [flowId] = useState(() => analytics.startFlow());
 
   /*
-    지난 날에 적는 중이면 **키패드로만 적는다.**
+    지난 날에도 네 방식을 다 쓴다.
 
-    고른 날은 키패드에만 붙는다. 줄글·캡처·영수증은 읽은 내용에서 날짜가 나오기 때문이다.
-    시트가 마지막에 쓴 방식으로 열려서, 줄글을 마지막에 썼으면 「9월 5일 기록하기」 를
-    눌러도 줄글 탭이 열리고 고른 날이 말없이 버려졌다. 사용자가 신고한 그 버그다.
+    예전에는 키패드만 열어 뒀다. 고른 날이 키패드에만 붙어서, 줄글 탭이 열린 채
+    「9월 5일 기록하기」 를 누르면 고른 날이 말없이 버려지고 오늘에 저장됐기 때문이다.
+    잠그는 것은 그 증상을 가린 것이지 원인을 고친 것이 아니었다.
 
-    **없애지 않고 잠근다.** 규칙을 하나로 둔다: 지난 날이면 잠기고 오늘로 되돌리면 풀린다.
-    없애 버리면 들어온 길에 따라 같은 상태가 「자리 없음」 과 「잠김」 으로 갈리고,
-    줄글에 적어 두던 것도 통째로 사라져 날짜를 되돌려도 안 돌아온다.
+    지금은 고른 날을 세 탭에 함께 내려보낸다(`baseDay`). 적힌 날짜가 있으면 그쪽이 이기고,
+    못 찾은 줄만 고른 날로 간다. 그래서 잠글 이유가 없어졌다.
   */
   const [tab, setTab] = useState<RecordTab>(
     openedOnPastDay ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB),
@@ -331,6 +336,15 @@ function RecordBody({
   );
   // 지출인가 수입인가. 이 값이 고를 수 있는 분류와 저장할 종류를 함께 정한다.
   const [kind, setKind] = useState<LedgerKind>('expense');
+  /*
+    **이체는 알약에 안 태운다.** 알약 하나가 84px 이고 오른쪽에 날짜 칩이 서 있어,
+    셋을 나란히 두면 좁은 화면에서 날짜가 아래로 밀린다. 지출·수입에만 쓰는 사람이
+    읽을 것이 느는 것도 값이다(ADR-0015 가 같은 이유로 세 알약을 버렸다).
+
+    대신 아래 조용한 줄 하나로 켠다. 이체는 집계 어디에도 안 들어가서(ADR-0005)
+    분류를 고를 자리가 없고, 켜는 순간 분류 목록이 사라지고 저장 버튼이 바로 선다.
+  */
+  const [isTransfer, setIsTransfer] = useState(false);
   // 무언가 도는 중에는 탭을 옮기지 못한다. 옮기면 응답이 돌아올 자리가 사라진다.
   const [busy, setBusy] = useState(false);
   const [digits, setDigits] = useState('');
@@ -348,6 +362,14 @@ function RecordBody({
   const [pickedId, setPickedId] = useState<string | null>(null);
   // 고르고 나면 목록을 접는다. 분류가 늘수록 목록이 화면을 다 먹는다.
   const [listOpen, setListOpen] = useState(true);
+  /*
+    분류 목록을 「더 보기」 로 끝까지 펼쳤나.
+
+    다 펼치면 칩이 화면을 채워 키패드가 접힌 아래로 밀리는데, 거기서도 숫자가 눌린다.
+    지금 고르는 중인지 적는 중인지가 흐려진다는 말을 들었다. **펼친 동안에는 키패드를 감춘다.**
+    금액은 위에 그대로 적혀 있고, 하나를 고르거나 접으면 바로 돌아온다.
+  */
+  const [listExpanded, setListExpanded] = useState(false);
   /*
     탭마다 읽어 두고 아직 저장 안 한 건수.
 
@@ -416,13 +438,15 @@ function RecordBody({
   }, []);
 
   /*
-    분류 만들기 자리가 열렸나.
+    분류 만들기 화면이 열렸나.
 
     **시트를 하나 더 띄우지 않는다.** 적던 금액이 살아 있어야 만들고 나서 그대로 이어
     적을 수 있다. 시트가 둘이면 닫을 때 어디로 돌아가는지도 흔들린다.
+    대신 **시트 안쪽을 통째로 바꾼다.** 탭도 금액도 키패드도 감춘다. 만드는 중에 숫자를
+    누를 수 있으면 지금 무엇을 하는 화면인지가 흐려진다.
+    감추기만 하고 트리에서 빼지 않는다. 빼면 다른 탭이 읽어 둔 것이 함께 사라진다.
   */
   const [creating, setCreating] = useState(false);
-  const [creatingBusy, setCreatingBusy] = useState(false);
 
   const allCategories = categories.data?.items ?? [];
   // 고른 종류의 분류만 보여준다. 섞어 두면 수입에 '식비' 가 붙어, 목록과 리포트가 다른 말을 한다.
@@ -495,9 +519,12 @@ function RecordBody({
    * 고른 분류와 금액을 여기 들고 있는다. 물어보는 사이에 화면이 바뀌어도 저장할 것이
    * 흔들리지 않게 한다.
    */
-  const [futureAsk, setFutureAsk] = useState<{ category: CategoryOut; amount: number } | null>(null);
+  const [futureAsk, setFutureAsk] = useState<{
+    category: CategoryOut | null;
+    amount: number;
+  } | null>(null);
 
-  function requestSave(category: CategoryOut, amount: number): void {
+  function requestSave(category: CategoryOut | null, amount: number): void {
     if (!Number.isFinite(amount) || amount <= 0) return;
     // 아직 오지 않은 날이면 한 번 묻는다. 막지는 않는다.
     if (isFutureDay(recordDay)) {
@@ -507,7 +534,7 @@ function RecordBody({
     save(category, amount);
   }
 
-  function save(category: CategoryOut, amount: number): void {
+  function save(category: CategoryOut | null, amount: number): void {
     if (!Number.isFinite(amount) || amount <= 0) return;
 
     setFutureAsk(null);
@@ -522,14 +549,15 @@ function RecordBody({
         */
         occurred_at: isBackfill ? toLedgerNoonIso(recordDay) : new Date().toISOString(),
         amount,
-        type: kind,
-        category_id: category.id,
+        type: isTransfer ? 'transfer' : kind,
+        // 이체에는 분류가 없다. 집계 어디에도 안 들어가서 골라도 보일 자리가 없다(ADR-0005).
+        category_id: category?.id ?? null,
         source: 'keypad',
         // 손으로 직접 누른 값이라 분류를 의심할 이유가 없다.
         confidence: 1,
         excluded_from_budget: false,
         // 수입에는 뜻이 없다. 보내도 서버가 버리지만 여기서도 안 보낸다.
-        payment_method: kind === 'expense' ? method : null,
+        payment_method: !isTransfer && kind === 'expense' ? method : null,
       },
       {
         onSettled: () => markBusy(false),
@@ -600,24 +628,25 @@ function RecordBody({
 
   // 저장 버튼은 카테고리를 골라 목록을 접었을 때만 나온다. 목록을 다시 펴면 칩을 누르는
   // 것이 곧 저장이라 버튼이 없다. 힌트가 같은 값을 봐야 없는 버튼을 가리키지 않는다.
+  // 이체는 고를 분류가 없어 금액만 있으면 바로 저장한다.
   const saveTarget = listOpen ? null : picked;
+  const canSave = isTransfer || saveTarget != null;
 
   let hint = '금액을 누르고 카테고리를 고르면 바로 저장돼요';
   if (create.isPending) hint = '저장하는 중이에요';
+  else if (isTransfer) hint = amount > 0 ? '저장을 누르면 기록돼요' : '금액을 누르면 저장돼요';
   else if (saveTarget != null && amount > 0) hint = '저장을 누르면 기록돼요';
   else if (amount > 0) hint = '카테고리를 고르면 저장돼요';
   else if (picked) hint = '금액을 누르면 저장할 수 있어요';
 
   return (
     <div className="record">
-      {done ? null : (
+      {done || creating ? null : (
         <>
           <SegmentedControl
             className="record__tabs"
             options={TABS.map((option) =>
-              option.value === tab
-                ? option
-                : { ...option, disabled: option.disabled || busy || isBackfill },
+              option.value === tab ? option : { ...option, disabled: option.disabled || busy },
             )}
             value={tab}
             onChange={(next) => {
@@ -631,13 +660,13 @@ function RecordBody({
             ariaLabel="기록 방법"
           />
           {/*
-            잠긴 이유는 **잠긴 것 바로 아래**에 적는다. 멀리 두면 눌리지 않는 자리를
-            말없이 둔 것과 같다. 눌러도 초점이 안 가는 자리라 읽는 프로그램에는 이 줄이
-            유일한 통로다. 잠기는 순간 한 번 읽히게 알린다.
+            어느 날에 떨어지는지 미리 말해 둔다. 적힌 날짜가 있으면 그쪽으로 가므로
+            「무조건 이 날」 이라고 적으면 거짓말이 된다. 읽는 프로그램에도 이 줄이
+            바뀌는 순간 한 번 읽히게 한다.
           */}
-          {isBackfill ? (
+          {isBackfill && tab !== 'keypad' ? (
             <p className="record__hint" role="status">
-              오늘이 아닌 날은 키패드로만 적어요
+              날짜가 없는 건 {dayChipLabel}로 적어요
             </p>
           ) : null}
         </>
@@ -649,9 +678,10 @@ function RecordBody({
         적어 두던 것이 그대로 있어야 한다.
       */}
       <>
-        <div className="record__panel" hidden={done || tab !== 'nl'}>
+        <div className="record__panel" hidden={done || creating || tab !== 'nl'}>
           <NaturalLanguageTab
             flowId={flowId}
+            baseDay={isBackfill ? recordDay : null}
             onBusyChange={markBusy}
             onReviewChange={trackReview('nl')}
             onDone={finish}
@@ -663,10 +693,11 @@ function RecordBody({
           />
         </div>
 
-        <div className="record__panel" hidden={done || tab !== 'capture'}>
+        <div className="record__panel" hidden={done || creating || tab !== 'capture'}>
           <ImageImportTab
             kind="capture"
             flowId={flowId}
+            baseDay={isBackfill ? recordDay : null}
             onBusyChange={markBusy}
             onReviewChange={trackReview('capture')}
             onDone={finish}
@@ -682,10 +713,11 @@ function RecordBody({
           />
         </div>
 
-        <div className="record__panel" hidden={done || tab !== 'receipt'}>
+        <div className="record__panel" hidden={done || creating || tab !== 'receipt'}>
           <ImageImportTab
             kind="receipt"
             flowId={flowId}
+            baseDay={isBackfill ? recordDay : null}
             onBusyChange={markBusy}
             onReviewChange={trackReview('receipt')}
             onDone={finish}
@@ -727,7 +759,7 @@ function RecordBody({
         저장됐다), 남겨 두면 확인 화면이 여는 금액 칸과 testid 가 겹친다.
       */}
       {done ? null : (
-        <div className="record__panel" hidden={tab !== 'keypad'}>
+        <div className="record__panel" hidden={creating || tab !== 'keypad'}>
           {/*
             **한 줄에 둘이 선다.** 왼쪽은 무엇을 적을지(지출·수입), 오른쪽은 언제 적을지다.
             둘 다 금액보다 먼저 정하는 값이라 같은 층에 두고, 서로 다른 일이라 **모양을
@@ -813,27 +845,22 @@ function RecordBody({
             />
           ) : null}
 
-          {creating ? (
-            <div className="record__new-cat">
-              <div className="record__new-cat-head">
-                <span className="record__new-cat-title">새 분류 만들기</span>
-                <button
-                  type="button"
-                  className="record__new-cat-back"
-                  disabled={creatingBusy}
-                  onClick={() => setCreating(false)}
-                >
-                  기록으로 돌아가기
-                </button>
-              </div>
-              <CategoryEditForm
-                // 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다.
-                fixedKind={kind}
-                onBusyChange={setCreatingBusy}
-                onClose={() => setCreating(false)}
-                // 만들자마자 고른 것으로 둔다. 다시 찾아 누르게 하면 만든 보람이 없다.
-                onCreated={(created) => pickCategory(created)}
-              />
+          {isTransfer ? (
+            /*
+              분류 자리를 이 줄이 대신한다. 감추기만 하면 무엇이 달라졌는지 안 보여서,
+              이체인 줄 모르고 저장하는 사람이 생긴다.
+            */
+            <div className="record__transfer">
+              <span className="record__transfer-title">계좌 사이 옮긴 돈</span>
+              <span className="record__transfer-note">이번 달 지출과 수입에는 안 들어가요</span>
+              <button
+                type="button"
+                className="record__transfer-off"
+                disabled={create.isPending}
+                onClick={() => setIsTransfer(false)}
+              >
+                지출이나 수입으로 적기
+              </button>
             </div>
           ) : listOpen || picked == null ? (
             <CategoryPicker
@@ -843,6 +870,7 @@ function RecordBody({
               onManage={onManage}
               selectedId={pickedId}
               onCreate={() => setCreating(true)}
+              onOpenChange={setListExpanded}
               onExpand={() =>
                 analytics.log(
                   EVENTS.categoryMoreOpened,
@@ -864,17 +892,33 @@ function RecordBody({
             </button>
           )}
 
-          {saveTarget != null ? (
+          {canSave ? (
             <Button
               className="record__save"
               disabled={amount <= 0 || create.isPending}
-              onClick={() => requestSave(saveTarget, amount)}
+              onClick={() => requestSave(isTransfer ? null : saveTarget, amount)}
             >
               저장
             </Button>
           ) : null}
 
-          <Keypad digits={digits} onChange={setDigits} />
+          {/*
+            이체로 들어가는 입구. **분류 목록 아래, 저장 버튼 아래에 둔다.** 이체는 드물게
+            쓰는 것이라 위에 두면 지출을 적으러 온 사람이 매번 읽고 지나쳐야 한다.
+          */}
+          {isTransfer ? null : (
+            <button
+              type="button"
+              className="record__transfer-open"
+              disabled={create.isPending}
+              onClick={() => setIsTransfer(true)}
+            >
+              계좌 사이 옮긴 돈이에요
+            </button>
+          )}
+
+          {/* 목록을 끝까지 펼친 동안에는 접는다. 고를 것이 화면을 채운 자리에 숫자판까지 서면 혼선만 는다. */}
+          {listExpanded ? null : <Keypad digits={digits} onChange={setDigits} />}
 
           {/* 앞날에 적으려 할 때만 선다. 막는 것이 아니라 한 번 확인하는 자리다. */}
           {futureAsk != null ? (
@@ -886,6 +930,36 @@ function RecordBody({
           ) : null}
         </div>
       )}
+
+      {/*
+        새 분류 만들기. **시트 안쪽을 통째로 쓴다.**
+
+        회색 상자 안에 넣지 않는다. 상자 안에 버튼을 두면 시트 바닥에 붙는 규칙이 상자 밖에
+        가서 선다(categories.css 의 `cat-sheet__foot` 주석). 여기서는 화면 자체가 이 폼이고,
+        「이전·저장」 이 맨 위에 붙어 아이콘 격자를 내려도 늘 보인다.
+      */}
+      {creating ? (
+        <div className="record__compose">
+          <CategoryEditForm
+            layout="page"
+            // 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다.
+            fixedKind={kind}
+            // 저장하는 동안에는 시트가 안 닫힌다. 닫히면 적어 둔 이름과 고른 그림이 함께 사라진다.
+            onBusyChange={markBusy}
+            onBack={() => setCreating(false)}
+            onClose={() => setCreating(false)}
+            /*
+              만든 것을 골라 두기만 하고 **저장까지 하지는 않는다.** 적던 금액과 고른 날이
+              그대로 있는 기록 화면으로 돌아와, 저장은 그 사람이 누른다. 만들자마자 저장되면
+              이어서 적으려던 사람이 확인 화면 앞에 서 있게 된다.
+            */
+            onCreated={(created) => {
+              setPickedId(created.id);
+              setListOpen(false);
+            }}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

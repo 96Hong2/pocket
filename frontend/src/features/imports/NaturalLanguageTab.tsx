@@ -25,6 +25,13 @@ export interface NaturalLanguageTabProps {
   onDone: () => void;
   /** 저장이 성공한 순간. 닫기보다 앞선다. */
   onSaved?: (day: string | null) => void;
+  /**
+   * 화면에서 고른 「적을 날」. 오늘이면 `null` 이다.
+   *
+   * **적힌 날짜가 언제나 이긴다.** 이 값은 모델이 날짜를 못 찾은 줄이 떨어질 자리일 뿐이다.
+   * 9월 23일을 골라 두고 「어제 커피」 라고 적으면 어제로 간다.
+   */
+  baseDay?: string | null;
 }
 
 /**
@@ -38,6 +45,7 @@ export function NaturalLanguageTab({
   onReviewChange,
   onDone,
   onSaved,
+  baseDay = null,
 }: NaturalLanguageTabProps) {
   const analytics = useAnalytics();
   const analyze = useAnalyzeText();
@@ -126,35 +134,38 @@ export function NaturalLanguageTab({
             { flowId },
           );
           const startedAt = Date.now();
-          analyze.mutate(text.trim(), {
-            onSettled: () => onBusyChange(false),
-            onSuccess: (result) => {
-              analytics.log(
-                EVENTS.parseFinished,
-                {
-                  method: 'text',
-                  // 캡처·영수증과 같은 함수로 판정한다. 화면이 한 말과 로그가 같아야 한다.
-                  result: parseOutcome(result),
-                  elapsed_ms: Date.now() - startedAt,
-                  candidate_count: result.candidates?.length ?? 0,
-                },
-                { flowId },
-              );
-              setBatch(result);
+          analyze.mutate(
+            { value: text.trim(), baseDay },
+            {
+              onSettled: () => onBusyChange(false),
+              onSuccess: (result) => {
+                analytics.log(
+                  EVENTS.parseFinished,
+                  {
+                    method: 'text',
+                    // 캡처·영수증과 같은 함수로 판정한다. 화면이 한 말과 로그가 같아야 한다.
+                    result: parseOutcome(result),
+                    elapsed_ms: Date.now() - startedAt,
+                    candidate_count: result.candidates?.length ?? 0,
+                  },
+                  { flowId },
+                );
+                setBatch(result);
+              },
+              onError: (error) => {
+                analytics.log(
+                  EVENTS.parseFinished,
+                  {
+                    method: 'text',
+                    result: 'failed',
+                    elapsed_ms: Date.now() - startedAt,
+                    error_code: error instanceof ApiError ? error.code : 'unknown',
+                  },
+                  { flowId },
+                );
+              },
             },
-            onError: (error) => {
-              analytics.log(
-                EVENTS.parseFinished,
-                {
-                  method: 'text',
-                  result: 'failed',
-                  elapsed_ms: Date.now() - startedAt,
-                  error_code: error instanceof ApiError ? error.code : 'unknown',
-                },
-                { flowId },
-              );
-            },
-          });
+          );
         }}
       >
         분석

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { cx } from '../lib/cx';
 import { CategoryAvatar, iconOf } from '../ui';
@@ -34,6 +34,13 @@ export interface CategoryPickerProps {
    * 이 컴포넌트가 직접 남기면 어느 화면에서 편 것인지, 어느 기록 흐름인지를 알 수 없다.
    */
   onExpand?: () => void;
+  /**
+   * 목록이 끝까지 펼쳐졌는지 바뀔 때.
+   *
+   * 펼치면 칩이 화면을 채운다. 그 아래에 무엇을 세워 둘지는 자리마다 다르므로
+   * 여기서 정하지 않고 알리기만 한다(기록 시트는 이때 키패드를 접는다).
+   */
+  onOpenChange?: (open: boolean) => void;
   /** 작은 자리(수정 시트·검토 목록)에서는 칩을 낮게 그린다. */
   size?: 'lg' | 'sm';
   className?: string;
@@ -62,6 +69,7 @@ export function CategoryPicker({
   onManage,
   onCreate,
   onExpand,
+  onOpenChange,
   size = 'lg',
   className,
   ariaLabel = '분류',
@@ -83,6 +91,19 @@ export function CategoryPicker({
   const hasHidden = rest.length > 0;
   // 「더 보기」는 숨긴 것이 있을 때만 있다. 그래서 open 이면 숨긴 것도 반드시 있다.
   const showCreate = onCreate != null && (open || !hasHidden);
+
+  /*
+    펼쳤는지를 부르는 쪽에 알린다.
+
+    「더 보기」 뿐 아니라 **고른 것이 뒤에 숨어 있어서 저절로 펼쳐진 경우**도 같은 상태다.
+    두 길을 각각 알리면 한쪽을 빠뜨린다. 목록이 사라질 때는 접힌 것으로 알린다.
+  */
+  useEffect(() => {
+    onOpenChange?.(open);
+    return () => onOpenChange?.(false);
+    // 부르는 쪽이 인라인 함수를 넘겨도 펼침이 안 바뀌면 아무것도 다시 부르지 않는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const avatar = size === 'lg' ? 40 : 32;
 

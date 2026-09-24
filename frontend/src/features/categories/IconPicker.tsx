@@ -49,6 +49,12 @@ export interface IconPickerProps {
    * 이미 있는 분류를 고칠 때는 접는다. 그 사람은 아이콘을 이미 고른 사람이다.
    */
   startOpen?: boolean;
+  /**
+   * 이미 고른 아이콘이 있나. 접힌 줄의 글자가 이것으로 갈린다.
+   *
+   * 아직 아무것도 안 고른 사람에게 「다시 고르기」 라고 적으면, 자기가 뭘 골랐다고 착각한다.
+   */
+  hasPick?: boolean;
 }
 
 /**
@@ -68,6 +74,7 @@ export function IconPicker({
   onInvalidChange,
   disabled = false,
   startOpen = true,
+  hasPick = true,
 }: IconPickerProps) {
   const picked = parseCustomIcon(custom);
   const [source, setSource] = useState<Source>(picked?.kind ?? 'basic');
@@ -126,7 +133,7 @@ export function IconPicker({
               disabled={disabled}
               onClick={() => setGridOpen(true)}
             >
-              아이콘 다시 고르기
+              {hasPick ? '아이콘 다시 고르기' : '아이콘 고르기'}
             </button>
           </div>
         )

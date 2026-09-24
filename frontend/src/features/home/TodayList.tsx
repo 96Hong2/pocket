@@ -179,32 +179,58 @@ export function TodayList({
         ) : null}
       </div>
       {rows.length > 0 ? (
-        <Card padding="list">
-          {spent.map((tx) => (
-            <LedgerRow
-              key={tx.id}
-              transaction={tx}
-              categories={categories}
-              tags={tags.data?.items ?? []}
-              avatarSize={54}
-              density="compact"
-              onClick={onPick ? () => onPick(tx) : undefined}
-            />
-          ))}
-          {/* 아래에 전체 내역 줄이 붙으니 구분선을 감추지 않는다. */}
-          {noSpend != null ? (
-            <NoSpendRow
-              title={noSpendLabel}
-              avatarSize={54}
-              density="compact"
-              canceling={cancelNoSpend.isPending}
-              onCancel={() => cancelNoSpend.mutate(noSpend.id)}
-              hideDivider={false}
-            />
+        <>
+          <Card padding="list">
+            {spent.map((tx) => (
+              <LedgerRow
+                key={tx.id}
+                transaction={tx}
+                categories={categories}
+                tags={tags.data?.items ?? []}
+                avatarSize={54}
+                density="compact"
+                onClick={onPick ? () => onPick(tx) : undefined}
+              />
+            ))}
+            {/* 아래에 전체 내역 줄이 붙으니 구분선을 감추지 않는다. */}
+            {noSpend != null ? (
+              <NoSpendRow
+                title={noSpendLabel}
+                avatarSize={54}
+                density="compact"
+                canceling={cancelNoSpend.isPending}
+                onCancel={() => cancelNoSpend.mutate(noSpend.id)}
+                hideDivider={false}
+              />
+            ) : null}
+            {noSpendError ? <ErrorLine message={noSpendError.message} /> : null}
+            <MoreLink />
+          </Card>
+          {/*
+            **이미 적은 날에도 하나 더 적을 길을 남긴다.** 예전에는 기록이 하나라도 있으면
+            카드가 「전체 내역 보기」로 끝나서, 어제 것을 뒤늦게 떠올린 사람은 달력으로
+            들어가거나 큰 기록하기를 누르고 날을 다시 골라야 했다.
+
+            오늘에는 세우지 않는다. 맨 위 큰 「기록하기」가 이미 오늘에 적는다.
+            같은 일을 하는 버튼이 한 화면에 둘이면 고를 거리만 는다.
+
+            이름은 「기록 더하기」다. 빈 날 버튼과 하는 일이 달라서이기도 하고,
+            둘 다 「기록하기」로 끝나면 화면에서도 테스트에서도 서로를 가린다.
+
+            자리는 카드 밖이다. `Card padding="list"` 는 거래 줄을 쌓는 눈금이라
+            안에 버튼을 넣으면 좌우가 어긋난다.
+          */}
+          {!isToday ? (
+            <Button
+              className="home-today__record home-today__record--more"
+              variant="outline"
+              fullWidth
+              onClick={() => onRecord(day)}
+            >
+              {label} 기록 더하기
+            </Button>
           ) : null}
-          {noSpendError ? <ErrorLine message={noSpendError.message} /> : null}
-          <MoreLink />
-        </Card>
+        </>
       ) : loading ? (
         <Card padding="md">
           <LoadingState variant="rows" rows={2} label={`${label} 기록을 불러오는 중이에요`} />

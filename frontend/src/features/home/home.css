@@ -550,6 +550,12 @@
     margin-bottom: 4px;
   }
 
+  /* 이미 적은 날에 하나 더 붙이는 자리. 카드 밖에 서므로 카드와 붙어 보이지 않게 띄운다. */
+  .home-today__record--more {
+    margin-top: 10px;
+    margin-bottom: 0;
+  }
+
   /* 화면 맨 아래가 탭바에 눌리지 않게 한 뼘 남긴다. */
   .home__tail {
     height: 16px;

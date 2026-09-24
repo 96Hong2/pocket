@@ -161,6 +161,13 @@ export interface ImageImportTabProps {
    * 다른 쪽 숫자에 안 비친다. 실제로 캡처로 한 장 쓰고 영수증 탭에 가면 그대로 남아 있었다.
    */
   credits: PhotoCreditsHandle;
+  /**
+   * 화면에서 고른 「적을 날」. 오늘이면 `null` 이다.
+   *
+   * **사진에 적힌 날짜가 언제나 이긴다.** 영수증에 9월 20일이 인쇄돼 있으면 그 날로 간다.
+   * 이 값은 날짜를 못 읽은 줄이 떨어질 자리일 뿐이다.
+   */
+  baseDay?: string | null;
 }
 
 /**
@@ -179,6 +186,7 @@ export function ImageImportTab({
   onSaved,
   fallbackAction,
   credits,
+  baseDay = null,
 }: ImageImportTabProps) {
   const mode = MODES[kind];
   const bridge = useBridge();
@@ -370,7 +378,7 @@ export function ImageImportTab({
         아무도 안 받은 거절이 되어 브라우저가 경고를 찍는다.
       */
       const pending = analyze
-        .mutateAsync(picked.map((one) => one.dataUri))
+        .mutateAsync({ value: picked.map((one) => one.dataUri), baseDay })
         .then((ok) => ({ ok }) as const)
         .catch((error: unknown) => ({ error }) as const);
       await credits.play(plan, picked.length);

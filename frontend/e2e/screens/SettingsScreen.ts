@@ -6,6 +6,9 @@ import { TEST_IDS } from '../../src/shared/testIds';
 /** 홈 맨 위에 무엇을 보여줄지 고르는 세 갈래. 화면에 적힌 라벨 그대로다. */
 export type HeroChoiceLabel = '남은 예산' | '수입·지출' | '수입·예산';
 
+/** 내보낼 기간 네 갈래. 화면에 적힌 라벨 그대로다. */
+export type ExportPeriodLabel = '이번 달' | '지난 달' | '올해' | '전체';
+
 /**
  * 앱 설정 화면.
  *
@@ -22,6 +25,7 @@ export class SettingsScreen {
     this.page = page;
     this.heroResult = new HeroResultArea(page);
     this.dataReset = new DataResetArea(page);
+    this.ledgerExport = new ExportArea(page);
   }
 
   async open(): Promise<void> {
@@ -197,6 +201,14 @@ export class SettingsScreen {
   readonly dataReset: DataResetArea;
 
   /**
+   * 가계부를 파일로 내려받기. 하위 화면 목록의 한 줄이다.
+   *
+   * 줄을 누르면 시트가 열리고 거기서 기간과 형식을 고른다. 저장은 웹 페이지 바깥에서
+   * 일어나므로 무엇이 나갔는지는 `support/aitMock.ts` 의 `readSavedFiles` 로 본다.
+   */
+  readonly ledgerExport: ExportArea;
+
+  /**
    * 화면 어디든 그 글자.
    *
    * 없어야 할 것을 세는 자리다. 있어야 할 것은 역할이나 testid 로 집는다.
@@ -305,5 +317,63 @@ class DataResetArea {
     await this.agree.check();
     await this.confirmButton.click();
     await expect(this.sheet).toBeHidden();
+  }
+}
+
+/** 가계부 내보내기 줄과 그 시트. */
+class ExportArea {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  /** 하위 화면 목록의 줄. 링크가 아니라 버튼이라 그 자리에서 시트가 열린다. */
+  get openButton(): Locator {
+    return this.page.getByRole('button', { name: '엑셀로 내보내기', exact: true });
+  }
+
+  get sheet(): Locator {
+    return this.page.getByRole('dialog', { name: '엑셀로 내보내기', exact: true });
+  }
+
+  /** 넷 중 하나. 라벨은 화면에 적힌 그대로다. */
+  period(label: ExportPeriodLabel): Locator {
+    return this.sheet
+      .getByRole('radiogroup', { name: '내보낼 기간' })
+      .getByRole('radio', { name: label, exact: true });
+  }
+
+  /** 누르는 중에는 이름이 「만드는 중이에요」 로 바뀐다. 두 이름을 함께 잡는다. */
+  get xlsxButton(): Locator {
+    return this.sheet.getByRole('button', { name: /^(엑셀 파일 \(\.xlsx\)|만드는 중이에요)$/ });
+  }
+
+  get csvButton(): Locator {
+    return this.sheet.getByRole('button', { name: 'CSV 파일 (.csv)', exact: true });
+  }
+
+  /** 저장이 끝났을 때 그 자리에 서는 줄. 몇 건을 어떤 이름으로 담았는지 적혀 있다. */
+  get doneNotice(): Locator {
+    return this.sheet.getByRole('status');
+  }
+
+  /** 못 만들었거나 담을 것이 없을 때 그 자리에 서는 줄. */
+  get failNotice(): Locator {
+    return this.sheet.getByRole('alert');
+  }
+
+  /** 파일 안에 무엇이 들어가는지 미리 적어 둔 목록. */
+  get contentsList(): Locator {
+    return this.sheet.getByRole('listitem');
+  }
+
+  /** 열고, 기간을 고르고, 그 형식으로 저장한다. 결과 줄이 뜨면 끝난 것이다. */
+  async run(period: ExportPeriodLabel, format: 'xlsx' | 'csv'): Promise<void> {
+    await this.openButton.click();
+    await expect(this.sheet).toBeVisible();
+    await this.period(period).click();
+    await (format === 'xlsx' ? this.xlsxButton : this.csvButton).click();
+    await expect(this.doneNotice).toBeVisible();
   }
 }

@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { useBridge } from '../../app/providers';
 import { ROUTES } from '../../app/router/routes';
 import { Card, CategoryAvatar } from '../../shared/ui';
+import { ExportSetting } from '../export';
 import { AppDiagnosticsSheet } from './AppDiagnosticsSheet';
 
 /**
@@ -43,13 +44,7 @@ export function PrivacyNotice({ adSlot }: { adSlot?: ReactNode }) {
               </Link>
             </li>
             <li>
-              {/* 아직 만들지 않았다. 감추면 "이 앱은 내보내기가 없다" 로 읽히고,
-                  누를 수 있게 두면 눌러 보고 아무 일도 안 일어난다. 자리와 상태만 보여 준다. */}
-              <div className="link-row link-row--static">
-                <CategoryAvatar icon="23_document" size={48} />
-                <span className="link-row__label">CSV 내보내기</span>
-                <span className="link-row__badge">준비 중</span>
-              </div>
+              <ExportSetting />
             </li>
             <li>
               <Link className="link-row" to={ROUTES.privacy}>
