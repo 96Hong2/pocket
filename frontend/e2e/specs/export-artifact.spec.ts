@@ -39,6 +39,8 @@ test('엑셀과 CSV 를 실제로 내려받아 파일로 남긴다', async ({ pa
   await prep.addTransaction({ amount: 12_000, daysAgo: 0, merchant: '김밥천국', categoryId: food });
   await prep.addTransaction({ amount: 4_500, daysAgo: 1, merchant: '스타벅스', categoryId: cafe });
   await prep.addTransaction({ amount: 2_960, daysAgo: 2, merchant: '카카오T' });
+  // 수식으로 읽히면 안 되는 상호. 내보낸 파일은 남에게 넘기라고 만든 물건이다.
+  await prep.addTransaction({ amount: 1_000, daysAgo: 2, merchant: "=cmd|'/C calc'!A1" });
   await prep.addTransaction({ amount: 38_000, daysAgo: 3, merchant: '쿠팡 로켓배송' });
   await prep.addTransaction({
     amount: 5_000,

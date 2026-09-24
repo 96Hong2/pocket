@@ -41,8 +41,7 @@ export function ExportSetting() {
 function ExportSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const ledgerExport = useLedgerExport();
   const [period, setPeriod] = useState<ExportPeriod>('this_month');
-
-  useOverlayBackClose(open, onClose, ledgerExport.busy);
+  const busy = ledgerExport.running != null;
 
   function close(): void {
     // 지난번 결과 줄을 지우고 닫는다. 남겨 두면 다시 열었을 때 방금 저장한 것으로 읽힌다.
@@ -51,15 +50,21 @@ function ExportSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
     onClose();
   }
 
+  function changePeriod(next: ExportPeriod): void {
+    // 기간을 바꿀 때도 지운다. 「이번 달」 로 받은 줄이 「올해」 밑에 그대로 서 있으면
+    // 올해치를 이미 받은 것으로 읽고 시트를 닫는다.
+    ledgerExport.reset();
+    setPeriod(next);
+  }
+
+  // 나가는 길을 하나로 모은다. 원래 onClose 를 넘기면 뒤로가기로 닫은 사람만 지난번 결과
+  // 줄과 고른 기간을 그대로 물고 다시 연다.
+  useOverlayBackClose(open, close, busy);
+
   return (
-    <BottomSheet
-      open={open}
-      onClose={close}
-      dismissible={!ledgerExport.busy}
-      title="엑셀로 내보내기"
-    >
+    <BottomSheet open={open} onClose={close} dismissible={!busy} title="엑셀로 내보내기">
       {open ? (
-        <ExportForm ledgerExport={ledgerExport} period={period} onPeriodChange={setPeriod} />
+        <ExportForm ledgerExport={ledgerExport} period={period} onPeriodChange={changePeriod} />
       ) : null}
     </BottomSheet>
   );
@@ -72,7 +77,8 @@ interface ExportFormProps {
 }
 
 function ExportForm({ ledgerExport, period, onPeriodChange }: ExportFormProps) {
-  const { busy, outcome, supported, unsupportedNotice, run } = ledgerExport;
+  const { running, outcome, supported, unsupportedNotice, run } = ledgerExport;
+  const busy = running != null;
 
   function download(format: ExportFormat): void {
     void run(period, format);
@@ -95,6 +101,7 @@ function ExportForm({ ledgerExport, period, onPeriodChange }: ExportFormProps) {
         <li>날짜·시간·구분·카테고리·내용·금액·결제수단·메모</li>
         <li>엑셀 파일에는 월별 요약과 카테고리별 요약이 함께 들어가요</li>
         <li>이체는 요약에서 빼요. 옮긴 돈은 쓴 돈도 번 돈도 아니에요</li>
+        <li>안 쓴 날 표시는 안 담겨요. 쓴 기록이 아니라 건수만 늘려요</li>
       </ul>
 
       {supported ? null : (
@@ -120,19 +127,26 @@ function ExportForm({ ledgerExport, period, onPeriodChange }: ExportFormProps) {
           {`${outcome.rows}건을 「${outcome.fileName}」 으로 저장했어요.`}
           {/*
             천장에 닿았으면 반드시 말한다. 다 받은 줄 알고 옛 기록을 지우는 사람이 있다.
+            어디서 잘렸는지까지 적는다. 「기간을 나눠 한 번 더」 라고는 하지 않는다.
+            고를 수 있는 기간이 넷뿐이라 그 앞을 꺼낼 자리가 실제로 없다.
           */}
-          {outcome.capped ? (
+          {outcome.partialFrom != null ? (
             <span className="export-sheet__done-hint">
-              한 번에 1만 건까지 담겨서 최근 것부터 들어갔어요. 기간을 나눠 한 번 더 내보내면
-              나머지도 받을 수 있어요.
+              한 번에 1만 건까지 담을 수 있어서 {outcome.partialFrom}부터만 들어갔어요. 그 앞의
+              기록은 앱에 그대로 있어요.
             </span>
           ) : null}
         </p>
       ) : null}
 
       <div className="export-sheet__actions">
+        {/*
+          만드는 중 표시는 **누른 버튼에만** 붙는다. 하나로 묶어 두면 CSV 를 눌렀는데 엑셀
+          버튼이 「만드는 중」 으로 바뀌어, 엉뚱한 파일이 만들어지는 것으로 읽힌다.
+          어느 파일인지까지 적어 두 버튼의 이름이 절대 같아지지 않게 한다.
+        */}
         <Button fullWidth disabled={!supported || busy} onClick={() => download('xlsx')}>
-          {busy ? '만드는 중이에요' : '엑셀 파일 (.xlsx)'}
+          {running === 'xlsx' ? '엑셀 파일 만드는 중이에요' : '엑셀 파일 (.xlsx)'}
         </Button>
         {/*
           CSV 를 아래에 두되 감추지 않는다. 다른 가계부로 옮기려는 사람에게는 이쪽이
@@ -144,7 +158,7 @@ function ExportForm({ ledgerExport, period, onPeriodChange }: ExportFormProps) {
           disabled={!supported || busy}
           onClick={() => download('csv')}
         >
-          CSV 파일 (.csv)
+          {running === 'csv' ? 'CSV 파일 만드는 중이에요' : 'CSV 파일 (.csv)'}
         </Button>
       </div>
     </div>

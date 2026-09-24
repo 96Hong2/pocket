@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
 from app.core.config import get_settings
-from app.domain.extraction_review import MAX_PAST_DAYS, ReviewVerdict, review_extraction
+from app.domain.extraction_review import ReviewVerdict, review_extraction
 from app.domain.fingerprint import Fingerprint, build_fingerprint, normalize_merchant
 from app.domain.money import Money
 from app.domain.redaction import redact
@@ -797,19 +797,17 @@ def _to_row(
 
 
 def _base_day(chosen: date | None, today: date) -> date:
-    """화면이 보낸 「적을 날」을 쓸 수 있는 값으로 좁힌다.
+    """화면이 보낸 「적을 날」. 안 보냈으면 오늘이다.
 
-    **앞날은 막지 않는다.** 키패드는 이미 앞날에 적을 수 있고, 화면이 그 전에 한 번 묻는다.
-    여기서만 막으면 같은 날을 골라 두고 방식만 바꿨는데 저장되는 날이 달라진다.
-    추출 검증의 미래 판정은 모델이 지어낸 날짜를 겨냥한 것이라 사람이 고른 날과 다르다.
+    **좁히지 않는다.** 한때 여기서 730일보다 오래된 값을 오늘로 눕혔는데, 날짜 칸은
+    36개월 전까지 고를 수 있어서 **1년 넘는 구간이 「고를 수는 있고 전부 버려지는」 자리**가
+    됐다. 같은 날을 골라 두고 키패드로 적으면 그 날에, 줄글로 적으면 오늘에 저장됐다.
+    ADR-0033 이 앞날을 안 막는 이유로 든 바로 그 어긋남이다.
 
-    너무 오래된 값만 오늘로 눕힌다. 막지 않고 눕히는 이유는, 여기서 422 를 내면 사진을
-    다 고르고 광고까지 본 사람이 마지막에 「형식이 올바르지 않아요」 를 받기 때문이다.
-    기록이 하루 어긋나는 쪽이 적은 것을 통째로 잃는 쪽보다 낫다.
+    쓸 수 없는 연도는 스키마(`BaseDayIn._in_range`)가 422 로 막는다. 거래 저장과 같은
+    규칙이라 어느 길로 들어와도 판정이 같다.
     """
-    if chosen is None or chosen < today - timedelta(days=MAX_PAST_DAYS):
-        return today
-    return chosen
+    return chosen if chosen is not None else today
 
 
 def _occurred_at(

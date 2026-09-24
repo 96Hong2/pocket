@@ -80,18 +80,36 @@ def test_고른_날을_보내면_날짜_없는_줄이_그_날로_간다(
     assert (TODAY - localized[2]).days == 1
 
 
-def test_너무_오래된_기준일은_오늘로_눕힌다(client: TestClient, default_categories) -> None:
-    """막지 않고 눕힌다. 여기서 422 를 내면 다 적고 나서 형식 오류를 받는다."""
+def test_오래된_기준일도_그_날로_간다(client: TestClient, default_categories) -> None:
+    """**좁히지 않는다.** 날짜 칸이 36개월 전까지 열려 있어서, 여기서 잘라 내면 같은 날을
+    골라 두고 키패드로 적으면 그 날에, 줄글로 적으면 오늘에 저장된다.
+    """
+    old_day = TODAY - timedelta(days=800)
     response = client.post(
         "/api/v1/imports/text",
-        json={"text": THREE_ITEMS, "base_day": (TODAY - timedelta(days=5_000)).isoformat()},
+        json={"text": THREE_ITEMS, "base_day": old_day.isoformat()},
         headers=AUTH,
     )
     assert response.status_code == 201, response.text
 
     tz = ZoneInfo(ledger.DEFAULT_TIMEZONE)
     first = datetime.fromisoformat(response.json()["candidates"][0]["occurred_at"])
-    assert first.astimezone(tz).date() == TODAY
+    assert first.astimezone(tz).date() == old_day
+
+
+def test_기간을_만들_수_없는_연도는_막는다(client: TestClient, default_categories) -> None:
+    """`9999-12-31` 은 후보로 들어오면 저장할 때 OverflowError 로 500 이 된다.
+
+    막는 자리를 커밋이 아니라 입구에 둔다. 커밋에서 터지면 그 배치가 READY 로 남아
+    다시 눌러도 계속 500 이다. 키패드로 같은 값을 보내면 이미 422 로 막힌다.
+    """
+    for bad in ("9999-12-31", "1899-01-01"):
+        response = client.post(
+            "/api/v1/imports/text",
+            json={"text": THREE_ITEMS, "base_day": bad},
+            headers=AUTH,
+        )
+        assert response.status_code == 422, f"{bad}: {response.text}"
 
 
 def test_상호로_분류를_붙인다(client: TestClient, default_categories) -> None:

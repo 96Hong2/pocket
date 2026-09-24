@@ -244,6 +244,69 @@ test('키패드에서 이체로 적으면 분류 없이 저장되고 그 달 지
   await expect(home.today.chip('이체')).toBeVisible();
 });
 
+/**
+ * 화면의 두 컨트롤이 서로 다른 말을 하지 않게.
+ *
+ * 저장은 `type: isTransfer ? 'transfer' : kind` 라 이체가 켜져 있으면 지출·수입은 버려진다.
+ * 알약이 눌리는 채로 남으면 「수입」 을 눌러 놓고 이체로 저장되고, 이체는 집계 밖이라
+ * (ADR-0005) 이번 달 번 돈이 안 오른 것을 한참 뒤에야 알게 된다.
+ */
+test('이체를 켜 두는 동안에는 지출·수입 알약이 잠긴다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.enterAmount(TRANSFER_AMOUNT);
+  await expect(recordSheet.input.kindButton('수입')).toBeEnabled();
+
+  await recordSheet.input.transferButton.click();
+  await expect(recordSheet.input.transferPanel).toBeVisible();
+
+  await expect(recordSheet.input.kindButton('지출')).toBeDisabled();
+  await expect(recordSheet.input.kindButton('수입')).toBeDisabled();
+
+  // 잠근 것이지 없앤 것이 아니다. 되돌리면 그 자리에서 다시 고를 수 있다.
+  await recordSheet.input.transferOffButton.click();
+  await expect(recordSheet.input.kindButton('수입')).toBeEnabled();
+});
+
+/**
+ * 이체를 켜고 끄는 두 줄.
+ *
+ * 켜는 줄은 배경도 테두리도 없는 조용한 글자고, 끄는 줄은 **잘못 켠 사람이 돌아올
+ * 유일한 길**이다(이체 중에는 분류 목록도 저장 아래 켜기 줄도 사라진다). 글자만 두면
+ * 13px × 줄높이 1.45 = 19px 이 그대로 버튼 높이가 되어, 빗맞히면 아무 반응이 없다.
+ *
+ * 누른 버튼이 그 클릭으로 사라지는 자리이기도 하다. 안 잡아 주면 포커스가 시트 밖
+ * body 로 떨어져, 읽는 프로그램에 무엇이 바뀌었는지 한마디도 안 닿는다.
+ */
+test('이체를 켜고 끄는 줄은 손가락이 닿는 높이고, 누른 뒤 포커스가 시트 안에 남는다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  const openBox = await recordSheet.input.transferButton.boundingBox();
+  expect(openBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+  await recordSheet.input.transferButton.click();
+  await expect(recordSheet.input.transferPanel).toBeVisible();
+  expect(await recordSheet.focusInside).toBe(true);
+  // 되돌릴 버튼을 가리킨다. 그 자리가 곧 「지금 어디인가」 를 읽어 주는 자리다.
+  await expect(recordSheet.input.transferOffButton).toBeFocused();
+
+  const offBox = await recordSheet.input.transferOffButton.boundingBox();
+  expect(offBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+  await recordSheet.input.transferOffButton.click();
+  expect(await recordSheet.focusInside).toBe(true);
+  await expect(recordSheet.input.transferButton).toBeFocused();
+});
+
 test('이체를 켰다가 끄면 분류 목록이 그대로 돌아온다', async ({ home, recordSheet }) => {
   await home.open();
   await home.waitReady();

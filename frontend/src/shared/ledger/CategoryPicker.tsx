@@ -35,10 +35,14 @@ export interface CategoryPickerProps {
    */
   onExpand?: () => void;
   /**
-   * 목록이 끝까지 펼쳐졌는지 바뀔 때.
+   * **「더 보기」로 직접 펼쳤는지** 바뀔 때.
    *
    * 펼치면 칩이 화면을 채운다. 그 아래에 무엇을 세워 둘지는 자리마다 다르므로
    * 여기서 정하지 않고 알리기만 한다(기록 시트는 이때 키패드를 접는다).
+   *
+   * **고른 것이 뒤에 숨어 있어 저절로 펼쳐진 경우는 안 센다.** 그 상태에는 접는 버튼이
+   * 없어서(접어도 눌러 둔 표시가 갈 곳이 없다) 받는 쪽이 감춘 것을 되돌릴 길이 사라진다.
+   * 실제로 기록 시트에서 키패드도 저장 버튼도 없는 막다른 화면이 됐다.
    */
   onOpenChange?: (open: boolean) => void;
   /** 작은 자리(수정 시트·검토 목록)에서는 칩을 낮게 그린다. */
@@ -93,17 +97,18 @@ export function CategoryPicker({
   const showCreate = onCreate != null && (open || !hasHidden);
 
   /*
-    펼쳤는지를 부르는 쪽에 알린다.
+    **직접 펼친 것만** 부르는 쪽에 알린다. 목록이 사라질 때는 접힌 것으로 알린다.
 
-    「더 보기」 뿐 아니라 **고른 것이 뒤에 숨어 있어서 저절로 펼쳐진 경우**도 같은 상태다.
-    두 길을 각각 알리면 한쪽을 빠뜨린다. 목록이 사라질 때는 접힌 것으로 알린다.
+    고른 것이 뒤에 숨어 저절로 펼쳐진 경우는 안 알린다. 그때는 접기가 서지 않아
+    (접어도 눌러 둔 표시가 갈 곳이 없다) 되돌릴 길이 없는데, 받는 쪽이 이 값을 보고
+    무언가를 감추면 그것도 함께 못 되돌린다.
   */
   useEffect(() => {
-    onOpenChange?.(open);
+    onOpenChange?.(showAll);
     return () => onOpenChange?.(false);
     // 부르는 쪽이 인라인 함수를 넘겨도 펼침이 안 바뀌면 아무것도 다시 부르지 않는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [showAll]);
 
   const avatar = size === 'lg' ? 40 : 32;
 

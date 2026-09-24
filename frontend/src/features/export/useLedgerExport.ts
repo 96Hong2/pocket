@@ -9,6 +9,7 @@ import { BridgeError, type MiniAppBridge } from '../../shared/toss';
 import { exportFileName, exportRange, type ExportPeriod, type ExportRange } from './period';
 import {
   CATEGORY_HEADER,
+  cutDay,
   LEDGER_HEADER,
   MONTHLY_HEADER,
   toCategoryCells,
@@ -24,7 +25,18 @@ import { CSV_MIME, toCsvBase64, toXlsxBase64, XLSX_MIME } from './workbook';
 export type ExportFormat = 'xlsx' | 'csv';
 
 export type ExportOutcome =
-  | { status: 'done'; fileName: string; rows: number; capped: boolean }
+  | {
+      status: 'done';
+      fileName: string;
+      rows: number;
+      /**
+       * 천장에 닿아 이 날부터만 담겼다. 고른 기간이 온전히 담겼으면 null.
+       *
+       * 받아 온 줄 수가 아니라 **고른 기간이 다 들어왔나**로 정한다. 올해를 골랐는데
+       * 작년까지 내려가다 천장에 닿은 사람은 올해치를 다 받은 것이라 알릴 것이 없다.
+       */
+      partialFrom: string | null;
+    }
   /** 그 기간에 적어 둔 것이 없다. 오류가 아니라 결과의 한 종류다. */
   | { status: 'empty' }
   | { status: 'failed'; message: string };
@@ -37,7 +49,10 @@ const PAGE_SIZE = 200;
  *
  * 둘을 막는다. 커서가 같은 자리를 되풀이하면 끝없이 도는 것, 그리고 몇 만 줄을 한꺼번에
  * 들고 엑셀을 만들다 WebView 가 먼저 죽는 것이다. 목록은 최근 것부터 오므로 천장에 닿으면
- * **최근 1만 줄**이 나간다. 그 사실은 화면에 적는다. 조용히 자르면 없는 기록을 없다고 믿는다.
+ * **최근 1만 줄**이 나간다. 조용히 자르면 없는 기록을 없다고 믿는다.
+ *
+ * 그래서 잘렸으면 **어디부터 담겼는지**를 화면과 엑셀 「월별 요약」 에 적는다. 다만 천장에
+ * 닿았다고 늘 적지는 않는다. 고른 기간이 온전한지는 `cutDay` 가 가른다.
  */
 const MAX_ROWS = 10_000;
 
@@ -59,7 +74,8 @@ const FALLBACK = '지금은 파일을 만들지 못했어요. 잠시 뒤 다시 
  * 적는다. 공유(`features/share/useShare.ts`)와 같은 규칙이다.
  */
 export function useLedgerExport(): {
-  busy: boolean;
+  /** 지금 만들고 있는 형식. 아무것도 안 돌면 null. 어느 버튼에 「만드는 중」 을 붙일지 정한다. */
+  running: ExportFormat | null;
   outcome: ExportOutcome | null;
   supported: boolean;
   /** 못 쓰는 버전일 때 필요한 숫자까지 적은 한 줄. 쓸 수 있으면 null. */
@@ -70,14 +86,14 @@ export function useLedgerExport(): {
   const bridge = useBridge();
   const client = useApiClient();
   const analytics = useAnalytics();
-  const [busy, setBusy] = useState(false);
+  const [running, setRunning] = useState<ExportFormat | null>(null);
   const [outcome, setOutcome] = useState<ExportOutcome | null>(null);
 
   const supported = bridge.supports('file');
 
   const run = useCallback(
     async (period: ExportPeriod, format: ExportFormat): Promise<void> => {
-      setBusy(true);
+      setRunning(format);
       setOutcome(null);
 
       const log = (params: {
@@ -92,7 +108,7 @@ export function useLedgerExport(): {
       // 하나 더 세우지 않고 세기만 한다. 여기까지 온 것 자체가 화면과 어긋난 것이라 남긴다.
       if (!supported) {
         log({ result: 'unsupported', rows: 0 });
-        setBusy(false);
+        setRunning(null);
         return;
       }
 
@@ -111,28 +127,29 @@ export function useLedgerExport(): {
           return;
         }
 
+        const partialFrom = cutDay(page.items, page.truncated, range.prefix);
         const fileName = exportFileName(period, today, format);
         await bridge.file.save({
           fileName,
           mimeType: format === 'xlsx' ? XLSX_MIME : CSV_MIME,
-          data: await buildFile(format, lines),
+          data: await buildFile(format, lines, partialFrom),
         });
 
-        setOutcome({ status: 'done', fileName, rows: lines.length, capped: page.capped });
+        setOutcome({ status: 'done', fileName, rows: lines.length, partialFrom });
         log({ result: 'ok', rows: lines.length });
       } catch (error) {
         const code = errorCode(error);
         setOutcome({ status: 'failed', message: MESSAGES[code] ?? FALLBACK });
         log({ result: 'failed', rows: 0, error_code: code });
       } finally {
-        setBusy(false);
+        setRunning(null);
       }
     },
     [analytics, bridge, client, supported],
   );
 
   return {
-    busy,
+    running,
     outcome,
     supported,
     unsupportedNotice: supported ? null : unsupportedNotice(bridge),
@@ -168,7 +185,7 @@ function unsupportedNotice(bridge: MiniAppBridge): string {
 async function fetchAll(
   client: ApiClient,
   range: ExportRange,
-): Promise<{ items: TransactionOut[]; capped: boolean }> {
+): Promise<{ items: TransactionOut[]; truncated: boolean }> {
   const month =
     range.month == null
       ? {}
@@ -184,7 +201,7 @@ async function fetchAll(
     if (cursor == null || page.items.length === 0 || items.length >= MAX_ROWS) break;
   }
 
-  return { items: items.slice(0, MAX_ROWS), capped: cursor != null && items.length >= MAX_ROWS };
+  return { items: items.slice(0, MAX_ROWS), truncated: cursor != null && items.length >= MAX_ROWS };
 }
 
 /**
@@ -197,6 +214,7 @@ async function fetchAll(
 async function buildFile(
   format: ExportFormat,
   lines: ReturnType<typeof toExportLines>,
+  partialFrom: string | null,
 ): Promise<string> {
   const ledgerRows = lines.map(toLedgerCells);
   if (format === 'csv') return toCsvBase64(toCsv(LEDGER_HEADER, ledgerRows));
@@ -206,7 +224,7 @@ async function buildFile(
     {
       name: '월별 요약',
       header: MONTHLY_HEADER,
-      rows: toMonthlyLines(lines).map(toMonthlyCells),
+      rows: toMonthlyLines(lines, partialFrom).map(toMonthlyCells),
     },
     {
       name: '카테고리별 요약',

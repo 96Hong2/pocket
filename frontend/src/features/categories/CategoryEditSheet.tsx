@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
@@ -132,6 +132,22 @@ export function CategoryEditForm({
   const isDefault = category?.is_default === true;
 
   const [name, setName] = useState(category?.name ?? '');
+
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  /*
+    화면 하나를 통째로 쓰는 자리에서는 이름 칸을 잡아 준다.
+
+    이 화면을 연 버튼(「새 분류」 칩)은 그 클릭으로 사라져서, 안 잡으면 포커스가 시트 밖
+    body 로 떨어진다. 읽는 프로그램에는 화면이 바뀐 것이 한마디도 안 닿는다.
+    여기서 처음 할 일이 이름을 적는 것이라 그 칸이 곧 첫 자리다.
+  */
+  useEffect(() => {
+    if (page) nameRef.current?.focus();
+    // 이 폼이 사는 동안 한 번이다. 뒤에 다시 잡으면 적던 자리에서 커서가 튄다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [icon, setIcon] = useState<IconName>(
     category == null ? FALLBACK_CATEGORY_ICON : toIconName(category.icon_key),
   );
@@ -342,6 +358,7 @@ export function CategoryEditForm({
       <label className="cat-sheet__field">
         <span className="cat-sheet__label">이름</span>
         <input
+          ref={nameRef}
           className="cat-sheet__input"
           value={name}
           onChange={(event) => setName(event.target.value)}

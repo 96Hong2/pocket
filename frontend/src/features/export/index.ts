@@ -11,6 +11,7 @@ export {
   LEDGER_HEADER,
   MONTHLY_HEADER,
   NO_CATEGORY_LABEL,
+  cutDay,
   toCategoryCells,
   toCategoryLines,
   toCsv,

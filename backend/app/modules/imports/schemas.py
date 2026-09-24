@@ -63,9 +63,20 @@ class BaseDayIn(BaseModel):
     진짜 오늘로 돈다. 이 값이 하는 일은 하나뿐이다: 모델이 날짜를 못 찾은 후보를 놓을 자리.
     """
 
-    # 창은 추출 검증(`domain/extraction_review`)과 같게 잡는다. 사람이 고를 수 있는 날과
-    # 모델이 읽어도 되는 날이 다르면, 같은 날짜가 어느 길로 들어왔는지에 따라 갈린다.
     base_day: date | None = None
+
+    @field_validator("base_day")
+    @classmethod
+    def _in_range(cls, value: date | None) -> date | None:
+        """기간을 만들 수 없는 연도를 막는다. 거래 저장과 **같은 규칙**을 쓴다.
+
+        이 가드가 없으면 `9999-12-31` 이 후보로 들어오고, 저장할 때 `day + timedelta(days=1)`
+        이 `OverflowError` 로 터져 500 이 난다. 그 배치는 READY 로 남아 다시 눌러도 계속 500 이다.
+        같은 값을 키패드로 저장하면 422 로 제대로 막히는데, 여기만 뚫려 있었다.
+        """
+        if value is not None and not MIN_YEAR <= value.year <= MAX_YEAR:
+            raise ValueError(f"적을 날은 {MIN_YEAR}년부터 {MAX_YEAR}년 사이여야 해요.")
+        return value
 
 
 class ImportTextIn(BaseDayIn):

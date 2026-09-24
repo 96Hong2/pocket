@@ -154,3 +154,45 @@ test('어제는 안 썼어요는 어제에만 남고, 어제에 적으면 그 �
 function yesterday(): string {
   return shiftDay(toLedgerDate(new Date()), -1);
 }
+
+/*
+  **이 파일에서 가장 중요한 한 판이다.**
+
+  잠금을 걷어내면서 그 자리를 대신할 검증을 안 넣으면, `baseDay` 배선(prop 하나·
+  `AnalyzeInput`·`baseDayBody`) 중 아무거나 지워도 모든 시험이 초록인 채로
+  사용자가 신고했던 버그가 돌아온다. 예전에는 잠금이 막아 줬는데 이제는 아무것도 안 막는다.
+
+  백엔드 테스트는 `base_day` 를 손으로 박아 넣어 확인한다. 그 값이 **화면에서 서버까지
+  실제로 흘러가는지**는 여기서만 증명된다.
+*/
+test('어제를 골라 줄글로 적으면, 날짜를 안 써도 어제에 저장된다', async ({ home, recordSheet }) => {
+  const yesterday = shiftDay(toLedgerDate(new Date()), -1);
+
+  await home.open();
+  await home.waitReady();
+
+  // 어제로 옮겨 그 날 이름이 붙은 버튼으로 연다. 시트가 어제를 들고 열린다.
+  await home.today.prevDayButton.click();
+  await expect(home.today.title).toHaveText('어제');
+  await home.today.emptyButton.click();
+  await recordSheet.waitOpen();
+  await expect(recordSheet.input.dayChip).toHaveText(formatDayLabel(yesterday));
+
+  /*
+    **날짜를 안 적는다.** 적으면 그 날짜가 이겨서 고른 날이 쓰였는지 알 수 없다.
+    빈 자리를 무엇으로 채우는지가 여기서 보는 것 전부다.
+  */
+  await recordSheet.methodTab('줄글').click();
+  await expect(recordSheet.input.dayBaseNotice(formatDayLabel(yesterday))).toBeVisible();
+  await recordSheet.nl.analyze('편의점 3000원');
+  await recordSheet.nl.save();
+  await recordSheet.nl.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  // 어제 목록에 남는다. 오늘로 가면 없다. 둘 다 봐야 「어제에 갔다」 가 증명된다.
+  await expect(home.today.title).toHaveText('어제');
+  await expect(home.today.row('편의점')).toBeVisible();
+
+  await home.today.jumpTodayButton.click();
+  await expect(home.today.row('편의점')).toHaveCount(0);
+});

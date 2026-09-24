@@ -344,13 +344,23 @@ class ExportArea {
       .getByRole('radio', { name: label, exact: true });
   }
 
-  /** 누르는 중에는 이름이 「만드는 중이에요」 로 바뀐다. 두 이름을 함께 잡는다. */
+  /**
+   * 누르는 중에는 이름이 「엑셀 파일 만드는 중이에요」 로 바뀐다. 두 이름을 함께 잡는다.
+   *
+   * 「만드는 중」 만으로 잡지 않는다. 그러면 CSV 를 누른 동안 이 자가 CSV 버튼까지 물어,
+   * 만드는 중 표시가 엉뚱한 버튼에 붙어도 시험이 아무 말을 안 한다.
+   */
   get xlsxButton(): Locator {
-    return this.sheet.getByRole('button', { name: /^(엑셀 파일 \(\.xlsx\)|만드는 중이에요)$/ });
+    return this.sheet.getByRole('button', { name: /^엑셀 파일 (\(\.xlsx\)|만드는 중이에요)$/ });
   }
 
   get csvButton(): Locator {
-    return this.sheet.getByRole('button', { name: 'CSV 파일 (.csv)', exact: true });
+    return this.sheet.getByRole('button', { name: /^CSV 파일 (\(\.csv\)|만드는 중이에요)$/ });
+  }
+
+  /** 두 버튼에 적힌 글자를 위에서부터. 만드는 중에는 누른 쪽 이름만 바뀌어야 한다. */
+  async actionLabels(): Promise<string[]> {
+    return [await this.xlsxButton.innerText(), await this.csvButton.innerText()];
   }
 
   /** 저장이 끝났을 때 그 자리에 서는 줄. 몇 건을 어떤 이름으로 담았는지 적혀 있다. */

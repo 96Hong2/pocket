@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
@@ -79,6 +79,26 @@ interface SavedState {
   transaction: TransactionOut;
   feedback: FeedbackOut;
 }
+
+/**
+ * 전환 뒤 포커스가 갈 자리.
+ *
+ * 이체를 켜고 끄는 줄과 새 분류를 열고 닫는 길은 **누른 버튼이 그 클릭으로 사라진다.**
+ * 그냥 두면 포커스가 시트 밖 body 로 떨어져, 읽는 프로그램에는 무엇이 바뀌었는지 한마디도
+ * 안 닿고 다음 Tab 이 시트 뒤 화면부터 다시 돈다. 그래서 바뀐 화면에서 **그 일을 되돌릴
+ * 버튼**으로 옮긴다. 되돌릴 자리가 곧 「여기가 지금 어디인가」 를 읽어 주는 자리다.
+ *
+ * 찾는 범위는 키패드 탭 안으로 못 박는다(`keypadRef`). 감춰 둔 줄글·검토 탭에도 같은
+ * 분류 칩이 서 있어서, 시트 전체에서 찾으면 안 보이는 쪽이 먼저 잡힌다.
+ */
+const FOCUS_AFTER = {
+  transferOff: '.record__transfer-off',
+  transferOpen: '.record__transfer-open',
+  newCategoryChip: '.cat-chips__item--new',
+  pickedCategory: '.record__picked',
+} as const;
+
+type FocusAfter = keyof typeof FOCUS_AFTER;
 
 /** 얼마나 옛날까지 고를 수 있나. 달력 화면과 같게 3년이다. */
 const MONTHS_BACK = 36;
@@ -448,6 +468,34 @@ function RecordBody({
   */
   const [creating, setCreating] = useState(false);
 
+  /*
+    만드는 중에 누른 시스템 뒤로가기.
+
+    **시트를 닫지 않고 만들기만 닫는다.** 이 화면은 시트 안쪽을 통째로 먹고 맨 위에
+    「이전」 이 붙어 있어, 뒤로가기도 그 「이전」 과 같은 일을 할 것으로 읽힌다. 시트째
+    닫히면 적던 이름과 고른 그림은 물론 금액과 고른 날까지 확인 한 번 없이 사라진다
+    (읽어 둔 것이 없으면 확인 창도 안 뜬다).
+
+    나중에 등록한 것이 스택 맨 위라, 만드는 동안에는 시트의 닫기보다 이쪽이 먼저 받는다.
+  */
+  useOverlayBackClose(creating, () => setCreating(false), busy);
+
+  /*
+    전환 뒤에 포커스를 옮길 자리. 옮기고 나면 비운다.
+
+    `FOCUS_AFTER` 주석에 왜 옮기는지 적어 뒀다. 키패드 탭 안에서만 찾는다.
+  */
+  const keypadRef = useRef<HTMLDivElement>(null);
+  const [focusAfter, setFocusAfter] = useState<FocusAfter | null>(null);
+
+  useEffect(() => {
+    if (focusAfter == null) return;
+    setFocusAfter(null);
+    const spot = keypadRef.current?.querySelector<HTMLElement>(FOCUS_AFTER[focusAfter]);
+    // 못 찾아도 body 로는 안 보낸다. 시트 안에 남아 있어야 Tab 이 뒤 화면으로 새지 않는다.
+    (spot ?? keypadRef.current)?.focus();
+  }, [focusAfter]);
+
   const allCategories = categories.data?.items ?? [];
   // 고른 종류의 분류만 보여준다. 섞어 두면 수입에 '식비' 가 붙어, 목록과 리포트가 다른 말을 한다.
   const pickable = categoriesOfKind(kind, allCategories);
@@ -759,7 +807,13 @@ function RecordBody({
         저장됐다), 남겨 두면 확인 화면이 여는 금액 칸과 testid 가 겹친다.
       */}
       {done ? null : (
-        <div className="record__panel" hidden={creating || tab !== 'keypad'}>
+        /* tabIndex 는 포커스를 되받을 자리다. Tab 순서에는 안 들어간다(-1). */
+        <div
+          className="record__panel"
+          hidden={creating || tab !== 'keypad'}
+          ref={keypadRef}
+          tabIndex={-1}
+        >
           {/*
             **한 줄에 둘이 선다.** 왼쪽은 무엇을 적을지(지출·수입), 오른쪽은 언제 적을지다.
             둘 다 금액보다 먼저 정하는 값이라 같은 층에 두고, 서로 다른 일이라 **모양을
@@ -770,11 +824,16 @@ function RecordBody({
             {/*
               금액보다 먼저 정해야 하는 값이다. 아래 분류 칩과 저장할 종류가 이 하나를 따라간다.
               바꾸면 골라 둔 분류를 버리고 목록을 다시 편다. 지출 분류가 수입에 남으면 안 된다.
+
+              **이체를 켜 두면 잠근다.** 저장은 `isTransfer` 를 먼저 보므로 여기서 고른
+              지출·수입은 버려진다. 누를 수 있게 두면 「수입」 을 눌러 놓고 이체로 저장되어,
+              이번 달 번 돈이 안 오르는 것을 한참 뒤에 발견한다(이체는 집계 밖이다, ADR-0005).
+              왜 잠겼는지는 아래 이체 줄이 이미 말하고 있고, 거기서 한 번 눌러 되돌아온다.
             */}
             <KindToggle
               className="record__kind"
               value={kind}
-              disabled={create.isPending}
+              disabled={create.isPending || isTransfer}
               ariaLabel="지출인지 수입인지"
               onChange={(next) => {
                 if (next === kind) return;
@@ -850,14 +909,17 @@ function RecordBody({
               분류 자리를 이 줄이 대신한다. 감추기만 하면 무엇이 달라졌는지 안 보여서,
               이체인 줄 모르고 저장하는 사람이 생긴다.
             */
-            <div className="record__transfer">
+            <div className="record__transfer" role="status">
               <span className="record__transfer-title">계좌 사이 옮긴 돈</span>
               <span className="record__transfer-note">이번 달 지출과 수입에는 안 들어가요</span>
               <button
                 type="button"
                 className="record__transfer-off"
                 disabled={create.isPending}
-                onClick={() => setIsTransfer(false)}
+                onClick={() => {
+                  setIsTransfer(false);
+                  setFocusAfter('transferOpen');
+                }}
               >
                 지출이나 수입으로 적기
               </button>
@@ -911,7 +973,10 @@ function RecordBody({
               type="button"
               className="record__transfer-open"
               disabled={create.isPending}
-              onClick={() => setIsTransfer(true)}
+              onClick={() => {
+                setIsTransfer(true);
+                setFocusAfter('transferOff');
+              }}
             >
               계좌 사이 옮긴 돈이에요
             </button>
@@ -946,8 +1011,15 @@ function RecordBody({
             fixedKind={kind}
             // 저장하는 동안에는 시트가 안 닫힌다. 닫히면 적어 둔 이름과 고른 그림이 함께 사라진다.
             onBusyChange={markBusy}
-            onBack={() => setCreating(false)}
-            onClose={() => setCreating(false)}
+            onBack={() => {
+              setCreating(false);
+              setFocusAfter('newCategoryChip');
+            }}
+            // 만들기가 끝나 닫히는 길. 돌아오면 방금 만든 분류가 골라져 있다.
+            onClose={() => {
+              setCreating(false);
+              setFocusAfter('pickedCategory');
+            }}
             /*
               만든 것을 골라 두기만 하고 **저장까지 하지는 않는다.** 적던 금액과 고른 날이
               그대로 있는 기록 화면으로 돌아와, 저장은 그 사람이 누른다. 만들자마자 저장되면

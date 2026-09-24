@@ -28,7 +28,12 @@ export async function toXlsxBase64(sheets: SheetSpec[]): Promise<string> {
     xlsx.utils.book_append_sheet(book, grid, sheet.name);
   }
 
-  return xlsx.write(book, { bookType: 'xlsx', type: 'base64' }) as string;
+  /*
+    `compression` 을 켠다. 기본값이 무압축(zip STORED)이라 1만 줄짜리가 base64 4.5MB 로
+    나오는데, 그 문자열이 그대로 JS↔네이티브 브릿지를 건너고 만드는 동안 힙도 그만큼 먹는다.
+    실측으로 크기 3배, 쓰는 동안 힙 2배가 줄었다. 속도는 구조에 따라 오르내려 근거가 아니다.
+  */
+  return xlsx.write(book, { bookType: 'xlsx', type: 'base64', compression: true }) as string;
 }
 
 /**

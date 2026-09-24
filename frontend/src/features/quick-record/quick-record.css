@@ -234,9 +234,20 @@
     color: var(--color-muted);
   }
 
+  /*
+    이체를 끄고 지출·수입으로 돌아오는 줄.
+
+    **손가락이 닿는 높이를 못 박는다(44px).** 글자만 두면 13px × 줄높이 1.45 = 19px 이
+    그대로 버튼 높이가 되는데, 이체를 잘못 켠 사람이 되돌아올 길은 이것 하나뿐이다.
+    19px 을 빗맞히면 아무 반응이 없어 다시 눌러야 한다.
+    글자 자리는 그대로 두려고 좌우 여백 대신 높이만 키웠다.
+  */
   .record__transfer-off {
+    display: inline-flex;
+    align-items: center;
     align-self: flex-start;
-    margin-top: 6px;
+    min-height: 44px;
+    margin-top: 2px;
     padding: 0;
     border: 0;
     background: none;
@@ -246,11 +257,14 @@
     font-weight: var(--font-weight-semibold);
   }
 
-  /* 이체로 들어가는 조용한 줄. 저장 버튼보다 눈에 띄면 안 된다. */
+  /* 이체로 들어가는 조용한 줄. 저장 버튼보다 눈에 띄면 안 되지만, 높이는 같은 44px 을 준다. */
   .record__transfer-open {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     align-self: center;
-    margin-top: 2px;
-    padding: 8px 4px;
+    min-height: 44px;
+    padding: 0 12px;
     border: 0;
     background: none;
     color: var(--color-muted);

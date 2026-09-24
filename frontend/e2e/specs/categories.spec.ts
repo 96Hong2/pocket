@@ -624,6 +624,39 @@ test('이름이 비었거나 겹치면 저장이 막히고 이유가 적힌다',
   await expect(form.saveButton).toBeEnabled();
 });
 
+/**
+ * 시스템 뒤로가기도 화면의 「이전」 과 같은 일을 해야 한다.
+ *
+ * 만들기 화면은 시트 안쪽을 통째로 먹고 맨 위에 「이전」 이 붙어 있어, 안드로이드에서는
+ * 뒤로가기가 그 「이전」 으로 읽힌다. 시트째 닫히면 적던 이름도, 금액도, 고른 날도
+ * 확인 한 번 없이 사라진다(읽어 둔 것이 없으면 그만둘지 묻지도 않는다).
+ */
+test('분류를 만들다 시스템 뒤로가기를 누르면 만들기만 닫히고 시트는 남는다', async ({
+  appShell,
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.enterAmount(12_000);
+  await recordSheet.input.openNewCategory();
+  await recordSheet.input.newCategoryForm.nameField.fill(PET);
+
+  await appShell.pressBack();
+
+  await expect(recordSheet.input.newCategoryForm.title).toHaveCount(0);
+  await recordSheet.waitOpen();
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(12_000));
+  await expect(recordSheet.input.categoryChip('식비')).toBeVisible();
+
+  // 한 번 더 누르면 그때는 시트가 닫힌다. 만들기만 삼키고 갇히면 그것도 막다른 길이다.
+  await appShell.pressBack();
+  await recordSheet.waitClosed();
+});
+
 test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', async ({ home, recordSheet }) => {
   await home.open();
   await home.waitReady();
@@ -633,12 +666,19 @@ test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', as
   await recordSheet.input.enterAmount(12_000);
   await recordSheet.input.openNewCategory();
   await expect(recordSheet.input.newCategoryForm.title).toBeVisible();
+  /*
+    누른 「새 분류」 칩이 그 클릭으로 사라진다. 안 잡아 주면 포커스가 시트 밖 body 로 떨어져
+    읽는 프로그램에는 화면이 바뀐 것이 한마디도 안 닿는다. 여기서 처음 할 일이 이름 적기다.
+  */
+  await expect(recordSheet.input.newCategoryForm.nameField).toBeFocused();
 
   await recordSheet.input.newCategoryForm.backButton.click();
 
   await expect(recordSheet.input.newCategoryForm.title).toHaveCount(0);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(12_000));
   await expect(recordSheet.input.categoryChip('식비')).toBeVisible();
+  // 돌아올 때도 마찬가지다. 왔던 자리인 「새 분류」 칩이 포커스를 되받는다.
+  await expect(recordSheet.input.newCategoryButton).toBeFocused();
 });
 
 // ── 기록 화면에 먼저 보일 분류 고르기 ─────────────────────
@@ -675,6 +715,40 @@ test('기록 화면에 보이기를 끄면 「더 보기」 뒤로 간다', asyn
   await expect(recordSheet.input.keypad).toBeHidden();
   await recordSheet.input.foldCategoriesButton.click();
   await expect(recordSheet.input.keypad).toBeVisible();
+});
+
+/**
+ * 뒤로 밀린 분류를 골라 두면 목록이 저절로 펼쳐진다. 눌러 둔 표시가 갈 곳이 없어서다.
+ *
+ * 그 상태에는 **접기가 없다.** 「더 보기」로 직접 편 것과 같이 세어 숫자판까지 감추면,
+ * 금액을 고칠 길도 저장 버튼도 함께 사라져 아무 분류나 한 번 골라야만 빠져나올 수 있었다.
+ */
+test('뒤로 밀린 분류를 골라 두고 다시 고르기를 눌러도 숫자판이 남는다', async ({
+  home,
+  prep,
+  recordSheet,
+}) => {
+  // 앞자리가 차면 마지막 기본 분류('기타')가 「더 보기」 뒤로 밀린다.
+  await prep.addCategory(PET);
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  await recordSheet.input.moreCategoriesButton.click();
+  // 금액이 아직 없으면 고르기만 하고 목록이 접힌다.
+  await recordSheet.input.categoryChip('기타').click();
+  await expect(recordSheet.input.pickedCategory).toContainText('기타');
+
+  await recordSheet.input.pickedCategory.click();
+  // 눌러 둔 표시를 보이려고 펼친 채로 열린다. 그래서 접기가 없다.
+  await expect(recordSheet.input.foldCategoriesButton).toHaveCount(0);
+  // 되돌릴 버튼이 없는 만큼, 감추는 것도 없어야 한다.
+  await expect(recordSheet.input.keypad).toBeVisible();
+
+  await recordSheet.input.enterAmount(12_000);
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(12_000));
 });
 
 test('끈 것을 다시 켜면 곧바로 앞자리로 돌아온다', async ({ categories, home, recordSheet }) => {
