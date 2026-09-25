@@ -35,7 +35,7 @@ async function swipeDown(page: Page, selector: string): Promise<void> {
 }
 
 test.describe('적던 것을 말없이 잃지 않는다', () => {
-  test('기록 고치기에서 안쪽을 쓸어내려도 시트가 안 닫힌다', async ({
+  test('기록 고치기에서 내려 읽다 되올려도 시트가 안 닫힌다', async ({
     page,
     prep,
     calendar,
@@ -47,9 +47,12 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await expect(calendar.edit.dialog).toBeVisible();
 
     /*
-      고치기 시트는 안쪽(`.tx-edit__scroll`)만 굴러간다. 거기서 아래로 쓴 것은
-      「위로 올려 보겠다」 는 뜻이지 닫으라는 뜻이 아니다.
+      고치기 시트는 안쪽(`.tx-edit__scroll`)만 굴러간다. **한 번 내려 읽은 뒤** 아래로
+      쓴 것은 「위로 올려 보겠다」 는 뜻이지 닫으라는 뜻이 아니다. 신고된 장면이 이것이다.
     */
+    await page.locator('.tx-edit__scroll').evaluate((node) => {
+      node.scrollTop = 150;
+    });
     await swipeDown(page, '.tx-edit__scroll');
     await expect(calendar.edit.dialog).toBeVisible();
   });
@@ -151,7 +154,7 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await expect(recordSheet.input.amountText).toContainText('24,000');
   });
 
-  test('이름만 적고 아이콘 격자를 쓸어내려도 창이 안 닫힌다', async ({
+  test('아이콘 격자를 굴려 놓고 되올려도 창이 안 닫힌다', async ({
     page,
     home,
     recordSheet,
@@ -166,8 +169,16 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await form.nameField.fill('반려동물');
     await expect(form.iconGrid).toBeVisible();
 
-    // 격자는 자기만 굴러가는 상자다. 거기서 아래로 쓴 것은 닫으라는 뜻이 아니다.
+    /*
+      격자를 한 번 굴려 놓고 되올린다. **신고된 장면이 정확히 이것이다.**
+      확인 창이 대신 막아 준 것이 아니라 손짓 판정이 막았는지를 보려고, 창이 안 뜬 것까지
+      단언한다. 이게 없으면 판정을 옛날로 되돌려도 이 검사가 초록으로 남는다.
+    */
+    await page.locator('.icon-picker__grid').evaluate((node) => {
+      node.scrollTop = 120;
+    });
     await swipeDown(page, '.icon-picker__grid');
+    await expect(recordSheet.leave.dialog).toHaveCount(0);
     await expect(form.title).toBeVisible();
     await expect(form.nameField).toHaveValue('반려동물');
   });

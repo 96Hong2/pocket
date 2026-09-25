@@ -57,6 +57,7 @@ export function CategoryEditSheet({ open, category, onClose }: CategoryEditSheet
 
   /** 나가려는 모든 길이 여기를 지난다. 손잡이 · 딤 · Esc · 시스템 뒤로가기가 같다. */
   function requestClose(): void {
+    if (asking) return;
     if (dirtyRef.current) {
       setAsking(true);
       return;
@@ -93,8 +94,12 @@ export function CategoryEditSheet({ open, category, onClose }: CategoryEditSheet
       {asking ? (
         <LeaveConfirm
           text={
-            category == null ? '적어 둔 분류가 사라져요. 그만둘까요?' : '고친 것이 사라져요. 그만둘까요?'
+            category == null
+              ? '만들던 분류가 사라져요. 그만둘까요?'
+              : '고친 것이 사라져요. 그만둘까요?'
           }
+          // 고치러 들어온 사람에게는 「계속 고치기」 다. 적는 화면과 하는 일이 다르다.
+          stayLabel={category == null ? '계속 쓰기' : '계속 고치기'}
           onStay={() => setAsking(false)}
           onLeave={() => {
             setAsking(false);

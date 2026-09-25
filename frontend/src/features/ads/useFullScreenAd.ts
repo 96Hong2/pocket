@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
 import { clearAdOnScreen, markAdOnScreen } from '../../shared/lib/stuckAd';
-import type { AdsBridge, FullScreenAdHooks, KeyValueStore } from '../../shared/toss';
+import type { AdsBridge, FullScreenAdHooks } from '../../shared/toss';
 
 /**
  * 개발에서 쓰는 공식 테스트 전면 광고.
@@ -108,21 +108,41 @@ function useAdShow(
 
       setBusy(true);
       let stalled = false;
+      /*
+        표를 적는 약속을 쥐고 있다가 지우기 전에 기다린다.
+
+        둘 다 네이티브를 다녀오는 일이라 순서 보장이 없다. 빨리 끝나는 판에서 적기가
+        지우기보다 늦게 닿으면 표가 남고, 다음 실행에서 멀쩡한 사람이 갇힌 것으로 세어진다.
+      */
+      let marking: Promise<void> = Promise.resolve();
       try {
         /*
           광고가 뜨는 순간 표를 적고 끝나면 지운다. **갇힌 사람은 답을 기다리지 않고 앱을
           끄기 때문에**, 결과만 보면 가장 나쁜 결말이 통계에서 통째로 빠진다.
         */
         const result = await run(bridge.ads, group, {
-          onShown: () => void markAdOnScreen(bridge.storage, where),
+          onShown: () => {
+            marking = markAdOnScreen(bridge.storage, where);
+          },
           onStalled: () => {
             stalled = true;
             stalledThisSession = true;
           },
         });
-        await clearMark(bridge.storage, stalled);
-        if (stalled) return { result: 'skipped', reason: 'stalled' };
-        return result === 'failed' ? { result: 'skipped', reason: 'failed' } : { result };
+        /*
+          **접힌 판도 표는 지운다.** 남겨 두면 90초를 버티고 앱을 계속 쓴 사람이 다음
+          실행에서 `ad_stuck_exit` 로 또 세어진다. 그 이벤트가 세려는 것은 「답을 기다리지
+          않고 앱을 껐다」 하나다. 접힌 판은 이 자리에서 `stalled` 로 이미 남는다.
+        */
+        await marking;
+        await clearAdOnScreen(bridge.storage);
+        /*
+          **결과가 나왔으면 그 결과를 살린다.** 보상까지 받았는데 닫힘 신호만 안 와서 접힌
+          판이 있다(닫힘을 안 주는 안드로이드 버전). 그것을 「광고 안 봄」 으로 적으면
+          콘솔이 세는 노출과 우리 장부가 갈린다. 갇혔다는 사실은 세션 스위치가 이미 들었다.
+        */
+        if (result !== 'failed') return { result };
+        return { result: 'skipped', reason: stalled ? 'stalled' : 'failed' };
       } finally {
         setBusy(false);
       }
@@ -144,17 +164,6 @@ let stalledThisSession = false;
 /** 테스트 사이에 세션 기억을 비운다. */
 export function resetStalledMemory(): void {
   stalledThisSession = false;
-}
-
-/**
- * 표를 지운다. **갇힌 채 접은 판은 안 지운다.**
- *
- * 그 표가 곧 「지난번에 갇혔다」 는 증거다. 여기서 지우면, 90초를 버티고 앱을 끈 사람과
- * 그 전에 끈 사람이 갈리지 않는다.
- */
-async function clearMark(storage: KeyValueStore, stalled: boolean): Promise<void> {
-  if (stalled) return;
-  await clearAdOnScreen(storage);
 }
 
 const runFullScreen = (ads: AdsBridge, group: string, hooks: FullScreenAdHooks) =>

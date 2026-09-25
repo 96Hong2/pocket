@@ -992,7 +992,13 @@
     */
     position: fixed;
     inset: 0;
-    z-index: 2;
+    /*
+      시트(60) 와 분류 만들기 창(70) **위**에 선다.
+
+      포털로 body 에 붙어서 층을 직접 대야 한다. 시트 안에 있던 시절에는 2 로 충분했는데,
+      밖으로 나온 순간 그 값이면 시트가 이 창을 덮어 버튼이 안 눌린다.
+    */
+    z-index: 80;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1052,8 +1058,16 @@
     바탕색에 맞춰 물들이면 무슨 그림인지 알아보기 어려워진다. 고른 색이 하는 일은
     목록에서 그 줄을 빨리 찾게 하는 것이고, 그건 바탕만으로 충분하다.
   */
+  /*
+    색을 고른 분류.
+
+    **테두리를 한 겹 두른다.** 팔레트를 옅게 민 뒤로 모래·회색처럼 흰색에 가까운 색은
+    흰 카드 위에서 동그라미가 있는지조차 안 보였다. 색을 안 고른 기본 바탕과도 구분이
+    안 됐다. 이 한 겹이 「색을 골랐다」 를 색의 진하기와 상관없이 보이게 한다.
+  */
   .pk-avatar--tinted {
     background: var(--pk-avatar-bg);
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07);
   }
 
   .pk-avatar__img {
@@ -1152,10 +1166,18 @@
     box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.1);
   }
 
+  /*
+    고른 칸.
+
+    **평소 테두리를 남긴 채로 고리를 두른다.** 예전에는 `box-shadow` 를 통째로 갈아 끼워
+    안 고른 칸에는 테두리가 있고 고른 칸에는 없는 모양이 됐다. 옅은 색일수록 그 차이가
+    커서, 노랑을 고르면 고른 칸이 팔레트에서 가장 안 보였다.
+  */
   .pk-colors__cell[aria-pressed='true'] .pk-colors__swatch {
     box-shadow:
+      inset 0 0 0 1px rgb(0 0 0 / 0.1),
       0 0 0 3px var(--color-surface),
-      0 0 0 5px var(--tag-color);
+      0 0 0 5px var(--tag-ink);
   }
 
   /* ── Amount ─────────────────────────────────────────── */

@@ -72,6 +72,8 @@ export function CategoryComposeOverlay({
 
   /** 나가려는 모든 길이 여기를 지난다. 「이전」 · Esc · 시스템 뒤로가기가 같은 규칙을 탄다. */
   function requestBack(): void {
+    // 이미 묻는 중이면 머무는 쪽이다. 물음을 또 띄우지 않는다.
+    if (asking) return;
     if (dirtyRef.current) {
       setAsking(true);
       return;
@@ -92,12 +94,18 @@ export function CategoryComposeOverlay({
           **무슨 일이 있어도 삼킨다.** 뒤에 있는 시트도 Esc 를 듣고 있어서, 여기서 흘리면
           분류 만들기를 그만두려던 한 번에 읽어 온 검토 목록이나 고치던 기록까지 닫힌다.
           저장이 도는 중이면 닫지만 않고 삼키기만 한다.
+
+          ⚠ `stopPropagation` 만으로는 못 막는다. 시트도 **같은 `document`** 에 리스너를
+          달아 두어서, 전파를 끊어도 같은 노드의 다른 리스너는 그대로 돈다. 확인 창이
+          둘 겹치는 것을 실제로 봤다.
         */
         event.preventDefault();
-        event.stopPropagation();
+        event.stopImmediatePropagation();
         if (!busy) requestBack();
         return;
       }
+      // 물음이 떠 있는 동안 뒤로가기·Esc 는 머무는 쪽이다. 물어 놓고 답을 가로채지 않는다.
+      if (asking) return;
       if (event.key !== 'Tab' || !boxRef.current) return;
       trapTab(boxRef.current, event);
     }
@@ -108,7 +116,7 @@ export function CategoryComposeOverlay({
       document.removeEventListener('keydown', onKeyDown, true);
       previouslyFocused?.focus();
     };
-  }, [busy, open, onBack]);
+  }, [asking, busy, open, onBack]);
 
   if (!open) return null;
 
@@ -134,7 +142,7 @@ export function CategoryComposeOverlay({
       />
       {asking ? (
         <LeaveConfirm
-          text="적어 둔 분류가 사라져요. 그만둘까요?"
+          text="만들던 분류가 사라져요. 그만둘까요?"
           onStay={() => setAsking(false)}
           onLeave={() => {
             setAsking(false);

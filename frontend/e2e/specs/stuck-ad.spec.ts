@@ -68,6 +68,24 @@ test.describe('광고에 갇힌 판을 센다', () => {
     expect(await logsNamed(page, 'ad_stuck_exit')).toHaveLength(0);
   });
 
+  test('🔴 광고가 떠 있는 동안 표가 적힌다', async ({ page, manage }) => {
+    /*
+      **여기가 이 기능의 전부다.** 갇힌 사람은 답을 기다리지 않고 앱을 끄므로, 뜨는 순간
+      적어 두지 않으면 그 판은 아무 데도 안 남는다. 아래 검사들은 심어 둔 표를 읽는 쪽만
+      보므로, 적는 배선을 통째로 지워도 전부 초록이다. 이 검사가 그 자리를 잡는다.
+
+      광고가 도는 동안을 노려야 해서 목이 덮개를 걷기 전에 폴링한다.
+    */
+    await manage.open();
+    await manage.waitReady();
+    await manage.subScreenRow('카테고리 관리').click();
+    await manage.adConsentConfirm.click();
+
+    await expect.poll(() => readStuckMark(page), { timeout: 20_000, intervals: [50] }).toBe(
+      'categories',
+    );
+  });
+
   test('광고가 정상으로 끝나면 표가 안 남는다', async ({ page, manage }) => {
     /*
       목 SDK 의 광고는 떴다가 스스로 닫힌다. 그 한 편을 실제로 지나온 뒤 표가 비어 있는지

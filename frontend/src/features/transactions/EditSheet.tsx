@@ -83,6 +83,7 @@ export function EditSheet({ transaction, categories, month, onClose }: EditSheet
   const [asking, setAsking] = useState(false);
 
   function requestClose(): void {
+    if (asking) return;
     if (dirtyRef.current) {
       setAsking(true);
       return;
@@ -134,7 +135,12 @@ export function EditSheet({ transaction, categories, month, onClose }: EditSheet
         />
       ) : null}
       {asking ? (
-        <LeaveConfirm text="고친 것이 사라져요. 그만둘까요?" onStay={() => setAsking(false)} onLeave={leave} />
+        <LeaveConfirm
+          text="고친 것이 사라져요. 그만둘까요?"
+          stayLabel="계속 고치기"
+          onStay={() => setAsking(false)}
+          onLeave={leave}
+        />
       ) : null}
     </BottomSheet>
   );

@@ -49,7 +49,10 @@ test.describe('분류에 건 색이 목록까지 간다', () => {
       실제로 칠해진 색이 팔레트의 그 색인지 본다. **hex 를 여기 적지 않는다.**
       적어 두면 팔레트를 손볼 때마다 이 검사가 이유 없이 빨개진다. 토큰을 그 자리에서 풀어 쓴다.
     */
-    expect(await avatarBackground(avatar)).toBe(await paletteColor(avatar, 'rose'));
+    const painted = await avatarBackground(avatar);
+    // 토큰이 사라져 둘 다 투명이면 같아진다. 신고된 화면과 똑같은데 초록이 된다.
+    expect(painted).not.toBe('rgba(0, 0, 0, 0)');
+    expect(painted).toBe(await paletteColor(avatar, 'rose'));
   });
 
   test('색을 안 건 분류는 무채색 기본 바탕 그대로다', async ({ prep, home }) => {

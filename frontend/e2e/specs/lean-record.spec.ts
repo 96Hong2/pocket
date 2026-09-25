@@ -12,7 +12,7 @@ import { expect, test } from '../support/fixtures';
  * **고를 것이 열한 개를 넘지 않는 것**, 그리고 **더 있다는 것을 알 수 있는 것**.
  */
 
-test('X 버튼이 없고, 손잡이를 아래로 밀면 닫힌다', async ({ home, recordSheet }) => {
+test('X 버튼이 없고, 손잡이를 아래로 밀면 한 번 묻고 닫힌다', async ({ home, recordSheet }) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();

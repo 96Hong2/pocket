@@ -7,8 +7,8 @@
  * **본문이 맨 위에 있을 때만 잡는다.** 시트 자체가 스크롤 상자라, 중간까지 내려 읽던 중에
  * 아래로 끌면 그건 스크롤이지 닫기가 아니다.
  *
- * **안쪽에 따로 굴러가는 상자가 있으면 아예 안 잡는다.** 그 상자는 자기만 굴러서 시트의
- * 스크롤 자리는 늘 0인데, 위 규칙만 보면 그 0이 「맨 위」 로 읽힌다.
+ * **안쪽 상자를 이미 굴려 놓았으면 안 잡는다.** 그 상자는 자기만 굴러서 시트의 스크롤
+ * 자리는 늘 0인데, 위 규칙만 보면 그 0이 「맨 위」 로 읽힌다.
  *
  * **버튼·입력칸 위에서는 시작하지 않는다.** 손잡이만 예외다. 키패드 숫자를 누르다 손가락이
  * 몇 픽셀 흐르면 시트가 내려가는데, 이 앱에서 그것보다 나쁜 일이 없다.
@@ -57,14 +57,18 @@ function scrollsVertically(node: Element): boolean {
 }
 
 /**
- * 시트 **안쪽**에 따로 굴러가는 상자가 있고, 손이 그 위에 있나.
+ * 손이 얹힌 자리에 **이미 굴려 놓은** 안쪽 상자가 있나.
  *
  * 시트 자체는 세지 않는다. 그쪽은 「맨 위에 있을 때만 끈다」 는 옛 규칙이 그대로 산다.
+ *
+ * **맨 위에 있는 상자는 세지 않는다.** 안 그러면 본문 전체가 스크롤 상자인 시트
+ * (기록 고치기)에서 아래로 밀어 닫는 손짓이 통째로 죽는다. 사람이 가장 먼저 쓰는
+ * 손짓을 없애면서 그렇다는 표시도 화면에 없으면, 고친 것이 아니라 다른 것을 깨뜨린 것이다.
  */
-function insideInnerScroller(target: Element, sheet: HTMLElement): boolean {
+function scrolledInnerBox(target: Element, sheet: HTMLElement): boolean {
   let node: Element | null = target;
   while (node != null && node !== sheet) {
-    if (scrollsVertically(node)) return true;
+    if (node.scrollTop > 0 && scrollsVertically(node)) return true;
     node = node.parentElement;
   }
   return false;
@@ -73,10 +77,13 @@ function insideInnerScroller(target: Element, sheet: HTMLElement): boolean {
 /**
  * 여기서 시작한 손짓을 끌기로 볼 것인가.
  *
- * 🔴 **안쪽에 따로 굴러가는 상자가 있으면 끌지 않는다**(2026-09-25 사용자 신고).
+ * 🔴 **이미 굴려 놓은 안쪽 상자 위에서는 끌지 않는다**(2026-09-25 사용자 신고).
  * 기록 고치기 시트와 아이콘 격자는 자기만 굴러가는 상자라 시트의 `scrollTop` 이 늘 0이다.
  * 옛 규칙은 그 0을 「맨 위니까 닫아도 된다」 로 읽어서, **읽던 자리를 도로 올리려고
  * 아래로 쓸면 시트가 통째로 닫혔다.** 적던 내용이 두 번 날아갔다는 신고가 그 장면이다.
+ *
+ * 맨 위에 있는 상자에서는 그대로 끌린다. 거기서는 위로 올릴 것이 없어 아래로 쓰는 손짓이
+ * 스크롤일 수가 없다. 그래도 잘못 스친 사람은 확인 창이 한 번 더 붙잡는다.
  *
  * 손잡이는 예외다. 거기서 시작한 것은 언제나 닫으려던 손짓이다.
  */
@@ -84,7 +91,7 @@ export function canStartDrag(target: EventTarget | null, sheet: HTMLElement): bo
   if (isHandle(target)) return true;
   if (!(target instanceof Element)) return sheet.scrollTop === 0;
   if (target.closest(INTERACTIVE) != null) return false;
-  if (insideInnerScroller(target, sheet)) return false;
+  if (scrolledInnerBox(target, sheet)) return false;
   return sheet.scrollTop === 0;
 }
 

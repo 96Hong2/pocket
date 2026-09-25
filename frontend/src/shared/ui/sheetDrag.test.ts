@@ -8,12 +8,15 @@ import { canStartDrag, shouldDismiss, trackMove, beginTracking } from './sheetDr
  * 기록 고치기 시트와 아이콘 격자는 **자기만 굴러가는 상자**라 시트의 `scrollTop` 이
  * 늘 0이다. 옛 규칙은 그 0을 「맨 위니까 닫아도 된다」 로 읽어서, 읽던 자리를 도로
  * 올리려고 아래로 쓸면 시트가 통째로 닫혔다.
+ *
+ * 고친 규칙은 **이미 굴려 놓은** 상자만 막는다. 전부 막으면 본문 전체가 스크롤 상자인
+ * 시트에서 밀어 닫는 손짓이 통째로 죽는다.
  */
 
 /** 시트 하나를 세운다. `scrolls` 를 주면 안쪽에 따로 굴러가는 상자를 하나 넣는다. */
 function buildSheet(options: {
   sheetScrollTop?: number;
-  inner?: { overflowY: string; scrollHeight: number; clientHeight: number };
+  inner?: { overflowY: string; scrollHeight: number; clientHeight: number; scrollTop?: number };
 }): { sheet: HTMLElement; target: HTMLElement } {
   const sheet = document.createElement('div');
   Object.defineProperty(sheet, 'scrollTop', { value: options.sheetScrollTop ?? 0 });
@@ -29,6 +32,7 @@ function buildSheet(options: {
   box.style.overflowY = options.inner.overflowY;
   Object.defineProperty(box, 'scrollHeight', { value: options.inner.scrollHeight });
   Object.defineProperty(box, 'clientHeight', { value: options.inner.clientHeight });
+  Object.defineProperty(box, 'scrollTop', { value: options.inner.scrollTop ?? 0 });
   const leaf = document.createElement('div');
   box.appendChild(leaf);
   sheet.appendChild(box);
@@ -46,26 +50,29 @@ describe('canStartDrag', () => {
     expect(canStartDrag(target, sheet)).toBe(false);
   });
 
-  it('🔴 안쪽에 따로 굴러가는 상자 위에서는 안 끈다', () => {
+  it('🔴 이미 굴려 놓은 안쪽 상자 위에서는 안 끈다', () => {
     const { sheet, target } = buildSheet({
-      inner: { overflowY: 'auto', scrollHeight: 900, clientHeight: 244 },
+      inner: { overflowY: 'auto', scrollHeight: 900, clientHeight: 244, scrollTop: 120 },
     });
     // 시트는 맨 위(0)인데도 안 끈다. 이 0 이 바로 사고를 낸 값이다.
     expect(sheet.scrollTop).toBe(0);
     expect(canStartDrag(target, sheet)).toBe(false);
   });
 
-  it('굴러갈 것이 없는 상자는 스크롤 상자가 아니다', () => {
-    // `overflow-y: auto` 만 걸려 있고 내용이 안 넘치면 그냥 보통 상자다.
+  it('안쪽 상자가 맨 위면 그대로 끌린다', () => {
+    /*
+      거기서는 위로 올릴 것이 없어 아래로 쓰는 손짓이 스크롤일 수가 없다. 이것까지 막으면
+      본문 전체가 스크롤 상자인 시트에서 밀어 닫기가 통째로 죽는다.
+    */
     const { sheet, target } = buildSheet({
-      inner: { overflowY: 'auto', scrollHeight: 200, clientHeight: 244 },
+      inner: { overflowY: 'auto', scrollHeight: 900, clientHeight: 244, scrollTop: 0 },
     });
     expect(canStartDrag(target, sheet)).toBe(true);
   });
 
-  it('넘치기만 하고 숨긴 상자도 스크롤 상자가 아니다', () => {
+  it('넘치기만 하고 숨긴 상자는 스크롤 상자가 아니다', () => {
     const { sheet, target } = buildSheet({
-      inner: { overflowY: 'hidden', scrollHeight: 900, clientHeight: 244 },
+      inner: { overflowY: 'hidden', scrollHeight: 900, clientHeight: 244, scrollTop: 120 },
     });
     expect(canStartDrag(target, sheet)).toBe(true);
   });
