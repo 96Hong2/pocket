@@ -4,8 +4,8 @@
  * X 버튼을 없앤 자리를 이것이 대신한다. 화면 오른쪽 위에 닫기 아이콘 하나를 더 두는 것보다,
  * 시트를 잡고 내리는 쪽이 배울 것이 없다.
  *
- * **굴러갈 것이 있는 시트는 손잡이로만 닫는다.** 본문에서 아래로 쓰는 손짓은 스크롤이다.
- * 맨 위에 닿았는지로 가르면, 되올리려고 여러 번 튕기는 손짓의 마지막 한 번이 닫기로 읽힌다.
+ * **본문이 맨 위에 있고, 방금 굴린 참이 아닐 때만 잡는다.** 맨 위인지만 보면, 되올리려고
+ * 여러 번 튕기는 손짓의 마지막 한 번이 닫기로 읽힌다. 손잡이는 언제나 닫는다.
  *
  * **버튼·입력칸 위에서는 시작하지 않는다.** 손잡이만 예외다. 키패드 숫자를 누르다 손가락이
  * 몇 픽셀 흐르면 시트가 내려가는데, 이 앱에서 그것보다 나쁜 일이 없다.
@@ -54,24 +54,30 @@ function scrollsVertically(node: Element): boolean {
 }
 
 /**
- * 손이 얹힌 자리에서 시트까지, **굴러갈 수 있는 상자가 하나라도 있나.**
+ * 굴린 지 이만큼 안 지났으면 이 손짓도 굴리려는 것이다.
  *
- * 🔴 지난 판은 「이미 굴려 놓은」 상자만 셌다(scrollTop > 0). 그것으로는 모자랐다.
- * 폰에서 되올리는 손짓은 한 번으로 안 끝나고 여러 번 튕기는데, 그 사이에 맨 위(0)에
- * 닿는다. 닿은 다음 한 번이 「맨 위니까 닫아도 된다」 로 읽혀 시트가 통째로 닫혔다.
- * 신고가 두 번 온 자리다(2026-09-25).
+ * 🔴 **여기가 두 번 신고된 자리의 핵심이다.** 폰에서 되올리는 손짓은 한 번으로 안 끝나고
+ * 여러 번 튕긴다. 그 사이에 맨 위(0)에 닿는데, 위치만 보면 닿은 다음 한 번이 「맨 위니까
+ * 닫아도 된다」 가 된다. 사람은 같은 손짓을 이어서 하고 있을 뿐이다.
  *
- * 그래서 기준을 자리에서 **성질**로 바꾼다. 굴러갈 것이 남아 있는 상자 위에서 아래로
- * 쓰는 손짓은 언제나 스크롤이다. 그 시트를 닫는 자리는 손잡이 하나로 둔다.
- *
- * 굴러갈 것이 없는 짧은 시트는 그대로 본문을 잡고 내려 닫는다. 거기서는 아래로 쓰는
- * 손짓이 스크롤일 수가 없어 헷갈릴 일이 없다.
+ * 그래서 **위치가 아니라 방금 굴렸는지**를 함께 본다. 굴리기가 가라앉은 뒤에 새로 시작한
+ * 손짓만 닫기로 읽는다. 관성 스크롤이 내는 `scroll` 이 그동안 계속 이 시각을 밀어 준다.
  */
-function scrollableUnder(target: Element, sheet: HTMLElement): boolean {
+export const SCROLL_SETTLE_MS = 400;
+
+/**
+ * 손이 얹힌 자리에 **이미 굴려 놓은** 안쪽 상자가 있나.
+ *
+ * 시트 자체는 세지 않는다. 그쪽은 「맨 위에 있을 때만 끈다」 는 규칙이 그대로 산다.
+ *
+ * **굴러갈 수 있다는 것만으로 막지 않는다.** 한때 그렇게 넓혔다가, `overflow-y: auto` 가
+ * 박힌 시트 전체가 걸려들어 iPhone 14 크기에서 시트 일곱의 밀어 닫기가 통째로 죽었다.
+ * 기록 시트 키패드까지 죽었고, 기기 크기에 따라 됐다 안 됐다 했다. 리뷰가 재서 잡았다.
+ */
+function scrolledInnerBox(target: Element, sheet: HTMLElement): boolean {
   let node: Element | null = target;
-  while (node != null) {
-    if (scrollsVertically(node)) return true;
-    if (node === sheet) return false;
+  while (node != null && node !== sheet) {
+    if (node.scrollTop > 0 && scrollsVertically(node)) return true;
     node = node.parentElement;
   }
   return false;
@@ -80,19 +86,28 @@ function scrollableUnder(target: Element, sheet: HTMLElement): boolean {
 /**
  * 여기서 시작한 손짓을 끌기로 볼 것인가.
  *
- * **굴러갈 것이 있으면 본문에서는 안 끈다.** 손잡이만 닫는다. 왜 이 규칙인지는
- * `scrollableUnder` 머릿글에 있다.
+ * 가르는 것 셋이다.
  *
- * **버튼·입력칸 위에서는 시작하지 않는다.** 키패드 숫자를 누르다 손가락이 몇 픽셀
- * 흐르면 시트가 내려가는데, 이 앱에서 그것보다 나쁜 일이 없다.
+ * - **방금 굴렸으면 안 끈다**(`SCROLL_SETTLE_MS`). 튕겨 올리는 손짓의 마지막 한 번을 막는다
+ * - **이미 굴려 놓은 안쪽 상자 위에서는 안 끈다.** 그 상자는 자기만 굴러서 시트의
+ *   스크롤 자리가 늘 0이라, 그 0을 맨 위로 읽으면 읽던 자리를 되올리다 시트가 닫힌다
+ * - **버튼·입력칸 위에서는 안 끈다.** 키패드 숫자를 누르다 손가락이 몇 픽셀 흐르면
+ *   시트가 내려가는데, 이 앱에서 그것보다 나쁜 일이 없다
  *
  * 손잡이는 예외다. 거기서 시작한 것은 언제나 닫으려던 손짓이다.
  */
-export function canStartDrag(target: EventTarget | null, sheet: HTMLElement): boolean {
+export function canStartDrag(
+  target: EventTarget | null,
+  sheet: HTMLElement,
+  /** 마지막으로 굴린 지 몇 ms 지났나. 안 주면 굴린 적이 없는 것으로 본다. */
+  sinceScrollMs: number = Number.POSITIVE_INFINITY,
+): boolean {
   if (isHandle(target)) return true;
-  if (!(target instanceof Element)) return !scrollsVertically(sheet);
+  if (!(target instanceof Element)) return sheet.scrollTop === 0;
   if (target.closest(INTERACTIVE) != null) return false;
-  return !scrollableUnder(target, sheet);
+  if (sinceScrollMs < SCROLL_SETTLE_MS) return false;
+  if (scrolledInnerBox(target, sheet)) return false;
+  return sheet.scrollTop === 0;
 }
 
 export function beginTracking(

@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { LeaveConfirmArea } from '../screens/RecordSheet';
 import { expect, test } from '../support/fixtures';
@@ -22,8 +22,12 @@ import { expect, test } from '../support/fixtures';
 
 /** 시트 안쪽 어딘가를 잡고 아래로 쭉 쓴다. 손잡이가 아니라 본문이다. */
 async function swipeDown(page: Page, selector: string): Promise<void> {
-  const box = await page.locator(selector).first().boundingBox();
-  if (box == null) throw new Error(`${selector} 를 화면에서 못 찾았다`);
+  await swipeDownAt(page, page.locator(selector).first());
+}
+
+async function swipeDownAt(page: Page, target: Locator): Promise<void> {
+  const box = await target.boundingBox();
+  if (box == null) throw new Error('끌 자리를 화면에서 못 찾았다');
   const x = box.x + box.width / 2;
   const y = box.y + Math.min(40, box.height / 3);
   await page.mouse.move(x, y);
@@ -186,10 +190,46 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
  * 폰에서는 튕겨 올리는 손짓이 여러 번 이어지고, 그 사이에 맨 위(0)에 닿는다. 닿은 다음
  * 한 번은 「맨 위니까 닫아도 된다」 로 읽혀 시트가 통째로 닫혔다.
  *
- * 굴러갈 것이 있는 시트에서 본문을 잡고 내리는 손짓은 **언제나 스크롤이다.** 닫는 자리는
- * 손잡이 하나로 둔다.
+ * 그래서 위치만 보지 않고 **방금 굴린 참인지**를 함께 본다.
+ *
+ * ⚠ 한때 「굴러갈 수 있으면 본문에서는 아예 안 끈다」 로 넓혔다가 되돌렸다. `.pk-sheet` 는
+ * 전부 `overflow-y: auto` 라 내용이 긴 시트가 통째로 걸려들었다. 그래서 아래에 **여전히
+ * 닫혀야 하는** 손짓도 함께 둔다. 한쪽만 재면 다음 판에서 또 과하게 막는다.
  */
-test.describe('굴러가는 시트는 본문을 잡아도 안 닫힌다', () => {
+test.describe('굴러가는 시트는 굴리는 손짓으로 안 닫힌다', () => {
+  /**
+   * 내려 읽었다가 맨 위까지 되올린 **직후에** 한 번 더 쓴다. 신고된 손짓이다.
+   *
+   * 되올리기를 `scrollTop` 으로 만든다. 마우스 휠로 만들면 굴리기가 언제 멈추는지가
+   * 실행마다 달라, 맨 위에 안 닿은 채로 쓸어서 **옛 규칙에도 통과하는** 검사가 된다.
+   * 실제로 그렇게 만들었다가 사보타주에 안 걸려서 고쳤다. 자리(맨 위)와 시각(방금 굴림)
+   * 둘 다 신고된 장면과 같아야 한다.
+   */
+  async function backToTopThenSwipe(page: Page, selector: string): Promise<void> {
+    const box = await page.locator(selector).first().boundingBox();
+    if (box == null) throw new Error(`${selector} 를 화면에서 못 찾았다`);
+    const x = box.x + box.width / 2;
+    const y = box.y + Math.min(40, box.height / 3);
+
+    const top = await page
+      .locator(selector)
+      .first()
+      .evaluate((node) => {
+        node.scrollTop = 200; // 내려 읽었다
+        node.scrollTop = 0; // 되올렸다. 여기서 scroll 이 난다
+        return node.scrollTop;
+      });
+    // 맨 위에 실제로 닿았는지 못 박는다. 안 닿았으면 옛 규칙으로도 통과한다.
+    expect(top).toBe(0);
+
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (const step of [20, 60, 110, 170, 230]) {
+      await page.mouse.move(x, y + step);
+    }
+    await page.mouse.up();
+  }
+
   test('기록 고치기: 맨 위까지 되올린 뒤 한 번 더 쓸어도 안 닫힌다', async ({
     page,
     prep,
@@ -201,12 +241,7 @@ test.describe('굴러가는 시트는 본문을 잡아도 안 닫힌다', () => 
     await calendar.list.pick('김밥천국');
     await expect(calendar.edit.dialog).toBeVisible();
 
-    // 내려 읽었다가 맨 위까지 되올린 참이다. 튕기는 손짓은 여기서 한 번 더 이어진다.
-    await page.locator('.tx-edit__scroll').evaluate((node) => {
-      node.scrollTop = 0;
-    });
-    await swipeDown(page, '.tx-edit__scroll');
-
+    await backToTopThenSwipe(page, '.tx-edit__scroll');
     await expect(calendar.edit.dialog).toBeVisible();
   });
 
@@ -224,11 +259,7 @@ test.describe('굴러가는 시트는 본문을 잡아도 안 닫힌다', () => 
     const form = recordSheet.input.newCategoryForm;
     await expect(form.iconGrid).toBeVisible();
 
-    await page.locator('.icon-picker__grid').evaluate((node) => {
-      node.scrollTop = 0;
-    });
-    await swipeDown(page, '.icon-picker__grid');
-
+    await backToTopThenSwipe(page, '.icon-picker__grid');
     await expect(form.title).toBeVisible();
   });
 
@@ -241,5 +272,28 @@ test.describe('굴러가는 시트는 본문을 잡아도 안 닫힌다', () => 
 
     await swipeDown(page, '[data-sheet-handle]');
     await expect(calendar.edit.dialog).toHaveCount(0);
+  });
+
+  test('🔴 굴리지 않고 본문을 잡아 내리면 기록 시트가 닫힌다', async ({
+    page,
+    home,
+    recordSheet,
+  }) => {
+    /*
+      🔴 **과하게 막았다가 되돌린 자리다**(PR #84 리뷰). `.pk-sheet` 는 전부
+      `overflow-y: auto` 라, 굴러갈 수 있다는 것만으로 막으면 내용이 긴 시트가 통째로
+      걸려든다. 이 앱의 간판인 10초 기록 키패드가 그렇게 죽었다(iPhone 14 에서 762px).
+
+      아무것도 안 적었으니 확인 창 없이 그냥 닫힌다.
+    */
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+
+    // 금액 표시 줄이다. 버튼도 입력칸도 아니라 여기서 시작한 손짓은 닫기로 읽혀야 한다.
+    await swipeDownAt(page, recordSheet.input.amountText);
+    await expect(recordSheet.leave.dialog).toHaveCount(0);
+    await recordSheet.waitClosed();
   });
 });

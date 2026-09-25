@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { canStartDrag, shouldDismiss, trackMove, beginTracking } from './sheetDrag';
+import {
+  SCROLL_SETTLE_MS,
+  beginTracking,
+  canStartDrag,
+  shouldDismiss,
+  trackMove,
+} from './sheetDrag';
 
 /**
  * 🔴 **적던 것이 사라진 사고의 자리다**(2026-09-25 신고 두 번).
@@ -9,8 +15,12 @@ import { canStartDrag, shouldDismiss, trackMove, beginTracking } from './sheetDr
  * 안 끝나고 여러 번 튕기는데, 그 사이에 맨 위(0)에 닿는다. 닿은 다음 한 번이 「맨 위니까
  * 닫아도 된다」 로 읽혀 시트가 통째로 닫혔다. 같은 신고가 또 왔다.
  *
- * 그래서 기준을 **자리에서 성질로** 바꿨다. 굴러갈 것이 남아 있으면 본문에서는 안 끈다.
- * 그 시트를 닫는 자리는 손잡이 하나다. 굴러갈 것이 없는 짧은 시트는 그대로 끌린다.
+ * 한때 「굴러갈 수 있으면 본문에서는 아예 안 끈다」 로 넓혔다가 되돌렸다. `overflow-y: auto`
+ * 가 박힌 시트 전체가 걸려들어 iPhone 14 크기에서 시트 일곱이 밀어 닫기를 잃었다.
+ * 기록 시트 키패드까지 죽었고 기기 크기에 따라 됐다 안 됐다 했다(PR #84 리뷰가 재서 잡았다).
+ *
+ * 지금 규칙은 **방금 굴린 참인지**를 함께 본다. 굴리기가 가라앉은 뒤에 새로 시작한 손짓만
+ * 닫기로 읽는다. 관성 스크롤이 내는 `scroll` 이 그동안 계속 그 시각을 밀어 준다.
  */
 
 /** 시트 하나를 세운다. 크기를 주면 그만큼 굴러가는 상자가 된다. */
@@ -45,33 +55,60 @@ function buildSheet(options: {
 }
 
 describe('canStartDrag', () => {
-  it('굴러갈 것이 없는 짧은 시트는 본문을 잡아도 끌린다', () => {
+  it('맨 위의 빈 자리에서는 끌 수 있다', () => {
     const { sheet, target } = buildSheet({});
     expect(canStartDrag(target, sheet)).toBe(true);
   });
 
-  it('🔴 굴러가는 시트는 맨 위에 있어도 본문에서 안 끈다', () => {
+  it('굴러가는 시트라도 맨 위에서 가만히 있으면 끌린다', () => {
     /*
-      **맨 위(0)라는 것이 바로 사고를 낸 값이다.** 튕겨 올리는 손짓이 0에 닿은 다음
-      한 번을 닫기로 읽었다. 굴러갈 것이 있으면 아래로 쓰는 손짓은 언제나 스크롤이다.
+      🔴 여기를 막았다가 되돌렸다. `.pk-sheet` 는 전부 `overflow-y: auto` 라, 굴러갈 수
+      있다는 것만으로 막으면 내용이 긴 시트의 밀어 닫기가 통째로 죽는다. 기록 시트
+      키패드(iPhone 14 에서 762px)가 그렇게 죽었다.
     */
     const { sheet, target } = buildSheet({ sheet: { scrollHeight: 1200, clientHeight: 600 } });
+    expect(canStartDrag(target, sheet)).toBe(true);
+  });
+
+  it('시트를 이미 내려 읽고 있으면 안 끈다', () => {
+    const { sheet, target } = buildSheet({
+      sheetScrollTop: 40,
+      sheet: { scrollHeight: 1200, clientHeight: 600 },
+    });
+    expect(canStartDrag(target, sheet)).toBe(false);
+  });
+
+  it('🔴 맨 위에 닿았어도 방금 굴린 참이면 안 끈다', () => {
+    /*
+      **신고된 장면이 정확히 이것이다.** 튕겨 올리는 손짓이 0에 닿고, 그다음 한 번이
+      「맨 위니까 닫아도 된다」 로 읽혔다. 사람은 같은 손짓을 이어서 하고 있을 뿐이다.
+    */
+    const { sheet, target } = buildSheet({ sheet: { scrollHeight: 1200, clientHeight: 600 } });
+    expect(sheet.scrollTop).toBe(0);
+    expect(canStartDrag(target, sheet, SCROLL_SETTLE_MS - 1)).toBe(false);
+  });
+
+  it('굴리기가 가라앉은 뒤에는 그대로 닫힌다', () => {
+    const { sheet, target } = buildSheet({ sheet: { scrollHeight: 1200, clientHeight: 600 } });
+    expect(canStartDrag(target, sheet, SCROLL_SETTLE_MS + 1)).toBe(true);
+  });
+
+  it('🔴 이미 굴려 놓은 안쪽 상자 위에서는 안 끈다', () => {
+    // 그 상자는 자기만 굴러서 시트의 스크롤 자리가 늘 0이다. 이 0 이 사고를 낸 값이다.
+    const { sheet, target } = buildSheet({
+      inner: { overflowY: 'auto', scrollHeight: 900, clientHeight: 244, scrollTop: 120 },
+    });
     expect(sheet.scrollTop).toBe(0);
     expect(canStartDrag(target, sheet)).toBe(false);
   });
 
-  it('🔴 굴러가는 안쪽 상자 위에서도 맨 위에서 안 끈다', () => {
+  it('안쪽 상자가 맨 위면 가만히 있을 때 끌린다', () => {
     const { sheet, target } = buildSheet({
       inner: { overflowY: 'auto', scrollHeight: 900, clientHeight: 244, scrollTop: 0 },
     });
-    expect(canStartDrag(target, sheet)).toBe(false);
-  });
-
-  it('이미 굴려 놓은 안쪽 상자 위에서도 안 끈다', () => {
-    const { sheet, target } = buildSheet({
-      inner: { overflowY: 'auto', scrollHeight: 900, clientHeight: 244, scrollTop: 120 },
-    });
-    expect(canStartDrag(target, sheet)).toBe(false);
+    expect(canStartDrag(target, sheet)).toBe(true);
+    // 방금 굴렸으면 같은 자리라도 안 끈다.
+    expect(canStartDrag(target, sheet, 50)).toBe(false);
   });
 
   it('넘치기만 하고 숨긴 상자는 스크롤 상자가 아니다', () => {
@@ -89,11 +126,14 @@ describe('canStartDrag', () => {
   });
 
   it('손잡이는 무슨 일이 있어도 끌 수 있다', () => {
-    const { sheet } = buildSheet({ sheet: { scrollHeight: 1200, clientHeight: 600 } });
+    const { sheet } = buildSheet({
+      sheetScrollTop: 400,
+      sheet: { scrollHeight: 1200, clientHeight: 600 },
+    });
     const handle = document.createElement('button');
     handle.setAttribute('data-sheet-handle', '');
     sheet.appendChild(handle);
-    expect(canStartDrag(handle, sheet)).toBe(true);
+    expect(canStartDrag(handle, sheet, 0)).toBe(true);
   });
 });
 
