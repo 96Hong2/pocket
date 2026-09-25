@@ -35,11 +35,7 @@ async function swipeDown(page: Page, selector: string): Promise<void> {
 }
 
 test.describe('적던 것을 말없이 잃지 않는다', () => {
-  test('기록 고치기에서 내려 읽다 되올려도 시트가 안 닫힌다', async ({
-    page,
-    prep,
-    calendar,
-  }) => {
+  test('기록 고치기에서 내려 읽다 되올려도 시트가 안 닫힌다', async ({ page, prep, calendar }) => {
     await prep.addTransaction({ amount: 12_000, merchant: '김밥천국', daysAgo: 0 });
     await calendar.open();
     await calendar.waitReady();
@@ -154,11 +150,7 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await expect(recordSheet.input.amountText).toContainText('24,000');
   });
 
-  test('아이콘 격자를 굴려 놓고 되올려도 창이 안 닫힌다', async ({
-    page,
-    home,
-    recordSheet,
-  }) => {
+  test('아이콘 격자를 굴려 놓고 되올려도 창이 안 닫힌다', async ({ page, home, recordSheet }) => {
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
@@ -181,5 +173,73 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await expect(recordSheet.leave.dialog).toHaveCount(0);
     await expect(form.title).toBeVisible();
     await expect(form.nameField).toHaveValue('반려동물');
+  });
+});
+
+/**
+ * 🔴 **첫 판으로 안 끝났다**(2026-09-25 두 번째 신고).
+ *
+ * 「지금도 기록 수정하거나 새 카테고리 추가하다가 스크롤해서 창 닫으면 아무 알림창 없이
+ * 바로 닫히는데?」
+ *
+ * 앞의 검사들은 **굴려 놓은 상태에서** 아래로 쓴 한 번만 봤다. 실제 손짓은 그렇지 않다.
+ * 폰에서는 튕겨 올리는 손짓이 여러 번 이어지고, 그 사이에 맨 위(0)에 닿는다. 닿은 다음
+ * 한 번은 「맨 위니까 닫아도 된다」 로 읽혀 시트가 통째로 닫혔다.
+ *
+ * 굴러갈 것이 있는 시트에서 본문을 잡고 내리는 손짓은 **언제나 스크롤이다.** 닫는 자리는
+ * 손잡이 하나로 둔다.
+ */
+test.describe('굴러가는 시트는 본문을 잡아도 안 닫힌다', () => {
+  test('기록 고치기: 맨 위까지 되올린 뒤 한 번 더 쓸어도 안 닫힌다', async ({
+    page,
+    prep,
+    calendar,
+  }) => {
+    await prep.addTransaction({ amount: 12_000, merchant: '김밥천국', daysAgo: 0 });
+    await calendar.open();
+    await calendar.waitReady();
+    await calendar.list.pick('김밥천국');
+    await expect(calendar.edit.dialog).toBeVisible();
+
+    // 내려 읽었다가 맨 위까지 되올린 참이다. 튕기는 손짓은 여기서 한 번 더 이어진다.
+    await page.locator('.tx-edit__scroll').evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await swipeDown(page, '.tx-edit__scroll');
+
+    await expect(calendar.edit.dialog).toBeVisible();
+  });
+
+  test('분류 만들기: 격자를 맨 위까지 되올린 뒤 한 번 더 쓸어도 안 닫힌다', async ({
+    page,
+    home,
+    recordSheet,
+  }) => {
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.input.openNewCategory();
+
+    const form = recordSheet.input.newCategoryForm;
+    await expect(form.iconGrid).toBeVisible();
+
+    await page.locator('.icon-picker__grid').evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await swipeDown(page, '.icon-picker__grid');
+
+    await expect(form.title).toBeVisible();
+  });
+
+  test('손잡이로는 그대로 닫힌다', async ({ page, prep, calendar }) => {
+    await prep.addTransaction({ amount: 12_000, merchant: '김밥천국', daysAgo: 0 });
+    await calendar.open();
+    await calendar.waitReady();
+    await calendar.list.pick('김밥천국');
+    await expect(calendar.edit.dialog).toBeVisible();
+
+    await swipeDown(page, '[data-sheet-handle]');
+    await expect(calendar.edit.dialog).toHaveCount(0);
   });
 });

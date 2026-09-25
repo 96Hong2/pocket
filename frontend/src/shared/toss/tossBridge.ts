@@ -21,6 +21,7 @@ import {
   tdsEvent,
 } from '@apps-in-toss/web-framework';
 
+import { INTERSTITIAL_RELEASE_MS, REWARDED_RELEASE_MS } from './fullScreenAdFlow';
 import { runFullScreenAd, type AdSdk } from './fullScreenAdRun';
 
 import {
@@ -115,11 +116,15 @@ const AD_SDK: AdSdk = {
   show: (params) => showFullScreenAd(params),
 };
 
-function runAd(adGroupId: string, hooks?: FullScreenAdHooks): Promise<FullScreenAdResult> {
+function runAd(
+  adGroupId: string,
+  releaseMs: number,
+  hooks?: FullScreenAdHooks,
+): Promise<FullScreenAdResult> {
   if (!loadFullScreenAd.isSupported() || !showFullScreenAd.isSupported()) {
     return Promise.resolve('failed');
   }
-  return runFullScreenAd(AD_SDK, adGroupId, hooks);
+  return runFullScreenAd(AD_SDK, adGroupId, releaseMs, hooks);
 }
 
 class TossAdsBridge implements AdsBridge {
@@ -170,15 +175,18 @@ class TossAdsBridge implements AdsBridge {
   }
 
   showFullScreen(adGroupId: string, hooks?: FullScreenAdHooks): Promise<FullScreenAdResult> {
-    return runAd(adGroupId, hooks);
+    return runAd(adGroupId, INTERSTITIAL_RELEASE_MS, hooks);
   }
 
   /*
     SDK 호출이 전면과 한 글자도 다르지 않다. 전면형인지 리워드형인지는 콘솔에 등록한
     그룹이 정하기 때문이다. 부르는 쪽이 어느 쪽을 기대하는지만 이 이름으로 갈린다.
+
+    **기다려 주는 시간은 다르다.** 리워드는 실측 30초라 전면과 같은 15초로 끊으면
+    끝까지 보던 사람의 보상이 그 전에 잘린다.
   */
   showRewarded(adGroupId: string, hooks?: FullScreenAdHooks): Promise<FullScreenAdResult> {
-    return runAd(adGroupId, hooks);
+    return runAd(adGroupId, REWARDED_RELEASE_MS, hooks);
   }
 }
 

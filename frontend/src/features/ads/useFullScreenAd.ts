@@ -23,9 +23,7 @@ const TEST_GROUP = import.meta.env.DEV ? 'ait-ad-test-interstitial-id' : null;
  * - `watched`  광고가 뜨고 닫혔다
  * - `skipped`  광고 없이 지나갔다. 왜인지는 `reason` 이 말한다
  */
-export type FullScreenAdOutcome =
-  | { result: 'watched' }
-  | { result: 'skipped'; reason: SkipReason };
+export type FullScreenAdOutcome = { result: 'watched' } | { result: 'skipped'; reason: SkipReason };
 
 /**
  * 광고 없이 지나간 이유.
@@ -44,9 +42,7 @@ export type SkipReason = 'no_group' | 'unsupported' | 'failed' | 'stalled';
  * - `skipped`  광고 없이 지나갔다
  */
 export type RewardedAdOutcome =
-  | { result: 'earned' }
-  | { result: 'watched' }
-  | { result: 'skipped'; reason: SkipReason };
+  { result: 'earned' } | { result: 'watched' } | { result: 'skipped'; reason: SkipReason };
 
 /**
  * 어느 광고 그룹을 띄울지.
@@ -97,8 +93,8 @@ function useAdShow(
         갇힌 적이 있으면 이 세션에서는 다시 안 띄운다.
 
         광고가 뜬 채 멈추는 판은 **특정 기기와 특정 광고의 조합**에서 난다. 한 번 걸린
-        사람은 다음에도 걸릴 가능성이 크고, 그때마다 90초씩 붙잡힌다. 그 사람에게서
-        이번 세션의 광고 수입을 포기하는 쪽이 싸다.
+        사람은 다음에도 걸린다. 화면은 15초에 풀리지만 광고 자체는 그대로 덮고 있어
+        아무것도 못 누른다. 그 사람에게서 이번 세션의 광고 수입을 포기하는 쪽이 싸다.
       */
       if (stalledThisSession) return { result: 'skipped', reason: 'stalled' };
 
@@ -127,6 +123,13 @@ function useAdShow(
           onStalled: () => {
             stalled = true;
             stalledThisSession = true;
+            /*
+              **판정이 답보다 늦게 온다.** 화면은 15초·35초에 먼저 풀어 주고, 정말 갇힌
+              것인지는 90초까지 보고 정한다(`fullScreenAdRun`). 그래서 아래에서 지운 표를
+              여기서 다시 적는다. 안 적으면 광고에 갇힌 채 앱을 끈 사람이 다음 실행에서
+              안 세어진다. 그 결말이 통계에서 통째로 빠지는 것이 이 표를 만든 이유다.
+            */
+            void markAdOnScreen(bridge.storage, where);
           },
         });
         /*

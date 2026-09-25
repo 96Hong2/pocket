@@ -5,7 +5,7 @@
  * # 1. 앱 화면을 찍는다
  * POCKET_SHOT_OUT=<폴더> npx playwright test specs/promo-shots.spec.ts --project=mobile-chromium
  * # 2. 쓸 만큼만 잘라 <폴더>/crops 에 넣는다 (어디를 자를지는 눈으로 보고 정한다)
- * # 3. 얹는다
+ * # 3. 얹는다 (결과는 콘솔 규격 636x1048)
  * POCKET_SHOT_DIR=<폴더> node scripts/store-shots.mjs
  * ```
  *
@@ -13,7 +13,7 @@
  * 판단이라, 숫자로 박아 두면 다음 판에서 반드시 어긋난다. 자른 결과의 이름만 약속한다.
  */
 import { chromium } from '@playwright/test';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -76,11 +76,44 @@ const PAGES = [
 
 mkdirSync(OUT, { recursive: true });
 
+/*
+  **콘솔이 636x1048 만 받는다.** 「이미지 크기가 맞지 않아요」 로 거부한다.
+
+  그래도 2배로 그린다. 1배로 그리면 글자가 뭉개진다. 찍은 뒤 절반으로 줄이면 2배 표본을
+  모아 만든 636x1048 이 되어 오히려 더 깨끗하다. 줄이는 일은 `sharp` 없이
+  캔버스로 한다(`drawImage` 가 브라우저의 좋은 보간을 쓴다).
+*/
+const OUT_WIDTH = 636;
+const OUT_HEIGHT = 1048;
+
 const browser = await chromium.launch();
 const page = await browser.newPage({
-  viewport: { width: 636, height: 1048 },
+  viewport: { width: OUT_WIDTH, height: OUT_HEIGHT },
   deviceScaleFactor: 2,
 });
+
+/** 2배로 찍은 그림을 콘솔 규격으로 줄인다. */
+const shrinker = await browser.newPage({ viewport: { width: OUT_WIDTH, height: OUT_HEIGHT } });
+async function toConsoleSize(buffer) {
+  const base64 = buffer.toString('base64');
+  const shrunk = await shrinker.evaluate(
+    async ([data, w, h]) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${data}`;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(image, 0, 0, w, h);
+      return canvas.toDataURL('image/png').split(',')[1];
+    },
+    [base64, OUT_WIDTH, OUT_HEIGHT],
+  );
+  return Buffer.from(shrunk, 'base64');
+}
 
 for (const item of PAGES) {
   const params = new URLSearchParams({
@@ -100,7 +133,8 @@ for (const item of PAGES) {
 
   await page.goto(`file://${resolve(HERE, 'store-frame.html')}?${params.toString()}`);
   await page.waitForTimeout(700);
-  await page.screenshot({ path: `${OUT}/${item.file}` });
+  const shot = await page.screenshot();
+  writeFileSync(`${OUT}/${item.file}`, await toConsoleSize(shot));
   console.log('만들었다:', item.file);
 }
 
