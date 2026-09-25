@@ -55,6 +55,14 @@ async function swipeDownAt(page: Page, target: Locator): Promise<void> {
   for (const step of [20, 60, 110, 170, 230]) {
     await page.mouse.move(x, y + step);
   }
+  /*
+    🔴 **손을 떼기 전에 한 박자 쉰다.** 사람 손가락은 0ms 만에 떨어지지 않는다.
+
+    이 틈에 확인 창이 먼저 떠 버리면, 누른 자리와 뗀 자리가 서로 다른 나무에 있게 되어
+    브라우저가 `click` 을 `body` 에 쏜다. 그러면 끌기 잔상을 삼키는 표시가 안 걷히고
+    **그다음에 사람이 누른 한 번을 먹는다.** 로컬에서는 안 나고 CI 에서만 났던 자리다.
+  */
+  await page.waitForTimeout(150);
   await page.mouse.up();
 }
 

@@ -89,6 +89,16 @@ export function useDragToDismiss({
   }, [active]);
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>): void {
+    /*
+      🔴 **새로 누르면 앞 끌기의 잔상 표시를 버린다.**
+
+      끌고 손을 떼면 따라오는 클릭이 하나 오는데, 그것이 **안 오는 판이 있다.** 누른 자리와
+      뗀 자리가 서로 다른 나무에 있으면 브라우저가 `body` 에 쏘고, 그 클릭은 우리 처리기에
+      안 닿는다. 그러면 표시가 켜진 채로 남아 **그다음에 사람이 누른 한 번을 먹는다.**
+      CI 에서 확인 창의 「그만두기」 가 그렇게 죽었다(창은 떠 있고 버튼에 포커스까지 갔는데
+      아무 일도 안 일어났다). 새 누름이 왔다는 것은 그 잔상이 영영 안 온다는 뜻이다.
+    */
+    swallowClick.current = false;
     if (!enabled || trackerRef.current != null) return;
     const box = boxRef.current;
     if (box == null) return;
@@ -142,10 +152,19 @@ export function useDragToDismiss({
 
     예전에는 손잡이의 클릭 하나만 봤다. 본문에서 시작한 끌기는 손잡이 클릭을 안 만드니
     표시가 켜진 채로 남고, **다음에 손잡이를 누른 한 번이 통째로 죽었다.**
+
+    🔴 **포털로 띄운 창 위의 클릭은 안 삼킨다.** 확인 창은 `body` 에 붙지만 리액트
+    안에서는 여전히 자식이라 이 잡기가 그 클릭까지 받는다. 끌어서 확인 창을 띄운 직후,
+    사람이 누른 「그만두기」 한 번이 끌기의 잔상으로 오인돼 죽었다(CI 가 잡았다).
+    **DOM 으로 가른다.** 딤은 이 상자 안에 있고 포털은 밖에 있다.
+
+    표시는 어느 쪽이든 내린다. 따라오는 클릭은 한 번뿐이라, 남겨 두면 그다음에 사람이
+    누른 한 번을 먹는다. 위에 적힌 그 사고다.
   */
   function onClickCapture(event: ReactMouseEvent<HTMLDivElement>): void {
     if (!swallowClick.current) return;
     swallowClick.current = false;
+    if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
     if (isHandle(event.target)) return;
     event.stopPropagation();
   }
