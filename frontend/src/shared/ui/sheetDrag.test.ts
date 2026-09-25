@@ -125,6 +125,32 @@ describe('canStartDrag', () => {
     expect(canStartDrag(button, sheet)).toBe(false);
   });
 
+  it('🔴 덮는 창에서 올라온 손짓은 시트가 안 받는다', () => {
+    /*
+      **2026-09-25 밤 신고의 자리다.** 분류 만들기 창은 `createPortal` 로 `body` 에 붙지만
+      리액트 안에서는 여전히 시트의 자식이라, 합성 이벤트가 리액트 나무를 타고 시트까지
+      올라온다. 화면에서는 창이 시트를 덮고 있는데 시트가 닫혔다. 둘 다 사라졌다.
+    */
+    const { sheet } = buildSheet({});
+    const overlay = document.createElement('div');
+    const inside = document.createElement('span');
+    overlay.appendChild(inside);
+    document.body.appendChild(overlay);
+    expect(sheet.contains(inside)).toBe(false);
+    expect(canStartDrag(inside, sheet)).toBe(false);
+  });
+
+  it('덮는 창 안의 손잡이도 시트를 끌지 못한다', () => {
+    // 창이 제 손잡이를 갖게 되더라도, 그것이 여는 것은 제 창이지 뒤의 시트가 아니다.
+    const { sheet } = buildSheet({});
+    const overlay = document.createElement('div');
+    const handle = document.createElement('button');
+    handle.setAttribute('data-sheet-handle', '');
+    overlay.appendChild(handle);
+    document.body.appendChild(overlay);
+    expect(canStartDrag(handle, sheet)).toBe(false);
+  });
+
   it('손잡이는 무슨 일이 있어도 끌 수 있다', () => {
     const { sheet } = buildSheet({
       sheetScrollTop: 400,

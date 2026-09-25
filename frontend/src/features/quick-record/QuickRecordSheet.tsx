@@ -167,6 +167,15 @@ export function QuickRecordSheet({
   const draftedRef = useRef(() => false);
   /** 지금 분류를 만드는 중인가. 문구가 잃을 범위를 말해야 해서 바깥도 알아야 한다. */
   const composingRef = useRef(false);
+  /*
+    🔴 **만드는 중에 닫는 손짓은 한 겹만 접는다**(2026-09-25 밤 신고).
+
+    이 화면은 덮는 창이 아니라 **시트 안쪽을 통째로 바꾸는 방식**이라, 본문을 잡아 내리면
+    시트의 밀어 닫기가 그대로 돌아 기록 시트째 사라졌다. 적어 둔 금액과 고른 날까지 함께
+    갔다. 딤을 누르는 길도 같았다. 뒤로가기와 Esc 는 이미 이렇게 접고 있었는데 손짓만
+    빠져 있었다. 같은 화면에서 닫는 길마다 잃는 것이 다르면 안 된다.
+  */
+  const leaveComposeRef = useRef(() => {});
   const [reviewing, setReviewing] = useState(false);
   const [asking, setAsking] = useState(false);
   /*
@@ -207,6 +216,11 @@ export function QuickRecordSheet({
   }
 
   function requestClose(): void {
+    // 만드는 중이면 만들기만 접고 기록 화면으로 돌아간다. 묻는 일은 그쪽이 한다.
+    if (composingRef.current) {
+      leaveComposeRef.current();
+      return;
+    }
     requestLeave('close');
   }
 
@@ -244,6 +258,7 @@ export function QuickRecordSheet({
         onPendingChange={setPending}
         draftedRef={draftedRef}
         composingRef={composingRef}
+        leaveComposeRef={leaveComposeRef}
         onReviewingChange={setReviewing}
       />
       {asking ? (
@@ -301,6 +316,7 @@ function RecordBody({
   onPendingChange,
   draftedRef,
   composingRef,
+  leaveComposeRef,
   onReviewingChange,
 }: {
   initialTab?: RecordTab;
@@ -319,6 +335,8 @@ function RecordBody({
   draftedRef: { current: () => boolean };
   /** 지금 분류를 만드는 중인가. 바깥의 확인 문구가 잃을 범위를 말하는 데 쓴다. */
   composingRef: { current: boolean };
+  /** 만들기만 접는 길. 시트를 닫으려는 손짓·딤이 만드는 중에는 이리로 온다. */
+  leaveComposeRef: { current: () => void };
   /** 지금 보고 있는 탭이 검토 중인가. 시트 크기가 이 값을 따라간다. */
   onReviewingChange: (reviewing: boolean) => void;
 }) {
@@ -434,7 +452,6 @@ function RecordBody({
   useEffect(() => {
     onReviewingChange(reviewing);
   }, [onReviewingChange, reviewing]);
-
 
   /**
    * 적힌 날을 부르는 쪽에 알린다.
@@ -748,6 +765,7 @@ function RecordBody({
   draftedRef.current = () =>
     (!done && digits !== '') || nlDraftRef.current || composeDirtyRef.current;
   composingRef.current = creating;
+  leaveComposeRef.current = requestLeaveCompose;
 
   const amount = toAmount(digits);
   const saveError = create.error instanceof ApiError ? create.error : null;

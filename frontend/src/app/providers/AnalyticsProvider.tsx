@@ -1,7 +1,9 @@
 import { useEffect, useMemo, type ReactNode } from 'react';
 
 import { EVENTS, Analytics, AnalyticsContext } from '../../shared/analytics';
-import { takeStuckMark } from '../../shared/lib/stuckAd';
+import { addStuckDeath, takeStuckMark } from '../../shared/lib/stuckAd';
+
+import { ensureStuckMemory, noteStuckDeaths } from '../../shared/lib/stuckAdMemory';
 
 import { useBridge } from './bridgeContext';
 
@@ -24,10 +26,21 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // 개발 StrictMode 는 효과를 두 번 돌린다. 읽고 지우는 일이라 가드가 없으면 두 번 센다.
     let alive = true;
-    void takeStuckMark(bridge.storage).then((mark) => {
+    void (async () => {
+      // 저장소에 남은 갇힘 기록을 여기서 한 번 당겨 둔다. 광고 쪽이 이 값을 그 자리에서 읽는다.
+      await ensureStuckMemory(bridge.storage);
+      const mark = await takeStuckMark(bridge.storage);
       if (!alive || mark == null) return;
-      analytics.log(EVENTS.adStuckExit, { where: mark.where });
-    });
+      /*
+        🔴 **세고 끝내지 않는다.** 광고가 덮은 채 죽은 판은 횟수로도 쌓는다. 다만 이 표는
+        고장에만 남는 것이 아니라 지겨워서 끈 사람에게도 남으므로, **연달아** 두 번일
+        때만 광고를 닫는다. 광고 한 편이 제대로 걷히면 0으로 되돌아간다(ADR-0038).
+      */
+      const deaths = await addStuckDeath(bridge.storage);
+      if (!alive) return;
+      noteStuckDeaths(deaths);
+      analytics.log(EVENTS.adStuckExit, { where: mark.where, deaths });
+    })();
     return () => {
       alive = false;
     };

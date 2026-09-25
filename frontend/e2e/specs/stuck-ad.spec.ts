@@ -36,6 +36,21 @@ async function readStuckMark(page: Page): Promise<string | null> {
   return page.evaluate(() => window.localStorage.getItem('__ait_storage:ad-on-screen'));
 }
 
+/** 광고가 덮인 채로 이만큼 연달아 죽은 사람으로 연다. */
+async function seedStuckDeaths(page: Page, deaths: number): Promise<void> {
+  await page.addInitScript((value: string) => {
+    try {
+      window.localStorage.setItem('__ait_storage:ad-stuck-deaths', value);
+    } catch {
+      /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+    }
+  }, String(deaths));
+}
+
+async function readStuckDeaths(page: Page): Promise<string | null> {
+  return page.evaluate(() => window.localStorage.getItem('__ait_storage:ad-stuck-deaths'));
+}
+
 test.describe('광고에 갇힌 판을 센다', () => {
   test('지난번에 갇힌 채 끝났으면 앱을 열 때 한 번 센다', async ({ page, home }) => {
     await seedStuckMark(page, 'photo');
@@ -81,9 +96,9 @@ test.describe('광고에 갇힌 판을 센다', () => {
     await manage.subScreenRow('카테고리 관리').click();
     await manage.adConsentConfirm.click();
 
-    await expect.poll(() => readStuckMark(page), { timeout: 20_000, intervals: [50] }).toBe(
-      'categories',
-    );
+    await expect
+      .poll(() => readStuckMark(page), { timeout: 20_000, intervals: [50] })
+      .toBe('categories');
   });
 
   test('광고가 정상으로 끝나면 표가 안 남는다', async ({ page, manage }) => {
@@ -101,5 +116,79 @@ test.describe('광고에 갇힌 판을 센다', () => {
       .toBeGreaterThan(0);
 
     await expect.poll(() => readStuckMark(page)).toBe(null);
+  });
+});
+
+/**
+ * 🔴 **세 번째 신고**(2026-09-25 밤).
+ *
+ * 「15초 지나도 광고 안꺼져서 그냥 앱을 꺼야해. 이거 제대로 해줘.」
+ *
+ * 15초에 푸는 것은 우리 화면이고 광고는 토스가 띄운 것이라 그대로 덮고 있다. 세션 기억은
+ * 앱을 끄면 함께 사라져서 다시 열면 또 걸렸다. 그래서 저장소에 남기고, 쌓이면 그
+ * 기기에서는 전면 광고를 아예 안 띄운다(ADR-0038).
+ *
+ * ⚠ **연달아 두 번이다.** 표는 고장에만 남는 것이 아니라 지겨워서 끈 사람에게도 남는다.
+ */
+test.describe('갇힌 적이 쌓인 기기에서는 광고를 안 띄운다', () => {
+  test('🔴 연달아 두 번이면 관리 화면에 광고 없이 들어간다', async ({ page, manage }) => {
+    await seedStuckDeaths(page, 2);
+    await manage.open();
+    await manage.waitReady();
+    // 심은 값이 실제로 닿았는지 먼저 본다. 헛돌면 아래가 통째로 무의미해진다.
+    expect(await readStuckDeaths(page)).toBe('2');
+
+    await manage.subScreenRow('카테고리 관리').click();
+
+    /*
+      광고를 띄운다는 예고(동의 창)부터 안 뜬다. 못 서는 곳에 예고를 적지 않는다.
+      그대로 카테고리 관리 화면이 열리고, 표도 안 적힌다.
+    */
+    await expect(page.getByRole('heading', { name: '카테고리 관리' })).toBeVisible();
+    await expect(manage.adConsentConfirm).toHaveCount(0);
+    expect(await readStuckMark(page)).toBe(null);
+
+    /*
+      **지나간 이유가 `stalled` 여야 한다.** 이것이 없으면 광고 그룹이 안 잡힌 판
+      (`no_group`)으로도 이 검사가 초록으로 남는다.
+    */
+    const logs = await logsNamed(page, 'interstitial_result');
+    expect(logs.at(-1)?.params).toMatchObject({ result: 'skipped', reason: 'stalled' });
+  });
+
+  test('한 번만 죽었으면 아직 안 끈다. 지겨워서 끈 사람까지 걸린다', async ({ page, manage }) => {
+    await seedStuckDeaths(page, 1);
+    await manage.open();
+    await manage.waitReady();
+    expect(await readStuckDeaths(page)).toBe('1');
+
+    await manage.subScreenRow('카테고리 관리').click();
+    await expect(manage.adConsentConfirm).toBeVisible();
+  });
+
+  test('앱이 광고에 덮인 채 죽었으면 한 칸 오른다', async ({ page, home }) => {
+    await seedStuckMark(page, 'photo');
+    await home.open();
+    await home.waitReady();
+
+    await expect.poll(() => readStuckDeaths(page)).toBe('1');
+  });
+
+  test('🔴 광고 한 편이 제대로 걷히면 연속 기록이 끊긴다', async ({ page, manage }) => {
+    /*
+      누적으로 세면 오래 쓰는 사람은 거의 전원이 문턱에 닿는다. 사이에 멀쩡한 판이
+      하나라도 있으면 그건 연속이 아니다. 목 SDK 의 광고는 떴다가 스스로 닫힌다.
+    */
+    await seedStuckDeaths(page, 1);
+    await manage.open();
+    await manage.waitReady();
+    await manage.subScreenRow('카테고리 관리').click();
+    await manage.adConsentConfirm.click();
+
+    await expect
+      .poll(async () => (await logsNamed(page, 'interstitial_result')).length, { timeout: 20_000 })
+      .toBeGreaterThan(0);
+
+    await expect.poll(() => readStuckDeaths(page)).toBe(null);
   });
 });

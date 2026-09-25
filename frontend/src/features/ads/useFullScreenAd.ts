@@ -1,7 +1,15 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useSyncExternalStore } from 'react';
 
 import { useBridge } from '../../app/providers';
 import { clearAdOnScreen, markAdOnScreen } from '../../shared/lib/stuckAd';
+import {
+  adsBlockedByStall,
+  ensureStuckMemory,
+  getStuckMemory,
+  rememberAdFinished,
+  rememberStuckSeen,
+  subscribeStuckMemory,
+} from '../../shared/lib/stuckAdMemory';
 import type { AdsBridge, FullScreenAdHooks } from '../../shared/toss';
 
 /**
@@ -78,17 +86,19 @@ function useAdShow(
   const bridge = useBridge();
   const [busy, setBusy] = useState(false);
   /*
-    갇힘 판정이 늦게 오면 그릴 기회가 없다. 그 판정은 `available` 을 뒤집는데, 모듈
-    변수라서 스스로 그림을 다시 그리게 하지 못한다. 그때 이 값을 올려 한 번 그린다.
+    갇힘 기억은 훅 밖에 산다. **그림 밖에서 바뀌므로 구독해서 듣는다.**
+
+    점수는 앱을 열고 저장소를 다녀온 뒤에 얹히고, 갇힘 판정은 광고가 뜬 지 90초 뒤에
+    온다. 안 들으면 화면은 「광고 보고 받기」 를 계속 권하는데 누르면 그냥 지나간다.
   */
-  const [, bump] = useState(0);
+  const stuck = useSyncExternalStore(subscribeStuckMemory, getStuckMemory, getStuckMemory);
   /*
     이 기기에서 애초에 광고가 설 수 있는가. 못 서는 곳에 예고를 적지 않으려고 화면에 알린다.
 
-    **이 세션에서 한 번 갇혔으면 여기서 닫는다.** 아래 `stalledThisSession` 을 참고.
+    **갇힌 적이 있으면 여기서 닫는다**(ADR-0038).
   */
   const available =
-    !stalledThisSession &&
+    !adsBlockedByStall(stuck) &&
     resolveGroup(bridge.environment, configured) != null &&
     bridge.supports('fullScreenAd');
 
@@ -101,7 +111,19 @@ function useAdShow(
         사람은 다음에도 걸린다. 화면은 15초에 풀리지만 광고 자체는 그대로 덮고 있어
         아무것도 못 누른다. 그 사람에게서 이번 세션의 광고 수입을 포기하는 쪽이 싸다.
       */
-      if (stalledThisSession) return { result: 'skipped', reason: 'stalled' };
+      /*
+        🔴 **갇힌 적이 있으면 아예 안 띄운다**(2026-09-25 밤, 세 번째 신고. ADR-0038).
+
+        「15초 지나도 광고 안 꺼져서 그냥 앱을 꺼야 해.」 15초에 푸는 것은 우리 화면이고
+        광고는 토스가 띄운 것이라 그대로 덮고 있다. 그 사람에게는 아무것도 안 바뀐 셈이다.
+        세션 기억은 앱을 끄면 함께 사라져 다음에 열면 또 걸린다. 그래서 점수는 저장소에 남는다.
+
+        **그림에 쓰는 값이 아니라 지금 값을 다시 읽는다.** 누르기 직전에 다른 화면이
+        갇혔을 수 있다. 저장소에서 아직 안 온 값도 여기서 기다린다. 안 기다리면 앱을
+        열자마자 광고가 뜨는 길에서 갇힌 기기에 광고가 한 편 더 뜬다.
+      */
+      await ensureStuckMemory(bridge.storage);
+      if (adsBlockedByStall()) return { result: 'skipped', reason: 'stalled' };
 
       const group = resolveGroup(bridge.environment, configured);
       if (group == null) return { result: 'skipped', reason: 'no_group' };
@@ -131,16 +153,22 @@ function useAdShow(
           onAdGone: () => {
             // 적기가 먼저 닿게 이어 붙인다. 둘 다 네이티브를 다녀와 순서 보장이 없다.
             void marking.then(() => clearAdOnScreen(bridge.storage));
+            /*
+              광고 한 편이 제대로 걷혔다. **연달아 죽은 기록을 끊는다.** 누적으로 세면
+              오래 쓰는 사람은 거의 전원이 문턱에 닿는다(ADR-0038).
+            */
+            rememberAdFinished(bridge.storage);
           },
           onStalled: () => {
             stalled = true;
-            stalledThisSession = true;
             /*
-              **판정이 답보다 늦게 온다.** 화면은 15·35초에 먼저 풀고, 정말 갇힌 것인지는
-              90초까지 보고 정한다. 그래서 그림 그릴 기회를 여기서 한 번 준다. 안 주면
-              화면은 「광고 보고 받기」 를 계속 권하는데 누르면 그냥 지나간다.
+              90초까지 덮고 있고, 끝 신호도 없고, 눌러 나간 것도 아니다. **직접 봤으므로**
+              이 한 번으로 끈다. 앱을 끄고 다시 열어도 꺼져 있어야 두 번 안 빠진다.
+
+              판정은 답보다 늦게 온다(화면은 15·35초에 먼저 푼다). 기억이 구독을 들고 있어
+              화면은 알아서 다시 그려진다.
             */
-            bump((n) => n + 1);
+            rememberStuckSeen(bridge.storage);
           },
         });
         await marking;
@@ -159,19 +187,6 @@ function useAdShow(
   );
 
   return { busy, available, show };
-}
-
-/**
- * 이 세션에서 광고가 뜬 채 멈춘 적이 있나.
- *
- * 훅 바깥의 모듈 변수다. 화면마다 훅이 따로 도는데 **사람은 하나**라서, 훅 안에 두면
- * 캡처 탭에서 갇힌 사람이 영수증 탭에서 다시 갇힌다.
- */
-let stalledThisSession = false;
-
-/** 테스트 사이에 세션 기억을 비운다. */
-export function resetStalledMemory(): void {
-  stalledThisSession = false;
 }
 
 const runFullScreen = (ads: AdsBridge, group: string, hooks: FullScreenAdHooks) =>

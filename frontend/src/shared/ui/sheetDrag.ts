@@ -86,8 +86,9 @@ function scrolledInnerBox(target: Element, sheet: HTMLElement): boolean {
 /**
  * 여기서 시작한 손짓을 끌기로 볼 것인가.
  *
- * 가르는 것 셋이다.
+ * 가르는 것 넷이다.
  *
+ * - **이 시트 안에서 시작하지 않았으면 안 끈다.** 아래 「포털」 문단을 본다
  * - **방금 굴렸으면 안 끈다**(`SCROLL_SETTLE_MS`). 튕겨 올리는 손짓의 마지막 한 번을 막는다
  * - **이미 굴려 놓은 안쪽 상자 위에서는 안 끈다.** 그 상자는 자기만 굴러서 시트의
  *   스크롤 자리가 늘 0이라, 그 0을 맨 위로 읽으면 읽던 자리를 되올리다 시트가 닫힌다
@@ -95,6 +96,12 @@ function scrolledInnerBox(target: Element, sheet: HTMLElement): boolean {
  *   시트가 내려가는데, 이 앱에서 그것보다 나쁜 일이 없다
  *
  * 손잡이는 예외다. 거기서 시작한 것은 언제나 닫으려던 손짓이다.
+ *
+ * 🔴 **포털.** 시트 위에 덮어 세우는 창(`CategoryComposeOverlay` · `LeaveConfirm`)은
+ * `createPortal` 로 `body` 에 붙지만, 리액트 안에서는 여전히 시트의 자식이다. 합성 이벤트는
+ * **DOM 이 아니라 리액트 나무를 타고** 올라오므로, 그 창 안에서 시작한 손짓이 시트의
+ * 끌기 처리기까지 그대로 닿는다. 화면에서는 시트가 덮여 안 보이는데 시트가 닫힌다.
+ * 2026-09-25 밤 신고가 이것이었다: 기록 고치기에서 분류를 만들다 내리면 둘 다 사라졌다.
  */
 export function canStartDrag(
   target: EventTarget | null,
@@ -102,8 +109,10 @@ export function canStartDrag(
   /** 마지막으로 굴린 지 몇 ms 지났나. 안 주면 굴린 적이 없는 것으로 본다. */
   sinceScrollMs: number = Number.POSITIVE_INFINITY,
 ): boolean {
+  if (!(target instanceof Element)) return target == null ? false : sheet.scrollTop === 0;
+  // 덮는 창에서 올라온 손짓은 그 창의 것이다. 손잡이보다 먼저 가른다.
+  if (!sheet.contains(target)) return false;
   if (isHandle(target)) return true;
-  if (!(target instanceof Element)) return sheet.scrollTop === 0;
   if (target.closest(INTERACTIVE) != null) return false;
   if (sinceScrollMs < SCROLL_SETTLE_MS) return false;
   if (scrolledInnerBox(target, sheet)) return false;

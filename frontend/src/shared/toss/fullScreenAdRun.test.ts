@@ -174,6 +174,41 @@ describe('갇힌 판', () => {
     expect(onStalled).toHaveBeenCalledTimes(1);
   });
 
+  it('🔴 광고를 눌러 나간 사람을 갇힌 것으로 세지 않는다', async () => {
+    /*
+      **광고를 누르면 토스가 광고주 페이지를 열고 우리 웹뷰는 숨는다.** 거기서 90초를
+      쓰는 것은 광고 클릭의 정상 모습이고, 노출이 아니라 클릭이 우리가 돈을 버는 자리다.
+      화면 상태만 보면 그 모습과 갇힌 것이 똑같이 보인다. 가르지 않으면 **광고를 눌러 준
+      사람의 기기에서 광고를 끄게 된다**(PR 리뷰가 잡았다).
+    */
+    const onStalled = vi.fn();
+    const promise = launch({ onStalled });
+    setVisibility('hidden');
+    shows[0].onEvent({ type: 'show' });
+    shows[0].onEvent({ type: 'clicked' });
+
+    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
+    await expect(promise).resolves.toBe('watched');
+
+    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS);
+    expect(onStalled).not.toHaveBeenCalled();
+  });
+
+  it('답한 뒤에 온 클릭 신호도 갇힘 판정을 접는다', async () => {
+    // 15초를 푼 뒤에 누르는 사람도 있다. 그 뒤에 오는 신호도 들어야 한다.
+    const onStalled = vi.fn();
+    const promise = launch({ onStalled });
+    setVisibility('hidden');
+    shows[0].onEvent({ type: 'show' });
+
+    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
+    await expect(promise).resolves.toBe('watched');
+    shows[0].onEvent({ type: 'clicked' });
+
+    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS);
+    expect(onStalled).not.toHaveBeenCalled();
+  });
+
   it('🔴 뜬 적이 없으면 갇힌 것이 아니다', async () => {
     /*
       띄우라고 보냈는데 한 번도 안 뜬 판이 있다(렌더 실패·느린 기기). 그것을 갇힌 것으로
