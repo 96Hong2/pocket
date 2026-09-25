@@ -536,8 +536,8 @@ test('기록하다 분류를 만들면 그 자리로 돌아와 이어서 적는�
 /**
  * 이름 하나면 분류가 만들어진다.
  *
- * 아이콘 일흔여덟 칸과 색 열넷이 이름 칸 아래 한꺼번에 서 있으면, 그것까지 골라야 하는 줄 안다.
- * 아이콘은 접혀 있고 색은 아이콘을 고른 뒤에야 나온다. 둘 다 안 골라도 저장된다.
+ * 아이콘 격자와 색 열넷이 이름 칸 아래 한꺼번에 서 있으면, 그것까지 골라야 하는 줄 안다.
+ * **색은 아이콘을 고른 뒤에야 나온다.** 둘 다 안 골라도 저장된다.
  */
 test('이름만 적어도 분류가 만들어지고, 적던 금액은 그대로다', async ({ home, recordSheet }) => {
   const NAME = '데이트';
@@ -551,10 +551,14 @@ test('이름만 적어도 분류가 만들어지고, 적던 금액은 그대로�
   await recordSheet.input.openNewCategory();
 
   const form = recordSheet.input.newCategoryForm;
-  // 아이콘은 접혀 있다. 격자가 아니라 한 줄이다.
-  await expect(form.openIconsButton).toBeVisible();
-  await expect(form.iconGrid).toHaveCount(0);
-  // 색은 아이콘을 고르기 전에는 아예 없다.
+  /*
+    **격자는 펴진 채로 열린다.** 여기 온 사람은 아이콘을 고르러 온 사람이라, 한 번 더
+    눌러야 목록이 나오면 그 한 번이 군더더기다. 「이전·저장」 이 맨 위에 붙어 있어
+    격자가 밀어낼 것도 없다.
+  */
+  await expect(form.iconGrid).toBeVisible();
+  await expect(form.openIconsButton).toHaveCount(0);
+  // 색은 아이콘을 고르기 전에는 아예 없다. 한 번에 하나씩 묻는다.
   await expect(form.colorGroup).toHaveCount(0);
 
   await form.createByName(NAME);
@@ -576,9 +580,8 @@ test('아이콘을 고르면 격자가 접히고 그때 색이 나온다', async
   await recordSheet.input.openNewCategory();
   const form = recordSheet.input.newCategoryForm;
 
-  await form.openIconsButton.click();
+  // 펴진 채로 열린다. 그래도 색은 아직 없다. 고른 것이 없으니 깔 색도 없다.
   await expect(form.iconGrid).toBeVisible();
-  // 격자를 펴도 색은 아직 없다. 고른 것이 없으니 깔 색도 없다.
   await expect(form.colorGroup).toHaveCount(0);
 
   /*

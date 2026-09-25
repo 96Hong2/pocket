@@ -1,83 +1,104 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { DAILY_FREE, formatCredits, parseCredits, refilled, spent } from './photoCredits';
+import type { KeyValueStore } from '../../shared/toss';
 
-describe('parseCredits', () => {
-  it('저장해 둔 줄을 날짜와 장수로 읽는다', () => {
-    expect(parseCredits('2026-09-22:2')).toEqual({ day: '2026-09-22', count: 2 });
-  });
+import {
+  legacyMeansUsed,
+  markTrialUsed,
+  parseUsed,
+  readTrialUsed,
+  resetCreditsMemory,
+} from './photoCredits';
 
-  it('없거나 모양이 어긋나면 없는 것으로 친다', () => {
-    expect(parseCredits(null)).toBeNull();
-    expect(parseCredits('')).toBeNull();
-    expect(parseCredits('2026-09-22')).toBeNull();
-    expect(parseCredits('어제:1')).toBeNull();
-    expect(parseCredits('2026-09-22:많이')).toBeNull();
-    expect(parseCredits('2026-09-22:-1')).toBeNull();
-    expect(parseCredits('2026-09-22:1.5')).toBeNull();
-  });
+/**
+ * 여기서 지키는 것은 하나다. **이미 쓰던 사람에게 체험 한 장을 새로 주지 않는 것.**
+ *
+ * 무료분을 「하루 한 장」 에서 「평생 한 장」 으로 옮기면서 저장 칸이 바뀌었다. 옛 칸을
+ * 안 보면 쓰던 사람 전부가 새 칸 기준으로 처음 쓰는 사람이 되어, 우리가 원가를 내고
+ * 한 장씩 더 읽어 준다.
+ */
 
-  it('쓴 것을 그대로 다시 읽는다', () => {
-    const value = { day: '2026-01-02', count: 7 };
-    expect(parseCredits(formatCredits(value))).toEqual(value);
+function fakeStore(initial: Record<string, string> = {}): KeyValueStore & {
+  data: Record<string, string>;
+} {
+  const data = { ...initial };
+  return {
+    data,
+    get: (key: string) => Promise.resolve(data[key] ?? null),
+    set: (key: string, value: string) => {
+      data[key] = value;
+      return Promise.resolve();
+    },
+    remove: (key: string) => {
+      delete data[key];
+      return Promise.resolve();
+    },
+  } as KeyValueStore & { data: Record<string, string> };
+}
+
+beforeEach(() => {
+  resetCreditsMemory();
+});
+
+describe('parseUsed', () => {
+  it('`used` 만 썼다는 뜻이다', () => {
+    expect(parseUsed('used')).toBe(true);
+    expect(parseUsed(null)).toBe(false);
+    expect(parseUsed('')).toBe(false);
+    expect(parseUsed('1')).toBe(false);
   });
 });
 
-describe('refilled', () => {
-  it('처음 쓰는 사람은 오늘치를 받는다', () => {
-    expect(refilled(null, '2026-09-22')).toEqual({ day: '2026-09-22', count: DAILY_FREE });
+describe('legacyMeansUsed', () => {
+  it('옛 칸에 값이 있으면 이미 사진을 읽어 본 사람이다', () => {
+    // 그 칸은 실제로 읽어 낸 뒤에만 쓰였다. 남은 장수가 0이든 1이든 뜻은 같다.
+    expect(legacyMeansUsed('2026-09-24:0')).toBe(true);
+    expect(legacyMeansUsed('2026-09-24:1')).toBe(true);
   });
 
-  it('같은 날에는 손대지 않는다', () => {
-    const today = { day: '2026-09-22', count: 1 };
-    expect(refilled(today, '2026-09-22')).toEqual(today);
-  });
-
-  it('날이 바뀌면 오늘치까지 채운다', () => {
-    expect(refilled({ day: '2026-09-21', count: 0 }, '2026-09-22')).toEqual({
-      day: '2026-09-22',
-      count: DAILY_FREE,
-    });
-  });
-
-  it('옛 판이 모아 둔 것은 오늘치로 깎는다', () => {
-    // 3장 제도에서 광고로 모아 둔 장수다. 그대로 들고 오면 오늘 무료분이 며칠씩 이어진다.
-    expect(refilled({ day: '2026-09-21', count: 9 }, '2026-09-22')).toEqual({
-      day: '2026-09-22',
-      count: DAILY_FREE,
-    });
-  });
-
-  it('오늘 것이라도 옛 판이 남긴 큰 수는 깎는다', () => {
-    expect(refilled({ day: '2026-09-22', count: 3 }, '2026-09-22')).toEqual({
-      day: '2026-09-22',
-      count: DAILY_FREE,
-    });
-  });
-
-  it('며칠을 건너뛰어도 오늘치까지만 채운다', () => {
-    expect(refilled({ day: '2026-08-01', count: 0 }, '2026-09-22')).toEqual({
-      day: '2026-09-22',
-      count: DAILY_FREE,
-    });
+  it('없거나 모양이 어긋나면 안 쓴 것으로 친다', () => {
+    expect(legacyMeansUsed(null)).toBe(false);
+    expect(legacyMeansUsed('')).toBe(false);
+    expect(legacyMeansUsed('used')).toBe(false);
+    expect(legacyMeansUsed('2026-09-24')).toBe(false);
   });
 });
 
-describe('spent', () => {
-  it('한 장을 뺀다', () => {
-    expect(spent({ day: '2026-09-22', count: 3 })).toEqual({ day: '2026-09-22', count: 2 });
+describe('readTrialUsed', () => {
+  it('처음 쓰는 사람은 체험이 남아 있다', async () => {
+    await expect(readTrialUsed(fakeStore())).resolves.toBe(false);
   });
 
-  it('여러 장을 한꺼번에 뺀다', () => {
-    expect(spent({ day: '2026-09-22', count: 3 }, 3)).toEqual({ day: '2026-09-22', count: 0 });
+  it('체험을 쓴 표시가 있으면 끝난 것이다', async () => {
+    await expect(readTrialUsed(fakeStore({ 'photo-trial': 'used' }))).resolves.toBe(true);
   });
 
-  it('여러 장을 빼도 0 아래로 안 간다', () => {
-    expect(spent({ day: '2026-09-22', count: 1 }, 5)).toEqual({ day: '2026-09-22', count: 0 });
+  it('하루 한 장 시절에 사진을 읽어 본 사람은 체험을 새로 안 받는다', async () => {
+    const store = fakeStore({ 'photo-credits': '2026-09-24:0' });
+    await expect(readTrialUsed(store)).resolves.toBe(true);
   });
 
-  it('0 아래로 내려가지 않는다', () => {
-    expect(spent({ day: '2026-09-22', count: 0 })).toEqual({ day: '2026-09-22', count: 0 });
+  it('저장소가 막혀도 이 세션에서 쓴 것은 기억한다', async () => {
+    const broken = {
+      get: () => Promise.reject(new Error('막힘')),
+      set: () => Promise.reject(new Error('막힘')),
+      remove: () => Promise.resolve(),
+    } as unknown as KeyValueStore;
+
+    await expect(readTrialUsed(broken)).resolves.toBe(false);
+    await markTrialUsed(broken);
+    // 못 썼어도 앱이 떠 있는 동안은 이어 센다. 안 그러면 열 때마다 공짜 한 장이 생긴다.
+    await expect(readTrialUsed(broken)).resolves.toBe(true);
   });
 });
 
+describe('markTrialUsed', () => {
+  it('표시를 남기고, 그다음 읽기부터 체험이 끝난 것으로 읽힌다', async () => {
+    const store = fakeStore();
+    await markTrialUsed(store);
+    expect(store.data['photo-trial']).toBe('used');
+
+    resetCreditsMemory();
+    await expect(readTrialUsed(store)).resolves.toBe(true);
+  });
+});

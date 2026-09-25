@@ -307,12 +307,13 @@ export function ImageImportTab({
         이 풀리는데, 그때 광고는 아직 화면을 덮고 있다. 여기를 안 잠그면 광고가 닫히는
         순간에 한 번 더 눌려 두 편이 겹친다.
 
-        **장수를 모르는 동안(`null`)에는 눌리지 않는다.** 저장소를 읽는 사이에 눌러 버리면
-        무료분을 다 쓴 사람도 광고 없이 한 장을 더 쓴다. 그 틈은 첫 그림 직후 한순간이다.
+        **체험이 남았는지 모르는 동안(`null`)에는 눌리지 않는다.** 저장소를 읽는 사이에
+        눌러 버리면 이미 써 본 사람도 광고 없이 한 장을 더 읽는다. 그 틈은 첫 그림 직후
+        한순간이다.
       */}
       <Button
         fullWidth
-        disabled={analyzing || credits.busy || credits.free == null}
+        disabled={analyzing || credits.busy || credits.trial == null}
         onClick={() => void pick()}
       >
         {pickFailure != null ? '다시 시도' : mode.pickLabel}

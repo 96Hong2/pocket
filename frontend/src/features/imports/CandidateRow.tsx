@@ -35,7 +35,7 @@ import {
   type SegmentedOption,
 } from '../../shared/ui';
 
-import { CategoryEditForm } from '../categories';
+import { CategoryComposeOverlay } from '../categories';
 import { DAY_MAX, DAY_MIN, isDayInRange } from '../../shared/lib/limits';
 
 /**
@@ -465,29 +465,7 @@ function CandidateForm({
         수입도 어디서 온 돈인지 고를 수 있어야 한다. 이체만 분류가 없다.
         기록 시트와 같은 것을 쓴다. 앞자리 열한 개만 보이고 나머지는 「더 보기」 뒤다.
       */}
-      {type !== 'expense' && type !== 'income' ? null : creating ? (
-        <div className="nl-form__new-cat">
-          <div className="nl-form__new-cat-head">
-            <span className="nl-form__new-cat-title">새 분류 만들기</span>
-            <button
-              type="button"
-              className="nl-form__new-cat-back"
-              onClick={() => setCreating(false)}
-            >
-              고치기로 돌아가기
-            </button>
-          </div>
-          <CategoryEditForm
-            // 종류는 위 칸이 이미 정했다. 여기서 다시 묻지 않는다.
-            fixedKind={type}
-            onClose={() => setCreating(false)}
-            onCreated={(created) => {
-              setCategoryId(created.id);
-              setCreating(false);
-            }}
-          />
-        </div>
-      ) : (
+      {type !== 'expense' && type !== 'income' ? null : (
         <CategoryPicker
           className="nl-form__cats"
           size="sm"
@@ -514,6 +492,24 @@ function CandidateForm({
       >
         이대로 고치기
       </Button>
+
+      {/*
+        새 분류 만들기. **화면을 통째로 덮는 한 장으로 연다.**
+
+        예전에는 이 자리에 회색 상자로 끼워 넣었는데, 검토 줄 한가운데라 「저장」 이 상자
+        안쪽 어딘가에 있었다. 아이콘 격자를 펴면 화면 밖으로 밀렸다. 기록 시트의 키패드
+        탭과 같은 화면을 쓰도록 바꿨다. 고치던 상호·금액·날짜는 뒤에 그대로 살아 있다.
+      */}
+      <CategoryComposeOverlay
+        open={creating && (type === 'expense' || type === 'income')}
+        fixedKind={type === 'income' ? 'income' : 'expense'}
+        onBack={() => setCreating(false)}
+        onClose={() => setCreating(false)}
+        onCreated={(created) => {
+          setCategoryId(created.id);
+          setCreating(false);
+        }}
+      />
     </div>
   );
 }

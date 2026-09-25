@@ -407,40 +407,9 @@
     margin-top: 14px;
   }
 
-  .tx-edit__new-cat {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-top: 14px;
-    padding: 14px 12px;
-    background: var(--color-bg);
-    border-radius: var(--radius-md);
-  }
 
-  .tx-edit__new-cat-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
 
-  .tx-edit__new-cat-title {
-    flex: 1;
-    font-size: var(--text-14);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-ink);
-  }
 
-  .tx-edit__new-cat-back {
-    flex: none;
-    min-height: 36px;
-    padding: 0 10px;
-    border: 0;
-    background: none;
-    color: var(--color-sage-700);
-    font-family: inherit;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
-  }
 
   .tx-edit__exclude {
     display: flex;

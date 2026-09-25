@@ -26,7 +26,7 @@
   .export-sheet__list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
     margin: 0;
     padding: 12px 14px;
     border-radius: var(--radius-md);
@@ -37,6 +37,23 @@
     line-height: 1.5;
     /* 한국어는 기본값이면 낱말 가운데서도 끊긴다. */
     word-break: keep-all;
+  }
+
+  /*
+    줄 앞에 점을 찍는다. 점이 없으면 세 줄이 한 문단으로 뭉쳐 읽혀서, 서로 다른 세 가지를
+    말하는 중이라는 것이 안 보인다. `list-style` 대신 직접 그리는 이유는 마커 자리를
+    줄 첫 글자에 맞춰야 둘째 줄이 점 아래로 안 흐르기 때문이다.
+  */
+  .export-sheet__list > li {
+    display: flex;
+    gap: 7px;
+  }
+
+  .export-sheet__list > li::before {
+    content: '·';
+    flex: none;
+    color: var(--color-sage-300);
+    font-weight: var(--font-weight-bold);
   }
 
   .export-sheet__notice {

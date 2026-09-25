@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
+import { CategoryComposeArea } from './CategoryComposeArea';
+
 import { TEST_IDS } from '../../src/shared/testIds';
 import { horizontalScrollersIn } from '../support/overflow';
 
@@ -354,8 +356,8 @@ class RecordInput {
   }
 
   /** 「새 분류」를 누르면 칩 자리에 펼쳐지는 만들기 폼. 시트를 더 띄우지 않는다. */
-  get newCategoryForm(): RecordNewCategory {
-    return new RecordNewCategory(this.root);
+  get newCategoryForm(): CategoryComposeArea {
+    return new CategoryComposeArea(this.root.page());
   }
 
   /**
@@ -436,88 +438,6 @@ class RecordInput {
  * 살아 있고, 탭·키패드가 함께 보여 헷갈릴 일도 없다.
  * 「이전」 과 「저장」 은 맨 위에 붙어 있어 아이콘 격자를 내려도 자리가 안 바뀐다.
  */
-class RecordNewCategory {
-  private readonly root: Locator;
-
-  constructor(root: Locator) {
-    this.root = root;
-  }
-
-  get title(): Locator {
-    return this.root.getByText('새 분류 만들기', { exact: true });
-  }
-
-  get nameField(): Locator {
-    return this.root.getByLabel('이름', { exact: true });
-  }
-
-  get saveButton(): Locator {
-    return this.root.getByRole('button', { name: '저장', exact: true });
-  }
-
-  /** 만들지 않고 그만둔다. 저장과 한 줄에 나란히 있다. */
-  get backButton(): Locator {
-    return this.root.getByRole('button', { name: '이전', exact: true });
-  }
-
-  /**
-   * 저장이 왜 회색인지 적는 한 줄. 버튼 바로 아래에 있다.
-   *
-   * 이름이 비었을 때와 겹칠 때가 서로 다른 말을 한다. 겹침은 서버를 다녀오지 않고 화면이 막는다.
-   */
-  get reason(): Locator {
-    return this.root.getByRole('status');
-  }
-
-  /** 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다. */
-  get kindToggle(): Locator {
-    return this.root.getByRole('group', { name: '분류의 종류' });
-  }
-
-  /** 접혀 있는 아이콘 격자를 펴는 줄. 아직 아무것도 안 골랐을 때의 글자다. */
-  get openIconsButton(): Locator {
-    return this.root.getByRole('button', { name: '아이콘 고르기', exact: true });
-  }
-
-  /** 한 번 고른 뒤의 글자. 격자가 접혔다는 증거이기도 하다. */
-  get reopenIconsButton(): Locator {
-    return this.root.getByRole('button', { name: '아이콘 다시 고르기', exact: true });
-  }
-
-  /** 색 고르기. **아이콘을 고르기 전에는 아예 없다.** */
-  get colorGroup(): Locator {
-    return this.root.getByRole('group', { name: '색', exact: true });
-  }
-
-  /** 펼쳐진 아이콘 격자. 접혀 있으면 아예 없다. */
-  get iconGrid(): Locator {
-    return this.root.getByRole('group', { name: '아이콘' });
-  }
-
-  /** 격자 칸 하나. 읽어 주는 이름은 파일 이름에서 앞 번호를 뗀 영어다(`16_paw` 는 `paw`). */
-  iconCell(label: string): Locator {
-    return this.iconGrid.getByRole('button', { name: label, exact: true });
-  }
-
-  /** 격자는 접힌 채로 열린다. 펴고, 고르고, 다시 접히는 것까지가 한 동작이다. */
-  async pickIcon(label: string): Promise<void> {
-    await this.openIconsButton.click();
-    await this.iconCell(label).click();
-  }
-
-  async create(name: string, iconLabel: string): Promise<void> {
-    await this.nameField.fill(name);
-    await this.pickIcon(iconLabel);
-    await this.saveButton.click();
-  }
-
-  /** 이름만 적고 저장한다. 아이콘도 색도 안 고른 채로 만들어지는지 보는 자리다. */
-  async createByName(name: string): Promise<void> {
-    await this.nameField.fill(name);
-    await this.saveButton.click();
-  }
-}
-
 class RecordFeedback {
   private readonly root: Locator;
 
@@ -1066,29 +986,28 @@ class RecordNaturalLanguageForm {
   }
 
   /**
-   * 「새 분류」를 누르면 분류 칸 자리에 펼쳐지는 만들기 폼의 제목.
+   * 「새 분류」를 누르면 뜨는 만들기 창.
    *
-   * 시트를 하나 더 띄우지 않고 그 자리가 바뀐다. 적어 둔 상호·금액·날짜가 살아 있는지
-   * 보려면 이 폼이 열렸다 닫힌 것을 가려야 한다.
+   * **화면을 덮는 한 장이고 포털로 `body` 에 붙는다.** 이 줄의 root 로는 안 잡혀서
+   * 페이지 전체를 보는 객체를 쓴다. 기록 시트의 키패드 탭과 같은 화면이다.
    */
-  get newCategoryTitle(): Locator {
-    return this.root.getByText('새 분류 만들기', { exact: true });
+  get compose(): CategoryComposeArea {
+    return new CategoryComposeArea(this.root.page());
   }
 
-  /** 만들지 않고 고치던 줄로 돌아간다. 기록 시트와 돌아갈 곳이 달라 말도 다르다. */
+  /** 이 창이 떠 있는지. 적어 둔 상호·금액·날짜가 살아 있는지 보려면 열림·닫힘을 가린다. */
+  get newCategoryTitle(): Locator {
+    return this.compose.title;
+  }
+
+  /** 만들지 않고 고치던 줄로 돌아간다. 맨 위 왼쪽에 있다. */
   get newCategoryBackButton(): Locator {
-    return this.root.getByRole('button', { name: '고치기로 돌아가기', exact: true });
+    return this.compose.backButton;
   }
 
   /** 이름과 그림을 정해 분류를 만든다. 종류는 위 칸이 이미 정했다. */
   async createCategory(name: string, iconLabel: string): Promise<void> {
-    await this.root.getByLabel('이름', { exact: true }).fill(name);
-    await this.root
-      .getByRole('group', { name: '아이콘' })
-      .getByRole('button', { name: iconLabel, exact: true })
-      .click();
-    // 아이콘을 고르면 격자가 접힌다. 그래야 그 아래 저장 버튼이 화면에 들어온다.
-    await this.root.getByRole('button', { name: '새 카테고리 저장', exact: true }).click();
+    await this.compose.create(name, iconLabel);
   }
 }
 
@@ -1168,13 +1087,13 @@ class RecordImageImport {
   }
 
   /**
-   * 버튼 아래 한 줄. **오늘 무료분을 이미 쓴 사람에게만** 뜬다.
+   * 버튼 아래 한 줄. **체험 한 장을 이미 쓴 사람에게만** 뜬다.
    *
-   * 아직 안 쓴 사람에게는 「무료」 도 「광고」 도 꺼내지 않는다. 10초 안에 한 건 적으러
-   * 온 사람 앞에 셈이라는 새 개념을 먼저 세울 이유가 없다.
+   * 처음 써 보는 사람에게는 「무료」 도 「광고」 도 꺼내지 않는다. 10초 안에 한 건 적으러
+   * 온 사람 앞에 광고라는 개념을 먼저 세울 이유가 없다.
    */
   get creditLine(): Locator {
-    return this.root.getByText(/오늘 무료 \d+장을 다 썼어요/);
+    return this.root.getByText('읽는 동안 광고가 한 번 지나가요', { exact: true });
   }
 
   /**

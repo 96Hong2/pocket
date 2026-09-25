@@ -32,7 +32,7 @@ import {
 import { DAY_MAX } from '../../shared/lib/limits';
 import { AmountField, BottomSheet, Button, CategoryAvatar, Toggle, iconOf } from '../../shared/ui';
 
-import { CategoryEditForm } from '../categories';
+import { CategoryComposeOverlay } from '../categories';
 import { TagPicker } from '../tags';
 
 /** 얼마나 옛날까지 옮길 수 있나. 달력 화면과 같게 3년이다. */
@@ -64,13 +64,22 @@ export interface EditSheetProps {
 }
 
 export function EditSheet({ transaction, categories, month, onClose }: EditSheetProps) {
+  /*
+    새 분류 만들기 창이 이 시트 위에 떠 있나.
+
+    떠 있는 동안에는 이 시트가 닫히면 안 된다. Esc·딤·뒤로가기는 문서 전체에 걸려 있어서,
+    안 잠그면 위 창을 그만두려던 한 번에 고치던 기록까지 통째로 닫힌다.
+  */
+  const [composing, setComposing] = useState(false);
+
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
-  useOverlayBackClose(transaction != null, onClose);
+  useOverlayBackClose(transaction != null, onClose, composing);
 
   return (
     <BottomSheet
       open={transaction != null}
       onClose={onClose}
+      dismissible={!composing}
       ariaLabel="기록 수정"
       className="tx-edit"
       /*
@@ -88,6 +97,7 @@ export function EditSheet({ transaction, categories, month, onClose }: EditSheet
           transaction={transaction}
           categories={categories}
           month={month}
+          onComposingChange={setComposing}
           onClose={onClose}
         />
       ) : null}
@@ -99,6 +109,8 @@ interface EditFormProps {
   transaction: TransactionOut;
   categories: CategoryOut[];
   month?: MonthParams;
+  /** 새 분류 만들기 창이 떠 있나. 껍데기가 이 값으로 시트 닫기를 잠근다. */
+  onComposingChange: (composing: boolean) => void;
   onClose: () => void;
 }
 
@@ -125,7 +137,13 @@ function canSwitchKind(type: TransactionOut['type']): boolean {
   return type === 'expense' || type === 'income';
 }
 
-function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
+function EditForm({
+  transaction,
+  categories,
+  month,
+  onComposingChange,
+  onClose,
+}: EditFormProps) {
   const analytics = useAnalytics();
   const update = useUpdateTransaction(month);
   const remove = useDeleteTransaction();
@@ -164,7 +182,11 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
     분류 칸이 만들기 폼으로 바뀐다. 고쳐 둔 금액·상호가 살아 있어야 이어서 저장한다.
   */
   const [creating, setCreating] = useState(false);
-  const [creatingBusy, setCreatingBusy] = useState(false);
+
+  /* 새 분류 창이 떠 있는 동안은 껍데기가 이 시트의 닫기를 잠근다. */
+  useEffect(() => {
+    onComposingChange(creating);
+  }, [creating, onComposingChange]);
   /*
     지우기 전에 한 번 묻는다.
 
@@ -418,54 +440,27 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
           />
         ) : null}
 
-        {creating ? (
-          <div className="tx-edit__new-cat">
-            <div className="tx-edit__new-cat-head">
-              <span className="tx-edit__new-cat-title">새 분류 만들기</span>
-              <button
-                type="button"
-                className="tx-edit__new-cat-back"
-                disabled={creatingBusy}
-                onClick={() => setCreating(false)}
-              >
-                고치기로 돌아가기
-              </button>
-            </div>
-            <CategoryEditForm
-              // 종류는 위 토글이 이미 정했다. 여기서 다시 묻지 않는다.
-              fixedKind={kind}
-              onBusyChange={setCreatingBusy}
-              onClose={() => setCreating(false)}
-              // 만들자마자 이 기록의 분류로 둔다. 다시 찾아 누르게 하면 만든 보람이 없다.
-              onCreated={(created) => {
-                setCategoryId(created.id);
-                setCreating(false);
-              }}
-            />
-          </div>
-        ) : (
-          /*
+        {/*
           기록 시트와 같은 것을 쓴다. 앞자리 열한 개만 보이고 나머지는 「더 보기」 뒤다.
           한 화면에서 배운 것이 다음 화면에서도 통해야 한다.
-        */
-          <CategoryPicker
-            className="tx-edit__cats"
-            ariaLabel="카테고리"
-            size="sm"
-            categories={pickable}
-            selectedId={categoryId}
-            disabled={busy}
-            onPick={(category) => setCategoryId(category.id)}
-            // 만들기 폼은 지출·수입만 만든다. 이체 분류를 만들 길이 없어 입구도 세우지 않는다.
-            onCreate={isTransfer ? undefined : () => setCreating(true)}
-            onExpand={() =>
-              analytics.log(EVENTS.categoryMoreOpened, {
-                where: 'edit',
-                shown: pickable.length,
-              })
-            }
-          />
-        )}
+        */}
+        <CategoryPicker
+          className="tx-edit__cats"
+          ariaLabel="카테고리"
+          size="sm"
+          categories={pickable}
+          selectedId={categoryId}
+          disabled={busy}
+          onPick={(category) => setCategoryId(category.id)}
+          // 만들기 폼은 지출·수입만 만든다. 이체 분류를 만들 길이 없어 입구도 세우지 않는다.
+          onCreate={isTransfer ? undefined : () => setCreating(true)}
+          onExpand={() =>
+            analytics.log(EVENTS.categoryMoreOpened, {
+              where: 'edit',
+              shown: pickable.length,
+            })
+          }
+        />
 
         <div className="tx-edit__exclude">
           <div className="tx-edit__exclude-text">
@@ -535,6 +530,26 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
           </div>
         )}
       </div>
+
+      {/*
+        새 분류 만들기. **화면을 통째로 덮는 한 장으로 연다.**
+
+        예전에는 이 시트 안에 회색 상자로 끼워 넣었는데, 「저장」 이 상자 안쪽에 있어서
+        아이콘 격자를 펴면 화면 밖으로 밀렸다. 기록 시트의 키패드 탭과 같은 화면을 쓴다.
+        고치던 금액과 날짜는 뒤에 그대로 살아 있다.
+      */}
+      <CategoryComposeOverlay
+        open={creating}
+        // 종류는 위 토글이 이미 정했다. 여기서 다시 묻지 않는다.
+        fixedKind={kind}
+        onBack={() => setCreating(false)}
+        onClose={() => setCreating(false)}
+        // 만들자마자 이 기록의 분류로 둔다. 다시 찾아 누르게 하면 만든 보람이 없다.
+        onCreated={(created) => {
+          setCategoryId(created.id);
+          setCreating(false);
+        }}
+      />
     </div>
   );
 }

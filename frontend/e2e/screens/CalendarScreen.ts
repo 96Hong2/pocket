@@ -5,6 +5,8 @@ import { dayCellLabel } from '../../src/features/transactions/ledgerView';
 import { TEST_IDS } from '../../src/shared/testIds';
 import { horizontalScrollersIn } from '../support/overflow';
 
+import { CategoryComposeArea } from './CategoryComposeArea';
+
 /**
  * 월간 달력 화면. 달력·선택한 날 목록·검색·수정 시트를 한 화면이 다 가진다.
  *
@@ -411,31 +413,35 @@ export class EditSheetArea {
     await this.categoryChip(name).click();
   }
 
-  /** 「새 분류」를 누르면 칩 자리에 펼쳐지는 만들기 폼. */
+  /**
+   * 「새 분류」를 누르면 뜨는 만들기 창.
+   *
+   * **화면을 덮는 한 장이고 포털로 `body` 에 붙는다.** 이 시트의 root 로는 안 잡혀서
+   * 페이지 전체를 보는 객체를 쓴다. 기록 시트의 키패드 탭과 같은 화면이다.
+   */
+  get compose(): CategoryComposeArea {
+    return new CategoryComposeArea(this.root.page());
+  }
+
   get newCategoryTitle(): Locator {
-    return this.root.getByText('새 분류 만들기', { exact: true });
+    return this.compose.title;
   }
 
   get newCategoryNameField(): Locator {
-    return this.root.getByLabel('이름', { exact: true });
+    return this.compose.nameField;
   }
 
   get newCategorySaveButton(): Locator {
-    return this.root.getByRole('button', { name: '새 카테고리 저장', exact: true });
+    return this.compose.saveButton;
   }
 
   get newCategoryBackButton(): Locator {
-    return this.root.getByRole('button', { name: '고치기로 돌아가기', exact: true });
+    return this.compose.backButton;
   }
 
   /** 이름과 아이콘을 채워 한 건을 만든다. 기록 시트의 만들기 자리와 같은 폼이다. */
   async createCategory(name: string, iconLabel: string): Promise<void> {
-    await this.newCategoryNameField.fill(name);
-    await this.root
-      .getByRole('group', { name: '아이콘' })
-      .getByRole('button', { name: iconLabel, exact: true })
-      .click();
-    await this.newCategorySaveButton.click();
+    await this.compose.create(name, iconLabel);
   }
 
   /** 무엇으로 냈나. 지출일 때만 선다. */
