@@ -76,7 +76,7 @@ afterEach(() => {
 
 /** 광고를 띄우라고 보낸 상태까지 간다. */
 function launch(
-  hooks?: { onShown?: () => void; onStalled?: () => void },
+  hooks?: { onShown?: () => void; onStalled?: () => void; onAdGone?: () => void },
   releaseMs: number = INTERSTITIAL_RELEASE_MS,
 ) {
   const promise = runFullScreenAd(sdk, 'group-1', releaseMs, hooks);
@@ -213,6 +213,109 @@ describe('갇힌 판', () => {
 
     await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
     await expect(promise).resolves.toBe('earned');
+  });
+});
+
+describe('🔴 리뷰가 잡은 자리', () => {
+  it('화면이 잠깐씩 비쳐도 15초를 처음부터 다시 세지 않는다', () => {
+    /*
+      🔴 **고치려던 버그와 같은 모양이 다른 자리에 있었다**(PR #84 리뷰).
+
+      광고를 눌러 광고주 페이지로 나갔다 오는 길에 화면이 잠깐 비친다. 그때 시계를 다시
+      걸면 경과 시간이 0으로 돌아가, 13초 덮임과 1초 비침을 되풀이하는 판에서 15초가
+      영영 안 찬다. 남은 시간이 아니라 **마감 시각**을 쥐고 있어야 한다.
+    */
+    const promise = launch();
+    setVisibility('hidden');
+    shows[0].onEvent({ type: 'impression' });
+
+    let done = false;
+    void promise.then(() => {
+      done = true;
+    });
+
+    // 13초 덮임 + 1초 비침을 되풀이한다. 합계 14초 × 2 = 28초.
+    for (let lap = 0; lap < 2; lap += 1) {
+      vi.advanceTimersByTime(13_000);
+      setVisibility('visible');
+      vi.advanceTimersByTime(1_000);
+      setVisibility('hidden');
+    }
+    expect(done).toBe(false);
+    // 아직 안 풀렸다면 마감 시각이 이미 지났으므로 다음 틱에 풀린다.
+    vi.advanceTimersByTime(1);
+    return vi.runOnlyPendingTimersAsync().then(() => expect(promise).resolves.toBe('watched'));
+  });
+
+  it('닫힘 신호가 늦게 와도 갇힌 것으로 안 센다', async () => {
+    /*
+      🔴 판정 근거가 「화면이 안 보인다」 하나뿐이었다(PR #84 리뷰). 광고를 다 보고 곧장
+      다른 앱으로 넘어간 사람이 전부 갇힘으로 잡힌다. 그 값은 **세션 광고를 통째로 끈다.**
+      끝났다는 신호는 답한 뒤에 와도 듣는다. 광고가 닫혔다는 유일한 증거다.
+    */
+    const onStalled = vi.fn();
+    const onAdGone = vi.fn();
+    const promise = launch({ onStalled, onAdGone });
+    setVisibility('hidden');
+    shows[0].onEvent({ type: 'show' });
+
+    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
+    await expect(promise).resolves.toBe('watched');
+
+    // 광고는 닫혔는데 사람은 다른 앱에 있다. 화면은 계속 안 보인다.
+    shows[0].onEvent({ type: 'dismissed' });
+    expect(onAdGone).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS * 2);
+    expect(onStalled).not.toHaveBeenCalled();
+  });
+
+  it('다음 광고가 시작되면 앞 판의 감시를 접는다', async () => {
+    /*
+      🔴 앞 판이 15초에 화면을 풀어 준 뒤, 사람이 우리 화면에서 다음 광고를 시작할 수 있다.
+      그 광고가 화면을 덮으면 앞 판의 감시는 그것을 「앞 광고가 아직 안 걷혔다」 로 읽는다.
+    */
+    const onStalled = vi.fn();
+    const first = launch({ onStalled });
+    setVisibility('hidden');
+    shows[0].onEvent({ type: 'show' });
+    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
+    await expect(first).resolves.toBe('watched');
+
+    // 두 번째 광고가 시작된다. 화면은 계속 덮여 있다.
+    const second = runFullScreenAd(sdk, 'group-2', INTERSTITIAL_RELEASE_MS);
+    loads[1].onEvent({ type: 'loaded' });
+    shows[1].onEvent({ type: 'show' });
+
+    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS * 2);
+    // 첫 판은 접혔으므로 안 부른다. 두 번째 판의 갇힘은 자기 hooks 로 간다(여기선 없다).
+    expect(onStalled).not.toHaveBeenCalled();
+    await expect(second).resolves.toBe('watched');
+  });
+
+  it('정상으로 닫히면 걷혔다고 알린다', async () => {
+    // 표를 지우는 자리다. 화면을 푼 시각이 아니라 걷힌 것을 확인한 이 자리에서 지운다.
+    const onAdGone = vi.fn();
+    const promise = launch({ onAdGone });
+    shows[0].onEvent({ type: 'show' });
+    shows[0].onEvent({ type: 'dismissed' });
+    await promise;
+    expect(onAdGone).toHaveBeenCalledTimes(1);
+  });
+
+  it('갇힌 판에서는 걷혔다고 안 알린다', async () => {
+    // 표가 남아야 다음 실행에서 `ad_stuck_exit` 로 세어진다.
+    const onAdGone = vi.fn();
+    const onStalled = vi.fn();
+    const promise = launch({ onAdGone, onStalled });
+    setVisibility('hidden');
+    shows[0].onEvent({ type: 'show' });
+
+    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
+    await promise;
+    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS);
+    expect(onStalled).toHaveBeenCalledTimes(1);
+    expect(onAdGone).not.toHaveBeenCalled();
   });
 });
 
