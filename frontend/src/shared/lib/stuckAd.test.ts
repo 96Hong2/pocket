@@ -3,22 +3,25 @@ import { describe, expect, it } from 'vitest';
 import type { KeyValueStore } from '../toss';
 
 import {
-  STUCK_BLOCK_SCORE,
-  STUCK_POINTS_DIED,
-  STUCK_POINTS_SEEN,
-  addStuckScore,
+  STUCK_DEATHS_BLOCK,
+  addStuckDeath,
   clearAdOnScreen,
+  clearStuckDeaths,
   markAdOnScreen,
+  markStuckSeen,
   parseMark,
-  readStuckScore,
+  readStuckState,
   takeStuckMark,
 } from './stuckAd';
 import {
   adsBlockedByStall,
+  ensureStuckMemory,
   getStuckMemory,
-  markStalledNow,
+  noteStuckDeaths,
+  noteStuckSeen,
+  rememberAdFinished,
+  rememberStuckSeen,
   resetStuckMemory,
-  setDeviceStuckScore,
   subscribeStuckMemory,
 } from './stuckAdMemory';
 
@@ -90,91 +93,154 @@ describe('표를 적고 지우기', () => {
 /**
  * 🔴 **세는 데서 그치면 안 된다**(2026-09-25 밤, 세 번째 신고).
  *
- * 「15초 지나도 광고 안 꺼져서 그냥 앱을 꺼야 해.」 15초에 푸는 것은 우리 화면이고,
- * 광고는 토스가 띄운 것이라 그대로 덮고 있다. 세션 기억은 앱을 끄면 함께 사라져서
- * 다음에 열면 또 걸린다. 그래서 점수를 저장소에 남긴다.
+ * 「15초 지나도 광고 안꺼져서 그냥 앱을 꺼야해.」 15초에 푸는 것은 우리 화면이고 광고는
+ * 토스가 띄운 것이라 그대로 덮고 있다. 세션 기억은 앱을 끄면 함께 사라져서 다시 열면
+ * 또 걸렸다. 그래서 저장소에 남긴다.
+ *
+ * 증거 둘을 가른다. **직접 본 것**은 한 번으로 끄고, **덮인 채 죽은 것**은 연달아 두
+ * 번일 때만 끈다. 뒤엣것은 고장에만 남는 표가 아니라서다.
  */
-describe('갇힘 점수', () => {
-  it('적은 적이 없으면 0이다', async () => {
-    await expect(readStuckScore(fakeStore())).resolves.toBe(0);
+describe('갇힘 기록', () => {
+  it('적은 적이 없으면 비어 있다', async () => {
+    await expect(readStuckState(fakeStore())).resolves.toEqual({ seen: false, deaths: 0 });
   });
 
-  it('망가진 저장소도 0으로 읽는다. 세는 일 때문에 광고가 막히면 안 된다', async () => {
-    await expect(readStuckScore(broken)).resolves.toBe(0);
-    await expect(addStuckScore(broken, STUCK_POINTS_SEEN)).resolves.toBe(STUCK_POINTS_SEEN);
+  it('망가진 저장소는 막지 않는다. 세는 일 때문에 광고가 꺼지면 안 된다', async () => {
+    await expect(readStuckState(broken)).resolves.toEqual({ seen: false, deaths: 0 });
+    await expect(addStuckDeath(broken)).resolves.toBe(1);
+    await expect(markStuckSeen(broken)).resolves.toBeUndefined();
+    await expect(clearStuckDeaths(broken)).resolves.toBeUndefined();
   });
 
   it('쓰레기 값은 0으로 본다', async () => {
-    await expect(readStuckScore(fakeStore({ 'ad-stuck-score': '어쩌구' }))).resolves.toBe(0);
-    await expect(readStuckScore(fakeStore({ 'ad-stuck-score': '-3' }))).resolves.toBe(0);
+    await expect(readStuckState(fakeStore({ 'ad-stuck-deaths': '어쩌구' }))).resolves.toEqual({
+      seen: false,
+      deaths: 0,
+    });
+    await expect(readStuckState(fakeStore({ 'ad-stuck-deaths': '-3' }))).resolves.toEqual({
+      seen: false,
+      deaths: 0,
+    });
   });
 
-  it('🔴 앱이 죽은 것만으로는 안 끈다. 답답해서 끈 사람까지 걸린다', async () => {
+  it('🔴 한 번 죽은 것만으로는 안 끈다. 지겨워서 끈 사람까지 걸린다', async () => {
     const store = fakeStore();
-    const score = await addStuckScore(store, STUCK_POINTS_DIED);
-    expect(score).toBeLessThan(STUCK_BLOCK_SCORE);
+    expect(await addStuckDeath(store)).toBeLessThan(STUCK_DEATHS_BLOCK);
   });
 
-  it('두 번 죽으면 끈다', async () => {
+  it('연달아 두 번 죽으면 끈다', async () => {
     const store = fakeStore();
-    await addStuckScore(store, STUCK_POINTS_DIED);
-    const score = await addStuckScore(store, STUCK_POINTS_DIED);
-    expect(score).toBeGreaterThanOrEqual(STUCK_BLOCK_SCORE);
+    await addStuckDeath(store);
+    expect(await addStuckDeath(store)).toBeGreaterThanOrEqual(STUCK_DEATHS_BLOCK);
   });
 
-  it('🔴 90초까지 덮고 있는 것을 직접 봤으면 그 한 번으로 끈다', async () => {
+  it('🔴 광고 한 편이 제대로 걷히면 연속 기록이 끊긴다', async () => {
+    /*
+      누적으로 세면 오래 쓰는 사람은 거의 전원이 문턱에 닿는다. 사이에 멀쩡한 판이
+      하나라도 있으면 그건 연속이 아니다.
+    */
     const store = fakeStore();
-    const score = await addStuckScore(store, STUCK_POINTS_SEEN);
-    expect(score).toBeGreaterThanOrEqual(STUCK_BLOCK_SCORE);
+    await addStuckDeath(store);
+    await clearStuckDeaths(store);
+    expect(await addStuckDeath(store)).toBe(1);
   });
 
-  it('점수는 읽어도 안 지워진다. 표와 다른 점이다', async () => {
+  it('직접 본 기록은 읽어도 안 지워진다', async () => {
     const store = fakeStore();
-    await addStuckScore(store, STUCK_POINTS_SEEN);
-    await readStuckScore(store);
-    await expect(readStuckScore(store)).resolves.toBe(STUCK_POINTS_SEEN);
+    await markStuckSeen(store);
+    await readStuckState(store);
+    await expect(readStuckState(store)).resolves.toEqual({ seen: true, deaths: 0 });
   });
 });
 
 describe('갇힘 기억', () => {
-  it('앱을 열 때 읽어 둔 점수로 그 자리에서 정한다', () => {
+  it('직접 본 한 번으로 닫는다', () => {
     resetStuckMemory();
     expect(adsBlockedByStall()).toBe(false);
-    setDeviceStuckScore(STUCK_BLOCK_SCORE - 1);
-    expect(adsBlockedByStall()).toBe(false);
-    setDeviceStuckScore(STUCK_BLOCK_SCORE);
-    expect(getStuckMemory().score).toBe(STUCK_BLOCK_SCORE);
+    noteStuckSeen();
     expect(adsBlockedByStall()).toBe(true);
     resetStuckMemory();
   });
 
-  it('점수가 모자라도 이번에 갇힌 것을 봤으면 닫는다', () => {
+  it('죽은 횟수는 연달아 두 번부터 닫는다', () => {
     resetStuckMemory();
-    markStalledNow(STUCK_POINTS_SEEN);
-    expect(getStuckMemory().stalled).toBe(true);
+    noteStuckDeaths(STUCK_DEATHS_BLOCK - 1);
+    expect(adsBlockedByStall()).toBe(false);
+    noteStuckDeaths(STUCK_DEATHS_BLOCK);
     expect(adsBlockedByStall()).toBe(true);
+    // 광고가 제대로 걷히면 되돌아간다.
+    noteStuckDeaths(0);
+    expect(adsBlockedByStall()).toBe(false);
+    resetStuckMemory();
+  });
+
+  it('🔴 저장소를 다녀오기를 기다릴 수 있다', async () => {
+    /*
+      구독은 값이 **온 뒤에** 다시 그리게 할 뿐, 아직 안 온 값을 기다리게 하지 못한다.
+      이 약속이 없으면 앱을 열자마자 광고가 뜨는 길에서 갇힌 기기에 광고가 한 편 더 뜬다.
+    */
+    resetStuckMemory();
+    const store = fakeStore({ 'ad-stuck-seen': '1' });
+    expect(adsBlockedByStall()).toBe(false);
+    await ensureStuckMemory(store);
+    expect(adsBlockedByStall()).toBe(true);
+    resetStuckMemory();
+  });
+
+  it('읽어 오는 사이에 갇힌 것을 봤으면 그쪽이 이긴다', async () => {
+    resetStuckMemory();
+    const store = fakeStore();
+    const reading = ensureStuckMemory(store);
+    noteStuckSeen();
+    await reading;
+    expect(getStuckMemory().seen).toBe(true);
+    resetStuckMemory();
+  });
+
+  it('🔴 갇힌 것을 본 한 번이 기억과 저장소에 함께 적힌다', async () => {
+    /*
+      **배선을 한 함수로 묶어 둔 이유가 여기다.** 광고 훅에서 부르는 자리는 90초짜리
+      판이라 검사가 못 닿는다. 둘로 나눠 두면 한쪽만 부르는 어긋남을 아무도 못 잡는다.
+    */
+    resetStuckMemory();
+    const store = fakeStore();
+    rememberStuckSeen(store);
+    expect(adsBlockedByStall()).toBe(true);
+    await expect.poll(() => store.data['ad-stuck-seen']).toBe('1');
+    resetStuckMemory();
+  });
+
+  it('광고가 제대로 걷히면 기억과 저장소에서 함께 끊는다', async () => {
+    resetStuckMemory();
+    const store = fakeStore({ 'ad-stuck-deaths': '1' });
+    await ensureStuckMemory(store);
+    expect(getStuckMemory().deaths).toBe(1);
+
+    rememberAdFinished(store);
+    expect(getStuckMemory().deaths).toBe(0);
+    await expect.poll(() => store.data['ad-stuck-deaths']).toBe(undefined);
     resetStuckMemory();
   });
 
   it('🔴 바뀌면 듣고 있는 화면에 알린다', () => {
     /*
-      점수는 저장소를 다녀온 뒤에 얹히고 갇힘 판정은 90초 뒤에 온다. 안 알리면 화면은
-      「광고 보고 받기」 를 계속 권하는데 누르면 그냥 지나간다.
+      갇힘 판정은 광고가 뜬 지 90초 뒤에 온다. 안 알리면 화면은 「광고 보고 받기」 를
+      계속 권하는데 누르면 그냥 지나간다.
     */
     resetStuckMemory();
     let calls = 0;
     const stop = subscribeStuckMemory(() => {
       calls += 1;
     });
-    setDeviceStuckScore(1);
+    noteStuckDeaths(1);
     expect(calls).toBe(1);
     // 같은 값이면 안 알린다. 매번 알리면 그리기가 끝없이 돈다.
-    setDeviceStuckScore(1);
+    noteStuckDeaths(1);
     expect(calls).toBe(1);
-    markStalledNow(1);
+    noteStuckSeen();
     expect(calls).toBe(2);
     stop();
-    setDeviceStuckScore(9);
+    noteStuckDeaths(9);
     expect(calls).toBe(2);
     resetStuckMemory();
   });

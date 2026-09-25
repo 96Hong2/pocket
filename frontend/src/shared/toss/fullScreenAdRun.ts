@@ -122,6 +122,15 @@ export function runFullScreenAd(
      * 아니다. 닫힌 직후에 다른 앱으로 넘어간 사람을 갇힘으로 세지 않으려고 둔다.
      */
     let adEnded = false;
+    /**
+     * 🔴 **광고를 눌러 나갔나.**
+     *
+     * 광고를 누르면 토스가 광고주 페이지를 열고 우리 웹뷰는 숨는다. 거기서 90초를 쓰는
+     * 것은 **광고 클릭의 정상 모습이고 우리가 돈을 버는 자리다.** 화면 상태만 보면 그것과
+     * 갇힌 것이 똑같이 보인다. 가르지 않으면 광고를 눌러 준 사람의 기기에서 광고를 끄게
+     * 된다(PR 리뷰가 잡았다).
+     */
+    let adClicked = false;
     /** 이 판이 걸어 둔 감시. 모듈에 올려 둔 것이 내 것인지 가르는 데 쓴다. */
     let myWatch: { stop: () => void } | undefined;
 
@@ -191,7 +200,7 @@ export function runFullScreenAd(
       if (settled) return;
       const covered = document.visibilityState !== 'visible';
       settleWith(outcomeOf({ shown, earned }));
-      if (!shown || !covered || adEnded) {
+      if (!shown || !covered || adEnded || adClicked) {
         endWatch();
         return;
       }
@@ -199,8 +208,8 @@ export function runFullScreenAd(
       activeWatch = myWatch;
       stallTimer = setTimeout(
         () => {
-          // 아직도 덮고 있고 끝 신호도 없다. 이건 광고가 끝나지 않은 것이다.
-          if (document.visibilityState !== 'visible' && !adEnded) {
+          // 아직도 덮고 있고, 끝 신호도 없고, 눌러 나간 것도 아니다. 광고가 안 끝난 것이다.
+          if (document.visibilityState !== 'visible' && !adEnded && !adClicked) {
             hooks?.onStalled?.();
             teardown();
             return;
@@ -328,6 +337,17 @@ export function runFullScreenAd(
             세션 광고를 통째로 끄는 데 쓰인다. 리뷰가 잡은 자리다.
           */
           if (effect === 'end' || effect === 'fail') adEnded = true;
+          /*
+            🔴 **누른 것도 답한 뒤에 듣는다.** 눌러 나간 뒤 광고주 페이지에 오래 머무는
+            것은 갇힌 것이 아니다. 화면이 숨은 이유가 설명되므로 갇힘 판정을 접는다.
+          */
+          if (event.type === 'clicked') {
+            adClicked = true;
+            if (settled) {
+              endWatch();
+              return;
+            }
+          }
           /*
             나머지 신호는 답한 뒤에 버린다. 없으면 `finish` 가 떼고 간 자리에 리스너를
             새로 달게 되고, 그것을 떼어 줄 사람이 아무도 없다.

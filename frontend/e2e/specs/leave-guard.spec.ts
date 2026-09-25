@@ -35,6 +35,16 @@ async function settleScroll(page: Page): Promise<void> {
   await page.waitForTimeout(600);
 }
 
+/**
+ * 만들기 화면의 「아이콘」 이름표. 버튼도 입력칸도 아니라 손짓을 시작할 수 있는 자리다.
+ *
+ * **페이지 전역에서 글자로 찾지 않는다.** 같은 글자가 하나라도 더 생기면 조용히 다른
+ * 것을 집고, 그것이 숨은 탭 안이면 엉뚱한 실패로 죽는다.
+ */
+function composeIconLabel(page: Page): Locator {
+  return page.locator('.cat-sheet__field--icon > .cat-sheet__label');
+}
+
 async function swipeDownAt(page: Page, target: Locator): Promise<void> {
   const box = await target.boundingBox();
   if (box == null) throw new Error('끌 자리를 화면에서 못 찾았다');
@@ -345,7 +355,7 @@ test.describe('분류 만들기는 한 겹만 접힌다', () => {
     */
     await settleScroll(page);
     // 굴리지 않았다. 「아이콘」 이라고 적힌 이름표라 버튼도 입력칸도 아니다.
-    await swipeDownAt(page, page.getByText('아이콘', { exact: true }).first());
+    await swipeDownAt(page, composeIconLabel(page));
 
     // 만들기만 접히고 기록 시트는 그대로다. 눌러 둔 금액도 살아 있다.
     await expect(form.title).toHaveCount(0);
@@ -363,7 +373,7 @@ test.describe('분류 만들기는 한 겹만 접힌다', () => {
     await form.nameField.fill('반려동물');
 
     await settleScroll(page);
-    await swipeDownAt(page, page.getByText('아이콘', { exact: true }).first());
+    await swipeDownAt(page, composeIconLabel(page));
     await expect(recordSheet.leave.dialog).toBeVisible();
 
     await recordSheet.leave.stayButton.click();
@@ -373,10 +383,32 @@ test.describe('분류 만들기는 한 겹만 접힌다', () => {
       그만두기를 골라도 **한 겹만 접힌다.** 이 줄이 없으면 시트째 닫히던 옛 동작으로도
       이 검사가 초록으로 남는다(옛 동작도 묻기는 물었다. 다만 다 닫았다).
     */
-    await swipeDownAt(page, page.getByText('아이콘', { exact: true }).first());
+    await settleScroll(page);
+    await swipeDownAt(page, composeIconLabel(page));
     await recordSheet.leave.leaveButton.click();
     await expect(form.title).toHaveCount(0);
     await recordSheet.waitOpen();
+  });
+
+  test('🔴 덮는 창에서도 적어 둔 것이 있으면 내릴 때 묻는다', async ({ page, prep, calendar }) => {
+    /*
+      손짓으로 창을 접는 길은 이번에 새로 생겼다. 「이전」 버튼만 묻고 손짓은 그냥
+      접히면, 어디로 나가느냐에 따라 잃는 것이 달라진다.
+    */
+    await prep.addTransaction({ amount: 12_000, merchant: '김밥천국', daysAgo: 0 });
+    await calendar.open();
+    await calendar.waitReady();
+    await calendar.list.pick('김밥천국');
+    await calendar.edit.openNewCategory();
+    await calendar.edit.newCategoryNameField.fill('반려동물');
+
+    await settleScroll(page);
+    await swipeDownAt(page, composeIconLabel(page));
+    await expect(page.locator('.record-leave')).toBeVisible();
+
+    await page.getByRole('button', { name: '계속 쓰기' }).click();
+    await expect(calendar.edit.newCategoryNameField).toHaveValue('반려동물');
+    await expect(calendar.edit.dialog).toBeVisible();
   });
 
   test('기록 고치기에서 만들 때는 덮는 창이 손짓을 다 받는다', async ({ page, prep, calendar }) => {
@@ -390,7 +422,7 @@ test.describe('분류 만들기는 한 겹만 접힌다', () => {
     await expect(calendar.edit.newCategoryTitle).toBeVisible();
 
     await settleScroll(page);
-    await swipeDownAt(page, page.getByText('아이콘', { exact: true }).first());
+    await swipeDownAt(page, composeIconLabel(page));
 
     /*
       🔴 여기가 무너져 있었다. 덮는 창은 `createPortal` 로 `body` 에 붙지만 리액트 안에서는

@@ -1,16 +1,13 @@
 import { useCallback, useState, useSyncExternalStore } from 'react';
 
 import { useBridge } from '../../app/providers';
-import {
-  STUCK_POINTS_SEEN,
-  addStuckScore,
-  clearAdOnScreen,
-  markAdOnScreen,
-} from '../../shared/lib/stuckAd';
+import { clearAdOnScreen, markAdOnScreen } from '../../shared/lib/stuckAd';
 import {
   adsBlockedByStall,
+  ensureStuckMemory,
   getStuckMemory,
-  markStalledNow,
+  rememberAdFinished,
+  rememberStuckSeen,
   subscribeStuckMemory,
 } from '../../shared/lib/stuckAdMemory';
 import type { AdsBridge, FullScreenAdHooks } from '../../shared/toss';
@@ -122,8 +119,10 @@ function useAdShow(
         세션 기억은 앱을 끄면 함께 사라져 다음에 열면 또 걸린다. 그래서 점수는 저장소에 남는다.
 
         **그림에 쓰는 값이 아니라 지금 값을 다시 읽는다.** 누르기 직전에 다른 화면이
-        갇혔을 수 있다.
+        갇혔을 수 있다. 저장소에서 아직 안 온 값도 여기서 기다린다. 안 기다리면 앱을
+        열자마자 광고가 뜨는 길에서 갇힌 기기에 광고가 한 편 더 뜬다.
       */
+      await ensureStuckMemory(bridge.storage);
       if (adsBlockedByStall()) return { result: 'skipped', reason: 'stalled' };
 
       const group = resolveGroup(bridge.environment, configured);
@@ -154,18 +153,22 @@ function useAdShow(
           onAdGone: () => {
             // 적기가 먼저 닿게 이어 붙인다. 둘 다 네이티브를 다녀와 순서 보장이 없다.
             void marking.then(() => clearAdOnScreen(bridge.storage));
+            /*
+              광고 한 편이 제대로 걷혔다. **연달아 죽은 기록을 끊는다.** 누적으로 세면
+              오래 쓰는 사람은 거의 전원이 문턱에 닿는다(ADR-0038).
+            */
+            rememberAdFinished(bridge.storage);
           },
           onStalled: () => {
             stalled = true;
             /*
-              90초까지 덮고 있는 것을 **직접 봤다.** 추측이 아니라서 이 한 번으로 끈다.
-              앱을 끄고 다시 열어도 그대로 꺼져 있어야 같은 자리에 두 번 안 빠진다.
+              90초까지 덮고 있고, 끝 신호도 없고, 눌러 나간 것도 아니다. **직접 봤으므로**
+              이 한 번으로 끈다. 앱을 끄고 다시 열어도 꺼져 있어야 두 번 안 빠진다.
 
               판정은 답보다 늦게 온다(화면은 15·35초에 먼저 푼다). 기억이 구독을 들고 있어
               화면은 알아서 다시 그려진다.
             */
-            markStalledNow(getStuckMemory().score + STUCK_POINTS_SEEN);
-            void addStuckScore(bridge.storage, STUCK_POINTS_SEEN);
+            rememberStuckSeen(bridge.storage);
           },
         });
         await marking;

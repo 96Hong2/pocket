@@ -14,8 +14,8 @@
  *
  * 🔴 **세는 데서 그치지 않는다**(2026-09-25 밤, 세 번째 신고). 「15초가 지나도 광고가
  * 안 꺼져서 그냥 앱을 꺼야 해」. 우리가 푸는 것은 우리 화면이고 광고는 그대로 덮고 있어,
- * 그 사람에게는 아무것도 안 바뀐 것과 같다. 그래서 갇힌 적이 쌓이면 **그 기기에서는
- * 전면 광고를 다시 안 띄운다**. 점수는 아래 `STUCK_BLOCK_SCORE` 를 본다.
+ * 그 사람에게는 아무것도 안 바뀐 것과 같다. 그래서 갇힌 적이 있으면 **그 기기에서는
+ * 전면 광고를 다시 안 띄운다**(ADR-0038). 증거 둘을 아래에서 갈라 둔다.
  */
 
 import type { KeyValueStore } from '../toss';
@@ -66,50 +66,74 @@ export async function takeStuckMark(store: KeyValueStore): Promise<StuckAdMark |
   }
 }
 
-/** 갇힘 점수를 적는 칸. 표(`ad-on-screen`)와 달리 읽어도 안 지운다. */
-const SCORE_KEY = 'ad-stuck-score';
+/**
+ * 갇힘을 **직접 본 적이 있나.** 이 칸이 서면 그 기기에서는 전면 광고를 다시 안 띄운다.
+ *
+ * 90초까지 덮고 있고, 끝 신호도 없고, 눌러 나간 것도 아닌 판이다. 추측이 아니라서
+ * 한 번으로 끈다. 읽어도 안 지운다.
+ */
+const SEEN_KEY = 'ad-stuck-seen';
 
 /**
- * 이 점수부터는 그 기기에서 전면 광고를 끈다.
+ * 광고가 덮은 채로 앱이 **연달아** 몇 번 죽었나.
  *
- * **증거의 무게를 갈라 둔다.**
- *
- * - 앱이 광고에 덮인 채 죽었다 → **1점**. 고장일 수도 있고 그냥 답답해서 끈 것일 수도 있다.
- *   한 번으로 끄면 멀쩡한 기기의 광고까지 꺼져 수입이 통째로 샌다
- * - 90초까지 덮고 있는 것을 우리가 직접 봤다(`onStalled`) → **2점**. 이건 추측이 아니다.
- *   그 한 번으로 바로 끈다
- *
- * 한 사람에게서 잃는 광고 수입은 14일에 72원이다(ADR-0029). 앱을 강제로 끄게 만드는
- * 쪽이 훨씬 비싸다.
+ * 🔴 **누적이 아니라 연속이다.** 표(`ad-on-screen`)는 고장에만 남는 것이 아니라 지겨워서
+ * 끈 사람, 광고를 눌러 나가 안 돌아온 사람, iOS 메모리 압박으로 백그라운드에서 죽은
+ * 사람에게도 남는다. 평생 누적으로 세면 오래 쓰는 사람은 거의 전원이 문턱에 닿는다.
+ * 광고 한 편이 제대로 걷히면 0으로 되돌려, **연달아 두 번**일 때만 끈다.
  */
-export const STUCK_BLOCK_SCORE = 2;
+const DEATHS_KEY = 'ad-stuck-deaths';
 
-/** 앱이 광고에 덮인 채 끝났다. 증거가 약해 1점이다. */
-export const STUCK_POINTS_DIED = 1;
+/** 연달아 이만큼 죽으면 그 기기에서 전면 광고를 끈다. */
+export const STUCK_DEATHS_BLOCK = 2;
 
-/** 90초까지 덮고 있는 것을 직접 봤다. 이 한 번으로 끈다. */
-export const STUCK_POINTS_SEEN = STUCK_BLOCK_SCORE;
+export interface StuckState {
+  /** 갇힌 것을 직접 봤다. 이것만으로 끈다. */
+  seen: boolean;
+  /** 광고가 덮은 채로 연달아 죽은 횟수. */
+  deaths: number;
+}
 
-function toScore(raw: string | null | undefined): number {
+function toCount(raw: string | null | undefined): number {
   const value = Number.parseInt(raw ?? '', 10);
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
-export async function readStuckScore(store: KeyValueStore): Promise<number> {
+export async function readStuckState(store: KeyValueStore): Promise<StuckState> {
   try {
-    return toScore(await store.get(SCORE_KEY));
+    const [seen, deaths] = await Promise.all([store.get(SEEN_KEY), store.get(DEATHS_KEY)]);
+    return { seen: seen === '1', deaths: toCount(deaths) };
   } catch {
-    return 0;
+    // 못 읽으면 막지 않는다. 세는 일 때문에 광고가 통째로 꺼지면 안 된다.
+    return { seen: false, deaths: 0 };
   }
 }
 
-/** 점수를 더하고 더해진 값을 돌려준다. 못 적으면 지금 값을 그대로 돌려준다. */
-export async function addStuckScore(store: KeyValueStore, points: number): Promise<number> {
-  const next = (await readStuckScore(store)) + points;
+/** 갇힌 것을 직접 봤다. */
+export async function markStuckSeen(store: KeyValueStore): Promise<void> {
   try {
-    await store.set(SCORE_KEY, String(next));
+    await store.set(SEEN_KEY, '1');
+  } catch {
+    /* 못 적으면 다음에 또 한 번 갇힌다 */
+  }
+}
+
+/** 광고가 덮은 채로 또 죽었다. 더해진 값을 돌려준다. */
+export async function addStuckDeath(store: KeyValueStore): Promise<number> {
+  const next = (await readStuckState(store)).deaths + 1;
+  try {
+    await store.set(DEATHS_KEY, String(next));
   } catch {
     /* 못 적으면 이 기기에서는 다음 실행에 다시 센다 */
   }
   return next;
+}
+
+/** 광고 한 편이 제대로 걷혔다. 연속 기록을 끊는다. */
+export async function clearStuckDeaths(store: KeyValueStore): Promise<void> {
+  try {
+    await store.remove(DEATHS_KEY);
+  } catch {
+    /* 못 지우면 다음 판에서 한 번 더 시도한다 */
+  }
 }

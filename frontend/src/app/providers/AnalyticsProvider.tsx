@@ -1,14 +1,9 @@
 import { useEffect, useMemo, type ReactNode } from 'react';
 
 import { EVENTS, Analytics, AnalyticsContext } from '../../shared/analytics';
-import {
-  STUCK_POINTS_DIED,
-  addStuckScore,
-  readStuckScore,
-  takeStuckMark,
-} from '../../shared/lib/stuckAd';
+import { addStuckDeath, takeStuckMark } from '../../shared/lib/stuckAd';
 
-import { setDeviceStuckScore } from '../../shared/lib/stuckAdMemory';
+import { ensureStuckMemory, noteStuckDeaths } from '../../shared/lib/stuckAdMemory';
 
 import { useBridge } from './bridgeContext';
 
@@ -32,20 +27,19 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
     // 개발 StrictMode 는 효과를 두 번 돌린다. 읽고 지우는 일이라 가드가 없으면 두 번 센다.
     let alive = true;
     void (async () => {
+      // 저장소에 남은 갇힘 기록을 여기서 한 번 당겨 둔다. 광고 쪽이 이 값을 그 자리에서 읽는다.
+      await ensureStuckMemory(bridge.storage);
       const mark = await takeStuckMark(bridge.storage);
-      if (!alive) return;
+      if (!alive || mark == null) return;
       /*
-        🔴 **세고 끝내지 않는다.** 갇힌 채 끝난 판은 점수로도 쌓아, 쌓이면 이 기기에서는
-        전면 광고를 아예 안 띄운다. 15초에 우리 화면만 풀어 줘 봐야 광고가 그대로 덮고
-        있으면 그 사람은 앱을 끄는 수밖에 없다(2026-09-25 밤 신고).
+        🔴 **세고 끝내지 않는다.** 광고가 덮은 채 죽은 판은 횟수로도 쌓는다. 다만 이 표는
+        고장에만 남는 것이 아니라 지겨워서 끈 사람에게도 남으므로, **연달아** 두 번일
+        때만 광고를 닫는다. 광고 한 편이 제대로 걷히면 0으로 되돌아간다(ADR-0038).
       */
-      const score =
-        mark == null
-          ? await readStuckScore(bridge.storage)
-          : await addStuckScore(bridge.storage, STUCK_POINTS_DIED);
+      const deaths = await addStuckDeath(bridge.storage);
       if (!alive) return;
-      setDeviceStuckScore(score);
-      if (mark != null) analytics.log(EVENTS.adStuckExit, { where: mark.where, score });
+      noteStuckDeaths(deaths);
+      analytics.log(EVENTS.adStuckExit, { where: mark.where, deaths });
     })();
     return () => {
       alive = false;

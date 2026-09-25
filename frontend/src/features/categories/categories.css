@@ -593,11 +593,21 @@
       calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left));
     background: var(--color-surface);
     animation: var(--animate-sheet-up);
+    /* 문턱을 못 넘고 손을 떼면 제자리로 돌아온다. 시트와 같은 값이다. */
+    transition: transform 180ms ease-out;
   }
 
-  /* 손끝을 따라가는 동안에는 올라오는 애니메이션이 자리를 두고 다툰다. */
+  /*
+    끄는 동안. **시트(`.pk-sheet--dragging`)와 같은 짝을 쓴다.**
+
+    `touch-action` 이 없으면 폰에서 브라우저가 세로 손짓을 스크롤로 먼저 가져간다.
+    이 창은 `overflow-y: auto` 라 더 그렇다. 마우스로는 안 드러나고 손가락에서만 갈린다.
+
+    `animation` 은 안 건드린다. 껐다 켜면 손을 뗀 순간 등장 애니메이션이 한 번 더 돈다.
+  */
   .cat-compose--dragging {
-    animation: none;
+    transition: none;
+    touch-action: none;
   }
 
   /*
