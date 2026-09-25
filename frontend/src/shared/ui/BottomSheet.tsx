@@ -78,6 +78,17 @@ export function BottomSheet({
     자주 났다. 화면에 보여 줄 값과 판단에 쓸 값을 갈라 둔다.
   */
   const offsetRef = useRef(0);
+  /*
+    마지막으로 무언가 굴러간 시각.
+
+    🔴 **두 번 신고된 자리다.** 되올리는 손짓은 여러 번 튕기고, 그 사이에 맨 위(0)에
+    닿는다. 위치만 보면 닿은 다음 한 번이 닫기로 읽힌다. 굴리기가 가라앉았는지를 함께
+    봐야 사람이 「같은 손짓을 이어서 하는 중」 인지 가를 수 있다.
+
+    `scroll` 은 거품을 안 타서 캡처 단계로 듣는다. 그래야 시트 안쪽에서 자기만 굴러가는
+    상자(`.tx-edit__scroll` · 아이콘 격자)의 것까지 한 자리에서 받는다.
+  */
+  const lastScrollAt = useRef(Number.NEGATIVE_INFINITY);
   const [drag, setDrag] = useState<DragState>(AT_REST);
   const titleId = useId();
 
@@ -117,9 +128,21 @@ export function BottomSheet({
       trapTab(sheetRef.current, event);
     }
 
+    function onScroll(): void {
+      lastScrollAt.current = performance.now();
+      // 끌던 중에 무언가 굴렀으면 그 손짓은 끌기가 아니었다. 되돌린다.
+      if (trackerRef.current == null) return;
+      trackerRef.current = null;
+      offsetRef.current = 0;
+      setDrag(AT_REST);
+    }
+
+    const sheet = sheetRef.current;
     document.addEventListener('keydown', onKeyDown);
+    sheet?.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      sheet?.removeEventListener('scroll', onScroll, true);
       document.body.style.overflow = overflow;
       previouslyFocused?.focus();
     };
@@ -133,7 +156,7 @@ export function BottomSheet({
     if (!dismissible || trackerRef.current != null) return;
     const sheet = sheetRef.current;
     if (sheet == null) return;
-    if (!canStartDrag(event.target, sheet)) return;
+    if (!canStartDrag(event.target, sheet, performance.now() - lastScrollAt.current)) return;
     trackerRef.current = beginTracking(
       event.pointerId,
       event.clientX,

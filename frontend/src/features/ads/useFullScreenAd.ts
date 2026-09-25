@@ -23,9 +23,7 @@ const TEST_GROUP = import.meta.env.DEV ? 'ait-ad-test-interstitial-id' : null;
  * - `watched`  광고가 뜨고 닫혔다
  * - `skipped`  광고 없이 지나갔다. 왜인지는 `reason` 이 말한다
  */
-export type FullScreenAdOutcome =
-  | { result: 'watched' }
-  | { result: 'skipped'; reason: SkipReason };
+export type FullScreenAdOutcome = { result: 'watched' } | { result: 'skipped'; reason: SkipReason };
 
 /**
  * 광고 없이 지나간 이유.
@@ -44,9 +42,7 @@ export type SkipReason = 'no_group' | 'unsupported' | 'failed' | 'stalled';
  * - `skipped`  광고 없이 지나갔다
  */
 export type RewardedAdOutcome =
-  | { result: 'earned' }
-  | { result: 'watched' }
-  | { result: 'skipped'; reason: SkipReason };
+  { result: 'earned' } | { result: 'watched' } | { result: 'skipped'; reason: SkipReason };
 
 /**
  * 어느 광고 그룹을 띄울지.
@@ -82,6 +78,11 @@ function useAdShow(
   const bridge = useBridge();
   const [busy, setBusy] = useState(false);
   /*
+    갇힘 판정이 늦게 오면 그릴 기회가 없다. 그 판정은 `available` 을 뒤집는데, 모듈
+    변수라서 스스로 그림을 다시 그리게 하지 못한다. 그때 이 값을 올려 한 번 그린다.
+  */
+  const [, bump] = useState(0);
+  /*
     이 기기에서 애초에 광고가 설 수 있는가. 못 서는 곳에 예고를 적지 않으려고 화면에 알린다.
 
     **이 세션에서 한 번 갇혔으면 여기서 닫는다.** 아래 `stalledThisSession` 을 참고.
@@ -97,8 +98,8 @@ function useAdShow(
         갇힌 적이 있으면 이 세션에서는 다시 안 띄운다.
 
         광고가 뜬 채 멈추는 판은 **특정 기기와 특정 광고의 조합**에서 난다. 한 번 걸린
-        사람은 다음에도 걸릴 가능성이 크고, 그때마다 90초씩 붙잡힌다. 그 사람에게서
-        이번 세션의 광고 수입을 포기하는 쪽이 싸다.
+        사람은 다음에도 걸린다. 화면은 15초에 풀리지만 광고 자체는 그대로 덮고 있어
+        아무것도 못 누른다. 그 사람에게서 이번 세션의 광고 수입을 포기하는 쪽이 싸다.
       */
       if (stalledThisSession) return { result: 'skipped', reason: 'stalled' };
 
@@ -117,29 +118,36 @@ function useAdShow(
       let marking: Promise<void> = Promise.resolve();
       try {
         /*
-          광고가 뜨는 순간 표를 적고 끝나면 지운다. **갇힌 사람은 답을 기다리지 않고 앱을
-          끄기 때문에**, 결과만 보면 가장 나쁜 결말이 통계에서 통째로 빠진다.
+          광고가 뜨는 순간 표를 적고 **걷힌 것을 확인하면** 지운다. 갇힌 사람은 답을
+          기다리지 않고 앱을 끄기 때문에, 결과만 보면 가장 나쁜 결말이 통계에서 통째로 빠진다.
+
+          🔴 **화면을 풀어 준 시각에 지우지 않는다.** 전면 15초·리워드 35초에 화면은 먼저
+          풀리지만 광고는 그대로 덮고 있을 수 있다. 거기서 지우면 정작 갇힌 사람이 안 세어진다.
         */
         const result = await run(bridge.ads, group, {
           onShown: () => {
             marking = markAdOnScreen(bridge.storage, where);
           },
+          onAdGone: () => {
+            // 적기가 먼저 닿게 이어 붙인다. 둘 다 네이티브를 다녀와 순서 보장이 없다.
+            void marking.then(() => clearAdOnScreen(bridge.storage));
+          },
           onStalled: () => {
             stalled = true;
             stalledThisSession = true;
+            /*
+              **판정이 답보다 늦게 온다.** 화면은 15·35초에 먼저 풀고, 정말 갇힌 것인지는
+              90초까지 보고 정한다. 그래서 그림 그릴 기회를 여기서 한 번 준다. 안 주면
+              화면은 「광고 보고 받기」 를 계속 권하는데 누르면 그냥 지나간다.
+            */
+            bump((n) => n + 1);
           },
         });
-        /*
-          **접힌 판도 표는 지운다.** 남겨 두면 90초를 버티고 앱을 계속 쓴 사람이 다음
-          실행에서 `ad_stuck_exit` 로 또 세어진다. 그 이벤트가 세려는 것은 「답을 기다리지
-          않고 앱을 껐다」 하나다. 접힌 판은 이 자리에서 `stalled` 로 이미 남는다.
-        */
         await marking;
-        await clearAdOnScreen(bridge.storage);
         /*
           **결과가 나왔으면 그 결과를 살린다.** 보상까지 받았는데 닫힘 신호만 안 와서 접힌
           판이 있다(닫힘을 안 주는 안드로이드 버전). 그것을 「광고 안 봄」 으로 적으면
-          콘솔이 세는 노출과 우리 장부가 갈린다. 갇혔다는 사실은 세션 스위치가 이미 들었다.
+          콘솔이 세는 노출과 우리 장부가 갈린다. 갇혔다는 사실은 세션 스위치가 이미 든다.
         */
         if (result !== 'failed') return { result };
         return { result: 'skipped', reason: stalled ? 'stalled' : 'failed' };

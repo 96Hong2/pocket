@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   DISMISS_FALLBACK_MS,
   FULL_SCREEN_LOAD_TIMEOUT_MS,
-  FULL_SCREEN_SHOW_TIMEOUT_MS,
+  INTERSTITIAL_RELEASE_MS,
+  REWARDED_RELEASE_MS,
+  STALL_AFTER_MS,
   adEventEffect,
   marksAdOnScreen,
   outcomeOf,
@@ -70,17 +72,26 @@ describe('outcomeOf', () => {
 });
 
 describe('시간 제한', () => {
-  it('뜬 뒤 기다리는 시간이 불러오기보다 훨씬 길다', () => {
-    expect(FULL_SCREEN_SHOW_TIMEOUT_MS).toBeGreaterThan(FULL_SCREEN_LOAD_TIMEOUT_MS * 5);
+  it('전면은 15초, 리워드는 35초 안에 화면을 풀어 준다', () => {
+    /*
+      🔴 신고가 두 번 왔다. 「2분 넘게 지나도 아무런 반응 없고 눌러지지도 않아」.
+      전면은 실측 5초 남짓, 리워드는 30초다. 각각 세 배와 한 배 조금을 준다.
+    */
+    expect(INTERSTITIAL_RELEASE_MS).toBe(15_000);
+    expect(REWARDED_RELEASE_MS).toBe(35_000);
   });
 
-  it('갇힌 사람을 2분 넘게 붙잡지 않는다', () => {
+  it('불러오기 제한보다는 길다', () => {
+    // 못 불러온 것과 안 끝나는 것은 다른 일이다. 짧으면 불러오는 중에 접힌다.
+    expect(INTERSTITIAL_RELEASE_MS).toBeGreaterThan(FULL_SCREEN_LOAD_TIMEOUT_MS);
+  });
+
+  it('갇혔다고 세는 시각은 화면을 푸는 시각보다 한참 뒤다', () => {
     /*
-      180초였다. 2분을 기다려도 아무 반응이 없다는 신고가 그 값 때문이다.
-      리워드가 실측 30초라 90초면 세 배고, 광고를 진짜로 보던 사람을 끊지는 않는다.
+      **둘을 같은 값으로 두면 안 된다.** 15초에 안 끝난 광고가 전부 갇힌 것은 아닌데,
+      갇힘 판정은 그 세션 광고를 통째로 끈다. 멀쩡한 사람의 수입까지 사라진다.
     */
-    expect(FULL_SCREEN_SHOW_TIMEOUT_MS).toBeLessThanOrEqual(90_000);
-    expect(FULL_SCREEN_SHOW_TIMEOUT_MS).toBeGreaterThanOrEqual(60_000);
+    expect(STALL_AFTER_MS).toBeGreaterThanOrEqual(REWARDED_RELEASE_MS * 2);
   });
 
   it('닫힘 폴백은 화면이 돌아온 뒤 잠깐만 기다린다', () => {

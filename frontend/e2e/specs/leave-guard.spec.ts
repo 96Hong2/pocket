@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { LeaveConfirmArea } from '../screens/RecordSheet';
 import { expect, test } from '../support/fixtures';
@@ -22,8 +22,12 @@ import { expect, test } from '../support/fixtures';
 
 /** 시트 안쪽 어딘가를 잡고 아래로 쭉 쓴다. 손잡이가 아니라 본문이다. */
 async function swipeDown(page: Page, selector: string): Promise<void> {
-  const box = await page.locator(selector).first().boundingBox();
-  if (box == null) throw new Error(`${selector} 를 화면에서 못 찾았다`);
+  await swipeDownAt(page, page.locator(selector).first());
+}
+
+async function swipeDownAt(page: Page, target: Locator): Promise<void> {
+  const box = await target.boundingBox();
+  if (box == null) throw new Error('끌 자리를 화면에서 못 찾았다');
   const x = box.x + box.width / 2;
   const y = box.y + Math.min(40, box.height / 3);
   await page.mouse.move(x, y);
@@ -35,11 +39,7 @@ async function swipeDown(page: Page, selector: string): Promise<void> {
 }
 
 test.describe('적던 것을 말없이 잃지 않는다', () => {
-  test('기록 고치기에서 내려 읽다 되올려도 시트가 안 닫힌다', async ({
-    page,
-    prep,
-    calendar,
-  }) => {
+  test('기록 고치기에서 내려 읽다 되올려도 시트가 안 닫힌다', async ({ page, prep, calendar }) => {
     await prep.addTransaction({ amount: 12_000, merchant: '김밥천국', daysAgo: 0 });
     await calendar.open();
     await calendar.waitReady();
@@ -154,11 +154,7 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await expect(recordSheet.input.amountText).toContainText('24,000');
   });
 
-  test('아이콘 격자를 굴려 놓고 되올려도 창이 안 닫힌다', async ({
-    page,
-    home,
-    recordSheet,
-  }) => {
+  test('아이콘 격자를 굴려 놓고 되올려도 창이 안 닫힌다', async ({ page, home, recordSheet }) => {
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
@@ -181,5 +177,123 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await expect(recordSheet.leave.dialog).toHaveCount(0);
     await expect(form.title).toBeVisible();
     await expect(form.nameField).toHaveValue('반려동물');
+  });
+});
+
+/**
+ * 🔴 **첫 판으로 안 끝났다**(2026-09-25 두 번째 신고).
+ *
+ * 「지금도 기록 수정하거나 새 카테고리 추가하다가 스크롤해서 창 닫으면 아무 알림창 없이
+ * 바로 닫히는데?」
+ *
+ * 앞의 검사들은 **굴려 놓은 상태에서** 아래로 쓴 한 번만 봤다. 실제 손짓은 그렇지 않다.
+ * 폰에서는 튕겨 올리는 손짓이 여러 번 이어지고, 그 사이에 맨 위(0)에 닿는다. 닿은 다음
+ * 한 번은 「맨 위니까 닫아도 된다」 로 읽혀 시트가 통째로 닫혔다.
+ *
+ * 그래서 위치만 보지 않고 **방금 굴린 참인지**를 함께 본다.
+ *
+ * ⚠ 한때 「굴러갈 수 있으면 본문에서는 아예 안 끈다」 로 넓혔다가 되돌렸다. `.pk-sheet` 는
+ * 전부 `overflow-y: auto` 라 내용이 긴 시트가 통째로 걸려들었다. 그래서 아래에 **여전히
+ * 닫혀야 하는** 손짓도 함께 둔다. 한쪽만 재면 다음 판에서 또 과하게 막는다.
+ */
+test.describe('굴러가는 시트는 굴리는 손짓으로 안 닫힌다', () => {
+  /**
+   * 내려 읽었다가 맨 위까지 되올린 **직후에** 한 번 더 쓴다. 신고된 손짓이다.
+   *
+   * 되올리기를 `scrollTop` 으로 만든다. 마우스 휠로 만들면 굴리기가 언제 멈추는지가
+   * 실행마다 달라, 맨 위에 안 닿은 채로 쓸어서 **옛 규칙에도 통과하는** 검사가 된다.
+   * 실제로 그렇게 만들었다가 사보타주에 안 걸려서 고쳤다. 자리(맨 위)와 시각(방금 굴림)
+   * 둘 다 신고된 장면과 같아야 한다.
+   */
+  async function backToTopThenSwipe(page: Page, selector: string): Promise<void> {
+    const box = await page.locator(selector).first().boundingBox();
+    if (box == null) throw new Error(`${selector} 를 화면에서 못 찾았다`);
+    const x = box.x + box.width / 2;
+    const y = box.y + Math.min(40, box.height / 3);
+
+    const top = await page
+      .locator(selector)
+      .first()
+      .evaluate((node) => {
+        node.scrollTop = 200; // 내려 읽었다
+        node.scrollTop = 0; // 되올렸다. 여기서 scroll 이 난다
+        return node.scrollTop;
+      });
+    // 맨 위에 실제로 닿았는지 못 박는다. 안 닿았으면 옛 규칙으로도 통과한다.
+    expect(top).toBe(0);
+
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (const step of [20, 60, 110, 170, 230]) {
+      await page.mouse.move(x, y + step);
+    }
+    await page.mouse.up();
+  }
+
+  test('기록 고치기: 맨 위까지 되올린 뒤 한 번 더 쓸어도 안 닫힌다', async ({
+    page,
+    prep,
+    calendar,
+  }) => {
+    await prep.addTransaction({ amount: 12_000, merchant: '김밥천국', daysAgo: 0 });
+    await calendar.open();
+    await calendar.waitReady();
+    await calendar.list.pick('김밥천국');
+    await expect(calendar.edit.dialog).toBeVisible();
+
+    await backToTopThenSwipe(page, '.tx-edit__scroll');
+    await expect(calendar.edit.dialog).toBeVisible();
+  });
+
+  test('분류 만들기: 격자를 맨 위까지 되올린 뒤 한 번 더 쓸어도 안 닫힌다', async ({
+    page,
+    home,
+    recordSheet,
+  }) => {
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.input.openNewCategory();
+
+    const form = recordSheet.input.newCategoryForm;
+    await expect(form.iconGrid).toBeVisible();
+
+    await backToTopThenSwipe(page, '.icon-picker__grid');
+    await expect(form.title).toBeVisible();
+  });
+
+  test('손잡이로는 그대로 닫힌다', async ({ page, prep, calendar }) => {
+    await prep.addTransaction({ amount: 12_000, merchant: '김밥천국', daysAgo: 0 });
+    await calendar.open();
+    await calendar.waitReady();
+    await calendar.list.pick('김밥천국');
+    await expect(calendar.edit.dialog).toBeVisible();
+
+    await swipeDown(page, '[data-sheet-handle]');
+    await expect(calendar.edit.dialog).toHaveCount(0);
+  });
+
+  test('🔴 굴리지 않고 본문을 잡아 내리면 기록 시트가 닫힌다', async ({
+    page,
+    home,
+    recordSheet,
+  }) => {
+    /*
+      🔴 **과하게 막았다가 되돌린 자리다**(PR #84 리뷰). `.pk-sheet` 는 전부
+      `overflow-y: auto` 라, 굴러갈 수 있다는 것만으로 막으면 내용이 긴 시트가 통째로
+      걸려든다. 이 앱의 간판인 10초 기록 키패드가 그렇게 죽었다(iPhone 14 에서 762px).
+
+      아무것도 안 적었으니 확인 창 없이 그냥 닫힌다.
+    */
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+
+    // 금액 표시 줄이다. 버튼도 입력칸도 아니라 여기서 시작한 손짓은 닫기로 읽혀야 한다.
+    await swipeDownAt(page, recordSheet.input.amountText);
+    await expect(recordSheet.leave.dialog).toHaveCount(0);
+    await recordSheet.waitClosed();
   });
 });

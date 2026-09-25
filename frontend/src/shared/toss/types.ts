@@ -142,9 +142,17 @@ export type FullScreenAdResult = 'earned' | 'watched' | 'failed';
  * 앱을 끄고, 그러면 결과가 아무 데도 안 남는다. 뜨는 순간을 따로 알려 그때 표를 적는다.
  */
 export interface FullScreenAdHooks {
-  /** 광고가 사람 눈앞에 떴다. 한 편에 한 번만 온다. */
+  /** 광고가 사람 눈앞에 떴다. 한 편에 한 번만 온다. 여기서 표를 적는다. */
   onShown?: () => void;
-  /** 뜬 뒤 끝 신호가 한 번도 안 와서 우리가 접었다. */
+  /**
+   * 광고가 걷힌 것을 확인했다. 표를 지운다.
+   *
+   * **화면을 풀어 준 시각과 다르다.** 전면 15초 · 리워드 35초에 화면은 먼저 풀리지만,
+   * 광고가 그대로 덮고 있을 수 있다. 그때 표를 지우면 갇힌 채로 앱을 끈 사람이 다음
+   * 실행에서 안 세어진다. 그 결말이 통계에서 빠지는 것이 표를 만든 이유다.
+   */
+  onAdGone?: () => void;
+  /** 화면을 푼 뒤 90초까지 덮고 있었고 끝 신호도 없었다. 갇힌 것이다. */
   onStalled?: () => void;
 }
 
@@ -328,10 +336,7 @@ export function recordReview(environment: BridgeEnvironment): void {
 }
 
 /** 운영 판이 아닐 때 내보낸 공유를 창에 남긴다. 실패해도 아무 일도 일어나지 않는다. */
-export function recordShare(
-  environment: BridgeEnvironment,
-  target: ShareTarget,
-): void {
+export function recordShare(environment: BridgeEnvironment, target: ShareTarget): void {
   if (environment === 'toss' || typeof window === 'undefined') return;
   (window.__pocketShares ??= []).push({
     path: target.path,
@@ -341,10 +346,7 @@ export function recordShare(
 }
 
 /** 운영 판이 아닐 때 내려놓은 파일을 창에 남긴다. 실패해도 아무 일도 일어나지 않는다. */
-export function recordFileSave(
-  environment: BridgeEnvironment,
-  target: SaveFileTarget,
-): void {
+export function recordFileSave(environment: BridgeEnvironment, target: SaveFileTarget): void {
   if (environment === 'toss' || typeof window === 'undefined') return;
   (window.__pocketFiles ??= []).push({
     fileName: target.fileName,

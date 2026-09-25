@@ -39,7 +39,7 @@
 | 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나와 몇 장짜리인가(`cards`), 몇 장째에서 닫았나(`page`·`total`)와 끝까지 봤나(`finished`) |
 | 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
 | 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(`closing`·`assets`·`goal`·`categories`·`tags`·`recurring`·**`photo`**)와 결과(`watched`·`skipped`), 지나간 이유(`no_group`·`unsupported`·`failed`·`capped`·**`stalled`**) |
-| 광고가 뜬 채로 갇히나 | **`ad_stuck_exit`** | 어느 자리의 광고였나(`where`). **앱을 열 때 한 번** 센다. 광고가 뜨는 순간 적어 둔 표가 남아 있으면 지난번이 갇힌 판이다(ADR-0036) |
+| 광고가 뜬 채로 갇히나 | **`ad_stuck_exit`** | 어느 자리의 광고였나(`where`). **앱을 열 때 한 번** 센다. 광고가 뜨는 순간 적어 둔 표가 남아 있으면 지난번이 갇힌 판이다(ADR-0036). ⚠ **갇힌 판의 `interstitial_result` 는 `stalled` 가 아니라 `watched` 다.** 화면을 15·35초에 먼저 풀고 갇힘 판정은 90초에 내리므로, 판정이 로그보다 늦다(ADR-0037). 갇혔다는 사실은 **다음 광고의 `skipped{stalled}`** 와 이 이벤트로 드러난다 |
 | 사진을 읽으려고 광고를 보나 | `photo_credit` | 봤나 마다했나 헛돌았나 썼나(`action`: `watched`·**`declined`**·**`wasted`**·`spent`), 어떤 광고였나(`plan`: `interstitial`·`rewarded`), 몇 장짜리였나(`image_count`), 쓰고 나서 무료분이 몇 장 남았나(`left`), 광고가 어떻게 끝났나(`ad`: `earned`·`watched`·`skipped`)와 지나간 이유(`reason`: `no_group`·`unsupported`·`failed`) |
 | 분류를 제 말로 바꿔 쓰나 | `category_changed` | 만듦·고침·지움, 기본 분류인가 내가 만든 것인가(`scope`: `default`·`mine`), 갈래, 무엇을 건드렸나(`fields`: `name`·`icon`·`color` 를 `+` 로 이은 값). **이름은 싣지 않는다** |
 | 목표를 세우기만 하나 실제로 모으나 | `goal_changed` · `goal_contributed` | 만듦·고침·지움과 기한을 걸었나(`deadline`)·종잣돈이 있었나(`seeded`), 모을 때 **지난 날**로 넣었나(`backdated`, 앞날은 여기 안 센다). **이름과 금액은 싣지 않는다** |
