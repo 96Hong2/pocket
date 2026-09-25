@@ -338,8 +338,86 @@ test('여러 장을 고르면 한 묶음으로 읽고 긴 광고를 판다', asy
   const logs = await logsNamed(page, 'photo_credit');
   expect(logs.map((log) => [log.params.action, log.params.plan])).toEqual([
     ['watched', 'rewarded'],
-    ['spent', undefined],
+    ['spent', 'rewarded'],
   ]);
+});
+
+/**
+ * 200 으로 돌아왔는데 한 건도 없는 경우.
+ *
+ * 던져서 끝난 쪽(503)은 치른 광고를 갚아 주고 있었는데, 빈손으로 돌아온 쪽은 아무것도
+ * 안 했다. 사람 입장에서는 둘 다 「광고를 봤는데 아무것도 안 나왔다」 로 같다.
+ * 어두운 영수증을 세 번 찍으면 결과 없이 광고만 세 편이 돌았다.
+ */
+test('한 건도 못 찾아도 치른 광고는 갚아 준다. 다시 찍을 때 또 안 튼다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await seedTrialUsed(page);
+  await seedMockImages(CAPTURE_DATA_URI)(page);
+  // 200 인데 후보가 비었다. 서버가 읽기는 했는데 건질 것이 없던 사진이다.
+  let seen = 0;
+  await page.route('**/api/v1/imports/capture', async (route) => {
+    seen += 1;
+    if (seen > 1) {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    const body = await response.json();
+    body.candidates = [];
+    await route.fulfill({ response, json: body });
+  });
+
+  await openCaptureTab(home, recordSheet);
+  await recordSheet.capture.pickButton.click();
+  await recordSheet.capture.adConsentConfirm.click();
+  // 한 건도 못 찾으면 검토 화면이 「거래를 찾지 못했어요」 로 서고 「다시 고르기」 만 남는다.
+  await expect(recordSheet.capture.rows).toHaveCount(0);
+  await expect(recordSheet.capture.adFreeNextNotice).toBeVisible();
+
+  // 다음 한 번은 광고 없이 간다. 묻지도 않는다.
+  await recordSheet.capture.restartButton.click();
+  await recordSheet.capture.pickButton.click();
+  await expect(recordSheet.capture.adConsent).toBeHidden();
+  await expect(recordSheet.capture.rows).toHaveCount(6);
+
+  const logs = await logsNamed(page, 'photo_credit');
+  expect(logs.filter((log) => log.params.action === 'watched')).toHaveLength(1);
+  expect(logs.filter((log) => log.params.action === 'wasted')).toHaveLength(1);
+});
+
+/**
+ * 처음 여는 사람이 **첫 행동으로** 여러 장을 고른 경우.
+ *
+ * 여러 장은 체험과 무관하게 긴 광고를 태운다. 거기서 체험까지 소진하면
+ * 「맨 처음 한 장은 광고 없이」 라고 해 놓고 한 번도 안 주는 셈이 된다.
+ */
+test('여러 장을 먼저 읽어도 체험 한 장은 남는다. 광고를 치른 읽기로는 안 쓴다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await seedMockImages(CAPTURE_DATA_URI, 2)(page);
+  await answerAsRealModel(page);
+  await openCaptureTab(home, recordSheet);
+
+  // 첫 행동이 여러 장이다. 긴 광고를 보고 읽는다.
+  await recordSheet.capture.pickButton.click();
+  await recordSheet.capture.adConsentConfirm.click();
+  await expect(recordSheet.capture.rows).toHaveCount(12);
+
+  /*
+    체험은 그대로다. 버튼 아래 한 줄이 안 뜨는 것이 그 증거다. 이 줄은 한 장 기준으로
+    광고가 붙는 사람에게만 서서(`planFor(1)`), 체험이 남아 있으면 안 그려진다.
+  */
+  await recordSheet.capture.cancelButton.click();
+  await recordSheet.waitClosed();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.methodTab('캡처').click();
+  await expect(recordSheet.capture.creditLine).toBeHidden();
 });
 
 test('여러 장은 체험이 남아 있어도 광고를 묻는다. 읽는 데 오래 걸린다', async ({

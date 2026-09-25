@@ -10,9 +10,16 @@
  * 스크롤된 정도와 무관하게 늘 같은 자리에서 열린다. 딤을 깔지 않는 이유는 뒤가 비쳐 보이면
  * 「끼어든 창」 으로 읽혀서다. 여기는 지금 하는 일이 바뀐 자리다.
  *
- * **감싼 시트를 잠가야 한다.** Esc 와 딤 클릭은 문서 전체에 걸려 있어서, 잠그지 않으면
- * 이 창을 닫으려던 Esc 가 뒤에 있는 시트까지 함께 닫는다. 적던 금액과 읽어 온 줄이
- * 통째로 사라진다. 부르는 쪽이 `open` 인 동안 `dismissible={false}` 로 둔다.
+ * **뒤로 새는 길을 여기서 막는다.** 감싼 시트도 Esc 와 딤 클릭을 듣고 있어서, 안 막으면
+ * 이 창을 닫으려던 한 번에 읽어 온 검토 목록이나 고치던 기록까지 함께 닫힌다.
+ * 막는 방법은 둘이다.
+ *
+ * - **Esc 를 캡처 단계에서 통째로 삼킨다.** 저장 중이면 닫지만 않고 삼키기만 한다
+ * - **바탕이 화면 끝까지 간다.** 펴는 폰(600px 이상)에서 기둥 폭으로 좁히면 좌우에
+ *   시트의 딤이 드러나고, 그걸 누르면 뒤의 시트가 닫힌다. 안쪽 여백으로만 좁힌다
+ *
+ * 부르는 쪽이 시트의 `dismissible` 을 끌 필요는 없다. 그렇게 하면 `BottomSheet` 의
+ * 포커스 효과가 함께 다시 돌아 이름 칸의 포커스를 시트가 도로 가져간다.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -62,14 +69,14 @@ export function CategoryComposeOverlay({
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        if (busy) return;
         /*
-          **먼저 가로챈다.** 안 막으면 뒤에 있는 시트의 Esc 처리까지 이어져서,
-          분류 만들기를 그만두려던 한 번에 기록 시트까지 닫힌다.
+          **무슨 일이 있어도 삼킨다.** 뒤에 있는 시트도 Esc 를 듣고 있어서, 여기서 흘리면
+          분류 만들기를 그만두려던 한 번에 읽어 온 검토 목록이나 고치던 기록까지 닫힌다.
+          저장이 도는 중이면 닫지만 않고 삼키기만 한다.
         */
         event.preventDefault();
         event.stopPropagation();
-        onBack();
+        if (!busy) onBack();
         return;
       }
       if (event.key !== 'Tab' || !boxRef.current) return;

@@ -520,6 +520,17 @@
     color: var(--color-muted);
   }
 
+  /*
+    한 건도 못 찾은 화면에 덧붙는 한마디. 치른 광고를 갚았다는 사실이다.
+    실패 줄의 같은 말과 모양을 맞춘다(`.capture__alert span`).
+  */
+  .capture__ad-free {
+    display: block;
+    margin-top: 6px;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
   /* 결과를 지어냈다는 사실을 알리는 줄. 다시 할 일이 없어 눈에 세우지 않는다. */
   .capture__stub {
     padding: 10px 12px;

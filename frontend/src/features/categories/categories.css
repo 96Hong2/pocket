@@ -608,12 +608,15 @@
     padding-inline: 0;
   }
 
-  /* 펴는 폰에서 본문과 같은 기둥 안에 선다. 시트가 지키는 규칙과 같다. */
+  /*
+    펴는 폰에서 글은 본문과 같은 기둥 안에 선다. **바탕은 안 좁힌다.**
+
+    `max-width` 로 좁혔더니 좌우에 시트의 딤이 그대로 드러났고, 그 띠를 누르면 뒤에 있는
+    기록 시트가 닫혔다. 여백으로만 좁혀서 바탕은 화면 끝까지 가게 한다.
+  */
   @media (min-width: 600px) {
     .cat-compose {
-      width: 100%;
-      max-width: var(--app-column);
-      margin-inline: auto;
+      padding-inline: max(calc((100% - var(--app-column)) / 2), 20px);
     }
   }
 }

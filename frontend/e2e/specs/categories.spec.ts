@@ -972,3 +972,79 @@ test('아이콘 격자를 끝까지 내려도 저장 버튼이 보인다', async
   await categories.sheet.saveButton.scrollIntoViewIfNeeded();
   await expect(categories.sheet.saveButton).toBeInViewport();
 });
+
+/**
+ * 새 분류 창이 떠 있는 동안 **뒤에 있는 것이 닫히면 안 된다.**
+ *
+ * 감싼 시트도 Esc 와 딤 클릭을 듣고 있어서, 창이 그 둘을 안 삼키면 분류 만들기를
+ * 그만두려던 한 번에 읽어 온 검토 목록이나 고치던 기록까지 함께 닫힌다.
+ * 시트의 `dismissible` 을 끄는 방법은 안 쓴다. 그 값을 토글하면 `BottomSheet` 의
+ * 포커스 효과가 다시 돌아 이름 칸의 포커스를 시트가 도로 가져간다.
+ */
+test.describe('새 분류 창이 뒤로 새지 않는다', () => {
+  test('검토 줄에서 열고 Esc 를 눌러도 읽어 온 목록이 그대로다', async ({
+    home,
+    page,
+    recordSheet,
+  }) => {
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.methodTab('줄글').click();
+    await recordSheet.nl.analyze('점심 12000');
+    await recordSheet.nl.openEdit('점심');
+
+    await recordSheet.nl.form.openNewCategory();
+    const compose = recordSheet.nl.form.compose;
+    await expect(compose.title).toBeVisible();
+
+    await page.keyboard.press('Escape');
+
+    // 창만 닫힌다. 기록 시트도 읽어 온 줄도 그대로다.
+    await expect(compose.title).toHaveCount(0);
+    await recordSheet.waitOpen();
+    await expect(recordSheet.nl.form.merchantField).toBeVisible();
+    /*
+      **뒤에서 「그만둘까요」 가 뜨지도 않아야 한다.** 그 창은 시트 안(z 2)에 서는데
+      새 분류 창이 z 70 이라 완전히 가려진다. 사용자 눈에는 아무 일도 안 일어난 것으로
+      보이다가, 분류를 만들고 돌아오는 순간 「읽어 온 1건이 사라져요」 가 튀어나온다.
+    */
+    await expect(recordSheet.leave.text).toHaveCount(0);
+  });
+
+  test('기록을 고치다 열면 이름 칸에 커서가 남는다', async ({ calendar, prep }) => {
+    await prep.addTransaction({ amount: 9000, merchant: '문구점' });
+
+    await calendar.open();
+    await calendar.waitReady();
+    await calendar.list.pick('문구점');
+    await calendar.edit.waitOpen();
+    await calendar.edit.openNewCategory();
+
+    /*
+      한때 시트의 `dismissible` 을 끄면서 포커스가 오버레이 밖 시트 컨테이너로 끌려갔다.
+      웹뷰에서 자판이 안 올라오고, 그 자리에서 Tab 을 치면 가려진 시트 안으로 샜다.
+    */
+    await expect(calendar.edit.compose.nameField).toBeFocused();
+  });
+
+  test('펴는 폰에서 창 옆을 눌러도 뒤가 안 닫힌다', async ({ page, calendar, prep }) => {
+    // 폴드 펼침 폭. 여기서 창 바탕을 기둥으로 좁히면 좌우에 시트의 딤이 드러났다.
+    await page.setViewportSize({ width: 673, height: 841 });
+    await prep.addTransaction({ amount: 9000, merchant: '문구점' });
+
+    await calendar.open();
+    await calendar.waitReady();
+    await calendar.list.pick('문구점');
+    await calendar.edit.waitOpen();
+    await calendar.edit.openNewCategory();
+    await expect(calendar.edit.compose.title).toBeVisible();
+
+    // 기둥 바깥을 누른다. 창 바탕이 화면 끝까지 가 있으면 여기가 창이다.
+    await page.mouse.click(20, 400);
+
+    await expect(calendar.edit.compose.title).toBeVisible();
+    await calendar.edit.waitOpen();
+  });
+});

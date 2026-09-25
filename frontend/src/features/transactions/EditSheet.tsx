@@ -64,22 +64,23 @@ export interface EditSheetProps {
 }
 
 export function EditSheet({ transaction, categories, month, onClose }: EditSheetProps) {
-  /*
-    새 분류 만들기 창이 이 시트 위에 떠 있나.
-
-    떠 있는 동안에는 이 시트가 닫히면 안 된다. Esc·딤·뒤로가기는 문서 전체에 걸려 있어서,
-    안 잠그면 위 창을 그만두려던 한 번에 고치던 기록까지 통째로 닫힌다.
-  */
-  const [composing, setComposing] = useState(false);
-
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
-  useOverlayBackClose(transaction != null, onClose, composing);
+  useOverlayBackClose(transaction != null, onClose);
 
+  /*
+    새 분류 창이 떠 있는 동안 이 시트를 잠그지 **않는다.**
+
+    한때 `dismissible={false}` 로 막았는데, 그 값이 `BottomSheet` 의 포커스 효과 deps 에
+    들어 있어서 값을 토글하는 순간 효과가 다시 돌고 시트가 이름 칸의 포커스를 도로
+    가져갔다. 웹뷰에서 자판이 안 올라오고 Tab 이 가려진 시트로 샜다.
+
+    새는 길은 창 쪽에서 막는다(`CategoryComposeOverlay`). Esc 를 캡처 단계에서 삼키고,
+    바탕이 화면 끝까지 가서 뒤의 딤과 손잡이에 손이 안 닿는다.
+  */
   return (
     <BottomSheet
       open={transaction != null}
       onClose={onClose}
-      dismissible={!composing}
       ariaLabel="기록 수정"
       className="tx-edit"
       /*
@@ -97,7 +98,6 @@ export function EditSheet({ transaction, categories, month, onClose }: EditSheet
           transaction={transaction}
           categories={categories}
           month={month}
-          onComposingChange={setComposing}
           onClose={onClose}
         />
       ) : null}
@@ -109,8 +109,6 @@ interface EditFormProps {
   transaction: TransactionOut;
   categories: CategoryOut[];
   month?: MonthParams;
-  /** 새 분류 만들기 창이 떠 있나. 껍데기가 이 값으로 시트 닫기를 잠근다. */
-  onComposingChange: (composing: boolean) => void;
   onClose: () => void;
 }
 
@@ -137,13 +135,7 @@ function canSwitchKind(type: TransactionOut['type']): boolean {
   return type === 'expense' || type === 'income';
 }
 
-function EditForm({
-  transaction,
-  categories,
-  month,
-  onComposingChange,
-  onClose,
-}: EditFormProps) {
+function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
   const analytics = useAnalytics();
   const update = useUpdateTransaction(month);
   const remove = useDeleteTransaction();
@@ -182,11 +174,6 @@ function EditForm({
     분류 칸이 만들기 폼으로 바뀐다. 고쳐 둔 금액·상호가 살아 있어야 이어서 저장한다.
   */
   const [creating, setCreating] = useState(false);
-
-  /* 새 분류 창이 떠 있는 동안은 껍데기가 이 시트의 닫기를 잠근다. */
-  useEffect(() => {
-    onComposingChange(creating);
-  }, [creating, onComposingChange]);
   /*
     지우기 전에 한 번 묻는다.
 

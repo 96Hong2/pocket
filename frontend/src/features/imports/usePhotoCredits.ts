@@ -50,8 +50,8 @@ export interface PhotoCreditsHandle {
   markWasted: (plan: PhotoAdPlan, count: number) => void;
   /** 이미 치른 광고가 있어 다음 한 번은 공짜다. 화면이 그 사실을 적을 때 쓴다. */
   owed: boolean;
-  /** 읽어 낸 뒤에 부른다. 체험 한 장을 썼으면 그 표시를 남긴다. */
-  spend: (count: number) => Promise<void>;
+  /** 읽어 낸 뒤에 부른다. 광고를 안 태운 읽기였으면 체험 한 장을 쓴 것으로 적는다. */
+  spend: (count: number, plan: PhotoAdPlan) => Promise<void>;
 }
 
 export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
@@ -167,18 +167,22 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
   );
 
   const spend = useCallback(
-    async (count: number): Promise<void> => {
+    async (count: number, plan: PhotoAdPlan): Promise<void> => {
       /*
         체험 한 장은 **읽어 낸 뒤에** 쓴 것으로 친다. 고른 순간에 표시하면 읽기가 실패한
         사람이 체험도 잃고 결과도 없이 나간다.
+
+        **광고를 치른 읽기로는 체험을 안 쓴다.** 처음 여는 사람이 첫 행동으로 사진 두 장을
+        고르면 그 길은 긴 광고를 태우는데(여러 장은 체험과 무관하다), 거기서 체험까지
+        소진하면 「맨 처음 한 장은 광고 없이」 라고 해 놓고 한 번도 안 주는 셈이 된다.
       */
-      if (trial !== false) {
+      if (plan === 'none' && trial !== false) {
         await markTrialUsed(bridge.storage);
         setTrial(false);
       }
       // 읽어 냈으니 치른 값을 받은 셈이다. 다음부터는 다시 평소대로 묻는다.
       setOwed(false);
-      analytics.log(EVENTS.photoCredit, { action: 'spent', image_count: count }, { flowId });
+      analytics.log(EVENTS.photoCredit, { action: 'spent', plan, image_count: count }, { flowId });
     },
     [analytics, bridge, flowId, trial],
   );

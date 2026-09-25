@@ -129,15 +129,18 @@ async function gateBody(
   showAd: () => Promise<FullScreenAdOutcome>,
   uncapped: boolean,
 ): Promise<InterstitialOutcome> {
+  /*
+    상한 밖이면 세는 칸을 아예 안 본다. 읽어 봐야 판정에도 안 쓰고 적지도 않는다.
+    사진은 읽을 때마다 여기를 지나서, 쓸데없는 저장소 왕복이 장수만큼 쌓인다.
+  */
+  if (uncapped) return await showAd();
+
   const today = toLedgerDate(new Date());
   const record = await readDayCount(store);
-  if (!uncapped && !allowedToday(record, today)) return CAPPED;
+  if (!allowedToday(record, today)) return CAPPED;
 
   const outcome = await showAd();
   if (outcome.result !== 'watched') return outcome;
-
-  // 상한 밖에서 본 편은 안 센다. 세면 관리 탭 쪽 상한을 갉아먹는다.
-  if (uncapped) return outcome;
 
   watchedThisSession += 1;
   /*

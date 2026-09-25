@@ -4,6 +4,7 @@ import { useOverlayBackClose } from '../../app/providers';
 import { BottomSheet, Button, CategoryAvatar, SegmentedControl } from '../../shared/ui';
 
 import { EXPORT_PERIODS, type ExportPeriod } from './period';
+import { LEDGER_HEADER } from './rows';
 import { useLedgerExport, type ExportFormat } from './useLedgerExport';
 
 /**
@@ -102,11 +103,18 @@ function ExportForm({ ledgerExport, period, onPeriodChange }: ExportFormProps) {
         **네 줄에서 세 줄로 줄였다.** 회색 상자에 긴 문장 넷이 들어가니 어느 것이 중요한지
         안 보였고, 정작 눈에 담기는 것은 아무것도 없었다. 「왜 빠지나」 의 설명은 뺀다.
         여기서 궁금한 것은 무엇이 들어 있느냐지 우리 규칙의 근거가 아니다.
+
+        **열 목록은 손으로 적지 않는다.** 줄이면서 「시간」 을 흘렸고, 파일에는 있는 열이
+        안내에만 없었다. 만드는 쪽과 같은 상수를 그려 두 곳이 영영 안 어긋나게 한다.
+
+        **셋째 줄의 둘은 빠지는 자리가 다르다.** 이체는 내역에 남고 요약에서만 빠지는데,
+        안 쓴 날 표시는 파일 어디에도 안 들어간다(`rows.ts` 의 `toExportLines`).
+        한 줄로 묶어 「요약에서 빠져요」 라고 적었더니 안 쓴 날을 찍어 둔 사람에게 거짓이 됐다.
       */}
       <ul className="export-sheet__list">
-        <li>날짜, 구분, 카테고리, 내용, 금액, 결제수단, 메모</li>
-        <li>월별 요약과 카테고리별 요약 시트가 함께 들어가요</li>
-        <li>이체와 안 쓴 날 표시는 요약에서 빠져요</li>
+        <li>{LEDGER_HEADER.join(', ')}</li>
+        <li>엑셀 파일에는 월별 요약과 카테고리별 요약 시트가 들어가요</li>
+        <li>이체는 요약에서 빼요. 안 쓴 날 표시는 파일에 안 담겨요</li>
       </ul>
 
       {supported ? null : (
