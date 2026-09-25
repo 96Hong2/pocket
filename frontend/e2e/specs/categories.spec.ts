@@ -268,7 +268,9 @@ test.describe('이름이 겹칠 때', () => {
       await expect(categories.sheet.dialog).toBeVisible();
       await expect(categories.row(PET)).toHaveCount(1);
 
+      // 적어 둔 이름이 있으니 한 번 묻는다. 그만두기를 골라야 닫힌다.
       await categories.sheet.closeButton.click();
+      await categories.leave.leaveButton.click();
       await categories.sheet.waitClosed();
     });
 
@@ -648,7 +650,12 @@ test('분류를 만들다 시스템 뒤로가기를 누르면 만들기만 닫�
   await recordSheet.input.openNewCategory();
   await recordSheet.input.newCategoryForm.nameField.fill(PET);
 
+  /*
+    이름을 적어 뒀으니 뒤로가기도 한 번 묻는다. 「이전」 을 눌렀을 때와 같은 규칙이다.
+    한쪽만 묻고 다른 쪽은 그냥 닫으면 어느 길로 나왔는지에 따라 잃는 것이 달라진다.
+  */
   await appShell.pressBack();
+  await recordSheet.leave.leaveButton.click();
 
   await expect(recordSheet.input.newCategoryForm.title).toHaveCount(0);
   await recordSheet.waitOpen();
@@ -656,7 +663,9 @@ test('분류를 만들다 시스템 뒤로가기를 누르면 만들기만 닫�
   await expect(recordSheet.input.categoryChip('식비')).toBeVisible();
 
   // 한 번 더 누르면 그때는 시트가 닫힌다. 만들기만 삼키고 갇히면 그것도 막다른 길이다.
+  // 눌러 둔 금액이 있어 여기서도 한 번 묻는다.
   await appShell.pressBack();
+  await recordSheet.leave.leaveButton.click();
   await recordSheet.waitClosed();
 });
 

@@ -13,6 +13,7 @@ import {
   type BridgePlatform,
   type CaptureOptions,
   type FileBridge,
+  type FullScreenAdHooks,
   type FullScreenAdResult,
   type Identity,
   type KeyValueStore,
@@ -140,32 +141,39 @@ class MockAdsBridge implements AdsBridge {
     return { destroy: () => node.remove() };
   }
 
-  showFullScreen(): Promise<FullScreenAdResult> {
+  showFullScreen(_adGroupId: string, hooks?: FullScreenAdHooks): Promise<FullScreenAdResult> {
     const mode = this.scenario.fullScreenAd ?? 'ok';
     if (mode !== 'ok') return Promise.resolve('failed');
-    return cover('mock-fullscreen-ad', '광고 (목)', 'watched');
+    return cover('mock-fullscreen-ad', '광고 (목)', 'watched', hooks);
   }
 
-  showRewarded(): Promise<FullScreenAdResult> {
+  showRewarded(_adGroupId: string, hooks?: FullScreenAdHooks): Promise<FullScreenAdResult> {
     if (this.scenario.fullScreenAd === 'unsupported') return Promise.resolve('failed');
     const mode = this.scenario.rewardedAd ?? 'earned';
     if (mode === 'failed') return Promise.resolve('failed');
     // 전면과 다른 자리표시자를 쓴다. e2e 가 어느 쪽 광고가 떴는지 구분할 수 있어야 한다.
-    return cover('mock-rewarded-ad', '리워드 광고 (목)', mode);
+    return cover('mock-rewarded-ad', '리워드 광고 (목)', mode, hooks);
   }
 }
 
-/** 실광고처럼 화면을 통째로 덮었다가 걷는다. e2e 가 「광고가 떴다」 를 이 자리로 본다. */
+/**
+ * 실광고처럼 화면을 통째로 덮었다가 걷는다. e2e 가 「광고가 떴다」 를 이 자리로 본다.
+ *
+ * ⚠ **갇힌 판은 여기서 못 만든다.** 시간 제한도 닫힘 폴백도 `tossBridge` 에만 있어서,
+ * 목으로 재면 실기기와 다른 것을 재게 된다. 그 길은 `tossBridge.test.ts` 가 가짜 시계로 잰다.
+ */
 function cover(
   testid: string,
   label: string,
   result: FullScreenAdResult,
+  hooks?: FullScreenAdHooks,
 ): Promise<FullScreenAdResult> {
   const node = document.createElement('div');
   node.dataset.testid = testid;
   node.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#111;color:#fff';
   node.textContent = label;
   document.body.appendChild(node);
+  hooks?.onShown?.();
   return new Promise((resolve) => {
     setTimeout(() => {
       node.remove();

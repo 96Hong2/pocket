@@ -41,6 +41,7 @@ import {
   CalendarGlyph,
   CategoryAvatar,
   ErrorState,
+  LeaveConfirm,
   LoadingState,
   SegmentedControl,
   iconOf,
@@ -154,6 +155,18 @@ export function QuickRecordSheet({
     한두 번만 겪어도 이 앱을 안 쓰게 되는 자리라, **닫기를 한 번 되묻는다.**
   */
   const [pending, setPending] = useState(0);
+  /*
+    읽어 온 것 말고 **손으로 적어 둔 것**이 있나.
+
+    예전에는 읽어 온 건수만 봤다. 금액을 눌러 두고, 줄글을 적어 두고, 새 분류 이름을
+    적어 둔 사람은 손잡이를 스치는 순간 아무 말 없이 다 잃었다(2026-09-25 신고).
+
+    **상태가 아니라 물어보는 함수다.** 안쪽에서 상태로 올리면 한 박자 늦는다. 적자마자
+    닫는 손짓에서 아직 거짓인 값을 보고 확인 없이 닫혔다. 나갈 때 그 자리에서 센다.
+  */
+  const draftedRef = useRef(() => false);
+  /** 지금 분류를 만드는 중인가. 문구가 잃을 범위를 말해야 해서 바깥도 알아야 한다. */
+  const composingRef = useRef(false);
   const [reviewing, setReviewing] = useState(false);
   const [asking, setAsking] = useState(false);
   /*
@@ -173,8 +186,19 @@ export function QuickRecordSheet({
 
   /** 나가려는 모든 길이 여기를 지난다. 손잡이·딤·Esc·시스템 뒤로가기·관리로 가기가 같은 규칙을 탄다. */
   function requestLeave(where: 'close' | 'manage'): void {
-    if (pending > 0) {
-      analytics.log(EVENTS.recordLeaveAsked, { result: 'asked', pending }, { kind: 'impression' });
+    // 이미 묻는 중이면 또 안 묻는다. 분모가 부풀면 이 물음이 방해였는지 안전장치였는지 못 가린다.
+    if (asking) return;
+    const drafted = draftedRef.current();
+    if (pending > 0 || drafted) {
+      analytics.log(
+        EVENTS.recordLeaveAsked,
+        /*
+          **왜 물었는지를 함께 남긴다.** 읽어 온 것 때문인지 손으로 적은 것 때문인지
+          안 가르면, 이번에 늘린 자리가 사람을 구했는지 방해했는지를 잴 수 없다.
+        */
+        { result: 'asked', pending, reason: pending > 0 ? 'parsed' : 'typed' },
+        { kind: 'impression' },
+      );
       setLeaveTo(where);
       setAsking(true);
       return;
@@ -218,11 +242,18 @@ export function QuickRecordSheet({
         onManage={() => requestLeave('manage')}
         onSavingChange={setSaving}
         onPendingChange={setPending}
+        draftedRef={draftedRef}
+        composingRef={composingRef}
         onReviewingChange={setReviewing}
       />
       {asking ? (
         <LeaveConfirm
-          pending={pending}
+          /*
+            **잃는 범위를 문구가 말한다.** 분류를 만들던 중에 시트를 닫으면 만들던 분류만
+            사라지는 것이 아니라 눌러 둔 금액까지 함께 사라진다. 바로 앞에서 「이전」 을
+            눌렀을 때는 금액이 남았으므로, 같은 문구면 같은 결과일 것으로 읽는다.
+          */
+          text={leaveText(pending, composingRef.current)}
           onStay={() => answer('stayed')}
           onLeave={() => answer('left')}
         />
@@ -232,38 +263,27 @@ export function QuickRecordSheet({
 }
 
 /**
- * 읽어 온 것을 두고 나가려 할 때 한 번 묻는다.
+ * 지금 닫으면 무엇을 잃는지 한 문장으로.
  *
- * 시트를 하나 더 띄우지 않고 이 시트 위에 겹친다. 시트가 둘이면 닫을 때 어디로 돌아가는지
- * 흔들리고, 화면에 dialog 가 둘이 된다.
- *
- * **머무는 쪽이 기본이다.** 실수로 누른 사람이 한 번 더 실수해도 잃지 않게, 남는 버튼을
- * 크고 오른쪽에 둔다.
+ * 읽어 온 것이 있으면 건수를 먼저 말한다. 그쪽이 더 크고, 몇 건인지가 판단을 바꾼다.
+ * 손으로 적어 둔 것이 함께 있으면 그것도 붙인다. 한쪽만 말하면 남은 쪽은 말없이 사라진다.
  */
-function LeaveConfirm({
-  pending,
-  onStay,
-  onLeave,
-}: {
-  pending: number;
-  onStay: () => void;
-  onLeave: () => void;
-}) {
-  return (
-    <div className="record-leave" role="alertdialog" aria-label="그만둘까요">
-      <div className="record-leave__box">
-        <p className="record-leave__text">읽어 온 {pending}건이 사라져요. 그만둘까요?</p>
-        <div className="record-leave__actions">
-          <Button variant="outline" onClick={onLeave}>
-            그만두기
-          </Button>
-          <Button className="record-leave__stay" onClick={onStay}>
-            계속 고치기
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+function leaveText(pending: number, composing: boolean): string {
+  const lost = [
+    pending > 0 ? `읽어 온 ${pending}건` : null,
+    composing ? '만들던 분류' : null,
+  ].filter((part) => part != null);
+  if (lost.length === 0) return '적던 내용이 사라져요. 그만둘까요?';
+  const joined = lost.join('과 ');
+  // 「3건이」 와 「분류가」. 받침이 있는지로 갈린다. 한쪽으로 못 박으면 한 경우가 어색해진다.
+  return `${joined}${hasFinalConsonant(joined) ? '이' : '가'} 사라져요. 그만둘까요?`;
+}
+
+/** 마지막 글자에 받침이 있나. 한글이 아니면 없는 것으로 본다. */
+function hasFinalConsonant(word: string): boolean {
+  const code = word.charCodeAt(word.length - 1);
+  if (code < 0xac00 || code > 0xd7a3) return false;
+  return (code - 0xac00) % 28 !== 0;
 }
 
 /**
@@ -279,6 +299,8 @@ function RecordBody({
   onManage,
   onSavingChange,
   onPendingChange,
+  draftedRef,
+  composingRef,
   onReviewingChange,
 }: {
   initialTab?: RecordTab;
@@ -293,6 +315,10 @@ function RecordBody({
   onSavingChange: (saving: boolean) => void;
   /** 어느 탭에서든 읽어 두고 아직 저장 안 한 건수의 합. */
   onPendingChange: (pending: number) => void;
+  /** 손으로 적어 둔 것이 있나 묻는 함수를 여기 걸어 둔다. 금액·줄글 초안·만들던 분류를 묶는다. */
+  draftedRef: { current: () => boolean };
+  /** 지금 분류를 만드는 중인가. 바깥의 확인 문구가 잃을 범위를 말하는 데 쓴다. */
+  composingRef: { current: boolean };
   /** 지금 보고 있는 탭이 검토 중인가. 시트 크기가 이 값을 따라간다. */
   onReviewingChange: (reviewing: boolean) => void;
 }) {
@@ -409,6 +435,7 @@ function RecordBody({
     onReviewingChange(reviewing);
   }, [onReviewingChange, reviewing]);
 
+
   /**
    * 적힌 날을 부르는 쪽에 알린다.
    *
@@ -467,6 +494,18 @@ function RecordBody({
     감추기만 하고 트리에서 빼지 않는다. 빼면 다른 탭이 읽어 둔 것이 함께 사라진다.
   */
   const [creating, setCreating] = useState(false);
+  /** 만들던 분류에 적어 둔 것이 있나. 시트를 닫을 때 물을지를 이 값도 함께 정한다. */
+  const composeDirtyRef = useRef(false);
+  /*
+    만들기를 그만두려는데 적어 둔 것이 있나.
+
+    **덮는 창(`CategoryComposeOverlay`)과 같은 규칙이다.** 키패드에서는 시트 안쪽을
+    통째로 바꾸는 방식이라 창을 안 쓰는데, 그 차이가 사용자에게 보이면 안 된다.
+    한쪽만 묻고 다른 쪽은 그냥 닫으면 어디서 열었는지에 따라 잃는 것이 달라진다.
+  */
+  const [composeAsking, setComposeAsking] = useState(false);
+  /** 줄글 탭에 아직 안 읽힌 글이 적혀 있나. 그 탭이 그릴 때마다 여기 적는다. */
+  const nlDraftRef = useRef(false);
 
   /*
     만드는 중에 누른 시스템 뒤로가기.
@@ -478,7 +517,48 @@ function RecordBody({
 
     나중에 등록한 것이 스택 맨 위라, 만드는 동안에는 시트의 닫기보다 이쪽이 먼저 받는다.
   */
-  useOverlayBackClose(creating, () => setCreating(false), busy);
+  /** 만들기를 접고 기록 화면으로 돌아간다. 묻는 일은 부르는 쪽이 이미 끝냈다. */
+  function leaveCompose(): void {
+    setCreating(false);
+    composeDirtyRef.current = false;
+    setFocusAfter('newCategoryChip');
+  }
+
+  /** 만들기를 그만두려는 모든 길이 여기를 지난다. Esc · 시스템 뒤로가기 · 「이전」 이 같다. */
+  function requestLeaveCompose(): void {
+    if (composeAsking) return;
+    if (composeDirtyRef.current) {
+      setComposeAsking(true);
+      return;
+    }
+    leaveCompose();
+  }
+
+  useOverlayBackClose(creating, requestLeaveCompose, busy);
+
+  /*
+    만드는 중에 누른 Esc.
+
+    **여기서 삼키지 않으면 시트가 통째로 닫히려 든다.** 덮는 창(`CategoryComposeOverlay`)
+    쪽은 이미 삼키고 있는데, 키패드에서는 시트 안쪽을 바꾸는 방식이라 그 창을 안 쓴다.
+    같은 화면에서 같은 키가 다른 일을 하면 안 된다. 시스템 뒤로가기는 만들기만 접는데
+    Esc 는 금액까지 버리는 어긋남이 실제로 있었다.
+
+    시트도 `document` 에 리스너를 달아 두어서 전파를 끊는 것으로는 부족하다.
+    같은 노드의 다른 리스너까지 막으려면 `stopImmediatePropagation` 이라야 한다.
+  */
+  useEffect(() => {
+    if (!creating) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (!busy) requestLeaveCompose();
+    }
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, composeAsking, creating]);
 
   /*
     전환 뒤에 포커스를 옮길 자리. 옮기고 나면 비운다.
@@ -654,6 +734,21 @@ function RecordBody({
    */
   const done = saved != null;
 
+  /*
+    손으로 적어 둔 것 셋을 한 값으로 묶는다.
+
+    금액을 눌렀거나, 줄글을 적어 뒀거나, 분류를 만들던 중이면 시트가 닫힐 때 잃는다.
+    고른 분류·켜 둔 이체 같은 것은 안 센다. 되돌리는 데 한 번 누르면 되는 값이라,
+    그것까지 물으면 확인 창이 너무 자주 떠 진짜 물어야 할 때 안 읽힌다.
+
+    **저장이 끝났으면 키패드에 눌러 둔 숫자는 안 센다.** 그것은 방금 저장한 그 금액이라
+    버리는 것이 없다. 다른 탭의 줄글 초안과 만들던 분류는 저장과 무관하게 그대로 잃으므로
+    계속 센다. 예전에는 저장 한 번이 셋을 다 덮어, 열 줄 적어 둔 줄글이 말없이 사라졌다.
+  */
+  draftedRef.current = () =>
+    (!done && digits !== '') || nlDraftRef.current || composeDirtyRef.current;
+  composingRef.current = creating;
+
   const amount = toAmount(digits);
   const saveError = create.error instanceof ApiError ? create.error : null;
 
@@ -732,6 +827,7 @@ function RecordBody({
             baseDay={isBackfill ? recordDay : null}
             onBusyChange={markBusy}
             onReviewChange={trackReview('nl')}
+            draftRef={nlDraftRef}
             onDone={finish}
             onSaved={(savedDay) => {
               rememberMethod();
@@ -1011,13 +1107,12 @@ function RecordBody({
             fixedKind={kind}
             // 저장하는 동안에는 시트가 안 닫힌다. 닫히면 적어 둔 이름과 고른 그림이 함께 사라진다.
             onBusyChange={markBusy}
-            onBack={() => {
-              setCreating(false);
-              setFocusAfter('newCategoryChip');
-            }}
+            dirtyRef={composeDirtyRef}
+            onBack={requestLeaveCompose}
             // 만들기가 끝나 닫히는 길. 돌아오면 방금 만든 분류가 골라져 있다.
             onClose={() => {
               setCreating(false);
+              composeDirtyRef.current = false;
               setFocusAfter('pickedCategory');
             }}
             /*
@@ -1030,6 +1125,16 @@ function RecordBody({
               setListOpen(false);
             }}
           />
+          {composeAsking ? (
+            <LeaveConfirm
+              text="만들던 분류가 사라져요. 그만둘까요?"
+              onStay={() => setComposeAsking(false)}
+              onLeave={() => {
+                setComposeAsking(false);
+                leaveCompose();
+              }}
+            />
+          ) : null}
         </div>
       ) : null}
     </div>

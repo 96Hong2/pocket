@@ -22,6 +22,16 @@ export interface NaturalLanguageTabProps {
   onBusyChange: (busy: boolean) => void;
   /** 지금 닫으면 잃을 건수. 껍데기가 시트 크기와 닫기 확인을 이 값으로 정한다. */
   onReviewChange?: (pending: number) => void;
+  /**
+   * 아직 안 읽힌 줄글이 적혀 있나. **상태가 아니라 칸에 적는다.**
+   *
+   * 읽어 온 건수와 다르다. 열 줄을 적어 놓고 「읽기」 를 안 누른 사람이 시트를 닫으면
+   * 그 열 줄이 통째로 날아가는데, 건수로는 0이라 아무도 안 물었다.
+   *
+   * 콜백으로 올려 상태에 담으면 **한 박자 늦는다.** 적자마자 닫으면 아직 거짓인 값을
+   * 보고 확인 없이 닫혔다(e2e 에서 실제로 흔들렸다). 여기 적어 두고 나갈 때 읽는다.
+   */
+  draftRef?: { current: boolean };
   onDone: () => void;
   /** 저장이 성공한 순간. 닫기보다 앞선다. */
   onSaved?: (day: string | null) => void;
@@ -43,6 +53,7 @@ export function NaturalLanguageTab({
   flowId,
   onBusyChange,
   onReviewChange,
+  draftRef,
   onDone,
   onSaved,
   baseDay = null,
@@ -52,6 +63,15 @@ export function NaturalLanguageTab({
 
   const [text, setText] = useState('');
   const [batch, setBatch] = useState<ImportBatchOut | null>(null);
+
+  /*
+    적어 두고 아직 안 읽힌 글이 있나. 감싼 시트가 나가기 전에 물을지를 이 값도 함께 정한다.
+
+    **읽고 나면 초안이 아니다.** 그때부터 잃을 것은 검토 줄이고, 그건 건수로 따로 센다
+    (`onReviewChange`). 저장까지 끝난 화면에서 여기가 참으로 남아 있으면, 아무것도 안
+    버리는 사람에게 확인 창이 뜬다.
+  */
+  if (draftRef != null) draftRef.current = batch == null && text.trim() !== '';
 
   if (batch != null) {
     return (

@@ -214,9 +214,9 @@ export class PrepApi {
    * 만들기 자체를 확인하는 테스트는 화면으로 한다. 여기는 "이미 여럿 있는 상태" 처럼
    * 배경으로만 필요할 때 쓴다. 스무 개를 화면으로 만들면 그 테스트가 무엇을 보는지 흐려진다.
    */
-  async addCategory(name: string, iconKey = '16_paw'): Promise<string> {
+  async addCategory(name: string, iconKey = '16_paw', color?: string): Promise<string> {
     const response = await this.context.post('/api/v1/categories', {
-      data: { name, icon_key: iconKey },
+      data: { name, icon_key: iconKey, ...(color == null ? {} : { color }) },
     });
     expectOk(response.status(), await response.text(), `카테고리 '${name}' 을 만들지 못했다`);
     const body = (await response.json()) as { id: string };

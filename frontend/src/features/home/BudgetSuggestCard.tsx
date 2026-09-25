@@ -47,7 +47,7 @@ export function BudgetSuggestCard({ onDismiss }: { onDismiss: () => void }) {
 
   /** 광고가 안 떠도 계산기는 연다. 광고 서버 사정으로 예산을 못 정하게 두지 않는다. */
   async function openCalc(): Promise<void> {
-    const outcome = await rewarded.show();
+    const outcome = await rewarded.show('budget_calc');
     analytics.log(
       EVENTS.budgetCalcOpened,
       outcome.result === 'skipped'

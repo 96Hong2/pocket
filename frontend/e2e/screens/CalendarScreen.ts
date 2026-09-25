@@ -156,8 +156,10 @@ class CalendarGridArea {
  */
 class LedgerListArea {
   private readonly root: Locator;
+  private readonly page: Page;
 
   constructor(page: Page) {
+    this.page = page;
     this.root = page
       .getByRole('region', { name: '고른 날 기록' })
       .or(page.getByRole('region', { name: '검색 결과' }));
@@ -171,6 +173,18 @@ class LedgerListArea {
   /** 행 제목. 가맹점을 아는 기록은 가맹점명, 아니면 카테고리 이름이다. */
   row(title: string): Locator {
     return this.root.getByText(title, { exact: true });
+  }
+
+  /**
+   * 그 행에 그려진 그림.
+   *
+   * 분류에 건 색이 목록까지 오는지 보는 자리다. 이름이 없는 그림이라 클래스로 잡는다.
+   */
+  rowAvatar(title: string): Locator {
+    return this.root
+      .locator('.pk-tx')
+      .filter({ has: this.page.getByText(title, { exact: true }) })
+      .locator('.pk-avatar');
   }
 
   /**
@@ -286,6 +300,11 @@ export class EditSheetArea {
 
   constructor(page: Page) {
     this.root = page.getByRole('dialog', { name: '기록 수정' });
+  }
+
+  /** 시트 그 자체. 떠 있는지·닫혔는지를 이 자리로 본다. */
+  get dialog(): Locator {
+    return this.root;
   }
 
   async waitOpen(): Promise<void> {

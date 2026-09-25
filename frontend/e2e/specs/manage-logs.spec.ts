@@ -1,4 +1,5 @@
 import { shiftMonth, toLedgerDate } from '../../src/shared/lib/format';
+import { LeaveConfirmArea } from '../screens/RecordSheet';
 import type { PrepApi } from '../support/api';
 import { logsNamed } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
@@ -237,7 +238,9 @@ test('고치기 시트에서는 눌러 놓고 닫으면 달았다고 세지 않�
     await calendar.edit.waitOpen();
     await calendar.edit.tagChip('데이트').click();
     // 완료를 안 눌렀다. 이 시트에서는 칩을 눌러도 아직 아무것도 안 붙는다.
+    // 다만 고친 것이 있으니 나가기 전에 한 번 묻는다.
     await page.keyboard.press('Escape');
+    await new LeaveConfirmArea(page).leaveButton.click();
     await calendar.edit.waitClosed();
     expect(await logsNamed(page, 'tag_applied'), '안 붙었는데 붙었다고 셌다').toHaveLength(0);
   });

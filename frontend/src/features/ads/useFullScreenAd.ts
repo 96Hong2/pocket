@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
-import type { AdsBridge } from '../../shared/toss';
+import { clearAdOnScreen, markAdOnScreen } from '../../shared/lib/stuckAd';
+import type { AdsBridge, FullScreenAdHooks } from '../../shared/toss';
 
 /**
  * 개발에서 쓰는 공식 테스트 전면 광고.
@@ -24,7 +25,16 @@ const TEST_GROUP = import.meta.env.DEV ? 'ait-ad-test-interstitial-id' : null;
  */
 export type FullScreenAdOutcome =
   | { result: 'watched' }
-  | { result: 'skipped'; reason: 'no_group' | 'unsupported' | 'failed' };
+  | { result: 'skipped'; reason: SkipReason };
+
+/**
+ * 광고 없이 지나간 이유.
+ *
+ * `stalled` 만 성질이 다르다. 나머지 셋은 광고가 **안 뜬** 것이고, 이것은 떴는데 끝나지
+ * 않아 우리가 접은 것이다. 한 낱말로 뭉치면 「광고 서버가 안 준다」 와 「광고에 갇혔다」 가
+ * 같은 칸에 들어가, 갇힌 사람이 몇인지 영영 모른다.
+ */
+export type SkipReason = 'no_group' | 'unsupported' | 'failed' | 'stalled';
 
 /**
  * 리워드 광고를 지나온 결과.
@@ -36,7 +46,7 @@ export type FullScreenAdOutcome =
 export type RewardedAdOutcome =
   | { result: 'earned' }
   | { result: 'watched' }
-  | { result: 'skipped'; reason: 'no_group' | 'unsupported' | 'failed' };
+  | { result: 'skipped'; reason: SkipReason };
 
 /**
  * 어느 광고 그룹을 띄울지.
@@ -59,33 +69,107 @@ function resolveGroup(environment: string, configured: unknown): string | null {
  */
 function useAdShow(
   configured: unknown,
-  run: (ads: AdsBridge, group: string) => Promise<'earned' | 'watched' | 'failed'>,
-): { busy: boolean; available: boolean; show: () => Promise<RewardedAdOutcome> } {
+  run: (
+    ads: AdsBridge,
+    group: string,
+    hooks: FullScreenAdHooks,
+  ) => Promise<'earned' | 'watched' | 'failed'>,
+): {
+  busy: boolean;
+  available: boolean;
+  show: (where: string) => Promise<RewardedAdOutcome>;
+} {
   const bridge = useBridge();
   const [busy, setBusy] = useState(false);
-  // 이 기기에서 애초에 광고가 설 수 있는가. 못 서는 곳에 예고를 적지 않으려고 화면에 알린다.
+  /*
+    이 기기에서 애초에 광고가 설 수 있는가. 못 서는 곳에 예고를 적지 않으려고 화면에 알린다.
+
+    **이 세션에서 한 번 갇혔으면 여기서 닫는다.** 아래 `stalledThisSession` 을 참고.
+  */
   const available =
-    resolveGroup(bridge.environment, configured) != null && bridge.supports('fullScreenAd');
+    !stalledThisSession &&
+    resolveGroup(bridge.environment, configured) != null &&
+    bridge.supports('fullScreenAd');
 
-  const show = useCallback(async (): Promise<RewardedAdOutcome> => {
-    const group = resolveGroup(bridge.environment, configured);
-    if (group == null) return { result: 'skipped', reason: 'no_group' };
-    if (!bridge.supports('fullScreenAd')) return { result: 'skipped', reason: 'unsupported' };
+  const show = useCallback(
+    async (where: string): Promise<RewardedAdOutcome> => {
+      /*
+        갇힌 적이 있으면 이 세션에서는 다시 안 띄운다.
 
-    setBusy(true);
-    try {
-      const result = await run(bridge.ads, group);
-      return result === 'failed' ? { result: 'skipped', reason: 'failed' } : { result };
-    } finally {
-      setBusy(false);
-    }
-  }, [bridge, configured, run]);
+        광고가 뜬 채 멈추는 판은 **특정 기기와 특정 광고의 조합**에서 난다. 한 번 걸린
+        사람은 다음에도 걸릴 가능성이 크고, 그때마다 90초씩 붙잡힌다. 그 사람에게서
+        이번 세션의 광고 수입을 포기하는 쪽이 싸다.
+      */
+      if (stalledThisSession) return { result: 'skipped', reason: 'stalled' };
+
+      const group = resolveGroup(bridge.environment, configured);
+      if (group == null) return { result: 'skipped', reason: 'no_group' };
+      if (!bridge.supports('fullScreenAd')) return { result: 'skipped', reason: 'unsupported' };
+
+      setBusy(true);
+      let stalled = false;
+      /*
+        표를 적는 약속을 쥐고 있다가 지우기 전에 기다린다.
+
+        둘 다 네이티브를 다녀오는 일이라 순서 보장이 없다. 빨리 끝나는 판에서 적기가
+        지우기보다 늦게 닿으면 표가 남고, 다음 실행에서 멀쩡한 사람이 갇힌 것으로 세어진다.
+      */
+      let marking: Promise<void> = Promise.resolve();
+      try {
+        /*
+          광고가 뜨는 순간 표를 적고 끝나면 지운다. **갇힌 사람은 답을 기다리지 않고 앱을
+          끄기 때문에**, 결과만 보면 가장 나쁜 결말이 통계에서 통째로 빠진다.
+        */
+        const result = await run(bridge.ads, group, {
+          onShown: () => {
+            marking = markAdOnScreen(bridge.storage, where);
+          },
+          onStalled: () => {
+            stalled = true;
+            stalledThisSession = true;
+          },
+        });
+        /*
+          **접힌 판도 표는 지운다.** 남겨 두면 90초를 버티고 앱을 계속 쓴 사람이 다음
+          실행에서 `ad_stuck_exit` 로 또 세어진다. 그 이벤트가 세려는 것은 「답을 기다리지
+          않고 앱을 껐다」 하나다. 접힌 판은 이 자리에서 `stalled` 로 이미 남는다.
+        */
+        await marking;
+        await clearAdOnScreen(bridge.storage);
+        /*
+          **결과가 나왔으면 그 결과를 살린다.** 보상까지 받았는데 닫힘 신호만 안 와서 접힌
+          판이 있다(닫힘을 안 주는 안드로이드 버전). 그것을 「광고 안 봄」 으로 적으면
+          콘솔이 세는 노출과 우리 장부가 갈린다. 갇혔다는 사실은 세션 스위치가 이미 들었다.
+        */
+        if (result !== 'failed') return { result };
+        return { result: 'skipped', reason: stalled ? 'stalled' : 'failed' };
+      } finally {
+        setBusy(false);
+      }
+    },
+    [bridge, configured, run],
+  );
 
   return { busy, available, show };
 }
 
-const runFullScreen = (ads: AdsBridge, group: string) => ads.showFullScreen(group);
-const runRewarded = (ads: AdsBridge, group: string) => ads.showRewarded(group);
+/**
+ * 이 세션에서 광고가 뜬 채 멈춘 적이 있나.
+ *
+ * 훅 바깥의 모듈 변수다. 화면마다 훅이 따로 도는데 **사람은 하나**라서, 훅 안에 두면
+ * 캡처 탭에서 갇힌 사람이 영수증 탭에서 다시 갇힌다.
+ */
+let stalledThisSession = false;
+
+/** 테스트 사이에 세션 기억을 비운다. */
+export function resetStalledMemory(): void {
+  stalledThisSession = false;
+}
+
+const runFullScreen = (ads: AdsBridge, group: string, hooks: FullScreenAdHooks) =>
+  ads.showFullScreen(group, hooks);
+const runRewarded = (ads: AdsBridge, group: string, hooks: FullScreenAdHooks) =>
+  ads.showRewarded(group, hooks);
 
 /**
  * 부가기능 앞에 세우는 전면 광고 한 편.
@@ -95,18 +179,21 @@ const runRewarded = (ads: AdsBridge, group: string) => ads.showRewarded(group);
 export function useFullScreenAd(): {
   busy: boolean;
   available: boolean;
-  show: () => Promise<FullScreenAdOutcome>;
+  show: (where: string) => Promise<FullScreenAdOutcome>;
 } {
   const { busy, available, show } = useAdShow(
     import.meta.env.VITE_AD_FULLSCREEN_GROUP_ID,
     runFullScreen,
   );
 
-  const showInterstitial = useCallback(async (): Promise<FullScreenAdOutcome> => {
-    const outcome = await show();
-    // 전면형 그룹에서 보상 이벤트가 올 일은 없다. 와도 「봤다」 와 다를 것이 없다.
-    return outcome.result === 'earned' ? { result: 'watched' } : outcome;
-  }, [show]);
+  const showInterstitial = useCallback(
+    async (where: string): Promise<FullScreenAdOutcome> => {
+      const outcome = await show(where);
+      // 전면형 그룹에서 보상 이벤트가 올 일은 없다. 와도 「봤다」 와 다를 것이 없다.
+      return outcome.result === 'earned' ? { result: 'watched' } : outcome;
+    },
+    [show],
+  );
 
   return { busy, available, show: showInterstitial };
 }
@@ -121,7 +208,7 @@ export function useFullScreenAd(): {
 export function useRewardedAd(): {
   busy: boolean;
   available: boolean;
-  show: () => Promise<RewardedAdOutcome>;
+  show: (where: string) => Promise<RewardedAdOutcome>;
 } {
   return useAdShow(import.meta.env.VITE_AD_REWARDED_GROUP_ID, runRewarded);
 }
@@ -136,7 +223,7 @@ export function useRewardedAd(): {
 export function usePhotoRewardedAd(): {
   busy: boolean;
   available: boolean;
-  show: () => Promise<RewardedAdOutcome>;
+  show: (where: string) => Promise<RewardedAdOutcome>;
 } {
   const dedicated = import.meta.env.VITE_AD_PHOTO_GROUP_ID;
   const configured =

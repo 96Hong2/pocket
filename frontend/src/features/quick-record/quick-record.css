@@ -471,63 +471,6 @@
     color: var(--color-muted);
   }
 
-  /* ── 그만둘까요 ─────────────────────────── */
-
-  /*
-    읽어 온 것을 두고 나가려 할 때 시트 위에 겹치는 확인.
-
-    시트 안에 붙지만 자리는 시트 전체다. 목록 아무 데서나 손잡이를 눌러도 같은 자리에서
-    같은 말을 해야, 무엇을 물었는지 찾지 않아도 된다.
-  */
-  .record-leave {
-    /*
-      시트가 곧 스크롤 상자라 absolute 로 두면 목록을 내린 만큼 확인 창도 따라 올라간다.
-      화면에 못 박아 어디까지 내려 읽었든 같은 자리에 뜨게 한다.
-    */
-    position: fixed;
-    inset: 0;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: var(--color-dim);
-  }
-
-  .record-leave__box {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    width: 100%;
-    max-width: 320px;
-    padding: 20px;
-    background: var(--color-surface);
-    border-radius: var(--radius-md);
-    box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
-  }
-
-  .record-leave__text {
-    margin: 0;
-    font-size: var(--text-15);
-    font-weight: var(--font-weight-bold);
-    line-height: 1.5;
-    color: var(--color-ink);
-    word-break: keep-all;
-  }
-
-  .record-leave__actions {
-    display: flex;
-    gap: 10px;
-  }
-
-  .record-leave__actions > * {
-    flex: 1;
-  }
-
-  /* 머무는 쪽이 기본이다. 실수로 누른 사람이 한 번 더 실수해도 잃지 않게 크게 둔다. */
-  .record-leave__stay {
-    flex: 1.4;
-  }
 }
 
 @layer components {

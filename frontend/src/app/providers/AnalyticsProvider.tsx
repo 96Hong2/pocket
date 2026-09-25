@@ -1,6 +1,7 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 
-import { Analytics, AnalyticsContext } from '../../shared/analytics';
+import { EVENTS, Analytics, AnalyticsContext } from '../../shared/analytics';
+import { takeStuckMark } from '../../shared/lib/stuckAd';
 
 import { useBridge } from './bridgeContext';
 
@@ -13,6 +14,24 @@ import { useBridge } from './bridgeContext';
 export function AnalyticsProvider({ children }: { children: ReactNode }) {
   const bridge = useBridge();
   const analytics = useMemo(() => new Analytics(bridge), [bridge]);
+
+  /*
+    지난번이 광고에 갇힌 채 끝났는지 여기서 한 번 본다.
+
+    **앱을 열 때 말고는 볼 자리가 없다.** 갇힌 사람은 광고가 화면을 덮은 채로 앱을 끄므로
+    그 세션에서는 아무것도 못 보낸다. 읽으면서 표를 지우니 한 번만 세어진다.
+  */
+  useEffect(() => {
+    // 개발 StrictMode 는 효과를 두 번 돌린다. 읽고 지우는 일이라 가드가 없으면 두 번 센다.
+    let alive = true;
+    void takeStuckMark(bridge.storage).then((mark) => {
+      if (!alive || mark == null) return;
+      analytics.log(EVENTS.adStuckExit, { where: mark.where });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [analytics, bridge]);
 
   return <AnalyticsContext value={analytics}>{children}</AnalyticsContext>;
 }

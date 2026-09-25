@@ -120,7 +120,7 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
       if (plan === 'none') return;
       const outcome =
         plan === 'rewarded'
-          ? await rewarded.show()
+          ? await rewarded.show('photo')
           : await interstitial.show('photo', { uncapped: true });
       analytics.log(
         EVENTS.photoCredit,

@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 
 import { cx } from '../lib/cx';
@@ -73,6 +81,22 @@ export function BottomSheet({
   const [drag, setDrag] = useState<DragState>(AT_REST);
   const titleId = useId();
 
+  /*
+    리스너가 **늘 지금 값을 본다.**
+
+    예전에는 `onClose` 와 `dismissible` 을 효과의 deps 에 넣었다. 둘 다 그릴 때마다 새로
+    만들어지는 값이라 효과가 매번 다시 돌았고, 그때마다 시트가 포커스를 도로 가져갔다
+    (분류 만들기에서 이름 칸의 자판이 내려간 원인이 이것이었다).
+
+    deps 에서 빼면 이번에는 리스너가 **처음 그릴 때의 함수**를 쥔 채로 남는다. 줄글을
+    적자마자 Esc 를 누르면 「적어 둔 것이 있다」 를 모르던 그 함수가 돌아 확인 없이 닫혔다.
+    ref 로 넘기면 둘 다 안 난다. 리스너는 한 번만 달고, 부르는 값은 늘 최신이다.
+  */
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const dismissibleRef = useRef(dismissible);
+  dismissibleRef.current = dismissible;
+
   useEffect(() => {
     if (!open) return;
 
@@ -83,9 +107,9 @@ export function BottomSheet({
     document.body.style.overflow = 'hidden';
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && dismissible) {
+      if (event.key === 'Escape' && dismissibleRef.current) {
         event.preventDefault();
-        onClose();
+        closeRef.current();
         return;
       }
       if (event.key !== 'Tab' || !sheetRef.current) return;
@@ -99,7 +123,7 @@ export function BottomSheet({
       document.body.style.overflow = overflow;
       previouslyFocused?.focus();
     };
-  }, [open, dismissible, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -109,7 +133,7 @@ export function BottomSheet({
     if (!dismissible || trackerRef.current != null) return;
     const sheet = sheetRef.current;
     if (sheet == null) return;
-    if (!canStartDrag(event.target, sheet.scrollTop)) return;
+    if (!canStartDrag(event.target, sheet)) return;
     trackerRef.current = beginTracking(
       event.pointerId,
       event.clientX,
@@ -162,8 +186,22 @@ export function BottomSheet({
     onClose();
   }
 
+  /*
+    끌고 손을 뗀 자리에서 클릭이 한 번 더 온다. 그것을 여기서 한 번만 삼킨다.
+
+    예전에는 손잡이의 클릭 하나만 봤다. 본문에서 시작한 끌기는 손잡이 클릭을 안 만드니
+    표시가 켜진 채로 남고, **다음에 손잡이를 누른 한 번이 통째로 죽었다.** 확인 창이
+    생기면서 닫히지 않고 남는 길이 늘어 이 자리를 밟는 일이 잦아졌다.
+  */
+  function onRootClickCapture(event: ReactMouseEvent<HTMLDivElement>): void {
+    if (!swallowClick.current) return;
+    swallowClick.current = false;
+    if (isHandle(event.target)) return;
+    event.stopPropagation();
+  }
+
   return createPortal(
-    <div className="pk-sheet-root">
+    <div className="pk-sheet-root" onClickCapture={onRootClickCapture}>
       <div className="pk-sheet-dim" onClick={dismissible ? onClose : undefined} />
       <div
         ref={sheetRef}
