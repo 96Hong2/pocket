@@ -13,6 +13,7 @@ import {
   type BridgePlatform,
   type CaptureOptions,
   type FileBridge,
+  type FullScreenAdHooks,
   type FullScreenAdResult,
   type Identity,
   type KeyValueStore,
@@ -58,7 +59,14 @@ export interface MockScenario {
   /** 파일 저장. `failed` 면 다 만들어 놓고 기기에 못 내려놓은 것으로 친다. */
   file?: 'ok' | 'failed';
   /** 전면 광고. `ok` 면 잠깐 덮었다가 「봤다」 로 끝난다. */
-  fullScreenAd?: 'ok' | 'failed' | 'unsupported';
+  /**
+   * 전면 광고.
+   *
+   * `stuck` 은 **광고가 뜬 채로 안 끝나는 판**이다. 실기기에서 실제로 나온 모양이고
+   * (직접 눌러서 노는 광고에 갇힘), 토스가 띄운 네이티브라 우리가 닫을 수 없다.
+   * 우리 쪽 시간 제한과 갇힌 판 세기가 도는지 재려고 둔다.
+   */
+  fullScreenAd?: 'ok' | 'failed' | 'unsupported' | 'stuck';
   /**
    * 리워드 광고. 전면과 따로 둔다.
    *
@@ -140,33 +148,43 @@ class MockAdsBridge implements AdsBridge {
     return { destroy: () => node.remove() };
   }
 
-  showFullScreen(): Promise<FullScreenAdResult> {
+  showFullScreen(_adGroupId: string, hooks?: FullScreenAdHooks): Promise<FullScreenAdResult> {
     const mode = this.scenario.fullScreenAd ?? 'ok';
-    if (mode !== 'ok') return Promise.resolve('failed');
-    return cover('mock-fullscreen-ad', '광고 (목)', 'watched');
+    if (mode === 'failed' || mode === 'unsupported') return Promise.resolve('failed');
+    return cover('mock-fullscreen-ad', '광고 (목)', 'watched', hooks, mode === 'stuck');
   }
 
-  showRewarded(): Promise<FullScreenAdResult> {
+  showRewarded(_adGroupId: string, hooks?: FullScreenAdHooks): Promise<FullScreenAdResult> {
     if (this.scenario.fullScreenAd === 'unsupported') return Promise.resolve('failed');
+    const stuck = this.scenario.fullScreenAd === 'stuck';
     const mode = this.scenario.rewardedAd ?? 'earned';
     if (mode === 'failed') return Promise.resolve('failed');
     // 전면과 다른 자리표시자를 쓴다. e2e 가 어느 쪽 광고가 떴는지 구분할 수 있어야 한다.
-    return cover('mock-rewarded-ad', '리워드 광고 (목)', mode);
+    return cover('mock-rewarded-ad', '리워드 광고 (목)', mode, hooks, stuck);
   }
 }
 
-/** 실광고처럼 화면을 통째로 덮었다가 걷는다. e2e 가 「광고가 떴다」 를 이 자리로 본다. */
+/**
+ * 실광고처럼 화면을 통째로 덮었다가 걷는다. e2e 가 「광고가 떴다」 를 이 자리로 본다.
+ *
+ * `stuck` 이면 **안 걷는다.** 실기기에서 갇힌 판이 그 모양이다. 덮개가 그대로 남고
+ * 약속도 안 풀린다. 우리가 그 위에 그릴 수 있는 것은 아무것도 없다는 것까지 같다.
+ */
 function cover(
   testid: string,
   label: string,
   result: FullScreenAdResult,
+  hooks?: FullScreenAdHooks,
+  stuck = false,
 ): Promise<FullScreenAdResult> {
   const node = document.createElement('div');
   node.dataset.testid = testid;
   node.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#111;color:#fff';
   node.textContent = label;
   document.body.appendChild(node);
+  hooks?.onShown?.();
   return new Promise((resolve) => {
+    if (stuck) return;
     setTimeout(() => {
       node.remove();
       resolve(result);

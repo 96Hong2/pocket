@@ -13,6 +13,15 @@ export interface TransactionRowProps {
   icon: IconName;
   /** 직접 건 이모지·사진. 있으면 icon 대신 그려진다. */
   custom?: string | null;
+  /**
+   * 분류 동그라미의 바탕색(`category.color`).
+   *
+   * 🔴 **한동안 여기만 빠져 있었다**(2026-09-25 사용자 신고). 부르는 쪽은 전부
+   * `{...iconOf(category)}` 를 펴서 색까지 넘기고 있었는데, 이 칸이 없어 타입도 아무
+   * 말을 안 하고 값만 조용히 버려졌다. 고른 색이 만들기 화면에서는 보이고 달력·사용
+   * 내역에서는 기본 바탕으로 나온 이유가 이것이다.
+   */
+  color?: string | null;
   title: string;
   subtitle?: string;
   /** 양수로 넘긴다. */
@@ -54,6 +63,7 @@ export interface TransactionRowProps {
 export function TransactionRow({
   icon,
   custom,
+  color,
   title,
   subtitle,
   amount,
@@ -72,7 +82,7 @@ export function TransactionRow({
 }: TransactionRowProps) {
   const head = (
     <>
-      <CategoryAvatar icon={icon} custom={custom} size={avatarSize} />
+      <CategoryAvatar icon={icon} custom={custom} color={color} size={avatarSize} />
       <div className="pk-tx__body">
         <div className="pk-tx__title">{title}</div>
         {subtitle ? <div className="pk-tx__subtitle">{subtitle}</div> : null}

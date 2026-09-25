@@ -221,7 +221,19 @@ test('색은 열네 개가 두 줄로 선다', async ({ tags }) => {
     await expect(tags.sheet('새 태그')).toHaveCount(0);
 
     const mark = tags.group('지출 태그').locator('.tags-row__mark');
-    await expect(mark).toHaveCSS('background-color', 'rgb(220, 199, 237)');
+    /*
+      **hex 를 여기 적지 않는다.** 적어 뒀더니 팔레트를 손볼 때마다 이 검사가 이유 없이
+      빨개졌다. 재려는 것은 「라벤더를 골랐으면 라벤더가 칠해진다」 이지 그 색의 값이 아니다.
+    */
+    const lilac = await mark.evaluate((node) => {
+      const probe = document.createElement('span');
+      probe.style.backgroundColor = 'var(--tag-lilac)';
+      node.appendChild(probe);
+      const value = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return value;
+    });
+    await expect(mark).toHaveCSS('background-color', lilac);
   });
 });
 

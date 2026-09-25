@@ -51,8 +51,8 @@ const PAGES = [
     shot: 'one-donut',
   },
   {
-    file: 'promo-4-내가 쓰는 말로.png',
-    title: '내가 쓰는 말로|분류를 만들어요',
+    file: 'promo-4-나만의 카테고리.png',
+    title: '나만의|카테고리를 만들어요',
     sub: '이름만 적으면 끝이에요. 그림과 색은 고르고 싶을 때만 골라요',
     shot: 'one-category',
   },
@@ -65,7 +65,7 @@ const PAGES = [
   {
     file: 'promo-6-태그로 따로 모아서.png',
     title: '태그로 따로|모아서 봐요',
-    sub: '묶어 두면 리포트가 태그별로도 보여줘요',
+    sub: '카테고리와 별개로 통계를 볼 수 있어요',
     layout: 'two',
     front: 'two-tags',
     back: 'two-report-tags',

@@ -3,6 +3,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { ROUTES } from '../../src/app/router/routes';
 import { TEST_IDS } from '../../src/shared/testIds';
 
+import { LeaveConfirmArea } from './RecordSheet';
+
 /**
  * 카테고리 관리 화면.
  *
@@ -24,10 +26,14 @@ export class CategoriesScreen {
   /** 상호마다 기억해 둔 분류. 카테고리 구획 밖이라 페이지에서 잡는다. */
   readonly rules: MerchantRuleArea;
 
+  /** 적어 둔 것을 두고 나가려 할 때의 확인. 기록 시트와 같은 한 벌이다. */
+  readonly leave: LeaveConfirmArea;
+
   constructor(page: Page) {
     this.page = page;
     this.sheet = new CategorySheet(page);
     this.rules = new MerchantRuleArea(page);
+    this.leave = new LeaveConfirmArea(page);
   }
 
   async open(): Promise<void> {

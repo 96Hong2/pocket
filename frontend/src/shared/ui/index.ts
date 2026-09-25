@@ -15,6 +15,7 @@ export { ColorPicker, type ColorPickerProps } from './ColorPicker';
 export { Chip, type ChipProps, type ChipVariant } from './Chip';
 export { isEmoji, NOT_EMOJI_MESSAGE } from './emoji';
 export { Gauge, type GaugeProps, type GaugeSize } from './Gauge';
+export { LeaveConfirm } from './LeaveConfirm';
 export {
   MonthStepper,
   type MonthStepperProps,

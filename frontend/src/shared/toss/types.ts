@@ -135,6 +135,19 @@ export interface AttachBannerOptions {
  */
 export type FullScreenAdResult = 'earned' | 'watched' | 'failed';
 
+/**
+ * 광고 한 편이 도는 동안 바깥이 알아야 하는 순간.
+ *
+ * 결과값만으로는 **갇힌 판**을 못 센다. 광고가 뜬 채로 멈추면 사람은 답을 기다리지 않고
+ * 앱을 끄고, 그러면 결과가 아무 데도 안 남는다. 뜨는 순간을 따로 알려 그때 표를 적는다.
+ */
+export interface FullScreenAdHooks {
+  /** 광고가 사람 눈앞에 떴다. 한 편에 한 번만 온다. */
+  onShown?: () => void;
+  /** 뜬 뒤 끝 신호가 한 번도 안 와서 우리가 접었다. */
+  onStalled?: () => void;
+}
+
 export interface AdsBridge {
   /** 배너를 붙이기 전에 한 번 호출한다. 멱등이다. */
   initialize(): Promise<void>;
@@ -145,7 +158,7 @@ export interface AdsBridge {
    * 던지지 않는다. 못 띄운 것은 `failed` 로 돌려주고 부르는 쪽이 갈래를 정한다.
    * 광고가 안 떴다고 기능을 막으면 광고 서버 사정으로 사람이 돌아간다.
    */
-  showFullScreen(adGroupId: string): Promise<FullScreenAdResult>;
+  showFullScreen(adGroupId: string, hooks?: FullScreenAdHooks): Promise<FullScreenAdResult>;
   /**
    * 리워드 광고를 불러와서 띄우고, 닫힐 때까지 기다린다.
    *
@@ -154,7 +167,7 @@ export interface AdsBridge {
    * 끝까지 본 사람만 `earned` 라, 「보상을 받았나」 를 전면의 「떴다 닫혔나」 와 같은
    * 값으로 읽으면 안 된다.
    */
-  showRewarded(adGroupId: string): Promise<FullScreenAdResult>;
+  showRewarded(adGroupId: string, hooks?: FullScreenAdHooks): Promise<FullScreenAdResult>;
 }
 
 /**

@@ -24,6 +24,8 @@ test('X 버튼이 없고, 손잡이를 아래로 밀면 닫힌다', async ({ hom
 
   await recordSheet.input.enterAmount(3000);
   await recordSheet.dragDown();
+  // 눌러 둔 금액이 있으니 한 번 묻는다. 그만두기를 골라야 닫힌다.
+  await recordSheet.leave.leaveButton.click();
   await recordSheet.waitClosed();
 
   // 저장하지 않고 나간 것이다. 오늘 목록에 아무것도 남으면 안 된다.

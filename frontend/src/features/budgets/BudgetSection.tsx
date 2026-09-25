@@ -78,7 +78,7 @@ export function BudgetSection() {
    * 정하는 비율을 그냥 지나간 사람과 견줄 수 있게 한다.
    */
   async function openCalc(): Promise<void> {
-    const outcome = await rewarded.show();
+    const outcome = await rewarded.show('budget_calc');
     analytics.log(
       EVENTS.budgetCalcOpened,
       outcome.result === 'skipped'

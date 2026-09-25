@@ -28,6 +28,7 @@ import { createPortal } from 'react-dom';
 import { useOverlayBackClose } from '../../app/providers';
 import type { CategoryOut } from '../../shared/api';
 import type { LedgerKind } from '../../shared/ledger';
+import { LeaveConfirm } from '../../shared/ui';
 import { trapTab } from '../../shared/ui/focusTrap';
 
 import { CategoryEditForm } from './CategoryEditSheet';
@@ -60,8 +61,26 @@ export function CategoryComposeOverlay({
     함께 사라지고, 서버에는 만들어졌는데 화면은 못 고른 상태가 된다.
   */
   const [busy, setBusy] = useState(false);
+  /*
+    적어 둔 것이 있나. 있으면 나가기 전에 한 번 묻는다.
+
+    이름을 적고 그림까지 골라 둔 사람이 「이전」 을 잘못 눌러 처음부터 다시 적는 일이
+    실제로 있었다. 아무것도 안 건드린 사람은 안 붙잡는다.
+  */
+  const dirtyRef = useRef(false);
+  const [asking, setAsking] = useState(false);
+
+  /** 나가려는 모든 길이 여기를 지난다. 「이전」 · Esc · 시스템 뒤로가기가 같은 규칙을 탄다. */
+  function requestBack(): void {
+    if (dirtyRef.current) {
+      setAsking(true);
+      return;
+    }
+    onBack();
+  }
+
   // 시스템 뒤로가기를 이 창의 「이전」 으로 가져간다. 등록 안 하면 미니앱이 통째로 닫힌다.
-  useOverlayBackClose(open, onBack, busy);
+  useOverlayBackClose(open, requestBack, busy);
 
   useEffect(() => {
     if (!open) return;
@@ -76,7 +95,7 @@ export function CategoryComposeOverlay({
         */
         event.preventDefault();
         event.stopPropagation();
-        if (!busy) onBack();
+        if (!busy) requestBack();
         return;
       }
       if (event.key !== 'Tab' || !boxRef.current) return;
@@ -108,10 +127,21 @@ export function CategoryComposeOverlay({
           setBusy(next);
           onBusyChange?.(next);
         }}
-        onBack={onBack}
+        dirtyRef={dirtyRef}
+        onBack={requestBack}
         onClose={onClose}
         onCreated={onCreated}
       />
+      {asking ? (
+        <LeaveConfirm
+          text="적어 둔 분류가 사라져요. 그만둘까요?"
+          onStay={() => setAsking(false)}
+          onLeave={() => {
+            setAsking(false);
+            onBack();
+          }}
+        />
+      ) : null}
     </div>,
     document.body,
   );

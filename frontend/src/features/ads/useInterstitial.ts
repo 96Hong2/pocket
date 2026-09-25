@@ -109,7 +109,8 @@ const CAPPED: InterstitialOutcome = { result: 'skipped', reason: 'capped' };
 
 async function runGate(
   store: KeyValueStore,
-  showAd: () => Promise<FullScreenAdOutcome>,
+  showAd: (where: string) => Promise<FullScreenAdOutcome>,
+  where: InterstitialWhere,
   uncapped: boolean,
 ): Promise<InterstitialOutcome> {
   // 도는 중이면 상한에 걸린 것으로 본다. 두 편이 겹치는 것은 상한 밖에서도 막는다.
@@ -118,7 +119,7 @@ async function runGate(
 
   adInFlight = true;
   try {
-    return await gateBody(store, showAd, uncapped);
+    return await gateBody(store, showAd, where, uncapped);
   } finally {
     adInFlight = false;
   }
@@ -126,20 +127,21 @@ async function runGate(
 
 async function gateBody(
   store: KeyValueStore,
-  showAd: () => Promise<FullScreenAdOutcome>,
+  showAd: (where: string) => Promise<FullScreenAdOutcome>,
+  where: InterstitialWhere,
   uncapped: boolean,
 ): Promise<InterstitialOutcome> {
   /*
     상한 밖이면 세는 칸을 아예 안 본다. 읽어 봐야 판정에도 안 쓰고 적지도 않는다.
     사진은 읽을 때마다 여기를 지나서, 쓸데없는 저장소 왕복이 장수만큼 쌓인다.
   */
-  if (uncapped) return await showAd();
+  if (uncapped) return await showAd(where);
 
   const today = toLedgerDate(new Date());
   const record = await readDayCount(store);
   if (!allowedToday(record, today)) return CAPPED;
 
-  const outcome = await showAd();
+  const outcome = await showAd(where);
   if (outcome.result !== 'watched') return outcome;
 
   watchedThisSession += 1;
@@ -232,7 +234,7 @@ export function useInterstitial(): {
         askedThisSession.add(where);
       }
 
-      const outcome = await runGate(bridge.storage, showAd, options?.uncapped === true);
+      const outcome = await runGate(bridge.storage, showAd, where, options?.uncapped === true);
       // 본 편 수가 바뀌었을 수 있다. 예고 줄을 다시 세게 한다.
       setRound((value) => value + 1);
       analytics.log(EVENTS.interstitialResult, {

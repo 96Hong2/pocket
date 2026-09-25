@@ -17,6 +17,7 @@ import {
   BottomSheet,
   Button,
   ColorPicker,
+  LeaveConfirm,
   FALLBACK_CATEGORY_ICON,
   parseCustomIcon,
   toIconName,
@@ -50,14 +51,26 @@ export function CategoryEditSheet({ open, category, onClose }: CategoryEditSheet
   // 저장·삭제 응답을 기다리는 동안에는 닫히지 않는다.
   // 닫히면 적어 둔 이름과 고른 아이콘이 함께 사라진다.
   const [busy, setBusy] = useState(false);
+  /** 적어 둔 것이 있나. 있으면 나가기 전에 한 번 묻는다. */
+  const dirtyRef = useRef(false);
+  const [asking, setAsking] = useState(false);
+
+  /** 나가려는 모든 길이 여기를 지난다. 손잡이 · 딤 · Esc · 시스템 뒤로가기가 같다. */
+  function requestClose(): void {
+    if (dirtyRef.current) {
+      setAsking(true);
+      return;
+    }
+    onClose();
+  }
 
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
-  useOverlayBackClose(open, onClose, busy);
+  useOverlayBackClose(open, requestClose, busy);
 
   return (
     <BottomSheet
       open={open}
-      onClose={onClose}
+      onClose={requestClose}
       dismissible={!busy}
       /*
         아이콘 격자만 여섯 줄이라 내용만큼 열면 아래 저장 버튼이 접힌 자리 밖으로 밀린다.
@@ -73,7 +86,20 @@ export function CategoryEditSheet({ open, category, onClose }: CategoryEditSheet
           key={category?.id ?? 'new'}
           category={category}
           onBusyChange={setBusy}
+          dirtyRef={dirtyRef}
           onClose={onClose}
+        />
+      ) : null}
+      {asking ? (
+        <LeaveConfirm
+          text={
+            category == null ? '적어 둔 분류가 사라져요. 그만둘까요?' : '고친 것이 사라져요. 그만둘까요?'
+          }
+          onStay={() => setAsking(false)}
+          onLeave={() => {
+            setAsking(false);
+            onClose();
+          }}
         />
       ) : null}
     </BottomSheet>
@@ -84,6 +110,16 @@ export interface CategoryEditFormProps {
   category?: CategoryOut;
   /** 저장·삭제가 도는 동안. 이 폼을 감싼 자리가 닫기를 잠그는 데 쓴다. 필요 없으면 안 넘긴다. */
   onBusyChange?: (busy: boolean) => void;
+  /**
+   * 적어 둔 것이 있나. 감싼 자리가 **나가기 전에 한 번 묻는 데** 쓴다.
+   *
+   * 저장하면 사라지는 것만 센다. 고치던 분류면 원래 값과 달라진 것이 있을 때, 새로
+   * 만드는 중이면 이름·아이콘·색 중 하나라도 건드렸을 때 참이다.
+   *
+   * **상태로 올리지 않고 칸에 적는다.** 올리면 한 박자 늦어서, 이름을 적자마자 나가면
+   * 아직 거짓인 값을 보고 확인 없이 닫힌다.
+   */
+  dirtyRef?: { current: boolean };
   onClose: () => void;
   /**
    * 종류를 고르지 못하게 못 박는다. 기록 시트 안에서 만들 때 쓴다.
@@ -114,6 +150,7 @@ export interface CategoryEditFormProps {
 export function CategoryEditForm({
   category,
   onBusyChange,
+  dirtyRef,
   onClose,
   fixedKind,
   onCreated,
@@ -178,6 +215,22 @@ export function CategoryEditForm({
   const [iconPicked, setIconPicked] = useState(category != null);
 
   const busy = create.isPending || update.isPending || remove.isPending;
+
+  /*
+    적어 둔 것이 있나. 나가기 전에 한 번 물을지를 이 값이 가른다.
+
+    새로 만드는 중이면 이름·그림·색 중 하나라도 건드렸으면 참이다. 고치는 중이면
+    원래 값과 달라진 것이 있을 때만 참이라, 열었다가 그냥 닫는 사람은 안 붙잡는다.
+  */
+  const dirty =
+    category == null
+      ? name.trim() !== '' || custom != null || color != null || icon !== FALLBACK_CATEGORY_ICON
+      : name.trim() !== category.name ||
+        icon !== toIconName(category.icon_key) ||
+        custom !== (category.icon_custom ?? null) ||
+        color !== (category.color ?? null);
+
+  if (dirtyRef != null) dirtyRef.current = dirty;
   /** 사진을 걸었나. 사진은 동그라미를 꽉 채워 바탕색이 안 드러난다. */
   const photoPicked = parseCustomIcon(custom)?.kind === 'photo';
   const trimmed = name.trim();

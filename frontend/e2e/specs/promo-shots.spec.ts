@@ -89,8 +89,16 @@ test.describe('스토어 스크린샷용 화면', () => {
     await report.open();
     await report.waitReady();
     await expect(report.donut).toBeVisible();
-    // 도넛 아래 줄까지 보여야 「무엇이 몇 퍼센트」 가 읽힌다. 탭바에 가리지 않게 가운데로.
-    await report.donut.evaluate((node) => node.scrollIntoView({ block: 'center' }));
+    /*
+      **카드 한 장이 통째로 들어와야 한다.** 가운데로 맞췄더니 아래 두 줄이 떠 있는
+      탭바에 가려, 스토어 그림에 「교통」 이 반쯤 잘려 나왔다. 카드 아래를 화면 아래에
+      맞춘 다음 탭바 높이(96)보다 조금 더 밀어 올린다.
+    */
+    await report.donut.evaluate((node) => {
+      const card = node.closest('.report__breakdown') ?? node;
+      card.scrollIntoView({ block: 'end' });
+      window.scrollBy(0, 130);
+    });
     await page.waitForTimeout(700);
 
     await shoot(page, 'shot-report-donut');

@@ -30,7 +30,15 @@ import {
   toLedgerNoonIso,
 } from '../../shared/lib/format';
 import { DAY_MAX } from '../../shared/lib/limits';
-import { AmountField, BottomSheet, Button, CategoryAvatar, Toggle, iconOf } from '../../shared/ui';
+import {
+  AmountField,
+  BottomSheet,
+  Button,
+  CategoryAvatar,
+  LeaveConfirm,
+  Toggle,
+  iconOf,
+} from '../../shared/ui';
 
 import { CategoryComposeOverlay } from '../categories';
 import { TagPicker } from '../tags';
@@ -64,8 +72,31 @@ export interface EditSheetProps {
 }
 
 export function EditSheet({ transaction, categories, month, onClose }: EditSheetProps) {
+  /*
+    고친 것이 있나. **있으면 나가기 전에 한 번 묻는다**(2026-09-25 사용자 신고).
+
+    금액과 상호를 고쳐 둔 채로 시트가 닫혀 처음부터 다시 적은 일이 두 번 있었다.
+    손짓 쪽 원인은 따로 고쳤지만(`sheetDrag`), 딤·Esc·뒤로가기로도 같은 일이 나므로
+    **나가는 길 전부**를 한 자리로 모은다.
+  */
+  const dirtyRef = useRef(false);
+  const [asking, setAsking] = useState(false);
+
+  function requestClose(): void {
+    if (dirtyRef.current) {
+      setAsking(true);
+      return;
+    }
+    onClose();
+  }
+
+  function leave(): void {
+    setAsking(false);
+    onClose();
+  }
+
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
-  useOverlayBackClose(transaction != null, onClose);
+  useOverlayBackClose(transaction != null, requestClose);
 
   /*
     새 분류 창이 떠 있는 동안 이 시트를 잠그지 **않는다.**
@@ -80,7 +111,7 @@ export function EditSheet({ transaction, categories, month, onClose }: EditSheet
   return (
     <BottomSheet
       open={transaction != null}
-      onClose={onClose}
+      onClose={requestClose}
       ariaLabel="기록 수정"
       className="tx-edit"
       /*
@@ -98,8 +129,12 @@ export function EditSheet({ transaction, categories, month, onClose }: EditSheet
           transaction={transaction}
           categories={categories}
           month={month}
+          dirtyRef={dirtyRef}
           onClose={onClose}
         />
+      ) : null}
+      {asking ? (
+        <LeaveConfirm text="고친 것이 사라져요. 그만둘까요?" onStay={() => setAsking(false)} onLeave={leave} />
       ) : null}
     </BottomSheet>
   );
@@ -109,6 +144,13 @@ interface EditFormProps {
   transaction: TransactionOut;
   categories: CategoryOut[];
   month?: MonthParams;
+  /**
+   * 고친 것이 있나. 감싼 시트가 나가기 전에 한 번 묻는 데 쓴다.
+   *
+   * **상태로 올리지 않고 칸에 적는다.** 올리면 한 박자 늦어서, 태그를 누르자마자 나가면
+   * 아직 거짓인 값을 보고 확인 없이 닫힌다.
+   */
+  dirtyRef: { current: boolean };
   onClose: () => void;
 }
 
@@ -135,7 +177,7 @@ function canSwitchKind(type: TransactionOut['type']): boolean {
   return type === 'expense' || type === 'income';
 }
 
-function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
+function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFormProps) {
   const analytics = useAnalytics();
   const update = useUpdateTransaction(month);
   const remove = useDeleteTransaction();
@@ -236,6 +278,14 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
     if (nextTag !== (transaction.tag_id ?? null)) next.tag_id = nextTag;
     return next;
   }
+
+  /*
+    고친 것이 있나. **`changes()` 를 그대로 쓴다.**
+
+    「무엇을 보낼까」 와 「나갈 때 물을까」 는 같은 물음이다. 두 벌로 두면 한쪽에만 칸이
+    늘어나, 방금 고친 태그를 말없이 버리는 식으로 어긋난다.
+  */
+  dirtyRef.current = Object.keys(changes()).length > 0;
 
   /** 완료를 눌렀다가 앞날이라 물어보는 중인가. */
   const [futureAsking, setFutureAsking] = useState(false);

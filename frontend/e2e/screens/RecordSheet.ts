@@ -6,15 +6,20 @@ import { TEST_IDS } from '../../src/shared/testIds';
 import { horizontalScrollersIn } from '../support/overflow';
 
 /**
- * 읽어 온 것을 두고 나가려 할 때의 확인.
+ * 적던 것을 두고 나가려 할 때의 확인.
  *
- * 시트 안에 겹쳐 뜨지만 화면에 못 박혀 있어, 목록을 어디까지 내려 읽었든 같은 자리다.
+ * 화면에 못 박혀 있어 목록을 어디까지 내려 읽었든 같은 자리다. **기록 시트 · 기록 고치기 ·
+ * 새 분류 만들기가 같은 한 벌을 쓴다**(`shared/ui/LeaveConfirm`). 그래서 이 객체도 하나다.
  */
-class LeaveConfirm {
+export class LeaveConfirmArea {
   private readonly root: Locator;
 
   constructor(page: Page) {
     this.root = page.getByRole('alertdialog', { name: '그만둘까요' });
+  }
+
+  get dialog(): Locator {
+    return this.root;
   }
 
   get isVisible(): Promise<boolean> {
@@ -26,9 +31,14 @@ class LeaveConfirm {
     return this.root.getByText(/읽어 온 \d+건이 사라져요/);
   }
 
+  /** 손으로 적어 둔 것을 두고 나가려 할 때의 문구. 건수가 아니라 「적던 내용」 이다. */
+  get draftText(): Locator {
+    return this.root.getByText(/사라져요\. 그만둘까요\?/);
+  }
+
   /** 머무는 쪽. 기본으로 눌리기 쉬운 자리에 크게 있다. */
   get stayButton(): Locator {
-    return this.root.getByRole('button', { name: '계속 고치기' });
+    return this.root.getByRole('button', { name: '계속 쓰기' });
   }
 
   get leaveButton(): Locator {
@@ -96,7 +106,7 @@ export class RecordSheet {
     this.nl = new RecordNaturalLanguage(this.root);
     this.capture = new RecordImageImport(this.root, CAPTURE_LABELS);
     this.receipt = new RecordImageImport(this.root, RECEIPT_LABELS);
-    this.leave = new LeaveConfirm(page);
+    this.leave = new LeaveConfirmArea(page);
     this.futureDayConfirm = new FutureDayConfirmArea(page);
   }
 
@@ -128,7 +138,7 @@ export class RecordSheet {
    * 손잡이·딤·Esc·시스템 뒤로가기가 모두 이 확인을 지난다. 실기기에서 손잡이를 잘못 눌러
    * 읽어 온 것이 통째로 날아가는 일이 있었다.
    */
-  readonly leave: LeaveConfirm;
+  readonly leave: LeaveConfirmArea;
 
   /** 손잡이를 잡고 아래로 민다. 실기기에서 시트를 닫는 가장 흔한 손짓이다. */
   async dragDown(distance = 160): Promise<void> {

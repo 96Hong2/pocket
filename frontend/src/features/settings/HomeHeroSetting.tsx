@@ -96,7 +96,7 @@ export function HomeHeroSetting() {
   async function openCalc(): Promise<void> {
     setCalcBusy(true);
     try {
-      const outcome = await rewarded.show();
+      const outcome = await rewarded.show('budget_calc');
       analytics.log(
         EVENTS.budgetCalcOpened,
         outcome.result === 'skipped'

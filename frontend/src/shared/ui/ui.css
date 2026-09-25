@@ -8,6 +8,11 @@
   **바탕은 파스텔, 글자는 같은 계열의 진한 색이다.** 진한 바탕에 흰 글자를 얹던 것을
   뒤집었다. 칩이 열넷 서는 화면에서 진한 색은 화면 전체를 시끄럽게 만든다.
 
+  2026-09-25 에 열넷 다 흰색 쪽으로 18% 밀었다. 분류 아이콘이 이 색을 바탕으로 쓰게 되면서
+  홈·달력 목록에 동그라미가 줄줄이 서는데, 그 판에서 앞 값은 세이지 톤과 부딪혔다.
+  글자 대비는 오히려 올랐다(최저 4.66 → 4.97). `-soft` 는 안 건드렸다. 저쪽은 목록 줄의
+  작은 칩 바탕이라 더 옅히면 흰 바탕에서 사라진다.
+
   리포트의 도넛 조각은 여기 없다. 그쪽은 **자리 색**(`--color-donut-N`)이라 같은 링에
   같은 색이 두 번 나오지 않게 하는 것이 목적이고, 이 팔레트와 하는 일이 다르다.
 
@@ -19,20 +24,20 @@
 */
 :root {
   /* 파스텔 바탕: 칩·점·도넛 조각. 같은 계열의 진한 글자색(-ink)과 4.5:1 이상. */
-  --tag-rose: #F7C9D8;
-  --tag-coral: #F9CDBA;
-  --tag-amber: #F6DEA8;
-  --tag-sand: #E9DCC2;
-  --tag-olive: #D8E0B2;
-  --tag-sage: #C6DCBE;
-  --tag-mint: #B6DED5;
-  --tag-teal: #B2D8DF;
-  --tag-sky: #C2DCF3;
-  --tag-ocean: #BECDF0;
-  --tag-indigo: #CAC8ED;
-  --tag-lilac: #DCC7ED;
-  --tag-plum: #EBC4E1;
-  --tag-slate: #D2D7DC;
+  --tag-rose: #F8D3DF;
+  --tag-coral: #FAD6C6;
+  --tag-amber: #F8E4B8;
+  --tag-sand: #EDE2CD;
+  --tag-olive: #DFE6C0;
+  --tag-sage: #D0E2CA;
+  --tag-mint: #C3E4DD;
+  --tag-teal: #C0DFE5;
+  --tag-sky: #CDE2F5;
+  --tag-ocean: #CAD6F3;
+  --tag-indigo: #D4D2F0;
+  --tag-lilac: #E2D1F0;
+  --tag-plum: #EFCFE6;
+  --tag-slate: #DADEE2;
 
   /* 그 바탕에 얹는 글자색. 회색 글자를 쓰면 열넷이 다 같아 보인다. */
   --tag-rose-ink: #8C3357;
@@ -968,6 +973,66 @@
   .pk-month--compact .pk-month__label {
     min-width: 88px;
     font-size: var(--text-13);
+  }
+
+  /* ── 그만둘까요 ─────────────────────────── */
+
+  /*
+    적던 것을 두고 나가려 할 때 지금 화면 위에 겹치는 확인.
+
+    기록 시트 · 기록 고치기 · 새 분류 만들기가 이 한 벌을 나눠 쓴다. 자리는 늘 화면 전체다.
+
+    시트 안에 붙지만 자리는 시트 전체다. 목록 아무 데서나 손잡이를 눌러도 같은 자리에서
+    같은 말을 해야, 무엇을 물었는지 찾지 않아도 된다.
+  */
+  .record-leave {
+    /*
+      시트가 곧 스크롤 상자라 absolute 로 두면 목록을 내린 만큼 확인 창도 따라 올라간다.
+      화면에 못 박아 어디까지 내려 읽었든 같은 자리에 뜨게 한다.
+    */
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: var(--color-dim);
+  }
+
+  .record-leave__box {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 320px;
+    padding: 20px;
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
+  }
+
+  .record-leave__text {
+    margin: 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.5;
+    color: var(--color-ink);
+    word-break: keep-all;
+  }
+
+  .record-leave__actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .record-leave__actions > * {
+    flex: 1;
+  }
+
+  /* 머무는 쪽이 기본이다. 실수로 누른 사람이 한 번 더 실수해도 잃지 않게 크게 둔다. */
+  .record-leave__stay {
+    flex: 1.4;
   }
 
   /* ── CategoryAvatar ─────────────────────────────────── */
