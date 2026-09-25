@@ -35,6 +35,8 @@ export interface TransactionSeed {
   /** 가맹점을 알면 행 제목이 이것이 되고 카테고리는 부제로 내려간다. */
   merchant?: string;
   categoryId?: string;
+  /** 어느 태그 묶음에 넣을까. 리포트의 「태그별 지출」 조각이 이 값으로 갈린다. */
+  tagId?: string;
   /** 무엇으로 냈나. 지출에만 붙는다. 없으면 안 고른 것이다. */
   paymentMethod?: PaymentMethod;
   /** 예산 계산에서만 뺀다. 목록에는 흐려진 채로 남는다. */
@@ -99,6 +101,7 @@ export class PrepApi {
         confidence: 1,
         excluded_from_budget: seed.excludedFromBudget ?? false,
         category_id: seed.categoryId ?? null,
+        tag_id: seed.tagId ?? null,
         payment_method: seed.paymentMethod ?? null,
       },
     });
@@ -218,6 +221,18 @@ export class PrepApi {
     expectOk(response.status(), await response.text(), `카테고리 '${name}' 을 만들지 못했다`);
     const body = (await response.json()) as { id: string };
     return body.id;
+  }
+
+  /** 태그 하나를 손으로 만든다. 만든 것의 id 를 돌려준다. */
+  async addTag(name: string, color = 'sage', kind = 'expense'): Promise<string> {
+    const response = await this.context.post('/api/v1/tags', {
+      data: { name, color, kind },
+    });
+    expectOk(response.status(), await response.text(), `태그 '${name}' 을 만들지 못했다`);
+    const body = (await response.json()) as { items: { id: string; name: string }[] };
+    const made = body.items.find((item) => item.name === name);
+    if (made == null) throw new Error(`태그 '${name}' 이 목록에 없다`);
+    return made.id;
   }
 
   /**

@@ -223,7 +223,21 @@ export function ImageImportTab({
         // 한 장에서 여러 건이 오는 캡처에서만 쓸모가 있다. 영수증은 보통 한 건이다.
         allowBulkCategory={kind === 'capture'}
         restartLabel={mode.restartLabel}
-        emptyMessage={mode.emptyMessage}
+        /*
+          한 건도 못 찾았는데 광고는 이미 봤다면 그 사실을 여기서 말한다.
+          실패 줄(`analyze.error`)이 서는 자리와 달리 이쪽은 200 으로 돌아온 길이라,
+          같은 말을 안 적어 두면 다음 한 번이 공짜라는 것을 알 방법이 없다.
+        */
+        emptyMessage={
+          credits.owed ? (
+            <>
+              {mode.emptyMessage}
+              <span className="capture__ad-free">광고는 다시 안 나와요</span>
+            </>
+          ) : (
+            mode.emptyMessage
+          )
+        }
         emptyAction={fallbackAction}
         notice={
           isStub(batch) ? (
@@ -307,12 +321,13 @@ export function ImageImportTab({
         이 풀리는데, 그때 광고는 아직 화면을 덮고 있다. 여기를 안 잠그면 광고가 닫히는
         순간에 한 번 더 눌려 두 편이 겹친다.
 
-        **장수를 모르는 동안(`null`)에는 눌리지 않는다.** 저장소를 읽는 사이에 눌러 버리면
-        무료분을 다 쓴 사람도 광고 없이 한 장을 더 쓴다. 그 틈은 첫 그림 직후 한순간이다.
+        **체험이 남았는지 모르는 동안(`null`)에는 눌리지 않는다.** 저장소를 읽는 사이에
+        눌러 버리면 이미 써 본 사람도 광고 없이 한 장을 더 읽는다. 그 틈은 첫 그림 직후
+        한순간이다.
       */}
       <Button
         fullWidth
-        disabled={analyzing || credits.busy || credits.free == null}
+        disabled={analyzing || credits.busy || credits.trial == null}
         onClick={() => void pick()}
       >
         {pickFailure != null ? '다시 시도' : mode.pickLabel}
@@ -419,8 +434,17 @@ export function ImageImportTab({
         고르다 취소하거나 읽기가 실패한 것까지 세면 우리 쪽 사정으로 못 읽은 값을 사람에게
         물리게 된다. 한 건도 못 찾은 사진(`empty`)과 아직 모델이 안 붙어 지어낸 결과(스텁)도
         같다. 영수증을 찍었는데 「읽을 게 없어요」 가 뜨면서 장수가 주는 화면이 제일 나쁘다.
+
+        **빈손으로 끝났으면 치른 광고도 갚아 준다.** 200 으로 돌아왔을 뿐 사람이 받은 것은
+        없는데, 여기서 아무것도 안 하면 다시 찍을 때 광고가 또 돈다. 어두운 영수증을 세 번
+        찍으면 결과 없이 광고만 세 편이다. 던져서 끝난 쪽(`'error' in settled`)은 이미
+        갚아 주고 있어서, 같은 일을 두 갈래가 다르게 하던 자리였다.
       */
-      if (parseOutcome(result) !== 'empty' && !isStub(result)) await credits.spend(picked.length);
+      if (parseOutcome(result) === 'empty') {
+        if (plan !== 'none') credits.markWasted(plan, picked.length);
+      } else if (!isStub(result)) {
+        await credits.spend(picked.length, plan);
+      }
       setBatch(result);
     } catch (error) {
       // 사진을 가져오는 쪽 실패만 여기서 화면을 가른다. 읽기 실패는 analyze.error 가 이미 들고 있다.

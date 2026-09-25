@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>스토어 스크린샷 판형</title>
+    <!--
+      promo-1 ~ promo-5 에서 실측한 판형 그대로다. 캔버스 636x1048, 배경 #F9F8F3,
+      세이지 원 #E5ECDC, 제목 47px.
+
+      **제목을 47px 로 되돌렸다.** 앞선 판(promo-6~8)은 64px 이었는데, 스토어에는
+      promo-1 과 나란히 걸린다. 한 줄에 걸리는 여섯 장의 제목 크기가 다르면
+      그것부터 눈에 띈다. 05 폴더의 exec 그림과 맞추려던 것이라 스토어와는 관계가 없다.
+
+      판은 둘이다.
+      - one   폰 한 대. 위에서 아래로 브랜드 → 제목 → 부제 → 폰
+      - two   폰 두 대. 한 기능을 두 화면으로 보여 줄 때만 쓴다(태그 목록 + 리포트)
+    -->
+    <style>
+      @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        width: 636px;
+        height: 1048px;
+        overflow: hidden;
+        background: #f9f8f3;
+        font-family: Pretendard, -apple-system, 'Apple SD Gothic Neo', sans-serif;
+        position: relative;
+      }
+
+      /* 좌우와 모서리에 잘려 들어오는 연한 세이지 원. 배경이 비지 않게 하는 장치다. */
+      .blob {
+        position: absolute;
+        border-radius: 50%;
+        background: #e5ecdc;
+        z-index: 0;
+      }
+      .blob--tr {
+        width: 320px;
+        height: 320px;
+        top: -120px;
+        right: -110px;
+      }
+      .blob--ml {
+        width: 210px;
+        height: 210px;
+        top: 430px;
+        left: -120px;
+      }
+      .blob--br {
+        width: 280px;
+        height: 280px;
+        bottom: -90px;
+        right: -130px;
+      }
+
+      .sheet {
+        position: relative;
+        z-index: 1;
+        height: 100%;
+      }
+
+      .brand {
+        position: absolute;
+        top: 52px;
+        left: 63px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .brand img {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+      }
+      .brand span {
+        font-size: 21px;
+        font-weight: 700;
+        color: #1a1a1a;
+        letter-spacing: -0.5px;
+      }
+
+      .title {
+        position: absolute;
+        top: 108px;
+        left: 63px;
+        right: 50px;
+        font-size: 47px;
+        line-height: 1.22;
+        font-weight: 800;
+        color: #334a34;
+        letter-spacing: -1.7px;
+        white-space: pre-line;
+      }
+
+      .sub {
+        position: absolute;
+        top: 272px;
+        left: 65px;
+        right: 60px;
+        font-size: 19px;
+        font-weight: 500;
+        color: #5b6c60;
+        letter-spacing: -0.4px;
+        line-height: 1.5;
+      }
+
+      /*
+        폰 목업 한 대. **높이가 그림을 따라간다.**
+
+        원본 다섯 장은 높이를 760 으로 못 박아 두고 아래를 캔버스 밖으로 흘렸다.
+        그런데 시트가 뜬 화면(줄글·엑셀)은 시트만 잘라 내면 세로가 짧아서, 고정 높이에
+        넣으면 폰 안에 빈 흰 자리가 남는다. 흐린 배경까지 넣어 길이를 맞추면 이번에는
+        폰 위쪽이 통째로 회색이 된다. 둘 다 못 쓴다.
+
+        그래서 높이를 그림에 맡기고 `max-height` 로만 막는다. 긴 그림은 예전처럼
+        캔버스 아래로 잘려 나가고(모서리가 화면 끝에 닿아 안 보인다), 짧은 그림은
+        둥근 카드로 깔끔하게 끝난다.
+      */
+      .phone {
+        position: absolute;
+        top: 352px;
+        left: 73px;
+        width: 472px;
+        max-height: 696px;
+        border-radius: 34px;
+        background: #fff;
+        box-shadow: 0 18px 44px rgba(51, 74, 52, 0.14);
+        overflow: hidden;
+        padding: 10px;
+      }
+      .phone img {
+        width: 452px;
+        border-radius: 26px;
+        display: block;
+      }
+
+      /*
+        폰 두 대. 한 기능이 두 화면에 걸쳐 있을 때만 쓴다.
+        여기서는 잘리지 않는다. 두 장이 각각 어디까지인지 보여야 두 화면으로 읽힌다.
+      */
+      .duo {
+        display: none;
+      }
+      body[data-layout='two'] .phone {
+        display: none;
+      }
+      body[data-layout='two'] .duo {
+        display: block;
+      }
+
+      .duo__card {
+        position: absolute;
+        border-radius: 26px;
+        background: #fff;
+        box-shadow: 0 16px 40px rgba(51, 74, 52, 0.16);
+        overflow: hidden;
+        padding: 10px;
+      }
+      .duo__card img {
+        display: block;
+        border-radius: 18px;
+      }
+
+      /*
+        **겹치지 않는다.** 겹쳐 놓으니 뒤 카드의 태그 이름이 통째로 가려서, 두 장이
+        같은 넷을 말하는 중이라는 것이 안 보였다. 대각선으로 어긋나게 놓아 「이 태그들」
+        →「이만큼」 의 순서가 읽히게 한다.
+      */
+      .duo__card--back {
+        left: 286px;
+        top: 352px;
+        width: 330px;
+      }
+      .duo__card--back img {
+        width: 310px;
+      }
+
+      .duo__card--front {
+        left: 22px;
+        top: 566px;
+        width: 350px;
+      }
+      .duo__card--front img {
+        width: 330px;
+      }
+
+      /* 두 화면이 각각 어디인지 한 마디로. 없으면 왜 두 장인지 안 보인다. */
+      .duo__tag {
+        position: absolute;
+        z-index: 3;
+        padding: 6px 14px;
+        border-radius: 999px;
+        background: #334a34;
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        box-shadow: 0 6px 16px rgba(51, 74, 52, 0.28);
+      }
+      .duo__tag--back {
+        left: 300px;
+        top: 334px;
+      }
+      .duo__tag--front {
+        left: 36px;
+        top: 548px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="blob blob--tr"></div>
+    <div class="blob blob--ml"></div>
+    <div class="blob blob--br"></div>
+
+    <div class="sheet">
+      <div class="brand">
+        <img id="logo" alt="" />
+        <span>포켓:10초가계부</span>
+      </div>
+      <div class="title" id="title"></div>
+      <div class="sub" id="sub"></div>
+
+      <div class="phone"><img id="shot" alt="" /></div>
+
+      <div class="duo">
+        <span class="duo__tag duo__tag--back" id="tagBack"></span>
+        <div class="duo__card duo__card--back"><img id="shotBack" alt="" /></div>
+        <span class="duo__tag duo__tag--front" id="tagFront"></span>
+        <div class="duo__card duo__card--front"><img id="shotFront" alt="" /></div>
+      </div>
+    </div>
+
+    <script>
+      // 만드는 스크립트가 넘겨 주는 값. 여기서 화면을 채운다.
+      const q = new URLSearchParams(location.search);
+      const put = (id, value) => {
+        const node = document.getElementById(id);
+        if (value) node.textContent = value;
+      };
+      const src = (id, value) => {
+        if (value) document.getElementById(id).src = value;
+      };
+
+      document.body.dataset.layout = q.get('layout') || 'one';
+      document.getElementById('title').textContent = (q.get('title') || '').replace(/\|/g, '\n');
+      put('sub', q.get('sub'));
+      put('tagBack', q.get('tagBack'));
+      put('tagFront', q.get('tagFront'));
+      src('shot', q.get('shot'));
+      src('shotBack', q.get('shotBack'));
+      src('shotFront', q.get('shotFront'));
+      src('logo', q.get('logo'));
+    </script>
+  </body>
+</html>

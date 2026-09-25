@@ -3,7 +3,7 @@
  *
  * 셈 자체는 `photoCredits.ts` 가 하고, 여기는 저장소·광고·로그를 묶는다.
  * 두 탭(캡처·영수증)이 같은 셈을 나눠 쓴다. 값이 드는 쪽은 사진이지 어디서 가져왔는지가
- * 아니라서, 탭마다 따로 세면 한 사람이 하루에 무료 두 장을 쓴다.
+ * 아니라서, 탭마다 따로 세면 체험 한 장을 두 번 쓴다.
  *
  * **광고가 기다림을 뺏지 않는다.** 사진은 어차피 읽는 데 몇 초가 걸린다. 그 몇 초를
  * 광고가 채우는 것이지, 광고를 보고 나서 읽기 시작하는 것이 아니다. 그래서 부르는 쪽은
@@ -14,16 +14,15 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
 import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
-import { toLedgerDate } from '../../shared/lib/format';
 import { useInterstitial, usePhotoRewardedAd } from '../ads';
 
-import { readCredits, spent, writeCredits } from './photoCredits';
+import { markTrialUsed, readTrialUsed } from './photoCredits';
 
 /**
  * 이번 읽기에 어떤 광고가 함께 도는가.
  *
- * - `none`          오늘 무료분이다. 아무것도 안 뜬다
- * - `interstitial`  한 장인데 무료분을 이미 썼다. 짧은 전면 광고
+ * - `none`          체험 한 장이거나, 이 기기에 광고가 안 붙는다
+ * - `interstitial`  한 장. 읽는 동안 짧은 전면 광고
  * - `rewarded`      한 번에 여러 장이다. 읽는 데 오래 걸려서 긴 광고가 들어간다
  *
  * **여러 장에 긴 광고를 붙인 것은 시간이 길어서다.** 짧은 광고를 붙이면 광고가 끝나고도
@@ -33,8 +32,12 @@ import { readCredits, spent, writeCredits } from './photoCredits';
 export type PhotoAdPlan = 'none' | 'interstitial' | 'rewarded';
 
 export interface PhotoCreditsHandle {
-  /** 오늘 광고 없이 읽을 수 있는 장수. 아직 저장소를 못 읽었으면 `null` 이다. */
-  free: number | null;
+  /**
+   * 광고 없이 읽어 주는 체험 한 장이 아직 남았나. 저장소를 못 읽었으면 `null` 이다.
+   *
+   * 이 앱에서 사진을 한 번도 안 읽어 본 사람만 참이다. 날이 바뀌어도 안 돌아온다.
+   */
+  trial: boolean | null;
   /** 광고가 도는 중. 버튼을 잠가 두 편이 겹치지 않게 한다. */
   busy: boolean;
   /** 이번에 고른 장수라면 어떤 광고가 함께 도는가. */
@@ -47,8 +50,8 @@ export interface PhotoCreditsHandle {
   markWasted: (plan: PhotoAdPlan, count: number) => void;
   /** 이미 치른 광고가 있어 다음 한 번은 공짜다. 화면이 그 사실을 적을 때 쓴다. */
   owed: boolean;
-  /** 읽어 낸 뒤에 부른다. 무료분을 그만큼 깎는다. */
-  spend: (count: number) => Promise<void>;
+  /** 읽어 낸 뒤에 부른다. 광고를 안 태운 읽기였으면 체험 한 장을 쓴 것으로 적는다. */
+  spend: (count: number, plan: PhotoAdPlan) => Promise<void>;
 }
 
 export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
@@ -56,26 +59,27 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
   const analytics = useAnalytics();
   const rewarded = usePhotoRewardedAd();
   /*
-    짧은 쪽은 상한을 함께 센다. 관리 탭에서 이미 한 편을 본 사람이 사진에서 또 보지
-    않는다. 긴 쪽(리워드)은 상한 밖이다. 무엇을 치르는지 먼저 읽고 스스로 누른 자리라
-    「오늘 이미 보셨어요」 라고 답하면 우리가 약속을 깨는 셈이 된다(ADR-0024).
+    **상한 밖에서 띄운다**(`uncapped`). 사진은 고른 뒤에 확인 창이 무엇을 치르는지 먼저
+    말하고 사람이 스스로 누르는 자리라, 「오늘 이미 보셨어요」 라고 답할 이유가 없다.
+    리워드 쪽과 같은 규칙이다(ADR-0024).
+
+    상한 안에 두면 실제로 광고가 거의 안 떴다. 세션당 한 편이라 둘째 장부터 광고를 붙여도
+    관리 탭에서 한 편 본 사람에게는 아무것도 안 떴다.
   */
   const interstitial = useInterstitial();
-  const [free, setFree] = useState<number | null>(null);
+  /** 체험 한 장이 남았나. 저장소를 읽어야 안다. */
+  const [trial, setTrial] = useState<boolean | null>(null);
   /*
     **치른 광고 한 편은 한 번만 받는다.** 광고는 읽기 요청과 겹쳐 돌아서, 읽기가 실패해도
     사용자는 이미 끝까지 봤다. 그 상태에서 다시 누를 때 또 틀면 우리 쪽 사정으로 값을 두 번
     받는 셈이 된다. 사용자가 「광고까지 다 봤는데 자꾸 실패한다」 고 신고한 자리다.
-
-    여러 장 쪽이 특히 그랬다. 긴 광고는 세션 상한 밖이라(ADR-0024) 스스로 멎지 않아,
-    실패가 이어지면 시도할 때마다 한 편씩 돌았다.
   */
   const [owed, setOwed] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    void readCredits(bridge.storage, toLedgerDate(new Date())).then((record) => {
-      if (alive) setFree(record.count);
+    void readTrialUsed(bridge.storage).then((used) => {
+      if (alive) setTrial(!used);
     });
     return () => {
       alive = false;
@@ -93,25 +97,31 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
       */
       if (count > 1) {
         if (rewarded.available) return 'rewarded';
-        return interstitial.ready ? 'interstitial' : 'none';
+        return interstitial.available ? 'interstitial' : 'none';
       }
       /*
-        아직 저장소를 못 읽었으면(`null`) 무료분이 남은 것으로 본다. 버튼이 그동안
+        아직 저장소를 못 읽었으면(`null`) 체험이 남은 것으로 본다. 버튼이 그동안
         잠겨 있어 여기까지 오는 일은 거의 없고, 넘어와도 손해는 사진 한 장이다.
-        반대로 두면 무료분이 남은 사람에게 광고를 물린다.
+        반대로 두면 처음 써 보는 사람에게 첫 장부터 광고를 물린다.
       */
-      if (free == null || free > 0) return 'none';
-      // 광고를 못 띄우는 기기에서 사진을 막지 않는다. 우리 사정으로 기능을 닫는 셈이 된다.
-      return interstitial.ready ? 'interstitial' : 'none';
+      if (trial == null || trial) return 'none';
+      /*
+        광고를 못 띄우는 기기에서 사진을 막지 않는다. 우리 사정으로 기능을 닫는 셈이 된다.
+        **`ready` 가 아니라 `available` 을 본다.** 이 자리는 상한 밖이라, 상한까지 본
+        `ready` 로 가르면 관리 탭에서 한 편 본 사람에게 확인 창이 안 뜨고 광고만 뜬다.
+      */
+      return interstitial.available ? 'interstitial' : 'none';
     },
-    [free, interstitial.ready, owed, rewarded.available],
+    [interstitial.available, owed, rewarded.available, trial],
   );
 
   const play = useCallback(
     async (plan: PhotoAdPlan, count: number): Promise<void> => {
       if (plan === 'none') return;
       const outcome =
-        plan === 'rewarded' ? await rewarded.show() : await interstitial.show('photo');
+        plan === 'rewarded'
+          ? await rewarded.show()
+          : await interstitial.show('photo', { uncapped: true });
       analytics.log(
         EVENTS.photoCredit,
         {
@@ -157,24 +167,28 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
   );
 
   const spend = useCallback(
-    async (count: number): Promise<void> => {
-      const today = toLedgerDate(new Date());
-      const next = spent(await readCredits(bridge.storage, today), count);
-      await writeCredits(bridge.storage, next);
-      setFree(next.count);
+    async (count: number, plan: PhotoAdPlan): Promise<void> => {
+      /*
+        체험 한 장은 **읽어 낸 뒤에** 쓴 것으로 친다. 고른 순간에 표시하면 읽기가 실패한
+        사람이 체험도 잃고 결과도 없이 나간다.
+
+        **광고를 치른 읽기로는 체험을 안 쓴다.** 처음 여는 사람이 첫 행동으로 사진 두 장을
+        고르면 그 길은 긴 광고를 태우는데(여러 장은 체험과 무관하다), 거기서 체험까지
+        소진하면 「맨 처음 한 장은 광고 없이」 라고 해 놓고 한 번도 안 주는 셈이 된다.
+      */
+      if (plan === 'none' && trial !== false) {
+        await markTrialUsed(bridge.storage);
+        setTrial(false);
+      }
       // 읽어 냈으니 치른 값을 받은 셈이다. 다음부터는 다시 평소대로 묻는다.
       setOwed(false);
-      analytics.log(
-        EVENTS.photoCredit,
-        { action: 'spent', left: next.count, image_count: count },
-        { flowId },
-      );
+      analytics.log(EVENTS.photoCredit, { action: 'spent', plan, image_count: count }, { flowId });
     },
-    [analytics, bridge, flowId],
+    [analytics, bridge, flowId, trial],
   );
 
   return {
-    free,
+    trial,
     owed,
     busy: rewarded.busy || interstitial.busy,
     planFor,

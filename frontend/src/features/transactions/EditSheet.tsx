@@ -32,7 +32,7 @@ import {
 import { DAY_MAX } from '../../shared/lib/limits';
 import { AmountField, BottomSheet, Button, CategoryAvatar, Toggle, iconOf } from '../../shared/ui';
 
-import { CategoryEditForm } from '../categories';
+import { CategoryComposeOverlay } from '../categories';
 import { TagPicker } from '../tags';
 
 /** 얼마나 옛날까지 옮길 수 있나. 달력 화면과 같게 3년이다. */
@@ -67,6 +67,16 @@ export function EditSheet({ transaction, categories, month, onClose }: EditSheet
   // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
   useOverlayBackClose(transaction != null, onClose);
 
+  /*
+    새 분류 창이 떠 있는 동안 이 시트를 잠그지 **않는다.**
+
+    한때 `dismissible={false}` 로 막았는데, 그 값이 `BottomSheet` 의 포커스 효과 deps 에
+    들어 있어서 값을 토글하는 순간 효과가 다시 돌고 시트가 이름 칸의 포커스를 도로
+    가져갔다. 웹뷰에서 자판이 안 올라오고 Tab 이 가려진 시트로 샜다.
+
+    새는 길은 창 쪽에서 막는다(`CategoryComposeOverlay`). Esc 를 캡처 단계에서 삼키고,
+    바탕이 화면 끝까지 가서 뒤의 딤과 손잡이에 손이 안 닿는다.
+  */
   return (
     <BottomSheet
       open={transaction != null}
@@ -164,7 +174,6 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
     분류 칸이 만들기 폼으로 바뀐다. 고쳐 둔 금액·상호가 살아 있어야 이어서 저장한다.
   */
   const [creating, setCreating] = useState(false);
-  const [creatingBusy, setCreatingBusy] = useState(false);
   /*
     지우기 전에 한 번 묻는다.
 
@@ -418,54 +427,27 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
           />
         ) : null}
 
-        {creating ? (
-          <div className="tx-edit__new-cat">
-            <div className="tx-edit__new-cat-head">
-              <span className="tx-edit__new-cat-title">새 분류 만들기</span>
-              <button
-                type="button"
-                className="tx-edit__new-cat-back"
-                disabled={creatingBusy}
-                onClick={() => setCreating(false)}
-              >
-                고치기로 돌아가기
-              </button>
-            </div>
-            <CategoryEditForm
-              // 종류는 위 토글이 이미 정했다. 여기서 다시 묻지 않는다.
-              fixedKind={kind}
-              onBusyChange={setCreatingBusy}
-              onClose={() => setCreating(false)}
-              // 만들자마자 이 기록의 분류로 둔다. 다시 찾아 누르게 하면 만든 보람이 없다.
-              onCreated={(created) => {
-                setCategoryId(created.id);
-                setCreating(false);
-              }}
-            />
-          </div>
-        ) : (
-          /*
+        {/*
           기록 시트와 같은 것을 쓴다. 앞자리 열한 개만 보이고 나머지는 「더 보기」 뒤다.
           한 화면에서 배운 것이 다음 화면에서도 통해야 한다.
-        */
-          <CategoryPicker
-            className="tx-edit__cats"
-            ariaLabel="카테고리"
-            size="sm"
-            categories={pickable}
-            selectedId={categoryId}
-            disabled={busy}
-            onPick={(category) => setCategoryId(category.id)}
-            // 만들기 폼은 지출·수입만 만든다. 이체 분류를 만들 길이 없어 입구도 세우지 않는다.
-            onCreate={isTransfer ? undefined : () => setCreating(true)}
-            onExpand={() =>
-              analytics.log(EVENTS.categoryMoreOpened, {
-                where: 'edit',
-                shown: pickable.length,
-              })
-            }
-          />
-        )}
+        */}
+        <CategoryPicker
+          className="tx-edit__cats"
+          ariaLabel="카테고리"
+          size="sm"
+          categories={pickable}
+          selectedId={categoryId}
+          disabled={busy}
+          onPick={(category) => setCategoryId(category.id)}
+          // 만들기 폼은 지출·수입만 만든다. 이체 분류를 만들 길이 없어 입구도 세우지 않는다.
+          onCreate={isTransfer ? undefined : () => setCreating(true)}
+          onExpand={() =>
+            analytics.log(EVENTS.categoryMoreOpened, {
+              where: 'edit',
+              shown: pickable.length,
+            })
+          }
+        />
 
         <div className="tx-edit__exclude">
           <div className="tx-edit__exclude-text">
@@ -535,6 +517,26 @@ function EditForm({ transaction, categories, month, onClose }: EditFormProps) {
           </div>
         )}
       </div>
+
+      {/*
+        새 분류 만들기. **화면을 통째로 덮는 한 장으로 연다.**
+
+        예전에는 이 시트 안에 회색 상자로 끼워 넣었는데, 「저장」 이 상자 안쪽에 있어서
+        아이콘 격자를 펴면 화면 밖으로 밀렸다. 기록 시트의 키패드 탭과 같은 화면을 쓴다.
+        고치던 금액과 날짜는 뒤에 그대로 살아 있다.
+      */}
+      <CategoryComposeOverlay
+        open={creating}
+        // 종류는 위 토글이 이미 정했다. 여기서 다시 묻지 않는다.
+        fixedKind={kind}
+        onBack={() => setCreating(false)}
+        onClose={() => setCreating(false)}
+        // 만들자마자 이 기록의 분류로 둔다. 다시 찾아 누르게 하면 만든 보람이 없다.
+        onCreated={(created) => {
+          setCategoryId(created.id);
+          setCreating(false);
+        }}
+      />
     </div>
   );
 }

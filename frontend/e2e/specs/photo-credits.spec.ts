@@ -1,6 +1,5 @@
 import type { Page } from '@playwright/test';
 
-import { toLedgerDate } from '../../src/shared/lib/format';
 import { logsNamed } from '../support/aitMock';
 import { CAPTURE_DATA_URI, seedMockImages } from '../support/deviceMock';
 import { expect, test } from '../support/fixtures';
@@ -11,30 +10,28 @@ import type { RecordSheet } from '../screens/RecordSheet';
  * 사진을 읽는 동안 도는 광고.
  *
  * 사진 한 장은 우리가 돈을 내고 읽는다. 키패드로 적는 길은 공짜라 **값이 드는 유일한
- * 행동**이다. 2026-09-23 에 규칙을 이렇게 바꿨다.
+ * 행동**이다. 2026-09-25 에 규칙을 이렇게 바꿨다.
  *
  * | 무엇 | 광고 |
  * | --- | --- |
- * | 오늘 첫 한 장 | 없다 |
- * | 두 장째부터 | 읽는 동안 전면 광고 한 편 |
+ * | 이 앱에서 읽는 **첫 한 장** | 없다 |
+ * | 그다음부터 (한 장씩) | 읽는 동안 전면 광고 한 편 |
  * | 한 번에 여러 장 | 읽는 동안 리워드 광고 한 편 |
  *
- * 여기서 재는 것은 셋이다. **막지 않는지**(예전에는 다 쓰면 막았다), **광고 전에 반드시
- * 묻는지**(콘솔 반려 사유였다), 그리고 **광고가 기다림을 새로 만들지 않는지**(읽기 요청이
- * 광고보다 먼저 나간다).
+ * 그전에는 「하루 첫 한 장」 이 무료였다. 한 사람이 하루에 넣는 사진이 0.4~0.7장이라
+ * 대부분의 날이 무료분 안에서 끝났고, 세션 상한까지 겹쳐 광고가 거의 안 떴다.
+ *
+ * 여기서 재는 것은 넷이다. **막지 않는지**(예전에는 다 쓰면 막았다), **광고 전에 반드시
+ * 묻는지**(콘솔 반려 사유였다), **광고가 기다림을 새로 만들지 않는지**(읽기 요청이
+ * 광고보다 먼저 나간다), 그리고 **둘째 장부터 실제로 광고가 도는지**(상한 밖이라야 한다).
  */
-
-/** 가계부 시간대(KST) 기준으로 센다. 러너가 UTC 면 하루 어긋난다. */
-function ledgerToday(): string {
-  return toLedgerDate(new Date());
-}
 
 /**
  * 읽은 결과에서 「예시 결과」 표시를 떼어 낸다.
  *
  * e2e 백엔드는 스텁이라 늘 `stub_image` 가 붙어 오고, 화면은 그 표시가 붙은 결과에는
- * **장수를 안 깎는다**(지어낸 결과의 값을 사람에게 물리지 않는다). 그래서 이 한 겹이 없으면
- * 차감하는 길을 아무 검사도 못 지난다. 바꾸는 것은 그 표시 하나뿐이고 나머지는 서버가 준 그대로다.
+ * **체험을 안 쓴다**(지어낸 결과의 값을 사람에게 물리지 않는다). 그래서 이 한 겹이 없으면
+ * 체험을 쓰는 길을 아무 검사도 못 지난다. 바꾸는 것은 그 표시 하나뿐이고 나머지는 서버가 준 그대로다.
  */
 async function answerAsRealModel(page: Page): Promise<void> {
   await page.route('**/api/v1/imports/capture', async (route) => {
@@ -45,18 +42,31 @@ async function answerAsRealModel(page: Page): Promise<void> {
   });
 }
 
-/** 남은 장수를 정해 두고 연다. 목 SDK 저장소는 접두사를 붙인 localStorage 다. */
-async function seedCredits(page: Page, count: number): Promise<void> {
-  await page.addInitScript(
-    ([day, left]) => {
-      try {
-        window.localStorage.setItem('__ait_storage:photo-credits', `${day}:${left}`);
-      } catch {
-        /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
-      }
-    },
-    [ledgerToday(), String(count)] as const,
-  );
+/** 체험 한 장을 이미 쓴 사람으로 연다. 목 SDK 저장소는 접두사를 붙인 localStorage 다. */
+async function seedTrialUsed(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem('__ait_storage:photo-trial', 'used');
+    } catch {
+      /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+    }
+  });
+}
+
+/**
+ * 하루 한 장 시절의 칸만 남은 사람으로 연다.
+ *
+ * **여기가 돈이 걸린 자리다.** 옛 칸을 안 보면 쓰던 사람 전부가 새 칸 기준으로 처음 쓰는
+ * 사람이 되어, 우리가 원가를 내고 한 장씩 더 읽어 준다.
+ */
+async function seedLegacyCredits(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem('__ait_storage:photo-credits', '2026-09-24:0');
+    } catch {
+      /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+    }
+  });
 }
 
 /** 기록 시트의 캡처 탭까지 간다. 사진을 고르기 직전 상태다. */
@@ -68,7 +78,7 @@ async function openCaptureTab(home: HomeScreen, recordSheet: RecordSheet): Promi
   await recordSheet.methodTab('캡처').click();
 }
 
-test('오늘 첫 한 장은 아무 말도 안 한다. 10초 안에 적으러 온 사람 앞이다', async ({
+test('처음 써 보는 사람의 첫 한 장은 아무 말도 안 한다. 10초 안에 적으러 온 사람 앞이다', async ({
   home,
   page,
   recordSheet,
@@ -76,7 +86,7 @@ test('오늘 첫 한 장은 아무 말도 안 한다. 10초 안에 적으러 온
   await seedMockImages(CAPTURE_DATA_URI)(page);
   await openCaptureTab(home, recordSheet);
 
-  // 「무료」 도 「광고」 도 꺼내지 않는다. 셈이라는 새 개념을 먼저 세울 이유가 없다.
+  // 「무료」 도 「광고」 도 꺼내지 않는다. 광고라는 개념을 먼저 세울 이유가 없다.
   await expect(recordSheet.capture.creditLine).toBeHidden();
   await expect(recordSheet.capture.pickButton).toBeVisible();
 
@@ -86,21 +96,25 @@ test('오늘 첫 한 장은 아무 말도 안 한다. 10초 안에 적으러 온
   await expect(recordSheet.capture.rows).toHaveCount(6);
 });
 
-test('무료분을 쓰고 나면 다음부터 광고가 온다는 것을 미리 적어 둔다', async ({
+test('체험 한 장을 쓰고 나면 광고가 온다는 것을 버튼 아래 한 줄로 미리 적는다', async ({
   home,
   page,
   recordSheet,
 }) => {
-  await seedCredits(page, 0);
+  await seedTrialUsed(page);
   await openCaptureTab(home, recordSheet);
 
   await expect(recordSheet.capture.creditLine).toBeVisible();
-  // 막지 않는다. 버튼은 그대로 있고 말투만 바뀐다.
+  // 막지 않는다. 버튼은 그대로 있고 아래 한 줄만 는다.
   await expect(recordSheet.capture.pickButton).toBeVisible();
 });
 
-test('두 장째부터는 광고를 묻고, 읽는 동안이라고 말한다', async ({ home, page, recordSheet }) => {
-  await seedCredits(page, 0);
+test('체험을 쓴 뒤에는 누를 때마다 광고를 묻고, 읽는 동안이라고 말한다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await seedTrialUsed(page);
   await seedMockImages(CAPTURE_DATA_URI)(page);
   await openCaptureTab(home, recordSheet);
 
@@ -116,8 +130,23 @@ test('두 장째부터는 광고를 묻고, 읽는 동안이라고 말한다', a
   await expect(recordSheet.capture.adConsentConfirm).toBeVisible();
 });
 
+test('하루 한 장 시절에 사진을 읽어 본 사람은 체험을 새로 안 받는다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await seedLegacyCredits(page);
+  await seedMockImages(CAPTURE_DATA_URI)(page);
+  await openCaptureTab(home, recordSheet);
+
+  // 옛 칸만 보고도 「이미 써 본 사람」 으로 읽어야 한다. 안 그러면 쓰던 사람 전부가 공짜 한 장이다.
+  await expect(recordSheet.capture.creditLine).toBeVisible();
+  await recordSheet.capture.pickButton.click();
+  await expect(recordSheet.capture.adConsent).toBeVisible();
+});
+
 test('확인 창에서 닫으면 읽지도 않고 광고도 안 뜬다', async ({ home, page, recordSheet }) => {
-  await seedCredits(page, 0);
+  await seedTrialUsed(page);
   await seedMockImages(CAPTURE_DATA_URI)(page);
   await openCaptureTab(home, recordSheet);
 
@@ -140,7 +169,7 @@ test('광고는 읽기를 기다리게 하지 않는다. 요청이 먼저 나간
   page,
   recordSheet,
 }) => {
-  await seedCredits(page, 0);
+  await seedTrialUsed(page);
   await seedMockImages(CAPTURE_DATA_URI)(page);
 
   /*
@@ -165,7 +194,7 @@ test('광고는 읽기를 기다리게 하지 않는다. 요청이 먼저 나간
   expect(sentAt[0] - confirmedAt).toBeLessThan(2_000);
 });
 
-test('사진을 읽어 내면 무료분이 준다. 고르기 전에는 안 준다', async ({
+test('사진을 읽어 내면 체험이 끝난다. 고르기 전에는 안 끝난다', async ({
   home,
   page,
   recordSheet,
@@ -178,10 +207,75 @@ test('사진을 읽어 내면 무료분이 준다. 고르기 전에는 안 준�
   await expect(recordSheet.capture.rows).toHaveCount(6);
 
   const logs = await logsNamed(page, 'photo_credit');
-  expect(logs.map((log) => [log.params.action, log.params.left])).toEqual([['spent', 0]]);
+  expect(logs.map((log) => log.params.action)).toEqual(['spent']);
 });
 
-test('지어낸 결과에는 무료분을 안 깎는다. 우리가 못 읽은 값을 물리지 않는다', async ({
+/**
+ * 이 판의 핵심이다.
+ *
+ * 예전에는 세션 상한(`SESSION_CAP` 한 편)이 사진 자리까지 눌렀다. 그래서 둘째 장에
+ * 광고를 붙여도 앱을 한 번 연 동안에는 한 편밖에 안 떴고, 관리 탭에서 이미 한 편 본
+ * 사람에게는 아예 안 떴다. 지금은 상한 밖이라 **누를 때마다 뜬다.**
+ */
+test('한 번 열어 둔 동안 둘째 장, 셋째 장에도 광고가 그대로 돈다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await seedTrialUsed(page);
+  await seedMockImages(CAPTURE_DATA_URI)(page);
+  await answerAsRealModel(page);
+  await openCaptureTab(home, recordSheet);
+
+  // 첫 번째
+  await recordSheet.capture.pickButton.click();
+  await expect(recordSheet.capture.adConsent).toBeVisible();
+  await recordSheet.capture.adConsentConfirm.click();
+  await expect(recordSheet.capture.rows).toHaveCount(6);
+
+  // 같은 세션에서 다시. 상한에 묶여 있었다면 여기서 확인 창이 안 떴다.
+  await recordSheet.capture.cancelButton.click();
+  await recordSheet.waitClosed();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.methodTab('캡처').click();
+  await recordSheet.capture.pickButton.click();
+  await expect(recordSheet.capture.adConsent).toBeVisible();
+  await recordSheet.capture.adConsentConfirm.click();
+  await expect(recordSheet.capture.rows).toHaveCount(6);
+
+  // 두 번 다 실제로 광고를 지나왔다. `capped` 로 미끄러진 것이 아니다.
+  const watched = (await logsNamed(page, 'photo_credit')).filter(
+    (log) => log.params.action === 'watched',
+  );
+  expect(watched.map((log) => [log.params.plan, log.params.ad])).toEqual([
+    ['interstitial', 'watched'],
+    ['interstitial', 'watched'],
+  ]);
+});
+
+test('사진 광고는 관리 탭 상한을 갉아먹지 않는다. 스스로 누른 자리다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await seedTrialUsed(page);
+  await seedMockImages(CAPTURE_DATA_URI)(page);
+  await answerAsRealModel(page);
+  await openCaptureTab(home, recordSheet);
+
+  await recordSheet.capture.pickButton.click();
+  await recordSheet.capture.adConsentConfirm.click();
+  await expect(recordSheet.capture.rows).toHaveCount(6);
+
+  // 사진 쪽 로그는 자리 이름으로 남되, 세는 칸(하루 상한)에는 안 적힌다.
+  const day = await page.evaluate(() =>
+    window.localStorage.getItem('__ait_storage:ad-fullscreen-day'),
+  );
+  expect(day).toBeNull();
+});
+
+test('지어낸 결과에는 체험을 안 쓴다. 우리가 못 읽은 값을 물리지 않는다', async ({
   home,
   page,
   recordSheet,
@@ -197,7 +291,7 @@ test('지어낸 결과에는 무료분을 안 깎는다. 우리가 못 읽은 �
   expect(await logsNamed(page, 'photo_credit')).toEqual([]);
 });
 
-test('두 탭이 같은 무료분을 나눠 쓴다. 탭마다 세면 하루에 두 장이 된다', async ({
+test('두 탭이 같은 체험을 나눠 쓴다. 탭마다 세면 공짜가 두 장이 된다', async ({
   home,
   page,
   recordSheet,
@@ -244,11 +338,89 @@ test('여러 장을 고르면 한 묶음으로 읽고 긴 광고를 판다', asy
   const logs = await logsNamed(page, 'photo_credit');
   expect(logs.map((log) => [log.params.action, log.params.plan])).toEqual([
     ['watched', 'rewarded'],
-    ['spent', undefined],
+    ['spent', 'rewarded'],
   ]);
 });
 
-test('여러 장은 무료분이 남아 있어도 광고를 묻는다. 읽는 데 오래 걸린다', async ({
+/**
+ * 200 으로 돌아왔는데 한 건도 없는 경우.
+ *
+ * 던져서 끝난 쪽(503)은 치른 광고를 갚아 주고 있었는데, 빈손으로 돌아온 쪽은 아무것도
+ * 안 했다. 사람 입장에서는 둘 다 「광고를 봤는데 아무것도 안 나왔다」 로 같다.
+ * 어두운 영수증을 세 번 찍으면 결과 없이 광고만 세 편이 돌았다.
+ */
+test('한 건도 못 찾아도 치른 광고는 갚아 준다. 다시 찍을 때 또 안 튼다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await seedTrialUsed(page);
+  await seedMockImages(CAPTURE_DATA_URI)(page);
+  // 200 인데 후보가 비었다. 서버가 읽기는 했는데 건질 것이 없던 사진이다.
+  let seen = 0;
+  await page.route('**/api/v1/imports/capture', async (route) => {
+    seen += 1;
+    if (seen > 1) {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    const body = await response.json();
+    body.candidates = [];
+    await route.fulfill({ response, json: body });
+  });
+
+  await openCaptureTab(home, recordSheet);
+  await recordSheet.capture.pickButton.click();
+  await recordSheet.capture.adConsentConfirm.click();
+  // 한 건도 못 찾으면 검토 화면이 「거래를 찾지 못했어요」 로 서고 「다시 고르기」 만 남는다.
+  await expect(recordSheet.capture.rows).toHaveCount(0);
+  await expect(recordSheet.capture.adFreeNextNotice).toBeVisible();
+
+  // 다음 한 번은 광고 없이 간다. 묻지도 않는다.
+  await recordSheet.capture.restartButton.click();
+  await recordSheet.capture.pickButton.click();
+  await expect(recordSheet.capture.adConsent).toBeHidden();
+  await expect(recordSheet.capture.rows).toHaveCount(6);
+
+  const logs = await logsNamed(page, 'photo_credit');
+  expect(logs.filter((log) => log.params.action === 'watched')).toHaveLength(1);
+  expect(logs.filter((log) => log.params.action === 'wasted')).toHaveLength(1);
+});
+
+/**
+ * 처음 여는 사람이 **첫 행동으로** 여러 장을 고른 경우.
+ *
+ * 여러 장은 체험과 무관하게 긴 광고를 태운다. 거기서 체험까지 소진하면
+ * 「맨 처음 한 장은 광고 없이」 라고 해 놓고 한 번도 안 주는 셈이 된다.
+ */
+test('여러 장을 먼저 읽어도 체험 한 장은 남는다. 광고를 치른 읽기로는 안 쓴다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await seedMockImages(CAPTURE_DATA_URI, 2)(page);
+  await answerAsRealModel(page);
+  await openCaptureTab(home, recordSheet);
+
+  // 첫 행동이 여러 장이다. 긴 광고를 보고 읽는다.
+  await recordSheet.capture.pickButton.click();
+  await recordSheet.capture.adConsentConfirm.click();
+  await expect(recordSheet.capture.rows).toHaveCount(12);
+
+  /*
+    체험은 그대로다. 버튼 아래 한 줄이 안 뜨는 것이 그 증거다. 이 줄은 한 장 기준으로
+    광고가 붙는 사람에게만 서서(`planFor(1)`), 체험이 남아 있으면 안 그려진다.
+  */
+  await recordSheet.capture.cancelButton.click();
+  await recordSheet.waitClosed();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.methodTab('캡처').click();
+  await expect(recordSheet.capture.creditLine).toBeHidden();
+});
+
+test('여러 장은 체험이 남아 있어도 광고를 묻는다. 읽는 데 오래 걸린다', async ({
   home,
   page,
   recordSheet,
@@ -256,7 +428,7 @@ test('여러 장은 무료분이 남아 있어도 광고를 묻는다. 읽는 �
   await seedMockImages(CAPTURE_DATA_URI, 2)(page);
   await openCaptureTab(home, recordSheet);
 
-  // 오늘 무료분을 안 썼는데도 묻는다. 무료분은 「한 장」 에 대한 것이다.
+  // 체험을 안 썼는데도 묻는다. 체험은 「한 장」 에 대한 것이다.
   await expect(recordSheet.capture.creditLine).toBeHidden();
   await recordSheet.capture.pickButton.click();
 
@@ -286,22 +458,6 @@ test('영수증은 한 장씩이다. 카메라로는 여러 장을 못 찍는다
 
   // 앨범에 세 장이 있어도 카메라는 한 장이다. 한 장이면 `images` 가 아니라 `image` 로 간다.
   expect((bodies[0] as { image?: string }).image).toBeTruthy();
-});
-
-test('사진의 긴 광고는 전면 광고 상한을 건드리지 않는다. 스스로 누른 자리다', async ({
-  home,
-  page,
-  recordSheet,
-}) => {
-  await seedMockImages(CAPTURE_DATA_URI, 2)(page);
-  await answerAsRealModel(page);
-  await openCaptureTab(home, recordSheet);
-
-  await recordSheet.capture.pick();
-  await expect(recordSheet.capture.rows).toHaveCount(12);
-
-  // 상한에 적혔다면 이 로그가 생겼을 것이다.
-  expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
 });
 
 /**
@@ -338,13 +494,8 @@ test.describe('광고는 봤는데 못 읽었을 때', () => {
     page,
     recordSheet,
   }) => {
-    /*
-      **여러 장(리워드)으로 잰다.** 짧은 광고는 세션 상한이 스스로 멎게 해서, 두 번째에
-      광고가 안 뜬 것이 이 장치 덕인지 상한 덕인지 가릴 수 없다. 긴 광고는 상한 밖이라
-      (ADR-0024) 장치가 없으면 시도할 때마다 한 편씩 돈다.
-    */
-    await seedCredits(page, 0);
-    await seedMockImages(CAPTURE_DATA_URI, 2)(page);
+    await seedTrialUsed(page);
+    await seedMockImages(CAPTURE_DATA_URI)(page);
     /*
       **순서가 뜻을 가진다.** 나중에 건 것이 먼저 잡는다. 실패를 나중에 걸어야 그것이
       먼저 받고, 넘길 차례가 되면 `fallback()` 이 아래의 스텁 손질로 내려간다.
@@ -359,13 +510,13 @@ test.describe('광고는 봤는데 못 읽었을 때', () => {
     await expect(recordSheet.capture.pickAlert).toBeVisible();
     // 치른 값을 말해 준다. 이 줄이 없으면 다시 누르기가 망설여진다.
     await expect(recordSheet.capture.adFreeNextNotice).toBeVisible();
-    // 「다음부터는 광고가 나와요」 는 지운다. 두 줄이 서로 다른 말을 하면 안 된다.
+    // 「읽는 동안 광고가 지나가요」 는 지운다. 두 줄이 서로 다른 말을 하면 안 된다.
     await expect(recordSheet.capture.creditLine).toBeHidden();
 
     await recordSheet.capture.pickButton.click();
     // 묻지도 않고 광고도 안 뜬다. 이미 한 편 봤다.
     await expect(recordSheet.capture.adConsent).toBeHidden();
-    await expect(recordSheet.capture.rows).toHaveCount(12);
+    await expect(recordSheet.capture.rows).toHaveCount(6);
 
     const logs = await logsNamed(page, 'photo_credit');
     expect(logs.filter((log) => log.params.action === 'watched')).toHaveLength(1);

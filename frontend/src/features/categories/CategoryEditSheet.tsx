@@ -375,8 +375,13 @@ export function CategoryEditForm({
           custom={custom}
           color={color}
           disabled={busy}
-          // 화면 하나를 쓰는 자리에서는 접어 둔다. 일흔여덟 칸이 먼저 펴지면 이름 칸이 밀려난다.
-          startOpen={page ? false : category == null}
+          /*
+            새로 만들 때는 **어디서 열든** 펴 둔다. 접어 두면 「아이콘 고르기」 를 한 번 더
+            눌러야 격자가 나오는데, 여기 온 사람은 아이콘을 고르러 온 사람이다.
+            한 화면을 쓰는 자리도 「이전·저장」 이 맨 위에 붙어 있어 격자가 밀어낼 것이 없다.
+            고르는 순간 접히는 것은 그대로다(`IconPicker` 의 `gridOpen`).
+          */
+          startOpen={category == null}
           hasPick={iconPicked}
           onInvalidChange={setIconInvalid}
           onChange={(next) => {

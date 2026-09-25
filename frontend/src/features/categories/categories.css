@@ -576,4 +576,47 @@
     font-size: var(--text-13);
     color: var(--color-amber-700);
   }
+
+  /*
+    새 분류 만들기가 화면을 통째로 덮는 자리(`CategoryComposeOverlay`).
+
+    검토 줄과 기록 고치기에서 쓴다. 거기서는 목록 한가운데라 시트 안쪽을 바꾸는 방식을
+    못 쓴다. 시트(60)보다 위에 서고, 딤 없이 꽉 채운다. 뒤가 비쳐 보이면 끼어든 창으로
+    읽히는데, 여기는 지금 하는 일이 바뀐 자리다.
+  */
+  .cat-compose {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    overflow-y: auto;
+    padding: calc(12px + var(--safe-top)) calc(20px + var(--safe-right))
+      calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left));
+    background: var(--color-surface);
+    animation: var(--animate-sheet-up);
+  }
+
+  /*
+    여기에는 시트 손잡이가 없다. 맨 위 줄이 화면 꼭대기에 붙는다.
+
+    **좌우로 넓히지 않는다.** 시트 안에서는 여백만큼 밖으로 넓혀 아래로 지나가는 글자를
+    덮는데, 덮는 한 장에는 넓힐 여백이 없어 그만큼 가로로 넘친다(iPhone 14 폭에서
+    350 안에 354 가 들어갔다). 여기서는 바탕이 본문 폭과 정확히 같으면 충분하다.
+  */
+  .cat-compose .cat-sheet__bar {
+    top: 0;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  /*
+    펴는 폰에서 글은 본문과 같은 기둥 안에 선다. **바탕은 안 좁힌다.**
+
+    `max-width` 로 좁혔더니 좌우에 시트의 딤이 그대로 드러났고, 그 띠를 누르면 뒤에 있는
+    기록 시트가 닫혔다. 여백으로만 좁혀서 바탕은 화면 끝까지 가게 한다.
+  */
+  @media (min-width: 600px) {
+    .cat-compose {
+      padding-inline: max(calc((100% - var(--app-column)) / 2), 20px);
+    }
+  }
 }

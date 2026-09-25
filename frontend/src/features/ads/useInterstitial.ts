@@ -32,10 +32,13 @@ import { useFullScreenAd, type FullScreenAdOutcome } from './useFullScreenAd';
  * 자리를 늘려도 **한 사람이 겪는 총량은 그대로다**(`SESSION_CAP`·`DAILY_CAP`).
  * 관리 탭에서 이것저것 눌러 봐도 한 세션에 한 편이고, 그 뒤로는 예고 줄까지 사라진다.
  *
- * **`photo` 만 관리 탭 밖이다.** 오늘 무료 한 장을 이미 쓴 사람이 사진을 한 장 더
- * 읽을 때 **읽는 동안** 도는 광고다. 기다림을 새로 만드는 것이 아니라 이미 있는 몇 초를
- * 채우는 자리라 넣었다. 상한을 함께 세는 이유도 그것이다. 관리 탭에서 한 편을 본 사람이
- * 사진에서 또 보지 않는다.
+ * **`photo` 만 관리 탭 밖이고, 상한도 안 센다**(ADR-0035). 체험 한 장을 이미 쓴 사람이
+ * 사진을 읽을 때 **읽는 동안** 도는 광고다. 기다림을 새로 만드는 것이 아니라 이미 있는
+ * 몇 초를 채우는 자리라 넣었다. 부를 때 `uncapped` 를 준다.
+ *
+ * 상한 안에 두면 실제로 광고가 거의 안 떴다. 세션당 한 편이라 열 장을 읽는 사람도
+ * 한 편만 봤고, 원가는 장수를 따라 느는데 수입이 안 따라왔다. 여기는 무엇을 치르는지
+ * 먼저 읽고 스스로 누르는 자리라 리워드와 같은 규칙을 쓴다(ADR-0024).
  *
  * 생활비 계산기는 여기 없다. 광고와 기능을 맞바꾸겠다고 사람이 먼저 누르는 자리라
  * 리워드 광고(`useRewardedAd`)로 나갔고, 그래서 상한도 안 센다(ADR-0024).
@@ -85,6 +88,21 @@ export interface ShowOptions {
    * 지나간 경우에도 다시 묻지 않는다. 안 그러면 같은 자리를 오갈 때마다 다시 걸린다.
    */
   oncePerSession?: boolean;
+  /**
+   * 세션·하루 상한 밖에서 띄울까.
+   *
+   * **사진 자리만 쓴다.** 상한은 **안 물어보고 끼어드는 광고**로부터 사람을 지키는
+   * 장치인데, 사진은 고른 뒤에 확인 창이 무엇을 치르는지 먼저 말하고 사람이 스스로
+   * 누르는 자리다. 리워드 광고를 상한 밖에 둔 것과 같은 이유다(ADR-0024).
+   *
+   * 값 쪽 이유도 있다. 한 장을 읽을 때마다 우리가 실제로 돈을 쓴다. 상한에 묶어 두면
+   * 열 장을 읽는 사람도 한 편만 보게 되어, 원가가 늘수록 수입이 안 따라온다.
+   *
+   * **두 편이 겹치는 것은 이 옵션으로도 안 풀린다.** `adInFlight` 는 그대로 막는다.
+   * 세는 것도 하지 않는다. 여기서 센 편 수가 관리 탭의 상한을 갉아먹으면, 사진을 많이
+   * 읽은 날에 다른 자리가 통째로 조용해진다.
+   */
+  uncapped?: boolean;
 }
 
 const CAPPED: InterstitialOutcome = { result: 'skipped', reason: 'capped' };
@@ -92,13 +110,15 @@ const CAPPED: InterstitialOutcome = { result: 'skipped', reason: 'capped' };
 async function runGate(
   store: KeyValueStore,
   showAd: () => Promise<FullScreenAdOutcome>,
+  uncapped: boolean,
 ): Promise<InterstitialOutcome> {
-  // 도는 중이면 상한에 걸린 것으로 본다. 두 편이 겹치면 상한이 있으나 마나다.
-  if (adInFlight || watchedThisSession >= SESSION_CAP) return CAPPED;
+  // 도는 중이면 상한에 걸린 것으로 본다. 두 편이 겹치는 것은 상한 밖에서도 막는다.
+  if (adInFlight) return CAPPED;
+  if (!uncapped && watchedThisSession >= SESSION_CAP) return CAPPED;
 
   adInFlight = true;
   try {
-    return await gateBody(store, showAd);
+    return await gateBody(store, showAd, uncapped);
   } finally {
     adInFlight = false;
   }
@@ -107,7 +127,14 @@ async function runGate(
 async function gateBody(
   store: KeyValueStore,
   showAd: () => Promise<FullScreenAdOutcome>,
+  uncapped: boolean,
 ): Promise<InterstitialOutcome> {
+  /*
+    상한 밖이면 세는 칸을 아예 안 본다. 읽어 봐야 판정에도 안 쓰고 적지도 않는다.
+    사진은 읽을 때마다 여기를 지나서, 쓸데없는 저장소 왕복이 장수만큼 쌓인다.
+  */
+  if (uncapped) return await showAd();
+
   const today = toLedgerDate(new Date());
   const record = await readDayCount(store);
   if (!allowedToday(record, today)) return CAPPED;
@@ -127,6 +154,13 @@ async function gateBody(
 }
 
 export function useInterstitial(): {
+  /**
+   * 이 기기에서 애초에 전면 광고가 설 수 있나(광고 그룹과 SDK 지원).
+   *
+   * `ready` 와 다르다. 저쪽은 상한까지 본 값이라 상한 밖에서 띄우는 자리
+   * (`uncapped`)가 「뜰까」 를 물으려면 이쪽을 봐야 한다.
+   */
+  available: boolean;
   busy: boolean;
   /**
    * **지금 이 순간** 한 편이 설 수 있나. 저장소를 그 자리에서 다시 읽는다.
@@ -198,7 +232,7 @@ export function useInterstitial(): {
         askedThisSession.add(where);
       }
 
-      const outcome = await runGate(bridge.storage, showAd);
+      const outcome = await runGate(bridge.storage, showAd, options?.uncapped === true);
       // 본 편 수가 바뀌었을 수 있다. 예고 줄을 다시 세게 한다.
       setRound((value) => value + 1);
       analytics.log(EVENTS.interstitialResult, {
@@ -211,5 +245,5 @@ export function useInterstitial(): {
     [analytics, bridge, showAd],
   );
 
-  return { busy, canShow, ready, show };
+  return { available, busy, canShow, ready, show };
 }

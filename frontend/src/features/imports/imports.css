@@ -432,45 +432,9 @@
     min-height: 44px;
   }
 
-  /*
-    검토 화면에서 그 자리에 분류를 만드는 자리.
 
-    읽어 온 줄을 고치다가 「맞는 칸이 없다」 를 깨닫는 순간이 여기다.
-    적어 둔 상호·금액·날짜가 살아 있어야 만들고 나서 이어 저장한다.
-  */
-  .nl-form__new-cat {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px 10px;
-    border-radius: var(--radius-md);
-    background: var(--color-bg);
-  }
 
-  .nl-form__new-cat-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
 
-  .nl-form__new-cat-title {
-    flex: 1;
-    font-size: var(--text-14);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-ink);
-  }
-
-  .nl-form__new-cat-back {
-    flex: none;
-    min-height: 36px;
-    padding: 0 10px;
-    border: 0;
-    background: none;
-    color: var(--color-sage-700);
-    font-family: inherit;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
-  }
 
   /* ── 저장 뒤 ──────────────────────────── */
   .nl--saved {
@@ -552,6 +516,17 @@
   .capture__alert span {
     display: block;
     margin-top: 2px;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  /*
+    한 건도 못 찾은 화면에 덧붙는 한마디. 치른 광고를 갚았다는 사실이다.
+    실패 줄의 같은 말과 모양을 맞춘다(`.capture__alert span`).
+  */
+  .capture__ad-free {
+    display: block;
+    margin-top: 6px;
     font-size: var(--text-12);
     color: var(--color-muted);
   }
