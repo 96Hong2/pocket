@@ -36,6 +36,21 @@ async function readStuckMark(page: Page): Promise<string | null> {
   return page.evaluate(() => window.localStorage.getItem('__ait_storage:ad-on-screen'));
 }
 
+/** 이 기기에 갇힘이 이만큼 쌓인 사람으로 연다. */
+async function seedStuckScore(page: Page, score: number): Promise<void> {
+  await page.addInitScript((value: string) => {
+    try {
+      window.localStorage.setItem('__ait_storage:ad-stuck-score', value);
+    } catch {
+      /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+    }
+  }, String(score));
+}
+
+async function readStuckScore(page: Page): Promise<string | null> {
+  return page.evaluate(() => window.localStorage.getItem('__ait_storage:ad-stuck-score'));
+}
+
 test.describe('광고에 갇힌 판을 센다', () => {
   test('지난번에 갇힌 채 끝났으면 앱을 열 때 한 번 센다', async ({ page, home }) => {
     await seedStuckMark(page, 'photo');
@@ -81,9 +96,9 @@ test.describe('광고에 갇힌 판을 센다', () => {
     await manage.subScreenRow('카테고리 관리').click();
     await manage.adConsentConfirm.click();
 
-    await expect.poll(() => readStuckMark(page), { timeout: 20_000, intervals: [50] }).toBe(
-      'categories',
-    );
+    await expect
+      .poll(() => readStuckMark(page), { timeout: 20_000, intervals: [50] })
+      .toBe('categories');
   });
 
   test('광고가 정상으로 끝나면 표가 안 남는다', async ({ page, manage }) => {
@@ -101,5 +116,48 @@ test.describe('광고에 갇힌 판을 센다', () => {
       .toBeGreaterThan(0);
 
     await expect.poll(() => readStuckMark(page)).toBe(null);
+  });
+});
+
+/**
+ * 🔴 **세 번째 신고**(2026-09-25 밤).
+ *
+ * 「15초 지나도 광고 안꺼져서 그냥 앱을 꺼야해. 이거 제대로 해줘.」
+ *
+ * 15초에 푸는 것은 우리 화면이고 광고는 토스가 띄운 것이라 그대로 덮고 있다. 세션 기억은
+ * 앱을 끄면 함께 사라져서 다시 열면 또 걸렸다. 그래서 점수를 저장소에 남기고,
+ * 쌓이면 그 기기에서는 전면 광고를 아예 안 띄운다(ADR-0038).
+ */
+test.describe('갇힌 적이 쌓인 기기에서는 광고를 안 띄운다', () => {
+  test('🔴 두 번 쌓였으면 관리 화면에 광고 없이 들어간다', async ({ page, manage }) => {
+    await seedStuckScore(page, 2);
+    await manage.open();
+    await manage.waitReady();
+    await manage.subScreenRow('카테고리 관리').click();
+
+    /*
+      광고를 띄운다는 예고(동의 창)부터 안 뜬다. 못 서는 곳에 예고를 적지 않는다.
+      그대로 카테고리 관리 화면이 열리고, 표도 안 적힌다.
+    */
+    await expect(manage.adConsentConfirm).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: '카테고리 관리' })).toBeVisible();
+    expect(await readStuckMark(page)).toBe(null);
+  });
+
+  test('한 번만 쌓였으면 아직 안 끈다. 답답해서 끈 사람까지 걸린다', async ({ page, manage }) => {
+    await seedStuckScore(page, 1);
+    await manage.open();
+    await manage.waitReady();
+    await manage.subScreenRow('카테고리 관리').click();
+
+    await expect(manage.adConsentConfirm).toBeVisible();
+  });
+
+  test('앱이 광고에 덮인 채 죽었으면 점수가 한 칸 오른다', async ({ page, home }) => {
+    await seedStuckMark(page, 'photo');
+    await home.open();
+    await home.waitReady();
+
+    await expect.poll(() => readStuckScore(page)).toBe('1');
   });
 });

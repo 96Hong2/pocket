@@ -26,10 +26,12 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useOverlayBackClose } from '../../app/providers';
+import { cx } from '../../shared/lib/cx';
 import type { CategoryOut } from '../../shared/api';
 import type { LedgerKind } from '../../shared/ledger';
 import { LeaveConfirm } from '../../shared/ui';
 import { trapTab } from '../../shared/ui/focusTrap';
+import { useDragToDismiss } from '../../shared/ui/useDragToDismiss';
 
 import { CategoryEditForm } from './CategoryEditSheet';
 
@@ -55,12 +57,12 @@ export function CategoryComposeOverlay({
   onCreated,
   onBusyChange,
 }: CategoryComposeOverlayProps) {
-  const boxRef = useRef<HTMLDivElement>(null);
   /*
     저장이 도는 동안에는 뒤로가기로 안 닫힌다. 닫히면 적어 둔 이름과 고른 그림이
     함께 사라지고, 서버에는 만들어졌는데 화면은 못 고른 상태가 된다.
   */
   const [busy, setBusy] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
   /*
     적어 둔 것이 있나. 있으면 나가기 전에 한 번 묻는다.
 
@@ -83,6 +85,22 @@ export function CategoryComposeOverlay({
 
   // 시스템 뒤로가기를 이 창의 「이전」 으로 가져간다. 등록 안 하면 미니앱이 통째로 닫힌다.
   useOverlayBackClose(open, requestBack, busy);
+
+  /*
+    🔴 **아래로 미는 손짓도 「이전」 이다**(2026-09-25 밤 신고).
+
+    이 창에는 손잡이가 없어서 밀어 닫기를 아예 안 받고 있었는데, 리액트 포털은 합성
+    이벤트를 **리액트 나무를 타고** 올려 보낸다. 그래서 여기서 시작한 손짓이 뒤에 있는
+    시트의 끌기 처리기까지 닿아, 만들기 창과 고치던 기록이 **한꺼번에** 사라졌다.
+    시트 쪽은 「내 안에서 시작한 손짓만 받는다」 로 막았고(`canStartDrag`), 여기서는
+    그 손짓을 받아 **한 겹만 접는다**. 적어 둔 것이 있으면 그 전에 묻는다.
+  */
+  const dismiss = useDragToDismiss({
+    boxRef,
+    active: open,
+    enabled: open && !busy && !asking,
+    onDismiss: requestBack,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -122,11 +140,14 @@ export function CategoryComposeOverlay({
 
   return createPortal(
     <div
-      className="cat-compose"
+      className={cx('cat-compose', dismiss.dragging && 'cat-compose--dragging')}
       role="dialog"
       aria-modal="true"
       aria-label="새 분류 만들기"
       ref={boxRef}
+      style={dismiss.offset > 0 ? { transform: `translateY(${dismiss.offset}px)` } : undefined}
+      onClickCapture={dismiss.onClickCapture}
+      {...dismiss.handlers}
     >
       <CategoryEditForm
         layout="page"

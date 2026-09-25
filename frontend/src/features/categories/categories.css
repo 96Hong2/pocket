@@ -595,6 +595,11 @@
     animation: var(--animate-sheet-up);
   }
 
+  /* 손끝을 따라가는 동안에는 올라오는 애니메이션이 자리를 두고 다툰다. */
+  .cat-compose--dragging {
+    animation: none;
+  }
+
   /*
     여기에는 시트 손잡이가 없다. 맨 위 줄이 화면 꼭대기에 붙는다.
 

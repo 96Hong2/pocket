@@ -1,7 +1,14 @@
 import { useEffect, useMemo, type ReactNode } from 'react';
 
 import { EVENTS, Analytics, AnalyticsContext } from '../../shared/analytics';
-import { takeStuckMark } from '../../shared/lib/stuckAd';
+import {
+  STUCK_POINTS_DIED,
+  addStuckScore,
+  readStuckScore,
+  takeStuckMark,
+} from '../../shared/lib/stuckAd';
+
+import { setDeviceStuckScore } from '../../shared/lib/stuckAdMemory';
 
 import { useBridge } from './bridgeContext';
 
@@ -24,10 +31,22 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // 개발 StrictMode 는 효과를 두 번 돌린다. 읽고 지우는 일이라 가드가 없으면 두 번 센다.
     let alive = true;
-    void takeStuckMark(bridge.storage).then((mark) => {
-      if (!alive || mark == null) return;
-      analytics.log(EVENTS.adStuckExit, { where: mark.where });
-    });
+    void (async () => {
+      const mark = await takeStuckMark(bridge.storage);
+      if (!alive) return;
+      /*
+        🔴 **세고 끝내지 않는다.** 갇힌 채 끝난 판은 점수로도 쌓아, 쌓이면 이 기기에서는
+        전면 광고를 아예 안 띄운다. 15초에 우리 화면만 풀어 줘 봐야 광고가 그대로 덮고
+        있으면 그 사람은 앱을 끄는 수밖에 없다(2026-09-25 밤 신고).
+      */
+      const score =
+        mark == null
+          ? await readStuckScore(bridge.storage)
+          : await addStuckScore(bridge.storage, STUCK_POINTS_DIED);
+      if (!alive) return;
+      setDeviceStuckScore(score);
+      if (mark != null) analytics.log(EVENTS.adStuckExit, { where: mark.where, score });
+    })();
     return () => {
       alive = false;
     };

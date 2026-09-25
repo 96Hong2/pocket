@@ -11,6 +11,11 @@
  *
  * ⚠ 이 수에는 광고를 보다가 그냥 앱을 끈 사람도 섞인다. 고장만 세는 것이 아니다.
  * 자리(`where`)별로 갈라 보고 튀는 자리를 찾는 데 쓴다.
+ *
+ * 🔴 **세는 데서 그치지 않는다**(2026-09-25 밤, 세 번째 신고). 「15초가 지나도 광고가
+ * 안 꺼져서 그냥 앱을 꺼야 해」. 우리가 푸는 것은 우리 화면이고 광고는 그대로 덮고 있어,
+ * 그 사람에게는 아무것도 안 바뀐 것과 같다. 그래서 갇힌 적이 쌓이면 **그 기기에서는
+ * 전면 광고를 다시 안 띄운다**. 점수는 아래 `STUCK_BLOCK_SCORE` 를 본다.
  */
 
 import type { KeyValueStore } from '../toss';
@@ -59,4 +64,52 @@ export async function takeStuckMark(store: KeyValueStore): Promise<StuckAdMark |
   } catch {
     return null;
   }
+}
+
+/** 갇힘 점수를 적는 칸. 표(`ad-on-screen`)와 달리 읽어도 안 지운다. */
+const SCORE_KEY = 'ad-stuck-score';
+
+/**
+ * 이 점수부터는 그 기기에서 전면 광고를 끈다.
+ *
+ * **증거의 무게를 갈라 둔다.**
+ *
+ * - 앱이 광고에 덮인 채 죽었다 → **1점**. 고장일 수도 있고 그냥 답답해서 끈 것일 수도 있다.
+ *   한 번으로 끄면 멀쩡한 기기의 광고까지 꺼져 수입이 통째로 샌다
+ * - 90초까지 덮고 있는 것을 우리가 직접 봤다(`onStalled`) → **2점**. 이건 추측이 아니다.
+ *   그 한 번으로 바로 끈다
+ *
+ * 한 사람에게서 잃는 광고 수입은 14일에 72원이다(ADR-0029). 앱을 강제로 끄게 만드는
+ * 쪽이 훨씬 비싸다.
+ */
+export const STUCK_BLOCK_SCORE = 2;
+
+/** 앱이 광고에 덮인 채 끝났다. 증거가 약해 1점이다. */
+export const STUCK_POINTS_DIED = 1;
+
+/** 90초까지 덮고 있는 것을 직접 봤다. 이 한 번으로 끈다. */
+export const STUCK_POINTS_SEEN = STUCK_BLOCK_SCORE;
+
+function toScore(raw: string | null | undefined): number {
+  const value = Number.parseInt(raw ?? '', 10);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+export async function readStuckScore(store: KeyValueStore): Promise<number> {
+  try {
+    return toScore(await store.get(SCORE_KEY));
+  } catch {
+    return 0;
+  }
+}
+
+/** 점수를 더하고 더해진 값을 돌려준다. 못 적으면 지금 값을 그대로 돌려준다. */
+export async function addStuckScore(store: KeyValueStore, points: number): Promise<number> {
+  const next = (await readStuckScore(store)) + points;
+  try {
+    await store.set(SCORE_KEY, String(next));
+  } catch {
+    /* 못 적으면 이 기기에서는 다음 실행에 다시 센다 */
+  }
+  return next;
 }
