@@ -21,6 +21,16 @@ const APP_NAME = 'pocket-ledger';
 /** `intoss://pocket-ledger`. 토스가 정한 형식이라 우리가 바꾸지 않는다. */
 export const SHARE_PATH = `intoss://${APP_NAME}`;
 
+/**
+ * 갈래마다 붙이는 표시. 받은 사람이 링크로 들어오면 `app_open` 의 `src` 에 실린다.
+ *
+ * 토스는 공유 링크로 온 사람을 전부 `external_share` 하나로 적는다. 목표를 보고 온 사람과
+ * 결산을 보고 온 사람을 가르려면 우리가 표시를 달아야 한다. 가는 곳은 여전히 첫 화면이다.
+ */
+export function sharePath(kind: ShareKind): string {
+  return `${SHARE_PATH}?src=share_${kind}`;
+}
+
 /** 갈래마다 다른 그림. 파일은 백엔드 `app/static/og/` 에 있다. */
 const OG_FILE: Record<ShareKind, string> = {
   app: 'app.png',

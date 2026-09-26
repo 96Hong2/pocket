@@ -204,8 +204,8 @@
   }
 
   /*
-    눌러서 들어가는 줄 중 일부는 버튼이다. 들어가는 길에 광고가 한 편 서는 자리라
-    링크가 아니라 우리가 순서를 쥐어야 한다. 모양은 링크 줄과 한 픽셀도 다르지 않게 둔다.
+    줄 중 일부는 버튼이다. 다른 화면으로 가지 않고 그 자리에서 시트나 창을 연다
+    (엑셀로 내보내기, 버전). 모양은 링크 줄과 한 픽셀도 다르지 않게 둔다.
     `border: 0` 은 위 줄 사이 경계선(`li + li`)보다 낮은 명시도라 그 선을 지우지 않는다.
   */
   button.link-row {
@@ -221,50 +221,6 @@
     font-family: inherit;
     text-align: left;
     cursor: pointer;
-  }
-
-  /*
-    광고가 서는 줄 묶음 위에 한 번만 적는 예고.
-    목록 글자보다 작고 흐리게 둔다. 줄보다 눈에 띄면 그 줄들을 아예 안 누른다.
-  */
-  .link-rows__ad {
-    margin: 2px 0 10px;
-    font-size: var(--text-12);
-    line-height: 1.5;
-    color: var(--color-muted);
-  }
-
-  /*
-    광고가 안 서는 기기·시간대. **글자만 지우고 자리는 남긴다.**
-    지워 버리면 목록 일곱 줄이 30px 만큼 위로 뛴다. 자산 카드와 같은 규칙이다.
-  */
-  .link-rows__ad--off {
-    visibility: hidden;
-  }
-
-  /*
-    광고를 불러오는 동안 그 줄에만 뜨는 한 마디.
-    화면 전체를 덮지 않는다. 덮으면 광고가 이미 시작된 줄 안다.
-  */
-  .link-row__waiting {
-    flex: none;
-    margin-right: 4px;
-    font-size: var(--text-12);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-muted);
-  }
-
-  /* 눌러서 기다리는 중이거나, 다른 줄이 기다리는 동안. 눌리지 않는다는 것만 보인다. */
-  button.link-row:disabled {
-    cursor: default;
-    opacity: 0.55;
-  }
-
-  /* 예고가 가리키는 범위가 끝나는 자리. 선은 다른 줄 사이와 같고 여백만 한 칸 더 준다. */
-  .link-rows--rest {
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid var(--color-divider);
   }
 
   .link-row::after {

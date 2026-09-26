@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 
 import { OnboardingGate } from '../features/onboarding';
 import { EVENTS, useAnalytics } from '../shared/analytics';
+import { entrySource, firstEntrySource } from '../shared/lib/entrySource';
 import { recordVisit } from '../shared/lib/visitLog';
 import { LoadingState, iconUrl, type IconName } from '../shared/ui';
 
@@ -69,7 +70,9 @@ export function AppShell() {
   */
   useEffect(() => {
     let alive = true;
-    void recordVisit(bridge.storage, Date.now()).then((visit) => {
+    void recordVisit(bridge.storage, Date.now()).then(async (visit) => {
+      const source = entrySource();
+      const first = await firstEntrySource(bridge.storage, source, visit.isFirstOpen);
       if (!alive) return;
       analytics.appOpen(EVENTS.appOpen, {
         entry: SCREEN_TITLES[window.location.pathname] ?? 'unknown',
@@ -78,6 +81,10 @@ export function AppShell() {
         days_since_first_open: visit.daysSinceFirstOpen,
         days_since_last_open: visit.daysSinceLastOpen,
         open_bucket: visit.openBucket,
+        // 어디서 들어왔나. 토스가 붙인 입구, 우리 채널 표시, 이 기기에서 처음 들어온 길.
+        referrer: source.referrer ?? undefined,
+        src: source.src ?? undefined,
+        first_src: first ?? undefined,
       });
     });
     return () => {

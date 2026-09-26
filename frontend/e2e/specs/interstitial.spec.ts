@@ -16,9 +16,11 @@ import { expect, test } from '../support/fixtures';
  * 버튼 곁에 적어 두는 것과 **묻는 것**은 다르다. 적어 둔 것은 안 읽고 누른 사람에게
  * 아무 예고도 아니다.
  *
- * 자리를 여섯으로 늘려도 한 사람이 겪는 총량은 그대로다. 그 총량이 늘지 않는다는 것이
- * 이 파일이 지키는 가장 중요한 것이다. 자리마다 「여기는 괜찮다」 고 더하기 시작하면
- * 아무도 총량을 안 세게 된다.
+ * 한 사람이 겪는 총량이 늘지 않는다는 것이 이 파일이 지키는 가장 중요한 것이다.
+ * 자리마다 「여기는 괜찮다」 고 더하기 시작하면 아무도 총량을 안 세게 된다.
+ *
+ * **관리 탭 하위 화면 다섯에는 광고를 세우지 않는다(ADR-0039).** 원래 열리던 화면 앞을
+ * 막아선 광고라 토스 노출 정책의 UX 원칙 2 에 걸렸다. 되돌아가지 않게 여기서 못 박는다.
  *
  * 리포트에서 옛날 달을 세 번 훑었을 때는 여전히 뺀 자리다. 화살표를 누른 것 말고는
  * 아무것도 안 한 사람이고 적어 둘 자리도 없다. 그것이 되돌아가지 않게 여기서 못 박는다.
@@ -96,95 +98,84 @@ test('홈 카드로 저절로 열리는 결산에는 광고를 세우지 않는�
   expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
 });
 
-test('자산은 광고 한 편을 지나 열린다. 카드에 미리 적혀 있다', async ({
-  assets,
-  manage,
-  page,
-}) => {
-  await manage.open();
-  await manage.waitReady();
-
-  // 눌러서 광고를 보기 **전에** 읽혀야 한다. 누른 뒤에 나오는 말은 예고가 아니다.
-  await expect(manage.assetsAdNote).toBeVisible();
-
-  // 화면 안 카드로 들어간다. 주소로 열면 화면이 통째로 다시 떠서 세션이 새로 시작된다.
-  await manage.openAssets();
-  await assets.waitReady();
-  await expect(assets.netWorth.or(assets.emptyTitle)).toBeVisible();
-
-  const logs = await logsNamed(page, 'interstitial_result');
-  expect(logs.map((log) => [log.params.where, log.params.result])).toEqual([['assets', 'watched']]);
-});
-
-test('관리 탭 하위 화면 넷은 광고 한 편을 지나 열린다', async ({ categories, manage, page }) => {
-  await manage.open();
-  await manage.waitReady();
-  await expect(manage.subScreenAdNote).toBeVisible();
-
-  await manage.openSub('카테고리 관리');
-  await categories.waitReady();
-
-  const logs = await logsNamed(page, 'interstitial_result');
-  expect(logs.map((log) => [log.params.where, log.params.result])).toEqual([
-    ['categories', 'watched'],
-  ]);
-});
-
-test('같은 세션에서 둘째 줄을 눌러도 광고는 한 편뿐이다. 화면은 그대로 열린다', async ({
+test('관리 탭 하위 화면과 자산은 광고 없이 바로 열린다. 예고도 확인 창도 없다', async ({
   appShell,
+  assets,
   categories,
   manage,
   page,
-  tags,
 }) => {
   await manage.open();
   await manage.waitReady();
+
+  // 광고를 걷었는데 예고만 남으면 거짓말이다.
+  await expect(manage.anyAdNote).toHaveCount(0);
 
   await manage.openSub('카테고리 관리');
   await categories.waitReady();
+  await expect(manage.adConsent).toHaveCount(0);
+
   await appShell.pressBack();
   await manage.waitReady();
-  await manage.openSub('태그');
-  await tags.waitReady();
-
-  const logs = await logsNamed(page, 'interstitial_result');
-  expect(logs.map((log) => [log.params.where, log.params.result, log.params.reason])).toEqual([
-    ['categories', 'watched'],
-    ['tags', 'skipped', 'capped'],
-  ]);
-});
-
-test('알림 설정·내 계정·앱 설정에는 광고를 세우지 않는다. 앱을 계속 쓰게 하는 길이다', async ({
-  appShell,
-  manage,
-  notifications,
-  page,
-}) => {
-  await manage.open();
-  await manage.waitReady();
-
-  // 이 셋은 링크 그대로다. 버튼이면 광고가 걸린 줄이고, 그것 자체가 여기서 보는 것이다.
-  await expect(manage.subScreenAdNote).toBeVisible();
-  await appShell.followRow('알림 설정');
-  await notifications.waitReady();
+  await manage.openAssets();
+  await assets.waitReady();
+  await expect(manage.adConsent).toHaveCount(0);
 
   expect(
     await logsNamed(page, 'interstitial_result'),
-    '알림 설정에 전면 광고가 생겼다',
+    '관리 탭 하위 화면에 전면 광고가 돌아왔다',
   ).toEqual([]);
 });
 
-test('상한을 다 쓴 사람에게는 예고도 안 보인다. 안 뜰 광고를 적어 두면 예고가 아니다', async ({
-  manage,
-  page,
-}) => {
-  await seedWatchedToday(page, 2);
-
+test('관리 탭 줄은 전부 링크다. 광고가 순서를 쥘 까닭이 없다', async ({ manage }) => {
   await manage.open();
   await manage.waitReady();
 
-  await expect(manage.subScreenAdNote).toBeHidden();
-  await expect(manage.assetsAdNote).toBeHidden();
+  const labels = ['목표', '카테고리 관리', '태그', '반복 지출', '알림 설정', '내 계정', '앱 설정'];
+  for (const label of labels) {
+    await expect(manage.subScreenRow(label)).toBeVisible();
+  }
+});
+
+test('같은 세션에서 결산을 두 번 열어도 광고는 한 편뿐이다. 두 번째는 그대로 열린다', async ({
+  appShell,
+  page,
+  prep,
+  report,
+}) => {
+  await seedLastMonth(prep);
+
+  await report.open({ month: shiftMonth(ledgerToday().slice(0, 7), -1) });
+  await report.waitReady();
+  await report.closing.open();
+  await appShell.pressBack();
+  await expect(report.closing.overlay).toHaveCount(0);
+
+  // 두 번째는 묻지도 않는다. 안 뜰 광고를 물으면 방해일 뿐이다.
+  await report.closing.card.click();
+  await expect(report.closing.overlay).toBeVisible();
+  await expect(report.closing.adConsent).toHaveCount(0);
+
+  const logs = await logsNamed(page, 'interstitial_result');
+  expect(logs.map((log) => [log.params.where, log.params.result, log.params.reason])).toEqual([
+    ['closing', 'watched', undefined],
+    ['closing', 'skipped', 'capped'],
+  ]);
+});
+
+test('상한을 다 쓴 사람에게는 결산 예고도 안 보인다. 안 뜰 광고를 적어 두면 예고가 아니다', async ({
+  page,
+  prep,
+  report,
+}) => {
+  await seedLastMonth(prep);
+  await seedWatchedToday(page, 2);
+
+  await report.open({ month: shiftMonth(ledgerToday().slice(0, 7), -1) });
+  await report.waitReady();
+
+  await expect(report.closing.card).toBeVisible();
+  await expect(report.closing.adNote).toBeHidden();
 });
 
 test('리포트에서 달을 여러 번 옮겨도 광고가 뜨지 않는다. 화살표를 누른 것뿐이다', async ({
@@ -290,100 +281,71 @@ test('계산기 광고를 봐도 그 세션의 전면 광고 한 편은 그대�
 
 // ── 광고 바로 전에 묻는다 (2026-09-23 반려 대응) ──────────────────
 
-test('관리 줄을 누르면 광고 전에 한 번 묻는다. 무엇이 열리는지도 적는다', async ({
-  manage,
-}) => {
-  await manage.open();
-  await manage.waitReady();
-
-  await manage.subScreenRow('카테고리 관리').click();
-
-  await expect(manage.adConsent).toBeVisible();
-  // 무엇을 열려다 광고를 보는지가 적혀 있어야 한다. 「광고가 나와요」 만으로는 모른다.
-  await expect(manage.adConsent).toContainText('카테고리 관리');
-  await expect(manage.adConsentConfirm).toBeVisible();
-});
-
-test('묻는 창에서 닫으면 광고도 안 뜨고 화면도 안 열린다', async ({ manage, page }) => {
-  await manage.open();
-  await manage.waitReady();
-
-  await manage.subScreenRow('카테고리 관리').click();
-  await manage.adConsentCancel.click();
-
-  await expect(manage.adConsent).toBeHidden();
-  // 관리 화면 그대로다. 광고도 안 돌았다.
-  await expect(manage.assetsEntry).toBeVisible();
-  expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
-});
-
-test('자산 카드도 광고 전에 묻는다', async ({ manage }) => {
-  await manage.open();
-  await manage.waitReady();
-
-  await manage.assetsEntry.click();
-
-  await expect(manage.adConsent).toBeVisible();
-  await expect(manage.adConsent).toContainText('자산관리');
-});
-
-test('결산 입구도 광고 전에 묻는다', async ({ prep, report }) => {
+test('결산 확인 창에서 닫으면 광고도 안 뜨고 결산도 안 열린다', async ({ page, prep, report }) => {
   await seedLastMonth(prep);
 
   await report.open({ month: shiftMonth(ledgerToday().slice(0, 7), -1) });
   await report.waitReady();
   await report.closing.card.click();
-
   await expect(report.closing.adConsent).toBeVisible();
-  await expect(report.closing.adConsentConfirm).toBeVisible();
+  // 무엇을 열려다 광고를 보는지가 적혀 있어야 한다. 「광고가 나와요」 만으로는 모른다.
+  await expect(report.closing.adConsent).toContainText('결산');
+
+  await report.closing.adConsentCancel.click();
+
+  await expect(report.closing.adConsent).toBeHidden();
+  await expect(report.closing.overlay).toHaveCount(0);
+  expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
 });
 
-test('상한을 다 쓴 사람에게는 묻지도 않는다. 안 뜰 광고를 물으면 방해일 뿐이다', async ({
-  categories,
-  manage,
-  page,
-}) => {
+test('상한을 다 쓴 사람에게는 결산 앞에서 묻지도 않는다', async ({ page, prep, report }) => {
+  await seedLastMonth(prep);
   await seedWatchedToday(page, 2);
 
-  await manage.open();
-  await manage.waitReady();
-  await manage.subScreenRow('카테고리 관리').click();
+  await report.open({ month: shiftMonth(ledgerToday().slice(0, 7), -1) });
+  await report.waitReady();
+  await report.closing.card.click();
 
   // 곧바로 열린다. 물을 것이 없다.
-  await categories.waitReady();
-  await expect(manage.adConsent).toBeHidden();
+  await expect(report.closing.overlay).toBeVisible();
+  await expect(report.closing.adConsent).toHaveCount(0);
 });
 
 test('확인 창에서 뒤로가기를 누르면 창만 닫힌다. 앱이 닫히면 안 된다', async ({
   appShell,
-  manage,
   page,
+  prep,
+  report,
 }) => {
-  await manage.open();
-  await manage.waitReady();
-  await manage.subScreenRow('카테고리 관리').click();
-  await expect(manage.adConsent).toBeVisible();
+  await seedLastMonth(prep);
+
+  await report.open({ month: shiftMonth(ledgerToday().slice(0, 7), -1) });
+  await report.waitReady();
+  await report.closing.card.click();
+  await expect(report.closing.adConsent).toBeVisible();
 
   await appShell.pressBack();
 
-  await expect(manage.adConsent).toBeHidden();
-  // 관리 탭 그대로다. 등록을 안 하면 스택이 비어 `closeApp()` 으로 떨어진다.
-  await expect(manage.assetsEntry).toBeVisible();
+  await expect(report.closing.adConsent).toBeHidden();
+  // 리포트 그대로다. 등록을 안 하면 스택이 비어 `closeApp()` 으로 떨어진다.
+  await expect(report.closing.card).toBeVisible();
   expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
 });
 
-test('묻는 창이 떠 있는 동안 탭바를 누를 수 없다', async ({ manage }) => {
-  await manage.open();
-  await manage.waitReady();
-  await manage.subScreenRow('카테고리 관리').click();
-  await expect(manage.adConsent).toBeVisible();
+test('묻는 창이 떠 있는 동안 탭바를 누를 수 없다', async ({ prep, report }) => {
+  await seedLastMonth(prep);
+
+  await report.open({ month: shiftMonth(ledgerToday().slice(0, 7), -1) });
+  await report.waitReady();
+  await report.closing.card.click();
+  await expect(report.closing.adConsent).toBeVisible();
 
   /*
     딤이 탭바를 덮어야 한다. z-index 를 탭바(40) 아래 두면 탭바가 뚫고 나와 눌리고,
     광고를 묻는 창을 띄운 채 다른 탭으로 나갈 수 있다. `alertdialog` 가 말하는 것과
     화면이 달라진다.
   */
-  const blocked = await manage.adConsent.evaluate((dim) => {
+  const blocked = await report.closing.adConsent.evaluate((dim) => {
     const tab = document.querySelector('.tabbar__inner a, .tabbar__inner button');
     if (tab == null) return 'no-tab';
     const box = tab.getBoundingClientRect();

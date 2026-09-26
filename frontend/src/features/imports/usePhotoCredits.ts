@@ -64,7 +64,7 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
     리워드 쪽과 같은 규칙이다(ADR-0024).
 
     상한 안에 두면 실제로 광고가 거의 안 떴다. 세션당 한 편이라 둘째 장부터 광고를 붙여도
-    관리 탭에서 한 편 본 사람에게는 아무것도 안 떴다.
+    결산에서 한 편 본 사람에게는 아무것도 안 떴다.
   */
   const interstitial = useInterstitial();
   /** 체험 한 장이 남았나. 저장소를 읽어야 안다. */
@@ -108,7 +108,7 @@ export function usePhotoCredits(flowId: FlowId): PhotoCreditsHandle {
       /*
         광고를 못 띄우는 기기에서 사진을 막지 않는다. 우리 사정으로 기능을 닫는 셈이 된다.
         **`ready` 가 아니라 `available` 을 본다.** 이 자리는 상한 밖이라, 상한까지 본
-        `ready` 로 가르면 관리 탭에서 한 편 본 사람에게 확인 창이 안 뜨고 광고만 뜬다.
+        `ready` 로 가르면 결산에서 한 편 본 사람에게 확인 창이 안 뜨고 광고만 뜬다.
       */
       return interstitial.available ? 'interstitial' : 'none';
     },

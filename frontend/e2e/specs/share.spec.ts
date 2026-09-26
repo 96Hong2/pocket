@@ -1,6 +1,6 @@
 import { SHARE_AFTER_RECORDS } from '../../src/features/home/homeMode';
 import { appLine, goalDoneLine, goalLine } from '../../src/features/share/shareText';
-import { SHARE_PATH } from '../../src/features/share/shareLink';
+import { sharePath } from '../../src/features/share/shareLink';
 import { formatMonthLabel, shiftMonth, toLedgerDate } from '../../src/shared/lib/format';
 import { logsNamed, readShareSheet, readShares } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
@@ -49,7 +49,7 @@ test('충분히 써 본 사람에게는 기록 버튼 아래에서 한 번 묻�
   // 브릿지가 무엇을 들고 나갔나. 딥링크는 토스가 정한 모양이어야 링크가 만들어진다.
   await expect.poll(() => readShares(page)).toHaveLength(1);
   const [sent] = await readShares(page);
-  expect(sent.path).toBe(SHARE_PATH);
+  expect(sent.path).toBe(sharePath('app'));
   expect(sent.message).toBe(appLine());
 
   // 시트까지 실제로 간 글. 문구 다음 줄에 토스가 만든 링크가 붙어 있어야 한다.

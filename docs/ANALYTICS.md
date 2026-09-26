@@ -12,8 +12,8 @@
 
 | 알고 싶은 것 | 이벤트 | 남기는 값 |
 | --- | --- | --- |
-| 들어와서 어디로 가나 | `app_open` · `screen_view` | 진입 화면, 화면 이름, 토스 앱 버전, **첫 실행인지 · 처음 연 지 며칠째 · 직전 실행 이후 며칠 · 실행 횟수 구간** |
-| 어떤 방식을 고르나, 어디서 여나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향, 연 자리(`home`·`home_day`·`calendar_day`)와 지난 날에 적는 것인지 |
+| 들어와서 어디로 가나 | `app_open` · `screen_view` | 진입 화면, 화면 이름, 토스 앱 버전, **첫 실행인지 · 처음 연 지 며칠째 · 직전 실행 이후 며칠 · 실행 횟수 구간**, **들어온 길**(`referrer` 토스 입구 · `src` 우리 채널 표시 · `first_src` 이 기기에서 처음 들어온 길) |
+| 어떤 방식을 고르나, 어디서 여나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향, 연 자리(`home`·`home_day`·`calendar_day`·`deeplink`)와 지난 날에 적는 것인지 |
 | 사진 고르기에서 막히나 | `image_pick_result` | 성공·취소·권한 거절·미지원, 장수 |
 | 인식이 얼마나 걸리고 왜 실패하나 | `parse_started` · `parse_finished` | 방식, 성공·부분·0건·실패, 소요 시간, 후보 수, 오류 코드 |
 | 결과를 얼마나 고치나 | `review_shown` · `review_finished` | 후보 수, 고른 수, 손댄 건수, **칸별 고친 횟수** |
@@ -38,7 +38,7 @@
 | 자산을 한 번 적고 마나 | `asset_changed` | 더함·고침·지움과 어느 그룹, 그 뒤 남은 줄 수. **이름과 금액은 싣지 않는다** |
 | 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나와 몇 장짜리인가(`cards`), 몇 장째에서 닫았나(`page`·`total`)와 끝까지 봤나(`finished`) |
 | 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
-| 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(`closing`·`assets`·`goal`·`categories`·`tags`·`recurring`·**`photo`**)와 결과(`watched`·`skipped`), 지나간 이유(`no_group`·`unsupported`·`failed`·`capped`·**`stalled`**) |
+| 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(2026-09-26~ `closing`·**`photo`** 둘뿐, 아래 「판마다 바뀐 값」)와 결과(`watched`·`skipped`), 지나간 이유(`no_group`·`unsupported`·`failed`·`capped`·**`stalled`**) |
 | 광고가 뜬 채로 갇히나 | **`ad_stuck_exit`** | 어느 자리의 광고였나(`where`). **앱을 열 때 한 번** 센다. 광고가 뜨는 순간 적어 둔 표가 남아 있으면 지난번이 갇힌 판이다(ADR-0036). ⚠ **갇힌 판의 `interstitial_result` 는 `stalled` 가 아니라 `watched` 다.** 화면을 15·35초에 먼저 풀고 갇힘 판정은 90초에 내리므로, 판정이 로그보다 늦다(ADR-0037). 갇혔다는 사실은 **다음 광고의 `skipped{stalled}`** 와 이 이벤트로 드러난다. 함께 싣는 `deaths` 는 광고가 덮인 채로 **연달아** 죽은 횟수다. **두 번이면 그 기기에서 전면 광고를 끈다**(ADR-0038). 90초까지 덮고 있는 것을 직접 본 판은 이 수와 무관하게 그 한 번으로 끈다. 끄고 나면 `interstitial_result` 가 계속 `skipped{stalled}` 로만 남는다. 광고를 눌러 나간 판은 갇힘에서 뺀다 |
 | 사진을 읽으려고 광고를 보나 | `photo_credit` | 봤나 마다했나 헛돌았나 썼나(`action`: `watched`·**`declined`**·**`wasted`**·`spent`), 어떤 광고였나(`plan`: `interstitial`·`rewarded`), 몇 장짜리였나(`image_count`), 쓰고 나서 무료분이 몇 장 남았나(`left`), 광고가 어떻게 끝났나(`ad`: `earned`·`watched`·`skipped`)와 지나간 이유(`reason`: `no_group`·`unsupported`·`failed`) |
 | 분류를 제 말로 바꿔 쓰나 | `category_changed` | 만듦·고침·지움, 기본 분류인가 내가 만든 것인가(`scope`: `default`·`mine`), 갈래, 무엇을 건드렸나(`fields`: `name`·`icon`·`color` 를 `+` 로 이은 값). **이름은 싣지 않는다** |
@@ -134,7 +134,8 @@
 |---|---|
 | ~2026-09-20 (ADR-0023) | `closing` · `assets` · `report_months` · 생활비 계산기 |
 | 2026-09-21 (ADR-0028) | `closing` **하나뿐** |
-| 2026-09-22~ (ADR-0029) | `closing` · `assets` · `goal` · `categories` · `tags` · `recurring` |
+| 2026-09-22~09-25 (ADR-0029) | `closing` · `assets` · `goal` · `categories` · `tags` · `recurring` |
+| 2026-09-26~ (ADR-0039) | `closing` · `photo`. 관리 탭 하위 화면과 자산 앞의 광고를 걷었다 |
 
 가운데 하루는 자리를 **결산 하나로 줄였던** 때다. 그때 뺀 이유는 자산·리포트 둘 다 사람이
 광고를 부른 적이 없는 자리로 봤기 때문인데, 자산은 실제로 **관리 탭의 카드를 눌러** 들어가고
@@ -246,6 +247,20 @@ SDK 가 알려 주지 않는다. 그래서 우리가 볼 수 있는 것은 누�
 - **자동 수집을 켜지 않는다.** 모든 클릭 자동 수집도, 화면 녹화도 하지 않는다.
   금융 화면은 불필요한 정보가 섞이기 쉽다.
 - 개발·샌드박스에서는 `window.__pocketLogs` 에 사본이 남는다. 운영 판에서는 남지 않는다.
+
+## 4.5 어느 채널이 사람을 데려오나
+
+`app_open` 에 들어온 길 셋을 싣는다(`shared/lib/entrySource.ts`).
+
+| 값 | 누가 붙이나 | 예 |
+| --- | --- | --- |
+| `referrer` | 토스. 공식 문서 「유입경로 레퍼러」 의 값 | `search` · `all_tab` · `external_link` · `external_share` · `tossads` · `inbox` |
+| `src` | 우리. 바깥에 거는 링크 끝에 붙인다 | `threads_bio` · `insta_bio` · `youtube_short_01` · `naver_post` · `landing_main` |
+| `first_src` | 이 기기에서 처음 들어온 길. 한 번 적으면 안 바꾼다 | 위 둘 중 하나. `src` 가 있으면 그것. 첫 실행에 둘 다 없었으면 `direct`, 이 기능 전부터 쓰던 기기는 비어 있다 |
+
+토스 입구만으로는 스레드에서 온 사람과 릴스에서 온 사람이 똑같이 `external_link` 다.
+`first_src` 가 있어야 「스레드로 온 사람 중 다음 날 다시 온 사람」 을 단순 집계로 센다.
+값은 영문·숫자·밑줄 40자까지만 받는다. 주소는 누구나 고쳐 칠 수 있다.
 
 ## 5. 재방문·이탈은 `app_open` 한 줄로 잰다
 

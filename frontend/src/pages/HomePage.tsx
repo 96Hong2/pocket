@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
-import { useBridge, useIdentity } from '../app/providers';
+import { useBridge, useIdentity, useOnboardingShowing } from '../app/providers';
+import { RECORD_QUERY } from '../app/router/routes';
 import { AdSlot } from '../features/ads';
 import { AddToHomeCard } from '../features/home-add';
 import { RemindCard } from '../features/notifications';
@@ -23,7 +25,7 @@ import {
   toHomeViewInput,
   useCardDismiss,
 } from '../features/home';
-import { QuickRecordSheet, type RecordTab } from '../features/quick-record';
+import { QuickRecordSheet, type RecordFrom, type RecordTab } from '../features/quick-record';
 import { EditSheet } from '../features/transactions';
 // 방식 → 탭 환산은 시트 옆에 있다. 배럴에는 시트만 나와 있어 파일을 곧장 가리킨다.
 import { DEFAULT_RECORD_TAB, resolveRecordTab } from '../features/quick-record/recordTab';
@@ -365,10 +367,39 @@ function HomeContent({
 }
 
 export default function HomePage() {
-  const [sheet, setSheet] = useState<{ open: boolean; tab: RecordTab; day?: string }>({
-    open: false,
-    tab: DEFAULT_RECORD_TAB,
-  });
+  /*
+    `/record` 로 들어오면 기록 시트를 연다. 부탁은 한 번만 쓰고 주소에서 지운다.
+    남겨 두면 탭을 오가다 홈에 돌아올 때마다 누르지도 않은 시트가 다시 뜬다.
+
+    **처음 안내가 걷힌 뒤에 연다.** 처음 온 사람은 안내가 시트보다 위에 떠서, 시트를 먼저
+    열면 안내를 넘기는 동안 그 아래에 이미 열려 있다가 안내가 닫히는 순간 튀어나온다.
+    모르는 동안(`null`)도 막힌 것으로 본다.
+  */
+  const onboarding = useOnboardingShowing();
+  const [params, setParams] = useSearchParams();
+  const [recordAsked, setRecordAsked] = useState(() => params.get(RECORD_QUERY) === '1');
+  const [sheet, setSheet] = useState<{
+    open: boolean;
+    tab: RecordTab;
+    day?: string;
+    from?: RecordFrom;
+  }>({ open: false, tab: DEFAULT_RECORD_TAB });
+  useEffect(() => {
+    if (params.get(RECORD_QUERY) == null) return;
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete(RECORD_QUERY);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [params, setParams]);
+  // 안내가 걷히는 그 렌더에서 바로 연다. 효과로 미루면 한 프레임 홈만 보였다가 시트가 뜬다.
+  if (recordAsked && onboarding === false) {
+    setRecordAsked(false);
+    setSheet({ open: true, tab: DEFAULT_RECORD_TAB, from: 'deeplink' });
+  }
   // 아래 목록이 보고 있는 날. 오늘로 열고 화살표로 옮긴다.
   const [day, setDay] = useState(() => toLedgerDate(new Date()));
   return (
@@ -385,7 +416,7 @@ export default function HomePage() {
         open={sheet.open}
         initialTab={sheet.tab}
         day={sheet.day}
-        from={sheet.day == null ? 'home' : 'home_day'}
+        from={sheet.from ?? (sheet.day == null ? 'home' : 'home_day')}
         onClose={() => setSheet((prev) => ({ ...prev, open: false }))}
         /*
           적힌 날로 목록을 옮긴다. 지난 달 영수증을 읽어 넣고 시트를 닫았는데 화면이

@@ -22,17 +22,15 @@ import { useFullScreenAd, type FullScreenAdOutcome } from './useFullScreenAd';
 /**
  * 전면 광고가 서는 자리.
  *
- * 전부 **관리 탭에서 눌러 들어가는 하위 화면**이다. 기록하는 길 위에는 하나도 없다.
- * 홈·달력·리포트처럼 매일 지나는 자리와, 목표를 홈 카드로 여는 길에는 서지 않는다.
+ * **상한을 세는 자리는 지난달 결산 하나다.** 관리 탭 하위 화면 다섯(목표·카테고리·태그·
+ * 반복 지출·자산)에도 섰었는데 걷었다(ADR-0039). 원래 열리던 화면 앞을 막아선 광고라
+ * 토스 노출 정책의 UX 원칙 2(추가 광고는 더 자세한 정보나 보상이 있을 때만)에 걸렸다.
+ * 결산은 이번 달 리포트 위에 한 달 치를 따로 정리해 주는 **더 자세한 정보**라 남긴다.
  *
- * 자리를 고른 기준은 ADR-0028 그대로다: **누르기 전에 적어 둘 자리가 있는가.**
- * 여섯 자리 전부 사람이 누르는 버튼이 앞에 있고, 그 버튼 곁에 광고를 미리 적어 둔다.
- * 탭을 누르는 것만으로 광고가 뜨는 자리는 여전히 하나도 없다.
+ * 누르기 전에 적어 두고(ADR-0028), 누르면 한 번 묻는다(ADR-0031). 탭을 누르는 것만으로
+ * 광고가 뜨는 자리는 하나도 없다. 한 사람이 겪는 총량은 `SESSION_CAP`·`DAILY_CAP` 이 센다.
  *
- * 자리를 늘려도 **한 사람이 겪는 총량은 그대로다**(`SESSION_CAP`·`DAILY_CAP`).
- * 관리 탭에서 이것저것 눌러 봐도 한 세션에 한 편이고, 그 뒤로는 예고 줄까지 사라진다.
- *
- * **`photo` 만 관리 탭 밖이고, 상한도 안 센다**(ADR-0035). 체험 한 장을 이미 쓴 사람이
+ * **`photo` 는 상한을 안 센다**(ADR-0035). 체험 한 장을 이미 쓴 사람이
  * 사진을 읽을 때 **읽는 동안** 도는 광고다. 기다림을 새로 만드는 것이 아니라 이미 있는
  * 몇 초를 채우는 자리라 넣었다. 부를 때 `uncapped` 를 준다.
  *
@@ -44,14 +42,7 @@ import { useFullScreenAd, type FullScreenAdOutcome } from './useFullScreenAd';
  * 리워드 광고(`useRewardedAd`)로 나갔고, 그래서 상한도 안 센다(ADR-0024).
  * 사진 여러 장도 같은 이유로 여기 없다(`usePhotoRewardedAd`).
  */
-export type InterstitialWhere =
-  | 'closing'
-  | 'goal'
-  | 'categories'
-  | 'tags'
-  | 'recurring'
-  | 'assets'
-  | 'photo';
+export type InterstitialWhere = 'closing' | 'photo';
 
 /** 지나온 결과. `capped` 는 상한에 걸려 광고를 아예 부르지 않은 것이다. */
 export type InterstitialOutcome = FullScreenAdOutcome | { result: 'skipped'; reason: 'capped' };
@@ -72,8 +63,8 @@ let watchedThisSession = 0;
  * 광고를 불러오는 데 최대 8초가 걸린다. 그 사이에 다른 줄을 누르면 두 번째 게이트가 아직
  * 0 을 보고 통과해, 한 세션에 두 편을 연달아 보게 된다.
  *
- * 화면마다 따로 둘 수 없다. 관리 탭에는 `useInterstitial()` 이 둘(자산 카드·목록)이고
- * 각자의 `busy` 는 서로를 모른다. 그래서 모듈에 둔다.
+ * 화면마다 따로 둘 수 없다. 결산 입구와 사진 읽기는 각자 `useInterstitial()` 을 들고
+ * 있고 각자의 `busy` 는 서로를 모른다. 그래서 모듈에 둔다.
  */
 let adInFlight = false;
 
@@ -99,8 +90,8 @@ export interface ShowOptions {
    * 열 장을 읽는 사람도 한 편만 보게 되어, 원가가 늘수록 수입이 안 따라온다.
    *
    * **두 편이 겹치는 것은 이 옵션으로도 안 풀린다.** `adInFlight` 는 그대로 막는다.
-   * 세는 것도 하지 않는다. 여기서 센 편 수가 관리 탭의 상한을 갉아먹으면, 사진을 많이
-   * 읽은 날에 다른 자리가 통째로 조용해진다.
+   * 세는 것도 하지 않는다. 여기서 센 편 수가 결산의 상한을 갉아먹으면, 사진을 많이
+   * 읽은 날에 결산 자리가 통째로 조용해진다.
    */
   uncapped?: boolean;
 }

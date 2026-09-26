@@ -18,8 +18,6 @@ export interface AdConsentRequest {
   where: InterstitialWhere;
   /** 확인 창에 적을 화면 이름. 「카테고리 관리」 처럼 보이는 그대로. */
   what: string;
-  /** 지금 기다리는 것이 어느 줄인지 화면이 가리기 위한 값. 없으면 `where` 를 쓴다. */
-  key?: string;
   /** 광고가 끝난 뒤(또는 광고 없이) 이어서 할 일. */
   go: () => void;
 }
@@ -43,7 +41,7 @@ export function useAdConsent(): AdConsentHandle {
 
   const play = useCallback(
     async (input: AdConsentRequest): Promise<void> => {
-      setPending(input.key ?? input.where);
+      setPending(input.where);
       try {
         await show(input.where);
       } finally {
