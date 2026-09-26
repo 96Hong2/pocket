@@ -66,8 +66,9 @@ export type { RecordTab };
  * - `home`         홈 가운데 큰 버튼. 언제나 오늘에 적는다
  * - `home_day`     홈 목록의 빈 날 버튼
  * - `calendar_day` 월간 달력에서 고른 날
+ * - `deeplink`     바깥에서 `/record` 로 곧장 들어왔다. 미니앱 상세의 주요 기능 「지출 기록하기」 가 여기로 온다
  */
-export type RecordFrom = 'home' | 'home_day' | 'calendar_day';
+export type RecordFrom = 'home' | 'home_day' | 'calendar_day' | 'deeplink';
 
 const TABS: SegmentedOption<RecordTab>[] = [
   { value: 'keypad', label: '키패드' },

@@ -4,7 +4,7 @@ import { useBridge } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { BridgeError } from '../../shared/toss';
 
-import { SHARE_PATH, shareImageUrl } from './shareLink';
+import { shareImageUrl, sharePath } from './shareLink';
 
 import type { ShareKind } from './shareText';
 
@@ -42,7 +42,7 @@ export function useShare(where: string): {
       setFailure(null);
       try {
         await bridge.share.send({
-          path: SHARE_PATH,
+          path: sharePath(kind),
           ogImageUrl: shareImageUrl(kind),
           message,
         });

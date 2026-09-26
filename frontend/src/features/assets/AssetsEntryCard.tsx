@@ -1,10 +1,9 @@
-import { useNavigate } from 'react-router';
+import { Link } from 'react-router';
 
 import { ROUTES } from '../../app/router/routes';
 import { parseDecimalOr, useAssets } from '../../shared/api';
 import { formatCurrency, formatDayLabel } from '../../shared/lib/format';
 import { CategoryAvatar } from '../../shared/ui';
-import { AdAheadNote, useAdConsent } from '../ads';
 
 /**
  * 관리 탭 맨 위의 자산 입구.
@@ -14,14 +13,11 @@ import { AdAheadNote, useAdConsent } from '../ads';
  *
  * **못 불러오면 숫자 없이 이름만 남긴다.** 카드를 통째로 감추면 자산으로 가는 길이 사라진다.
  *
- * 들어가는 길에 전면 광고 한 편이 선다. 그래서 카드 안에 미리 적어 둔다. 한 번 적어 둘
- * 자리가 있어서 고른 자리다(ADR-0028). 광고가 안 떠도 자산은 열린다.
+ * 들어가는 길에 광고를 세우지 않는다(ADR-0039). 원래 열리던 화면 앞을 막는 광고는
+ * 받는 것이 없는 통행료로 읽힌다.
  */
 export function AssetsEntryCard() {
   const assets = useAssets();
-  const navigate = useNavigate();
-  const ad = useAdConsent();
-  const waiting = ad.pending != null;
   const data = assets.data;
   const netWorth = data == null ? null : parseDecimalOr(data.summary.net_worth, 0);
   const basis = data?.snapshot?.effective_on;
@@ -34,39 +30,13 @@ export function AssetsEntryCard() {
         ? `순자산 ${formatCurrency(netWorth)}`
         : `순자산 ${formatCurrency(netWorth)} · ${formatDayLabel(basis)} 기준`;
 
-  function open(): void {
-    ad.request({ where: 'assets', what: '자산관리', go: () => void navigate(ROUTES.assets) });
-  }
-
   return (
-    <>
-    <button
-      type="button"
-      className="assets-entry"
-      // 누르고 나서 광고가 뜨기까지 최대 8초다. 그동안 화면이 그대로면 먹통으로 읽힌다.
-      aria-busy={waiting}
-      disabled={waiting}
-      onClick={open}
-    >
+    <Link className="assets-entry" to={ROUTES.assets}>
       <CategoryAvatar icon="28_cash" size={52} />
       <span className="assets-entry__body">
         <span className="assets-entry__title">자산관리</span>
         <span className="assets-entry__sub">{sub}</span>
-        {/*
-          숫자 바로 아래다. 무엇을 보러 가는지와 무엇을 치르는지가 한눈에 붙어 있다.
-
-          **안 보일 때도 자리는 남긴다.** 지워 버리면 카드가 그만큼 낮아지면서 아래
-          목록이 통째로 올라온다. 손가락이 이미 내려오는 중이면 다른 것을 누른다.
-        */}
-        {waiting ? (
-          // 누르고 나서 광고가 뜨기까지 최대 8초다. 그동안 이 자리가 무엇을 기다리는지 말한다.
-          <span className="assets-entry__ad">잠시만요</span>
-        ) : (
-          <AdAheadNote className={`assets-entry__ad${ad.ready ? '' : ' assets-entry__ad--off'}`} />
-        )}
       </span>
-    </button>
-    {ad.prompt}
-    </>
+    </Link>
   );
 }

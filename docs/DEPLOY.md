@@ -308,7 +308,7 @@ make ait API_BASE_URL=https://<위에서 받은 주소>
       막혀 있으면 <https://aistudio.google.com/u/1/billing> 의 「선불 결제 설정」
 - [ ] 인증서 마운트 경로와 `TOSS_MTLS_*_PATH` 가 같다
 - [ ] 프론트 빌드에 운영 `VITE_AD_GROUP_ID` 가 들어갔다. 빠뜨리면 오류 없이 **일곱 자리**가 조용히 접힌다
-- [ ] 프론트 빌드에 운영 `VITE_AD_FULLSCREEN_GROUP_ID`(전면) 가 들어갔다. 빠뜨리면 결산·자산·관리 탭 하위 화면 넷이 광고 없이 열린다(리포트 달 이동은 ADR-0028 로 뺀 그대로다)(`interstitial_result` 에 `no_group` 이 쌓인다)
+- [ ] 프론트 빌드에 운영 `VITE_AD_FULLSCREEN_GROUP_ID`(전면) 가 들어갔다. 빠뜨리면 결산이 광고 없이 열린다(리포트 달 이동은 ADR-0028 로 뺀 그대로다)(`interstitial_result` 에 `no_group` 이 쌓인다)
 - [ ] 프론트 빌드에 운영 `VITE_AD_REWARDED_GROUP_ID`(리워드) 가 들어갔다. **전면과 다른 그룹이다.** 빠뜨리면 생활비 계산기가 광고 없이 열린다(`budget_calc_opened` 에 `no_group` 이 쌓인다). `make ait` 가 `.env.local` 에 없으면 멈춘다
 - [ ] `VITE_AD_PHOTO_GROUP_ID`(사진 받는 자리) 를 넣었나 확인한다. **없어도 빌드는 된다**(계산기 그룹으로 떨어진다). 다만 그 동안에는 광고 화면이 「생활비 계산기」 보상이라고 말하고 우리는 사진을 준다 → ADR-0030
 - [ ] **판을 먼저 확인했다.** QR 로 연 뒤 앱 설정 → 버전 줄 → 「앱 정보」 의 `판` 을 본다.

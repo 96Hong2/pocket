@@ -321,16 +321,21 @@ export class ClosingArea {
     return this.page.getByRole('dialog', { name: /결산$/ });
   }
 
-  /** 입구를 눌러 연다. 열린 것까지 확인하고 돌아온다. */
   /**
    * 결산을 연다. 광고가 붙는 자리면 확인 창이 한 번 서고 그때는 「광고 보고 열기」 를 누른다.
+   * 열린 것까지 확인하고 돌아온다.
    *
    * 2026-09-23 반려 대응으로 생긴 단계다. 적어 두는 것만으로는 안 읽고 누른 사람에게
    * 아무 예고도 아니어서, 누른 뒤 광고 앞에서 한 번 묻는다.
+   *
+   * **누른 직후 한 번만 보고 가르지 않는다.** 확인 창은 광고를 띄울 수 있는지 저장소를
+   * 읽은 뒤에 뜬다. 그 사이에 보면 「안 뜬다」 로 읽고 넘어가 오버레이를 영영 기다린다.
+   * 확인 창과 오버레이 중 먼저 뜨는 쪽을 기다린 뒤 가른다.
    */
   async open(): Promise<void> {
     await this.card.click();
-    if (await this.adConsentConfirm.isVisible()) await this.adConsentConfirm.click();
+    await expect(this.adConsent.or(this.overlay).first()).toBeVisible();
+    if (await this.adConsent.isVisible()) await this.adConsentConfirm.click();
     await expect(this.overlay).toBeVisible();
   }
 
