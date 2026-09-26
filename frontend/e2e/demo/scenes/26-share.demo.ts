@@ -94,7 +94,7 @@ test('55 앱을 알리는 카드는 닫을 수 있다', async ({ demo, home, pre
   await home.waitReady();
   await demo.open('닫을 수 있는 권유', '몇 번 써 본 사람에게만 한 번 묻는다');
 
-  await demo.step('기록 버튼 바로 아래 카드. 다섯 번 넘게 적은 사람에게만 뜬다');
+  await demo.step('기록 버튼 바로 아래 카드. 다섯 번 이상 적었고 앞선 권유가 끝난 사람에게 뜬다');
   await expect(home.share.title).toBeVisible();
   await expect(home.share.lead).toBeVisible();
   await demo.beat(3);

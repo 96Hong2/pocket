@@ -18,7 +18,7 @@ import { expect, test } from '../support/director';
  * 되돌릴 수 없기 때문이다.
  *
  * 사진 인식은 아직 실제 모델이 아니라 규칙 기반 스텁이다. 어떤 사진을 넣어도 캡처는 같은
- * 5건을 내고(영수증은 상호를 못 읽은 1건이다), 41 의 '한 건도 못 읽음' 은 스텁으로는
+ * 6건을 내고(영수증은 상호를 못 읽은 1건이다), 41 의 '한 건도 못 읽음' 은 스텁으로는
  * 만들 수 없어 응답을 빈 묶음으로 바꿔 넣었다. 그래서 여기서 보이는 것은
  * '얼마나 잘 읽는가' 가 아니라 '읽은 것을 화면이 어떻게 다루는가' 다.
  *
@@ -30,7 +30,10 @@ const CAPTURE_ANALYZE = '**/api/v1/imports/capture';
 /** 미리 적어 두는 오늘 지출. 스텁 첫 줄과 지문이 같아져 '이미 있어요' 로 잡힌다. */
 const SEEDED = 4_500;
 
-/** 스텁 5건 중 기본으로 켜져 오는 셋. 스타벅스는 중복, 카카오T 는 확신이 낮아 빠진다. */
+/**
+ * 스텁 6건 중 기본으로 켜져 오는 셋(`backend/app/integrations/llm/stub.py`).
+ * 스타벅스는 중복, 카카오T 는 확신이 낮아, 카드 캐시백은 환불이라 빠진다.
+ */
 const SELECTED = [
   { amount: 3_200, daysAgo: 0 }, // GS25
   { amount: 8_000, daysAgo: 1 }, // 김밥천국
@@ -38,6 +41,9 @@ const SELECTED = [
 ] as const;
 const SELECTED_TOTAL = SELECTED.reduce((sum, row) => sum + row.amount, 0);
 const KAKAO_T = 9_800;
+/** 검토 목록에 서는 줄 수. 켜진 셋에 꺼진 셋(스타벅스·카카오T·카드 캐시백)이 더해진다. */
+const CAPTURE_ROWS = 6;
+const CASHBACK = 'MY 카드 캐시백';
 
 /** 한 건도 못 읽고 돌아온 묶음. 서버가 주는 모양 그대로다. */
 const EMPTY_BATCH = {
@@ -112,7 +118,7 @@ test('40 캡처 한 장에서 고른 것만 저장한다', async ({
 
   await demo.step('앨범에서 거래내역 캡처 한 장을 고른다');
   await recordSheet.capture.pick();
-  await expect(recordSheet.capture.rows).toHaveCount(5);
+  await expect(recordSheet.capture.rows).toHaveCount(CAPTURE_ROWS);
   await demo.beat(3);
 
   await demo.step('줄마다 금액과 날짜가 따로 붙는다');
@@ -123,6 +129,12 @@ test('40 캡처 한 장에서 고른 것만 저장한다', async ({
   await demo.step('이미 적어 둔 스타벅스는 꺼진 채로 온다');
   await expect(recordSheet.capture.chip('스타벅스', '이미 있어요')).toBeVisible();
   await expect(recordSheet.capture.checkbox('스타벅스')).not.toBeChecked();
+  await demo.beat(3);
+
+  await demo.step('카드 캐시백은 환불이라 켤 수 없다. 무엇을 하면 되는지 그 줄에 적혀 있다');
+  await recordSheet.capture.row(CASHBACK).scrollIntoViewIfNeeded();
+  await expect(recordSheet.capture.checkbox(CASHBACK)).toBeDisabled();
+  await expect(recordSheet.capture.refundNotice(CASHBACK)).toBeVisible();
   await demo.beat(3);
 
   await demo.step('확인이 필요한 카카오T 를 켜면 버튼 숫자가 함께 오른다');
@@ -163,7 +175,7 @@ test('41 못 읽거나 사진이 막혀도 키패드로 빠져나간다', async 
   recordSheet,
 }) => {
   await seedMockImages(CAPTURE_DATA_URI)(page);
-  // 스텁은 늘 5건을 낸다. 한 건도 못 읽은 화면은 응답을 빈 묶음으로 바꿔 만든다.
+  // 스텁은 늘 6건을 낸다. 한 건도 못 읽은 화면은 응답을 빈 묶음으로 바꿔 만든다.
   await page.route(CAPTURE_ANALYZE, (route) =>
     route.request().method() === 'POST' ? route.fulfill(EMPTY_BATCH) : route.continue(),
   );

@@ -7,9 +7,11 @@ import { expect, test } from '../support/director';
 /**
  * 홈이 상황마다 다른 얼굴로 뜨는 것을 두 영상에 담는다.
  *
- * 03 은 얼굴이 바뀌는 순서다. 첫 진입, 며칠 비운 뒤의 복구 카드, 예산을 정한 뒤,
- * 밀린 것을 캡처 한 장으로 정리한 뒤.
+ * 03 은 얼굴이 바뀌는 순서다. 첫 진입, 며칠 비운 뒤의 복구 카드, 밀린 것을 캡처 한 장으로
+ * 정리한 뒤, 예산을 정한 뒤. 스스로 서는 권유 카드는 한 번에 하나라 예산 제안은 복구 카드가
+ * 물러난 뒤에야 선다.
  * 04 는 예산 게이지의 색이다. 0% 부터 100% 까지는 같은 세이지고, 넘기는 순간에만 앰버로 바뀐다.
+ * 80% 부터 넘기기 전까지는 게이지 옆에 「주의」 칩이 붙는다.
  * 배경 상태는 prep 으로 심고, 보여줄 동작은 홈 화면에서 실제로 누른다.
  */
 
@@ -39,7 +41,8 @@ function awayInThisMonth(): number {
 const BUDGET = 300_000;
 
 /**
- * 캡처 스텁이 늘 내는 5건 중 서버가 스스로 켜 주는 넷. 확신이 낮은 카카오T 만 꺼진 채로 온다.
+ * 캡처 스텁이 늘 내는 6건 중 서버가 스스로 켜 주는 넷. 확신이 낮은 카카오T 는 꺼진 채로,
+ * 카드 캐시백은 환불이라 못 켜는 채로 온다(`backend/app/integrations/llm/stub.py`).
  * 오늘 것이 둘 있어서, 저장하면 마지막 기록일이 오늘이 되고 복구 카드가 걷힌다.
  */
 const CAPTURE_SELECTED: readonly { amount: number; daysAgo: number }[] = [
@@ -49,6 +52,8 @@ const CAPTURE_SELECTED: readonly { amount: number; daysAgo: number }[] = [
   { amount: 32_900, daysAgo: 2 }, // 쿠팡
 ];
 const CAPTURE_TOTAL = CAPTURE_SELECTED.reduce((sum, row) => sum + row.amount, 0);
+/** 검토 목록에 서는 줄 수. 켜진 넷에 카카오T 와 카드 캐시백이 꺼진 채로 더해진다. */
+const CAPTURE_ROWS = 6;
 
 /**
  * 저장한 넷 중 이번 달에 잡히는 몫.
@@ -129,22 +134,11 @@ test('03 홈이 상황마다 다른 얼굴로 뜬다', async ({ page, home, reco
   await expect(home.hero.firstLead).toHaveCount(0);
   await demo.beat(3);
 
-  await demo.step('기록이 하나 생겼으니 예산 제안 카드도 같이 붙는다');
-  await expect(home.budget.suggestLead).toBeVisible();
-  await expect(home.budget.saveButton).toBeVisible();
-  await expect(home.hero.monthSpent).toHaveText(formatCurrency(awayInThisMonth()));
-  await demo.beat(3);
-
-  await demo.step(`제안 카드에 이번 달 예산 ${formatCurrency(BUDGET)}을 넣는다`);
-  await home.budget.set(BUDGET);
-
-  await demo.step('히어로가 남은 예산으로 바뀌고 제안 카드는 걷힌다. 복구 카드는 남는다');
-  await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - awayInThisMonth()));
+  await demo.step('권유 카드는 한 번에 하나다. 밀린 내역이 먼저라 예산 제안은 기다린다');
+  // 순서는 HomePage.tsx 의 규칙 그대로다. 밀린 내역 → 홈 화면 추가 → 저녁 알림 → 예산 제안.
+  await expect(home.budget.suggestLead).toHaveCount(0);
   await expect(home.budget.saveButton).toHaveCount(0);
-  await expect(home.recovery.catchUpButton).toBeVisible();
-  expect(await home.hero.gaugePercent(), '게이지가 안 생겼다').toBe(
-    Math.round((awayInThisMonth() / BUDGET) * 100),
-  );
+  await expect(home.hero.monthSpent).toHaveText(formatCurrency(awayInThisMonth()));
   await demo.beat(3);
 
   await demo.step('밀린 내역 한 번에 정리를 누른다');
@@ -159,12 +153,13 @@ test('03 홈이 상황마다 다른 얼굴로 뜬다', async ({ page, home, reco
   await demo.step('거래내역 캡처 한 장을 고른다');
   await recordSheet.capture.pick();
 
-  await demo.step('한 장에서 다섯 건을 읽어 검토 목록으로 펼친다');
-  await expect(recordSheet.capture.rows).toHaveCount(5);
+  await demo.step('한 장에서 여섯 건을 읽어 검토 목록으로 펼친다');
+  await expect(recordSheet.capture.rows).toHaveCount(CAPTURE_ROWS);
   await demo.beat(3);
 
-  await demo.step('확신이 낮은 줄만 꺼져 있다. 나머지 넷을 한 번에 저장한다');
+  await demo.step('확신이 낮은 줄과 환불 줄만 꺼져 있다. 나머지 넷을 한 번에 저장한다');
   await expect(recordSheet.capture.checkbox('카카오T')).not.toBeChecked();
+  await expect(recordSheet.capture.checkbox('MY 카드 캐시백')).toBeDisabled();
   await recordSheet.capture.save();
   await expect(recordSheet.capture.savedTitle).toHaveText(
     `${CAPTURE_SELECTED.length}건 저장했어요 · ${formatCurrency(CAPTURE_TOTAL)}`,
@@ -174,12 +169,27 @@ test('03 홈이 상황마다 다른 얼굴로 뜬다', async ({ page, home, reco
   await recordSheet.capture.confirmButton.click();
   await recordSheet.waitClosed();
 
-  await demo.step('오늘 것이 생겼으니 복구 카드가 걷힌다. 남은 예산도 그만큼 줄었다');
+  await demo.step('오늘 것이 생겼으니 복구 카드가 걷히고, 기다리던 예산 제안 카드가 선다');
   await expect(home.recovery.card).toHaveCount(0);
+  await expect(home.budget.suggestLead).toBeVisible();
+  await expect(home.budget.saveButton).toBeVisible();
+  await expect(home.hero.monthSpent).toHaveText(
+    formatCurrency(awayInThisMonth() + captureInThisMonth()),
+  );
+  await demo.beat(3);
+
+  await demo.step(`제안 카드에 이번 달 예산 ${formatCurrency(BUDGET)}을 넣는다`);
+  await home.budget.set(BUDGET);
+
+  await demo.step('히어로가 남은 예산으로 바뀌고 제안 카드는 걷힌다');
   await expect(home.hero.remainingBudget).toHaveText(
     formatCurrency(BUDGET - awayInThisMonth() - captureInThisMonth()),
   );
-  await demo.beat(2);
+  await expect(home.budget.saveButton).toHaveCount(0);
+  expect(await home.hero.gaugePercent(), '게이지가 안 생겼다').toBe(
+    Math.round(((awayInThisMonth() + captureInThisMonth()) / BUDGET) * 100),
+  );
+  await demo.beat(3);
 
   await demo.step('오늘 목록에도 방금 정리한 것이 줄로 남는다');
   await home.today.reveal();
@@ -210,6 +220,7 @@ test('04 예산 게이지는 넘길 때만 색이 바뀐다', async ({ home, rec
   await demo.step('게이지가 30% 까지 찬다. 색은 세이지다');
   await expect(home.hero.remainingBudget).toHaveText(formatCurrency(GAUGE_BUDGET - PART_SPEND));
   await expect(home.hero.spendPercent).toHaveText('30% 썼어요');
+  await expect(home.hero.cautionChip).toHaveCount(0);
   expect(await home.hero.gaugePercent()).toBe(30);
   // 여기서 잰 색을 기준으로 삼는다. 뒤에서 이 값과 같은지 다른지로 색이 바뀌었는지 가린다.
   const sage = await home.hero.gaugeFillColor();
@@ -218,9 +229,11 @@ test('04 예산 게이지는 넘길 때만 색이 바뀐다', async ({ home, rec
   await demo.step(`남은 ${formatCurrency(FILL_SPEND)}을 정확히 다 쓴다`);
   await recordOnce(home, recordSheet, FILL_SPEND);
 
-  await demo.step('딱 100%. 꽉 찼는데도 색은 그대로다');
+  await demo.step('딱 100%. 꽉 찼는데도 색은 그대로고, 옆에 「주의」 칩만 붙는다');
   await expect(home.hero.remainingBudget).toHaveText(formatCurrency(0));
   await expect(home.hero.spendPercent).toHaveText('100% 썼어요');
+  // 80% 부터 넘기기 전까지 붙는다(budgetTone.ts CAUTION_RATIO).
+  await expect(home.hero.cautionChip).toBeVisible();
   await expect(home.hero.dailyAllowance).toHaveText(formatCurrency(0));
   expect(await home.hero.gaugePercent()).toBe(100);
   expect(await home.hero.gaugeFillColor(), '100% 인데 벌써 색이 바뀌었다').toBe(sage);
@@ -233,11 +246,13 @@ test('04 예산 게이지는 넘길 때만 색이 바뀐다', async ({ home, rec
   await expect(home.hero.remainingBudget).toHaveText(formatCurrency(-OVER_SPEND));
   // 막대는 100% 에서 멈춘다. 얼마나 넘겼는지는 옆 문구가 말한다.
   await expect(home.hero.spendPercent).toHaveText('130% 썼어요');
+  // 넘긴 뒤에는 칩을 떼고 퍼센트 색이 말한다. 둘을 겹치면 무엇이 더 나쁜지 안 읽힌다.
+  await expect(home.hero.cautionChip).toHaveCount(0);
   expect(await home.hero.gaugePercent()).toBe(100);
   expect(await home.hero.gaugeFillColor(), '예산을 넘겼는데 색이 그대로다').not.toBe(sage);
   await demo.beat(3);
 
-  await demo.step('색이 바뀌는 경계는 초과 하나뿐이다. 중간 경고 구간은 없다');
+  await demo.step('게이지 색이 바뀌는 건 넘길 때뿐이다. 80% 부터는 「주의」 칩으로 먼저 알린다');
   await demo.beat(2);
 
   await demo.clearStep();

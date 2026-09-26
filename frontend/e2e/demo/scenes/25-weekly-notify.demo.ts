@@ -13,8 +13,8 @@ import { expect, test } from '../support/director';
 const BUDGET = 1_000_000;
 const YESTERDAY_EXPENSE = 120_000;
 
-/** 알림을 켤 때 시각을 안 고르면 서버가 넣어 주는 값. */
-const DEFAULT_TIME = '21:30';
+/** 알림을 켤 때 시각을 안 고르면 서버가 넣어 주는 값(`notifications/service.py` DEFAULT_REMIND_AT). */
+const DEFAULT_TIME = '20:00';
 const NEW_TIME = '22:00';
 
 test('52 이번 주 쓸 수 있는 돈과 안 쓴 날', async ({ demo, home, prep }) => {
@@ -83,7 +83,7 @@ test('53 정한 시각에 한 번, 기록하러 오라고만 알린다', async (
   await notifications.turnOn();
   await demo.beat(2);
 
-  await demo.step('시각을 안 골랐으니 기본 시각이 들어간다');
+  await demo.step('시각을 안 골랐으니 기본 시각 저녁 8시가 들어간다');
   await expect(notifications.timeInput).toHaveValue(DEFAULT_TIME);
   await demo.beat(3);
 

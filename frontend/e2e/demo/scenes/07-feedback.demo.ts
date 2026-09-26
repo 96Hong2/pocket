@@ -115,7 +115,7 @@ test('11 예산이 없을 때 저장 직후 한마디', async ({ demo, home, rec
   await expect(recordSheet.feedback.card).not.toContainText('주의');
   await demo.beat(3);
 
-  await demo.step('닫으면 홈 숫자도 같은 값이다');
+  await demo.step('닫으면 홈의 쓴 돈도 같은 값이다');
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(monthTotal));

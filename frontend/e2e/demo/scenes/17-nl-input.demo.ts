@@ -93,7 +93,7 @@ test('37 이해한 결과를 눌러서 고친다', async ({ demo, home, recordSh
   await recordSheet.nl.analyze('점심 12000');
   await demo.beat(2);
 
-  await demo.step('고치기를 누르면 그 줄이 펼쳐진다');
+  await demo.step('그 줄을 누르면 그 자리에서 펼쳐진다');
   await recordSheet.nl.openEdit('점심');
   await demo.beat(3);
 
@@ -183,9 +183,14 @@ test('39 한 번 고친 분류를 기억한다', async ({ categories, demo, home
   await expect(recordSheet.nl.row('올리브영')).toContainText('생활');
   await demo.beat(3);
 
-  await demo.step('카테고리 관리에 기억한 분류가 쌓인다');
+  await demo.step('이번 것은 저장하지 않고 닫는다. 읽어 온 1건을 버릴지 한 번 묻는다');
   await recordSheet.closeButton.click();
+  await expect(recordSheet.leave.text).toHaveText('읽어 온 1건이 사라져요. 그만둘까요?');
+  await demo.beat(2);
+  await recordSheet.leave.leaveButton.click();
   await recordSheet.waitClosed();
+
+  await demo.step('카테고리 관리에 기억한 분류가 쌓인다');
   await categories.open();
   await categories.waitReady();
   await expect(categories.rules.row('올리브영')).toContainText('생활');

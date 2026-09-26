@@ -172,7 +172,7 @@ test('23 갤러리의 바텀시트와 상태와 색', async ({ page, demo }) => 
 
   // 닫는 세 가지 길을 차례로 본다.
   // 열림과 닫힘 사이에 머무는 시간이 없으면 순식간에 지나가 사람 눈에는 아무 일도 안 보인다.
-  await demo.step('첫째 길. 헤더 오른쪽 X 로 닫는다');
+  await demo.step('첫째 길. 맨 위 손잡이를 눌러 닫는다');
   await gallery.sheet.closeButton.click();
   await gallery.sheet.waitClosed();
   await demo.beat(2);

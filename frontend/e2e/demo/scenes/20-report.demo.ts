@@ -59,13 +59,13 @@ test('43 한 달 지출을 도넛과 목록으로 나눠 본다', async ({
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(100_000));
   await demo.beat(2);
 
-  await demo.step('홈은 총액 하나만 말한다. 리포트 탭으로 옮긴다');
+  await demo.step('홈은 분류를 가르지 않는다. 리포트 탭으로 옮긴다');
   await appShell.goToTab('리포트');
   await report.waitReady();
   await expect(report.headlineLabel).toContainText(formatMonthLabel(THIS_MONTH));
   await demo.beat(2);
 
-  await demo.step('맨 위 숫자는 홈에서 보던 것과 같다');
+  await demo.step('맨 위 숫자는 홈의 쓴 돈과 같다');
   await expect(report.total).toHaveText(formatCurrency(100_000));
   await demo.beat(3);
 
@@ -90,7 +90,7 @@ test('43 한 달 지출을 도넛과 목록으로 나눠 본다', async ({
   await expect(report.share('식비')).toHaveText('50%');
   await demo.beat(3);
 
-  await demo.step('맨 아래 여섯 달 흐름에서 이번 달이 어디쯤인지 본다');
+  await demo.step('도넛 아래 여섯 달 흐름에서 이번 달이 어디쯤인지 본다');
   await report.trendBars.first().scrollIntoViewIfNeeded();
   await expect(report.trendBar(THIS_MONTH)).toHaveAttribute('data-current', '');
   await demo.beat(3);

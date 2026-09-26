@@ -93,6 +93,26 @@ export class CategoryComposeArea {
     await this.saveButton.click();
   }
 
+  /**
+   * 본문(「아이콘」 이름표)을 잡고 아래로 끌어내린다. 버튼이 아니라 누르기로 안 읽힌다.
+   * 열린 직후에는 굴리는 손짓으로 쳐 막히므로 부르는 쪽이 조금 쉰 뒤 부른다.
+   */
+  async dragDown(distance = 230): Promise<void> {
+    const box = await this.page
+      .locator('.cat-sheet__field--icon > .cat-sheet__label')
+      .boundingBox();
+    if (box == null) throw new Error('끌어내릴 자리를 찾지 못했다');
+    const x = box.x + box.width / 2;
+    const y = box.y + Math.min(40, box.height / 3);
+
+    await this.page.mouse.move(x, y);
+    await this.page.mouse.down();
+    for (let step = 1; step <= 5; step += 1) {
+      await this.page.mouse.move(x, y + (distance * step) / 5);
+    }
+    await this.page.mouse.up();
+  }
+
   /** 이름만 적고 저장한다. 아이콘도 색도 안 고른 채로 만들어지는지 보는 자리다. */
   async createByName(name: string): Promise<void> {
     await this.nameField.fill(name);

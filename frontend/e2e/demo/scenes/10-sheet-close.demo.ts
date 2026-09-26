@@ -6,9 +6,11 @@ import { formatCurrency } from '../../../src/shared/lib/format';
 /**
  * 시트에서 나가는 길과, 나가지지 않는 경우를 한 파일에 담는다.
  *
- * 앞 영상은 X · Esc · 시스템 뒤로가기 셋으로 저장 없이 닫는 모습이다.
- * 뒤로가기가 미니앱이 아니라 시트를 먼저 가져간다는 것이 요점이다.
- * 뒤 영상은 반대다. 저장이 실패하면 시트를 닫지 않고 찍어 둔 금액을 쥔 채 안내만 띄운다.
+ * 15 는 손잡이 · Esc · 시스템 뒤로가기 셋으로 저장 없이 닫는 모습이다.
+ * 뒤로가기가 미니앱이 아니라 시트를 먼저 가져간다는 것이 요점이다. 찍어 둔 금액이 있으면
+ * 어느 길로 닫든 한 번 묻는다.
+ * 16 은 반대다. 저장이 실패하면 시트를 닫지 않고 찍어 둔 금액을 쥔 채 안내만 띄운다.
+ * 60 은 묻는 쪽을 자세히 본다. 머무르면 적던 것이 그대로고, 분류 만들기 창은 그 창만 닫힌다.
  */
 
 const CATEGORY = '식비';
@@ -21,7 +23,7 @@ const TYPED = 3_500;
 /** Esc 로 닫을 때 찍는 금액. 앞과 다른 값이라 새로 찍은 것이 화면에서 구분된다. */
 const RETYPED = 7_000;
 
-test('15 시트를 닫는 세 가지 방법 (X · Esc · 시스템 뒤로가기)', async ({
+test('15 시트를 닫는 세 가지 방법 (손잡이 · Esc · 시스템 뒤로가기)', async ({
   appShell,
   demo,
   home,
@@ -47,8 +49,13 @@ test('15 시트를 닫는 세 가지 방법 (X · Esc · 시스템 뒤로가기)
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(TYPED));
   await demo.beat(2);
 
-  await demo.step('헤더의 X 를 누른다');
+  await demo.step('맨 위 손잡이를 누른다. 찍어 둔 금액이 있어 한 번 묻는다');
   await recordSheet.closeButton.click();
+  await expect(recordSheet.leave.draftText).toHaveText('적던 내용이 사라져요. 그만둘까요?');
+  await demo.beat(2);
+
+  await demo.step('그만두기를 누르면 시트가 닫힌다');
+  await recordSheet.leave.leaveButton.click();
   await recordSheet.waitClosed();
   // 카테고리를 누르지 않았으니 저장이 아니다. 홈 숫자가 움직이면 안 된다.
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(SEEDED));
@@ -62,25 +69,29 @@ test('15 시트를 닫는 세 가지 방법 (X · Esc · 시스템 뒤로가기)
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));
   await demo.beat(2);
 
-  await demo.step(`이번엔 ${formatCurrency(RETYPED)} 을 찍고 Esc 를 누른다`);
+  await demo.step(`이번엔 ${formatCurrency(RETYPED)} 을 찍고 Esc 를 누른다. 같은 확인을 지난다`);
   await recordSheet.input.enterAmount(RETYPED);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(RETYPED));
   await recordSheet.closeByEsc();
+  await expect(recordSheet.leave.dialog).toBeVisible();
+  await demo.beat(2);
+  await recordSheet.leave.leaveButton.click();
   await recordSheet.waitClosed();
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(SEEDED));
   await demo.clearStep();
   await demo.beat(2);
 
-  await demo.step('세 번째는 토스 앱의 시스템 뒤로가기');
+  await demo.step('세 번째는 토스 앱의 시스템 뒤로가기. 이번에는 아무것도 안 찍었다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
   const beforeBack = appShell.pathname;
   expect(beforeBack, '홈에서 시작하지 않았다').toBe(ROUTES.home);
   await demo.beat(2);
 
-  await demo.step('뒤로가기를 눌러도 미니앱이 아니라 시트가 닫힌다');
+  await demo.step('뒤로가기를 눌러도 미니앱이 아니라 시트가 닫힌다. 잃을 것이 없어 묻지 않는다');
   await appShell.pressBack();
   await recordSheet.waitClosed();
+  await expect(recordSheet.leave.dialog).toHaveCount(0);
   // 미니앱이 닫혔다면 홈도 같이 사라진다. 화면이 살아 있고 경로도 그대로인 것이 그 증거다.
   await appShell.expectMounted();
   await expect(home.recordButton).toBeVisible();
@@ -176,4 +187,59 @@ test('16 저장이 실패해도 시트는 닫히지 않고 금액이 남는다',
   await expect(home.today.row(CATEGORY)).toBeVisible();
   await demo.clearStep();
   await demo.beat(3);
+});
+
+/** 찍어 두고 닫으려 하는 금액. 머무르면 이 값이 그대로 남아 있어야 한다. */
+const DRAFT_AMOUNT = 12_000;
+/** 분류 만들기 창에 적어 두는 이름. */
+const DRAFT_CATEGORY = '반려동물';
+
+test('60 적다 만 것이 있으면 닫기 전에 한 번 묻는다', async ({ demo, home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await demo.open('적다 만 것', '실수로 닫아도 적던 것을 말없이 잃지 않는다');
+
+  await demo.step(`기록하기를 누르고 ${formatCurrency(DRAFT_AMOUNT)}을 찍는다`);
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.input.enterAmount(DRAFT_AMOUNT);
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(DRAFT_AMOUNT));
+  await demo.beat(2);
+
+  await demo.step('맨 위 손잡이를 잡고 아래로 끌어내린다');
+  await recordSheet.dragDown();
+  await expect(recordSheet.leave.draftText).toHaveText('적던 내용이 사라져요. 그만둘까요?');
+  await demo.beat(3);
+
+  await demo.step('「계속 쓰기」 를 누르면 찍어 둔 금액 그대로 돌아온다');
+  await recordSheet.leave.stayButton.click();
+  await expect(recordSheet.leave.dialog).toHaveCount(0);
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(DRAFT_AMOUNT));
+  await demo.beat(2);
+
+  await demo.step('이번에는 분류 칸의 「새 분류」 로 만들기 창을 연다');
+  await recordSheet.input.openNewCategory();
+  const compose = recordSheet.input.newCategoryForm;
+  await expect(compose.title).toBeVisible();
+  await demo.beat(2);
+
+  await demo.step(`이름 칸에 ${DRAFT_CATEGORY}을 적어 둔다`);
+  await compose.nameField.fill(DRAFT_CATEGORY);
+  await expect(compose.nameField).toHaveValue(DRAFT_CATEGORY);
+  await demo.beat(2);
+
+  await demo.step('만들기 창을 손가락으로 아래로 끌어내린다');
+  await compose.dragDown();
+  await expect(recordSheet.leave.draftText).toHaveText('만들던 분류가 사라져요. 그만둘까요?');
+  await demo.beat(3);
+
+  await demo.step('「그만두기」 를 누르면 만들기 창만 닫히고 찍어 둔 금액은 남는다');
+  await recordSheet.leave.leaveButton.click();
+  await expect(compose.title).toHaveCount(0);
+  await recordSheet.waitOpen();
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(DRAFT_AMOUNT));
+  await demo.beat(3);
+
+  await demo.clearStep();
+  await demo.beat(2);
 });

@@ -2,12 +2,13 @@ import { formatCurrency } from '../../../src/shared/lib/format';
 import { expect, test } from '../support/director';
 
 /**
- * 기록 시트 안쪽 두 가지를 찍는다.
+ * 기록 시트 안쪽 세 가지를 찍는다.
  *
  * 09 는 금액을 만드는 규칙이다. 키가 무엇무엇 있고, 지우면 어떻게 줄고,
  * 앞자리 0 과 12자리 상한이 어떻게 걸리는지까지 실제로 눌러서 보여준다.
- * 10 은 카테고리 칩이다. 지출 아홉 개만 나오는 것, 금액이 0원일 때 누르면 저장이 아니라
+ * 10 은 카테고리 칩이다. 지출 열한 개만 나오는 것, 금액이 0원일 때 누르면 저장이 아니라
  * 고르기가 되는 것, 목록을 불러오는 중과 못 불러왔을 때의 화면을 이어서 보여준다.
+ * 59 는 이체다. 내 계좌끼리 옮긴 돈은 목록에 남되 이번 달 쓴 돈에 안 들어간다.
  */
 
 /** 저장 없이 금액만 만드는 장면이라 숫자는 눈에 잘 들어오는 값 하나면 된다. */
@@ -25,21 +26,26 @@ const AFTER_BACKSPACE = [1_200, 120, 12, 1, 0] as const;
 /** 키패드에 놓인 숫자 키. 순서도 화면에 보이는 그대로다. */
 const NUMBER_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0'] as const;
 
-/** 지출 카테고리. 서버가 시드한 순서 그대로 3열로 놓인다. */
+/**
+ * 지출 카테고리. 서버가 시드한 순서 그대로다(`backend/app/domain/categories.py`).
+ * 앞자리 상한(`QUICK_LIMIT`)이 열한 개라 내가 만든 것이 없으면 전부 앞에 선다.
+ */
 const EXPENSE_CATEGORIES = [
   '식비',
   '카페·간식',
+  '편의점',
   '교통',
   '쇼핑',
   '생활',
   '주거·고정비',
+  '구독',
   '여가·취미',
   '건강·미용',
   '기타',
 ] as const;
 
 /** 시트에 올라오지 않는 카테고리. 지출만 걸러 내는지 되짚는 데 쓴다. */
-const NOT_ON_SHEET = ['월급', '용돈', '기타 수입', '이체'] as const;
+const NOT_ON_SHEET = ['월급', '용돈', '부업', '기타 수입', '이체'] as const;
 
 const EMPTY_HINT = '금액을 누르고 카테고리를 고르면 바로 저장돼요';
 const READY_HINT = '카테고리를 고르면 저장돼요';
@@ -138,8 +144,13 @@ test('09 키패드로 금액을 찍는 규칙', async ({ home, recordSheet, demo
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(MAX_AMOUNT));
   await demo.beat(2);
 
-  await demo.step('닫으면 아무것도 남지 않는다. 0원에서 누른 칩은 저장이 아니었다');
+  await demo.step('손잡이를 누르면 찍어 둔 금액을 버릴지 한 번 묻는다');
   await recordSheet.closeButton.click();
+  await expect(recordSheet.leave.draftText).toHaveText('적던 내용이 사라져요. 그만둘까요?');
+  await demo.beat(2);
+
+  await demo.step('그만두면 아무것도 남지 않는다. 0원에서 누른 칩은 저장이 아니었다');
+  await recordSheet.leave.leaveButton.click();
   await recordSheet.waitClosed();
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(0));
   await demo.clearStep();
@@ -161,10 +172,10 @@ test('10 카테고리 칩과 불러오기 실패', async ({
   await home.waitReady();
   await demo.open(
     '카테고리 칩',
-    '지출 아홉 개. 0원에 누르면 고르기가 되고, 못 불러오면 다시 시도한다',
+    '지출 열한 개. 0원에 누르면 고르기가 되고, 못 불러오면 다시 시도한다',
   );
 
-  await demo.step('기록 시트를 열면 지출 카테고리 아홉 개가 3열로 놓인다');
+  await demo.step('기록 시트를 열면 지출 카테고리 열한 개가 놓인다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
   for (const name of EXPENSE_CATEGORIES) {
@@ -185,7 +196,7 @@ test('10 카테고리 칩과 불러오기 실패', async ({
   await expect(recordSheet.input.saveButton).toBeDisabled();
   await demo.beat(3);
 
-  await demo.step('다시 고르기를 누르면 아홉 개가 그대로 돌아온다');
+  await demo.step('다시 고르기를 누르면 열한 개가 그대로 돌아온다');
   await recordSheet.input.pickedCategory.click();
   for (const name of EXPENSE_CATEGORIES) {
     await expect(recordSheet.input.categoryChip(name)).toBeVisible();
@@ -201,7 +212,9 @@ test('10 카테고리 칩과 불러오기 실패', async ({
   await demo.beat(3);
 
   await demo.step('이번에는 카테고리 응답을 붙잡아 두고 다시 연다');
+  // 금액을 찍어 둔 채라 닫기 전에 한 번 묻는다. 여기서는 버리고 나간다.
   await recordSheet.closeButton.click();
+  await recordSheet.leave.leaveButton.click();
   await recordSheet.waitClosed();
 
   // 응답을 놓아 줄 때까지 잡아 둔다. 몇 초를 기다리는 대신 시점을 이 테스트가 정한다.
@@ -241,6 +254,7 @@ test('10 카테고리 칩과 불러오기 실패', async ({
 
   await demo.step('이번에는 카테고리 조회가 실패하게 만든다');
   await recordSheet.closeButton.click();
+  await recordSheet.leave.leaveButton.click();
   await recordSheet.waitClosed();
 
   await page.route(CATEGORIES_ROUTE, async (route) => {
@@ -277,6 +291,64 @@ test('10 카테고리 칩과 불러오기 실패', async ({
   for (const name of EXPENSE_CATEGORIES) {
     await expect(recordSheet.input.categoryChip(name)).toBeVisible();
   }
+  await demo.clearStep();
+  await demo.beat(2);
+});
+
+/** 이체 옆에 둘 이번 달의 진짜 지출. 합계가 이 값에서 안 움직여야 한다. */
+const SPENT = 8_000;
+const SPENT_MERCHANT = '김밥천국';
+
+/** 카드값처럼 내 계좌끼리 옮긴 돈. 지출로 세면 카드로 이미 적은 지출을 한 번 더 센다. */
+const TRANSFER_AMOUNT = 800_000;
+
+test('59 계좌 사이 옮긴 돈은 지출에 안 들어간다', async ({ demo, home, prep, recordSheet }) => {
+  await prep.addTransaction({ amount: SPENT, merchant: SPENT_MERCHANT });
+
+  await home.open();
+  await home.waitReady();
+  await demo.open('계좌 사이 옮긴 돈', '카드값·적금처럼 내 계좌끼리 옮긴 돈은 쓴 돈이 아니다');
+
+  await demo.step(`이번 달 쓴 돈은 ${formatCurrency(SPENT)}이다`);
+  await expect(home.hero.monthSpent).toHaveText(formatCurrency(SPENT));
+  await demo.beat(2);
+
+  await demo.step(`기록하기를 누르고 카드값 ${formatCurrency(TRANSFER_AMOUNT)}을 찍는다`);
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.input.enterAmount(TRANSFER_AMOUNT);
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(TRANSFER_AMOUNT));
+  await demo.beat(2);
+
+  await demo.step('분류 아래 「계좌 사이 옮긴 돈이에요」 를 누른다');
+  await recordSheet.input.transferButton.click();
+  await expect(recordSheet.input.transferPanel).toBeVisible();
+  await demo.beat(2);
+
+  await demo.step('이체에는 분류가 없다. 분류 칩이 걷히고 지출·수입도 잠긴다');
+  await expect(recordSheet.input.newCategoryButton).toHaveCount(0);
+  await expect(recordSheet.input.kindButton('지출')).toBeDisabled();
+  await demo.beat(3);
+
+  await demo.step('고를 것이 없으니 저장 버튼으로 바로 적는다');
+  await expect(recordSheet.input.saveButton).toBeEnabled();
+  await recordSheet.input.saveButton.click();
+  await recordSheet.feedback.waitSaved();
+  await demo.beat(2);
+
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  await demo.step(`이번 달 쓴 돈은 그대로 ${formatCurrency(SPENT)}이다`);
+  await expect(home.hero.monthSpent).toHaveText(formatCurrency(SPENT));
+  await demo.beat(3);
+
+  await demo.step('목록에는 이체 표시를 달고 남는다. 오늘 쓴 돈 합계에도 안 들어간다');
+  await home.today.reveal();
+  await expect(home.today.chip('이체')).toBeInViewport();
+  await expect(home.today.spentTotal).toHaveText(`${formatCurrency(SPENT)} 씀`);
+  await demo.beat(3);
+
   await demo.clearStep();
   await demo.beat(2);
 });

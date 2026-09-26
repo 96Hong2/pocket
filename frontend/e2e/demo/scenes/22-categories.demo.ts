@@ -12,6 +12,8 @@ import { expect, test } from '../support/director';
  */
 
 const PET = '반려동물';
+/** 기본 분류 수. 지출 11 · 수입 4 · 이체 1 (`backend/app/domain/categories.py` DEFAULT_CATEGORIES). */
+const BASIC_COUNT = 16;
 /** 아이콘 격자 칸은 파일 이름(`16_paw`)에서 앞 번호를 뗀 영어를 읽어 준다. */
 const PET_ICON = 'paw';
 
@@ -30,7 +32,7 @@ test('46 내 분류를 만들고 아이콘을 고른다', async ({
   await appShell.goToTab('관리');
   await appShell.followRow('카테고리 관리');
   await categories.waitReady();
-  await expect(categories.basicRows).toHaveCount(13);
+  await expect(categories.basicRows).toHaveCount(BASIC_COUNT);
   await demo.beat(3);
 
   await demo.step('지출·수입·이체가 자리를 나눠 서 있고, 아직 만든 것은 없다');
@@ -48,9 +50,9 @@ test('46 내 분류를 만들고 아이콘을 고른다', async ({
   await expect(categories.sheet.nameField).toHaveValue(PET);
   await demo.beat(2);
 
-  await demo.step('아이콘을 하나 고른다');
-  await categories.sheet.iconCell(PET_ICON).click();
-  await expect(categories.sheet.iconCell(PET_ICON)).toHaveAttribute('aria-pressed', 'true');
+  await demo.step('아이콘을 하나 고르면 격자가 접힌다');
+  await categories.sheet.pickIcon(PET_ICON);
+  await expect(categories.sheet.reopenIconsButton).toBeVisible();
   await demo.beat(3);
 
   await demo.step('저장하면 다시 불러오지 않고 그 자리에 나타난다');

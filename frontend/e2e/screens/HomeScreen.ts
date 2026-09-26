@@ -194,6 +194,11 @@ class HomeHero {
     return this.page.getByText(/^\d+% 썼어요$/);
   }
 
+  /** 게이지 옆 「주의」 칩. 80% 부터 넘기기 전까지만 붙는다. 넘긴 뒤에는 퍼센트 색이 대신 말한다. */
+  get cautionChip(): Locator {
+    return this.page.getByText('주의', { exact: true });
+  }
+
   /**
    * 표시 설정을 못 받아 기본 화면을 그리고 있다는 안내.
    *
