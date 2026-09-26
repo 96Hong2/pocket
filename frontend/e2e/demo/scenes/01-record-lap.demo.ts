@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../../src/shared/lib/format';
+import { formatCurrency, toLedgerDate } from '../../../src/shared/lib/format';
 import { expect, test } from '../support/director';
 
 /**
@@ -8,6 +8,9 @@ import { expect, test } from '../support/director';
  * 홈 CTA · 금액 · 카테고리, 저장까지 세 단계뿐이라는 것이 이 영상의 볼거리다.
  * 02 는 그 뒤 이야기다. 예산을 정하면 게이지가 생기고 기록할수록 찬다.
  */
+
+/** 히어로 라벨 앞에 붙는 달. 기기 시간대가 아니라 가계부 시간대로 얻는다. */
+const MONTH_NUMBER = Number(toLedgerDate(new Date()).slice(5, 7));
 
 const AMOUNT = 12_000;
 /** 저장한 줄을 눌러 고쳐 넣는 금액. 처음 값과 자릿수가 달라 화면에서 갈린다. */
@@ -29,7 +32,9 @@ test('01 처음 열어 기록하고 그 자리에서 고치기까지 한 바퀴'
   await expect(home.today.empty).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('처음 열어도 예산부터 묻지 않아요. 이번 달 쓴 돈 0원만 보여줍니다');
+  await demo.step('처음 열어도 예산부터 묻지 않아요. 이번 달 남은 돈과 번 돈·쓴 돈만 보여줍니다');
+  // 예산이 없으면 히어로는 수입·지출 갈래로 떨어진다(homeMode.ts resolveHeroLayout).
+  await expect(home.hero.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 남은 돈`);
   await demo.beat(2);
 
   await demo.step('1단계 · 홈에서 기록하기를 누릅니다');
@@ -58,7 +63,7 @@ test('01 처음 열어 기록하고 그 자리에서 고치기까지 한 바퀴'
   );
   await demo.beat(2);
 
-  await demo.step('뒤에 있는 홈 숫자도 새로고침 없이 따라 올라갔어요');
+  await demo.step('뒤에 있는 홈의 쓴 돈도 새로고침 없이 따라 올라갔어요');
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(AMOUNT));
 
   await demo.step('잘못 적었으면 저장한 줄을 그대로 눌러 고칩니다');

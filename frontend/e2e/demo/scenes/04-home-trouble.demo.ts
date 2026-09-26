@@ -62,7 +62,7 @@ test('06 불러오는 중과 못 불러온 홈, 그리고 다시 시도', async 
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(SPENT));
   await demo.beat();
 
-  await demo.step('예산 조회를 4초 늦춰 두고 홈을 다시 연다');
+  await demo.step(`예산 조회를 ${SLOW_MS / 1000}초 늦춰 두고 홈을 다시 연다`);
   await page.route(BUDGETS, async (route) => {
     if (route.request().method() !== 'GET') {
       await route.continue();
@@ -75,9 +75,10 @@ test('06 불러오는 중과 못 불러온 홈, 그리고 다시 시도', async 
   });
   await home.open();
 
-  await demo.step('불러오는 동안에는 스피너만 돈다');
+  await demo.step('히어로 자리는 스피너가 돌아도 기록하기는 먼저 선다');
   await expect(home.loadingState).toBeVisible();
-  await expect(home.recordButton).toHaveCount(0);
+  // 조회를 기다리는 동안에도 기록은 되어야 한다(HomePage.tsx, ADR-0026).
+  await expect(home.recordButton).toBeVisible();
   await demo.beat(2);
 
   // 늦어도 오기만 하면 원래 화면이 돌아온다. 여기까지는 실패가 아니다.

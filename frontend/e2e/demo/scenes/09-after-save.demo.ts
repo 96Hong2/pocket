@@ -29,7 +29,7 @@ test('14 저장한 뒤 카테고리와 결제 수단 고치기', async ({ demo, 
   await expect(recordSheet.feedback.headline).toContainText(formatCurrency(AMOUNT));
   await demo.beat(2);
 
-  await demo.step('카테고리 바꾸기를 누르면 칩이 펼쳐진다');
+  await demo.step('저장한 줄의 분류 쪽을 누르면 칩이 펼쳐진다');
   await recordSheet.feedback.changeCategoryButton.click();
   await expect(recordSheet.feedback.changeTitle).toBeVisible();
   // 지금 들어가 있는 분류는 눌린 상태로 표시된다. 어디서 옮기는지가 화면에 보인다.

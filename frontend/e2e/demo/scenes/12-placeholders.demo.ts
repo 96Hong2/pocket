@@ -7,7 +7,7 @@ import { thisMonth } from '../../support/api';
  * 지금 어디까지 만들어졌는지 둘러본다.
  *
  * 하나는 관리 탭과 앱 설정이 데리고 있는 화면들이다. 목표·자산·카테고리 관리·앱 설정과
- * 그 아래 알림 설정까지, 점선 카드가 걷히고 실제로 손댈 수 있는 화면이 들어왔으니 눌러 본다.
+ * 그 아래 알림 설정까지, 실제로 손댈 수 있는 화면이 들어와 있으니 눌러 본다.
  * 하나는 등록하지 않은 주소로 갔을 때다. 하얀 화면 대신 무엇을 보여주는지 확인한다.
  */
 
@@ -23,6 +23,8 @@ const DEBT = 300_000;
 
 /** 알림 설정 화면에서 직접 고르는 시각. */
 const REMIND_AT = '22:00';
+/** 시각을 안 고르고 켜면 서버가 넣는 값(`backend/app/modules/notifications/service.py` DEFAULT_REMIND_AT). */
+const DEFAULT_REMIND_AT = '20:00';
 
 /** 목표 화면에서 화면으로 직접 만드는 목표. 기한은 세 달 뒤로 둔다. */
 const GOAL_TITLE = '제주도 여행';
@@ -51,7 +53,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await appShell.expectCurrentTab('관리');
   await demo.beat(2);
 
-  await demo.step('점선 카드가 있던 자리에 예산 섹션이 들어와 있다');
+  await demo.step('맨 위 자산 카드 아래에 예산 섹션이 있다');
   await manage.waitReady();
   await expect(manage.total.startButton).toBeVisible();
   await demo.beat(2);
@@ -68,7 +70,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   ]);
   await demo.beat(2);
 
-  await demo.step('먼저 목표로 들어간다. 점선 카드가 걷히고 모으는 중인 것을 보는 화면이 들어왔다');
+  await demo.step('먼저 목표로 들어간다. 모으는 중인 것을 보는 화면이다');
   await appShell.followRow('목표');
   await appShell.expectScreen('목표', '모으고 싶은 것 하나만 정해요');
   await goal.waitReady();
@@ -129,7 +131,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await manage.calc.sheet.getByRole('button', { name: '닫기' }).click();
   await manage.calc.waitClosed();
 
-  await demo.step('이번에는 자산으로 들어간다. 점선 카드가 걷히고 실제로 적는 화면이 들어왔다');
+  await demo.step('이번에는 자산으로 들어간다. 가진 것을 대략 적는 화면이다');
   await manage.openAssets();
   await appShell.expectScreen(
     '자산',
@@ -168,7 +170,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await categories.waitReady();
   await demo.beat(2);
 
-  await demo.step('점선 카드가 걷히고 지출·수입·이체가 각자의 자리로 갈렸다');
+  await demo.step('지출·수입·이체가 각자의 자리로 갈려 있다');
   await expect(categories.expenseSection).toBeVisible();
   await expect(categories.incomeSection).toBeVisible();
   await expect(categories.transferSection).toBeVisible();
@@ -198,9 +200,12 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await demo.beat(2);
 
   await demo.step('홈 맨 위에 무엇을 크게 보여줄지 세 갈래 중에 고른다');
-  // 이 계정은 예산을 아직 안 정했다. 되짚는 한 줄이 그 사실까지 말해 홈과 같은 말이 된다.
+  /*
+    서버 기본값은 「남은 예산」 인데 이 계정은 예산이 없다. 홈은 수입·지출로 떨어지고
+    되짚는 한 줄이 그 이유까지 말한다(HomeHeroSetting.tsx 의 needsBudget 분기).
+  */
   await expect(settings.preview).toHaveText(
-    '아직 예산을 안 정해서, 홈 맨 위에 이번 달 쓴 돈이 보여요.',
+    '아직 예산을 안 정해서, 홈 맨 위에 이번 달 남은 돈이 보여요.',
   );
   await demo.beat(2);
 
@@ -209,8 +214,10 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 남은 돈이 먼저 보여요.');
   await demo.beat(2);
 
-  await demo.step('설정 아래에는 하위 화면이 둘 있다. 먼저 알림 설정으로 들어간다');
+  await demo.step('설정 아래에는 하위 화면이 셋 있다. 먼저 알림 설정으로 들어간다');
+  // 링크 줄만 센다. 엑셀로 내보내기와 버전은 그 자리에서 시트를 여는 버튼이다(PrivacyNotice.tsx).
   await expect(appShell.subScreenLinks('설정 하위 화면')).toHaveText([
+    '내 계정',
     '알림 설정',
     '개인정보처리방침',
   ]);
@@ -226,7 +233,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
 
   await demo.step('켜는 그 순간에 토스 알림 동의를 묻고, 시각은 저녁 8시로 들어온다');
   await notifications.turnOn();
-  await expect(notifications.timeInput).toHaveValue('21:30');
+  await expect(notifications.timeInput).toHaveValue(DEFAULT_REMIND_AT);
   await demo.beat(2);
 
   await demo.step('받고 싶은 시각으로 바꾼다');

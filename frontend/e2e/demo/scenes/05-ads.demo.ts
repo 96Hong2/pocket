@@ -5,7 +5,7 @@ import { expect, test } from '../support/director';
 /**
  * 광고 자리가 어떻게 동작하는지 한 영상에 담는다.
  *
- * 배너가 붙으면 홈 맨 아래에서 96px 규격대로 자리를 차지하고, 홈이 얼굴을 바꿔도 다시 붙지 않는다.
+ * 배너가 붙으면 오늘 목록 위에서 96px 규격대로 자리를 차지하고, 홈이 얼굴을 바꿔도 다시 붙지 않는다.
  * 채울 광고가 없으면 슬롯을 통째로 접어 빈 칸도 스켈레톤도 남기지 않는다.
  * 접힌 화면은 눈에 보이는 것이 없으므로 자막으로 무엇을 보고 있는지 말해 준다.
  */
@@ -25,7 +25,7 @@ test('08 광고 자리는 붙으면 96px, 없으면 접힌다', async ({ page, h
   await home.waitReady();
   await demo.open('광고 자리', '배너가 붙으면 규격대로 자리를 잡고, 채울 광고가 없으면 접는다');
 
-  await demo.step('홈 맨 아래, 오늘 목록 다음이 광고 자리다');
+  await demo.step('오늘 목록 바로 위가 광고 자리다');
   await home.ads.slot.scrollIntoViewIfNeeded();
   await expect(home.ads.banner).toBeVisible();
   await expect(home.ads.slot).toBeInViewport();
@@ -76,7 +76,7 @@ test('08 광고 자리는 붙으면 96px, 없으면 접힌다', async ({ page, h
   expect(await home.ads.slot.boundingBox(), '접힌 광고 자리가 아직 크기를 차지한다').toBeNull();
   await demo.beat(2);
 
-  await demo.step('오늘 목록 아래가 바로 화면 끝이다. 빈 칸도 스켈레톤도 없다');
+  await demo.step('오늘 목록이 그만큼 올라와 붙는다. 빈 칸도 스켈레톤도 없다');
   await demo.beat(3);
 
   await demo.clearStep();

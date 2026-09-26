@@ -72,7 +72,7 @@ test('56 태그와 메모로 기록을 묶는다', async ({
   await expect(calendar.list.row('부산 국밥')).toBeVisible();
   await demo.beat(4);
 
-  await demo.step('금액으로도 찾는다. 딱 그 금액만 나온다');
+  await demo.step('금액으로도 찾는다. 23,000원이면 23,000원대가 나온다');
   await calendar.search.find('23,000원');
   await expect(calendar.list.row('부산 국밥')).toBeVisible();
   await demo.beat(4);
