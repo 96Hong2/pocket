@@ -40,6 +40,11 @@ export function installDemoOverlay(): void {
     .pdemo-step[data-on="1"] { opacity: 1; transform: translateY(0); }
     /* 자막은 화면 위에 떠 있다. 그만큼 본문을 밀어야 히어로 라벨이 가려지지 않는다. */
     body { transition: padding-top .22s ease; }
+    /*
+      화면을 통째로 덮는 창(결산, 새 분류 만들기)은 body 여백을 못 받아 제목과 ✕ 가 자막 밑에 깔린다.
+      그 창들은 위쪽 안전영역만큼 비워 두므로, 자막이 떠 있는 동안 그 값을 자막 아래 끝으로 준다.
+    */
+    html[data-pdemo-step="1"] [aria-modal="true"] { --safe-top: var(--pdemo-step-bottom, 0px); }
     .pdemo-title {
       position: fixed; inset: 0; z-index: 2147483003; pointer-events: none;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -150,13 +155,19 @@ export function installDemoOverlay(): void {
       bar.className = 'pdemo-step';
       body.appendChild(bar);
     }
+    const root = document.documentElement;
     if (text) {
       bar.textContent = text;
       bar.dataset.on = '1';
       if (document.body) document.body.style.paddingTop = `${bar.offsetHeight + 22}px`;
+      // 12 는 .pdemo-step 의 top 이다.
+      root.style.setProperty('--pdemo-step-bottom', `${bar.offsetHeight + 12}px`);
+      root.dataset.pdemoStep = '1';
     } else {
       bar.dataset.on = '0';
       if (document.body) document.body.style.paddingTop = '';
+      root.style.removeProperty('--pdemo-step-bottom');
+      delete root.dataset.pdemoStep;
     }
   };
 
