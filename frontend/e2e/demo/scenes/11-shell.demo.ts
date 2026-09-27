@@ -14,7 +14,7 @@ import { formatCurrency } from '../../../src/shared/lib/format';
 const BUDGET = 500_000;
 const SPENT = 12_000;
 
-test('17 하단 3탭으로 홈·리포트·관리를 오간다', async ({ prep, appShell, home, demo }) => {
+test('17 하단 3탭으로 홈·리포트·관리를 오간다', async ({ prep, appShell, home, demo, page }) => {
   // 탭을 오갈 때 홈 숫자가 그대로 돌아오는지 보려면 홈에 채울 것이 있어야 한다.
   await prep.setBudget(BUDGET);
   await prep.addExpense({ amount: SPENT, daysAgo: 0 });
@@ -46,7 +46,13 @@ test('17 하단 3탭으로 홈·리포트·관리를 오간다', async ({ prep, 
   await demo.clearStep();
   await demo.beat(2);
 
-  await demo.step('관리는 하위 화면으로 들어가는 입구를 모아 둔 곳이다');
+  await demo.step('관리는 하위 화면으로 들어가는 입구를 모아 둔 곳이다. 예산 아래로 내려가면 있다');
+  // 예산 아래에 배너가 서면서 목록이 첫 화면 밖으로 밀렸다. 굴려서 보여 준다.
+  const subScreens = page.getByRole('navigation', { name: '관리 하위 화면' });
+  await subScreens.evaluate((element) => {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  await expect(subScreens).toBeInViewport({ ratio: 1 });
   await demo.beat(2);
 
   await demo.step('홈으로 돌아온다. 숫자는 나갔던 그대로다');
