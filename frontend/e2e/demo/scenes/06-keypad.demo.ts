@@ -181,9 +181,11 @@ test('10 카테고리 칩과 불러오기 실패', async ({
   for (const name of EXPENSE_CATEGORIES) {
     await expect(recordSheet.input.categoryChip(name)).toBeVisible();
   }
+  // 수입·이체도 기본 카테고리지만 기록 시트는 지출만 올린다.
+  // 알약 옆 밑줄 글씨 「이체」 도 이름이 같은 버튼이라, 버튼이 아니라 분류 칩 이름으로 센다.
+  const onSheet = await recordSheet.input.categoryChipNames();
   for (const name of NOT_ON_SHEET) {
-    // 수입·이체도 기본 카테고리지만 기록 시트는 지출만 올린다.
-    await expect(recordSheet.input.categoryChip(name)).toHaveCount(0);
+    expect(onSheet).not.toContain(name);
   }
   await demo.beat(3);
 

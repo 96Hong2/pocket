@@ -1,6 +1,7 @@
 import { expect, test } from '../support/director';
 
 import { formatCurrency, shiftMonth } from '../../../src/shared/lib/format';
+import { TEST_IDS } from '../../../src/shared/testIds';
 import { thisMonth } from '../../support/api';
 
 /**
@@ -42,6 +43,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   notifications,
   settings,
   demo,
+  page,
 }) => {
   await home.open();
   await home.waitReady();
@@ -58,7 +60,17 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await expect(manage.total.startButton).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('그 아래 일곱 줄이 하위 화면으로 들어가는 입구다');
+  await demo.step('예산 바로 아래가 배너 광고 자리다');
+  await expect(page.getByTestId(TEST_IDS.adSlot)).toHaveAttribute('data-placement', 'manage');
+  await expect(page.getByTestId(TEST_IDS.adSlot)).toBeInViewport();
+  await demo.beat(2);
+
+  await demo.step('그 아래로 내려가면 일곱 줄이 하위 화면으로 들어가는 입구다');
+  const subScreens = page.getByRole('navigation', { name: '관리 하위 화면' });
+  await subScreens.evaluate((element) => {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  await expect(subScreens).toBeInViewport({ ratio: 1 });
   await expect(appShell.subScreenRows('관리 하위 화면')).toHaveText([
     '목표',
     '카테고리 관리',
