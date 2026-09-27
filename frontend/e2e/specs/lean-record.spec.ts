@@ -257,6 +257,7 @@ test('저장 로그는 그대로 남는다', async ({ home, page, recordSheet })
   expect(requested).toHaveLength(1);
   expect(result).toHaveLength(1);
   expect(result[0]?.params.result).toBe('ok');
+  expect(result[0]?.params.type).toBe('expense');
   // 셋이 같은 흐름이라야 방식별 완료율이 나온다.
   const flow = [...flows][0];
   expect(flow).toBeTruthy();

@@ -18,7 +18,7 @@
 | 인식이 얼마나 걸리고 왜 실패하나 | `parse_started` · `parse_finished` | 방식, 성공·부분·0건·실패, 소요 시간, 후보 수, 오류 코드 |
 | 결과를 얼마나 고치나 | `review_shown` · `review_finished` | 후보 수, 고른 수, 손댄 건수, **칸별 고친 횟수** |
 | 읽어 온 것을 잃나 | `record_leave_asked` · `review_cancelled` | 물었나·머물렀나·나갔나와 그때 몇 건, 스스로 버린 건수 |
-| 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드 |
+| 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드, 키패드로 적은 종류(`type`: `expense`·`income`·**`transfer`**, 2026-09-27~. 「이체」 글씨가 쓰이는지 센다) |
 | 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움과 **지우려다 그만둠**(`delete_asked`·`delete_cancelled`·`delete`), 고친 칸 이름, 그 기록의 입력 방식 |
 | 저장 뒤 뜻이 전달됐나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것 |
 | 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(`home_card`·`settings`)와 결과(`opened`·`guide_done`·`dismissed`), 동의·거절·미지원과 **켠 자리**(`where`: `home_card`·`settings`) |
@@ -37,8 +37,9 @@
 | 태그를 만들기만 하나 실제로 다나 | `tag_changed` · `tag_applied` | 만듦·고침·지움과 갈래(`expense`·`income`), 지울 때 몇 건이 표시를 잃나(`used`), 붙었나·떨어졌나와 어느 자리(`record`·`edit`)와 갈래. **태그 이름은 싣지 않는다** |
 | 자산을 한 번 적고 마나 | `asset_changed` | 더함·고침·지움과 어느 그룹, 그 뒤 남은 줄 수. **이름과 금액은 싣지 않는다** |
 | 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나와 몇 장짜리인가(`cards`), 몇 장째에서 닫았나(`page`·`total`)와 끝까지 봤나(`finished`) |
+| 지난달 리포트를 보러 가나 | **`report_month_changed`** | 옮긴 쪽(`step`: `back`·`forward`), 도착한 달이 이번 달인가(`to`: `this`·`past`), 몇 달 전인가(`months_back`). 2026-09-27~. 지난달 리포트에 광고를 붙이기 전의 기준선이다. **그 달의 날짜와 금액은 싣지 않는다** |
 | 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
-| 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(2026-09-26~ `closing`·**`photo`** 둘뿐, 아래 「판마다 바뀐 값」)와 결과(`watched`·`skipped`), 지나간 이유(`no_group`·`unsupported`·`failed`·`capped`·**`stalled`**) |
+| 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(2026-09-26~ `closing`·**`photo`** 둘뿐, 아래 「판마다 바뀐 값」)와 결과(`watched`·`skipped`·**`declined`** 확인 창에서 돌아섬, 2026-09-27~), 지나간 이유(`no_group`·`unsupported`·`failed`·`capped`·**`stalled`**) |
 | 광고가 뜬 채로 갇히나 | **`ad_stuck_exit`** | 어느 자리의 광고였나(`where`). **앱을 열 때 한 번** 센다. 광고가 뜨는 순간 적어 둔 표가 남아 있으면 지난번이 갇힌 판이다(ADR-0036). ⚠ **갇힌 판의 `interstitial_result` 는 `stalled` 가 아니라 `watched` 다.** 화면을 15·35초에 먼저 풀고 갇힘 판정은 90초에 내리므로, 판정이 로그보다 늦다(ADR-0037). 갇혔다는 사실은 **다음 광고의 `skipped{stalled}`** 와 이 이벤트로 드러난다. 함께 싣는 `deaths` 는 광고가 덮인 채로 **연달아** 죽은 횟수다. **두 번이면 그 기기에서 전면 광고를 끈다**(ADR-0038). 90초까지 덮고 있는 것을 직접 본 판은 이 수와 무관하게 그 한 번으로 끈다. 끄고 나면 `interstitial_result` 가 계속 `skipped{stalled}` 로만 남는다. 광고를 눌러 나간 판은 갇힘에서 뺀다 |
 | 사진을 읽으려고 광고를 보나 | `photo_credit` | 봤나 마다했나 헛돌았나 썼나(`action`: `watched`·**`declined`**·**`wasted`**·`spent`), 어떤 광고였나(`plan`: `interstitial`·`rewarded`), 몇 장짜리였나(`image_count`), 쓰고 나서 무료분이 몇 장 남았나(`left`), 광고가 어떻게 끝났나(`ad`: `earned`·`watched`·`skipped`)와 지나간 이유(`reason`: `no_group`·`unsupported`·`failed`) |
 | 분류를 제 말로 바꿔 쓰나 | `category_changed` | 만듦·고침·지움, 기본 분류인가 내가 만든 것인가(`scope`: `default`·`mine`), 갈래, 무엇을 건드렸나(`fields`: `name`·`icon`·`color` 를 `+` 로 이은 값). **이름은 싣지 않는다** |
@@ -136,6 +137,7 @@
 | 2026-09-21 (ADR-0028) | `closing` **하나뿐** |
 | 2026-09-22~09-25 (ADR-0029) | `closing` · `assets` · `goal` · `categories` · `tags` · `recurring` |
 | 2026-09-26~ (ADR-0039) | `closing` · `photo`. 관리 탭 하위 화면과 자산 앞의 광고를 걷었다 |
+| 2026-09-27~ | 자리는 위와 같다. `result` 에 **`declined`** 가 더해졌다: 결산 광고 앞 확인 창에서 「닫기」 나 뒤로가기로 돌아선 것. 그 전에는 아무 줄도 안 남아 돌아선 사람을 못 셌다 |
 
 가운데 하루는 자리를 **결산 하나로 줄였던** 때다. 그때 뺀 이유는 자산·리포트 둘 다 사람이
 광고를 부른 적이 없는 자리로 봤기 때문인데, 자산은 실제로 **관리 탭의 카드를 눌러** 들어가고

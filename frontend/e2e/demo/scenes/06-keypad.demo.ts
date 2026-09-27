@@ -302,12 +302,12 @@ const SPENT_MERCHANT = '김밥천국';
 /** 카드값처럼 내 계좌끼리 옮긴 돈. 지출로 세면 카드로 이미 적은 지출을 한 번 더 센다. */
 const TRANSFER_AMOUNT = 800_000;
 
-test('59 계좌 사이 옮긴 돈은 지출에 안 들어간다', async ({ demo, home, prep, recordSheet }) => {
+test('59 이체한 돈은 지출에 안 들어간다', async ({ demo, home, prep, recordSheet }) => {
   await prep.addTransaction({ amount: SPENT, merchant: SPENT_MERCHANT });
 
   await home.open();
   await home.waitReady();
-  await demo.open('계좌 사이 옮긴 돈', '카드값·적금처럼 내 계좌끼리 옮긴 돈은 쓴 돈이 아니다');
+  await demo.open('이체', '카드값·적금처럼 내 계좌끼리 옮긴 돈은 쓴 돈이 아니다');
 
   await demo.step(`이번 달 쓴 돈은 ${formatCurrency(SPENT)}이다`);
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(SPENT));
@@ -320,14 +320,14 @@ test('59 계좌 사이 옮긴 돈은 지출에 안 들어간다', async ({ demo,
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(TRANSFER_AMOUNT));
   await demo.beat(2);
 
-  await demo.step('분류 아래 「계좌 사이 옮긴 돈이에요」 를 누른다');
+  await demo.step('「지출」, 「수입」 옆 밑줄 글씨 「이체」 를 누른다');
   await recordSheet.input.transferButton.click();
   await expect(recordSheet.input.transferPanel).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('이체에는 분류가 없다. 분류 칩이 걷히고 지출·수입도 잠긴다');
+  await demo.step('이체에는 분류가 없다. 분류 칩이 걷히고 지출·수입 알약도 꺼진다');
   await expect(recordSheet.input.newCategoryButton).toHaveCount(0);
-  await expect(recordSheet.input.kindButton('지출')).toBeDisabled();
+  await expect(recordSheet.input.kindButton('지출')).toHaveAttribute('aria-pressed', 'false');
   await demo.beat(3);
 
   await demo.step('고를 것이 없으니 저장 버튼으로 바로 적는다');

@@ -58,6 +58,64 @@
     flex: none;
   }
 
+  /* 지출·수입 알약과 이체 글씨를 한 덩어리로 왼쪽에 묶는다. 날짜 칩은 오른쪽 끝 그대로다. */
+  .record__kinds {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+  }
+
+  /*
+    이체를 켜는 글씨. 알약보다 한 단계 작고 테두리가 없다. **밑줄이 눌리는 글씨라는 표시다.**
+    높이는 알약과 같은 36px 이고, 손가락 닿는 자리는 알약처럼 위아래 4px 씩 넓힌다(44px).
+  */
+  .record__transfer-link {
+    position: relative;
+    height: 36px;
+    padding: 0 8px;
+    border: 0;
+    background: none;
+    color: var(--color-muted);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    white-space: nowrap;
+  }
+
+  .record__transfer-link::after {
+    content: '';
+    position: absolute;
+    inset: -4px 0;
+  }
+
+  .record__transfer-link[aria-pressed='true'] {
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .record__transfer-link:disabled {
+    opacity: 0.45;
+  }
+
+  /*
+    좁은 폰(폴드 겉화면 344, 360)에서는 알약 폭을 줄인다. 84px 그대로면 알약 둘과 「이체」,
+    날짜 칩이 한 줄에 안 들어가 날짜 칩 끝이 시트 밖으로 나간다(344 에서 22px).
+    글자 두 자에 좌우 12px 이면 68px 로도 넉넉하다. 지난 날을 고른 칩(좌우 10px)까지 들어간다.
+  */
+  @media (max-width: 374px) {
+    .record__kind .pk-kind__item {
+      min-width: 68px;
+      padding: 0 12px;
+    }
+
+    .record__transfer-link {
+      padding: 0 6px;
+    }
+  }
+
   /*
     어느 날에 적을지 고르는 자리.
 
@@ -232,44 +290,6 @@
   .record__transfer-note {
     font-size: var(--text-13);
     color: var(--color-muted);
-  }
-
-  /*
-    이체를 끄고 지출·수입으로 돌아오는 줄.
-
-    **손가락이 닿는 높이를 못 박는다(44px).** 글자만 두면 13px × 줄높이 1.45 = 19px 이
-    그대로 버튼 높이가 되는데, 이체를 잘못 켠 사람이 되돌아올 길은 이것 하나뿐이다.
-    19px 을 빗맞히면 아무 반응이 없어 다시 눌러야 한다.
-    글자 자리는 그대로 두려고 좌우 여백 대신 높이만 키웠다.
-  */
-  .record__transfer-off {
-    display: inline-flex;
-    align-items: center;
-    align-self: flex-start;
-    min-height: 44px;
-    margin-top: 2px;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--color-primary);
-    font-family: inherit;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
-  }
-
-  /* 이체로 들어가는 조용한 줄. 저장 버튼보다 눈에 띄면 안 되지만, 높이는 같은 44px 을 준다. */
-  .record__transfer-open {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    align-self: center;
-    min-height: 44px;
-    padding: 0 12px;
-    border: 0;
-    background: none;
-    color: var(--color-muted);
-    font-family: inherit;
-    font-size: var(--text-13);
   }
 
   /*

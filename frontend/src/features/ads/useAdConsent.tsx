@@ -10,6 +10,8 @@
 
 import { useCallback, useState, type ReactNode } from 'react';
 
+import { EVENTS, useAnalytics } from '../../shared/analytics';
+
 import { AdConsent } from './AdConsent';
 import { useInterstitial, type InterstitialWhere } from './useInterstitial';
 
@@ -35,6 +37,7 @@ export interface AdConsentHandle {
 
 export function useAdConsent(): AdConsentHandle {
   const interstitial = useInterstitial();
+  const analytics = useAnalytics();
   const [asking, setAsking] = useState<AdConsentRequest | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const { canShow, ready, show } = interstitial;
@@ -85,7 +88,18 @@ export function useAdConsent(): AdConsentHandle {
       asking == null ? null : (
         <AdConsent
           what={asking.what}
-          onCancel={() => setAsking(null)}
+          onCancel={() => {
+            /*
+              닫은 것도 남긴다. 안 남기면 확인 창을 보고 돌아선 사람이 어디에도 안 잡혀,
+              광고를 본 비율만 보고 그 자리가 괜찮다고 읽게 된다. 뒤로가기로 닫아도 여기로 온다.
+            */
+            analytics.log(
+              EVENTS.interstitialResult,
+              { where: asking.where, result: 'declined' },
+              { kind: 'click' },
+            );
+            setAsking(null);
+          }}
           onConfirm={() => {
             const input = asking;
             setAsking(null);

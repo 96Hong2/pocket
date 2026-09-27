@@ -9,8 +9,8 @@ import { expect, test } from '../support/fixtures';
  * 이체를 다루는 자리는 여럿인데 전부 `prep` 으로 심어 두고 본다. 그래서 사람이 이체를
  * 만드는 길은 한 번도 밟힌 적이 없었다.
  *
- * 입구는 둘이다. **검토 폼의 종류 고르기**와 **키패드의 「계좌 사이 옮긴 돈이에요」**
- * (ADR-0034). 어느 쪽으로 들어와도 같은 것이 나와야 한다. 한쪽만 지키면 두 입구가
+ * 입구는 둘이다. **검토 폼의 종류 고르기**와 **키패드 지출·수입 옆 밑줄 글씨 「이체」**
+ * (ADR-0040). 어느 쪽으로 들어와도 같은 것이 나와야 한다. 한쪽만 지키면 두 입구가
  * 갈린 줄 모른 채 테스트는 전부 초록이다.
  *
  * 여기서 지키는 것은 하나로 이어진다. 이체는 돈이 나간 것이 아니다. 목록에는 남되
@@ -202,7 +202,7 @@ test('저장한 뒤 그 자리에서 분류를 바꾸면 홈 목록도 그 분�
 });
 
 /*
-  키패드로 직접 적는 길 (ADR-0034).
+  키패드로 직접 적는 길 (ADR-0040).
 
   검토 폼 쪽과 **같은 것을 확인한다.** 분류 자리가 사라지고, 목록에는 서고,
   그 달 지출 합계는 안 움직인다. 두 입구가 같은 말을 하는지가 이 파일의 일이다.
@@ -245,43 +245,13 @@ test('키패드에서 이체로 적으면 분류 없이 저장되고 그 달 지
 });
 
 /**
- * 화면의 두 컨트롤이 서로 다른 말을 하지 않게.
+ * 화면의 세 컨트롤이 서로 다른 말을 하지 않게.
  *
  * 저장은 `type: isTransfer ? 'transfer' : kind` 라 이체가 켜져 있으면 지출·수입은 버려진다.
- * 알약이 눌리는 채로 남으면 「수입」 을 눌러 놓고 이체로 저장되고, 이체는 집계 밖이라
- * (ADR-0005) 이번 달 번 돈이 안 오른 것을 한참 뒤에야 알게 된다.
+ * 알약이 눌린 채로 남으면 「수입」 으로 보이는데 이체로 저장되고, 이체는 집계 밖이라
+ * (ADR-0005) 이번 달 번 돈이 안 오른 것을 한참 뒤에야 알게 된다. 셋 중 늘 하나만 눌려 있다.
  */
-test('이체를 켜 두는 동안에는 지출·수입 알약이 잠긴다', async ({ home, recordSheet }) => {
-  await home.open();
-  await home.waitReady();
-  await home.recordButton.click();
-  await recordSheet.waitOpen();
-
-  await recordSheet.input.enterAmount(TRANSFER_AMOUNT);
-  await expect(recordSheet.input.kindButton('수입')).toBeEnabled();
-
-  await recordSheet.input.transferButton.click();
-  await expect(recordSheet.input.transferPanel).toBeVisible();
-
-  await expect(recordSheet.input.kindButton('지출')).toBeDisabled();
-  await expect(recordSheet.input.kindButton('수입')).toBeDisabled();
-
-  // 잠근 것이지 없앤 것이 아니다. 되돌리면 그 자리에서 다시 고를 수 있다.
-  await recordSheet.input.transferOffButton.click();
-  await expect(recordSheet.input.kindButton('수입')).toBeEnabled();
-});
-
-/**
- * 이체를 켜고 끄는 두 줄.
- *
- * 켜는 줄은 배경도 테두리도 없는 조용한 글자고, 끄는 줄은 **잘못 켠 사람이 돌아올
- * 유일한 길**이다(이체 중에는 분류 목록도 저장 아래 켜기 줄도 사라진다). 글자만 두면
- * 13px × 줄높이 1.45 = 19px 이 그대로 버튼 높이가 되어, 빗맞히면 아무 반응이 없다.
- *
- * 누른 버튼이 그 클릭으로 사라지는 자리이기도 하다. 안 잡아 주면 포커스가 시트 밖
- * body 로 떨어져, 읽는 프로그램에 무엇이 바뀌었는지 한마디도 안 닿는다.
- */
-test('이체를 켜고 끄는 줄은 손가락이 닿는 높이고, 누른 뒤 포커스가 시트 안에 남는다', async ({
+test('이체를 켜면 지출·수입 알약이 꺼지고, 알약을 누르면 이체에서 나온다', async ({
   home,
   recordSheet,
 }) => {
@@ -290,20 +260,63 @@ test('이체를 켜고 끄는 줄은 손가락이 닿는 높이고, 누른 뒤 �
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  const openBox = await recordSheet.input.transferButton.boundingBox();
-  expect(openBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await recordSheet.input.enterAmount(TRANSFER_AMOUNT);
+  await expect(recordSheet.input.kindButton('지출')).toHaveAttribute('aria-pressed', 'true');
+  await expect(recordSheet.input.transferButton).toHaveAttribute('aria-pressed', 'false');
+
+  await recordSheet.input.transferButton.click();
+  await expect(recordSheet.input.transferPanel).toBeVisible();
+  await expect(recordSheet.input.transferButton).toHaveAttribute('aria-pressed', 'true');
+  await expect(recordSheet.input.kindButton('지출')).toHaveAttribute('aria-pressed', 'false');
+  await expect(recordSheet.input.kindButton('수입')).toHaveAttribute('aria-pressed', 'false');
+
+  // 알약이 되돌아가는 길이다. 누른 쪽 종류로 바로 적을 수 있어야 한다.
+  await recordSheet.input.kindButton('수입').click();
+  await expect(recordSheet.input.transferPanel).toHaveCount(0);
+  await expect(recordSheet.input.transferButton).toHaveAttribute('aria-pressed', 'false');
+  await expect(recordSheet.input.kindButton('수입')).toHaveAttribute('aria-pressed', 'true');
+});
+
+/**
+ * 이체 글씨의 자리.
+ *
+ * 분류 아래 회색 줄 「계좌 사이 옮긴 돈이에요」 는 이체라는 말이 없어 무엇인지 안 읽혔다(ADR-0040).
+ * 그래서 지출·수입과 **같은 줄**에 선다. 줄이 갈리면 다시 「종류」 로 안 읽힌다.
+ * 누른 글씨는 사라지지 않으니 포커스도 그 자리에 남아, 읽는 프로그램이 켜짐과 꺼짐을 읽는다.
+ */
+test('이체 글씨는 지출·수입과 한 줄에 서고, 눌러도 포커스가 그 자리에 남는다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  /*
+    두 자리를 **같은 순간에** 잰다. 시트가 올라오는 중에 하나씩 재면 그 사이 시트가 움직여
+    한 줄인데도 높이가 어긋나 보인다.
+  */
+  await expect(recordSheet.input.transferButton).toBeVisible();
+  const gap = await recordSheet.input.kindButton('수입').evaluate((pill) => {
+    const link = pill.closest('.record__kinds')?.querySelector('.record__transfer-link');
+    if (link == null) return null;
+    const a = pill.getBoundingClientRect();
+    const b = link.getBoundingClientRect();
+    return { middle: Math.abs(a.top + a.height / 2 - (b.top + b.height / 2)), after: b.left - a.right };
+  });
+  expect(gap, '이체 글씨가 알약 옆에 없다').not.toBeNull();
+  // 가운데 높이가 같아야 한 줄이다. 좁은 폭에서 아래로 떨어지면 여기서 걸린다.
+  expect(gap?.middle ?? 99).toBeLessThan(2);
+  expect(gap?.after ?? -1).toBeGreaterThanOrEqual(0);
 
   await recordSheet.input.transferButton.click();
   await expect(recordSheet.input.transferPanel).toBeVisible();
   expect(await recordSheet.focusInside).toBe(true);
-  // 되돌릴 버튼을 가리킨다. 그 자리가 곧 「지금 어디인가」 를 읽어 주는 자리다.
-  await expect(recordSheet.input.transferOffButton).toBeFocused();
+  await expect(recordSheet.input.transferButton).toBeFocused();
 
-  const offBox = await recordSheet.input.transferOffButton.boundingBox();
-  expect(offBox?.height ?? 0).toBeGreaterThanOrEqual(44);
-
-  await recordSheet.input.transferOffButton.click();
-  expect(await recordSheet.focusInside).toBe(true);
+  await recordSheet.input.transferButton.click();
+  await expect(recordSheet.input.transferPanel).toHaveCount(0);
   await expect(recordSheet.input.transferButton).toBeFocused();
 });
 
@@ -316,7 +329,7 @@ test('이체를 켰다가 끄면 분류 목록이 그대로 돌아온다', async
   await recordSheet.input.transferButton.click();
   await expect(recordSheet.input.transferPanel).toBeVisible();
 
-  await recordSheet.input.transferOffButton.click();
+  await recordSheet.input.kindButton('지출').click();
   await expect(recordSheet.input.transferPanel).toHaveCount(0);
   // 되돌아왔으면 분류를 다시 고를 수 있어야 한다. 입구가 한 방향이면 갇힌다.
   await expect(recordSheet.input.transferButton).toBeVisible();

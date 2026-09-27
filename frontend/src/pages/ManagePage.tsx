@@ -49,6 +49,12 @@ export default function ManagePage() {
       <BudgetSection />
 
       {/*
+        배너는 예산 바로 아래다(사용자 지시). 맨 끝에 두면 하위 화면 목록 밑이라 화면을
+        끝까지 내려야 보였다. 예산과 목록 사이에 서지만 둘 다 따로 누르는 자리라 흐름은 안 끊긴다.
+      */}
+      <AdSlot placement="manage" />
+
+      {/*
         「내 계정」 은 아래 목록 안에 있어 아무도 스스로 들어가지 않는다. 쌓아 둔 것이
         있는 사람에게만, 이 기기에서 한 번만, 목록 바로 위에서 말한다.
       */}
@@ -68,12 +74,6 @@ export default function ManagePage() {
           </ul>
         </Card>
       </nav>
-
-      {/*
-        배너는 화면 맨 끝이다. 예산과 하위 화면 사이에 두면 할 일 흐름을 끊는다.
-        이 화면은 모드에 따라 갈리지 않아 늘 같은 자리다.
-      */}
-      <AdSlot placement="manage" />
     </div>
   );
 }

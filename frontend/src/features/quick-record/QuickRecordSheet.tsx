@@ -85,7 +85,7 @@ interface SavedState {
 /**
  * 전환 뒤 포커스가 갈 자리.
  *
- * 이체를 켜고 끄는 줄과 새 분류를 열고 닫는 길은 **누른 버튼이 그 클릭으로 사라진다.**
+ * 새 분류를 열고 닫는 길은 **누른 버튼이 그 클릭으로 사라진다.**
  * 그냥 두면 포커스가 시트 밖 body 로 떨어져, 읽는 프로그램에는 무엇이 바뀌었는지 한마디도
  * 안 닿고 다음 Tab 이 시트 뒤 화면부터 다시 돈다. 그래서 바뀐 화면에서 **그 일을 되돌릴
  * 버튼**으로 옮긴다. 되돌릴 자리가 곧 「여기가 지금 어디인가」 를 읽어 주는 자리다.
@@ -94,8 +94,6 @@ interface SavedState {
  * 분류 칩이 서 있어서, 시트 전체에서 찾으면 안 보이는 쪽이 먼저 잡힌다.
  */
 const FOCUS_AFTER = {
-  transferOff: '.record__transfer-off',
-  transferOpen: '.record__transfer-open',
   newCategoryChip: '.cat-chips__item--new',
   pickedCategory: '.record__picked',
 } as const;
@@ -402,12 +400,11 @@ function RecordBody({
   // 지출인가 수입인가. 이 값이 고를 수 있는 분류와 저장할 종류를 함께 정한다.
   const [kind, setKind] = useState<LedgerKind>('expense');
   /*
-    **이체는 알약에 안 태운다.** 알약 하나가 84px 이고 오른쪽에 날짜 칩이 서 있어,
-    셋을 나란히 두면 좁은 화면에서 날짜가 아래로 밀린다. 지출·수입에만 쓰는 사람이
-    읽을 것이 느는 것도 값이다(ADR-0015 가 같은 이유로 세 알약을 버렸다).
+    **이체는 알약이 아니라 알약 옆 밑줄 글씨 「이체」 로 켠다**(ADR-0040). 세 번째 알약은
+    폭이 모자라 날짜 칩을 밀어내고, 분류 아래 회색 줄은 이체라는 말이 없어 안 읽혔다.
 
-    대신 아래 조용한 줄 하나로 켠다. 이체는 집계 어디에도 안 들어가서(ADR-0005)
-    분류를 고를 자리가 없고, 켜는 순간 분류 목록이 사라지고 저장 버튼이 바로 선다.
+    이체는 집계 어디에도 안 들어가서(ADR-0005) 분류를 고를 자리가 없다. 켜는 순간
+    분류 목록이 사라지고 저장 버튼이 바로 선다. 지출·수입 알약을 누르면 다시 나온다.
   */
   const [isTransfer, setIsTransfer] = useState(false);
   // 무언가 도는 중에는 탭을 옮기지 못한다. 옮기면 응답이 돌아올 자리가 사라진다.
@@ -731,6 +728,8 @@ function RecordBody({
               // 오늘이 아닌 날에 적었나. `record_started` 의 `backfill`(열 때 지난 날이었나)과
               // 뜻이 달라 이름을 가른다. 둘을 견주면 「날짜」 칸이 실제로 쓰이는지 갈린다.
               day_moved: isBackfill,
+              // 지출·수입·이체 중 무엇으로 적었나. 「이체」 글씨가 실제로 쓰이는지 여기서 센다.
+              type: isTransfer ? 'transfer' : kind,
             },
             { flowId },
           );
@@ -940,23 +939,38 @@ function RecordBody({
               금액보다 먼저 정해야 하는 값이다. 아래 분류 칩과 저장할 종류가 이 하나를 따라간다.
               바꾸면 골라 둔 분류를 버리고 목록을 다시 편다. 지출 분류가 수입에 남으면 안 된다.
 
-              **이체를 켜 두면 잠근다.** 저장은 `isTransfer` 를 먼저 보므로 여기서 고른
-              지출·수입은 버려진다. 누를 수 있게 두면 「수입」 을 눌러 놓고 이체로 저장되어,
-              이번 달 번 돈이 안 오르는 것을 한참 뒤에 발견한다(이체는 집계 밖이다, ADR-0005).
-              왜 잠겼는지는 아래 이체 줄이 이미 말하고 있고, 거기서 한 번 눌러 되돌아온다.
+              **이체를 켜 두면 두 알약 다 꺼진 채로 선다.** 저장은 `isTransfer` 를 먼저 보므로,
+              알약이 눌린 채 남으면 「수입」 으로 보이는데 이체로 저장된다(이체는 집계 밖이다,
+              ADR-0005). 셋 중 늘 하나만 눌려 있고, 알약을 누르면 이체에서 나온다.
             */}
-            <KindToggle
-              className="record__kind"
-              value={kind}
-              disabled={create.isPending || isTransfer}
-              ariaLabel="지출인지 수입인지"
-              onChange={(next) => {
-                if (next === kind) return;
-                setKind(next);
-                setPickedId(null);
-                setListOpen(true);
-              }}
-            />
+            <div className="record__kinds">
+              <KindToggle
+                className="record__kind"
+                value={isTransfer ? null : kind}
+                disabled={create.isPending}
+                ariaLabel="지출인지 수입인지"
+                onChange={(next) => {
+                  setIsTransfer(false);
+                  if (next === kind) return;
+                  setKind(next);
+                  setPickedId(null);
+                  setListOpen(true);
+                }}
+              />
+              {/*
+                드물게 쓰는 것이라 알약만큼 크게 두지 않는다. 밑줄로 눌리는 글씨인 것만 알린다.
+                다시 누르면 꺼지고, 알약에서 고르던 종류로 돌아간다.
+              */}
+              <button
+                type="button"
+                className="record__transfer-link"
+                aria-pressed={isTransfer}
+                disabled={create.isPending}
+                onClick={() => setIsTransfer((on) => !on)}
+              >
+                이체
+              </button>
+            </div>
 
             {/*
               **어느 날에 적을지를 여기서 정한다.** 지난 날 것을 적으려고 홈이나 달력에서
@@ -1025,19 +1039,8 @@ function RecordBody({
               이체인 줄 모르고 저장하는 사람이 생긴다.
             */
             <div className="record__transfer" role="status">
-              <span className="record__transfer-title">계좌 사이 옮긴 돈</span>
-              <span className="record__transfer-note">이번 달 지출과 수입에는 안 들어가요</span>
-              <button
-                type="button"
-                className="record__transfer-off"
-                disabled={create.isPending}
-                onClick={() => {
-                  setIsTransfer(false);
-                  setFocusAfter('transferOpen');
-                }}
-              >
-                지출이나 수입으로 적기
-              </button>
+              <span className="record__transfer-title">이체: 내 계좌끼리 옮긴 돈</span>
+              <span className="record__transfer-note">이번 달 지출과 수입에 안 들어가요</span>
             </div>
           ) : listOpen || picked == null ? (
             <CategoryPicker
@@ -1078,24 +1081,6 @@ function RecordBody({
               저장
             </Button>
           ) : null}
-
-          {/*
-            이체로 들어가는 입구. **분류 목록 아래, 저장 버튼 아래에 둔다.** 이체는 드물게
-            쓰는 것이라 위에 두면 지출을 적으러 온 사람이 매번 읽고 지나쳐야 한다.
-          */}
-          {isTransfer ? null : (
-            <button
-              type="button"
-              className="record__transfer-open"
-              disabled={create.isPending}
-              onClick={() => {
-                setIsTransfer(true);
-                setFocusAfter('transferOff');
-              }}
-            >
-              계좌 사이 옮긴 돈이에요
-            </button>
-          )}
 
           {/* 목록을 끝까지 펼친 동안에는 접는다. 고를 것이 화면을 채운 자리에 숫자판까지 서면 혼선만 는다. */}
           {listExpanded ? null : <Keypad digits={digits} onChange={setDigits} />}

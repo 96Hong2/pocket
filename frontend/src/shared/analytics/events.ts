@@ -277,6 +277,15 @@ export const EVENTS = {
    */
   recurringResult: 'recurring_result',
 
+  /**
+   * 리포트에서 달을 옮겼다. 어느 쪽으로(`step`: `back`·`forward`), 도착한 달이 이번 달인가
+   * 지난 달인가(`to`: `this`·`past`), 이번 달에서 몇 달 전인가(`months_back`).
+   *
+   * 지난달 리포트에 광고를 붙이기 전의 기준선이다. 붙인 뒤 이 수가 얼마나 주는지가
+   * 광고가 사람을 돌려세우는 값이다. **그 달의 날짜 문자열과 금액은 싣지 않는다.**
+   */
+  reportMonthChanged: 'report_month_changed',
+
   /** 배너 자리의 결과. 떴는지·채울 게 없었는지·실패했는지. */
   adResult: 'ad_result',
   /**
@@ -288,6 +297,9 @@ export const EVENTS = {
    *
    * `capped` 는 상한에 걸려 아예 안 부른 것이다. 이 값이 많으면 자리를 더 늘릴 것이
    * 아니라 상한을 다시 볼 때다.
+   *
+   * `declined` 는 광고 앞 확인 창에서 「닫기」 를 눌러 돌아선 것이다(2026-09-27~).
+   * 광고를 부르지 않았으니 `reason` 이 없다. `watched` 와 견줘야 그 자리가 성가신지 갈린다.
    */
   interstitialResult: 'interstitial_result',
   /**
