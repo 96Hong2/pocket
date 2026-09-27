@@ -3,7 +3,8 @@ import { cx } from '../lib/cx';
 import { LEDGER_KINDS, type LedgerKind } from './kind';
 
 export interface KindToggleProps {
-  value: LedgerKind;
+  /** `null` 이면 둘 다 안 눌린 채로 선다. 기록 시트에서 이체를 켠 동안이 그렇다. */
+  value: LedgerKind | null;
   onChange: (kind: LedgerKind) => void;
   /** 도는 중에는 못 바꾼다. 바꾸면 응답이 돌아올 자리가 달라진다. */
   disabled?: boolean;

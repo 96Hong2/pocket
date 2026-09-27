@@ -194,6 +194,14 @@ test('리포트에서 달을 여러 번 옮겨도 광고가 뜨지 않는다. �
     await logsNamed(page, 'interstitial_result'),
     '달 이동에 전면 광고가 돌아왔다',
   ).toEqual([]);
+  // 광고를 붙이기 전의 기준선. 몇 달 전까지 가 보는지가 남아야 한다.
+  const moves = await logsNamed(page, 'report_month_changed');
+  expect(moves.map((log) => [log.params.step, log.params.to, log.params.months_back])).toEqual([
+    ['back', 'past', 1],
+    ['back', 'past', 2],
+    ['back', 'past', 3],
+    ['back', 'past', 4],
+  ]);
 });
 
 test('결산 입구는 누르기 전에 광고가 있다고 적어 둔다', async ({ prep, report }) => {
@@ -295,7 +303,9 @@ test('결산 확인 창에서 닫으면 광고도 안 뜨고 결산도 안 열�
 
   await expect(report.closing.adConsent).toBeHidden();
   await expect(report.closing.overlay).toHaveCount(0);
-  expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
+  // 광고는 안 불렀지만 돌아선 것은 남는다. 안 남기면 확인 창 앞에서 돌아선 사람을 못 센다.
+  const logs = await logsNamed(page, 'interstitial_result');
+  expect(logs.map((log) => [log.params.where, log.params.result])).toEqual([['closing', 'declined']]);
 });
 
 test('상한을 다 쓴 사람에게는 결산 앞에서 묻지도 않는다', async ({ page, prep, report }) => {
@@ -329,7 +339,9 @@ test('확인 창에서 뒤로가기를 누르면 창만 닫힌다. 앱이 닫히
   await expect(report.closing.adConsent).toBeHidden();
   // 리포트 그대로다. 등록을 안 하면 스택이 비어 `closeApp()` 으로 떨어진다.
   await expect(report.closing.card).toBeVisible();
-  expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
+  // 뒤로가기도 「닫기」 와 같이 돌아선 것으로 남는다.
+  const logs = await logsNamed(page, 'interstitial_result');
+  expect(logs.map((log) => [log.params.where, log.params.result])).toEqual([['closing', 'declined']]);
 });
 
 test('묻는 창이 떠 있는 동안 탭바를 누를 수 없다', async ({ prep, report }) => {

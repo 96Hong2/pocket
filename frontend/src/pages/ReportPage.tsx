@@ -5,11 +5,19 @@ import { IdentityNotice } from '../app/IdentityNotice';
 import { ROUTES } from '../app/router/routes';
 import { AdSlot } from '../features/ads';
 import { MonthlyReport } from '../features/reports';
+import { EVENTS, useAnalytics } from '../shared/analytics';
 import { toLedgerDate } from '../shared/lib/format';
 import { CalendarGlyph } from '../shared/ui';
 
 /** `2026-08` 모양인지. 홈 카드가 붙여 준 값이라 아무 문자열이나 들어올 수 있다. */
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** `2026-09` 에서 `2026-07` 은 2달 전. 로그에 날짜 대신 싣는 수다. */
+function monthsBetween(from: string, to: string): number {
+  const [fy, fm] = from.split('-').map(Number);
+  const [ty, tm] = to.split('-').map(Number);
+  return ty * 12 + tm - (fy * 12 + fm);
+}
 
 /**
  * 리포트 탭. 그 달에 어디로 얼마나 갔는지 한 화면에서 본다.
@@ -20,6 +28,7 @@ const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
  */
 export default function ReportPage() {
   const thisMonth = toLedgerDate(new Date()).slice(0, 7);
+  const analytics = useAnalytics();
   // 홈의 결산 카드가 `?month=2026-08&closing=1` 로 데려온다. 그때는 그 달로 열고
   // 결산까지 펼친다. 주소를 손으로 친 경우에도 어긋난 값이면 그냥 이번 달을 연다.
   const [params, setParams] = useSearchParams();
@@ -33,10 +42,23 @@ export default function ReportPage() {
   const consumeClosing = useCallback(() => setOpenClosing(false), []);
   // 달을 옮기면 부탁도 접는다. 로딩 중에는 결산 자리가 아직 없어서 부탁을 못 쓴 채로
   // 달만 바뀔 수 있는데, 그러면 엉뚱한 달의 결산이 저절로 열린다.
-  const changeMonth = useCallback((next: string) => {
-    setMonth(next);
-    setOpenClosing(false);
-  }, []);
+  const changeMonth = useCallback(
+    (next: string) => {
+      // 사람이 옮긴 것만 센다. 홈 결산 카드가 데려온 첫 달은 여기를 안 지난다.
+      analytics.log(
+        EVENTS.reportMonthChanged,
+        {
+          step: next < month ? 'back' : 'forward',
+          to: next === thisMonth ? 'this' : 'past',
+          months_back: monthsBetween(next, thisMonth),
+        },
+        { kind: 'click' },
+      );
+      setMonth(next);
+      setOpenClosing(false);
+    },
+    [analytics, month, thisMonth],
+  );
 
   // 다 쓴 부탁은 주소에서도 지운다. 히스토리에는 남기지 않는다. 남기면 뒤로가기로
   // 그 주소에 되돌아왔을 때 또 열린다.

@@ -425,19 +425,14 @@ class RecordInput {
   }
 
   /** 금액보다 먼저 고른 뒤 접혀 있는 한 줄. 누르면 목록이 다시 펴진다. */
-  /** 키패드에서 이체로 들어가는 조용한 줄. 분류 목록 아래, 저장 버튼 아래에 선다. */
+  /** 지출·수입 알약 바로 옆 밑줄 글씨 「이체」. 누르면 켜지고 다시 누르면 꺼진다. */
   get transferButton(): Locator {
-    return this.root.getByRole('button', { name: '계좌 사이 옮긴 돈이에요' });
+    return this.root.getByRole('button', { name: '이체', exact: true });
   }
 
   /** 이체로 켠 뒤 분류 자리를 대신 채우는 설명. 켜졌다는 것이 화면에 보여야 한다. */
   get transferPanel(): Locator {
-    return this.root.getByText('계좌 사이 옮긴 돈', { exact: true });
-  }
-
-  /** 이체를 끄고 지출·수입으로 돌아가는 줄. */
-  get transferOffButton(): Locator {
-    return this.root.getByRole('button', { name: '지출이나 수입으로 적기' });
+    return this.root.getByText('이체: 내 계좌끼리 옮긴 돈', { exact: true });
   }
 
   get pickedCategory(): Locator {
