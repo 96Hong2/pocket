@@ -11,3 +11,5 @@ import os
 os.environ["LLM_PROVIDER"] = "stub"
 os.environ.pop("GEMINI_API_KEY", None)
 os.environ.pop("OPENAI_API_KEY", None)
+# 공유 가계부 스위치도 .env 와 무관하게 끈 채로 시작한다. 켜야 하는 테스트가 직접 켠다.
+os.environ["SHARED_BOOKS_ENABLED"] = "false"

@@ -107,6 +107,10 @@ export class RecordSheet {
   readonly receipt: RecordImageImport;
   /** 앞날에 저장하려 할 때 뜨는 확인. 시트 위에 겹친다. */
   readonly futureDayConfirm: FutureDayConfirmArea;
+  /** 「적을 곳」 줄과 「다른 가계부」 고르기 창. 공유 가계부가 있는 사람에게만 선다. */
+  readonly destination: RecordDestination;
+  /** 공유 가계부에 적은 뒤의 화면. 개인 저장 뒤 화면보다 짧다. */
+  readonly bookFeedback: RecordBookFeedback;
 
   constructor(page: Page) {
     this.page = page;
@@ -118,6 +122,8 @@ export class RecordSheet {
     this.receipt = new RecordImageImport(this.root, RECEIPT_LABELS);
     this.leave = new LeaveConfirmArea(page);
     this.futureDayConfirm = new FutureDayConfirmArea(page);
+    this.destination = new RecordDestination(page, this.root);
+    this.bookFeedback = new RecordBookFeedback(this.root);
   }
 
   get isVisible(): Promise<boolean> {
@@ -178,6 +184,15 @@ export class RecordSheet {
   /** 기록 방법 탭 전체. 몇 개가 놓여 있는지 셀 때 쓴다. */
   get methodTabs(): Locator {
     return this.root.getByRole('radiogroup', { name: '기록 방법' }).getByRole('radio');
+  }
+
+  /**
+   * 시트가 세로로 넘친 만큼(px). 0 이면 한 화면에 다 들어온다.
+   *
+   * 넘치면 시트가 스크롤 상자가 되고 손잡이가 밀려 밀어 닫기가 안 먹는다.
+   */
+  async overflowY(): Promise<number> {
+    return this.root.evaluate((sheet) => Math.max(0, sheet.scrollHeight - sheet.clientHeight - 1));
   }
 
   /** 시트 안에서 가로로 구르는 자리. 판정은 support/overflow.ts 한 곳이 한다. */
@@ -462,6 +477,11 @@ class RecordFeedback {
 
   get savedLabel(): Locator {
     return this.root.getByText('저장했어요', { exact: true });
+  }
+
+  /** 공유 가계부가 있는 사람의 머리 한 줄. 어디에 적혔는지를 먼저 말한다. */
+  get savedToMineLabel(): Locator {
+    return this.root.getByText('내 가계부에 적었어요', { exact: true });
   }
 
   get headline(): Locator {
@@ -1355,4 +1375,87 @@ class RecordImageImport {
     await this.saveButton.click();
     await expect(this.savedTitle).toBeVisible();
   }
+}
+
+/**
+ * 「적을 곳」 한 줄. 알약은 셋까지다: 내 가계부, 둘째 가계부, 셋째 가계부나 「다른 가계부」.
+ *
+ * 알약은 aria-pressed 버튼이다. 「다른 가계부」 가 여는 고르기 창은 포털이라 시트 밖에서 찾는다.
+ */
+class RecordDestination {
+  private readonly page: Page;
+  private readonly root: Locator;
+
+  constructor(page: Page, sheet: Locator) {
+    this.page = page;
+    this.root = sheet.getByRole('group', { name: '적을 곳', exact: true });
+  }
+
+  get group(): Locator {
+    return this.root;
+  }
+
+  get pills(): Locator {
+    return this.root.getByRole('button');
+  }
+
+  pill(name: string): Locator {
+    return this.root.getByRole('button', { name, exact: true });
+  }
+
+  get otherButton(): Locator {
+    return this.pill('다른 가계부');
+  }
+
+  get picker(): Locator {
+    return this.page.getByRole('dialog', { name: '어디에 적을까요' });
+  }
+
+  /** 고르기 창의 한 줄. 이름 뒤에 인원이 붙어 읽힌다. */
+  pickerRow(name: string): Locator {
+    return this.picker.getByRole('button', { name: new RegExp(`^${escapeRegExp(name)}`) });
+  }
+}
+
+/** 공유 가계부에 적은 뒤. 어디에 적혔나, 그 달 돈, 낸 사람, 내 가계부로 옮기기. */
+class RecordBookFeedback {
+  private readonly root: Locator;
+
+  constructor(root: Locator) {
+    this.root = root;
+  }
+
+  /** `우리 집에 적었어요` */
+  savedLabel(bookName: string): Locator {
+    return this.root.getByText(`${bookName}에 적었어요`, { exact: true });
+  }
+
+  get movedLabel(): Locator {
+    return this.root.getByText('내 가계부로 옮겼어요', { exact: true });
+  }
+
+  /** 그 달 남은 예산이나 같이 쓴 돈, 그리고 누가 볼 수 있는지. */
+  get card(): Locator {
+    return this.root.getByRole('status');
+  }
+
+  get payerGroup(): Locator {
+    return this.root.getByRole('group', { name: '낸 사람', exact: true });
+  }
+
+  payer(name: string): Locator {
+    return this.payerGroup.getByRole('button', { name, exact: true });
+  }
+
+  get moveOutButton(): Locator {
+    return this.root.getByRole('button', { name: '내 가계부로 옮기기', exact: true });
+  }
+
+  get confirmButton(): Locator {
+    return this.root.getByRole('button', { name: '확인', exact: true });
+  }
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

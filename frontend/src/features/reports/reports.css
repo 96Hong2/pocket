@@ -710,4 +710,171 @@
     border-radius: var(--radius-card);
     cursor: pointer;
   }
+
+  /* ── 공유 가계부 리포트 ─────────────────────────── */
+
+  .report__head-text {
+    flex: 1;
+  }
+
+  /* 리드 자리에 서는 가계부 칩. 칩 안쪽 여백만큼 당겨 글자를 제목 첫 글자에 맞춘다. */
+  .report__book-chip {
+    margin: -4px 0 8px -4px;
+  }
+
+  /* 자세히 보기. 잠겨 있을 때는 받을 것 넷과 버튼 하나, 풀리면 같은 이름의 칸이 선다. */
+  .report__insight {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .report__insight-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .report__insight-title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.4;
+    color: var(--color-ink);
+  }
+
+  .report__insight-topics {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0 0 2px;
+    list-style: none;
+  }
+
+  .report__insight-topic {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .report__insight-topic::before {
+    content: '';
+    flex: none;
+    width: 6px;
+    height: 6px;
+    margin-left: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-300);
+  }
+
+  .report__insight-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* 칸끼리는 줄 하나로 가른다. 카드를 더 쪼개면 한 달 이야기가 흩어진다. */
+  .report__insight-part {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .report__insight-label {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .report__insight-text {
+    overflow-wrap: anywhere;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-ink);
+  }
+
+  .report__insight-note {
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  .report__insight-grown {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .report__insight-grown-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .report__insight-delta {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* 더 쓴 쪽만 눈에 걸리게 한다. 헤드라인 비교 줄과 같은 규칙이다. */
+  .report__insight-delta.is-up {
+    color: var(--color-expense);
+  }
+
+  .report__insight-grown .report__insight-delta {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .report__insight-changes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* 이름 칸이 먼저 줄어든다. 금액이 잘리면 이 줄이 할 말을 못 한다. */
+  .report__insight-change {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .report__insight-change-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .report__insight-change-value {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+  }
+
+  .report__insight-change-amount {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
 }

@@ -28,6 +28,7 @@ export {
   type SegmentedOption,
 } from './SegmentedControl';
 export { TagMark } from './TagMark';
+export { Toast, type ToastProps } from './Toast';
 export { Toggle, type ToggleProps } from './Toggle';
 export { TransactionRow, type TransactionRowProps } from './TransactionRow';
 

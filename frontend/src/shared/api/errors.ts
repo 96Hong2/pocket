@@ -56,6 +56,10 @@ const MESSAGES: Record<string, string> = {
   INVALID_REQUEST: '입력한 내용을 다시 확인해 주세요.',
   INVALID_CATEGORY: '고를 수 없는 카테고리예요.',
   INVALID_REFUND_TARGET: '환불할 지출을 찾지 못했어요.',
+  INVITE_EXPIRED: '초대 링크가 만료됐어요.',
+  INVITE_CLOSED: '더 이상 쓸 수 없는 초대 링크예요.',
+  BOOK_FULL: '이 가계부는 10명이 다 찼어요.',
+  BOOK_ENDED: '끝난 가계부라 적을 수 없어요.',
   HTTP_ERROR: '요청을 처리하지 못했어요.',
   INTERNAL_ERROR: '문제가 생겼어요. 잠시 뒤 다시 시도해 주세요.',
 

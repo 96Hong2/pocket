@@ -1,8 +1,9 @@
-import { test as base, expect } from '@playwright/test';
+import { test as base, devices, expect, type Page } from '@playwright/test';
 
 import { AccountScreen } from '../screens/AccountScreen';
 import { AppShell } from '../screens/AppShell';
 import { AssetsScreen } from '../screens/AssetsScreen';
+import { BooksScreen } from '../screens/BooksScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { CategoriesScreen } from '../screens/CategoriesScreen';
 import { GoalScreen } from '../screens/GoalScreen';
@@ -19,7 +20,27 @@ import { TagsScreen } from '../screens/TagsScreen';
 import { installShareSheetStub } from './aitMock';
 import { anonKeyFor, installAnonKeyTrap, probeAnonKey } from './anonKey';
 import { PrepApi } from './api';
-import { DEV_STACK_URLS, FONT_CDN } from './env';
+import { DEV_STACK_URLS, E2E_WEB_URL, FONT_CDN } from './env';
+
+/**
+ * 같은 테스트 안의 두 번째 사람. 공유 가계부에 초대받는 쪽이다.
+ *
+ * 따로 된 브라우저 창과 따로 된 익명키를 가져 백엔드에서 다른 사용자가 된다. 기본 `page` 와
+ * 같은 기기(Pixel 8)·말(ko-KR)·시간대(Asia/Seoul)이고, 같은 가드(익명키·개발 스택·콘솔 오류)가
+ * 걸린다. 처음 안내와 권유 카드는 기본 page 처럼 닫아 둔 채로 연다.
+ */
+export interface Partner {
+  /** 이 사람의 익명키. 기본 `anonKey` 뒤에 `-partner` 를 붙인다. */
+  key: string;
+  page: Page;
+  /** 이 사람 쪽 배경을 심는다. 합류(`joinBook`)도 여기서 부른다. */
+  prep: PrepApi;
+  appShell: AppShell;
+  home: HomeScreen;
+  recordSheet: RecordSheet;
+  report: ReportScreen;
+  books: BooksScreen;
+}
 
 /**
  * 모든 spec 의 유일한 진입점.
@@ -76,6 +97,10 @@ interface PocketFixtures {
   recurring: RecurringScreen;
   /** 처음 안내. `showOnboarding` 을 켠 spec 에서만 실제로 뜬다. */
   onboarding: OnboardingScreen;
+  /** 같이 쓰는 가계부 하위 화면(목록·만들기·설정·정산·초대). */
+  books: BooksScreen;
+  /** 두 번째 사람. 부르는 테스트에서만 창이 열린다. */
+  partner: Partner;
   /** 확인하려는 동작의 배경 상태를 심는다. 브라우저와 같은 익명키를 쓴다. */
   prep: PrepApi;
 }
@@ -153,6 +178,55 @@ export const test = base.extend<PocketFixtures>({
     await use(new RecurringScreen(page));
   },
 
+  books: async ({ page }, use) => {
+    await use(new BooksScreen(page));
+  },
+
+  partner: async ({ browser, anonKey, consoleErrorAllowList }, use) => {
+    const key = `${anonKey}-partner`;
+    const context = await browser.newContext({
+      ...devices['Pixel 8'],
+      baseURL: E2E_WEB_URL,
+      locale: 'ko-KR',
+      timezoneId: 'Asia/Seoul',
+    });
+    const page = await context.newPage();
+    await page.addInitScript(installAnonKeyTrap, key);
+    await page.addInitScript(installShareSheetStub);
+    await page.addInitScript(silenceStarterCards);
+    await page.addInitScript(silenceOnboarding);
+
+    const violations = watchRequests(page, key);
+    const consoleErrors = watchConsole(page);
+    const prep = await PrepApi.create(key);
+
+    await use({
+      key,
+      page,
+      prep,
+      appShell: new AppShell(page),
+      home: new HomeScreen(page),
+      recordSheet: new RecordSheet(page),
+      report: new ReportScreen(page),
+      books: new BooksScreen(page),
+    });
+
+    if (!page.isClosed()) {
+      const probe = await probeAnonKey(page);
+      if (probe.navigated && probe.key !== key) {
+        violations.push(`상대 창의 익명키가 덮이지 않았다. 목이 든 값=${probe.key} 기대값=${key}`);
+      }
+    }
+    await prep.dispose();
+    await context.close();
+
+    expect(violations, `상대 창에서 격리 가드가 잡은 것:\n${violations.join('\n')}`).toEqual([]);
+    const unexpected = consoleErrors.filter(
+      (text) => !consoleErrorAllowList.some((pattern) => pattern.test(text)),
+    );
+    expect(unexpected, `상대 창 콘솔 오류:\n${unexpected.join('\n')}`).toEqual([]);
+  },
+
   prep: async ({ anonKey }, use) => {
     const api = await PrepApi.create(anonKey);
     await use(api);
@@ -220,6 +294,35 @@ export const test = base.extend<PocketFixtures>({
 });
 
 export { expect };
+
+/** 두 번째 창의 요청 감시. 기본 page 와 같은 두 가지(개발 스택·익명키)를 본다. */
+function watchRequests(page: Page, key: string): string[] {
+  const violations: string[] = [];
+  page.on('request', (request) => {
+    const url = request.url();
+    const devStack = DEV_STACK_URLS.find((origin) => url.startsWith(origin));
+    if (devStack) violations.push(`개발 스택(${devStack})으로 요청이 나갔다: ${url}`);
+    const sent = request.headers()['x-anon-key'];
+    if (sent !== undefined && sent !== key) {
+      violations.push(
+        `상대 창 익명키가 기대값과 다르다. 보낸 값=${sent} 기대값=${key}\n  → ${url}`,
+      );
+    }
+  });
+  return violations;
+}
+
+/** 두 번째 창의 콘솔 오류. 글꼴 CDN 만 봐준다. 기본 page 와 같은 규칙이다. */
+function watchConsole(page: Page): string[] {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() !== 'error') return;
+    if (FONT_CDN.test(message.location().url)) return;
+    errors.push(message.text());
+  });
+  page.on('pageerror', (error) => errors.push(error.message));
+  return errors;
+}
 
 /**
  * 첫 기록 뒤의 권유 카드 둘을 「이미 닫았다」 로 두고 시작한다.

@@ -13,6 +13,23 @@ import {
 import type {
   AssetsOut,
   AssetSnapshotPut,
+  BookCreate,
+  BookEntryCreate,
+  BookEntryCreated,
+  BookEntryListOut,
+  BookEntryOut,
+  BookEntryUpdate,
+  BookInviteOut,
+  BookListOut,
+  BookOut,
+  BookReportOut,
+  BookUpdate,
+  InvitePreviewOut,
+  JoinIn,
+  MoveInIn,
+  MoveOutResult,
+  SettlementDoneIn,
+  SettlementOut,
   BudgetOut,
   ClosingOut,
   BudgetSuggestionOut,
@@ -164,7 +181,32 @@ const PATHS = {
   accountEmailStart: '/api/v1/account/email/start',
   accountEmailVerify: '/api/v1/account/email/verify',
   accountProfile: '/api/v1/account/profile',
+  books: '/api/v1/books',
+  invites: '/api/v1/invites',
 } as const;
+
+/**
+ * 정산을 볼 기간. 달을 주거나, 여행 가계부처럼 기간 전체(`'all'`)를 본다.
+ * 안 주면 서버가 가계부 시간대의 이번 달로 정한다.
+ */
+export type SettlementPeriod = MonthParams | 'all';
+
+function bookPath(bookId: string): string {
+  return `${PATHS.books}/${encodeURIComponent(bookId)}`;
+}
+
+function bookEntryPath(bookId: string, entryId: string): string {
+  return `${bookPath(bookId)}/entries/${encodeURIComponent(entryId)}`;
+}
+
+function inviteApiPath(code: string): string {
+  return `${PATHS.invites}/${encodeURIComponent(code)}`;
+}
+
+/** 여행 가계부는 달을 안 보낸다. 서버가 기간 전체로 센다. */
+function settlementQuery(period?: SettlementPeriod): RequestSpec['query'] {
+  return period === 'all' ? undefined : monthQuery(period);
+}
 
 function transactionPath(id: string): string {
   return `${PATHS.transactions}/${encodeURIComponent(id)}`;
@@ -420,6 +462,78 @@ export interface ApiClient extends Transport {
     contributionId: string,
     options?: CallOptions,
   ): Promise<void>;
+
+  // ── 공유 가계부 ──
+  // 기능 스위치가 꺼진 서버는 모든 경로를 404 NOT_FOUND 로 답한다.
+  // 멤버가 아니거나 관리자 일을 멤버가 하려 해도 404 다.
+
+  /** 내가 지금 멤버인 가계부. 끝난 것도 온다. 안 끝난 것이 먼저다. */
+  listBooks(options?: CallOptions): Promise<BookListOut>;
+  /** 만들면서 관리자 멤버, 기본 분류, 살아 있는 초대 링크까지 한 번에 생긴다. */
+  createBook(body: BookCreate, options?: CallOptions): Promise<BookOut>;
+  getBook(bookId: string, options?: CallOptions): Promise<BookOut>;
+  /** 이름·끝내기는 관리자만, 돈 나누기·예산은 멤버 누구나. 보낸 필드만 바뀐다. */
+  updateBook(bookId: string, body: BookUpdate, options?: CallOptions): Promise<BookOut>;
+  /** 관리자만. 표시만 지우고 30일 안에는 되살릴 수 있다. */
+  deleteBook(bookId: string, options?: CallOptions): Promise<void>;
+  restoreBook(bookId: string, options?: CallOptions): Promise<BookOut>;
+  /** 새 초대 링크. 앞 링크는 닫힌다. 끝난 가계부는 409 `BOOK_ENDED`. */
+  createInvite(bookId: string, options?: CallOptions): Promise<BookInviteOut>;
+  /** 초대 화면이 그릴 것. 모르는 코드와 지운 가계부는 404 다. */
+  getInvitePreview(code: string, options?: CallOptions): Promise<InvitePreviewOut>;
+  /** 이미 멤버면 같은 가계부를 그대로 돌려준다. 두 번 눌러도 된다. */
+  joinBook(code: string, body: JoinIn, options?: CallOptions): Promise<BookOut>;
+  /** 관리자가 나가면 가장 먼저 들어온 멤버가 관리자가 된다. 아무도 안 남으면 가계부가 지워진다. */
+  leaveBook(bookId: string, options?: CallOptions): Promise<void>;
+  /** 관리자만, 자기 자신은 안 된다. 그 멤버가 적은 기록은 남는다. */
+  removeMember(bookId: string, memberId: string, options?: CallOptions): Promise<void>;
+  /** 그 달 공유 기록. 날짜가 늦은 것부터. */
+  listBookEntries(
+    bookId: string,
+    params?: MonthParams,
+    options?: CallOptions,
+  ): Promise<BookEntryListOut>;
+  /** 끝난 가계부는 409 `BOOK_ENDED`. 응답에 그 달의 쓴 돈과 남은 예산이 함께 온다. */
+  createBookEntry(
+    bookId: string,
+    body: BookEntryCreate,
+    options?: CallOptions,
+  ): Promise<BookEntryCreated>;
+  updateBookEntry(
+    bookId: string,
+    entryId: string,
+    body: BookEntryUpdate,
+    options?: CallOptions,
+  ): Promise<BookEntryOut>;
+  /** 적은 사람이나 관리자만. 표시만 지워 되돌릴 수 있다. */
+  deleteBookEntry(bookId: string, entryId: string, options?: CallOptions): Promise<void>;
+  restoreBookEntry(bookId: string, entryId: string, options?: CallOptions): Promise<BookEntryOut>;
+  /** 적은 사람만. 내 가계부에 거래가 생기고 공유 기록은 지워진다. */
+  moveEntryOut(bookId: string, entryId: string, options?: CallOptions): Promise<MoveOutResult>;
+  /** 내 지출 하나를 공유 가계부로 옮긴다. 내 거래는 지워진다. */
+  moveEntryIn(bookId: string, body: MoveInIn, options?: CallOptions): Promise<BookEntryCreated>;
+  getSettlement(
+    bookId: string,
+    period?: SettlementPeriod,
+    options?: CallOptions,
+  ): Promise<SettlementOut>;
+  /** 여행 가계부는 달을 보지 않고 기간 전체를 끝낸다. */
+  markSettlementDone(
+    bookId: string,
+    body: SettlementDoneIn,
+    options?: CallOptions,
+  ): Promise<SettlementOut>;
+  undoSettlementDone(
+    bookId: string,
+    period?: SettlementPeriod,
+    options?: CallOptions,
+  ): Promise<SettlementOut>;
+  /** 기본 리포트와 자세히 보기가 한 응답으로 온다. 자세히 보기 잠금은 화면의 일이다. */
+  getBookReport(
+    bookId: string,
+    params?: MonthParams,
+    options?: CallOptions,
+  ): Promise<BookReportOut>;
 }
 
 export function createApiClient(options: TransportOptions): ApiClient {
@@ -942,6 +1056,193 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<void>({
         method: 'DELETE',
         path: contributionPath(goalId, contributionId),
+        signal: call?.signal,
+      });
+    },
+
+    listBooks(call) {
+      return transport.request<BookListOut>({
+        method: 'GET',
+        path: PATHS.books,
+        signal: call?.signal,
+      });
+    },
+
+    createBook(body, call) {
+      return transport.request<BookOut>({
+        method: 'POST',
+        path: PATHS.books,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    getBook(bookId, call) {
+      return transport.request<BookOut>({
+        method: 'GET',
+        path: bookPath(bookId),
+        signal: call?.signal,
+      });
+    },
+
+    updateBook(bookId, body, call) {
+      return transport.request<BookOut>({
+        method: 'PATCH',
+        path: bookPath(bookId),
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    deleteBook(bookId, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: bookPath(bookId),
+        signal: call?.signal,
+      });
+    },
+
+    restoreBook(bookId, call) {
+      return transport.request<BookOut>({
+        method: 'POST',
+        path: `${bookPath(bookId)}/restore`,
+        signal: call?.signal,
+      });
+    },
+
+    createInvite(bookId, call) {
+      return transport.request<BookInviteOut>({
+        method: 'POST',
+        path: `${bookPath(bookId)}/invites`,
+        signal: call?.signal,
+      });
+    },
+
+    getInvitePreview(code, call) {
+      return transport.request<InvitePreviewOut>({
+        method: 'GET',
+        path: inviteApiPath(code),
+        signal: call?.signal,
+      });
+    },
+
+    joinBook(code, body, call) {
+      return transport.request<BookOut>({
+        method: 'POST',
+        path: `${inviteApiPath(code)}/join`,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    leaveBook(bookId, call) {
+      return transport.request<void>({
+        method: 'POST',
+        path: `${bookPath(bookId)}/leave`,
+        signal: call?.signal,
+      });
+    },
+
+    removeMember(bookId, memberId, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: `${bookPath(bookId)}/members/${encodeURIComponent(memberId)}`,
+        signal: call?.signal,
+      });
+    },
+
+    listBookEntries(bookId, params, call) {
+      return transport.request<BookEntryListOut>({
+        method: 'GET',
+        path: `${bookPath(bookId)}/entries`,
+        query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
+    createBookEntry(bookId, body, call) {
+      return transport.request<BookEntryCreated>({
+        method: 'POST',
+        path: `${bookPath(bookId)}/entries`,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    updateBookEntry(bookId, entryId, body, call) {
+      return transport.request<BookEntryOut>({
+        method: 'PATCH',
+        path: bookEntryPath(bookId, entryId),
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    deleteBookEntry(bookId, entryId, call) {
+      return transport.request<void>({
+        method: 'DELETE',
+        path: bookEntryPath(bookId, entryId),
+        signal: call?.signal,
+      });
+    },
+
+    restoreBookEntry(bookId, entryId, call) {
+      return transport.request<BookEntryOut>({
+        method: 'POST',
+        path: `${bookEntryPath(bookId, entryId)}/restore`,
+        signal: call?.signal,
+      });
+    },
+
+    moveEntryOut(bookId, entryId, call) {
+      return transport.request<MoveOutResult>({
+        method: 'POST',
+        path: `${bookEntryPath(bookId, entryId)}/move-out`,
+        signal: call?.signal,
+      });
+    },
+
+    moveEntryIn(bookId, body, call) {
+      return transport.request<BookEntryCreated>({
+        method: 'POST',
+        path: `${bookPath(bookId)}/entries/move-in`,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    getSettlement(bookId, period, call) {
+      return transport.request<SettlementOut>({
+        method: 'GET',
+        path: `${bookPath(bookId)}/settlement`,
+        query: settlementQuery(period),
+        signal: call?.signal,
+      });
+    },
+
+    markSettlementDone(bookId, body, call) {
+      return transport.request<SettlementOut>({
+        method: 'POST',
+        path: `${bookPath(bookId)}/settlement/done`,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    undoSettlementDone(bookId, period, call) {
+      return transport.request<SettlementOut>({
+        method: 'DELETE',
+        path: `${bookPath(bookId)}/settlement/done`,
+        query: settlementQuery(period),
+        signal: call?.signal,
+      });
+    },
+
+    getBookReport(bookId, params, call) {
+      return transport.request<BookReportOut>({
+        method: 'GET',
+        path: `${bookPath(bookId)}/report`,
+        query: monthQuery(params),
         signal: call?.signal,
       });
     },

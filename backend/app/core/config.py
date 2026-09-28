@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     # 진짜 규칙으로 계산되므로 '끝난 달은 보기만 한다' 는 동작은 켠 채로도 검증된다.
     allow_past_period_budget_write: bool = False
 
+    # 공유 가계부 기능 스위치. 꺼져 있으면 /books, /invites 가 404 이고 화면은 입구를 감춘다.
+    # 화면은 GET /account/me 의 shared_books_enabled 로 이 값을 읽는다.
+    shared_books_enabled: bool = False
+
     # 줄글 분석을 하루에 몇 번까지 받아 줄지. 핵심 루프를 끊지 않도록 넉넉히 잡는다.
     # 비용을 재기 전에 상한을 좁히지 않는다. 실제 사용량을 보고 나서 정한다.
     nl_parse_daily_limit: int = 300

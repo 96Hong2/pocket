@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import pytest
+from fastapi import Header
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
@@ -71,6 +72,28 @@ def client(engine: Engine) -> Iterator[TestClient]:
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_verified_identity] = override_identity
 
+    with TestClient(app) as c:
+        yield c
+
+
+@pytest.fixture
+def two_devices(engine: Engine) -> Iterator[TestClient]:
+    """익명키를 헤더에서 읽는 앱. 기본 client 는 키 하나로 고정돼 두 사람을 못 만든다.
+
+    헤더 `X-Anon-Key` 가 다르면 다른 사람이다(첫 호출에서 사용자 행이 생긴다).
+    """
+    maker = sessionmaker(bind=engine, expire_on_commit=False)
+
+    def override_session() -> Iterator[Session]:
+        with maker() as session:
+            yield session
+
+    async def override_identity(x_anon_key: str = Header(alias="X-Anon-Key")) -> VerifiedIdentity:
+        return VerifiedIdentity(anon_key=x_anon_key, verified_by="trusting")
+
+    app = create_app()
+    app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[get_verified_identity] = override_identity
     with TestClient(app) as c:
         yield c
 

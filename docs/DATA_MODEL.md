@@ -1,7 +1,7 @@
 # 데이터 모델
 
 `backend/app/models/` 를 읽고 쓴 문서다. 코드가 정본이고 이 문서는 안내다.
-모델을 고쳤으면 여기도 같이 고친다. 확인 시점: 2026-09-08.
+모델을 고쳤으면 여기도 같이 고친다. 확인 시점: 2026-09-28.
 
 ## 공통 규칙
 
@@ -62,6 +62,20 @@ erDiagram
 
   asset_snapshots ||--o{ asset_items : ""
   goals ||--o{ goal_contributions : ""
+```
+
+공유 가계부는 개인 표와 따로 선다(ADR-0042). 사람을 가리키는 칸은 사용자 줄이 아니라 멤버 줄을 본다.
+
+```mermaid
+erDiagram
+  users ||--o{ book_members : "멤버가 된다"
+  books ||--o{ book_members : ""
+  books ||--o{ book_invites : "초대 링크"
+  books ||--o{ book_categories : "종류별로 심는다"
+  books ||--o{ book_entries : "같이 쓴 돈"
+  books ||--o{ settlements : "정산 끝 표시"
+  book_categories |o--o{ book_entries : "분류한다"
+  book_members |o--o{ book_entries : "적은 사람, 낸 사람"
 ```
 
 ## users
@@ -385,6 +399,95 @@ pref.budget_auto_carryover = false         → 복사 안 함
 **진행 중인 목표는 사용자당 하나뿐이다.** 다중 목표는 P2 라서 DB 가 먼저 막는다.
 
 `goal_contributions` 는 `amount > 0`, `source` 는 `manual` \| `asset_snapshot` 이다.
+
+## 공유 가계부 (books 외 다섯 표)
+
+같이 쓰는 돈을 적는 가계부다. **개인 표(`transactions`, `categories` …)에는 칸 하나 더하지 않았다.**
+개인 조회의 `user_id ==` 조건을 그대로 두려고 새 표에 둔다(ADR-0042). 값 목록과 종류별 분류의
+정본은 `app/domain/books.py` 다.
+
+사람을 가리키는 칸(적은 사람, 낸 사람, 고친 사람, 지운 사람, 초대한 사람, 정산한 사람)은
+**멤버 줄을 `SET NULL` 로** 본다. 사용자 줄을 곧장 보고 CASCADE 로 걸면 한 사람 줄이 지워질 때
+상대의 공동 기록까지 사라진다.
+
+### books
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `kind` | `couple` \| `family` \| `trip` \| `room` | 기본 이름, 돈 나누기 기본값, 처음 심는 분류가 여기서 갈린다 |
+| `name` | `varchar(20)` | |
+| `settle_rule` | `even` \| `none` | `even` 은 반반(인원수대로), `none` 은 같이 모은 돈이라 정산이 없다 |
+| `monthly_budget` | `numeric(14,0)?` | 달마다 같은 예산. CHECK `IS NULL OR > 0`. 비우면 예산이 없다 |
+| `timezone` | `varchar(64)` | 만든 사람의 `users.timezone` 을 옮겨 적는다. 멤버마다 달라도 「이번 달」 은 하나다 |
+| `ended_at` | `timestamptz?` | 관리자가 끝내면 찍고 다시 열면 비운다. 끝난 가계부는 기록·초대·합류를 막는다(409 `BOOK_ENDED`) |
+| `deleted_at`, `deleted_by_user_id` | | 관리자가 지우거나 마지막 멤버가 나가면 찍는다. 지운 관리자가 30일 안에 되살릴 수 있다 |
+| `created_by_user_id` | `uuid?` | `SET NULL` |
+
+### book_members
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `book_id`, `user_id` | `uuid` | 둘 다 CASCADE |
+| `display_name` | `varchar(10)` | 다른 멤버 화면에 보이는 이름. `users` 에는 이름 칸이 없다 |
+| `role` | `owner` \| `member` | 지금 멤버 중 관리자는 한 명이다. 관리자가 나가면 가장 먼저 들어온 멤버가 잇는다 |
+| `joined_at`, `left_at` | `timestamptz`, `timestamptz?` | 나가거나 내보내지면 `left_at` 을 찍고 **줄은 남긴다**. 그 사람이 적은 기록이 이 줄을 가리킨다 |
+| `removed_at` | `timestamptz?` | 관리자가 내보냈으면 찍는다. 그 뒤로 이 사람은 내보내기 전에 나온 링크로 못 돌아온다(`closed`) |
+
+- 부분 unique 인덱스 `uq_book_members_book_id_user_id_active (book_id, user_id) WHERE left_at IS NULL`.
+  **지금 멤버인 줄은 한 사람에 하나**이고, 나갔다 다시 들어오면 새 줄이 생긴다.
+  `postgresql_where` 와 `sqlite_where` 를 함께 줘서 테스트 DB 에서도 부분 인덱스다.
+- 한 가계부에 지금 멤버는 **열 명**까지(`MAX_MEMBERS`). 합류는 가계부 줄을 잠근 뒤 센다.
+- API 는 나간 멤버의 이름을 내보내지 않는다(`name: null`).
+
+### book_invites
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `code` | `varchar(16)` unique | `secrets.token_urlsafe(9)`, 12자 `^[A-Za-z0-9_-]{12}$` |
+| `created_by_member_id` | `uuid?` | `SET NULL` |
+| `expires_at` | `timestamptz` | 만든 때 + 7일 |
+| `closed_at` | `timestamptz?` | 새 초대를 만들면 앞의 것을 닫는다. 가계부를 지워도 닫는다. 멤버를 내보낼 때는 닫지 않는다 |
+| `max_joins`, `join_count` | `int?`, `int` = 0 | 연인·부부는 `max_joins = 1` 이라 한 사람이 들어오면 닫힌다. 나머지는 인원 상한만 본다 |
+
+### book_categories
+
+`book_id`, `name varchar(40)`, `icon_key varchar(64)`, `sort_order int`, `deleted_at`(1차는 안 씀).
+unique `(book_id, name)`. 만들 때 종류별 목록을 서버가 심는다(`BOOK_CATEGORY_SEEDS`). 모든 종류가
+「기타」 를 갖고 있어 옮기기에서 같은 이름이 없을 때 그리로 간다. 1차는 분류를 더하거나 고치지 않는다.
+
+### book_entries
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `amount` | `numeric(14,0)` | CHECK `> 0`. 1차는 **지출만** 받아 종류 칸이 없다 |
+| `category_id` | `uuid?` | `book_categories` 를 `SET NULL` 로. 같은 가계부의 분류만 받는다 |
+| `title`, `memo` | `varchar(120)?`, `varchar(200)?` | 상호(무엇), 메모 |
+| `occurred_on` | `date` | **적는 사람 화면의 날짜 그대로.** 멤버마다 시간대가 달라도 날이 갈리지 않게 시각이 아니라 날짜로 둔다 |
+| `created_by_member_id` | `uuid?` | 적은 사람 |
+| `paid_by_member_id` | `uuid?` | 낸 사람. 기본은 적은 사람. 지금 멤버만 고를 수 있다 |
+| `updated_by_member_id` | `uuid?` | 적은 사람이 아닌 멤버가 마지막으로 고쳤으면 그 멤버, 적은 사람이 고쳤으면 비운다 |
+| `deleted_at`, `deleted_by_member_id` | | 적은 사람이나 관리자가 지운다. 되돌리면 둘 다 비운다 |
+| `moved_out_at` | `timestamptz?` | 내 가계부로 옮겨 지웠으면 찍는다. 개인 거래가 이미 생겼으니 되돌리기로 살리지 않는다(404) |
+
+인덱스 `ix_book_entries_book_id_occurred_on`. 달 거르기는 `occurred_on` 날짜 비교뿐이다.
+
+### settlements
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `period` | `varchar(7)` | `YYYY-MM`, 여행 가계부는 `all` |
+| `transfers_snapshot` | `json` | 끝낸 때의 보낼 돈 `[{from, to, amount}]`. id 와 금액은 문자열 |
+| `done_by_member_id`, `done_at` | | |
+| `undone_at` | `timestamptz?` | 되돌리면 찍는다. 줄은 지우지 않는다 |
+
+그 기간의 지금 상태는 **안 되돌린 줄 중 마지막**이다. 지금 계산한 보낼 돈이 이 스냅숏과
+다르면 `changed_after_done` 이다. 계산 규칙은 `app/domain/settlement.py` 에 있다.
+
+### 계정 합치기와 초기화
+
+- 이메일로 합치면 source 의 멤버 줄을 **기록이 없어도** target 으로 옮긴다(`books.absorb_memberships`).
+  둘이 같은 가계부의 멤버였으면 source 가 적은 기록을 target 멤버 줄로 돌리고 source 줄은 나간 것으로 둔다.
+- `reset_data`(내 가계부 지우기)는 공유 가계부 표를 건드리지 않는다.
 
 ## 세 금액 개념이 왜 따로인가
 

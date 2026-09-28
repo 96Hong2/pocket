@@ -327,6 +327,46 @@ export const EVENTS = {
   adStuckExit: 'ad_stuck_exit',
   /** 화면이 죽었거나 요청이 실패했다. */
   clientError: 'client_error',
+
+  /**
+   * 공유 가계부를 만들거나 이름을 바꾸거나 끝내거나 지웠다. 되살린 것과 다시 연 것도 센다.
+   *
+   * **가계부 이름과 id 는 싣지 않는다.** 무엇을 했나(`action`)와 어떤 가계부인가(`kind`)까지다.
+   * 끝낸 뒤 되돌린 비율이 높으면 「끝내기」 가 잘못 눌리는 자리다.
+   */
+  bookChanged: 'book_changed',
+  /**
+   * 초대장을 보냈다. 어디서(`where`), 공유창까지 갔나(`result`), 막혔으면 왜인가(`reason`).
+   *
+   * **초대 코드와 보낸 글은 싣지 않는다.** 코드가 있으면 누구나 그 가계부에 들어갈 수 있다.
+   */
+  bookInviteResult: 'book_invite_result',
+  /**
+   * 초대 링크로 들어온 사람이 어떻게 됐나. 합류·나중에·만료·다 참·이미 멤버·닫힘·끝남·모르는 링크·실패.
+   *
+   * 공유 가계부의 가장 중요한 한 걸음이다. 링크를 받은 사람이 설명 없이 들어오는지가 여기서 갈린다.
+   * `first_open` 이 참이면 이 링크로 앱을 처음 연 사람이다. 인원은 구간(`members`)으로만 싣는다.
+   */
+  bookJoinResult: 'book_join_result',
+  /** 멤버가 나갔거나 내보내졌다. 나간 사람의 자리(`role`)까지. 이름은 싣지 않는다. */
+  bookMemberChanged: 'book_member_changed',
+  /**
+   * 정산을 끝냈거나 되돌렸다. 나누는 방식(`rule`)과 인원 구간(`members`)까지.
+   *
+   * **금액은 싣지 않는다.** 누가 누구에게 얼마를 보내는지는 그 가계부 안에만 있다.
+   */
+  settleChanged: 'settle_changed',
+  /**
+   * 공유 리포트의 자세히 보기를 열었다. 광고를 끝까지 봤나(`earned`), 중간에 닫았나(`watched`),
+   * 광고 없이 열렸나(`skipped`)와 그 이유. `earned` 와 `watched` 는 합치지 않는다(ADR-0024).
+   */
+  reportDetailOpened: 'report_detail_opened',
+  /**
+   * 「우리 집 광고 없이 쓰기」 줄을 열었고 무엇을 눌렀나(`open`·`want`·`close`).
+   *
+   * 결제는 아직 없다. 이 값이 곧 수요다. 인원 구간(`members`)으로 몇 명 가계부에서 원하는지 본다.
+   */
+  plusInterest: 'plus_interest',
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];
@@ -362,3 +402,26 @@ export type ItemAction = 'created' | 'updated' | 'deleted';
  * 한 칸에 섞으면 「반복 지출을 그만둔 사람」 이 실제보다 많아 보인다.
  */
 export type RecurringAction = ItemAction | 'paused' | 'resumed';
+
+/** 공유 가계부에 한 일. `book_changed` 의 `action`. */
+export type BookChangeAction =
+  'created' | 'renamed' | 'ended' | 'reopened' | 'deleted' | 'restored';
+
+/** 초대장을 보낸 자리. 만들기 직후·설정·우리 집 홈의 「아직 혼자예요」 카드. */
+export type BookInviteWhere = 'create' | 'settings' | 'home';
+
+/** 초대 링크로 들어온 결과. `book_join_result` 의 `result`. */
+export type BookJoinOutcome =
+  'joined' | 'later' | 'expired' | 'full' | 'member' | 'closed' | 'ended' | 'invalid' | 'failed';
+
+/**
+ * 멤버 수 구간. 값 그대로 싣지 않는다. 가계부 하나의 인원은 그 가계부를 가리키는 값이 될 수 있다.
+ * `1` 은 아직 혼자인 가계부다.
+ */
+export type MembersBucket = '1' | '2' | '3-5' | '6-10';
+
+/**
+ * 어느 가계부에 한 일인가. 내 가계부(`mine`)와 공유 가계부(`shared`).
+ * `save_result`·`record_changed` 의 `book` 에 싣는다.
+ */
+export type BookSide = 'mine' | 'shared';

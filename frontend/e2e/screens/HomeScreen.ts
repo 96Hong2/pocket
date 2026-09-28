@@ -46,6 +46,12 @@ export class HomeScreen {
   readonly recurring: HomeRecurringCard;
   /** 7일을 이어서 적었을 때 맨 앞에 뜨는 축하. 결산과 같은 전체화면 카드다. */
   readonly streak: StreakCelebrationArea;
+  /** 맨 위 「보는 가계부」 칩과 우리 집 홈. 공유 가계부가 없는 사람에게는 아무것도 없다. */
+  readonly book: HomeBookArea;
+  /** 우리 집 홈의 기록을 누르면 열리는 시트. 이름은 개인 수정 시트와 같은 「기록 수정」 이다. */
+  readonly bookEdit: BookEntryEditArea;
+  /** 화면 아래 한 줄 알림(「지웠어요 [되돌리기]」). 화면을 옮겨도 남는다. */
+  readonly toast: ToastArea;
 
   constructor(page: Page) {
     this.page = page;
@@ -63,6 +69,9 @@ export class HomeScreen {
     this.rating = new HomeRatingCard(page);
     this.recurring = new HomeRecurringCard(page);
     this.streak = new StreakCelebrationArea(page);
+    this.book = new HomeBookArea(page);
+    this.bookEdit = new BookEntryEditArea(page);
+    this.toast = new ToastArea(page);
   }
 
   async open(): Promise<void> {
@@ -947,7 +956,6 @@ class RecoveryCard {
   }
 }
 
-
 /**
  * 홈의 「곧 나갈 돈」 카드.
  *
@@ -1020,5 +1028,270 @@ class StreakCelebrationArea {
 
   async waitClosed(): Promise<void> {
     await expect(this.root).toHaveCount(0);
+  }
+}
+
+/** 이름 앞부분이 같은 줄. 이름 뒤에 날짜·인원·금액이 붙어 읽힌다. */
+function startsWith(text: string): RegExp {
+  return new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+}
+
+/**
+ * 공유 가계부를 볼 때의 홈과 맨 위 칩.
+ *
+ * 칩은 가계부가 하나라도 있으면 개인 홈에도 선다. 우리 집 홈은 칩을 눌러 가계부를 골라야 열린다.
+ */
+class HomeBookArea {
+  private readonly page: Page;
+  /** 「최근 같이 쓴 돈」 목록. */
+  readonly recent: BookRecentList;
+  /** 「아직 혼자예요」·처음 들어온 사람 안내 카드. */
+  readonly cards: BookHomeCards;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.recent = new BookRecentList(page);
+    this.cards = new BookHomeCards(page);
+  }
+
+  /** 「보는 가계부 우리 집」. 보이는 글은 이름과 ▾ 뿐이다. */
+  get chip(): Locator {
+    return this.page.getByRole('button', { name: /^보는 가계부 / });
+  }
+
+  get picker(): Locator {
+    return this.page.getByRole('dialog', { name: '어느 가계부를 볼까요' });
+  }
+
+  pickerRow(name: string): Locator {
+    return this.picker.getByRole('button', { name: startsWith(name) });
+  }
+
+  /** 칩을 눌러 고르고 창이 닫힐 때까지 기다린다. */
+  async switchTo(name: string): Promise<void> {
+    await this.chip.click();
+    await this.pickerRow(name).click();
+    await expect(this.picker).toHaveCount(0);
+    await expect(this.chip).toHaveAccessibleName(`보는 가계부 ${name}`);
+  }
+
+  /** 오른쪽 위 멤버 얼굴. 누르면 가계부 설정이다. */
+  get faces(): Locator {
+    return this.page.getByRole('link', { name: /^가계부 설정, 멤버 \d+명$/ });
+  }
+
+  /** 큰 숫자. 예산이 있으면 남은 예산, 없으면 이번 달 같이 쓴 돈이다. */
+  get heroAmount(): Locator {
+    return this.page.getByTestId(TEST_IDS.bookHeroAmount);
+  }
+
+  get setBudgetButton(): Locator {
+    return this.page.getByRole('button', { name: '예산 정하기', exact: true });
+  }
+
+  get endedLine(): Locator {
+    return this.page.getByText('끝난 가계부예요', { exact: true });
+  }
+
+  /** 정산 한 줄. 누르면 정산 화면이다. */
+  get settleCard(): Locator {
+    return this.page.getByRole('link', { name: /정산/ });
+  }
+
+  /** 다섯 줄 아래 「이번 달 N건 모두 보기」. 같은 자리에서 목록을 펼친다. */
+  get moreButton(): Locator {
+    return this.page.getByRole('button', { name: /^이번 달 \d+건 모두 보기$/ });
+  }
+}
+
+/** 우리 집 홈의 「최근 같이 쓴 돈」. 줄마다 적은 사람이 붙고, 남이 고친 줄에는 「고침」 이 붙는다. */
+class BookRecentList {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('region', { name: '최근 같이 쓴 돈', exact: true });
+  }
+
+  get region(): Locator {
+    return this.root;
+  }
+
+  /** 목록 한 줄. 누르면 기록 수정이 열린다. */
+  row(title: string): Locator {
+    return this.root.getByRole('button', { name: startsWith(title) });
+  }
+
+  /** 기록 줄만. 아래 「이번 달 N건 모두 보기」 는 세지 않는다. */
+  get rows(): Locator {
+    return this.root.getByRole('button').filter({ hasNotText: /모두 보기$/ });
+  }
+
+  get emptyLine(): Locator {
+    return this.root.getByText('아직 같이 쓴 돈이 없어요', { exact: true });
+  }
+}
+
+/** 우리 집 홈에 스스로 서는 카드 둘. */
+class BookHomeCards {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  /** 초대받아 들어온 사람에게 한 번 뜨는 안내. */
+  get intro(): Locator {
+    return this.page.getByRole('group', { name: '같이 쓰는 법', exact: true });
+  }
+
+  get introOkButton(): Locator {
+    return this.intro.getByRole('button', { name: '알겠어요', exact: true });
+  }
+
+  /** 이 기기에서 아직 초대장을 안 보냈을 때. */
+  get alone(): Locator {
+    return this.page.getByRole('group', { name: '아직 혼자예요', exact: true });
+  }
+
+  get aloneInviteButton(): Locator {
+    return this.alone.getByRole('button', { name: '초대장 보내기', exact: true });
+  }
+
+  /** 이 기기에서 초대장을 보낸 뒤. 「아직 혼자예요」 대신 선다. */
+  get inviteSent(): Locator {
+    return this.page.getByRole('group', { name: '초대장을 보냈어요', exact: true });
+  }
+
+  get resendButton(): Locator {
+    return this.inviteSent.getByRole('button', { name: '다시 보내기', exact: true });
+  }
+}
+
+/**
+ * 공유 기록 수정 시트. 개인 기록 수정과 같은 이름(「기록 수정」)이다.
+ *
+ * 「적을 곳」 줄은 개인 수정 시트에도 같은 모양으로 선다. 그래서 둘 다 여기 `destinationPill` 로 잡는다.
+ */
+class BookEntryEditArea {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('dialog', { name: '기록 수정' });
+  }
+
+  get dialog(): Locator {
+    return this.root;
+  }
+
+  async waitOpen(): Promise<void> {
+    await expect(this.root).toBeVisible();
+  }
+
+  async waitClosed(): Promise<void> {
+    await expect(this.root).toHaveCount(0);
+  }
+
+  /** 「준호가 9월 28일 오후 3:10에 적었어요」 */
+  get wroteLine(): Locator {
+    return this.root.getByText(/^.+[이가] \d{1,2}월 \d{1,2}일 오[전후] \d{1,2}:\d{2}에 적었어요$/);
+  }
+
+  /** 남이 마지막으로 고쳤을 때만. 「은홍이 9월 28일 오후 3:40에 고쳤어요」 */
+  get editedLine(): Locator {
+    return this.root.getByText(/^.+[이가] \d{1,2}월 \d{1,2}일 오[전후] \d{1,2}:\d{2}에 고쳤어요$/);
+  }
+
+  get amount(): Locator {
+    return this.root.getByLabel('금액');
+  }
+
+  get title(): Locator {
+    return this.root.getByLabel('상호');
+  }
+
+  categoryChip(name: string): Locator {
+    return this.root
+      .getByRole('group', { name: '카테고리' })
+      .getByRole('button', { name, exact: true });
+  }
+
+  payer(name: string): Locator {
+    return this.root.getByRole('group', { name: '낸 사람', exact: true }).getByRole('button', {
+      name,
+      exact: true,
+    });
+  }
+
+  get destination(): Locator {
+    return this.root.getByRole('group', { name: '적을 곳', exact: true });
+  }
+
+  destinationPill(name: string): Locator {
+    return this.destination.getByRole('button', { name, exact: true });
+  }
+
+  get deleteButton(): Locator {
+    return this.root.getByRole('button', { name: '지우기', exact: true });
+  }
+
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: '저장', exact: true });
+  }
+
+  /** 남이 적은 기록을 관리자가 지울 때만 뜨는 물음. */
+  get deleteConfirm(): Locator {
+    return this.root.getByRole('group', { name: '삭제 확인' });
+  }
+
+  get confirmDeleteButton(): Locator {
+    return this.deleteConfirm.getByRole('button', { name: '지울게요', exact: true });
+  }
+
+  /** 개인 수정 시트에만 있는 칸. 공유 가계부를 고르면 걷힌다. */
+  get kindToggle(): Locator {
+    return this.root.getByRole('group', { name: '지출인지 수입인지' });
+  }
+
+  get paymentGroup(): Locator {
+    return this.root.getByRole('group', { name: '결제 수단' });
+  }
+
+  get categoryGroup(): Locator {
+    return this.root.getByRole('group', { name: '카테고리' });
+  }
+
+  get excludeToggle(): Locator {
+    return this.root.getByRole('switch', { name: '예산 계산에서 제외' });
+  }
+
+  /** 공유 가계부를 골랐을 때 분류 자리에 서는 한 줄. */
+  moveCategoryNote(bookName: string): Locator {
+    return this.root.getByText(
+      `분류는 ${bookName}에 같은 이름이 있으면 그대로, 없으면 기타로 들어가요`,
+      { exact: true },
+    );
+  }
+
+  /** 개인 수정 시트의 「완료」. 옮길 곳을 고른 뒤 누른다. */
+  get doneButton(): Locator {
+    return this.root.getByRole('button', { name: '완료', exact: true });
+  }
+}
+
+/** 화면 아래 한 줄 알림. 한 번에 하나만 선다. */
+class ToastArea {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  /** 그 글을 담은 알림. 알림은 `role=status` 이고 화면에 status 가 여럿이라 글로 거른다. */
+  withText(text: string): Locator {
+    return this.page.getByRole('status').filter({ hasText: text });
+  }
+
+  get undoButton(): Locator {
+    return this.page.getByRole('button', { name: '되돌리기', exact: true });
   }
 }

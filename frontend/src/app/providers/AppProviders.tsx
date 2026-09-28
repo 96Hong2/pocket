@@ -4,12 +4,14 @@ import type { MiniAppBridge } from '../../shared/toss';
 
 import { AnalyticsProvider } from './AnalyticsProvider';
 import { ApiProvider } from './ApiProvider';
+import { BookViewProvider } from './BookViewProvider';
 import { BridgeProvider } from './BridgeProvider';
 import { IdentityProvider } from './IdentityProvider';
 import { OnboardingProvider } from './OnboardingProvider';
 import { OverlayProvider } from './OverlayProvider';
 import { QueryProvider } from './QueryProvider';
 import { SafeAreaProvider } from './SafeAreaProvider';
+import { ToastProvider } from './ToastProvider';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -21,6 +23,7 @@ interface AppProvidersProps {
  * 브릿지가 가장 바깥이다. 나머지 프로바이더가 전부 브릿지를 쓴다.
  * 로거는 그 바로 안이다. 조회가 시작되기 전에 난 일도 남겨야 한다.
  * ApiProvider 는 IdentityProvider 안이다. 익명 식별키를 읽어야 클라이언트를 만들 수 있다.
+ * 보는 가계부는 알림 안이다. 보던 가계부가 사라지면 알림으로 말한다.
  */
 export function AppProviders({ children, bridge }: AppProvidersProps) {
   return (
@@ -31,7 +34,11 @@ export function AppProviders({ children, bridge }: AppProvidersProps) {
             <IdentityProvider>
               <ApiProvider>
                 <OverlayProvider>
-                  <OnboardingProvider>{children}</OnboardingProvider>
+                  <OnboardingProvider>
+                    <ToastProvider>
+                      <BookViewProvider>{children}</BookViewProvider>
+                    </ToastProvider>
+                  </OnboardingProvider>
                 </OverlayProvider>
               </ApiProvider>
             </IdentityProvider>

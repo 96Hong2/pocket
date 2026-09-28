@@ -162,6 +162,48 @@ export type NotificationSettingsOut = Schemas['NotificationSettingsOut'];
 /** 보낸 필드만 고친다. `remind_at: null` 은 정해 둔 시각을 지운다는 뜻이다. */
 export type NotificationSettingsPatch = Schemas['NotificationSettingsPatch'];
 
+// ── 공유 가계부 ────────────────────────────────
+/** 누구와 같이 쓰나. 기본 이름, 돈 나누기 기본값, 처음 심는 분류가 여기서 갈린다. */
+export type BookKind = Schemas['BookKind'];
+/** `even` 은 반반·똑같이 나누기, `none` 은 같이 모은 돈(정산 없음). */
+export type SettleRule = Schemas['SettleRule'];
+export type BookRole = Schemas['BookRole'];
+/** 멤버 한 명. 나간 멤버는 `name` 이 null 로 온다. 서버가 이름을 보내지 않는다. */
+export type BookMemberOut = Schemas['BookMemberOut'];
+export type BookCategoryOut = Schemas['BookCategoryOut'];
+/** 지금 쓸 수 있는 초대 링크. 닫혔거나 만료됐으면 가계부의 `invite` 가 null 이다. */
+export type BookInviteOut = Schemas['BookInviteOut'];
+export type BookOut = Schemas['BookOut'];
+/** 내가 지금 멤버인 가계부. 끝난 것도 담긴다. */
+export type BookListOut = Schemas['BookListOut'];
+export type BookCreate = Schemas['BookCreate'];
+/** 보낸 필드만 고친다. `monthly_budget: null` 은 예산을 지운다. */
+export type BookUpdate = Schemas['BookUpdate'];
+/** 초대 화면이 그리는 것. 지운 가계부와 모르는 코드는 이 모양이 아니라 404 다. */
+export type InvitePreviewOut = Schemas['InvitePreviewOut'];
+export type InviteStatus = InvitePreviewOut['status'];
+export type JoinIn = Schemas['JoinIn'];
+/** 공유 기록 한 줄. 1차는 지출만 있다. */
+export type BookEntryOut = Schemas['BookEntryOut'];
+export type BookEntryListOut = Schemas['BookEntryListOut'];
+export type BookEntryCreate = Schemas['BookEntryCreate'];
+export type BookEntryUpdate = Schemas['BookEntryUpdate'];
+/** 저장한 기록이 들어간 달의 쓴 돈과 남은 예산. */
+export type BookMonthStateOut = Schemas['BookMonthStateOut'];
+export type BookEntryCreated = Schemas['BookEntryCreated'];
+export type MoveOutResult = Schemas['MoveOutResult'];
+export type MoveInIn = Schemas['MoveInIn'];
+export type SettlementMemberOut = Schemas['SettlementMemberOut'];
+export type SettlementTransferOut = Schemas['SettlementTransferOut'];
+export type SettlementDoneOut = Schemas['SettlementDoneOut'];
+/** 같이 모은 돈(`none`)이면 members 와 transfers 가 비고 total 만 있다. */
+export type SettlementOut = Schemas['SettlementOut'];
+export type SettlementDoneIn = Schemas['SettlementDoneIn'];
+export type BookCategoryChangeOut = Schemas['BookCategoryChangeOut'];
+/** 자세히 보기. 잠금은 화면의 일이고 값은 늘 온다. */
+export type BookInsightOut = Schemas['BookInsightOut'];
+export type BookReportOut = Schemas['BookReportOut'];
+
 // ── 오류 ──────────────────────────────────────
 export type ErrorBody = Schemas['ErrorBody'];
 export type ErrorEnvelope = Schemas['ErrorEnvelope'];

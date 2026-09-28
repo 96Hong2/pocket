@@ -40,6 +40,8 @@ class MeOut(BaseModel):
     profile_asked: bool
     # 이메일 연결을 지금 쓸 수 있나. 운영에 메일 발송 수단이 없으면 false 고 화면은 입구를 감춘다.
     email_login_available: bool
+    # 공유 가계부를 쓸 수 있나. false 면 화면이 입구를 감춘다.
+    shared_books_enabled: bool
 
 
 class EmailStartIn(BaseModel):

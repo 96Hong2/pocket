@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router';
 import { ROUTES } from '../../app/router/routes';
 
 import { useBridge, useOverlayBackClose } from '../../app/providers';
+import { writeBookLast } from '../../shared/lib/bookLast';
 import { bumpRecordCount } from '../../shared/lib/homeAddSeen';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
@@ -19,8 +20,14 @@ import { DAY_MAX } from '../../shared/lib/limits';
 import {
   ApiError,
   queryKeys,
+  useBook,
+  useBooks,
   useCategories,
+  useCreateBookEntry,
   useCreateTransaction,
+  type BookEntryOut,
+  type BookMonthStateOut,
+  type BookOut,
   type CategoryOut,
   type FeedbackOut,
   type PaymentMethod,
@@ -48,6 +55,7 @@ import {
   type SegmentedOption,
 } from '../../shared/ui';
 
+import { BookDestinationRow, BookFeedbackPanel, asPickable } from '../books';
 import { CategoryEditForm } from '../categories';
 import { ImageImportTab, NaturalLanguageTab, usePhotoCredits } from '../imports';
 
@@ -80,6 +88,13 @@ const TABS: SegmentedOption<RecordTab>[] = [
 interface SavedState {
   transaction: TransactionOut;
   feedback: FeedbackOut;
+}
+
+/** 공유 가계부에 적은 한 건. 저장 뒤 화면이 그 가계부 이름과 그 달 돈으로 말한다. */
+interface SavedEntryState {
+  book: BookOut;
+  entry: BookEntryOut;
+  month: BookMonthStateOut;
 }
 
 /**
@@ -118,6 +133,7 @@ export function QuickRecordSheet({
   initialTab,
   day,
   from = 'home',
+  bookId = null,
   onClose,
   onRecorded,
 }: {
@@ -133,6 +149,12 @@ export function QuickRecordSheet({
   day?: string;
   /** 어느 자리에서 열었나. 로그에만 쓴다. */
   from?: RecordFrom;
+  /**
+   * 「적을 곳」 의 처음 값. 홈이 보고 있는 공유 가계부다. 안 주면 내 가계부다.
+   *
+   * 공유 가계부가 하나도 없는 사람에게는 「적을 곳」 줄 자체가 없다. 지금 화면 그대로다.
+   */
+  bookId?: string | null;
   onClose: () => void;
   /**
    * 어느 날에 적혔는지. 저장이 실제로 끝난 뒤에 부른다.
@@ -250,6 +272,7 @@ export function QuickRecordSheet({
         initialTab={initialTab}
         day={day}
         from={from}
+        bookId={bookId}
         onDone={onClose}
         onRecorded={onRecorded}
         onManage={() => requestLeave('manage')}
@@ -308,6 +331,7 @@ function RecordBody({
   initialTab,
   day,
   from,
+  bookId,
   onDone,
   onRecorded,
   onManage,
@@ -322,6 +346,8 @@ function RecordBody({
   /** 처음에 고를 날. 안 주면 오늘. */
   day?: string;
   from: RecordFrom;
+  /** 처음에 골라 둘 공유 가계부. 없으면 내 가계부. */
+  bookId: string | null;
   onDone: () => void;
   /** 저장이 끝난 날. 부르는 쪽이 그 날로 옮겨 간다. 오늘을 넘지 않는다. */
   onRecorded?: (day: string) => void;
@@ -344,7 +370,29 @@ function RecordBody({
   const queryClient = useQueryClient();
   const categories = useCategories();
   const create = useCreateTransaction();
+  const createEntry = useCreateBookEntry();
   const dayId = useId();
+
+  /*
+    어디에 적나(「적을 곳」). `null` 이면 내 가계부다.
+
+    **공유 가계부가 하나도 없으면 이 줄 자체가 없다.** 그 사람의 시트는 지금과 똑같다.
+    처음 값은 홈이 보고 있는 가계부다. 목록이 아직 안 왔으면 그 값을 그대로 믿고, 목록이
+    와서 그 가계부가 끝났거나 사라졌으면 내 가계부로 둔다. 사람이 고르면 그 값이 이긴다.
+  */
+  const books = useBooks();
+  const activeBooks = (books.data?.items ?? []).filter((book) => !book.ended);
+  const hasShared = activeBooks.length > 0;
+  const [chosenDest, setChosenDest] = useState<string | null | undefined>(undefined);
+  const defaultDest =
+    bookId != null && (books.data == null || activeBooks.some((book) => book.id === bookId))
+      ? bookId
+      : null;
+  const destination = chosenDest !== undefined ? chosenDest : defaultDest;
+  // 목록에 이미 있으면 요청 없이 그 값을 쓴다. 방금 만든 가계부처럼 목록이 늦으면 따로 받는다.
+  const destQuery = useBook(destination);
+  const destBook = activeBooks.find((book) => book.id === destination) ?? destQuery.data ?? null;
+  const shared = destination != null;
 
   const today = toLedgerDate(new Date());
   /** 이름에 날이 붙은 버튼(「어제 기록하기」·달력의 그 날)으로 열었나. 처음 켜 둘 탭만 정한다. */
@@ -381,9 +429,14 @@ function RecordBody({
     지금은 고른 날을 세 탭에 함께 내려보낸다(`baseDay`). 적힌 날짜가 있으면 그쪽이 이기고,
     못 찾은 줄만 고른 날로 간다. 그래서 잠글 이유가 없어졌다.
   */
-  const [tab, setTab] = useState<RecordTab>(
-    openedOnPastDay ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB),
-  );
+  const startTab: RecordTab =
+    openedOnPastDay || bookId != null ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB);
+  const [tabState, setTab] = useState<RecordTab>(startTab);
+  /*
+    공유 가계부에는 키패드로만 적는다. 줄글·사진은 내 가계부로만 들어가는 길이다.
+    고른 탭은 버리지 않는다. 내 가계부로 돌아오면 그 탭이 다시 선다.
+  */
+  const tab: RecordTab = shared ? 'keypad' : tabState;
   /*
     남은 사진 장수. **캡처와 영수증이 하나를 나눠 쓴다.**
 
@@ -411,6 +464,7 @@ function RecordBody({
   const [busy, setBusy] = useState(false);
   const [digits, setDigits] = useState('');
   const [saved, setSaved] = useState<SavedState | null>(null);
+  const [savedEntry, setSavedEntry] = useState<SavedEntryState | null>(null);
   /*
     무엇으로 냈나. 지출에만 붙는다.
 
@@ -489,7 +543,7 @@ function RecordBody({
     analytics.log(
       EVENTS.recordStarted,
       {
-        method: recordMethodOf(openedOnPastDay ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB)),
+        method: recordMethodOf(startTab),
         from,
         backfill: openedOnPastDay,
       },
@@ -593,7 +647,10 @@ function RecordBody({
 
   const allCategories = categories.data?.items ?? [];
   // 고른 종류의 분류만 보여준다. 섞어 두면 수입에 '식비' 가 붙어, 목록과 리포트가 다른 말을 한다.
-  const pickable = categoriesOfKind(kind, allCategories);
+  // 공유 가계부에 적을 때는 그 가계부의 분류다. 개인 분류를 섞으면 상대 화면에 모르는 이름이 선다.
+  const pickable = shared
+    ? asPickable(destBook?.categories ?? [])
+    : categoriesOfKind(kind, allCategories);
 
   /** 껍데기(닫기 막기)와 탭 잠금에 같은 신호를 쓴다. */
   function markBusy(next: boolean): void {
@@ -644,12 +701,16 @@ function RecordBody({
    * 자기 줄을 세면 취소를 눌러도 시트가 안 닫힌다(실제로 그렇게 막혔다).
    */
   function finish(): void {
-    rememberMethod();
+    // 공유 기록은 서버가 방식을 기억하지 않는다. 캐시만 바꾸면 서버와 어긋난다.
+    if (savedEntry == null) rememberMethod();
     const waiting = TABS.map((option) => option.value).find(
       (key) => key !== tab && (reviewCounts[key] ?? 0) > 0,
     );
     if (waiting != null) {
       setSaved(null);
+      setSavedEntry(null);
+      // 기다리는 것은 줄글·사진으로 읽어 둔 것이라 내 가계부로만 간다.
+      setChosenDest(null);
       setTab(waiting);
       return;
     }
@@ -679,6 +740,10 @@ function RecordBody({
 
   function save(category: CategoryOut | null, amount: number): void {
     if (!Number.isFinite(amount) || amount <= 0) return;
+    if (destination != null) {
+      saveToBook(destination, category, amount);
+      return;
+    }
 
     setFutureAsk(null);
     markBusy(true);
@@ -712,6 +777,7 @@ function RecordBody({
               result: 'failed',
               elapsed_ms: Date.now() - startedAt,
               error_code: error instanceof ApiError ? error.code : 'unknown',
+              book: 'mine',
             },
             { flowId },
           );
@@ -730,6 +796,8 @@ function RecordBody({
               day_moved: isBackfill,
               // 지출·수입·이체 중 무엇으로 적었나. 「이체」 글씨가 실제로 쓰이는지 여기서 센다.
               type: isTransfer ? 'transfer' : kind,
+              // 어느 가계부에 적었나. 공유 가계부가 없는 사람도 늘 싣는다.
+              book: 'mine',
             },
             { flowId },
           );
@@ -743,13 +811,74 @@ function RecordBody({
   }
 
   /**
+   * 공유 가계부에 한 건 적는다. 누르는 횟수는 내 가계부와 같다.
+   *
+   * 고른 날을 그대로 보낸다. 시각이 아니라 날짜로 적는 기록이라 시간대에 밀리지 않는다.
+   * 결제 수단은 개인 속성이라 싣지 않는다. 낸 사람은 서버가 나로 채운다.
+   */
+  function saveToBook(targetId: string, category: CategoryOut | null, amount: number): void {
+    const target = destBook;
+    if (target == null) return;
+
+    setFutureAsk(null);
+    markBusy(true);
+    analytics.log(EVENTS.saveRequested, { method: 'keypad', count: 1 }, { flowId, kind: 'click' });
+    const startedAt = Date.now();
+    createEntry.mutate(
+      {
+        bookId: targetId,
+        body: {
+          amount: String(amount),
+          category_id: category?.id ?? null,
+          occurred_on: recordDay,
+        },
+      },
+      {
+        onSettled: () => markBusy(false),
+        onError: (error) => {
+          analytics.log(
+            EVENTS.saveResult,
+            {
+              method: 'keypad',
+              result: 'failed',
+              elapsed_ms: Date.now() - startedAt,
+              error_code: error instanceof ApiError ? error.code : 'unknown',
+              book: 'shared',
+            },
+            { flowId },
+          );
+        },
+        onSuccess: (created) => {
+          analytics.log(
+            EVENTS.saveResult,
+            {
+              method: 'keypad',
+              result: 'ok',
+              created_count: 1,
+              elapsed_ms: Date.now() - startedAt,
+              day_moved: isBackfill,
+              type: 'expense',
+              book: 'shared',
+            },
+            { flowId },
+          );
+          markRecorded();
+          // 다음에 내 가계부를 보다가 시트를 열어도 이 가계부가 둘째 칩에 선다.
+          void writeBookLast(bridge.storage, targetId);
+          setSavedEntry({ book: target, entry: created.entry, month: created.month });
+        },
+      },
+    );
+  }
+
+  /**
    * 키패드로 한 건을 저장해 확인 화면이 떠 있나.
    *
    * **이 자리에서 다른 탭을 언마운트하지 않는다.** 예전에는 저장되자마자 확인 화면만
    * 돌려주고 나머지를 트리에서 뺐다. 그러면 사진으로 읽어 둔 검토 목록이 말없이 사라지고,
    * 그것을 세던 값까지 0 으로 덮여 「아직 검토할 것이 있다」 는 판단도 같이 죽었다.
    */
-  const done = saved != null;
+  const done = saved != null || savedEntry != null;
 
   /*
     손으로 적어 둔 것 셋을 한 값으로 묶는다.
@@ -768,9 +897,33 @@ function RecordBody({
   leaveComposeRef.current = requestLeaveCompose;
 
   const amount = toAmount(digits);
-  const saveError = create.error instanceof ApiError ? create.error : null;
+  const savingNow = create.isPending || createEntry.isPending;
+  const failedSave = shared ? createEntry.error : create.error;
+  const saveError = failedSave instanceof ApiError ? failedSave : null;
 
   const picked = pickable.find((category) => category.id === pickedId) ?? null;
+
+  /**
+   * 적을 곳을 바꾼다.
+   *
+   * **금액은 그대로 둔다.** 분류는 가계부마다 달라 골라 둔 것을 버리고 목록을 다시 편다.
+   * 「더 보기」 로 펼쳐 둔 것은 접어 키패드를 다시 세운다. 누르는 횟수가 늘지 않게.
+   * 공유 가계부는 지출만 받는다. 수입·이체를 켜 둔 채 옮기면 지출로 되돌린다.
+   */
+  function chooseDestination(next: string | null): void {
+    if (next === destination) return;
+    setChosenDest(next);
+    setPickedId(null);
+    setListOpen(true);
+    setListExpanded(false);
+    setFutureAsk(null);
+    if (next != null) {
+      setKind('expense');
+      setIsTransfer(false);
+    }
+    create.reset();
+    createEntry.reset();
+  }
 
   /**
    * 카테고리를 눌렀을 때.
@@ -793,16 +946,34 @@ function RecordBody({
   const saveTarget = listOpen ? null : picked;
   const canSave = isTransfer || saveTarget != null;
 
+  // 「적을 곳」 줄이 서 있나. 저장 뒤와 분류를 만드는 동안에는 접는다.
+  const destShown = hasShared && !done && !creating;
+
   let hint = '금액을 누르고 카테고리를 고르면 바로 저장돼요';
-  if (create.isPending) hint = '저장하는 중이에요';
+  if (savingNow) hint = '저장하는 중이에요';
   else if (isTransfer) hint = amount > 0 ? '저장을 누르면 기록돼요' : '금액을 누르면 저장돼요';
   else if (saveTarget != null && amount > 0) hint = '저장을 누르면 기록돼요';
   else if (amount > 0) hint = '카테고리를 고르면 저장돼요';
   else if (picked) hint = '금액을 누르면 저장할 수 있어요';
 
   return (
-    <div className="record">
-      {done || creating ? null : (
+    <div className={destShown ? 'record record--dest' : 'record'}>
+      {/*
+        적을 곳. 탭보다 위, 시트 맨 위 한 줄이다. 무엇으로 적을지보다 어디에 적을지가 먼저다.
+        공유 가계부가 없으면 아예 안 선다.
+      */}
+      {destShown ? (
+        <BookDestinationRow
+          className="record__dest"
+          books={activeBooks}
+          value={destination}
+          preferredId={bookId}
+          disabled={savingNow || busy}
+          onChange={chooseDestination}
+        />
+      ) : null}
+
+      {done || creating || shared ? null : (
         <>
           <SegmentedControl
             className="record__tabs"
@@ -903,6 +1074,8 @@ function RecordBody({
         <div className="record__panel">
           <FeedbackPanel
             flowId={flowId}
+            // 공유 가계부가 있는 사람에게는 어디에 적혔는지를 먼저 말한다.
+            label={hasShared ? '내 가계부에 적었어요' : undefined}
             transaction={saved.transaction}
             feedback={saved.feedback}
             categories={categoriesOfKind(kindOf(saved.transaction.type), allCategories)}
@@ -911,6 +1084,21 @@ function RecordBody({
             }}
             // 여기서 고른 것이 다음 기록에 조용히 채워질 값이다.
             onMethodPicked={(next) => void writeLastMethod(bridge.storage, next)}
+            onConfirm={finish}
+          />
+        </div>
+      ) : null}
+
+      {savedEntry != null ? (
+        <div className="record__panel">
+          <BookFeedbackPanel
+            flowId={flowId}
+            book={activeBooks.find((book) => book.id === savedEntry.book.id) ?? savedEntry.book}
+            entry={savedEntry.entry}
+            month={savedEntry.month}
+            onEntryChange={(entry) =>
+              setSavedEntry((prev) => (prev == null ? prev : { ...prev, entry }))
+            }
             onConfirm={finish}
           />
         </div>
@@ -934,7 +1122,8 @@ function RecordBody({
             가른다.** 왼쪽은 테두리 있는 알약 둘, 오른쪽은 테두리 없는 조용한 버튼 하나다.
             같은 모양으로 나란히 두면 세 칸짜리 한 묶음으로 읽혀, 날짜가 종류의 하나처럼 보인다.
           */}
-          <div className="record__top">
+          {/* 공유 가계부에 적을 때는 고를 종류가 없다. 날짜 칩만 오른쪽 끝 제자리에 남는다. */}
+          <div className={shared ? 'record__top record__top--day-only' : 'record__top'}>
             {/*
               금액보다 먼저 정해야 하는 값이다. 아래 분류 칩과 저장할 종류가 이 하나를 따라간다.
               바꾸면 골라 둔 분류를 버리고 목록을 다시 편다. 지출 분류가 수입에 남으면 안 된다.
@@ -943,34 +1132,37 @@ function RecordBody({
               알약이 눌린 채 남으면 「수입」 으로 보이는데 이체로 저장된다(이체는 집계 밖이다,
               ADR-0005). 셋 중 늘 하나만 눌려 있고, 알약을 누르면 이체에서 나온다.
             */}
-            <div className="record__kinds">
-              <KindToggle
-                className="record__kind"
-                value={isTransfer ? null : kind}
-                disabled={create.isPending}
-                ariaLabel="지출인지 수입인지"
-                onChange={(next) => {
-                  setIsTransfer(false);
-                  if (next === kind) return;
-                  setKind(next);
-                  setPickedId(null);
-                  setListOpen(true);
-                }}
-              />
-              {/*
-                드물게 쓰는 것이라 알약만큼 크게 두지 않는다. 밑줄로 눌리는 글씨인 것만 알린다.
-                다시 누르면 꺼지고, 알약에서 고르던 종류로 돌아간다.
-              */}
-              <button
-                type="button"
-                className="record__transfer-link"
-                aria-pressed={isTransfer}
-                disabled={create.isPending}
-                onClick={() => setIsTransfer((on) => !on)}
-              >
-                이체
-              </button>
-            </div>
+            {/* 공유 가계부는 지출만 받는다. 눌러도 바뀌지 않는 「지출」 하나를 세우지 않는다. */}
+            {shared ? null : (
+              <div className="record__kinds">
+                <KindToggle
+                  className="record__kind"
+                  value={isTransfer ? null : kind}
+                  disabled={savingNow}
+                  ariaLabel="지출인지 수입인지"
+                  onChange={(next) => {
+                    setIsTransfer(false);
+                    if (next === kind) return;
+                    setKind(next);
+                    setPickedId(null);
+                    setListOpen(true);
+                  }}
+                />
+                {/*
+                  드물게 쓰는 것이라 알약만큼 크게 두지 않는다. 밑줄로 눌리는 글씨인 것만 알린다.
+                  다시 누르면 꺼지고, 알약에서 고르던 종류로 돌아간다.
+                */}
+                <button
+                  type="button"
+                  className="record__transfer-link"
+                  aria-pressed={isTransfer}
+                  disabled={savingNow}
+                  onClick={() => setIsTransfer((on) => !on)}
+                >
+                  이체
+                </button>
+              </div>
+            )}
 
             {/*
               **어느 날에 적을지를 여기서 정한다.** 지난 날 것을 적으려고 홈이나 달력에서
@@ -1002,7 +1194,7 @@ function RecordBody({
                   때 한 번 묻는다(`FutureDayConfirm`). 칸에서 잠그면 그 사람은 아예 못 적는다.
                 */
                 max={DAY_MAX}
-                disabled={create.isPending}
+                disabled={savingNow}
                 // 달력을 열었다 비운 채로 닫는 기기가 있다. 비면 오늘로 되돌린다.
                 onChange={(event) =>
                   setRecordDay(event.target.value === '' ? today : event.target.value)
@@ -1024,8 +1216,10 @@ function RecordBody({
             </p>
           ) : null}
 
-          {categories.isPending ? <LoadingState size="inline" /> : null}
-          {categories.isError ? (
+          {(shared ? destBook == null : categories.isPending) ? (
+            <LoadingState size="inline" />
+          ) : null}
+          {!shared && categories.isError ? (
             <ErrorState
               size="inline"
               title="카테고리를 불러오지 못했어요"
@@ -1044,12 +1238,15 @@ function RecordBody({
             </div>
           ) : listOpen || picked == null ? (
             <CategoryPicker
+              // 적을 곳마다 새로 세운다. 펼친 상태가 다른 가계부로 따라가지 않게.
+              key={destination ?? 'mine'}
               categories={pickable}
-              disabled={create.isPending}
+              disabled={savingNow}
               onPick={pickCategory}
-              onManage={onManage}
+              // 공유 가계부 분류는 1차에 만들거나 고칠 수 없다. 입구를 세우지 않는다.
+              onManage={shared ? undefined : onManage}
               selectedId={pickedId}
-              onCreate={() => setCreating(true)}
+              onCreate={shared ? undefined : () => setCreating(true)}
               onOpenChange={setListExpanded}
               onExpand={() =>
                 analytics.log(
@@ -1063,7 +1260,7 @@ function RecordBody({
             <button
               type="button"
               className="record__picked"
-              disabled={create.isPending}
+              disabled={savingNow}
               onClick={() => setListOpen(true)}
             >
               <CategoryAvatar {...iconOf(picked)} size={40} />
@@ -1075,7 +1272,7 @@ function RecordBody({
           {canSave ? (
             <Button
               className="record__save"
-              disabled={amount <= 0 || create.isPending}
+              disabled={amount <= 0 || savingNow}
               onClick={() => requestSave(isTransfer ? null : saveTarget, amount)}
             >
               저장

@@ -8,11 +8,24 @@
  * **지금 화면이 실제로 쓰는 조회만 있다.** 나머지는 그 화면을 만들 때 여기에 더한다.
  */
 
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 
-import type { BudgetSuggestionParams, MonthParams, TransactionListParams } from './client';
+import { markBookActivity } from './bookActivity';
+import type {
+  BudgetSuggestionParams,
+  MonthParams,
+  SettlementPeriod,
+  TransactionListParams,
+} from './client';
 import { useApiClient, useApiReady } from './context';
 import { queryKeys } from './queryKeys';
+import type { BookListOut, BookOut } from './types';
 
 /** 카테고리 목록. 기본 11개 + 내가 만든 것. */
 export function useCategories() {
@@ -86,14 +99,14 @@ export function useNotificationSettings() {
  * 홈이 첫 화면을 고르는 근거(`has_any_transaction`)까지 여기서 온다.
  * 예산을 정하지 않은 것은 정상이고 그때 `budget.amount` 가 null 이다. 오류가 아니다.
  */
-export function useBudget(params?: MonthParams) {
+export function useBudget(params?: MonthParams, options?: { enabled?: boolean }) {
   const client = useApiClient();
   const isReady = useApiReady();
 
   return useQuery({
     queryKey: queryKeys.budget(params),
     queryFn: ({ signal }) => client.getBudget(params, { signal }),
-    enabled: isReady,
+    enabled: isReady && (options?.enabled ?? true),
   });
 }
 
@@ -337,5 +350,194 @@ export function useRecurringDue() {
     queryKey: queryKeys.recurringDue(),
     queryFn: ({ signal }) => client.listRecurringDue({ signal }),
     enabled: isReady,
+  });
+}
+
+// ── 공유 가계부 ──────────────────────────────────────
+
+/**
+ * 공유 가계부 조회에 얹는 선택.
+ *
+ * 다시 읽는 주기는 화면이 정한다(`features/books/useBookLive`). 우리 집 화면이 떠 있는 동안만
+ * 짧게 읽고, 다른 화면은 전역 기본값을 따른다.
+ */
+export interface BookQueryOptions {
+  enabled?: boolean;
+  staleTime?: number;
+  refetchOnWindowFocus?: boolean | 'always';
+  refetchInterval?: number | false | (() => number | false);
+  refetchIntervalInBackground?: boolean;
+}
+
+/**
+ * 준 값만 옵션에 싣는다.
+ *
+ * `staleTime: undefined` 를 그대로 넘기면 전역 기본값(60초)을 덮어 0 이 된다. react-query 가
+ * 기본값 위에 옵션을 펼쳐 얹기 때문이다. 그러면 공유 조회가 화면마다 매번 다시 나간다.
+ */
+function liveOptions(options?: BookQueryOptions) {
+  const picked: Omit<BookQueryOptions, 'enabled'> = {};
+  if (options?.staleTime !== undefined) picked.staleTime = options.staleTime;
+  if (options?.refetchOnWindowFocus !== undefined) {
+    picked.refetchOnWindowFocus = options.refetchOnWindowFocus;
+  }
+  if (options?.refetchInterval !== undefined) picked.refetchInterval = options.refetchInterval;
+  if (options?.refetchIntervalInBackground !== undefined) {
+    picked.refetchIntervalInBackground = options.refetchIntervalInBackground;
+  }
+  return picked;
+}
+
+function requireId(value: string | null): string {
+  // enabled 가 막아 여기까지 안 온다. 오면 부르는 쪽이 enabled 를 잘못 건 것이다.
+  if (value == null || value === '') throw new Error('가계부 id 없이 조회했어요.');
+  return value;
+}
+
+/**
+ * 이 서버가 공유 가계부를 여는가.
+ *
+ * 꺼진 서버에 묻지 않으려고 둔다. 내 계정 응답에 스위치가 함께 오고, 모르는 동안은 꺼진 것으로 본다.
+ */
+export function useSharedBooksEnabled(): boolean {
+  const me = useMe();
+  return me.data?.shared_books_enabled === true;
+}
+
+/**
+ * 내가 지금 멤버인 가계부. 끝난 것도 온다.
+ *
+ * 스위치가 꺼져 있으면 묻지 않고 `data` 가 비어 있다. 부르는 쪽은 그때를 「가계부 없음」 으로 본다.
+ * 앱으로 돌아올 때마다 다시 읽는다. 그 사이 내보내졌거나 가계부가 지워졌을 수 있다.
+ */
+export function useBooks() {
+  const client = useApiClient();
+  const isReady = useApiReady();
+  const enabled = useSharedBooksEnabled();
+
+  return useQuery({
+    queryKey: queryKeys.books(),
+    queryFn: ({ signal }) => client.listBooks({ signal }),
+    enabled: isReady && enabled,
+    refetchOnWindowFocus: 'always',
+  });
+}
+
+/**
+ * 가계부 하나. 멤버·분류·초대 링크까지 온다.
+ *
+ * 목록에 이미 있으면 그 값을 먼저 보여 주고 뒤에서 다시 받는다. 홈에서 가계부를 바꾸는 순간
+ * 빈 화면이 한 번 깜빡이지 않게 한다.
+ */
+export function useBook(bookId: string | null, options?: BookQueryOptions) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+  const queryClient = useQueryClient();
+
+  return useQuery({
+    queryKey: queryKeys.book(bookId ?? ''),
+    queryFn: ({ signal }): Promise<BookOut> => client.getBook(requireId(bookId), { signal }),
+    enabled: isReady && bookId != null && (options?.enabled ?? true),
+    placeholderData: () =>
+      queryClient
+        .getQueryData<BookListOut>(queryKeys.books())
+        ?.items.find((book) => book.id === bookId),
+    ...liveOptions(options),
+  });
+}
+
+/**
+ * 그 달 공유 기록.
+ *
+ * 다시 읽었더니 모르던 기록이 있으면 누군가 방금 적은 것이다. 그때부터 잠깐 더 자주 읽는다.
+ * 달이나 가계부를 바꿔 받은 목록은 견주지 않는다. 그건 새로 들어온 것이 아니다.
+ */
+export function useBookEntries(
+  bookId: string | null,
+  month?: MonthParams,
+  options?: BookQueryOptions,
+) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+  const queryKey = queryKeys.bookEntries(bookId ?? '', month);
+
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => client.listBookEntries(requireId(bookId), month, { signal }),
+    enabled: isReady && bookId != null && (options?.enabled ?? true),
+    ...liveOptions(options),
+  });
+
+  const keyText = queryKey.join('|');
+  const seen = useRef<{ key: string; ids: Set<string> } | null>(null);
+  useEffect(() => {
+    const items = query.data?.items;
+    if (items == null) return;
+    const ids = new Set(items.map((entry) => entry.id));
+    const previous = seen.current;
+    seen.current = { key: keyText, ids };
+    if (previous == null || previous.key !== keyText) return;
+    for (const id of ids) {
+      if (!previous.ids.has(id)) {
+        markBookActivity();
+        return;
+      }
+    }
+  }, [query.data, keyText]);
+
+  return query;
+}
+
+/** 그 달 공유 리포트. 기본 리포트와 자세히 보기가 한 응답으로 온다. */
+export function useBookReport(
+  bookId: string | null,
+  month?: MonthParams,
+  options?: BookQueryOptions,
+) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.bookReport(bookId ?? '', month),
+    queryFn: ({ signal }) => client.getBookReport(requireId(bookId), month, { signal }),
+    enabled: isReady && bookId != null && (options?.enabled ?? true),
+    ...liveOptions(options),
+  });
+}
+
+/**
+ * 정산. 달을 주거나, 여행 가계부면 `'all'` 로 기간 전체를 본다.
+ *
+ * 같이 모은 돈(`none`) 가계부도 200 으로 온다. 그때는 보낼 돈이 비어 있고 합계만 있다.
+ */
+export function useBookSettlement(
+  bookId: string | null,
+  period?: SettlementPeriod,
+  options?: BookQueryOptions,
+) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.bookSettlement(bookId ?? '', period),
+    queryFn: ({ signal }) => client.getSettlement(requireId(bookId), period, { signal }),
+    enabled: isReady && bookId != null && (options?.enabled ?? true),
+    ...liveOptions(options),
+  });
+}
+
+/**
+ * 초대 미리보기. 코드가 없거나 비어 있으면 묻지 않는다.
+ *
+ * 모르는 코드, 지운 가계부, 스위치가 꺼진 서버는 모두 404 로 온다. 화면은 셋을 같은 말로 안내한다.
+ */
+export function useInvitePreview(code: string | null) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.invite(code ?? ''),
+    queryFn: ({ signal }) => client.getInvitePreview(requireId(code), { signal }),
+    enabled: isReady && code != null && code !== '',
   });
 }

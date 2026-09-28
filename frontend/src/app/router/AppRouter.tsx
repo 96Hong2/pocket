@@ -22,6 +22,11 @@ const SettingsPage = lazy(() => import('../../pages/SettingsPage'));
 const PrivacyPage = lazy(() => import('../../pages/PrivacyPage'));
 const NotificationSettingsPage = lazy(() => import('../../pages/NotificationSettingsPage'));
 const AccountPage = lazy(() => import('../../pages/AccountPage'));
+const BooksPage = lazy(() => import('../../pages/BooksPage'));
+const BookNewPage = lazy(() => import('../../pages/BookNewPage'));
+const BookSettingsPage = lazy(() => import('../../pages/BookSettingsPage'));
+const BookSettlePage = lazy(() => import('../../pages/BookSettlePage'));
+const JoinPage = lazy(() => import('../../pages/JoinPage'));
 
 export function AppRouter() {
   return (
@@ -47,6 +52,11 @@ export function AppRouter() {
           <Route path={ROUTES.privacy} element={<PrivacyPage />} />
           <Route path={ROUTES.notifications} element={<NotificationSettingsPage />} />
           <Route path={ROUTES.account} element={<AccountPage />} />
+          <Route path={ROUTES.books} element={<BooksPage />} />
+          <Route path={ROUTES.bookNew} element={<BookNewPage />} />
+          <Route path={ROUTES.bookSettings} element={<BookSettingsPage />} />
+          <Route path={ROUTES.bookSettle} element={<BookSettlePage />} />
+          <Route path={ROUTES.join} element={<JoinPage />} />
           {DemoGallery != null && <Route path={DEMO_PATH} element={<DemoGallery />} />}
           <Route path="*" element={<NotFoundPage />} />
         </Route>

@@ -6,6 +6,7 @@ import { KeepDataCard } from '../features/account';
 import { AdSlot } from '../features/ads';
 import { AssetsEntryCard } from '../features/assets';
 import { BudgetSection } from '../features/budgets';
+import { useBooks, useSharedBooksEnabled } from '../shared/api';
 import { Card, CategoryAvatar, type IconName } from '../shared/ui';
 
 interface SubScreen {
@@ -34,8 +35,31 @@ const SUB_SCREENS: SubScreen[] = [
   { to: ROUTES.settings, label: '앱 설정', icon: '21_shield' },
 ];
 
+/**
+ * 같이 쓰는 가계부 입구. 서버가 기능을 열었을 때만 선다.
+ *
+ * **아래 목록에 넣지 않고 맨 위 카드 한 줄로 둔다.** 목록 맨 위에 두었더니 예산 카드 아래라
+ * 탭바에 가려, 관리 탭을 열어서는 안 보였다. 새로 생긴 기능을 찾는 사람은 내려 보지 않는다.
+ */
+function BooksEntryCard() {
+  const books = useBooks();
+  const count = books.data?.items.length ?? 0;
+
+  return (
+    <Card padding="list" className="manage-books">
+      <Link className="link-row" to={ROUTES.books}>
+        <CategoryAvatar icon="59_people" size={44} />
+        <span className="link-row__label">같이 쓰는 가계부</span>
+        {count > 0 ? <span className="link-row__value">{count}개</span> : null}
+      </Link>
+    </Card>
+  );
+}
+
 /** 관리 탭. 자산과 예산을 여기서 바로 보고, 나머지는 하위 화면으로 들어간다. */
 export default function ManagePage() {
+  const booksEnabled = useSharedBooksEnabled();
+
   return (
     <div className="page">
       <h1 className="page__title">관리</h1>
@@ -43,6 +67,8 @@ export default function ManagePage() {
 
       {/* 식별키를 못 받으면 조회가 시작조차 안 한다. 이 안내가 없으면 예산 자리가 계속 회색이다. */}
       <IdentityNotice />
+
+      {booksEnabled ? <BooksEntryCard /> : null}
 
       <AssetsEntryCard />
 

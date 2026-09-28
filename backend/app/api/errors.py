@@ -68,6 +68,14 @@ class ErrorCode(StrEnum):
     LOGIN_CODE_EXPIRED = "LOGIN_CODE_EXPIRED"
     # 메일을 보낼 수단이 없다(운영에 SMTP 가 없다). 사용자가 할 수 있는 일이 없다.
     EMAIL_LOGIN_UNAVAILABLE = "EMAIL_LOGIN_UNAVAILABLE"
+    # 공유 가계부 초대 링크가 만료됐다. 새 링크를 받아야 한다.
+    INVITE_EXPIRED = "INVITE_EXPIRED"
+    # 초대 링크가 닫혔다(새 링크가 나왔거나, 연인·부부 초대를 이미 한 사람이 썼다).
+    INVITE_CLOSED = "INVITE_CLOSED"
+    # 가계부 인원이 다 찼다.
+    BOOK_FULL = "BOOK_FULL"
+    # 끝난 가계부라 적거나 초대할 수 없다. 다시 열면 된다.
+    BOOK_ENDED = "BOOK_ENDED"
     PARSE_UNAVAILABLE = "PARSE_UNAVAILABLE"
     HTTP_ERROR = "HTTP_ERROR"
     INTERNAL_ERROR = "INTERNAL_ERROR"

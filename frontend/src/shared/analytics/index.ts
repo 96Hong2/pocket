@@ -10,10 +10,15 @@ export { Analytics, type FlowId, type LogOptions } from './analytics';
 export { AnalyticsContext, useAnalytics } from './context';
 export {
   EVENTS,
+  type BookChangeAction,
+  type BookInviteWhere,
+  type BookJoinOutcome,
+  type BookSide,
   type EditField,
   type EventName,
   type ItemAction,
   type LogMethod,
+  type MembersBucket,
   type ParseOutcome,
   type PickOutcome,
   type RecurringAction,

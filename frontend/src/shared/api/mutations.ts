@@ -16,12 +16,21 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 
 import { toLedgerDate } from '../lib/format';
 
-import type { MonthParams } from './client';
+import { markBookActivity } from './bookActivity';
+import type { MonthParams, SettlementPeriod } from './client';
 import { useApiClient } from './context';
 import { moneyQueryKeys, queryKeys } from './queryKeys';
 import type {
   AssetsOut,
   AssetSnapshotPut,
+  BookCreate,
+  BookEntryCreate,
+  BookEntryUpdate,
+  BookInviteOut,
+  BookListOut,
+  BookOut,
+  BookUpdate,
+  SettlementOut,
   BudgetOut,
   BudgetStateOut,
   BudgetUpsert,
@@ -758,5 +767,318 @@ export function useDismissRecurring() {
   return useMutation({
     mutationFn: (id: string) => client.dismissRecurring(id),
     onSuccess: (next) => writeRecurring(queryClient, next),
+  });
+}
+
+// ── 공유 가계부 ──────────────────────────────────────
+//
+// 쓰기가 성공하면 목록(`books`)과 그 가계부(`book(id)`) 아래를 다시 받는다. 가계부 하나 아래에
+// 기록·리포트·정산이 있어 한 번에 걸린다. 무효화를 기다리지 않는다. 기다리면 버튼과 되돌리기
+// 알림이 그 왕복만큼 늦게 뜬다. 쓰기가 성공할 때마다 잠깐 더 자주 다시 읽는다(`bookActivity`).
+
+/** 목록 캐시에 가계부 하나를 넣거나 바꾼다. 목록이 아직 없으면 만들지 않는다. */
+function upsertBookInList(queryClient: QueryClient, book: BookOut): void {
+  queryClient.setQueryData<BookListOut>(queryKeys.books(), (prev) => {
+    if (prev == null) return prev;
+    const exists = prev.items.some((item) => item.id === book.id);
+    return {
+      items: exists
+        ? prev.items.map((item) => (item.id === book.id ? book : item))
+        : [book, ...prev.items],
+    };
+  });
+}
+
+/** 응답이 가계부 전체면 그대로 넣는다. 홈이 왕복 없이 새 이름·예산을 그린다. */
+function writeBook(queryClient: QueryClient, book: BookOut): void {
+  queryClient.setQueryData<BookOut>(queryKeys.book(book.id), book);
+  upsertBookInList(queryClient, book);
+}
+
+function refreshBook(queryClient: QueryClient, bookId: string): void {
+  markBookActivity();
+  void queryClient.invalidateQueries({ queryKey: queryKeys.books() });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.book(bookId) });
+}
+
+/** 가계부 만들기. 관리자 멤버, 기본 분류, 초대 링크가 함께 생긴다. */
+export function useCreateBook() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: BookCreate) => client.createBook(body),
+    onSuccess: (book) => {
+      writeBook(queryClient, book);
+      refreshBook(queryClient, book.id);
+    },
+  });
+}
+
+/**
+ * 가계부 고치기. 이름·끝내기는 관리자만, 돈 나누기·예산은 멤버 누구나.
+ *
+ * 예산과 돈 나누기가 바뀌면 리포트와 정산도 함께 낡는다. 같은 뿌리라 한 번에 걸린다.
+ */
+export function useUpdateBook() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; body: BookUpdate }) =>
+      client.updateBook(input.bookId, input.body),
+    onSuccess: (book) => {
+      writeBook(queryClient, book);
+      refreshBook(queryClient, book.id);
+    },
+  });
+}
+
+/**
+ * 가계부 지우기. 관리자만.
+ *
+ * 그 가계부 캐시는 지우지 않는다. 지운 화면이 아직 떠 있는 동안 다시 받으면 404 가 화면에
+ * 한 번 비친다. 목록만 다시 받고, 떠난 화면의 캐시는 시간이 지나 저절로 비워진다.
+ */
+export function useDeleteBook() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (bookId: string) => client.deleteBook(bookId),
+    onSuccess: () => {
+      markBookActivity();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.books() });
+    },
+  });
+}
+
+/** 지운 가계부 되살리기. 「가계부를 지웠어요」 알림의 되돌리기가 부른다. */
+export function useRestoreBook() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (bookId: string) => client.restoreBook(bookId),
+    onSuccess: (book) => {
+      writeBook(queryClient, book);
+      refreshBook(queryClient, book.id);
+    },
+  });
+}
+
+/**
+ * 새 초대 링크. 앞 링크는 서버가 닫는다.
+ *
+ * 응답을 그 가계부 캐시의 `invite` 에 바로 넣는다. 설정 화면의 「링크는 ~까지 쓸 수 있어요」 가
+ * 왕복 없이 새 날짜가 된다.
+ */
+export function useCreateInvite() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (bookId: string): Promise<BookInviteOut> => client.createInvite(bookId),
+    onSuccess: (invite, bookId) => {
+      queryClient.setQueryData<BookOut>(queryKeys.book(bookId), (prev) =>
+        prev == null ? prev : { ...prev, invite },
+      );
+      queryClient.setQueryData<BookListOut>(queryKeys.books(), (prev) =>
+        prev == null
+          ? prev
+          : { items: prev.items.map((item) => (item.id === bookId ? { ...item, invite } : item)) },
+      );
+    },
+  });
+}
+
+/** 초대받아 들어가기. 이미 멤버면 서버가 같은 가계부를 돌려준다. */
+export function useJoinBook() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { code: string; name: string }) =>
+      client.joinBook(input.code, { name: input.name }),
+    onSuccess: (book, input) => {
+      writeBook(queryClient, book);
+      refreshBook(queryClient, book.id);
+      // 떠 있는 초대 화면은 다시 받지 않는다. 받으면 「이미 같이 쓰고 있어요」 로 바뀌어 버린다.
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.invite(input.code),
+        refetchType: 'none',
+      });
+    },
+  });
+}
+
+/**
+ * 가계부에서 나가기. 그 가계부는 더 못 읽으므로 목록만 다시 받는다.
+ * 떠난 화면이 아직 떠 있는 동안 404 가 비치지 않게 그 가계부는 건드리지 않는다.
+ */
+export function useLeaveBook() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (bookId: string) => client.leaveBook(bookId),
+    onSuccess: () => {
+      markBookActivity();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.books() });
+    },
+  });
+}
+
+/** 멤버 내보내기. 관리자만, 자기 자신은 안 된다. 그 멤버가 적은 기록은 남는다. */
+export function useRemoveMember() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; memberId: string }) =>
+      client.removeMember(input.bookId, input.memberId),
+    onSuccess: (_, input) => refreshBook(queryClient, input.bookId),
+  });
+}
+
+/**
+ * 공유 기록 저장.
+ *
+ * 응답에 그 달의 쓴 돈과 남은 예산이 함께 온다. 저장 뒤 화면은 그 값으로 말하고, 목록과
+ * 리포트는 뒤에서 다시 받는다.
+ */
+export function useCreateBookEntry() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; body: BookEntryCreate }) =>
+      client.createBookEntry(input.bookId, input.body),
+    onSuccess: (_, input) => refreshBook(queryClient, input.bookId),
+  });
+}
+
+/** 공유 기록 고치기. 보낸 필드만 바뀐다. 금액과 날짜에 null 을 보내면 서버가 막는다. */
+export function useUpdateBookEntry() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; entryId: string; body: BookEntryUpdate }) =>
+      client.updateBookEntry(input.bookId, input.entryId, input.body),
+    onSuccess: (_, input) => refreshBook(queryClient, input.bookId),
+  });
+}
+
+/** 공유 기록 지우기. 적은 사람이나 관리자만. 표시만 지워 되돌릴 수 있다. */
+export function useDeleteBookEntry() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; entryId: string }) =>
+      client.deleteBookEntry(input.bookId, input.entryId),
+    onSuccess: (_, input) => refreshBook(queryClient, input.bookId),
+  });
+}
+
+/** 지운 공유 기록 되살리기. 「지웠어요」 알림의 되돌리기가 부른다. */
+export function useRestoreBookEntry() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; entryId: string }) =>
+      client.restoreBookEntry(input.bookId, input.entryId),
+    onSuccess: (_, input) => refreshBook(queryClient, input.bookId),
+  });
+}
+
+/**
+ * 공유 기록을 내 가계부로 옮긴다. 적은 사람만.
+ *
+ * 내 가계부에 거래가 하나 생기므로 개인 쪽 돈 캐시도 함께 다시 받는다.
+ */
+export function useMoveEntryOut() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; entryId: string }) =>
+      client.moveEntryOut(input.bookId, input.entryId),
+    onSuccess: (_, input) => {
+      refreshBook(queryClient, input.bookId);
+      void invalidateMoney(queryClient);
+    },
+  });
+}
+
+/**
+ * 내 지출 하나를 공유 가계부로 옮긴다.
+ *
+ * 내 거래가 지워지므로 개인 쪽 돈 캐시도 함께 다시 받는다.
+ */
+export function useMoveEntryIn() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; transactionId: string }) =>
+      client.moveEntryIn(input.bookId, { transaction_id: input.transactionId }),
+    onSuccess: (_, input) => {
+      refreshBook(queryClient, input.bookId);
+      void invalidateMoney(queryClient);
+    },
+  });
+}
+
+/** 응답이 말하는 기간(`'2026-09'`·`'all'`)을 캐시 키 조각으로 되돌린다. */
+function periodOf(settlement: SettlementOut): SettlementPeriod | null {
+  if (settlement.period === 'all') return 'all';
+  const [year, month] = settlement.period.split('-').map(Number);
+  if (!Number.isInteger(year) || !Number.isInteger(month)) return null;
+  return { year, month };
+}
+
+/** 정산 응답을 그 기간 캐시에 넣는다. 캐시가 아직 없으면 만들지 않는다. */
+function writeSettlement(
+  queryClient: QueryClient,
+  bookId: string,
+  settlement: SettlementOut,
+): void {
+  const period = periodOf(settlement);
+  if (period == null) return;
+  queryClient.setQueryData<SettlementOut>(queryKeys.bookSettlement(bookId, period), (prev) =>
+    prev == null ? prev : settlement,
+  );
+}
+
+/** 정산 끝내기. 여행 가계부는 달을 보지 않고 기간 전체를 끝낸다. */
+export function useSettleDone() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; year: number; month: number }) =>
+      client.markSettlementDone(input.bookId, { year: input.year, month: input.month }),
+    onSuccess: (settlement, input) => {
+      writeSettlement(queryClient, input.bookId, settlement);
+      refreshBook(queryClient, input.bookId);
+    },
+  });
+}
+
+/** 끝낸 정산 되돌리기. 여행 가계부는 `'all'` 을 넘긴다. */
+export function useSettleUndo() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; period?: SettlementPeriod }) =>
+      client.undoSettlementDone(input.bookId, input.period),
+    onSuccess: (settlement, input) => {
+      writeSettlement(queryClient, input.bookId, settlement);
+      refreshBook(queryClient, input.bookId);
+    },
   });
 }

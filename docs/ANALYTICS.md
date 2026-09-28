@@ -12,14 +12,14 @@
 
 | 알고 싶은 것 | 이벤트 | 남기는 값 |
 | --- | --- | --- |
-| 들어와서 어디로 가나 | `app_open` · `screen_view` | 진입 화면, 화면 이름, 토스 앱 버전, **첫 실행인지 · 처음 연 지 며칠째 · 직전 실행 이후 며칠 · 실행 횟수 구간**, **들어온 길**(`referrer` 토스 입구 · `src` 우리 채널 표시 · `first_src` 이 기기에서 처음 들어온 길) |
+| 들어와서 어디로 가나 | `app_open` · `screen_view` | 진입 화면, 화면 이름, 토스 앱 버전, **첫 실행인지 · 처음 연 지 며칠째 · 직전 실행 이후 며칠 · 실행 횟수 구간**, **들어온 길**(`referrer` 토스 입구 · `src` 우리 채널 표시 · `first_src` 이 기기에서 처음 들어온 길), **같이 쓰기 시작한 지 며칠째**(`shared_days`, 2026-09-28~. 이 기기에서 공유 가계부 멤버인 것을 처음 본 날부터 센다. 본 적 없으면 싣지 않는다) |
 | 어떤 방식을 고르나, 어디서 여나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향, 연 자리(`home`·`home_day`·`calendar_day`·`deeplink`)와 지난 날에 적는 것인지 |
 | 사진 고르기에서 막히나 | `image_pick_result` | 성공·취소·권한 거절·미지원, 장수 |
 | 인식이 얼마나 걸리고 왜 실패하나 | `parse_started` · `parse_finished` | 방식, 성공·부분·0건·실패, 소요 시간, 후보 수, 오류 코드 |
 | 결과를 얼마나 고치나 | `review_shown` · `review_finished` | 후보 수, 고른 수, 손댄 건수, **칸별 고친 횟수** |
 | 읽어 온 것을 잃나 | `record_leave_asked` · `review_cancelled` | 물었나·머물렀나·나갔나와 그때 몇 건, 스스로 버린 건수 |
-| 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드, 키패드로 적은 종류(`type`: `expense`·`income`·**`transfer`**, 2026-09-27~. 「이체」 글씨가 쓰이는지 센다) |
-| 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움과 **지우려다 그만둠**(`delete_asked`·`delete_cancelled`·`delete`), 고친 칸 이름, 그 기록의 입력 방식 |
+| 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드, 키패드로 적은 종류(`type`: `expense`·`income`·**`transfer`**, 2026-09-27~. 「이체」 글씨가 쓰이는지 센다), **어느 가계부에 적었나**(`book`: `mine`·`shared`, 2026-09-28~. 공유 가계부가 없는 사람은 늘 `mine`) |
+| 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움과 **지우려다 그만둠**(`delete_asked`·`delete_cancelled`·`delete`), 고친 칸 이름, 그 기록의 입력 방식. 2026-09-28~ **옮김**(`move`, `to`: `mine`·`shared`)과 **되돌림**(`restore`, 지운 공유 기록을 알림에서 되살림), 공유 기록을 고치거나 지웠으면 `book: 'shared'` |
 | 저장 뒤 뜻이 전달됐나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것 |
 | 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(`home_card`·`settings`)와 결과(`opened`·`guide_done`·`dismissed`), 동의·거절·미지원과 **켠 자리**(`where`: `home_card`·`settings`) |
 | 이메일 연결에서 어디서 빠지나 | `account_link_result` · `profile_result` | 권했나(`prompt_shown`)·열었나(`prompt_opened`)·닫았나(`prompt_dismissed`)와 그 자리(`manage`·`streak`), 코드를 보냈나(`sent`)·붙었나(`linked`·`switched`·`merged`)·어디서 막혔나(`send_failed`·`verify_failed` 와 오류 코드), 연령대·성별을 답했나 건너뛰었나와 그 갈래. **이메일 주소와 코드는 싣지 않는다** |
@@ -38,7 +38,7 @@
 | 자산을 한 번 적고 마나 | `asset_changed` | 더함·고침·지움과 어느 그룹, 그 뒤 남은 줄 수. **이름과 금액은 싣지 않는다** |
 | 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나와 몇 장짜리인가(`cards`), 몇 장째에서 닫았나(`page`·`total`)와 끝까지 봤나(`finished`) |
 | 지난달 리포트를 보러 가나 | **`report_month_changed`** | 옮긴 쪽(`step`: `back`·`forward`), 도착한 달이 이번 달인가(`to`: `this`·`past`), 몇 달 전인가(`months_back`). 2026-09-27~. 지난달 리포트에 광고를 붙이기 전의 기준선이다. **그 달의 날짜와 금액은 싣지 않는다** |
-| 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
+| 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`·**`book_home`** 우리 집 홈 맨 아래, 2026-09-28~)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
 | 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(2026-09-26~ `closing`·**`photo`** 둘뿐, 아래 「판마다 바뀐 값」)와 결과(`watched`·`skipped`·**`declined`** 확인 창에서 돌아섬, 2026-09-27~), 지나간 이유(`no_group`·`unsupported`·`failed`·`capped`·**`stalled`**) |
 | 광고가 뜬 채로 갇히나 | **`ad_stuck_exit`** | 어느 자리의 광고였나(`where`). **앱을 열 때 한 번** 센다. 광고가 뜨는 순간 적어 둔 표가 남아 있으면 지난번이 갇힌 판이다(ADR-0036). ⚠ **갇힌 판의 `interstitial_result` 는 `stalled` 가 아니라 `watched` 다.** 광고는 실제로 떴고 콘솔도 노출로 센다. 2026-09-28 부터 판정은 화면을 푸는 그 시각(전면 15초, 리워드 35초)에 내린다(ADR-0041, 그 전에는 90초). 갇혔다는 사실은 **다음 광고의 `skipped{stalled}`** 와 이 이벤트로 드러난다. 함께 싣는 `deaths` 는 광고가 덮인 채로 **연달아** 죽은 횟수다. **한 번이면 그 기기에서 전면 광고를 끈다**(ADR-0041, 2026-09-27 까지는 두 번). 15초(리워드 35초)에도 덮고 있는 것을 직접 본 판은 이 수와 무관하게 그 한 번으로 끈다. 끄고 나면 `interstitial_result` 가 계속 `skipped{stalled}` 로만 남는다. 광고를 눌러 나간 판은 갇힘에서 뺀다 |
 | 사진을 읽으려고 광고를 보나 | `photo_credit` | 봤나 마다했나 헛돌았나 썼나(`action`: `watched`·**`declined`**·**`wasted`**·`spent`), 어떤 광고였나(`plan`: `interstitial`·`rewarded`), 몇 장짜리였나(`image_count`), 쓰고 나서 무료분이 몇 장 남았나(`left`), 광고가 어떻게 끝났나(`ad`: `earned`·`watched`·`skipped`)와 지나간 이유(`reason`: `no_group`·`unsupported`·`failed`) |
@@ -46,6 +46,13 @@
 | 목표를 세우기만 하나 실제로 모으나 | `goal_changed` · `goal_contributed` | 만듦·고침·지움과 기한을 걸었나(`deadline`)·종잣돈이 있었나(`seeded`), 모을 때 **지난 날**로 넣었나(`backdated`, 앞날은 여기 안 센다). **이름과 금액은 싣지 않는다** |
 | 못 찾아서 찾아보나 | `search_used` | 검색어 길이와 **첫 화면에 걸린 수**(`hits`, 한 장 30줄에서 끊긴다). **검색어는 싣지 않는다** |
 | 별점을 남길 만하다고 느끼나 | `rating_asked` | 창을 열었나(`opened`)·닫았나(`dismissed`)·못 띄웠나(`failed`). **실제로 남겼는지는 알 수 없다** |
+| 공유 가계부를 만들고 끝까지 쓰나 | **`book_changed`** | 만듦·이름 바꿈·끝냄·다시 엶·지움·되살림(`action`: `created`·`renamed`·`ended`·`reopened`·`deleted`·`restored`)과 가계부 유형(`kind`: `couple`·`family`·`trip`·`room`). 2026-09-28~. **가계부 이름과 id 는 싣지 않는다** |
+| 초대장이 실제로 나가나 | **`book_invite_result`** | 보낸 자리(`where`: `create` 만들기 직후 · `settings` 설정 · `home` 우리 집 홈), 공유창까지 갔나(`result`: `ok`·`failed`)와 막힌 이유(`reason`, 브릿지·서버 오류 코드), 유형(`kind`). **초대 코드와 보낸 글은 싣지 않는다** |
+| 링크를 받은 사람이 설명 없이 들어오나 | **`book_join_result`** | 결과(`result`: `joined`·`later`·`expired`·`full`·`member`·`closed`·`ended`·`invalid`·`failed`), 유형(`kind`), 인원 구간(`members`: `2`·`3-5`·`6-10`. `expired`·`closed`·`ended` 는 서버가 인원을 안 알려 비운다), 이 링크로 앱을 처음 열었나(`first_open`), 실패 코드(`error_code`) |
+| 같이 쓰다 누가 빠지나 | **`book_member_changed`** | 나갔나·내보내졌나(`action`: `left`·`removed`)와 그 사람의 자리(`role`: `owner`·`member`). **이름은 싣지 않는다** |
+| 정산을 끝까지 하나 | **`settle_changed`** | 끝냄·되돌림(`action`: `done`·`undone`), 나누는 방식(`rule`), 인원 구간(`members`). **금액은 싣지 않는다** |
+| 공유 리포트 자세히 보기가 광고 한 편 값을 하나 | **`report_detail_opened`** | 광고가 어떻게 끝났나(`ad`: `earned`·`watched`·`skipped`)와 지나간 이유(`reason`), `book: 'shared'`. `earned` 와 `watched` 를 합치지 않는다(ADR-0024) |
+| 우리 집 광고 없이 쓰기를 원하나 | **`plus_interest`** | 연 자리(`where`: `book_settings`), 무엇을 눌렀나(`result`: `open`·`want`·`close`), 인원 구간(`members`: `1`·`2`·`3-5`·`6-10`). 결제는 아직 없다. 이 값이 곧 수요다 |
 
 `review_finished` 는 「5건 중 날짜 2건·금액 1건 고침」 까지만 남긴다.
 그 날짜가 무엇이었고 금액이 얼마였는지는 남기지 않는다.
@@ -193,6 +200,13 @@ SDK 가 알려 주지 않는다. 그래서 우리가 볼 수 있는 것은 누�
 (`goal_finished`) 하나뿐이라 완주율의 분모가 비어 있었다. `goal_changed` 가 분모를 채우고,
 `goal_contributed` 가 그 사이를 채운다. 한 번도 안 모으고 끝나는 목표가 많으면 화면이 아니라
 목표라는 기능 자체를 다시 볼 때다.
+
+**공유 가계부 로그에는 이름·금액·초대 코드·id 가 하나도 없다.** 가계부 이름, 멤버 이름, 금액,
+초대 코드, 가계부·멤버·기록 id 는 어느 이벤트에도 싣지 않는다. 인원도 값 그대로가 아니라 구간
+(`1`·`2`·`3-5`·`6-10`)으로 싣는다. 가계부 하나의 인원은 그 가계부를 가리키는 값이 될 수 있어서다.
+화면 제목(`screen_view`·`app_open` 의 `entry`)에도 가계부 이름을 넣지 않는다.
+`book_join_result` 가 가장 먼저 볼 값이다. 링크를 받은 사람 중 `joined` 의 비율이 「설명 없이
+들어오나」 의 답이고, `later` 가 많으면 초대 화면이 무엇을 받았는지 못 말하는 것이다.
 
 **`record_started` 의 `from` 이 입구 셋의 성적표다.** 홈 가운데 큰 버튼(`home`), 홈 목록의
 빈 날 버튼(`home_day`), 월간 달력에서 고른 날(`calendar_day`) 셋이 있다. 달력에서 적는 길은

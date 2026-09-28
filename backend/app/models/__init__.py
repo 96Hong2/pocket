@@ -2,6 +2,17 @@
 
 from app.db.base import Base
 from app.models.asset import AssetGroup, AssetItem, AssetSnapshot, AssetSource
+from app.models.book import (
+    Book,
+    BookCategory,
+    BookEntry,
+    BookInvite,
+    BookKind,
+    BookMember,
+    BookRole,
+    Settlement,
+    SettleRule,
+)
 from app.models.budget import Budget, CategoryBudget
 from app.models.category import Category, CategoryKind
 from app.models.goal import (
@@ -37,6 +48,13 @@ __all__ = [
     "AssetSnapshot",
     "AssetSource",
     "Base",
+    "Book",
+    "BookCategory",
+    "BookEntry",
+    "BookInvite",
+    "BookKind",
+    "BookMember",
+    "BookRole",
     "Budget",
     "Category",
     "CategoryBudget",
@@ -59,6 +77,8 @@ __all__ = [
     "PaymentMethod",
     "RecordMethod",
     "RecurringExpense",
+    "SettleRule",
+    "Settlement",
     "Tag",
     "TagColor",
     "TagKind",

@@ -30,6 +30,8 @@ export const E2E_SERVERS: PlaywrightTestConfig['webServer'] = [
       // 개발자의 backend/.env 에 gemini 가 켜져 있어도 검증은 스텁으로 돈다.
       // 실제 모델은 값이 들고 결과가 흔들려 화면 단언을 못 한다.
       LLM_PROVIDER: 'stub',
+      // 공유 가계부는 기능 스위치 뒤에 있다. 검증은 켠 채로 돈다. 꺼진 쪽은 백엔드 API 테스트가 본다.
+      SHARED_BOOKS_ENABLED: 'true',
     },
     // 기동 실패가 'url 대기 타임아웃' 으로만 보이지 않게 로그를 흘린다.
     stdout: 'pipe',

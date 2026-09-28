@@ -21,7 +21,8 @@ export type AdPlacement =
   | 'manage'
   | 'settings'
   | 'assets'
-  | 'goal';
+  | 'goal'
+  | 'book_home';
 
 /**
  * 같은 자리에 배너를 다시 요청하기까지 두는 최소 간격.

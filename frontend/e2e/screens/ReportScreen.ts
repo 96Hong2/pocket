@@ -16,11 +16,17 @@ export class ReportScreen {
 
   /** 월간 결산 입구와 오버레이. 끝난 달에 기록이 있을 때만 입구가 생긴다. */
   readonly closing: ClosingArea;
+  /** 머리의 가계부 칩과 고르기 창. 같이 쓰는 가계부가 있을 때만 선다. */
+  readonly book: ReportBookArea;
+  /** 공유 가계부 리포트의 「자세히 보기」 카드. */
+  readonly insight: ReportInsightArea;
 
   constructor(page: Page) {
     this.page = page;
     this.root = page;
     this.closing = new ClosingArea(page);
+    this.book = new ReportBookArea(page);
+    this.insight = new ReportInsightArea(page);
   }
 
   /**
@@ -282,6 +288,11 @@ export class ReportScreen {
     return this.root.locator('[data-placement="report_bottom"]');
   }
 
+  /** 제목 아래 한 줄 안내. 같이 쓰는 가계부가 있으면 이 자리에 가계부 칩이 대신 선다. */
+  get lead(): Locator {
+    return this.root.getByText('지출이 어디로 갔는지 봐요', { exact: true });
+  }
+
   /** 조회가 실패했을 때 본문 자리를 대신하는 제목. */
   get loadError(): Locator {
     return this.root.getByText('리포트를 불러오지 못했어요', { exact: true });
@@ -459,4 +470,88 @@ export class ClosingArea {
       await this.nextButton.click();
     }
   }
+}
+
+/**
+ * 리포트 머리의 가계부 칩.
+ *
+ * 칩의 읽는 이름은 「보는 가계부 <이름>」 이다. 기록 시트의 「내 가계부」 칩과 겹치지 않게
+ * 앞말을 붙였다. 고르기 창은 홈과 같은 창이다.
+ */
+export class ReportBookArea {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  get chip(): Locator {
+    return this.page.getByRole('button', { name: /^보는 가계부 / });
+  }
+
+  get picker(): Locator {
+    return this.page.getByRole('dialog', { name: '어느 가계부를 볼까요' });
+  }
+
+  /** 고르기 창의 한 줄. 이름 뒤에 인원(「2명」)이 붙어 읽혀 앞부분으로 찾는다. */
+  pickerRow(name: string): Locator {
+    return this.picker.getByRole('button', { name: startsWith(name) });
+  }
+
+  /** 칩을 눌러 그 가계부를 고른다. 창이 닫힌 것까지 보고 돌아온다. */
+  async pick(name: string): Promise<void> {
+    await this.chip.click();
+    await expect(this.picker).toBeVisible();
+    await this.pickerRow(name).click();
+    await expect(this.picker).toBeHidden();
+    await expect(this.chip).toHaveAccessibleName(`보는 가계부 ${name}`);
+  }
+}
+
+/**
+ * 공유 리포트의 「자세히 보기」.
+ *
+ * 잠겨 있으면 받을 것 목록과 「광고 보고 자세히 보기」 가 있고, 풀리면 같은 이름의 칸이 선다.
+ * 칸은 이름 붙은 group 이라 이름으로 잡는다.
+ */
+export class ReportInsightArea {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  /** 「<가계부 이름> 소비 자세히 보기」 카드. */
+  get card(): Locator {
+    return this.page.getByRole('region', { name: /소비 자세히 보기$/ });
+  }
+
+  get unlockButton(): Locator {
+    return this.card.getByRole('button', { name: '광고 보고 자세히 보기', exact: true });
+  }
+
+  /** 광고를 띄우는 동안 버튼 글자. */
+  get loadingButton(): Locator {
+    return this.card.getByRole('button', { name: '광고를 불러오는 중이에요', exact: true });
+  }
+
+  /** 잠긴 카드가 미리 적어 둔 받을 것. 풀린 뒤에는 없다. */
+  get topics(): Locator {
+    return this.card.getByRole('listitem');
+  }
+
+  /** 풀린 카드의 한 칸. 「지난달과 비교」·「가장 많이 늘어난 소비」·「분류별 자세히」·「월말 예상」 */
+  part(label: string): Locator {
+    return this.card.getByRole('group', { name: label, exact: true });
+  }
+
+  /** 「분류별 자세히」 의 한 줄. */
+  changeRow(name: string): Locator {
+    return this.part('분류별 자세히').getByRole('listitem').filter({ hasText: name });
+  }
+}
+
+/** 이름 앞부분이 같은 것을 찾는다. 이름 뒤에 인원 같은 말이 붙어 읽힌다. */
+function startsWith(text: string): RegExp {
+  return new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
 }

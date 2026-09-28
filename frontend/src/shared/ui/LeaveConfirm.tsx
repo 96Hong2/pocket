@@ -25,6 +25,7 @@ export function LeaveConfirm({
   text,
   leaveLabel = '그만두기',
   stayLabel = '계속 쓰기',
+  ariaLabel = '그만둘까요',
   onStay,
   onLeave,
 }: {
@@ -32,6 +33,8 @@ export function LeaveConfirm({
   text: ReactNode;
   leaveLabel?: string;
   stayLabel?: string;
+  /** 읽는 프로그램이 부르는 창 이름. 묻는 말이 「그만둘까요」 가 아닌 자리(나가기·지우기)에서 바꾼다. */
+  ariaLabel?: string;
   onStay: () => void;
   onLeave: () => void;
 }) {
@@ -52,7 +55,7 @@ export function LeaveConfirm({
   }, []);
 
   return createPortal(
-    <div className="record-leave" role="alertdialog" aria-label="그만둘까요" ref={boxRef}>
+    <div className="record-leave" role="alertdialog" aria-label={ariaLabel} ref={boxRef}>
       <div className="record-leave__box">
         <p className="record-leave__text">{text}</p>
         <div className="record-leave__actions">

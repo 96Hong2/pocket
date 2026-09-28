@@ -1,6 +1,17 @@
 import { request, type APIRequestContext, type APIResponse } from '@playwright/test';
 
-import type { AssetGroup, PaymentMethod, TransactionType } from '../../src/shared/api/types';
+import type {
+  AssetGroup,
+  BookEntryCreated,
+  BookEntryListOut,
+  BookEntryOut,
+  BookKind,
+  BookListOut,
+  BookOut,
+  PaymentMethod,
+  SettleRule,
+  TransactionType,
+} from '../../src/shared/api/types';
 import { shiftMonth, toLedgerDate } from '../../src/shared/lib/format';
 
 import { E2E_API_URL } from './env';
@@ -58,6 +69,27 @@ export interface AssetSeed {
   group: AssetGroup;
   amount: number;
   label?: string;
+}
+
+/** 심을 공유 가계부 하나. 안 준 값은 연인·부부 「우리 집」 반반, 내 이름 「은홍」 이다. */
+export interface BookSeed {
+  kind?: BookKind;
+  name?: string;
+  settleRule?: SettleRule;
+  myName?: string;
+}
+
+/** 심을 공유 기록 하나. 1차 공유 기록은 지출뿐이다. */
+export interface BookEntrySeed {
+  amount: number;
+  /** 가계부 분류 이름(「장보기」). 없으면 분류 없이 적는다. */
+  category?: string;
+  title?: string;
+  memo?: string;
+  /** `2026-09-03`. 없으면 가계부 시간대의 오늘이다. */
+  on?: string;
+  /** 낸 사람. 없으면 적는 사람(이 PrepApi 의 사용자)이다. */
+  paidByMemberId?: string;
 }
 
 /**
@@ -383,6 +415,109 @@ export class PrepApi {
       data: { email, code },
     });
     expectOk(response.status(), await response.text(), '이메일을 붙이지 못했다');
+  }
+
+  /** 내가 지금 멤버인 가계부. 끝난 것도 온다. */
+  async books(): Promise<BookOut[]> {
+    const response = await this.context.get('/api/v1/books');
+    expectOk(response.status(), await response.text(), '가계부 목록을 불러오지 못했다');
+    const body = (await response.json()) as BookListOut;
+    return body.items;
+  }
+
+  /**
+   * 공유 가계부 하나를 만들고 id 를 돌려준다. '이미 같이 쓰는 가계부가 있는 상태' 를 만들 때 쓴다.
+   *
+   * 만들기 자체를 확인하는 테스트는 화면으로 한다.
+   */
+  async createBook(seed: BookSeed = {}): Promise<string> {
+    const response = await this.context.post('/api/v1/books', {
+      data: {
+        kind: seed.kind ?? 'couple',
+        name: seed.name ?? '우리 집',
+        settle_rule: seed.settleRule ?? 'even',
+        my_name: seed.myName ?? '은홍',
+      },
+    });
+    expectOk(response.status(), await response.text(), '가계부를 만들지 못했다');
+    const body = (await response.json()) as BookOut;
+    return body.id;
+  }
+
+  /** 살아 있는 초대 코드. 없으면 새로 만든다. 다른 사람의 PrepApi 가 `joinBook` 으로 쓴다. */
+  async bookInviteCode(bookId: string): Promise<string> {
+    const book = await this.book(bookId);
+    if (book.invite != null) return book.invite.code;
+    const response = await this.context.post(`/api/v1/books/${bookId}/invites`);
+    expectOk(response.status(), await response.text(), '초대 링크를 만들지 못했다');
+    const body = (await response.json()) as { code: string };
+    return body.code;
+  }
+
+  /**
+   * 초대 코드로 들어간다. 들어간 가계부 id 를 돌려준다.
+   *
+   * 합류 자체를 확인하는 테스트는 화면(`/join`)으로 한다. 여기는 배경으로만 쓴다.
+   */
+  async joinBook(code: string, name = '준호'): Promise<string> {
+    const response = await this.context.post(`/api/v1/invites/${encodeURIComponent(code)}/join`, {
+      data: { name },
+    });
+    expectOk(response.status(), await response.text(), '가계부에 들어가지 못했다');
+    const body = (await response.json()) as BookOut;
+    return body.id;
+  }
+
+  /** 공유 기록 하나를 심고 id 를 돌려준다. 분류는 이름으로 찾는다. */
+  async addBookEntry(bookId: string, seed: BookEntrySeed): Promise<string> {
+    let categoryId: string | null = null;
+    if (seed.category != null) {
+      const book = await this.book(bookId);
+      const found = book.categories.find((category) => category.name === seed.category);
+      if (found == null) throw new Error(`가계부 분류 '${seed.category}' 를 찾지 못했다`);
+      categoryId = found.id;
+    }
+    const response = await this.context.post(`/api/v1/books/${bookId}/entries`, {
+      data: {
+        amount: String(seed.amount),
+        category_id: categoryId,
+        title: seed.title ?? null,
+        memo: seed.memo ?? null,
+        occurred_on: seed.on ?? toLedgerDate(new Date()),
+        paid_by_member_id: seed.paidByMemberId ?? null,
+      },
+    });
+    expectOk(response.status(), await response.text(), '공유 기록을 심지 못했다');
+    const body = (await response.json()) as BookEntryCreated;
+    return body.entry.id;
+  }
+
+  /** 가계부 하나. 멤버 id·분류·초대 링크를 볼 때 쓴다. */
+  async book(bookId: string): Promise<BookOut> {
+    const response = await this.context.get(`/api/v1/books/${bookId}`);
+    expectOk(response.status(), await response.text(), '가계부를 불러오지 못했다');
+    return (await response.json()) as BookOut;
+  }
+
+  /** 가계부 시간대의 이번 달 공유 기록. 화면에서 지운 것이 서버에서도 빠졌는지 볼 때 쓴다. */
+  async bookEntries(bookId: string): Promise<BookEntryOut[]> {
+    const response = await this.context.get(`/api/v1/books/${bookId}/entries`);
+    expectOk(response.status(), await response.text(), '공유 기록을 불러오지 못했다');
+    return ((await response.json()) as BookEntryListOut).items;
+  }
+
+  /** 관리자가 가계부를 끝내거나 다시 연다. 끝낸 가계부의 화면을 볼 때 배경으로 쓴다. */
+  async setBookEnded(bookId: string, ended: boolean): Promise<void> {
+    const response = await this.context.patch(`/api/v1/books/${bookId}`, { data: { ended } });
+    expectOk(response.status(), await response.text(), '가계부를 끝내거나 열지 못했다');
+  }
+
+  /** 가계부 예산. 매달 같은 금액이다. null 이면 예산을 없앤다. */
+  async setBookBudget(bookId: string, amount: number | null): Promise<void> {
+    const response = await this.context.patch(`/api/v1/books/${bookId}`, {
+      data: { monthly_budget: amount == null ? null : String(amount) },
+    });
+    expectOk(response.status(), await response.text(), '가계부 예산을 정하지 못했다');
   }
 
   async categoryIdByName(name: string): Promise<string> {

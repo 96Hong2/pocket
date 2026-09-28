@@ -1,0 +1,740 @@
+/*
+  같이 쓰는 가계부의 하위 화면: 목록, 만들기, 초대, 설정, 정산.
+  카드·버튼·세그먼트·확인 창은 shared/ui 가 그린다. 여기에는 이 화면들의 배치만 둔다.
+*/
+
+@layer components {
+  /* ── 관리 탭 입구 ───────────────────────────────────── */
+
+  /* 자산 카드 위에 한 줄로 선다. 아래 자산 카드와 붙지 않게만 띄운다. */
+  .manage-books {
+    margin-bottom: 12px;
+  }
+
+  /* ── 공용 조각 ──────────────────────────────────────── */
+
+  /* 글자 칸 하나. 목표 만들기 시트의 칸과 같은 모양이다. */
+  .book-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .book-field__label {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .book-field__input {
+    width: 100%;
+    min-height: 52px;
+    padding: 0 14px;
+    box-sizing: border-box;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .book-field__input::placeholder {
+    color: var(--color-placeholder);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .book-field__input:focus-visible {
+    outline: 2px solid var(--color-sage-300);
+    outline-offset: 0;
+  }
+
+  .book-field__hint {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+  }
+
+  .book-manage__notice {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-amber-700);
+  }
+
+  /* 확인 창 안의 제목과 설명. 확인 창 자체는 공용 LeaveConfirm 이다. */
+  .book-confirm__title {
+    display: block;
+  }
+
+  .book-confirm__line {
+    display: block;
+    margin-top: 6px;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+  }
+
+  /* ── 목록 ───────────────────────────────────────────── */
+
+  .books-page__row {
+    padding: 10px 0;
+  }
+
+  .books-page__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .books-page__section {
+    margin-top: 24px;
+  }
+
+  .books-page__label {
+    margin: 0 4px 8px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .books-page__create {
+    margin-top: 20px;
+  }
+
+  .books-page__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding-top: 28px;
+    text-align: center;
+  }
+
+  .books-page__picture {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+  }
+
+  .books-page__empty-text {
+    margin: 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .books-page__off {
+    margin: 24px 0 0;
+    font-size: var(--text-14);
+    color: var(--color-muted);
+  }
+
+  /* ── 만들기 ─────────────────────────────────────────── */
+
+  .book-create {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 24px;
+  }
+
+  .book-create__step {
+    margin: 4px 0 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  .book-create__title {
+    margin-bottom: 20px;
+    overflow-wrap: anywhere;
+  }
+
+  .book-create__kinds {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .book-create__kind {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+    height: 100%;
+    min-height: 132px;
+    padding: 16px;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    border-radius: var(--radius-card);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    font-family: inherit;
+    text-align: left;
+    color: var(--color-ink);
+  }
+
+  .book-create__kind:active {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+  }
+
+  .book-create__kind .pk-avatar {
+    margin-bottom: 8px;
+  }
+
+  .book-create__kind-name {
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .book-create__kind-line {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+  }
+
+  .book-create__label {
+    margin: 0 0 8px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .book-create__rules {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .book-create__rule {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    min-height: 64px;
+    padding: 12px 16px;
+    box-sizing: border-box;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    font-family: inherit;
+    text-align: left;
+    color: var(--color-ink);
+  }
+
+  .book-create__rule[aria-checked='true'] {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+  }
+
+  .book-create__rule-name {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .book-create__rule[aria-checked='true'] .book-create__rule-name {
+    color: var(--color-sage-700);
+  }
+
+  .book-create__rule-line {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+  }
+
+  /* 접혀 있는 이름 칸을 여는 글씨. 눌러야 하는 것임이 보이게 밑줄을 둔다. */
+  .book-create__more {
+    align-self: flex-start;
+    min-height: 44px;
+    margin-top: 12px;
+    padding: 0 2px;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .book-create .book-field + .book-field {
+    margin-top: 16px;
+  }
+
+  .book-create .book-manage__notice {
+    margin-top: 16px;
+  }
+
+  .book-create__submit {
+    margin-top: 28px;
+  }
+
+  /* ── 초대받은 화면 ──────────────────────────────────── */
+
+  .book-join {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding-top: 32px;
+  }
+
+  .book-join__icon,
+  .book-join__picture {
+    align-self: center;
+  }
+
+  .book-join__picture {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+  }
+
+  .book-join__title {
+    margin: 8px 0 4px;
+    font-size: 22px;
+    font-weight: var(--font-weight-extrabold);
+    line-height: 1.4;
+    letter-spacing: -0.4px;
+    text-align: center;
+    color: var(--color-ink);
+    overflow-wrap: anywhere;
+  }
+
+  .book-join__line {
+    margin: 0 0 8px;
+    font-size: var(--text-14);
+    line-height: 1.5;
+    text-align: center;
+    color: var(--color-muted);
+  }
+
+  /* 내 가계부는 안 보인다는 한 줄. 이름 칸보다 먼저 읽히게 칸 위에 세이지 띠로 둔다. */
+  .book-join__lock {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 0 12px;
+    padding: 14px 16px;
+    border-radius: var(--radius-button);
+    background: var(--color-sage-50);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.45;
+    color: var(--color-sage-700);
+  }
+
+  .book-join__lock-icon {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+  }
+
+  .book-join .book-field {
+    margin-bottom: 4px;
+  }
+
+  .book-join--blocked {
+    padding-top: 56px;
+  }
+
+  /* ── 광고 없이 쓰기 창 ──────────────────────────────── */
+
+  .book-plus__body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .book-plus__lead {
+    margin: 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.45;
+    color: var(--color-ink);
+  }
+
+  .book-plus__line {
+    margin: 0 0 8px;
+    font-size: var(--text-14);
+    line-height: 1.5;
+    color: var(--color-muted);
+  }
+
+  /* ── 설정 ───────────────────────────────────────────── */
+
+  .book-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .book-settings__head {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .book-settings__head-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .book-settings__head-text {
+    min-width: 0;
+  }
+
+  .book-settings__name {
+    margin: 0;
+    overflow: hidden;
+    font-size: 18px;
+    font-weight: var(--font-weight-extrabold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-ink);
+  }
+
+  .book-settings__meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0 0;
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  .book-settings__section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .book-settings__label {
+    margin: 0 4px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .book-settings__members {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .book-settings__member + .book-settings__member {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .book-settings__member-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 60px;
+    padding: 8px 0;
+    box-sizing: border-box;
+  }
+
+  .book-settings__member-row--button {
+    border: 0;
+    background: none;
+    font-family: inherit;
+    text-align: left;
+    color: var(--color-ink);
+  }
+
+  /* 관리자만 누를 수 있는 줄이라 화살표로 눌린다는 것을 보인다. */
+  .book-settings__member-row--button::after {
+    content: '';
+    flex: none;
+    width: 8px;
+    height: 8px;
+    margin-left: auto;
+    border-bottom: 2px solid var(--color-placeholder);
+    border-right: 2px solid var(--color-placeholder);
+    transform: rotate(45deg);
+  }
+
+  .book-settings__member-row--button[aria-expanded='true']::after {
+    transform: rotate(-135deg);
+  }
+
+  .book-settings__face {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-100);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+  }
+
+  .book-settings__member-name {
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .book-settings__member-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 0 12px;
+  }
+
+  .book-settings__invite {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .book-settings__hint {
+    margin: 0 4px;
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  .book-settings__rule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 64px;
+    border-bottom: 1px solid var(--color-divider);
+  }
+
+  .book-settings__rule-label {
+    flex: none;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  .book-settings__segmented {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .book-settings__segmented .pk-segmented__item {
+    min-width: 0;
+    padding: 0 6px;
+    white-space: nowrap;
+  }
+
+  .book-settings__rows .link-row__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .book-settings__rows .pk-chip {
+    flex: none;
+  }
+
+  /* 줄 이름 아래 한 줄. 끝내기와 지우기가 무엇을 하는지 누르기 전에 읽힌다. */
+  .book-settings__row-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 0;
+  }
+
+  .book-settings__row-note {
+    overflow: hidden;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-medium);
+    text-overflow: ellipsis;
+    color: var(--color-muted);
+  }
+
+  .book-settings__rows button.link-row:disabled {
+    opacity: 0.45;
+  }
+
+  .book-settings__danger {
+    color: var(--color-expense);
+  }
+
+  .book-settings__rename {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--color-divider);
+  }
+
+  .book-settings__rename-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .book-settings__leave {
+    margin-top: 12px;
+  }
+
+  /* ── 정산 ───────────────────────────────────────────── */
+
+  .book-settle {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 12px;
+  }
+
+  /* 쪽 머리의 한 줄이지만 목록 간격(gap)을 따르므로 아래 여백은 뺀다. */
+  .book-settle__lead {
+    margin: 0;
+  }
+
+  .book-settle__period {
+    margin: 0;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .book-settle__card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .book-settle__sentence {
+    margin: 0;
+    font-size: 18px;
+    font-weight: var(--font-weight-extrabold);
+    line-height: 1.45;
+    color: var(--color-ink);
+    word-break: keep-all;
+  }
+
+  /* 끝낸 뒤 계산한 금액. 끝났다는 제목 아래 흐리게 남긴다. */
+  .book-settle__calc {
+    margin: 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    word-break: keep-all;
+  }
+
+  .book-settle__transfers {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .book-settle__caution {
+    align-self: flex-start;
+    margin: 0;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--color-amber-50);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-amber-700);
+  }
+
+  .book-settle__total {
+    margin: 0;
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+
+  .book-settle__link {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-sage-700);
+    text-underline-offset: 3px;
+  }
+
+  .book-settle__rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .book-settle__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 56px;
+  }
+
+  .book-settle__row + .book-settle__row {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .book-settle__who {
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-ink);
+  }
+
+  .book-settle__amount {
+    flex: none;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .book-settle__done {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .book-settle__done-text {
+    min-width: 0;
+  }
+
+  .book-settle__done-line {
+    margin: 0;
+    font-size: var(--text-14);
+    color: var(--color-muted);
+  }
+
+  .book-settle__note {
+    margin: 0 4px;
+    font-size: var(--text-13);
+    color: var(--color-muted);
+  }
+}

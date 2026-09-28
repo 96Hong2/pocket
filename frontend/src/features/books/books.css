@@ -1,0 +1,585 @@
+/*
+  공유 가계부 공용 조각. 홈·리포트의 가계부 칩과 고르기 창, 예산 창.
+  화면마다의 스펙(우리 집 홈, 저장 뒤 화면, 기록 수정)은 이 파일 아래쪽에 이어 붙인다.
+*/
+
+@layer components {
+  /* ── 보는 가계부 칩 ─────────────────────────────────── */
+  .book-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    min-height: 44px;
+    padding: 0 4px;
+    background: transparent;
+    border: 0;
+    font: inherit;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+
+  .book-chip__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .book-chip__caret {
+    flex-shrink: 0;
+    font-size: var(--text-12);
+    color: var(--color-muted);
+  }
+
+  .book-chip:focus-visible {
+    outline: 2px solid var(--color-sage-300);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  /* ── 가계부 고르기 창 ────────────────────────────────── */
+  .book-picker__list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .book-picker__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 60px;
+    padding: 8px 12px;
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-md);
+    font: inherit;
+    text-align: left;
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+
+  .book-picker__row[aria-pressed='true'] {
+    background: var(--color-sage-50);
+  }
+
+  .book-picker__row[data-muted] .book-picker__name {
+    color: var(--color-muted);
+  }
+
+  .book-picker__name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .book-picker__check {
+    flex-shrink: 0;
+    width: 20px;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-700);
+    text-align: center;
+  }
+
+  .book-picker__label {
+    margin: 20px 12px 8px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  /* ── 예산 창 ────────────────────────────────────────── */
+  .book-budget__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .book-budget__notice {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+}
+
+/*
+  기록 시트의 「적을 곳」, 저장 뒤 화면, 기록 수정, 우리 집 홈.
+*/
+@layer components {
+  /* ── 적을 곳 ────────────────────────────────────────── */
+
+  /*
+    이름표 하나와 알약 셋. 알약은 지출·수입 알약(`pk-kind__item`)과 같은 옷이다.
+    좁은 폰(344)에서도 한 줄에 서야 해서 글자를 한 단계 줄이고 좌우를 좁힌다.
+    이름이 긴 가계부만 말줄임이 된다. 「내 가계부」·「다른 가계부」 는 줄지 않는다.
+  */
+  .book-dest {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .book-dest__label {
+    flex: none;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .book-dest__pills {
+    display: flex;
+    flex: 1;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .book-dest__pill.pk-kind__item {
+    flex: 1 0 auto;
+    min-width: 0;
+    padding: 0 10px;
+    font-size: var(--text-13);
+    white-space: nowrap;
+  }
+
+  .book-dest__pill--name.pk-kind__item {
+    flex: 1 1 auto;
+  }
+
+  @media (max-height: 700px) {
+    .book-dest {
+      margin-bottom: 6px;
+    }
+
+    .book-dest__pill.pk-kind__item {
+      height: 34px;
+    }
+
+    .book-dest__pill.pk-kind__item::after {
+      inset: -5px 0;
+    }
+  }
+
+  .book-dest__name {
+    display: block;
+    max-width: 7.5em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 기록 시트 맨 위. 손잡이 바로 아래라 위 여백은 두지 않는다. */
+  .record__dest {
+    margin-top: 0;
+  }
+
+  /* 수정 시트에서는 머리 줄 아래 칸들과 같은 간격이다. */
+  .tx-edit__dest,
+  .book-edit__dest {
+    margin-top: 14px;
+    margin-bottom: 0;
+  }
+
+  /*
+    「어디에 적을까요」. 시트 위에 겹치는 작은 창이다. 떠나기 확인(80) 아래,
+    분류 만들기 창(70)과 같은 층이다.
+  */
+  .book-where {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: var(--color-dim);
+  }
+
+  .book-where__box {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 320px;
+    max-height: 80dvh;
+    overflow-y: auto;
+    padding: 20px;
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
+  }
+
+  .book-where__title {
+    margin: 0;
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  /* ── 낸 사람 ────────────────────────────────────────── */
+
+  /* 결제 수단 줄과 같은 옷이다. 멤버가 많으면 다음 줄로 넘긴다. */
+  .book-payer {
+    align-items: flex-start;
+  }
+
+  .book-payer .pk-pay__label {
+    line-height: 32px;
+  }
+
+  .book-payer__items.pk-pay__items {
+    flex-wrap: wrap;
+    row-gap: 12px;
+  }
+
+  .book-payer__item.pk-pay__item {
+    flex: 1 0 auto;
+    min-width: 64px;
+    padding: 0 12px;
+  }
+
+  /* ── 저장 뒤 화면 ───────────────────────────────────── */
+
+  /* 어디에 적혔는지가 이 화면의 첫마디다. 개인 쪽 「저장했어요」 보다 한 단계 진하게 둔다. */
+  .book-feedback__label {
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .book-feedback__payer {
+    margin-top: 14px;
+  }
+
+  /* 드물게 쓰는 길이라 버튼이 아니라 밑줄 글씨다. 손가락 자리는 44px 로 둔다. */
+  .book-feedback__move {
+    align-self: flex-start;
+    min-height: 44px;
+    margin-top: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .book-feedback__move:disabled {
+    opacity: 0.45;
+  }
+
+  /* ── 기록 수정 ──────────────────────────────────────── */
+
+  /* 누가 적고 누가 고쳤나. 머리 바로 아래 옅은 상자에 한두 줄. */
+  .book-edit__who {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+  }
+
+  .book-edit__who-line {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .book-edit__payer {
+    margin-top: 14px;
+  }
+
+  .book-edit__ended {
+    margin: 0 0 10px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  /* ── 우리 집 홈 ─────────────────────────────────────── */
+
+  /* 맨 위 한 줄. 왼쪽 가계부 칩, 오른쪽 멤버 얼굴. 개인 홈에서는 칩 하나만 선다. */
+  .book-home__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: -6px 0 6px;
+  }
+
+  .book-home__top .book-chip {
+    min-width: 0;
+  }
+
+  /* 혼자일 때 얼굴 하나면 30px 이라 누를 자리가 모자란다. 44px 은 늘 남긴다. */
+  .book-faces {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    min-width: 44px;
+    min-height: 44px;
+    padding-left: 6px;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .book-faces__face {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    margin-left: -6px;
+    border: 2px solid var(--color-bg);
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-100);
+    color: var(--color-sage-700);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .book-faces__face[data-me] {
+    background: var(--color-sage-50);
+  }
+
+  .book-faces__more {
+    margin-left: 4px;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .book-faces:active {
+    opacity: 0.6;
+  }
+
+  .book-home__notices {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .book-home__notice {
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .book-hero__big {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 8px;
+    margin: 6px 0 0;
+  }
+
+  .book-hero__what {
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .book-hero__value {
+    letter-spacing: -0.5px;
+  }
+
+  .book-hero__sub {
+    margin: 6px 0 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+  }
+
+  /* 예산이 없을 때만. 큰 숫자 아래 조용한 밑줄 글씨. */
+  .book-hero__budget {
+    min-height: 44px;
+    margin-top: 2px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* 한 줄 안내와 버튼 하나. 글이 길면 글만 두 줄이 되고 버튼은 오른쪽에 남는다. */
+  .book-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 14px 16px;
+  }
+
+  .book-card > .pk-btn {
+    flex: none;
+  }
+
+  .book-card__text {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-ink);
+    word-break: keep-all;
+  }
+
+  /* 이미 보냈을 때의 다시 보내기. 한 번 더 누를 일은 드물어 글씨 버튼으로 둔다. */
+  .book-card__resend {
+    flex: none;
+    min-height: 44px;
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .book-card__resend:disabled {
+    opacity: 0.45;
+  }
+
+  .book-card__notice {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+
+  .book-home__ended {
+    margin: 20px 0 0;
+    padding: 14px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+    color: var(--color-muted);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    text-align: center;
+  }
+
+  .book-home__recent {
+    margin-top: 24px;
+  }
+
+  .book-home__title {
+    margin: 0 0 10px;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  /* 다섯 줄 아래 「이번 달 N건 모두 보기」. 같은 자리에서 목록을 펼친다. */
+  .book-home__more {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    margin-top: 4px;
+    border: 0;
+    background: none;
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .book-home__empty {
+    margin: 0;
+    padding: 8px 0;
+    font-size: var(--text-14);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  /* 목록 둘째 줄. 날짜 글씨, 적은 사람 칩, 「고침」 칩이 한 줄에 선다. 글씨는 거래 줄 부제와 같다. */
+  .book-home__entry .pk-tx__chips {
+    align-items: center;
+    margin-top: 2px;
+  }
+
+  .book-home__entry-day {
+    margin-right: 2px;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-muted);
+    white-space: nowrap;
+  }
+
+  /* 정산 한 줄. 누르면 정산 화면이다. 흰 카드에 화살표 하나. */
+  .book-settle-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: var(--radius-card);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .book-settle-card:active {
+    opacity: 0.7;
+  }
+
+  .book-settle-card__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .book-settle-card__title {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .book-settle-card__line {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    word-break: keep-all;
+  }
+
+  .book-settle-card__chevron {
+    flex: none;
+    font-size: var(--text-16);
+    color: var(--color-muted);
+  }
+}

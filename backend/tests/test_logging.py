@@ -65,3 +65,39 @@ def test_엔진이_SQL_파라미터를_오류에_붙이지_않는다(monkeypatch
     finally:
         get_settings.cache_clear()
         get_engine.cache_clear()
+
+
+def test_접근_로그의_초대_코드를_가린다() -> None:
+    """초대 코드는 7일 동안 누구든 합류시키는 열쇠다. uvicorn 접근 로그의 경로에 그대로 실린다."""
+    code = "AbC_12-xyZ9-"
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(build_formatter())
+    handler.addFilter(SensitiveDataFilter())
+
+    logger = logging.getLogger("tests.logging.access")
+    logger.handlers = [handler]
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    try:
+        # uvicorn.access 와 같은 모양: 형식 문자열과 인자가 따로 온다.
+        logger.info(
+            '%s - "%s %s HTTP/%s" %d',
+            "1.2.3.4:5",
+            "POST",
+            f"/api/v1/invites/{code}/join",
+            "1.1",
+            200,
+        )
+        logger.info(
+            '%s - "%s %s HTTP/%s" %d', "1.2.3.4:5", "GET", f"/api/v1/invites/{code}", "1.1", 200
+        )
+    finally:
+        logger.handlers = []
+
+    lines = [json.loads(line) for line in stream.getvalue().splitlines()]
+    assert [line["message"] for line in lines] == [
+        '1.2.3.4:5 - "POST /api/v1/invites/[redacted]/join HTTP/1.1" 200',
+        '1.2.3.4:5 - "GET /api/v1/invites/[redacted] HTTP/1.1" 200',
+    ]
+    assert code not in stream.getvalue()

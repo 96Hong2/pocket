@@ -53,7 +53,10 @@ __all__ = [
     "create_transaction",
     "delete_transaction",
     "evaluate",
+    "get_owned",
+    "is_refunded",
     "list_transactions",
+    "stage_moved_expense",
     "undo_deadline",
     "undo_transaction",
     "update_transaction",
@@ -718,6 +721,49 @@ def _get_owned(session: Session, user: User, tx_id: uuid.UUID) -> Transaction:
     tx = session.get(Transaction, tx_id)
     if tx is None or tx.user_id != user.id or tx.deleted_at is not None:
         raise ApiError(ErrorCode.NOT_FOUND, "거래를 찾지 못했어요.", status_code=404)
+    return tx
+
+
+def get_owned(session: Session, user: User, tx_id: uuid.UUID) -> Transaction:
+    """내 것이고 안 지운 거래. 아니면 404. 공유 가계부로 옮기기가 같은 판정을 쓴다."""
+    return _get_owned(session, user, tx_id)
+
+
+def is_refunded(session: Session, tx_id: uuid.UUID) -> bool:
+    """그 지출에 살아 있는 환불이 붙어 있나."""
+    return _refunded_total(session, tx_id) > 0
+
+
+def stage_moved_expense(
+    session: Session,
+    user: User,
+    *,
+    amount: Decimal,
+    occurred_at: datetime,
+    merchant: str | None,
+    memo: str | None,
+    category_id: uuid.UUID | None,
+) -> Transaction:
+    """공유 기록을 내 지출로 옮겨 적는다. commit 은 부르는 쪽이 원본 지우기와 함께 한다.
+
+    지문과 무지출 표시 걷기는 저장과 같게 한다. 피드백 판정과 기록 방식 기억은 부르지 않는다.
+    사람이 새로 적은 것이 아니라 자리만 옮긴 것이다.
+    """
+    tx = Transaction(
+        user_id=user.id,
+        amount=amount,
+        type=agg.TransactionType.EXPENSE,
+        occurred_at=occurred_at.astimezone(UTC),
+        merchant=merchant,
+        memo=memo,
+        category_id=category_id,
+        source=agg.TransactionSource.KEYPAD,
+        confidence=1.0,
+    )
+    _stamp_identity(tx, user)
+    session.add(tx)
+    _clear_no_spend_for_spending(session, user, tx)
+    session.flush()
     return tx
 
 
