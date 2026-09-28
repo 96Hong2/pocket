@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 
 import { useBridge, useOnboardingReport } from '../../app/providers';
+import { ROUTES } from '../../app/router/routes';
 import { markHomeAddPrompted } from '../../shared/lib/homeAddSeen';
 import {
   markOnboardingSeen,
@@ -18,13 +20,24 @@ import { OnboardingOverlay } from './OnboardingOverlay';
  *
  * **여는 순간 「봤다」 로 적는다.** 닫힐 때 적으면 안내를 보다가 앱을 끈 사람에게 다음에
  * 또 뜬다. 한 번뿐인 안내라 못 보고 지나치는 쪽이, 볼 때마다 다시 뜨는 쪽보다 낫다.
+ *
+ * **초대 화면(`/join`)에서는 비켜 선다.** 링크를 받은 사람이 할 일은 「같이 쓰기」 하나다.
+ * 안내 네 장이 그 위를 덮으면 무엇을 받았는지 모른다. 이 화면에서는 「봤다」 도 적지 않는다.
+ * 같이 쓰기를 누르면 초대 화면이 「봤다」 를 적어 안내가 아예 안 뜨고, 그냥 나가면 다음 화면에서
+ * 지금처럼 판단한다.
  */
 export function OnboardingGate() {
   const bridge = useBridge();
   const report = useOnboardingReport();
+  const { pathname } = useLocation();
+  const onJoin = pathname === ROUTES.join;
   const [open, setOpen] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (onJoin) {
+      report(false);
+      return;
+    }
     let alive = true;
     void (async () => {
       const [seen, replay] = await Promise.all([
@@ -41,9 +54,9 @@ export function OnboardingGate() {
     return () => {
       alive = false;
     };
-  }, [bridge, report]);
+  }, [bridge, report, onJoin]);
 
-  if (open !== true) return null;
+  if (onJoin || open !== true) return null;
 
   return (
     <OnboardingOverlay

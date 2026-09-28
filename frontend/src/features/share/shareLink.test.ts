@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { SHARE_PATH, shareImageUrl, sharePath } from './shareLink';
+import { SHARE_PATH, invitePath, shareImageUrl, sharePath } from './shareLink';
 
 /**
  * 공유 링크가 가리키는 자리와 미리보기 그림.
@@ -22,6 +22,18 @@ describe('딥링크', () => {
   it('갈래마다 표시를 단다. 토스는 공유로 온 사람을 한 칸으로만 적는다', () => {
     expect(sharePath('app')).toBe('intoss://pocket-ledger?src=share_app');
     expect(sharePath('goal_done')).toBe('intoss://pocket-ledger?src=share_goal_done');
+  });
+
+  it('초대 링크는 초대 화면으로 가고 코드와 들어온 길을 함께 싣는다', () => {
+    expect(invitePath('Ab3_x-9Qz0Lm')).toBe(
+      'intoss://pocket-ledger/join?c=Ab3_x-9Qz0Lm&src=share_invite',
+    );
+  });
+
+  it('초대 코드에 주소를 깨는 글자가 섞여 와도 한 칸 안에 가둔다', () => {
+    expect(invitePath('a&src=x')).toBe(
+      'intoss://pocket-ledger/join?c=a%26src%3Dx&src=share_invite',
+    );
   });
 });
 

@@ -253,3 +253,21 @@ export function usePhotoRewardedAd(): {
       : import.meta.env.VITE_AD_REWARDED_GROUP_ID;
   return useAdShow(configured, runRewarded);
 }
+
+/**
+ * 공유 리포트의 「자세히 보기」 를 열려고 스스로 보는 광고.
+ *
+ * **전용 그룹만 쓴다.** 광고 그룹마다 보상 이름이 하나라, 계산기 그룹을 빌리면 광고 화면이
+ * 말하는 보상과 우리가 여는 것이 어긋난 채 심사에 나간다. 전용 그룹이 없으면 광고를 안 세우고
+ * (`available` 거짓) 자세히 보기를 그냥 연다. 상한은 세지 않는다. 사람이 스스로 누른 자리다(ADR-0024).
+ */
+export function useReportRewardedAd(): {
+  busy: boolean;
+  available: boolean;
+  show: (where: string) => Promise<RewardedAdOutcome>;
+} {
+  const dedicated = import.meta.env.VITE_AD_REPORT_GROUP_ID;
+  const configured =
+    typeof dedicated === 'string' && dedicated.trim() !== '' ? dedicated : undefined;
+  return useAdShow(configured, runRewarded);
+}

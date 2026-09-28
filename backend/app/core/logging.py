@@ -46,7 +46,11 @@ _LONG_DIGITS = re.compile(r"\b(?:\d[ -]?){9,}\d\b")
 # 익명 식별키 해시처럼 긴 16진수 문자열도 가린다.
 # PostgreSQL 은 unique 위반 오류의 DETAIL 줄에 값을 그대로 실어 보낸다.
 _LONG_HEX = re.compile(r"\b[0-9a-fA-F]{32,}\b")
-_MASKS = (_LONG_HEX, _LONG_DIGITS)
+# 공유 가계부 초대 코드. 7일 동안 누구든 합류시키는 열쇠라 접근 로그의 경로에서도 가린다.
+# 형식은 app/domain/books.py 의 INVITE_CODE_PATTERN 과 같다. 코드가 - 나 _ 로 끝날 수 있어
+# 끝 경계를 \b 로 두지 않는다. Cloud Run 의 요청 로그(requestUrl)에는 여전히 남는다.
+_INVITE_CODE = re.compile(r"(?<=/invites/)[A-Za-z0-9_-]{12}(?![A-Za-z0-9_-])")
+_MASKS = (_INVITE_CODE, _LONG_HEX, _LONG_DIGITS)
 
 _RESERVED = frozenset(logging.LogRecord("", 0, "", 0, "", None, None).__dict__)
 

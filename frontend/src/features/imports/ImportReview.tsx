@@ -417,6 +417,8 @@ export function ImportReview({
             result: 'ok',
             created_count: result.created_count,
             elapsed_ms: Date.now() - startedAt,
+            // 줄글·사진은 내 가계부로만 들어간다.
+            book: 'mine',
           },
           { flowId },
         );
@@ -431,6 +433,7 @@ export function ImportReview({
             result: 'failed',
             elapsed_ms: Date.now() - startedAt,
             error_code: error instanceof ApiError ? error.code : 'unknown',
+            book: 'mine',
           },
           { flowId },
         );

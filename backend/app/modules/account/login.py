@@ -39,6 +39,7 @@ from app.models import (
     UserPreference,
 )
 from app.modules.account.schemas import EmailVerifyOut, MeOut
+from app.modules.books import service as books
 
 __all__ = ["me_view", "peek_code", "start_email_login", "update_profile", "verify_email_login"]
 
@@ -69,6 +70,7 @@ def me_view(user: User, settings: Settings) -> MeOut:
         gender=user.gender,
         profile_asked=user.profile_asked_at is not None,
         email_login_available=settings.email_login_available,
+        shared_books_enabled=settings.shared_books_enabled,
     )
 
 
@@ -191,6 +193,8 @@ def verify_email_login(
     had_data = _has_data(session, current)
     if had_data:
         _absorb(session, source=current, target=owner)
+    # 공유 가계부 멤버십은 기록이 없어도 옮긴다. 초대받아 공유 가계부에만 적은 사람도 있다.
+    books.absorb_memberships(session, source=current, target=owner)
     _attach_device(session, current, owner, current_anon_key_hash, now)
     session.commit()
     session.refresh(owner)

@@ -33,6 +33,7 @@ __all__ = [
     "NextStepKind",
     "build_closing",
     "count_days",
+    "largest_increase",
 ]
 
 # 잘한 것 카드에 싣는 최대 개수. 넉 장짜리 카드 한 장에 들어갈 만큼이다.
@@ -167,7 +168,7 @@ def count_days(rows: Iterable[agg.TransactionInput], period: BudgetPeriod) -> Da
 
 def build_closing(facts: ClosingFacts) -> Closing:
     """카드 넉 장에 실을 것을 한 번에 낸다."""
-    change = _largest_increase(
+    change = largest_increase(
         facts.totals.category_budgeted_spend, facts.previous_totals.category_budgeted_spend
     )
     return Closing(
@@ -244,10 +245,10 @@ def _changes(
     ]
 
 
-def _largest_increase(
+def largest_increase(
     current: Mapping[str | None, Money], previous: Mapping[str | None, Money]
 ) -> CategoryChange | None:
-    """가장 많이 늘어난 분류. 늘어난 것이 없으면 None.
+    """가장 많이 늘어난 분류. 늘어난 것이 없으면 None. 공유 가계부 리포트도 이 규칙을 쓴다.
 
     같은 금액이 둘이면 id 순으로 못 박는다. 안 그러면 새로 고칠 때마다 다른 분류를 가리켜
     사용자가 본 화면과 다시 본 화면이 서로 다른 말을 한다.

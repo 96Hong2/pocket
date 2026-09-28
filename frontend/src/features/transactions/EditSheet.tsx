@@ -1,12 +1,17 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
-import { useOverlayBackClose } from '../../app/providers';
+import { useOverlayBackClose, useToast } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
+  ApiError,
   parseDecimalOr,
+  useBooks,
   useDeleteTransaction,
+  useMoveEntryIn,
+  useMoveEntryOut,
   useTags,
   useUpdateTransaction,
+  type BookOut,
   type CategoryOut,
   type MonthParams,
   type PaymentMethod,
@@ -40,6 +45,7 @@ import {
   iconOf,
 } from '../../shared/ui';
 
+import { BookDestinationRow, movedInToast } from '../books';
 import { CategoryComposeOverlay } from '../categories';
 import { TagPicker } from '../tags';
 
@@ -72,6 +78,38 @@ export interface EditSheetProps {
 }
 
 export function EditSheet({ transaction, categories, month, onClose }: EditSheetProps) {
+  const analytics = useAnalytics();
+  const toast = useToast();
+  /*
+    옮긴 뒤 알림의 「되돌리기」. 시트가 닫힌 뒤에 눌리므로 요청 훅을 닫혀도 남는 이 바깥에 둔다.
+    되돌리기는 옮겨 간 공유 기록을 다시 내 가계부로 옮긴다(새 거래로 들어온다).
+  */
+  const moveOut = useMoveEntryOut();
+
+  function afterMoveIn(book: BookOut, entryId: string): void {
+    toast.show({
+      text: movedInToast(book),
+      actionLabel: '되돌리기',
+      onAction: () => {
+        analytics.log(
+          EVENTS.recordChanged,
+          { action: 'move', to: 'mine', book: 'shared' },
+          { kind: 'click' },
+        );
+        moveOut.mutate(
+          { bookId: book.id, entryId },
+          {
+            onSuccess: () => toast.show({ text: '내 가계부로 옮겼어요' }),
+            onError: (error) =>
+              toast.show({
+                text: error instanceof ApiError ? error.message : '되돌리지 못했어요',
+              }),
+          },
+        );
+      },
+    });
+  }
+
   /*
     고친 것이 있나. **있으면 나가기 전에 한 번 묻는다**(2026-09-25 사용자 신고).
 
@@ -132,6 +170,7 @@ export function EditSheet({ transaction, categories, month, onClose }: EditSheet
           month={month}
           dirtyRef={dirtyRef}
           onClose={onClose}
+          onMovedIn={afterMoveIn}
         />
       ) : null}
       {asking ? (
@@ -158,6 +197,8 @@ interface EditFormProps {
    */
   dirtyRef: { current: boolean };
   onClose: () => void;
+  /** 공유 가계부로 옮긴 뒤. 알림과 되돌리기는 시트 바깥이 띄운다. */
+  onMovedIn: (book: BookOut, entryId: string) => void;
 }
 
 /**
@@ -183,11 +224,13 @@ function canSwitchKind(type: TransactionOut['type']): boolean {
   return type === 'expense' || type === 'income';
 }
 
-function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFormProps) {
+function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn }: EditFormProps) {
   const analytics = useAnalytics();
   const update = useUpdateTransaction(month);
   const remove = useDeleteTransaction();
+  const moveIn = useMoveEntryIn();
   const tags = useTags();
+  const books = useBooks();
 
   const savedAmount = parseDecimalOr(transaction.amount, 0);
   const dayId = useId();
@@ -213,7 +256,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
     지우기에 실패했는데 「고친 것을 저장하지 못했어요」 라고 하면, 지워졌는지 아닌지를
     화면이 말해 주지 않는 셈이 된다.
   */
-  const [failed, setFailed] = useState<'edit' | 'delete' | null>(null);
+  const [failed, setFailed] = useState<'edit' | 'delete' | 'move' | null>(null);
   /*
     분류 만들기 자리가 열렸나.
 
@@ -243,7 +286,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
     confirmRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
   }, [asking]);
 
-  const busy = update.isPending || remove.isPending;
+  const busy = update.isPending || remove.isPending || moveIn.isPending;
   const switchable = canSwitchKind(transaction.type);
   /*
     이체는 지출이 아니다.
@@ -254,6 +297,21 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
     이체에서는 둘 다 세우지 않는다.
   */
   const isTransfer = transaction.type === 'transfer';
+  /*
+    같이 쓰는 가계부로 옮길 수 있나. 지출만 옮긴다.
+
+    공유 가계부는 지출만 받는다. 환불·이체·안 쓴 날 표시는 옮길 곳이 없다. 종류를 수입으로
+    바꾸는 중이면 줄이 사라지고 고른 곳도 내 가계부로 돌아간다.
+  */
+  const activeBooks = (books.data?.items ?? []).filter((book) => !book.ended);
+  const movable =
+    activeBooks.length > 0 &&
+    transaction.type === 'expense' &&
+    transaction.source !== 'no_spend' &&
+    kind === 'expense';
+  const [moveTo, setMoveTo] = useState<string | null>(null);
+  const target = movable ? moveTo : null;
+  const targetBook = activeBooks.find((book) => book.id === target) ?? null;
   const pickable = switchable
     ? categoriesOfKind(kind, categories)
     : categories.filter((item) => item.kind === CATEGORY_KIND[transaction.type]);
@@ -271,7 +329,8 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
     if (day !== savedDay) next.occurred_at = toLedgerNoonIso(day);
     if (trimmed !== (transaction.merchant ?? '')) next.merchant = trimmed === '' ? null : trimmed;
     const trimmedMemo = memo.trim();
-    if (trimmedMemo !== (transaction.memo ?? '')) next.memo = trimmedMemo === '' ? null : trimmedMemo;
+    if (trimmedMemo !== (transaction.memo ?? ''))
+      next.memo = trimmedMemo === '' ? null : trimmedMemo;
     if (nextAmount !== savedAmount) next.amount = String(nextAmount);
     if (switchable && kind !== transaction.type) next.type = kind;
     if (categoryId !== (transaction.category_id ?? null)) next.category_id = categoryId;
@@ -291,7 +350,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
     「무엇을 보낼까」 와 「나갈 때 물을까」 는 같은 물음이다. 두 벌로 두면 한쪽에만 칸이
     늘어나, 방금 고친 태그를 말없이 버리는 식으로 어긋난다.
   */
-  dirtyRef.current = Object.keys(changes()).length > 0;
+  dirtyRef.current = Object.keys(changes()).length > 0 || target != null;
 
   /** 완료를 눌렀다가 앞날이라 물어보는 중인가. */
   const [futureAsking, setFutureAsking] = useState(false);
@@ -308,13 +367,20 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
   async function submit(): Promise<void> {
     setFutureAsking(false);
     const body = changes();
-    if (Object.keys(body).length === 0) {
+    const edited = Object.keys(body).length > 0;
+    if (!edited && targetBook == null) {
       onClose();
       return;
     }
-    try {
-      setFailed(null);
-      await update.mutateAsync({ id: transaction.id, body });
+    setFailed(null);
+    if (edited) {
+      try {
+        await update.mutateAsync({ id: transaction.id, body });
+      } catch {
+        // 시트를 닫지 않는다. 고쳐 둔 값이 사라지면 처음부터 다시 입력해야 한다.
+        setFailed('edit');
+        return;
+      }
       /*
         저장하고 한참 뒤에 발견한 잘못.
 
@@ -339,11 +405,27 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
           result: body.tag_id == null ? 'detached' : 'attached',
         });
       }
-      onClose();
-    } catch {
-      // 시트를 닫지 않는다. 고쳐 둔 값이 사라지면 처음부터 다시 입력해야 한다.
-      setFailed('edit');
     }
+    // 고친 것을 먼저 저장하고 옮긴다. 서버가 저장된 지금 값으로 공유 기록을 만든다.
+    if (targetBook != null) {
+      let created: Awaited<ReturnType<typeof moveIn.mutateAsync>>;
+      try {
+        created = await moveIn.mutateAsync({
+          bookId: targetBook.id,
+          transactionId: transaction.id,
+        });
+      } catch {
+        setFailed('move');
+        return;
+      }
+      analytics.log(EVENTS.recordChanged, {
+        action: 'move',
+        to: 'shared',
+        source: transaction.source,
+      });
+      onMovedIn(targetBook, created.entry.id);
+    }
+    onClose();
   }
 
   function ask(): void {
@@ -381,6 +463,20 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
             {nameOf(transaction, categories)} · {formatDayLabel(day)}
           </p>
         </div>
+
+        {/*
+          같이 쓰는 가계부로 옮기는 자리. 공유 가계부가 있고 옮길 수 있는 지출일 때만 선다.
+          고르고 「완료」 를 누르면 고친 것을 저장한 뒤 옮긴다.
+        */}
+        {movable ? (
+          <BookDestinationRow
+            className="tx-edit__dest"
+            books={activeBooks}
+            value={target}
+            disabled={busy}
+            onChange={setMoveTo}
+          />
+        ) : null}
 
         {/*
           날짜 칸. 상호·금액보다 위에 둔다. 무엇을 고치러 들어왔든 「이게 그 기록이 맞나」
@@ -439,7 +535,11 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
           />
         </label>
 
-        {switchable ? (
+        {/*
+          공유 가계부로 옮길 곳을 골랐으면 내 가계부에만 있는 칸(종류, 태그, 결제 수단, 분류,
+          예산 제외)을 걷는다. 옮기면 쓰이지 않는 칸이라, 남겨 두면 무엇을 골라야 하나 헤맨다.
+        */}
+        {switchable && target == null ? (
           <KindToggle
             className="tx-edit__kind"
             value={kind}
@@ -462,7 +562,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
         ) : null}
 
         {/* 이체에는 뜻이 없다. 리포트의 어느 조각에도 안 들어가서 달아도 안 보인다. */}
-        {isTransfer ? null : (
+        {isTransfer || target != null ? null : (
           <TagPicker
             className="tx-edit__tags"
             kind={kind}
@@ -474,7 +574,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
         )}
 
         {/* 수입·이체에는 뜻이 없어 아예 안 세운다. 비활성으로 두면 무엇을 잘못했나 싶어진다. */}
-        {kind === 'expense' && !isTransfer ? (
+        {kind === 'expense' && !isTransfer && target == null ? (
           <PaymentMethodPicker
             className="tx-edit__pay"
             value={method}
@@ -487,43 +587,49 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
           기록 시트와 같은 것을 쓴다. 앞자리 열한 개만 보이고 나머지는 「더 보기」 뒤다.
           한 화면에서 배운 것이 다음 화면에서도 통해야 한다.
         */}
-        <CategoryPicker
-          className="tx-edit__cats"
-          ariaLabel="카테고리"
-          size="sm"
-          categories={pickable}
-          selectedId={categoryId}
-          disabled={busy}
-          onPick={(category) => setCategoryId(category.id)}
-          // 만들기 폼은 지출·수입만 만든다. 이체 분류를 만들 길이 없어 입구도 세우지 않는다.
-          onCreate={isTransfer ? undefined : () => setCreating(true)}
-          onExpand={() =>
-            analytics.log(EVENTS.categoryMoreOpened, {
-              where: 'edit',
-              shown: pickable.length,
-            })
-          }
-        />
+        {targetBook != null ? (
+          <p className="tx-edit__hint">
+            분류는 {targetBook.name}에 같은 이름이 있으면 그대로, 없으면 기타로 들어가요
+          </p>
+        ) : (
+          <>
+            <CategoryPicker
+              className="tx-edit__cats"
+              ariaLabel="카테고리"
+              size="sm"
+              categories={pickable}
+              selectedId={categoryId}
+              disabled={busy}
+              onPick={(category) => setCategoryId(category.id)}
+              // 만들기 폼은 지출·수입만 만든다. 이체 분류를 만들 길이 없어 입구도 세우지 않는다.
+              onCreate={isTransfer ? undefined : () => setCreating(true)}
+              onExpand={() =>
+                analytics.log(EVENTS.categoryMoreOpened, {
+                  where: 'edit',
+                  shown: pickable.length,
+                })
+              }
+            />
 
-        <div className="tx-edit__exclude">
-          <div className="tx-edit__exclude-text">
-            <span id="tx-exclude-label" className="tx-edit__exclude-title">
-              예산 계산에서 제외
-            </span>
-            <span className="tx-edit__exclude-note">
-              내역에는 남고 예산에서만 빠져요. 일회성 큰 지출에 좋아요
-            </span>
-          </div>
-          <Toggle checked={excluded} onChange={setExcluded} ariaLabelledBy="tx-exclude-label" />
-        </div>
+            <div className="tx-edit__exclude">
+              <div className="tx-edit__exclude-text">
+                <span id="tx-exclude-label" className="tx-edit__exclude-title">
+                  예산 계산에서 제외
+                </span>
+                <span className="tx-edit__exclude-note">
+                  내역에는 남고 예산에서만 빠져요. 일회성 큰 지출에 좋아요
+                </span>
+              </div>
+              <Toggle checked={excluded} onChange={setExcluded} ariaLabelledBy="tx-exclude-label" />
+            </div>
+          </>
+        )}
 
         {!amountOk ? <p className="tx-edit__hint">금액은 1원부터 넣을 수 있어요</p> : null}
 
         {failed != null ? (
           <p className="tx-edit__notice" role="alert">
-            {failed === 'delete'
-              ? '지우지 못했어요. 기록은 그대로 있어요.'
-              : '고친 것을 저장하지 못했어요. 입력한 값은 그대로 있어요.'}
+            {failedText(failed, moveIn.error)}
           </p>
         ) : null}
       </div>
@@ -595,6 +701,17 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose }: EditFor
       />
     </div>
   );
+}
+
+/** 무엇에 실패했나에 따라 말이 다르다. 옮기기는 서버가 준 이유(환불된 지출 등)를 그대로 쓴다. */
+function failedText(failed: 'edit' | 'delete' | 'move', moveError: unknown): string {
+  if (failed === 'delete') return '지우지 못했어요. 기록은 그대로 있어요.';
+  if (failed === 'move') {
+    return moveError instanceof ApiError
+      ? moveError.message
+      : '옮기지 못했어요. 기록은 내 가계부에 그대로 있어요.';
+  }
+  return '고친 것을 저장하지 못했어요. 입력한 값은 그대로 있어요.';
 }
 
 function nameOf(transaction: TransactionOut, categories: CategoryOut[]): string {

@@ -31,6 +31,16 @@ export function sharePath(kind: ShareKind): string {
   return `${SHARE_PATH}?src=share_${kind}`;
 }
 
+/**
+ * 공유 가계부 초대 링크. 이것만 첫 화면이 아니라 초대 화면(`/join`)으로 간다.
+ *
+ * 받는 사람이 할 일이 「같이 쓰기」 하나라서다. 첫 화면으로 보내면 무엇을 받았는지 모른다.
+ * 코드는 `c` 로, 들어온 길은 다른 공유처럼 `src` 로 싣는다.
+ */
+export function invitePath(code: string): string {
+  return `${SHARE_PATH}/join?c=${encodeURIComponent(code)}&src=share_invite`;
+}
+
 /** 갈래마다 다른 그림. 파일은 백엔드 `app/static/og/` 에 있다. */
 const OG_FILE: Record<ShareKind, string> = {
   app: 'app.png',

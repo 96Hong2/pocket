@@ -87,6 +87,22 @@ export function appLine(): string {
   return `가계부 쓰기 싫은 사람의 가계부. 10초면 한 건 끝나요 · ${TAIL}`;
 }
 
+/**
+ * 공유 가계부 초대장.
+ *
+ * 누가 어느 가계부에 부르는지와, 누르면 곧바로 열린다는 것만 말한다. 받는 사람이 이 앱을
+ * 몰라도 설치나 가입이 없다는 것을 먼저 알아야 누른다. 금액은 싣지 않는다.
+ * 내 이름을 모르면(아직 안 정했으면) 가계부 이름만 말한다.
+ */
+export function inviteLine(myName: string | null, bookName: string): string {
+  // 이름이 「가계부」 로 끝나면 「우리집 가계부」 가계부가 되지 않게 한 번만 말한다.
+  const book = bookName.trim().endsWith('가계부')
+    ? `「${trimTitle(bookName)}」에 초대했어요`
+    : `「${trimTitle(bookName)}」 가계부에 초대했어요`;
+  const who = myName == null || myName.trim() === '' ? '' : `${trimTitle(myName)}님이 `;
+  return `${who}${book}. 누르면 토스에서 바로 열려요 · ${TAIL}`;
+}
+
 /** `2026-08` → `8` */
 function monthNumber(month: string): number {
   return Number(month.slice(5, 7));

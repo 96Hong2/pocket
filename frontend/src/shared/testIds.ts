@@ -27,6 +27,8 @@ export const TEST_IDS = {
   heroIncome: 'hero-income',
   /** 홈의 이번 달 차액. 수입 - 지출이고 남은 예산과 다른 개념이다. */
   heroDelta: 'hero-delta',
+  /** 우리 집 홈의 큰 숫자. 예산이 있으면 남은 예산, 없으면 이번 달 같이 쓴 돈이다. */
+  bookHeroAmount: 'book-hero-amount',
   /** 복구 카드의 주간 정리 게이지. 예산 게이지와 색이 달라야 한다. */
   recoveryGauge: 'recovery-gauge',
   /** 앱 설정에서 고른 것이 홈을 어떻게 바꾸는지 되짚는 한 줄. */

@@ -7,7 +7,12 @@
  * 모양은 `['pocket', <자원>, <달>]` 이다. 앞부분만 넘기면 그 아래가 전부 걸린다.
  */
 
-import type { BudgetSuggestionParams, MonthParams, TransactionListParams } from './client';
+import type {
+  BudgetSuggestionParams,
+  MonthParams,
+  SettlementPeriod,
+  TransactionListParams,
+} from './client';
 
 const ROOT = 'pocket';
 
@@ -137,6 +142,26 @@ export const queryKeys = {
       params?.day ?? '',
       params?.q ?? '',
     ] as const,
+
+  /**
+   * 공유 가계부. 개인 캐시와 뿌리를 가른다.
+   *
+   * `moneyQueryKeys` 에 넣지 않는다. 내 기록을 저장해도 공유 가계부는 안 변하고, 공유 기록을
+   * 적어도 내 남은 예산은 안 변한다. 둘 사이를 옮기는 두 가지만 양쪽을 함께 맞춘다.
+   *
+   * 목록(`books`)과 가계부 하나(`book`)를 다른 뿌리에 둔다. 가계부 하나 아래에 기록·리포트·
+   * 정산을 두어서, `book(id)` 하나로 그 가계부에 걸린 것이 전부 낡는다.
+   */
+  books: () => [ROOT, 'books'] as const,
+  book: (bookId: string) => [ROOT, 'book', bookId] as const,
+  bookEntries: (bookId: string, params?: MonthParams) =>
+    [ROOT, 'book', bookId, 'entries', monthPart(params)] as const,
+  bookReport: (bookId: string, params?: MonthParams) =>
+    [ROOT, 'book', bookId, 'report', monthPart(params)] as const,
+  bookSettlement: (bookId: string, period?: SettlementPeriod) =>
+    [ROOT, 'book', bookId, 'settlement', period === 'all' ? 'all' : monthPart(period)] as const,
+  /** 초대 미리보기. 가계부 캐시와 따로 둔다. 멤버가 되기 전에 읽는 값이다. */
+  invite: (code: string) => [ROOT, 'invite', code] as const,
 };
 
 /**

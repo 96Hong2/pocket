@@ -20,12 +20,49 @@ export const ROUTES = {
   privacy: '/settings/privacy',
   account: '/settings/account',
   notifications: '/settings/notifications',
+  /** 같이 쓰는 가계부 목록. 관리 탭에서 들어간다. */
+  books: '/books',
+  bookNew: '/books/new',
+  /** 가계부 하나의 설정. 어느 가계부인지는 `?id=` 로 받는다. 경로에 id 를 넣으면 화면 로그에 id 가 섞인다. */
+  bookSettings: '/books/settings',
+  bookSettle: '/books/settle',
+  /**
+   * 초대 링크가 여는 자리. `intoss://pocket-ledger/join?c=<코드>&src=share_invite`.
+   * 코드는 `c` 로만 받는다. `src` 는 들어온 길 표시라 소문자로 바뀌어 저장된다.
+   */
+  join: '/join',
 } as const;
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];
 
 /** 홈이 이 값을 보면 기록 시트를 한 번 연다. `/record` 가 붙여 준다. */
 export const RECORD_QUERY = 'record';
+
+/** 가계부 설정·정산이 어느 가계부인지 받는 쿼리 이름. */
+export const BOOK_ID_QUERY = 'id';
+
+/** 초대 코드를 받는 쿼리 이름. */
+export const JOIN_CODE_QUERY = 'c';
+
+/** 초대 링크로 들어왔다는 표시. `app_open` 의 `src` 에 실린다. */
+export const JOIN_SRC = 'share_invite';
+
+/** 가계부 설정을 어디서 열었나. 홈(멤버 얼굴)에서 왔으면 「<이름> 열기」 가 필요 없다. */
+export const BOOK_FROM_QUERY = 'from';
+
+export function bookSettingsPath(bookId: string, from?: 'home'): string {
+  const base = `${ROUTES.bookSettings}?${BOOK_ID_QUERY}=${encodeURIComponent(bookId)}`;
+  return from == null ? base : `${base}&${BOOK_FROM_QUERY}=${from}`;
+}
+
+export function bookSettlePath(bookId: string): string {
+  return `${ROUTES.bookSettle}?${BOOK_ID_QUERY}=${encodeURIComponent(bookId)}`;
+}
+
+/** 앱 안 경로. 토스 딥링크는 `features/share/shareLink.ts` 의 `invitePath` 가 만든다. */
+export function joinPath(code: string, src: string = JOIN_SRC): string {
+  return `${ROUTES.join}?${JOIN_CODE_QUERY}=${encodeURIComponent(code)}&src=${src}`;
+}
 
 /** 개발 중에만 열리는 공용 UI 갤러리. */
 export const DEMO_PATH = '/__demo';
@@ -49,6 +86,12 @@ export const PARENT_OF: Record<string, string> = {
   [ROUTES.privacy]: ROUTES.settings,
   [ROUTES.account]: ROUTES.settings,
   [ROUTES.notifications]: ROUTES.settings,
+  [ROUTES.books]: ROUTES.manage,
+  [ROUTES.bookNew]: ROUTES.books,
+  [ROUTES.bookSettings]: ROUTES.books,
+  // 정산은 우리 집 홈의 카드에서 들어간다.
+  [ROUTES.bookSettle]: ROUTES.home,
+  [ROUTES.join]: ROUTES.home,
   [DEMO_PATH]: ROUTES.home,
 };
 
@@ -69,6 +112,12 @@ export const SCREEN_TITLES: Record<string, string> = {
   [ROUTES.privacy]: '개인정보처리방침',
   [ROUTES.account]: '내 계정',
   [ROUTES.notifications]: '알림 설정',
+  // 가계부 이름을 제목에 넣지 않는다. 제목이 화면 로그와 오류 로그에 실린다.
+  [ROUTES.books]: '같이 쓰는 가계부',
+  [ROUTES.bookNew]: '가계부 만들기',
+  [ROUTES.bookSettings]: '가계부 설정',
+  [ROUTES.bookSettle]: '정산',
+  [ROUTES.join]: '초대',
   [DEMO_PATH]: '공용 UI',
 };
 

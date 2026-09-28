@@ -1594,13 +1594,97 @@
     flex: 1;
     min-width: 0;
   }
+
+  /* ── Toast ──────────────────────────────────────────── */
+  /*
+    먼저 하고 알리는 한 줄(「지웠어요 [되돌리기]」).
+
+    시트(60)와 분류 만들기 창(70) 위, 떠나기 확인(80) 아래에 선다. 탭바 높이만큼 띄워
+    탭바와 시트 바닥 버튼을 가리지 않는다. 바깥 여백은 눌리지 않게 비워 둔다.
+  */
+  .pk-toast-root {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-height) + var(--safe-bottom));
+    z-index: 75;
+    display: flex;
+    justify-content: center;
+    padding: 0 calc(16px + var(--safe-right)) 0 calc(16px + var(--safe-left));
+    pointer-events: none;
+  }
+
+  .pk-toast {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: var(--app-column);
+    min-height: 52px;
+    padding: 4px 6px 4px 18px;
+    box-sizing: border-box;
+    background: var(--color-ink);
+    border-radius: var(--radius-button);
+    box-shadow: var(--shadow-tabbar);
+    pointer-events: auto;
+    animation: pk-toast-in 0.2s ease-out;
+  }
+
+  .pk-toast__text {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 10px 0;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.45;
+    color: var(--color-surface);
+    word-break: keep-all;
+  }
+
+  /* 손가락 영역 44px. 글자는 세이지 밝은 색이라 잉크 바탕에서 대비가 충분하다. */
+  .pk-toast__action {
+    flex-shrink: 0;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-sage-100);
+    cursor: pointer;
+  }
+
+  .pk-toast__action:active {
+    background: rgb(255 255 255 / 10%);
+  }
+
+  .pk-toast__action:focus-visible {
+    outline: 2px solid var(--color-sage-300);
+    outline-offset: -2px;
+  }
+}
+
+@keyframes pk-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pk-sheet,
   .pk-sheet-dim,
   .pk-skeleton,
-  .pk-spinner {
+  .pk-spinner,
+  .pk-toast {
     animation: none;
   }
 

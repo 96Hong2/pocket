@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { appLine, budgetLine, closingLine, goalDoneLine, goalLine, trimTitle } from './shareText';
+import {
+  appLine,
+  budgetLine,
+  closingLine,
+  goalDoneLine,
+  goalLine,
+  inviteLine,
+  trimTitle,
+} from './shareText';
 
 /**
  * 공유 문구.
@@ -19,6 +27,8 @@ const ALL = [
   budgetLine('2026-09'),
   closingLine('2026-08', true),
   closingLine('2026-08', false),
+  inviteLine('은홍', '우리 집'),
+  inviteLine(null, '우리 여행'),
 ];
 
 describe('공유 문구', () => {
@@ -83,5 +93,26 @@ describe('결산 문구', () => {
 describe('예산 문구', () => {
   it('몇 월 예산인지만 말한다', () => {
     expect(budgetLine('2026-09')).toBe('9월 예산을 정했어요 · 이번 달은 계획대로 · 10초 가계부');
+  });
+});
+
+describe('초대 문구', () => {
+  it('누가 어느 가계부에 부르는지와 바로 열린다는 것만 말한다', () => {
+    expect(inviteLine('은홍', '우리 집')).toBe(
+      '은홍님이 「우리 집」 가계부에 초대했어요. 누르면 토스에서 바로 열려요 · 10초 가계부',
+    );
+  });
+
+  it('내 이름이 없으면 가계부 이름만 말한다', () => {
+    expect(inviteLine(null, '우리 여행')).toBe(
+      '「우리 여행」 가계부에 초대했어요. 누르면 토스에서 바로 열려요 · 10초 가계부',
+    );
+    expect(inviteLine('  ', '우리 여행')).toBe(inviteLine(null, '우리 여행'));
+  });
+
+  it('이름이 가계부로 끝나면 가계부를 한 번만 말한다', () => {
+    expect(inviteLine('은홍', '우리집 가계부')).toBe(
+      '은홍님이 「우리집 가계부」에 초대했어요. 누르면 토스에서 바로 열려요 · 10초 가계부',
+    );
   });
 });

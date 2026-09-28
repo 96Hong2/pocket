@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
-import { useBridge, useIdentity, useOnboardingShowing } from '../app/providers';
+import { useBookView, useBridge, useIdentity, useOnboardingShowing } from '../app/providers';
 import { RECORD_QUERY } from '../app/router/routes';
 import { AdSlot } from '../features/ads';
+import { BookChip, BookHome } from '../features/books';
 import { AddToHomeCard } from '../features/home-add';
 import { RemindCard } from '../features/notifications';
 import { RecurringDueCard } from '../features/recurring';
@@ -30,6 +31,7 @@ import { EditSheet } from '../features/transactions';
 // 방식 → 탭 환산은 시트 옆에 있다. 배럴에는 시트만 나와 있어 파일을 곧장 가리킨다.
 import { DEFAULT_RECORD_TAB, resolveRecordTab } from '../features/quick-record/recordTab';
 import {
+  useBooks,
   useBudget,
   useCategories,
   useGoal,
@@ -182,7 +184,8 @@ function HomeContent({
     총량을 아무도 안 세게 되고, 그 결과가 사용자가 보낸 그 화면이다.
   */
   const showRecovery = view?.mode === 'recovery' && budget.data != null && !recovery.hidden;
-  const showHomeAdd = view?.showHomeAdd === true && !homeAddCard.hidden && !dueSoon && !showRecovery;
+  const showHomeAdd =
+    view?.showHomeAdd === true && !homeAddCard.hidden && !dueSoon && !showRecovery;
   const showRemind =
     view?.showRemind === true && !remindCard.hidden && !dueSoon && !showRecovery && !showHomeAdd;
   const showBudgetSuggestion =
@@ -402,21 +405,52 @@ export default function HomePage() {
   }
   // 아래 목록이 보고 있는 날. 오늘로 열고 화살표로 옮긴다.
   const [day, setDay] = useState(() => toLedgerDate(new Date()));
+  /*
+    어느 가계부를 보나. 앱을 열면 보통 내 가계부에서 시작한다. 내 가계부에 적은 것이 없고
+    공유 가계부를 보다 나간 사람만 그 가계부에서 시작한다(`BookViewProvider`).
+    그걸 정하는 동안은 내 가계부를 그리지 않는다. 빈 내 가계부가 한 번 비쳤다가 바뀌지 않게.
+
+    **가계부가 하나도 없는 사람의 홈은 지금과 똑같다.** 맨 위 칩도 없다. 끝난 가계부만
+    남은 사람에게는 칩이 선다. 거기서 지난 기록을 다시 볼 수 있어야 한다.
+  */
+  const { viewingBookId, setViewingBookId, restoring } = useBookView();
+  const books = useBooks();
+  const bookItems = books.data?.items ?? [];
   return (
     <div className="page home">
       <IdentityNotice />
-      <HomeContent
-        day={day}
-        onDayChange={setDay}
-        onRecord={(tab, pickedDay) => setSheet({ open: true, tab, day: pickedDay })}
-        recording={sheet.open}
-      />
+      {restoring ? (
+        <LoadingState label="지금 상태를 불러오는 중이에요" />
+      ) : viewingBookId != null ? (
+        <BookHome
+          bookId={viewingBookId}
+          books={bookItems}
+          onChangeBook={setViewingBookId}
+          // 공유 기록은 키패드로만 적는다. 이 가계부가 「적을 곳」 에 골라져 열린다.
+          onRecord={() => setSheet({ open: true, tab: 'keypad' })}
+        />
+      ) : (
+        <>
+          {bookItems.length > 0 ? (
+            <div className="book-home__top">
+              <BookChip value={null} books={bookItems} onChange={setViewingBookId} />
+            </div>
+          ) : null}
+          <HomeContent
+            day={day}
+            onDayChange={setDay}
+            onRecord={(tab, pickedDay) => setSheet({ open: true, tab, day: pickedDay })}
+            recording={sheet.open}
+          />
+        </>
+      )}
       <div className="home__tail" />
       <QuickRecordSheet
         open={sheet.open}
         initialTab={sheet.tab}
         day={sheet.day}
         from={sheet.from ?? (sheet.day == null ? 'home' : 'home_day')}
+        bookId={viewingBookId}
         onClose={() => setSheet((prev) => ({ ...prev, open: false }))}
         /*
           적힌 날로 목록을 옮긴다. 지난 달 영수증을 읽어 넣고 시트를 닫았는데 화면이

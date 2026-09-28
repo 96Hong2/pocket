@@ -40,7 +40,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | --- | --- | --- |
 | `UNAUTHORIZED` | 401 | X-Anon-Key 가 없거나 검증에 실패 |
 | `VERIFY_UNAVAILABLE` | 503 | 토스 검증 서버가 일시적으로 응답하지 않음. 재시도하면 된다 |
-| `NOT_FOUND` | 404 | 남의 거래이거나 이미 지워진 것 |
+| `NOT_FOUND` | 404 | 남의 거래이거나 이미 지워진 것. 공유 가계부에서는 멤버가 아니거나, 관리자만 하는 일을 멤버가 하려 했거나, 모르는 초대 코드이거나, 기능 스위치가 꺼져 있을 때도 이것이다. 있는지조차 알리지 않는다 |
 | `UNDO_EXPIRED` | 409 | 되돌리기 가능 시간이 지남 |
 | `CONFLICT` | 409 | 같은 자원을 동시에 만들려다 부딪힘. 다시 부르면 된다 |
 | `DUPLICATE_CATEGORY` | 409 | 그 이름의 카테고리가 이미 있다. **다시 보내도 안 된다.** 이름을 바꿔야 한다 |
@@ -55,6 +55,10 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | `LOGIN_CODE_INVALID` | 422 | 로그인 코드가 틀렸거나(다섯 번 틀리면 그 코드는 죽는다) 보낸 적이 없다. 다시 적으면 된다 |
 | `LOGIN_CODE_EXPIRED` | 422 | 로그인 코드가 만료됐다(10분). 새로 받아야 한다 |
 | `EMAIL_LOGIN_UNAVAILABLE` | 503 | 메일을 보낼 수단이 없다(운영에 SMTP 가 없다). 사용자가 할 수 있는 일이 없어 화면은 입구를 감춘다 |
+| `INVITE_EXPIRED` | 409 | 공유 가계부 초대 링크가 만료됐다(7일). 초대한 사람에게 새 링크를 받아야 한다. 화면 문구 「초대 링크가 만료됐어요」 |
+| `INVITE_CLOSED` | 409 | 더 쓸 수 없는 초대 링크다. 새 초대가 나왔거나 연인·부부 초대를 이미 한 사람이 썼다. 「더 이상 쓸 수 없는 초대 링크예요」 |
+| `BOOK_FULL` | 409 | 공유 가계부 인원(10명)이 다 찼다. 「이 가계부는 10명이 다 찼어요」 |
+| `BOOK_ENDED` | 409 | 끝난 공유 가계부에 적거나 초대하거나 들어오려 했다. 관리자가 다시 열면 된다. 「끝난 가계부라 적을 수 없어요」 |
 | `PARSE_UNAVAILABLE` | 503 | 지금은 읽지 못했다. 잠시 뒤 다시. 문구가 갈린다: 줄글은 '문장을', 캡처는 '캡처를', 영수증은 '영수증을' |
 | `HTTP_ERROR` | 그대로 | 라우팅 단계에서 난 오류(없는 경로, 허용하지 않는 메서드) |
 | `INTERNAL_ERROR` | 500 | 서버 오류. 본문 형태는 위와 같다 |
@@ -748,8 +752,11 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 
 ```json
 { "email": "someone@example.com", "age_band": "30s", "gender": "female",
-  "profile_asked": true, "email_login_available": true }
+  "profile_asked": true, "email_login_available": true, "shared_books_enabled": false }
 ```
+
+- `shared_books_enabled` 는 공유 가계부 기능 스위치(`SHARED_BOOKS_ENABLED`)다. false 면 화면은 공유 가계부 입구를
+  하나도 그리지 않는다(아래 「공유 가계부」).
 
 - `email_login_available` 이 false 면 운영에 메일 발송 수단이 없는 것이다. 화면은 「준비 중」 으로
   적고 입구를 잠근다. 눌러 보고 503 을 만나게 두지 않는다.
@@ -1113,6 +1120,76 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 
 ⚠ **모은 돈은 거래가 아니다.** `goal_contributions` 에만 쌓이고 지출·수입 집계와 예산에는
 영향이 없다. 목표에 돈을 더해도 남은 예산은 그대로다.
+
+### 공유 가계부
+
+기능 스위치 `SHARED_BOOKS_ENABLED`(기본 꺼짐)가 꺼져 있으면 아래 경로는 전부 404 `NOT_FOUND` 다.
+인증보다 먼저 막아 사용자 줄도 안 생긴다. 켜졌는지는 `GET /account/me` 의 `shared_books_enabled` 로 본다.
+라우터는 늘 등록한다. 스펙이 `.env` 에 따라 달라지면 CI 의 스펙 비교가 깨진다.
+
+개인 거래(`/transactions`)와 섞이지 않는다. 공유 기록은 따로 적히고 개인 합계·예산·리포트에 안 들어간다(ADR-0042).
+
+| 메서드 | 경로 | 누가 | 하는 일 |
+| --- | --- | --- | --- |
+| GET | `/books` | 누구나 | 내가 지금 멤버인 가계부(`BookListOut`). 지운 것은 빼고 끝난 것은 담는다. 안 끝난 것이 먼저, 그 안에서 최근 것이 먼저 |
+| POST | `/books` | 누구나 | 201 `BookOut`. 가계부, 관리자 멤버(`my_name`), 종류별 분류, 살아 있는 초대를 한 번에 만든다 |
+| GET | `/books/{id}` | 멤버 | `BookOut` |
+| PATCH | `/books/{id}` | 필드마다 | 보낸 필드만 고친다. `name`, `ended` 는 관리자만, `settle_rule`, `monthly_budget` 은 멤버 누구나. `monthly_budget: null` 은 예산을 지운다 |
+| DELETE | `/books/{id}` | 관리자 | 204. 소프트 삭제하고 초대를 닫는다 |
+| POST | `/books/{id}/restore` | 지운 관리자 | `BookOut`. 지운 지 30일 안이고 그 사람이 아직 관리자일 때만. 아니면 404 |
+| POST | `/books/{id}/invites` | 멤버 | 201 `BookInviteOut`. 앞의 살아 있는 초대를 닫는다. 끝난 가계부면 409 `BOOK_ENDED` |
+| GET | `/invites/{code}` | 누구나 | `InvitePreviewOut`. 모르는 코드, 형식이 틀린 코드, 지운 가계부는 404 |
+| POST | `/invites/{code}/join` | 누구나 | `BookOut`. 이미 멤버면 그대로 돌려준다. 오류는 아래 표 |
+| POST | `/books/{id}/leave` | 멤버 | 204. 관리자가 나가면 가장 먼저 들어온 멤버가 관리자가 된다. 아무도 안 남으면 가계부를 지운다 |
+| DELETE | `/books/{id}/members/{member_id}` | 관리자 | 204. 자기 자신은 안 된다(404). 초대는 닫지 않는다. 내보낸 사람만 그 전에 나온 링크로 못 돌아온다(`closed`) |
+| GET | `/books/{id}/entries?year&month` | 멤버 | 그 달의 기록(`BookEntryListOut`). 안 보내면 가계부 시간대의 이번 달. 날짜가 늦은 것부터 |
+| POST | `/books/{id}/entries` | 멤버 | 201 `BookEntryCreated`(기록 + 그 기록이 든 달의 상태). 여행 가계부는 달 대신 여행 전체다(지우지 않은 기록 전부, `period_start` 는 가장 이른 기록 날, `period_end` 는 가계부 시간대의 오늘). 끝난 가계부면 409 |
+| PATCH | `/books/{id}/entries/{entry_id}` | 멤버 | `BookEntryOut`. 적은 사람이 아닌 멤버가 고치면 `updated_by_member_id` 가 그 멤버, 적은 사람이 고치면 비운다 |
+| DELETE | `/books/{id}/entries/{entry_id}` | 적은 사람, 관리자 | 204 소프트 삭제 |
+| POST | `/books/{id}/entries/{entry_id}/restore` | 적은 사람, 관리자 | `BookEntryOut`. 지운 것만 되돌린다. 내 가계부로 옮긴 기록은 404 |
+| POST | `/books/{id}/entries/{entry_id}/move-out` | 적은 사람 | `MoveOutResult`. 내 지출을 만들고 공유 기록을 지운다(한 commit) |
+| POST | `/books/{id}/entries/move-in` | 멤버 | 201 `BookEntryCreated`. 내 지출 하나를 옮기고 원본을 지운다(한 commit) |
+| GET | `/books/{id}/settlement?year&month` | 멤버 | `SettlementOut`. 여행 가계부는 달을 무시하고 전체(`period: "all"`) |
+| POST | `/books/{id}/settlement/done` | 멤버 | `SettlementOut`. 지금 보낼 돈을 적어 둔다. 같이 모은 돈(`none`)이면 422 |
+| DELETE | `/books/{id}/settlement/done?year&month` | 멤버 | `SettlementOut`. 지금 끝낸 표시를 되돌린다. 없으면 404 |
+| GET | `/books/{id}/report?year&month` | 멤버 | `BookReportOut`. 기본 리포트와 자세히 보기(`insight`)를 늘 함께 싣는다. 잠그는 것은 화면의 일이다 |
+
+**초대 상태와 합류 오류는 같은 판정이다.** 순서대로 본다.
+
+| 상태(`status`) | 합류하면 | 언제 |
+| --- | --- | --- |
+| `member` | 200 그대로 | 이미 지금 멤버다. `book_id` 가 실리고, 이 초대를 만든 사람이면 `is_inviter: true` |
+| `ended` | 409 `BOOK_ENDED` | 끝난 가계부 |
+| `closed` | 409 `INVITE_CLOSED` | 새 초대가 나왔거나 연인·부부 초대를 한 사람이 썼다. 지웠다 되살린 가계부의 옛 초대도 닫힌 채다. 이 링크가 나온 뒤 내보내진 사람에게도 `closed` 다 |
+| `expired` | 409 `INVITE_EXPIRED` | 만든 지 7일이 지났다 |
+| `full` | 409 `BOOK_FULL` | 지금 멤버가 10명이다 |
+| `ok` | 200 `BookOut` | 들어온다. 가계부 줄을 잠근 뒤 인원을 센다 |
+
+`inviter_name` 은 초대한 사람이 나갔으면 `null` 이다. 나간 멤버의 이름은 어디에도 싣지 않는다(`BookMemberOut.name: null`).
+`closed`, `ended`, `expired` 면 가계부 근황을 싣지 않는다: `book_name` 은 빈 문자열, `active_member_count` 는 0 이다. `inviter_name` 은 `expired` 에만 남는다(새 링크를 부탁할 사람).
+
+**기록**
+- 1차는 지출만 받는다. 금액은 `> 0`, 원 단위 정수. `occurred_on` 은 적는 사람 화면의 날짜 그대로다.
+- `category_id` 는 그 가계부의 분류만(아니면 422 `INVALID_CATEGORY`). `paid_by_member_id` 는 지금 멤버만(아니면 422 `INVALID_REQUEST`), 비우면 나다. PATCH 에서 `null` 도 나로 본다.
+- `can_delete` 는 내가 적었거나 내가 관리자일 때, `can_move` 는 내가 적었을 때 참이다.
+
+**옮기기**
+- 내 가계부로(`move-out`): 금액, 상호(`title`), 메모를 그대로 옮기고 시각은 그 날 정오(내 시간대)다. 분류는 내 화면에 **같은 이름으로 보이는** 지출 분류, 없으면 기본 「기타」. 피드백 판정은 부르지 않는다.
+- 공유 가계부로(`move-in`): 내 지출만. 무지출 표시, 환불, 환불이 걸린 지출은 422 `INVALID_REQUEST`. 분류는 가계부에 같은 이름이 있으면 그것, 없으면 가계부 「기타」. 날짜는 내 시간대의 그 날, 낸 사람은 나.
+
+**정산**(`app/domain/settlement.py`)
+- 그 기간에 한 번이라도 멤버였던 사람과 그 기간에 돈을 낸 사람이 나눈다. 여행은 전체 기간, 전체 멤버다.
+  나갔다 다시 들어온 사람은 멤버 줄마다 기간을 본다. 비어 있던 달의 몫은 지지 않는다.
+- 몫은 내림으로 똑같이 나누고 남는 원은 가계부를 만든 사람이(그 기간 멤버가 아니면 가장 먼저 들어온 사람이) 진다. 관리자로 정하면 관리자가 바뀔 때 끝낸 지난 정산이 1원씩 흔들린다.
+- 보낼 돈은 가장 많이 모자란 사람과 가장 많이 받을 사람을 차례로 잇는다. n 명이면 n-1 건을 넘지 않는다.
+- 끝낸 뒤 보낼 돈이 달라지면 `changed_after_done: true`. 다시 들어와 대표 멤버 id 가 바뀐 것은 달라진 것으로 치지 않는다. 끝낸 표시는 지우지 않고 `undone_at` 으로 되돌린다.
+- 같은 보낼 돈으로 이미 끝냈으면 `done` 은 줄을 더 쌓지 않고 그대로 돌려준다. 되돌리기 한 번이면 늘 안 끝낸 상태다.
+- 같이 모은 돈(`none`)이면 `members`, `transfers` 가 비고 `total` 만 있다.
+
+**리포트 자세히 보기**(`insight`)
+- 이번 달이면 지난달 **같은 날짜까지**와 견준다. 지난 달이면 통째로 견준다. `compare_window_end` 는 이번 쪽 창의 끝(이번 달이면 오늘, 지난 달이면 말일)이다.
+- `largest_increase` 는 월간 결산과 같은 판정이다(양쪽 창에 다 있는 분류만). `category_changes` 는 한쪽이라도 쓴 분류를 변화 크기 순으로 여덟 개까지 싣는다.
+- `projected_month_end` 는 이번 달만: 쓴 돈 × 그 달 날수 ÷ 지난 날수. 사흘이 지나야 `is_projection_reliable: true`.
 
 ## 아직 없는 것
 

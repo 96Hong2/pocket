@@ -3,7 +3,9 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 
 import { OnboardingGate } from '../features/onboarding';
 import { EVENTS, useAnalytics } from '../shared/analytics';
+import { daysBetweenDays, readBookFirstDay } from '../shared/lib/bookFirstDay';
 import { entrySource, firstEntrySource } from '../shared/lib/entrySource';
+import { toLedgerDate } from '../shared/lib/format';
 import { recordVisit } from '../shared/lib/visitLog';
 import { LoadingState, iconUrl, type IconName } from '../shared/ui';
 
@@ -73,6 +75,8 @@ export function AppShell() {
     void recordVisit(bridge.storage, Date.now()).then(async (visit) => {
       const source = entrySource();
       const first = await firstEntrySource(bridge.storage, source, visit.isFirstOpen);
+      // 같이 쓰기 시작한 지 며칠째인가. 공유 가계부를 한 번도 안 본 기기는 싣지 않는다.
+      const sharedFirstDay = await readBookFirstDay(bridge.storage);
       if (!alive) return;
       analytics.appOpen(EVENTS.appOpen, {
         entry: SCREEN_TITLES[window.location.pathname] ?? 'unknown',
@@ -85,6 +89,10 @@ export function AppShell() {
         referrer: source.referrer ?? undefined,
         src: source.src ?? undefined,
         first_src: first ?? undefined,
+        shared_days:
+          sharedFirstDay == null
+            ? undefined
+            : daysBetweenDays(sharedFirstDay, toLedgerDate(new Date())),
       });
     });
     return () => {

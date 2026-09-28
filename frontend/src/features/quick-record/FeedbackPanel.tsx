@@ -38,6 +38,8 @@ interface FeedbackPanelProps {
    */
   onMethodPicked: (method: PaymentMethod | null) => void;
   onConfirm: () => void;
+  /** 머리 한 줄. 공유 가계부가 있는 사람에게는 「내 가계부에 적었어요」 로 어디에 적혔는지 말한다. */
+  label?: string;
 }
 
 /**
@@ -65,6 +67,7 @@ export function FeedbackPanel({
   onUpdated,
   onMethodPicked,
   onConfirm,
+  label = '저장했어요',
 }: FeedbackPanelProps) {
   const analytics = useAnalytics();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -261,7 +264,7 @@ export function FeedbackPanel({
         누를 수 있다는 신호가 :active 밖에 없어 아무도 안 누른다.
       */}
       <div className="feedback__head">
-        <span className="feedback__label">저장했어요</span>
+        <span className="feedback__label">{label}</span>
         <span className="feedback__hint">눌러서 고칠 수 있어요</span>
       </div>
 

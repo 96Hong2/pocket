@@ -19,6 +19,7 @@ from app.core.logging import configure_logging
 from app.integrations.llm import get_llm_client
 from app.modules.account import router as account_router
 from app.modules.assets import router as assets_router
+from app.modules.books import invites_router as book_invites_router, router as books_router
 from app.modules.budgets import router as budgets_router
 from app.modules.categories import router as categories_router
 from app.modules.goals import router as goals_router
@@ -90,6 +91,9 @@ def create_app() -> FastAPI:
     app.include_router(account_router, prefix="/api/v1")
     app.include_router(tags_router, prefix="/api/v1")
     app.include_router(recurring_router, prefix="/api/v1")
+    # 공유 가계부. 스위치와 무관하게 늘 등록하고 꺼져 있으면 요청 시점에 404 로 막는다.
+    app.include_router(books_router, prefix="/api/v1")
+    app.include_router(book_invites_router, prefix="/api/v1")
 
     # 공유 링크 미리보기(오픈그래프) 그림.
     #

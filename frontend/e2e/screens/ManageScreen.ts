@@ -76,6 +76,18 @@ export class ManageScreen {
     return this.page.getByRole('alertdialog', { name: '광고가 한 번 나와요' });
   }
 
+  /**
+   * 같이 쓰는 가계부 입구. 아래 목록이 아니라 자산 카드 위의 한 줄 카드다.
+   * 가계부가 있으면 뒤에 「N개」 가 붙어 읽혀서 앞부분으로 찾는다.
+   */
+  get booksEntry(): Locator {
+    return this.page.getByRole('link', { name: /^같이 쓰는 가계부/ });
+  }
+
+  async openBooks(): Promise<void> {
+    await this.booksEntry.click();
+  }
+
   /** 하위 화면 목록의 한 줄. 전부 링크다. */
   subScreenRow(label: string): Locator {
     return this.page

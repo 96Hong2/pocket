@@ -11,14 +11,10 @@ from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.api.deps import get_verified_identity
-from app.db.session import get_session
-from app.integrations.apps_in_toss.anon_key import VerifiedIdentity
 from app.integrations.email.factory import get_email_sender
-from app.main import create_app
 from app.models import Category, LoginCode, Transaction, User
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
@@ -32,27 +28,6 @@ def fresh_sender() -> Iterator[None]:
     get_email_sender.cache_clear()
     yield
     get_email_sender.cache_clear()
-
-
-@pytest.fixture
-def two_devices(engine: Engine) -> Iterator[TestClient]:
-    """익명키를 헤더에서 읽는 앱. 기본 client 는 키 하나로 고정돼 두 기기를 못 만든다."""
-    maker = sessionmaker(bind=engine, expire_on_commit=False)
-
-    def override_session() -> Iterator[Session]:
-        with maker() as session:
-            yield session
-
-    from fastapi import Header
-
-    async def override_identity(x_anon_key: str = Header(alias="X-Anon-Key")) -> VerifiedIdentity:
-        return VerifiedIdentity(anon_key=x_anon_key, verified_by="trusting")
-
-    app = create_app()
-    app.dependency_overrides[get_session] = override_session
-    app.dependency_overrides[get_verified_identity] = override_identity
-    with TestClient(app) as c:
-        yield c
 
 
 def _start(client: TestClient, email: str = EMAIL) -> None:
@@ -82,6 +57,7 @@ def test_처음에는_이메일이_없고_연결을_쓸_수_있다(client: TestC
         "gender": None,
         "profile_asked": False,
         "email_login_available": True,
+        "shared_books_enabled": False,
     }
 
 
