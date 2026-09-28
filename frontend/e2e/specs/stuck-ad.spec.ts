@@ -45,6 +45,29 @@ async function seedStuckMark(page: Page, where: string): Promise<void> {
   }, where);
 }
 
+/** 저장소에 적힌 값을 남긴다. 적었다가 곧바로 지우는 값도 잡으려면 읽기가 아니라 쓰기를 봐야 한다. */
+async function recordStorageWrites(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const writes: [string, string][] = [];
+    (window as unknown as { __storageWrites: [string, string][] }).__storageWrites = writes;
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      writes.push([key, value]);
+      setItem.call(this, key, value);
+    };
+  });
+}
+
+async function storageWrites(page: Page, key: string): Promise<string[]> {
+  return page.evaluate(
+    (name) =>
+      (window as unknown as { __storageWrites?: [string, string][] }).__storageWrites
+        ?.filter(([k]) => k === `__ait_storage:${name}`)
+        .map(([, v]) => v) ?? [],
+    key,
+  );
+}
+
 async function readStuckMark(page: Page): Promise<string | null> {
   return page.evaluate(() => window.localStorage.getItem('__ait_storage:ad-on-screen'));
 }
@@ -102,15 +125,17 @@ test.describe('광고에 갇힌 판을 센다', () => {
       적어 두지 않으면 그 판은 아무 데도 안 남는다. 아래 검사들은 심어 둔 표를 읽는 쪽만
       보므로, 적는 배선을 통째로 지워도 전부 초록이다. 이 검사가 그 자리를 잡는다.
 
-      광고가 도는 동안을 노려야 해서 목이 덮개를 걷기 전에 폴링한다.
+      **읽어서는 못 잡는다.** 개발 도구의 목 광고는 떴다는 신호 없이 「눌렀다」 부터 보내고,
+      광고를 누르면 표를 곧바로 지운다(ADR-0041). 그래서 저장소에 적힌 기록을 본다.
     */
+    await recordStorageWrites(page);
     await openLastMonthReport(prep, report);
     await report.closing.card.click();
     await report.closing.adConsentConfirm.click();
 
     await expect
-      .poll(() => readStuckMark(page), { timeout: 20_000, intervals: [50] })
-      .toBe('closing');
+      .poll(() => storageWrites(page, 'ad-on-screen'), { timeout: 20_000 })
+      .toContain('closing');
   });
 
   test('광고가 정상으로 끝나면 표가 안 남는다', async ({ page, prep, report }) => {
