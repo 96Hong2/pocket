@@ -97,8 +97,8 @@ describe('표를 적고 지우기', () => {
  * 토스가 띄운 것이라 그대로 덮고 있다. 세션 기억은 앱을 끄면 함께 사라져서 다시 열면
  * 또 걸렸다. 그래서 저장소에 남긴다.
  *
- * 증거 둘을 가른다. **직접 본 것**은 한 번으로 끄고, **덮인 채 죽은 것**은 연달아 두
- * 번일 때만 끈다. 뒤엣것은 고장에만 남는 표가 아니라서다.
+ * 증거 둘을 가른다. **직접 본 것**도, **덮인 채 죽은 것**도 한 번으로 끈다(ADR-0041).
+ * 뒤엣것은 고장에만 남는 표가 아니지만, 멈춘 광고에 두 번 가두지 않는 쪽을 골랐다.
  */
 describe('갇힘 기록', () => {
   it('적은 적이 없으면 비어 있다', async () => {
@@ -123,14 +123,13 @@ describe('갇힘 기록', () => {
     });
   });
 
-  it('🔴 한 번 죽은 것만으로는 안 끈다. 지겨워서 끈 사람까지 걸린다', async () => {
+  it('🔴 광고에 덮인 채 한 번 죽으면 끈다', async () => {
+    /*
+      광고가 멈춰 앱을 꺼야 했던 사람을 두 번 가두지 않는다(2026-09-28 사용자 결정, ADR-0041).
+      지겨워서 끈 사람까지 걸리는 것은 받아들였다.
+    */
+    expect(STUCK_DEATHS_BLOCK).toBe(1);
     const store = fakeStore();
-    expect(await addStuckDeath(store)).toBeLessThan(STUCK_DEATHS_BLOCK);
-  });
-
-  it('연달아 두 번 죽으면 끈다', async () => {
-    const store = fakeStore();
-    await addStuckDeath(store);
     expect(await addStuckDeath(store)).toBeGreaterThanOrEqual(STUCK_DEATHS_BLOCK);
   });
 
@@ -162,11 +161,10 @@ describe('갇힘 기억', () => {
     resetStuckMemory();
   });
 
-  it('죽은 횟수는 연달아 두 번부터 닫는다', () => {
+  it('죽은 횟수는 한 번부터 닫는다', () => {
     resetStuckMemory();
-    noteStuckDeaths(STUCK_DEATHS_BLOCK - 1);
     expect(adsBlockedByStall()).toBe(false);
-    noteStuckDeaths(STUCK_DEATHS_BLOCK);
+    noteStuckDeaths(1);
     expect(adsBlockedByStall()).toBe(true);
     // 광고가 제대로 걷히면 되돌아간다.
     noteStuckDeaths(0);

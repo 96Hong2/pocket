@@ -177,6 +177,8 @@ function cover(
   return new Promise((resolve) => {
     setTimeout(() => {
       node.remove();
+      // 걷혔다고 알린다. 안 알리면 표가 남아 새로고침 한 번에 이 브라우저의 광고가 꺼진다.
+      hooks?.onAdGone?.();
       resolve(result);
     }, MOCK_FULL_SCREEN_MS);
   });

@@ -5,7 +5,6 @@ import {
   FULL_SCREEN_LOAD_TIMEOUT_MS,
   INTERSTITIAL_RELEASE_MS,
   REWARDED_RELEASE_MS,
-  STALL_AFTER_MS,
 } from './fullScreenAdFlow';
 import { runFullScreenAd, type AdSdk } from './fullScreenAdRun';
 
@@ -19,7 +18,7 @@ import { runFullScreenAd, type AdSdk } from './fullScreenAdRun';
  * 여기서 지키는 것 다섯이다.
  *
  * - 🔴 **덮여 있어도 시계가 돈다.** 15초·35초가 지나면 화면을 풀어 준다
- * - 🔴 **화면을 푼 것과 갇혔다고 세는 것은 다르다.** 90초까지 덮고 있어야 갇힌 것이다
+ * - 🔴 **화면을 푸는 그 시각에 갇혔는지 가른다.** 그때도 덮고 있으면 갇힌 것이다(ADR-0041)
  * - 뜬 적이 없으면 **갇힌 것이 아니다**(못 띄운 것이다)
  * - 한 번도 안 숨었으면 「다시 보인다」 를 **닫힘으로 안 읽는다**
  * - 광고가 뜬 뒤 로드 채널로 오는 신호가 **판을 접지 않는다**
@@ -140,44 +139,95 @@ describe('갇힌 판', () => {
     expect(shows[0].cancelled).toBe(true);
   });
 
-  it('🔴 화면을 풀었다고 바로 갇힌 것으로 세지 않는다', async () => {
+  it('🔴 15초 안에 광고가 걷히면 갇힌 것이 아니다', async () => {
+    const onStalled = vi.fn();
+    const promise = launch({ onStalled });
+    setVisibility('hidden');
+    shows[0].onEvent({ type: 'show' });
+
+    // 닫힘 신호 없이 화면만 돌아오는 기기다. 닫힘 폴백이 접는다.
+    await vi.advanceTimersByTimeAsync(10_000);
+    setVisibility('visible');
+    await vi.advanceTimersByTimeAsync(DISMISS_FALLBACK_MS + 10);
+    await expect(promise).resolves.toBe('watched');
+
+    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS);
+    expect(onStalled).not.toHaveBeenCalled();
+  });
+
+  it('🔴 15초에도 덮고 있으면 그 자리에서 갇혔다고 알린다', async () => {
     /*
-      15초에 안 끝난 광고가 전부 갇힌 것은 아니다. 30초짜리 동영상 전면도 있고, 전화를
-      받느라 자리를 뜬 사람도 있다. 그것까지 갇힌 것으로 세면 **세션 광고가 통째로 꺼져**
-      멀쩡한 사람에게서 수입이 사라진다. 화면은 먼저 풀고 판정은 뒤로 미룬다.
+      전면은 5~10초짜리다. 15초가 지나도 덮고 있으면 기다려 주는 사람은 없다(2026-09-28
+      사용자 지시). 예전처럼 90초까지 미루면 그 사이에 앱을 끈 사람의 기기가 그대로 남는다.
     */
     const onStalled = vi.fn();
     const promise = launch({ onStalled });
     setVisibility('hidden');
     shows[0].onEvent({ type: 'show' });
 
-    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
+    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS - 10);
+    expect(onStalled).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(20);
     await expect(promise).resolves.toBe('watched');
-    expect(onStalled).not.toHaveBeenCalled();
-
-    // 광고가 걷혀 화면이 돌아왔다. 갇힌 것이 아니었다.
-    setVisibility('visible');
-    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS);
-    expect(onStalled).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(DISMISS_FALLBACK_MS);
+    expect(onStalled).toHaveBeenCalledTimes(1);
   });
 
-  it('🔴 90초까지 덮고 있으면 그때 갇혔다고 알린다', async () => {
+  it('🔴 리워드는 35초에 가른다', async () => {
     const onStalled = vi.fn();
-    const promise = launch({ onStalled });
+    const promise = launch({ onStalled }, REWARDED_RELEASE_MS);
+    setVisibility('hidden');
+    shows[0].onEvent({ type: 'show' });
+
+    await vi.advanceTimersByTimeAsync(REWARDED_RELEASE_MS - 10);
+    expect(onStalled).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(20);
+    await expect(promise).resolves.toBe('watched');
+    await vi.advanceTimersByTimeAsync(DISMISS_FALLBACK_MS);
+    expect(onStalled).toHaveBeenCalledTimes(1);
+  });
+
+  it('🔴 밀린 시계가 먼저 돌아도 곧 화면이 돌아오면 갇힌 것이 아니다', async () => {
+    /*
+      광고가 덮고 있는 동안 웹뷰 타이머는 밀린다. 광고가 제때 닫혔는데 밀린 시계가 화면
+      복귀 신호보다 먼저 돌 수 있다. 판정이 한 번이면 그 기기의 광고가 영영 꺼지므로
+      화면만 먼저 풀고 판정은 잠깐 기다린다.
+    */
+    const onStalled = vi.fn();
+    const onAdGone = vi.fn();
+    const promise = launch({ onStalled, onAdGone });
     setVisibility('hidden');
     shows[0].onEvent({ type: 'show' });
 
     await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
     await expect(promise).resolves.toBe('watched');
+    setVisibility('visible');
+    await vi.advanceTimersByTimeAsync(DISMISS_FALLBACK_MS * 2);
 
-    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS);
+    expect(onStalled).not.toHaveBeenCalled();
+    expect(onAdGone).toHaveBeenCalledTimes(1);
+  });
+
+  it('갇혔다고 판정한 뒤라도 광고가 걷히면 표를 지운다', async () => {
+    // 안 지우면 앱을 계속 쓴 사람이 다음 실행에서 「덮인 채 꺼졌다」 로 또 세어진다.
+    const onStalled = vi.fn();
+    const onAdGone = vi.fn();
+    launch({ onStalled, onAdGone });
+    setVisibility('hidden');
+    shows[0].onEvent({ type: 'show' });
+
+    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + DISMISS_FALLBACK_MS + 10);
     expect(onStalled).toHaveBeenCalledTimes(1);
+    expect(onAdGone).not.toHaveBeenCalled();
+
+    setVisibility('visible');
+    expect(onAdGone).toHaveBeenCalledTimes(1);
   });
 
   it('🔴 광고를 눌러 나간 사람을 갇힌 것으로 세지 않는다', async () => {
     /*
-      **광고를 누르면 토스가 광고주 페이지를 열고 우리 웹뷰는 숨는다.** 거기서 90초를
-      쓰는 것은 광고 클릭의 정상 모습이고, 노출이 아니라 클릭이 우리가 돈을 버는 자리다.
+      **광고를 누르면 토스가 광고주 페이지를 열고 우리 웹뷰는 숨는다.** 거기 오래 머무는
+      것은 광고 클릭의 정상 모습이고, 노출이 아니라 클릭이 우리가 돈을 버는 자리다.
       화면 상태만 보면 그 모습과 갇힌 것이 똑같이 보인다. 가르지 않으면 **광고를 눌러 준
       사람의 기기에서 광고를 끄게 된다**(PR 리뷰가 잡았다).
     */
@@ -187,26 +237,26 @@ describe('갇힌 판', () => {
     shows[0].onEvent({ type: 'show' });
     shows[0].onEvent({ type: 'clicked' });
 
-    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
+    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + DISMISS_FALLBACK_MS + 10);
     await expect(promise).resolves.toBe('watched');
-
-    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS);
     expect(onStalled).not.toHaveBeenCalled();
   });
 
-  it('답한 뒤에 온 클릭 신호도 갇힘 판정을 접는다', async () => {
-    // 15초를 푼 뒤에 누르는 사람도 있다. 그 뒤에 오는 신호도 들어야 한다.
-    const onStalled = vi.fn();
-    const promise = launch({ onStalled });
+  it('🔴 광고를 누르면 그 자리에서 표를 지운다', () => {
+    /*
+      광고주 페이지에 머무는 사이 토스가 백그라운드에서 정리되면 표가 남는다. 덮인 채 한 번
+      꺼지면 기기의 광고를 끄므로, 광고를 눌러 준 사람의 기기가 막힌다.
+    */
+    const onShown = vi.fn();
+    const onAdGone = vi.fn();
+    launch({ onShown, onAdGone });
     setVisibility('hidden');
-    shows[0].onEvent({ type: 'show' });
-
-    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
-    await expect(promise).resolves.toBe('watched');
+    // 떴다는 신호 없이 누름부터 오는 조합도 있다. 표를 적은 뒤에 지워야 한다.
     shows[0].onEvent({ type: 'clicked' });
 
-    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS);
-    expect(onStalled).not.toHaveBeenCalled();
+    expect(onShown).toHaveBeenCalledTimes(1);
+    expect(onAdGone).toHaveBeenCalledTimes(1);
+    expect(onShown.mock.invocationCallOrder[0]).toBeLessThan(onAdGone.mock.invocationCallOrder[0]);
   });
 
   it('🔴 뜬 적이 없으면 갇힌 것이 아니다', async () => {
@@ -218,7 +268,7 @@ describe('갇힌 판', () => {
     const onStalled = vi.fn();
     const promise = launch({ onStalled });
 
-    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + STALL_AFTER_MS);
+    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS * 2);
     expect(onStalled).not.toHaveBeenCalled();
     await expect(promise).resolves.toBe('failed');
   });
@@ -282,11 +332,10 @@ describe('🔴 리뷰가 잡은 자리', () => {
     return vi.runOnlyPendingTimersAsync().then(() => expect(promise).resolves.toBe('watched'));
   });
 
-  it('닫힘 신호가 늦게 와도 갇힌 것으로 안 센다', async () => {
+  it('닫힘 신호가 왔으면 화면이 안 보여도 갇힌 것으로 안 센다', async () => {
     /*
-      🔴 판정 근거가 「화면이 안 보인다」 하나뿐이었다(PR #84 리뷰). 광고를 다 보고 곧장
-      다른 앱으로 넘어간 사람이 전부 갇힘으로 잡힌다. 그 값은 **세션 광고를 통째로 끈다.**
-      끝났다는 신호는 답한 뒤에 와도 듣는다. 광고가 닫혔다는 유일한 증거다.
+      🔴 판정 근거가 「화면이 안 보인다」 하나뿐이면 광고를 다 보고 곧장 다른
+      앱으로 넘어간 사람이 전부 갇힘으로 잡힌다. 닫힘 신호가 광고가 닫혔다는 유일한 증거다.
     */
     const onStalled = vi.fn();
     const onAdGone = vi.fn();
@@ -294,38 +343,14 @@ describe('🔴 리뷰가 잡은 자리', () => {
     setVisibility('hidden');
     shows[0].onEvent({ type: 'show' });
 
-    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
-    await expect(promise).resolves.toBe('watched');
-
     // 광고는 닫혔는데 사람은 다른 앱에 있다. 화면은 계속 안 보인다.
+    await vi.advanceTimersByTimeAsync(8_000);
     shows[0].onEvent({ type: 'dismissed' });
+    await expect(promise).resolves.toBe('watched');
     expect(onAdGone).toHaveBeenCalledTimes(1);
 
-    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS * 2);
+    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS * 2);
     expect(onStalled).not.toHaveBeenCalled();
-  });
-
-  it('다음 광고가 시작되면 앞 판의 감시를 접는다', async () => {
-    /*
-      🔴 앞 판이 15초에 화면을 풀어 준 뒤, 사람이 우리 화면에서 다음 광고를 시작할 수 있다.
-      그 광고가 화면을 덮으면 앞 판의 감시는 그것을 「앞 광고가 아직 안 걷혔다」 로 읽는다.
-    */
-    const onStalled = vi.fn();
-    const first = launch({ onStalled });
-    setVisibility('hidden');
-    shows[0].onEvent({ type: 'show' });
-    await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
-    await expect(first).resolves.toBe('watched');
-
-    // 두 번째 광고가 시작된다. 화면은 계속 덮여 있다.
-    const second = runFullScreenAd(sdk, 'group-2', INTERSTITIAL_RELEASE_MS);
-    loads[1].onEvent({ type: 'loaded' });
-    shows[1].onEvent({ type: 'show' });
-
-    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS * 2);
-    // 첫 판은 접혔으므로 안 부른다. 두 번째 판의 갇힘은 자기 hooks 로 간다(여기선 없다).
-    expect(onStalled).not.toHaveBeenCalled();
-    await expect(second).resolves.toBe('watched');
   });
 
   it('정상으로 닫히면 걷혔다고 알린다', async () => {
@@ -348,7 +373,7 @@ describe('🔴 리뷰가 잡은 자리', () => {
 
     await vi.advanceTimersByTimeAsync(INTERSTITIAL_RELEASE_MS + 10);
     await promise;
-    await vi.advanceTimersByTimeAsync(STALL_AFTER_MS);
+    await vi.advanceTimersByTimeAsync(DISMISS_FALLBACK_MS);
     expect(onStalled).toHaveBeenCalledTimes(1);
     expect(onAdGone).not.toHaveBeenCalled();
   });
