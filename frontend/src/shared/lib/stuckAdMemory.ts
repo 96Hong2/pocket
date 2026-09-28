@@ -14,7 +14,7 @@ import type { KeyValueStore } from '../toss';
  * 캡처 탭에서 갇힌 사람이 영수증 탭에서 다시 갇힌다.
  *
  * **왜 구독을 두나.** 값이 그림 밖에서 바뀐다. 저장소는 앱을 열고 네이티브를 다녀온 뒤에
- * 닿고, 갇힘 판정은 광고가 뜬 지 90초 뒤에 온다. 알리지 않으면 화면은 「광고 보고 받기」
+ * 닿고, 갇힘 판정은 광고가 뜬 지 15초(리워드 35초) 뒤에 온다. 알리지 않으면 화면은 「광고 보고 받기」
  * 를 계속 권하는데 누르면 그냥 지나간다.
  *
  * **왜 약속(`ensureStuckMemory`)도 두나.** 구독은 값이 **온 뒤에** 다시 그리게 할 뿐,
@@ -71,7 +71,7 @@ export function noteStuckDeaths(deaths: number): void {
 /**
  * 지금 전면 광고를 띄우면 안 되나.
  *
- * 갇힌 것을 직접 봤거나, 광고가 덮인 채로 **연달아** 두 번 죽었으면 닫는다.
+ * 갇힌 것을 직접 봤거나, 광고가 덮인 채로 앱이 한 번이라도 죽었으면 닫는다(ADR-0041).
  */
 export function adsBlockedByStall(state: StuckState = memory): boolean {
   return state.seen || state.deaths >= STUCK_DEATHS_BLOCK;
@@ -80,7 +80,7 @@ export function adsBlockedByStall(state: StuckState = memory): boolean {
 /**
  * 갇힌 것을 직접 봤다. **기억과 저장소를 한 번에 적는다.**
  *
- * 둘로 나눠 두면 한쪽만 부르는 배선이 생기고, 그 어긋남은 90초짜리 판이라 검사가 못
+ * 둘로 나눠 두면 한쪽만 부르는 배선이 생기고, 그 어긋남은 광고가 덮고 있는 판이라 검사가 못
  * 닿는다. 부르는 자리를 한 줄로 줄여 둔다.
  */
 export function rememberStuckSeen(store: KeyValueStore): void {

@@ -12,7 +12,6 @@
 import {
   DISMISS_FALLBACK_MS,
   FULL_SCREEN_LOAD_TIMEOUT_MS,
-  STALL_AFTER_MS,
   adEventEffect,
   marksAdOnScreen,
   outcomeOf,
@@ -38,26 +37,13 @@ export interface AdSdk {
  * 리워드형에서 보상 없이 닫힌 것은 중간에 나갔다는 뜻이라, 끝까지 본 사람과 같이 세면
  * 리워드 자리가 실제로 얼마나 끝까지 읽히는지 알 수 없다.
  */
-/**
- * 지금 도는 「아직 안 걷혔나」 감시.
- *
- * 앞 판이 화면을 풀어 준 뒤에도 90초까지 광고가 걷히는지 보고 있다. 그 사이에 **다음
- * 광고가 시작되면** 그 광고가 화면을 덮는데, 앞 판의 감시는 그것을 「앞 광고가 아직
- * 안 걷혔다」 로 읽어 멀쩡한 사람의 세션 광고를 끈다. 새 판이 시작되면 앞 감시를 접는다.
- *
- * 접기만 하고 표는 안 지운다. 지울지 말지는 다음 판이 자기 결말로 정한다.
- */
-let activeWatch: { stop: () => void } | undefined;
-
 export function runFullScreenAd(
   sdk: AdSdk,
   adGroupId: string,
-  /** 뜬 뒤 이만큼 지나면 화면을 풀어 준다. 전면 15초 · 리워드 35초. */
+  /** 뜬 뒤 이만큼 지나면 화면을 풀어 주고, 그때도 덮고 있으면 갇힌 것으로 본다. 전면 15초 · 리워드 35초. */
   releaseMs: number,
   hooks?: FullScreenAdHooks,
 ): Promise<FullScreenAdResult> {
-  activeWatch?.stop();
-  activeWatch = undefined;
   return new Promise<FullScreenAdResult>((resolve) => {
     let settled = false;
     /**
@@ -113,26 +99,17 @@ export function runFullScreenAd(
      * 같은 모양이라 리뷰가 잡았다. 시각으로 두면 웹뷰가 얼어 있던 시간도 인정된다.
      */
     let releaseAt = 0;
-    /** 화면을 푼 뒤에도 광고가 안 걷히는지 보는 시계. 여기까지 덮여 있으면 갇힌 것이다. */
-    let stallTimer: ReturnType<typeof setTimeout> | undefined;
-    /**
-     * 끝났다는 신호가 **언제든** 왔나.
-     *
-     * 답한 뒤에 와도 듣는다. 광고가 닫혔다는 유일한 증거라, 이것이 있으면 갇힌 것이
-     * 아니다. 닫힌 직후에 다른 앱으로 넘어간 사람을 갇힘으로 세지 않으려고 둔다.
-     */
-    let adEnded = false;
     /**
      * 🔴 **광고를 눌러 나갔나.**
      *
-     * 광고를 누르면 토스가 광고주 페이지를 열고 우리 웹뷰는 숨는다. 거기서 90초를 쓰는
+     * 광고를 누르면 토스가 광고주 페이지를 열고 우리 웹뷰는 숨는다. 거기 오래 머무는
      * 것은 **광고 클릭의 정상 모습이고 우리가 돈을 버는 자리다.** 화면 상태만 보면 그것과
      * 갇힌 것이 똑같이 보인다. 가르지 않으면 광고를 눌러 준 사람의 기기에서 광고를 끄게
      * 된다(PR 리뷰가 잡았다).
      */
     let adClicked = false;
-    /** 이 판이 걸어 둔 감시. 모듈에 올려 둔 것이 내 것인지 가르는 데 쓴다. */
-    let myWatch: { stop: () => void } | undefined;
+    /** 화면을 푼 뒤 갇혔다고 판정하기까지 잠깐 기다리는 시계. */
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
 
     const loadTimer = setTimeout(() => finish('failed'), FULL_SCREEN_LOAD_TIMEOUT_MS);
 
@@ -164,7 +141,6 @@ export function runFullScreenAd(
     function teardown(): void {
       clearTimeout(stallTimer);
       stallTimer = undefined;
-      if (activeWatch != null && activeWatch === myWatch) activeWatch = undefined;
       if (onVisible == null) return;
       document.removeEventListener('visibilitychange', onVisible);
       onVisible = undefined;
@@ -178,7 +154,7 @@ export function runFullScreenAd(
      * 빠지는 것이 그 표를 만든 이유다. 그래서 **걷힌 것을 확인한 이 자리에서** 지운다.
      */
     function endWatch(): void {
-      const wasWatching = stallTimer != null || onVisible != null;
+      const wasWatching = onVisible != null;
       teardown();
       // 뜬 적이 없으면 적어 둔 표도 없다. 지우라고 알릴 것이 없다.
       if (wasWatching) hooks?.onAdGone?.();
@@ -190,34 +166,37 @@ export function runFullScreenAd(
     }
 
     /**
-     * 제한 시간이 됐다. **화면을 먼저 풀어 준다.**
+     * 제한 시간이 됐다. **화면을 풀어 주고, 그 자리에서 갇혔는지 가른다.**
      *
-     * 광고가 아직 덮고 있으면 거기서 손을 떼지 않고 90초까지 더 본다. 15초에 안 끝난
-     * 광고가 전부 갇힌 것은 아니다(30초짜리 동영상 전면, 잠시 자리를 뜬 사람). 그것까지
-     * 갇힌 것으로 세면 멀쩡한 사람의 세션 광고가 통째로 꺼진다.
+     * 광고가 아직 덮고 있고 눌러 나간 것도 아니면 갇힌 것이다(ADR-0041). 예전에는 90초까지
+     * 더 봤는데, 전면 5~10초, 리워드 30초짜리 광고에 그만큼 기다려 주는 사람은 없다.
+     * 끝 신호가 왔으면 이미 `finish` 로 접혔으므로 여기까지 오지 않는다.
      */
     function release(): void {
       if (settled) return;
       const covered = document.visibilityState !== 'visible';
       settleWith(outcomeOf({ shown, earned }));
-      if (!shown || !covered || adEnded || adClicked) {
+      if (!shown || !covered || adClicked) {
         endWatch();
         return;
       }
-      myWatch = { stop: teardown };
-      activeWatch = myWatch;
-      stallTimer = setTimeout(
-        () => {
-          // 아직도 덮고 있고, 끝 신호도 없고, 눌러 나간 것도 아니다. 광고가 안 끝난 것이다.
-          if (document.visibilityState !== 'visible' && !adEnded && !adClicked) {
-            hooks?.onStalled?.();
-            teardown();
-            return;
-          }
+      /*
+        🔴 **판정만 잠깐 미룬다.** 광고가 덮고 있는 동안 웹뷰 타이머는 밀린다. 광고가 제때
+        닫혔는데 밀린 이 시계가 화면 복귀 신호보다 먼저 돌 수 있고, 판정이 한 번이면 그
+        기기의 광고가 영영 꺼진다. 그 사이에 화면이 돌아오면 `onVisible` 이 접는다.
+      */
+      stallTimer = setTimeout(() => {
+        stallTimer = undefined;
+        if (document.visibilityState === 'visible') {
           endWatch();
-        },
-        Math.max(1, STALL_AFTER_MS - releaseMs),
-      );
+          return;
+        }
+        hooks?.onStalled?.();
+        /*
+          리스너는 남긴다. 광고가 나중에라도 걷히면 표를 지워, 앱을 계속 쓴 사람이 다음
+          실행에서 「덮인 채 꺼졌다」 로 또 세어지지 않게 한다. 앱을 끄면 표가 남아 세어진다.
+        */
+      }, DISMISS_FALLBACK_MS);
     }
 
     /**
@@ -259,10 +238,7 @@ export function runFullScreenAd(
       if (document.visibilityState !== 'visible') wentHidden = true;
       if (onVisible != null) return;
       onVisible = () => {
-        /*
-          이미 답한 뒤라면 남은 일은 하나다. 광고가 정말 안 걷히는지 보는 것.
-          화면이 돌아왔다는 것은 걷혔다는 뜻이니 여기서 손을 뗀다.
-        */
+        // 답한 뒤에는 광고가 걷혔는지만 본다. 걷혔으면 판정을 접고 표를 지운다.
         if (settled) {
           if (document.visibilityState === 'visible') endWatch();
           return;
@@ -330,33 +306,23 @@ export function runFullScreenAd(
         onEvent: (event) => {
           const effect = adEventEffect(event.type);
           /*
-            🔴 **끝났다는 신호는 답한 뒤에 와도 듣는다.**
-
-            광고가 닫혔다는 유일한 증거라서다. 이걸 버리면 광고를 다 보고 곧장 다른 앱으로
-            넘어간 사람이 「화면이 안 보인다」 하나만으로 갇힌 것으로 세어진다. 그 값은
-            세션 광고를 통째로 끄는 데 쓰인다. 리뷰가 잡은 자리다.
-          */
-          if (effect === 'end' || effect === 'fail') adEnded = true;
-          /*
-            🔴 **누른 것도 답한 뒤에 듣는다.** 눌러 나간 뒤 광고주 페이지에 오래 머무는
-            것은 갇힌 것이 아니다. 화면이 숨은 이유가 설명되므로 갇힘 판정을 접는다.
-          */
-          if (event.type === 'clicked') {
-            adClicked = true;
-            if (settled) {
-              endWatch();
-              return;
-            }
-          }
-          /*
-            나머지 신호는 답한 뒤에 버린다. 없으면 `finish` 가 떼고 간 자리에 리스너를
-            새로 달게 되고, 그것을 떼어 줄 사람이 아무도 없다.
+            답한 뒤에는 광고가 걷혔다는 신호만 듣는다. 나머지를 받으면 `finish` 가 떼고 간
+            자리에 리스너를 새로 달게 되고, 그것을 떼어 줄 사람이 아무도 없다.
           */
           if (settled) {
-            if (adEnded) endWatch();
+            if (effect === 'end' || effect === 'fail' || event.type === 'clicked') endWatch();
             return;
           }
           if (marksAdOnScreen(event.type)) onScreen();
+          /*
+            🔴 **눌렀으면 표를 바로 지운다.** 광고주 페이지에 머무는 것은 갇힌 것이 아니다.
+            그 사이에 토스가 백그라운드에서 정리되면 표가 남아, 광고를 눌러 준 사람의 기기가
+            다음 실행에서 막힌다. 표는 `onScreen` 이 적은 뒤에 지워야 해서 이 순서다.
+          */
+          if (event.type === 'clicked' && !adClicked) {
+            adClicked = true;
+            hooks?.onAdGone?.();
+          }
           /*
             보상 이벤트 뒤에도 닫힘이 따라온다. 여기서 바로 끝내지 않고 표시만 해 두는
             이유는, 광고가 아직 화면을 덮고 있는 동안 다음 화면을 열면 그 위로 광고가

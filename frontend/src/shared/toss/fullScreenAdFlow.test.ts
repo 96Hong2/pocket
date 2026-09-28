@@ -5,7 +5,6 @@ import {
   FULL_SCREEN_LOAD_TIMEOUT_MS,
   INTERSTITIAL_RELEASE_MS,
   REWARDED_RELEASE_MS,
-  STALL_AFTER_MS,
   adEventEffect,
   marksAdOnScreen,
   outcomeOf,
@@ -84,14 +83,6 @@ describe('시간 제한', () => {
   it('불러오기 제한보다는 길다', () => {
     // 못 불러온 것과 안 끝나는 것은 다른 일이다. 짧으면 불러오는 중에 접힌다.
     expect(INTERSTITIAL_RELEASE_MS).toBeGreaterThan(FULL_SCREEN_LOAD_TIMEOUT_MS);
-  });
-
-  it('갇혔다고 세는 시각은 화면을 푸는 시각보다 한참 뒤다', () => {
-    /*
-      **둘을 같은 값으로 두면 안 된다.** 15초에 안 끝난 광고가 전부 갇힌 것은 아닌데,
-      갇힘 판정은 그 세션 광고를 통째로 끈다. 멀쩡한 사람의 수입까지 사라진다.
-    */
-    expect(STALL_AFTER_MS).toBeGreaterThanOrEqual(REWARDED_RELEASE_MS * 2);
   });
 
   it('닫힘 폴백은 화면이 돌아온 뒤 잠깐만 기다린다', () => {

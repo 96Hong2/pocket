@@ -32,9 +32,8 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
       const mark = await takeStuckMark(bridge.storage);
       if (!alive || mark == null) return;
       /*
-        🔴 **세고 끝내지 않는다.** 광고가 덮은 채 죽은 판은 횟수로도 쌓는다. 다만 이 표는
-        고장에만 남는 것이 아니라 지겨워서 끈 사람에게도 남으므로, **연달아** 두 번일
-        때만 광고를 닫는다. 광고 한 편이 제대로 걷히면 0으로 되돌아간다(ADR-0038).
+        🔴 **세고 끝내지 않는다.** 광고가 덮은 채 죽은 판은 횟수로도 쌓고, 한 번이면 그
+        기기의 광고를 닫는다(ADR-0041). 광고 한 편이 제대로 걷히면 0으로 되돌아간다.
       */
       const deaths = await addStuckDeath(bridge.storage);
       if (!alive) return;
