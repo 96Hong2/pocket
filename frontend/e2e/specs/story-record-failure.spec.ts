@@ -172,7 +172,7 @@ test('검토 줄을 고치다 분류를 만들어도 적어 둔 상호·금액·
   await recordSheet.nl.openEdit('점심');
   await recordSheet.nl.form.merchantField.fill(GIMBAP);
   await recordSheet.nl.form.amountField.fill('9000');
-  await recordSheet.nl.form.dayField.fill(yesterday);
+  await recordSheet.nl.form.setDay(yesterday);
 
   // 맞는 칸이 없다는 것을 깨닫는 순간이 여기다. 숨긴 분류가 있으면 「더 보기」를 한 번 편다.
   await recordSheet.nl.form.openNewCategory();
@@ -187,11 +187,12 @@ test('검토 줄을 고치다 분류를 만들어도 적어 둔 상호·금액·
   await expect(recordSheet.nl.form.merchantField).toHaveValue(GIMBAP);
   // 금액 칸은 세 자리마다 콤마를 찍는다.
   await expect(recordSheet.nl.form.amountField).toHaveValue('9,000');
-  await expect(recordSheet.nl.form.dayField).toHaveValue(yesterday);
+  await expect(recordSheet.nl.form.dayChip).toHaveText(formatDayLabel(yesterday));
   // 만든 것이 곧바로 골라져 있다. 다시 찾아 누르게 하면 만든 보람이 없다.
-  await expect(recordSheet.nl.form.categoryChip(TEAM_LUNCH)).toHaveAttribute(
-    'aria-pressed',
-    'true',
+  // 고른 것과 같아서 격자는 닫히고 분류 칩 글자가 바뀐다.
+  await expect(recordSheet.nl.form.categoryGroup).toHaveCount(0);
+  await expect(recordSheet.nl.form.categoryButton).toHaveAccessibleName(
+    `분류 ${TEAM_LUNCH}, 바꾸기`,
   );
 
   await recordSheet.nl.form.apply();

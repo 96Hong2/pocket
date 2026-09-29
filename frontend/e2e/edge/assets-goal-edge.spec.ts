@@ -85,11 +85,13 @@ test('목표보다 많이 모아도 남은 금액이 음수로 내려가지 않�
 });
 
 test('기한이 이번 달이면 매달 모을 돈이 남은 금액 그대로다', async ({ goal, prep }) => {
-  // 이번 달 말일이 며칠인지 세지 않으려고 28일로 잡는다. 어느 달에 돌려도 그 달 안이다.
+  // 기한은 이번 달 말일이다. 28일로 박으면 29~31일에 돌릴 때 기한이 이미 지나 줄이 안 선다.
+  const [year, month] = thisMonth().split('-').map(Number);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   await prep.setGoal({
     title: '이달 안에',
     targetAmount: 800_000,
-    targetDate: `${thisMonth()}-28`,
+    targetDate: `${thisMonth()}-${lastDay}`,
     initialAmount: 300_000,
   });
 

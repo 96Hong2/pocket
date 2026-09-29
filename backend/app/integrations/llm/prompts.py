@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from datetime import date
 
@@ -51,6 +52,16 @@ _RECEIPT_TASK = (
 )
 
 
+# 공유 가계부에 적으려고 읽는지 스텁이 가르는 표지. 영수증 표지처럼 문구를 고쳐도 남긴다.
+SHARED_BOOK_MARKER = "같이 쓰는 공유 가계부"
+
+_SHARED_BOOK_TASK = (
+    f"읽은 것은 여럿이 {SHARED_BOOK_MARKER}에 적힌다. 분류는 위 목록에 있는 이름만 고른다."
+)
+
+_CATEGORY_LINE = re.compile(r"맞는 것이 없으면 null 로 둔다: (.+)")
+
+
 # 프롬프트에 적는 분류 이름의 최대 개수. 사람이 분류를 수십 개 만들면 목록이 지시보다
 # 길어져 나머지 규칙이 묻힌다. 넘치면 앞에서부터 자른다(정렬 순서가 곧 자주 쓰는 순서다).
 MAX_CATEGORY_HINTS = 40
@@ -90,6 +101,19 @@ def screenshot_prompt(today: date | None = None, categories: Sequence[str] | Non
 
 def receipt_prompt(today: date | None = None, categories: Sequence[str] | None = None) -> str:
     return f"{_base(today, categories)}\n{_RECEIPT_TASK}"
+
+
+def for_shared_book(prompt: str) -> str:
+    """공유 가계부에 적을 때 덧붙인다. 분류 이름은 부르는 쪽이 그 가계부 것으로 준다."""
+    return f"{prompt}\n{_SHARED_BOOK_TASK}"
+
+
+def listed_categories(prompt: str) -> tuple[str, ...]:
+    """프롬프트에 적어 보낸 분류 이름. 스텁이 모델 흉내를 낼 때만 쓴다."""
+    found = _CATEGORY_LINE.search(prompt)
+    if found is None:
+        return ()
+    return tuple(name for name in found.group(1).split(", ") if name)
 
 
 # 다시 읽어 달라고 할 때 앞에 붙인다. 무엇이 이상했는지 구체적으로 말해 줘야

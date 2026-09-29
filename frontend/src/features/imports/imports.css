@@ -164,6 +164,11 @@
 
   /* ── 후보 한 줄 ────────────────────────── */
   .nl-item {
+    /*
+      펼친 줄을 맨 위로 올릴 때 손잡이 아래로 띄운다. 손잡이는 시트 위 여백만큼 내려와 붙어
+      있어 둘을 더하고, 테두리가 손잡이에 닿지 않게 8px 을 더 둔다.
+    */
+    scroll-margin-top: calc(var(--pk-sheet-pad-top, 8px) + var(--pk-sheet-handle, 28px) + 8px);
     padding: 12px 14px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-inset);
@@ -273,6 +278,7 @@
 
   .nl-item__meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     margin-top: 8px;
@@ -284,6 +290,73 @@
 
   .nl-item__dot {
     color: var(--color-disabled);
+  }
+
+  /*
+    날짜와 분류. 메타 줄 글자가 곧 누르는 자리라 옅은 바탕과 작은 꺾쇠를 단다.
+    글자는 메타 줄 크기 그대로 두고, 손가락 자리는 보이지 않는 테두리로 위아래를 넓힌다.
+  */
+  .nl-item__chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    max-width: 100%;
+    height: 28px;
+    padding: 0 8px 0 10px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+  }
+
+  /* 옆으로는 넓히지 않는다. 칩 밖으로 나간 만큼 가로로 넘치는 상자로 잡힌다. */
+  .nl-item__chip::after {
+    content: '';
+    position: absolute;
+    inset: -8px 0;
+  }
+
+  .nl-item__chip:not(:disabled):active {
+    background: var(--color-sage-100);
+  }
+
+  /* 칸이 열린 칩. 아래 열린 칸이 이 칩의 것임을 색으로 잇는다. */
+  .nl-item__chip[aria-expanded='true'] {
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    box-shadow: inset 0 0 0 1px var(--color-sage-300);
+  }
+
+  .nl-item__chip:disabled {
+    opacity: 0.45;
+  }
+
+  .nl-item__chip-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .nl-item__chip-caret {
+    flex: none;
+    color: var(--color-muted);
+    transition: transform 0.15s ease;
+  }
+
+  .nl-item__chip[aria-expanded='true'] .nl-item__chip-caret {
+    color: inherit;
+    transform: rotate(180deg);
+  }
+
+  /* 칩 바로 아래 열리는 날짜 칸과 분류 격자. 줄 폭을 다 쓴다. */
+  .nl-item__editor {
+    margin-top: 10px;
   }
 
   /* 읽어 온 종류. 눌러서 지출·수입을 오간다. '고치기' 옆에 서되 그보다 눈에 먼저 든다. */
@@ -340,6 +413,22 @@
     font-weight: var(--font-weight-semibold);
     line-height: 1.5;
     color: var(--color-expense);
+    word-break: keep-all;
+  }
+
+  /* 공유 가계부 검토의 수입·이체·환불 줄. 저장되지 않는 줄이라 흐리게 둔다. */
+  .nl-item--locked .nl-item__head,
+  .nl-item--locked .nl-item__meta {
+    opacity: 0.45;
+  }
+
+  .nl-item__locked {
+    margin: 6px 0 0;
+    padding-left: 98px;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-muted);
     word-break: keep-all;
   }
 
@@ -432,9 +521,20 @@
     min-height: 44px;
   }
 
+  /*
+    짧은 폼의 끝 「완료」. 바닥의 「N건 저장」 과 같은 초록 버튼이면 둘 중 무엇이 저장인지
+    헷갈려서, 옅은 초록으로 한 단계 낮춘다.
+  */
+  .nl-form__done.pk-btn--outline {
+    height: 44px;
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+  }
 
-
-
+  .nl-form__done.pk-btn--outline:not(:disabled):active {
+    background: var(--color-sage-100);
+  }
 
   /* ── 저장 뒤 ──────────────────────────── */
   .nl--saved {

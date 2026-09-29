@@ -126,6 +126,105 @@ test('카테고리 한 번에 바꾸기가 켜 둔 지출 줄만 한꺼번에 �
   await expect(calendar.list.dayTotal).toHaveText(formatCurrency(STARBUCKS + GS25));
 });
 
+test('줄을 펴서 고치던 중에 한 번에 바꿔도 고친 상호가 남고 분류는 한 번에 바꾼 것이 된다', async ({
+  calendar,
+  home,
+  page,
+  recordSheet,
+}) => {
+  await seedMockImages(CAPTURE_DATA_URI)(page);
+
+  await home.open();
+  await home.waitReady();
+  expect(await mockImagesSeeded(page)).toBe(true);
+
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.methodTab('캡처').click();
+  await recordSheet.capture.pick();
+  await expect(recordSheet.capture.rows).toHaveCount(6);
+
+  await recordSheet.capture.openEdit('스타벅스');
+  await recordSheet.capture.form.merchantField.fill('블루보틀');
+  await recordSheet.capture.form.pickCategory('식비');
+  // 「완료」 를 누르지 않고 한 번에 바꾼다.
+  await recordSheet.capture.bulkPickCategory('생활');
+
+  // 펼친 줄은 접힌다. 펼친 채 두면 폼이 옛 분류(식비)를 들고 있다가 저장할 때 도로 덮는다.
+  await expect(recordSheet.capture.form.doneButton).toHaveCount(0);
+  await expect(recordSheet.capture.row('블루보틀')).toContainText('생활');
+
+  await recordSheet.capture.save();
+  await recordSheet.capture.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  await calendar.open();
+  await calendar.waitReady();
+  await expect(calendar.list.row('블루보틀')).toBeVisible();
+  await expect(calendar.list.rowSubtitle('블루보틀')).toContainText('생활');
+  await expect(calendar.list.row('스타벅스')).toHaveCount(0);
+});
+
+test('환불 줄을 펴서 수입으로 바꾸고 「완료」 를 눌러도 켜진 채 남는다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await seedMockImages(CAPTURE_DATA_URI)(page);
+
+  await home.open();
+  await home.waitReady();
+  expect(await mockImagesSeeded(page)).toBe(true);
+
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.methodTab('캡처').click();
+  await recordSheet.capture.pick();
+
+  const name = 'MY 카드 캐시백';
+  await recordSheet.capture.openEdit(name);
+  await recordSheet.capture.refundToIncome(name).click();
+  await expect(recordSheet.capture.checkbox(name)).toBeChecked();
+  await expect(recordSheet.capture.form.typeTab('수입')).toBeChecked();
+
+  // 폼이 옛 종류(환불)를 들고 있다가 도로 보내면 줄이 조용히 꺼진다.
+  await recordSheet.capture.form.apply();
+  await expect(recordSheet.capture.checkbox(name)).toBeChecked();
+  await expect(recordSheet.capture.refundNotice(name)).toHaveCount(0);
+});
+
+test('영수증 줄에서 분류 칩으로 고르면 줄 머리의 아이콘과 이름도 바로 따라간다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await seedMockImages(CAPTURE_DATA_URI)(page);
+
+  await home.open();
+  await home.waitReady();
+  expect(await mockImagesSeeded(page)).toBe(true);
+
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.methodTab('영수증').click();
+  await recordSheet.receipt.pick();
+  await expect(recordSheet.receipt.rows).toHaveCount(1);
+
+  // 상호가 없는 영수증이라 머리 이름이 분류 이름이다.
+  await recordSheet.receipt.openEdit(NO_NAME);
+  const before = await recordSheet.receipt.form.headAvatar.getAttribute('src');
+  expect(before).not.toBeNull();
+  await recordSheet.receipt.form.pickCategory('카페·간식');
+
+  // 「완료」 전에도 머리가 고른 분류를 그린다. 한 줄에 분류가 둘 서지 않는다.
+  await expect(recordSheet.receipt.form.categoryButton).toHaveAccessibleName(
+    '분류 카페·간식, 바꾸기',
+  );
+  await expect(recordSheet.receipt.checkbox('카페·간식')).toBeVisible();
+  await expect(recordSheet.receipt.checkbox(NO_NAME)).toHaveCount(0);
+  await expect(recordSheet.receipt.form.headAvatar).not.toHaveAttribute('src', before!);
+});
+
 test('한 번에 바꾸기는 캡처에만 있고 줄글·영수증에는 없다', async ({ home, page, recordSheet }) => {
   await seedMockImages(CAPTURE_DATA_URI)(page);
 

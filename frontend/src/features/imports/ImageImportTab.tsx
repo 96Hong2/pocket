@@ -150,8 +150,8 @@ export interface ImageImportTabProps {
   /** 지금 닫으면 잃을 건수. 껍데기가 시트 크기와 닫기 확인을 이 값으로 정한다. */
   onReviewChange?: (pending: number) => void;
   onDone: () => void;
-  /** 저장이 성공한 순간. 닫기보다 앞선다. */
-  onSaved?: (day: string | null) => void;
+  /** 저장이 성공한 순간. 닫기보다 앞선다. 공유 가계부에 적었으면 그 id 도 준다. */
+  onSaved?: (day: string | null, bookId: string | null) => void;
   /** 사진으로는 안 될 때 갈 다른 길. 실패 화면과 권한 화면 두 자리에 함께 놓인다. */
   fallbackAction?: ReactNode;
   /**
@@ -168,6 +168,12 @@ export interface ImageImportTabProps {
    * 이 값은 날짜를 못 읽은 줄이 떨어질 자리일 뿐이다.
    */
   baseDay?: string | null;
+  /**
+   * 적을 공유 가계부. 없으면 내 가계부다.
+   *
+   * 사진 무료분과 광고는 사람 단위라 공유라서 달라지지 않는다.
+   */
+  bookId?: string | null;
 }
 
 /**
@@ -187,6 +193,7 @@ export function ImageImportTab({
   fallbackAction,
   credits,
   baseDay = null,
+  bookId = null,
 }: ImageImportTabProps) {
   const mode = MODES[kind];
   const bridge = useBridge();
@@ -393,7 +400,7 @@ export function ImageImportTab({
         아무도 안 받은 거절이 되어 브라우저가 경고를 찍는다.
       */
       const pending = analyze
-        .mutateAsync({ value: picked.map((one) => one.dataUri), baseDay })
+        .mutateAsync({ value: picked.map((one) => one.dataUri), baseDay, bookId })
         .then((ok) => ({ ok }) as const)
         .catch((error: unknown) => ({ error }) as const);
       await credits.play(plan, picked.length);

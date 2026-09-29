@@ -27,12 +27,16 @@ const KIND_ICON: Record<BookKind, IconName> = {
   room: '12_house',
 };
 
-/** 이름 칸을 비워 두지 않는다. 만드는 사람이 이름을 고민하지 않게 유형마다 미리 채운다. */
+/**
+ * 이름 칸을 비워 두지 않는다. 만드는 사람이 이름을 고민하지 않게 유형마다 미리 채운다.
+ * 누구에게나 맞는 평범한 말로 둔다. 연인이 같이 사는 집이 있다고 가정하지 않는다.
+ * 서버 `domain/books.py` 의 `DEFAULT_BOOK_NAMES` 와 같은 값이다.
+ */
 const DEFAULT_NAME: Record<BookKind, string> = {
-  couple: '우리 집',
-  family: '우리 가족',
-  trip: '우리 여행',
-  room: '우리 방',
+  couple: '둘이 쓰는 돈',
+  family: '가족 생활비',
+  trip: '여행 경비',
+  room: '공동 생활비',
 };
 
 /** 미리 골라 두는 돈 나누기. 가족은 같이 모은 돈으로 쓰는 경우가 많다. */
@@ -64,12 +68,6 @@ export function defaultBookName(kind: BookKind): string {
 
 export function defaultSettleRule(kind: BookKind): SettleRule {
   return DEFAULT_RULE[kind];
-}
-
-/** 「우리 집 가계부」. 이름이 이미 「가계부」 로 끝나면 한 번 더 붙이지 않는다. */
-export function bookNameWithSuffix(name: string): string {
-  const trimmed = name.trim();
-  return trimmed.endsWith('가계부') ? trimmed : `${trimmed} 가계부`;
 }
 
 /**

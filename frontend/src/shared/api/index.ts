@@ -15,6 +15,7 @@ export {
 } from './bookActivity';
 export { createApiClient } from './client';
 export type {
+  AnalyzeTarget,
   ApiClient,
   BudgetSuggestionParams,
   CallOptions,
@@ -63,6 +64,7 @@ export {
   useAnalyzeText,
   useCommitImport,
   useCreateBook,
+  useCreateBookCategory,
   useCreateBookEntry,
   useCreateCategory,
   useCreateGoal,
@@ -100,6 +102,8 @@ export {
   useSettleDone,
   useSettleUndo,
   useStartEmailLogin,
+  useUndoMoveIn,
+  useUndoMoveOut,
   useVerifyEmailLogin,
   useSaveBudget,
   useSaveCategoryBudget,

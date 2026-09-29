@@ -52,8 +52,8 @@ test('은홍이 우리 집에 적은 것을 준호가 보고, 준호가 고친 �
     await home.recordButton.click();
     await recordSheet.waitOpen();
     await expect(recordSheet.destination.pill('우리 집')).toHaveAttribute('aria-pressed', 'true');
-    // 공유 가계부는 지출만, 키패드로만 받는다.
-    await expect(recordSheet.methodTabs).toHaveCount(0);
+    // 공유 가계부는 지출만 받는다. 적는 방법은 내 가계부와 같이 넷이다(줄글·사진은 shared-books-inputs).
+    await expect(recordSheet.methodTabs).toHaveCount(4);
     await expect(recordSheet.input.kindToggle).toHaveCount(0);
     await expect(recordSheet.input.transferButton).toHaveCount(0);
     await expect(recordSheet.input.dayChip).toBeVisible();
@@ -348,7 +348,7 @@ test('옮긴 것은 우리 집 목록에 들어간다', async ({ home, prep }) =
   await expect(home.book.recent.row('다이소')).toContainText('9,000원');
 });
 
-test('최근 같이 쓴 돈은 다섯 줄만 먼저 보이고, 모두 보기로 그 자리에서 펼친다', async ({
+test('최근 같이 쓴 돈은 세 줄만 먼저 보이고, 모두 보기로 그 자리에서 펼친다', async ({
   home,
   partner,
   prep,
@@ -362,7 +362,8 @@ test('최근 같이 쓴 돈은 다섯 줄만 먼저 보이고, 모두 보기로 
   await home.open();
   await home.waitReady();
   await home.book.switchTo('우리 집');
-  await expect(home.book.recent.rows).toHaveCount(5);
+  // 세 줄이어야 토스 웹뷰 한 화면에서 아래 정산 카드까지 보인다. 좌표 판정은 shared-books-layout 에 있다.
+  await expect(home.book.recent.rows).toHaveCount(3);
   await expect(home.book.moreButton).toHaveText('이번 달 6건 모두 보기');
   // 쓴 돈이 있는 달이라 정산 카드가 선다.
   await expect(home.book.settleCard).toBeVisible();
@@ -370,7 +371,7 @@ test('최근 같이 쓴 돈은 다섯 줄만 먼저 보이고, 모두 보기로 
   await home.book.moreButton.click();
   await expect(home.book.recent.rows).toHaveCount(6);
   await expect(home.book.moreButton).toHaveCount(0);
-  // 새 화면으로 가지 않았다. 여전히 우리 집 홈이다.
+  // 새 화면으로 가지 않았다. 여전히 공유 홈이다.
   await expect(home.book.chip).toHaveAccessibleName('보는 가계부 우리 집');
 });
 
@@ -429,10 +430,41 @@ test.describe('아이폰 세로 한 화면(390x664)', () => {
     await expect(recordSheet.destination.group).toBeVisible();
 
     // 내 가계부: 줄이 하나 늘어도 시트는 공유 가계부가 없던 때보다 길어지지 않는다.
-    expect(await recordSheet.overflowY()).toBeLessThanOrEqual(before);
+    const mine = await recordSheet.overflowY();
+    expect(mine).toBeLessThanOrEqual(before);
 
-    // 공유 가계부: 방법 탭이 빠진 자리까지 합쳐 키패드가 한 화면에 다 든다.
+    /*
+      공유 가계부: 방법 탭이 내 가계부처럼 서고 종류 알약만 빠진다. 키패드 아래 줄 키까지
+      한 화면에 다 들고, 시트는 내 가계부에 적을 때보다 길지 않다.
+      남는 여백까지 한 화면에 드는지는 실제 토스 웹뷰 높이(390x746) 검사가 본다.
+    */
     await recordSheet.destination.pill('우리 방').click();
+    await expect(recordSheet.methodTabs).toHaveCount(4);
+    await expect(recordSheet.input.numberKey('00')).toBeInViewport({ ratio: 1 });
+    await expect(recordSheet.input.backspaceKey).toBeInViewport({ ratio: 1 });
+    expect(await recordSheet.overflowY()).toBeLessThanOrEqual(mine);
+  });
+});
+
+test.describe('토스 웹뷰 한 화면(390x746)', () => {
+  test.use({ viewport: { width: 390, height: 746 } });
+
+  test('공유 가계부에 적을 때 방법 탭이 서도 키패드가 스크롤 없이 한 화면에 든다', async ({
+    home,
+    prep,
+    recordSheet,
+  }) => {
+    await prep.createBook({ name: '우리 집' });
+    await prep.createBook({ kind: 'family', name: '우리 가족' });
+    await prep.createBook({ kind: 'room', name: '우리 방' });
+
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.destination.pill('우리 방').click();
+
+    await expect(recordSheet.methodTabs).toHaveCount(4);
     await expect(recordSheet.input.numberKey('00')).toBeInViewport({ ratio: 1 });
     await expect(recordSheet.input.backspaceKey).toBeInViewport({ ratio: 1 });
     expect(await recordSheet.overflowY()).toBe(0);

@@ -438,6 +438,12 @@
   }
 
   .pk-sheet {
+    /*
+      위 여백과 손잡이 높이. 시트 안에서 줄을 맨 위로 끌어올리는 쪽(scroll-margin-top)이
+      이 둘을 더해 손잡이 아래로 띄운다. 한쪽만 고치면 줄 윗변이 손잡이 밑에 들어간다.
+    */
+    --pk-sheet-pad-top: 8px;
+    --pk-sheet-handle: 28px;
     position: relative;
     max-height: 88dvh;
     overflow-y: auto;
@@ -445,8 +451,8 @@
       시트는 포털로 body 에 붙어 셸의 안전영역 패딩을 물려받지 못한다.
       하단을 고정값으로 두면 홈 인디케이터가 있는 기기에서 버튼이 그 아래로 들어간다.
     */
-    padding: 8px calc(20px + var(--safe-right)) calc(20px + var(--safe-bottom))
-      calc(20px + var(--safe-left));
+    padding: var(--pk-sheet-pad-top) calc(20px + var(--safe-right))
+      calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left));
     background: var(--color-surface);
     border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
     animation: var(--animate-sheet-up);
@@ -536,15 +542,20 @@
     **스크롤 상자 맨 위에 붙여 둔다.** 시트가 화면보다 길면 내용이 스크롤되는데,
     그때 손잡이가 위로 밀려 나가면 밀어서 닫는 길이 사라진다. 아래로 지나가는 글자가
     비치지 않게 바탕도 함께 깐다. 바닥의 버튼 줄(`.pk-sheet-foot`)과 같은 방식이다.
+
+    바탕은 시트 **윗변까지** 올라가야 한다. `top: 0` 은 시트 위 여백 아래에 서서, 그 여백
+    띠로 위로 지나가는 카드 테두리가 비쳤다. 위 여백만큼 더 채우고 같은 크기로 되민다.
   */
   .pk-sheet__handle {
     position: sticky;
-    top: 0;
+    top: calc(-1 * var(--pk-sheet-pad-top, 0px));
     z-index: 1;
     display: grid;
     place-items: center;
     width: 100%;
-    height: 28px;
+    height: calc(var(--pk-sheet-handle, 28px) + var(--pk-sheet-pad-top, 0px));
+    margin-top: calc(-1 * var(--pk-sheet-pad-top, 0px));
+    padding-top: var(--pk-sheet-pad-top, 0px);
     margin-bottom: 4px;
     background: var(--color-surface);
   }

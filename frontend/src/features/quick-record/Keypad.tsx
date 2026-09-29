@@ -5,8 +5,13 @@ import { appendDigit, toAmount } from './digits';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0'] as const;
 
-/** 지금 금액과 다음에 무엇을 하면 되는지. 키패드와 카테고리 칩 사이에 놓는다. */
-export function AmountDisplay({ digits, hint }: { digits: string; hint: string }) {
+/**
+ * 지금 금액. 키패드와 카테고리 칩 사이에 놓는다.
+ *
+ * 안내 한 줄(`hint`)은 금액을 고치는 자리(저장 뒤 패널)만 쓴다. 기록 시트는 줄 하나를
+ * 아끼려고 안 넘긴다. 상태마다 줄이 생겼다 사라지면 키패드가 들썩여서 통째로 뺐다.
+ */
+export function AmountDisplay({ digits, hint }: { digits: string; hint?: string }) {
   return (
     <div className="keypad__head">
       <div
@@ -17,9 +22,11 @@ export function AmountDisplay({ digits, hint }: { digits: string; hint: string }
       >
         {formatCurrency(toAmount(digits))}
       </div>
-      <p data-testid={TEST_IDS.recordHint} className="keypad__hint">
-        {hint}
-      </p>
+      {hint == null ? null : (
+        <p data-testid={TEST_IDS.recordHint} className="keypad__hint">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }

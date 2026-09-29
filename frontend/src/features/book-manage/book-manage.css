@@ -211,7 +211,6 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    margin-bottom: 24px;
   }
 
   .book-create__rule {
@@ -250,24 +249,12 @@
     color: var(--color-muted);
   }
 
-  /* 접혀 있는 이름 칸을 여는 글씨. 눌러야 하는 것임이 보이게 밑줄을 둔다. */
-  .book-create__more {
-    align-self: flex-start;
-    min-height: 44px;
-    margin-top: 12px;
-    padding: 0 2px;
-    border: 0;
-    background: none;
-    font-family: inherit;
-    font-size: var(--text-14);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-ink);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-
   .book-create .book-field + .book-field {
     margin-top: 16px;
+  }
+
+  .book-create .book-field + .book-create__label {
+    margin-top: 24px;
   }
 
   .book-create .book-manage__notice {

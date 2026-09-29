@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { useBridge } from '../../app/providers';
 import {
   EVENTS,
   useAnalytics,
@@ -10,20 +11,26 @@ import {
 import {
   ApiError,
   parseDecimalOr,
+  useBook,
   useCategories,
   useCommitImport,
   useDeleteImport,
   usePatchImportCandidate,
+  type BookOut,
   type CategoryOut,
   type ImportBatchOut,
   type ImportCandidatePatch,
   type ImportCommitOut,
 } from '../../shared/api';
+import { writeBookLast } from '../../shared/lib/bookLast';
 import { formatCurrency, isFutureDay, toLedgerDate } from '../../shared/lib/format';
 import { CategoryPicker, FutureDayConfirm } from '../../shared/ledger';
 import { Button, ErrorState, LoadingState } from '../../shared/ui';
 
-import { CandidateRow } from './CandidateRow';
+import { asPickable, monthLine, othersSeeLine } from '../books';
+import { CategoryComposeOverlay } from '../categories';
+
+import { CandidateRow, type RowPreview } from './CandidateRow';
 
 export interface ImportReviewProps {
   /** 서버가 읽어 준 묶음. 껍데기가 들고 있고 여기서는 고쳐 준 것을 돌려주기만 한다. */
@@ -52,8 +59,9 @@ export interface ImportReviewProps {
    * **어느 날에 적혔는지 함께 준다.** 지난 달 영수증을 읽어 넣고 홈으로 나왔는데 화면이
    * 오늘에 머물러 있으면, 적힌 것인지 아닌지를 그 날짜로 찾아가 봐야 안다.
    * 날짜를 못 가리면(고른 줄이 없거나 읽은 값이 어긋나면) null 이다.
+   * 공유 가계부에 적었으면 그 가계부 id 도 준다. 내 가계부면 null 이다.
    */
-  onSaved?: (day: string | null) => void;
+  onSaved?: (day: string | null, bookId: string | null) => void;
   /** 어느 탭의 검토 화면인지 e2e 가 가른다. 두 탭이 hidden 으로 함께 남는다. */
   testId: string;
   /** 고른 것의 분류를 한 번에 바꾸는 자리를 둘지. 여러 건이 한꺼번에 오는 캡처에서만 쓴다. */
@@ -97,7 +105,16 @@ export function ImportReview({
   notice,
 }: ImportReviewProps) {
   const analytics = useAnalytics();
+  const bridge = useBridge();
   const categories = useCategories();
+  /*
+    공유 가계부에 적을 묶음인가. 읽을 때 고른 가계부에 묶여 있어 묶음이 스스로 말한다.
+    그 가계부 분류로 고르고, 지출만 저장된다.
+  */
+  const bookId = batch.book_id ?? null;
+  const shared = bookId != null;
+  const bookQuery = useBook(bookId);
+  const book = bookQuery.data ?? null;
   const patch = usePatchImportCandidate();
   const commit = useCommitImport();
   const discard = useDeleteImport();
@@ -105,8 +122,10 @@ export function ImportReview({
   const [editing, setEditing] = useState<string | null>(null);
   const [saved, setSaved] = useState<ImportCommitOut | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
-  /** 저장을 눌렀다가 고른 것에 앞날이 섞여 있어 물어보는 중인가. */
-  const [futureAsking, setFutureAsking] = useState(false);
+  /** 저장을 눌렀다가 고른 것에 앞날이 섞여 있어 물어보는 그 날. 안 물으면 null. */
+  const [futureDay, setFutureDay] = useState<string | null>(null);
+  /** 펼친 줄의 폼에 적힌 값. 줄 머리와 저장 버튼 합계가 이것을 따라간다. */
+  const [preview, setPreview] = useState<RowPreview | null>(null);
 
   /*
     무엇을 몇 번 고쳤나. 값이 아니라 **어느 칸을 몇 번** 인지만 센다.
@@ -171,38 +190,53 @@ export function ImportReview({
   }, [pending]);
 
   // 종류에 따라 고를 수 있는 분류가 다르다. 거르는 일은 후보 줄이 한다.
-  const pickable = (categories.data?.items ?? []).filter(
-    (category) => category.kind === 'expense' || category.kind === 'income',
-  );
+  // 공유 가계부면 그 가계부 분류다. 내 분류를 섞으면 상대 화면에 모르는 이름이 선다.
+  const pickable = shared
+    ? asPickable(book?.categories ?? [])
+    : (categories.data?.items ?? []).filter(
+        (category) => category.kind === 'expense' || category.kind === 'income',
+      );
+  const pickableLoading = shared ? book == null && !bookQuery.isError : categories.isPending;
+  const pickableFailed = shared ? bookQuery.isError && book == null : categories.isError;
 
   const busy = patch.isPending || commit.isPending;
   const failure = patch.error ?? commit.error;
   const message = failure instanceof ApiError ? failure.message : null;
 
   if (saved != null) {
-    return <SavedPanel result={saved} onDone={onDone} testId={testId} notice={notice} />;
+    return (
+      <SavedPanel result={saved} book={book} onDone={onDone} testId={testId} notice={notice} />
+    );
   }
 
   const candidates = batch.candidates ?? [];
-  const total = parseDecimalOr(batch.selected_expense_total, 0);
+  const total = selectedExpenseTotal(batch, preview);
   const canSave = batch.selected_count > 0 && !busy;
 
   /*
-    고른 것 중 아직 오지 않은 날.
+    고른 것 중 아직 오지 않은 날이 있으면 한 번 묻는다.
 
     줄마다 이미 「앞날」 이라고 눈에 띄게 적어 두지만, 목록이 길면 아래로 굴려야 보이는
     줄이 생긴다. **저장을 누르는 그 순간에 한 번 더 묻는다.** 막지는 않는다.
+    펼친 줄에서 칩으로 고친 날은 아직 서버에 없다. 먼저 보내고 돌려받은 묶음으로 판정한다.
   */
-  const futureSelected = candidates.find(
-    (item) => item.is_selected && isFutureDay(toLedgerDate(new Date(item.occurred_at))),
-  );
-
-  function requestSaveAll(): void {
-    if (futureSelected != null) {
-      setFutureAsking(true);
+  async function requestSaveAll(): Promise<void> {
+    onBusyChange(true);
+    let latest = batch;
+    try {
+      latest = (await flushDraft()) ?? batch;
+    } catch {
+      // 왜 막혔는지는 patch.error 가 이미 들고 있어 안내 줄에 그대로 나온다.
+      onBusyChange(false);
       return;
     }
-    void saveAll();
+    const future = selectedFutureDay(latest);
+    if (future != null) {
+      onBusyChange(false);
+      setFutureDay(future);
+      return;
+    }
+    void saveAll(latest);
   }
   const dropped = truncatedCount(batch.error_code);
 
@@ -228,6 +262,8 @@ export function ImportReview({
               size="sm"
               categories={pickable}
               disabled={busy}
+              // 공유 분류는 관리 화면이 없다. 그리로 가라는 줄을 세우지 않는다.
+              manageNote={!shared}
               onPick={(category) => void applyBulk(category)}
             />
           ) : null}
@@ -245,15 +281,13 @@ export function ImportReview({
         </p>
       ) : null}
 
-      {categories.isPending ? (
-        <LoadingState size="inline" label="분류를 불러오는 중이에요" />
-      ) : null}
-      {categories.isError ? (
+      {pickableLoading ? <LoadingState size="inline" label="분류를 불러오는 중이에요" /> : null}
+      {pickableFailed ? (
         <ErrorState
           size="inline"
           title="분류를 불러오지 못했어요"
           description="분류 이름이 안 보이고 고칠 수도 없어요."
-          onRetry={() => void categories.refetch()}
+          onRetry={() => void (shared ? bookQuery.refetch() : categories.refetch())}
         />
       ) : null}
 
@@ -272,6 +306,22 @@ export function ImportReview({
               flowId={flowId}
               editing={editing === candidate.id}
               disabled={busy}
+              // 공유 가계부는 지출만 받는다. 종류·결제 수단 칸을 세우지 않는다.
+              expenseOnly={shared}
+              renderCompose={
+                bookId == null
+                  ? undefined
+                  : (slot) => (
+                      <CategoryComposeOverlay
+                        open={slot.open}
+                        fixedKind="expense"
+                        bookId={bookId}
+                        onBack={slot.onBack}
+                        onClose={slot.onBack}
+                        onCreated={slot.onCreated}
+                      />
+                    )
+              }
               onToggle={(selected) => {
                 sendPatch(batch.id, candidate.id, { is_selected: selected });
               }}
@@ -283,6 +333,8 @@ export function ImportReview({
               onDraftChange={(read) => {
                 draft.current = read == null ? null : { id: candidate.id, read };
               }}
+              preview={preview}
+              onPreviewChange={setPreview}
               onSave={(body) => {
                 draft.current = null;
                 if (Object.keys(body).length === 0) {
@@ -343,11 +395,7 @@ export function ImportReview({
             >
               취소
             </Button>
-            <Button
-              className="nl__done"
-              disabled={!canSave}
-              onClick={requestSaveAll}
-            >
+            <Button className="nl__done" disabled={!canSave} onClick={() => void requestSaveAll()}>
               {saveLabel(batch.selected_count, total)}
             </Button>
           </>
@@ -355,12 +403,12 @@ export function ImportReview({
       </div>
 
       {/* 고른 것에 앞날이 섞여 있을 때만 선다. 막는 것이 아니라 한 번 확인하는 자리다. */}
-      {futureAsking && futureSelected != null ? (
+      {futureDay != null ? (
         <FutureDayConfirm
-          day={toLedgerDate(new Date(futureSelected.occurred_at))}
-          onFix={() => setFutureAsking(false)}
+          day={futureDay}
+          onFix={() => setFutureDay(null)}
           onSave={() => {
-            setFutureAsking(false);
+            setFutureDay(null);
             void saveAll();
           }}
         />
@@ -374,11 +422,14 @@ export function ImportReview({
    * **펼쳐 둔 줄에 적어 둔 것을 먼저 보낸다.** 예전에는 「이대로 고치기」를 누른 것만
    * 서버로 가서, 상호를 고치고 곧바로 이 버튼을 누르면 적은 것이 버려졌다.
    * 그것부터 보내지 못하면 저장하지 않는다. 반쯤 반영된 채로 넣는 것이 가장 나쁘다.
+   *
+   * 앞날을 묻기 전에 이미 보냈으면 그때 돌려받은 묶음(`known`)으로 센다.
    */
-  async function saveAll(): Promise<void> {
+  async function saveAll(known: ImportBatchOut = batch): Promise<void> {
     onBusyChange(true);
+    let latest = known;
     try {
-      await flushDraft();
+      latest = (await flushDraft()) ?? known;
     } catch {
       // 왜 막혔는지는 patch.error 가 이미 들고 있어 안내 줄에 그대로 나온다.
       onBusyChange(false);
@@ -392,7 +443,7 @@ export function ImportReview({
       {
         method,
         candidate_count: candidates.length,
-        selected_count: batch.selected_count,
+        selected_count: latest.selected_count,
         edited_count: touched.current.size,
         ...editParams(edits.current),
       },
@@ -400,12 +451,12 @@ export function ImportReview({
     );
     analytics.log(
       EVENTS.saveRequested,
-      { method, count: batch.selected_count },
+      { method, count: latest.selected_count },
       { flowId, kind: 'click' },
     );
 
     const startedAt = Date.now();
-    commit.mutate(batch.id, {
+    commit.mutate(latest.id, {
       onSettled: () => onBusyChange(false),
       onSuccess: (result) => {
         // **서버가 몇 건을 넣었는지 답한 뒤에만** 성공이다.
@@ -417,13 +468,14 @@ export function ImportReview({
             result: 'ok',
             created_count: result.created_count,
             elapsed_ms: Date.now() - startedAt,
-            // 줄글·사진은 내 가계부로만 들어간다.
-            book: 'mine',
+            book: shared ? 'shared' : 'mine',
           },
           { flowId },
         );
+        // 다음에 내 가계부를 보다가 시트를 열어도 이 가계부가 둘째 칩에 선다.
+        if (result.book_id != null) void writeBookLast(bridge.storage, result.book_id);
         setSaved(result);
-        onSaved?.(savedDay(result));
+        onSaved?.(savedDay(result), result.book_id ?? null);
       },
       onError: (error) => {
         analytics.log(
@@ -433,7 +485,7 @@ export function ImportReview({
             result: 'failed',
             elapsed_ms: Date.now() - startedAt,
             error_code: error instanceof ApiError ? error.code : 'unknown',
-            book: 'mine',
+            book: shared ? 'shared' : 'mine',
           },
           { flowId },
         );
@@ -446,17 +498,22 @@ export function ImportReview({
    *
    * 서버에는 후보 하나짜리 PATCH 만 있어 차례로 보낸다.
    * 종류가 다른 줄은 건너뛴다. 지출에 수입 분류를 붙이면 목록과 리포트가 서로 다른 말을 한다.
+   *
+   * **펼친 줄에 적어 둔 것을 먼저 보내고 줄을 접는다.** 펼친 채 두면 그 폼이 옛 분류를
+   * 들고 있다가, 다음에 접을 때 한 번에 바꾼 분류를 도로 덮어쓴다.
    */
   async function applyBulk(category: CategoryOut): Promise<void> {
-    const targets = candidates.filter(
-      (item) => item.is_selected && item.type === category.kind && item.category_id !== category.id,
-    );
     setBulkOpen(false);
-    if (targets.length === 0) return;
-
     onBusyChange(true);
     let next = batch;
     try {
+      next = (await flushDraft()) ?? batch;
+      setEditing(null);
+      // 방금 보낸 것까지 반영된 목록으로 고른다. 종류를 바꿔 둔 줄이 여기서 갈린다.
+      const targets = (next.candidates ?? []).filter(
+        (item) =>
+          item.is_selected && item.type === category.kind && item.category_id !== category.id,
+      );
       for (const target of targets) {
         next = await patch.mutateAsync({
           batchId: batch.id,
@@ -478,14 +535,14 @@ export function ImportReview({
    * 펼친 줄이 들고 있는 값을 먼저 보낸다.
    *
    * 아무것도 안 바꿨으면 아무 일도 하지 않는다. 보내는 데 실패하면 그대로 던져서,
-   * 부르는 쪽이 저장까지 밀고 나가지 않게 한다.
+   * 부르는 쪽이 저장까지 밀고 나가지 않게 한다. 보냈으면 서버가 돌려준 묶음을 준다.
    */
-  async function flushDraft(): Promise<void> {
+  async function flushDraft(): Promise<ImportBatchOut | null> {
     const pending = draft.current;
     draft.current = null;
-    if (pending == null) return;
+    if (pending == null) return null;
     const body = pending.read();
-    if (Object.keys(body).length === 0) return;
+    if (Object.keys(body).length === 0) return null;
 
     const fields = fieldsOf(body);
     for (const field of fields) {
@@ -494,6 +551,7 @@ export function ImportReview({
     touched.current.add(pending.id);
     const next = await patch.mutateAsync({ batchId: batch.id, candidateId: pending.id, body });
     onBatchChange(next);
+    return next;
   }
 
   /** 펼친 줄을 접거나 다른 줄로 옮긴다. 적어 둔 것을 먼저 보낸다. */
@@ -556,6 +614,29 @@ function editParams(counts: Partial<Record<EditField, number>>): Record<string, 
   return params;
 }
 
+/** 고른 것 중 아직 오지 않은 첫 날. 없으면 null. */
+function selectedFutureDay(batch: ImportBatchOut): string | null {
+  for (const item of batch.candidates ?? []) {
+    const day = toLedgerDate(new Date(item.occurred_at));
+    if (item.is_selected && isFutureDay(day)) return day;
+  }
+  return null;
+}
+
+/**
+ * 고른 지출의 합계. 펼친 줄에 고쳐 적은 금액과 종류를 얹는다.
+ *
+ * 서버 합계만 쓰면 금액을 고치는 동안 버튼이 옛 합계를 말한다. 저장하면 고친 금액이 들어간다.
+ */
+function selectedExpenseTotal(batch: ImportBatchOut, preview: RowPreview | null): number {
+  const total = parseDecimalOr(batch.selected_expense_total, 0);
+  const row = preview == null ? null : batch.candidates?.find((item) => item.id === preview.id);
+  if (preview == null || row == null || !row.is_selected) return total;
+  const before = row.type === 'expense' ? parseDecimalOr(row.amount, 0) : 0;
+  const after = preview.type === 'expense' ? preview.amount : 0;
+  return total - before + after;
+}
+
 /**
  * 저장 버튼 문구.
  *
@@ -575,15 +656,23 @@ function truncatedCount(code: string | null | undefined): number {
 
 function SavedPanel({
   result,
+  book,
   onDone,
   testId,
   notice,
 }: {
   result: ImportCommitOut;
+  /** 공유 가계부에 적었을 때 그 가계부. 이름과 그 달 돈, 누가 보는지를 말한다. */
+  book: BookOut | null;
   onDone: () => void;
   testId: string;
   notice?: ReactNode;
 }) {
+  if (result.book_id != null) {
+    return (
+      <BookSavedPanel result={result} book={book} onDone={onDone} testId={testId} notice={notice} />
+    );
+  }
   const budget = result.budget;
   // 지난달 날짜만 저장하면 서버가 그 달의 예산 상태를 준다. '이번 달' 이라고 적으면 거짓말이라
   // 감추는 대신 어느 달인지 적는다. 감추면 예산을 정해 둔 사람이 이유 없이 한 줄을 잃는다.
@@ -601,6 +690,44 @@ function SavedPanel({
           {monthLabel} 남은 예산 {formatCurrency(parseDecimalOr(remaining, 0))}
         </p>
       ) : null}
+      {notice}
+      <Button fullWidth onClick={onDone}>
+        확인
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * 공유 가계부에 적은 뒤. 「둘이 쓰는 돈에 2건 적었어요」, 그 달 같이 쓴 돈, 누가 보는지.
+ *
+ * 키패드로 한 건 적은 뒤 화면과 같은 말을 쓴다. 내 가계부의 남은 예산은 섞지 않는다.
+ */
+function BookSavedPanel({
+  result,
+  book,
+  onDone,
+  testId,
+  notice,
+}: {
+  result: ImportCommitOut;
+  book: BookOut | null;
+  onDone: () => void;
+  testId: string;
+  notice?: ReactNode;
+}) {
+  const where = book == null ? '' : `${book.name}에 `;
+  const others = book == null ? null : othersSeeLine(book);
+  return (
+    <div className="nl nl--saved" role="status" data-testid={testId}>
+      <p className="nl__saved-title">
+        {where}
+        {result.created_count}건 적었어요
+      </p>
+      {book != null && result.book_month != null ? (
+        <p className="nl__saved-detail">{monthLine(book, result.book_month)}</p>
+      ) : null}
+      {others != null ? <p className="nl__saved-detail">{others}</p> : null}
       {notice}
       <Button fullWidth onClick={onDone}>
         확인

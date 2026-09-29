@@ -45,6 +45,13 @@ export interface CategoryPickerProps {
    * 실제로 기록 시트에서 키패드도 저장 버튼도 없는 막다른 화면이 됐다.
    */
   onOpenChange?: (open: boolean) => void;
+  /**
+   * 펼쳤을 때 「관리 › 카테고리 관리에서…」 안내를 세울지. 기본은 세운다.
+   *
+   * 검토 줄처럼 격자를 잠깐 열어 하나 고르고 닫는 자리, 관리 화면이 없는 공유 가계부 분류는
+   * 이 줄이 할 일을 하나 더 얹을 뿐이라 뺀다.
+   */
+  manageNote?: boolean;
   /** 작은 자리(수정 시트·검토 목록)에서는 칩을 낮게 그린다. */
   size?: 'lg' | 'sm';
   className?: string;
@@ -74,6 +81,7 @@ export function CategoryPicker({
   onCreate,
   onExpand,
   onOpenChange,
+  manageNote = true,
   size = 'lg',
   className,
   ariaLabel = '분류',
@@ -174,16 +182,18 @@ export function CategoryPicker({
             거기서 화면을 옮기면 그 목록이 말없이 사라진다. **여기서 직접 링크를 걸지 않고**
             잃을 것이 있는지 아는 쪽이 `onManage` 로 길을 내준다.
           */}
-          <p className="cat-chips__note">
-            {onManage == null ? (
-              '관리 › 카테고리 관리'
-            ) : (
-              <button type="button" className="cat-chips__note-link" onClick={onManage}>
-                관리 › 카테고리 관리
-              </button>
-            )}
-            에서 순서를 바꾸고, 앞에 보일 분류를 고를 수 있어요
-          </p>
+          {manageNote ? (
+            <p className="cat-chips__note">
+              {onManage == null ? (
+                '관리 › 카테고리 관리'
+              ) : (
+                <button type="button" className="cat-chips__note-link" onClick={onManage}>
+                  관리 › 카테고리 관리
+                </button>
+              )}
+              에서 순서를 바꾸고, 앞에 보일 분류를 고를 수 있어요
+            </p>
+          ) : null}
 
           {pickedIsHidden ? null : (
             <button

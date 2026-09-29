@@ -50,6 +50,7 @@ __all__ = [
     "UNDO_WINDOW",
     "SaveOutcome",
     "TransactionPage",
+    "clear_no_spend_for_spending",
     "create_transaction",
     "delete_transaction",
     "evaluate",
@@ -727,6 +728,11 @@ def _get_owned(session: Session, user: User, tx_id: uuid.UUID) -> Transaction:
 def get_owned(session: Session, user: User, tx_id: uuid.UUID) -> Transaction:
     """내 것이고 안 지운 거래. 아니면 404. 공유 가계부로 옮기기가 같은 판정을 쓴다."""
     return _get_owned(session, user, tx_id)
+
+
+def clear_no_spend_for_spending(session: Session, user: User, tx: Transaction) -> None:
+    """되살린 지출이 앉은 날의 '안 썼어요' 표시를 걷는다. commit 은 부르는 쪽이 한다."""
+    _clear_no_spend_for_spending(session, user, tx)
 
 
 def is_refunded(session: Session, tx_id: uuid.UUID) -> bool:

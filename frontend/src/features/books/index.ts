@@ -5,7 +5,7 @@ export { BookDestinationRow, type BookDestinationRowProps } from './BookDestinat
 export { BookEntryEditSheet, type BookEntryEditSheetProps } from './BookEntryEditSheet';
 export { BookFeedbackPanel, type BookFeedbackPanelProps } from './BookFeedbackPanel';
 export { BookHome, type BookHomeProps } from './BookHome';
-export { asPickable, movedInToast } from './bookEntryText';
+export { asPickable, monthLine, movedInToast, othersSeeLine } from './bookEntryText';
 export {
   BOOK_KINDS,
   LEFT_MEMBER_NAME,
@@ -14,7 +14,6 @@ export {
   bookKindIcon,
   bookKindLabel,
   budgetLabel,
-  bookNameWithSuffix,
   defaultBookName,
   defaultSettleRule,
   findMember,

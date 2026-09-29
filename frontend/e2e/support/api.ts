@@ -71,7 +71,7 @@ export interface AssetSeed {
   label?: string;
 }
 
-/** 심을 공유 가계부 하나. 안 준 값은 연인·부부 「우리 집」 반반, 내 이름 「은홍」 이다. */
+/** 심을 공유 가계부 하나. 안 준 값은 연인·부부 「둘이 쓰는 돈」 반반, 내 이름 「은홍」 이다. */
 export interface BookSeed {
   kind?: BookKind;
   name?: string;
@@ -434,7 +434,7 @@ export class PrepApi {
     const response = await this.context.post('/api/v1/books', {
       data: {
         kind: seed.kind ?? 'couple',
-        name: seed.name ?? '우리 집',
+        name: seed.name ?? '둘이 쓰는 돈',
         settle_rule: seed.settleRule ?? 'even',
         my_name: seed.myName ?? '은홍',
       },

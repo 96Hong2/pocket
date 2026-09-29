@@ -5,6 +5,7 @@ import { withTopic } from '../../src/shared/lib/format';
 import { TEST_IDS } from '../../src/shared/testIds';
 
 import { EditSheetArea } from './CalendarScreen';
+import { CategoryComposeArea } from './CategoryComposeArea';
 
 /**
  * 홈 화면.
@@ -1213,6 +1214,36 @@ class BookEntryEditArea {
     return this.root
       .getByRole('group', { name: '카테고리' })
       .getByRole('button', { name, exact: true });
+  }
+
+  /** 이 가계부 분류를 만드는 입구. 공유 분류는 몇 개 안 돼 보통 앞자리에 바로 선다. */
+  get newCategoryButton(): Locator {
+    return this.root
+      .getByRole('group', { name: '카테고리' })
+      .getByRole('button', { name: '새 분류', exact: true });
+  }
+
+  async openNewCategory(): Promise<void> {
+    if ((await this.newCategoryButton.count()) === 0) {
+      await this.root
+        .getByRole('group', { name: '카테고리' })
+        .getByRole('button', { name: '더 보기', exact: true })
+        .click();
+    }
+    await this.newCategoryButton.click();
+  }
+
+  /** 「새 분류」 가 여는 덮는 창. 포털로 `body` 에 붙어 이 시트 root 로는 안 잡힌다. */
+  get compose(): CategoryComposeArea {
+    return new CategoryComposeArea(this.root.page());
+  }
+
+  /** 만들기 창의 「저장」. 뒤에 남은 이 시트에도 「저장」 이 있어 창 안으로 좁혀 잡는다. */
+  get composeSaveButton(): Locator {
+    return this.root
+      .page()
+      .getByRole('dialog', { name: '새 분류 만들기' })
+      .getByRole('button', { name: '저장', exact: true });
   }
 
   payer(name: string): Locator {

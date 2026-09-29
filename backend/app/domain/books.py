@@ -79,12 +79,14 @@ ENTRY_MEMO_MAX: Final = 200
 # 옮기기에서 같은 이름의 분류가 없을 때 쓰는 자리. 모든 종류가 이 이름을 갖고 있다.
 FALLBACK_CATEGORY: Final = "기타"
 
+# 만들기 화면이 이름 칸에 미리 채워 두는 이름. 프론트 bookText.ts 의 DEFAULT_NAME 과 같은 값이다.
+# 연인이라고 같은 집에 사는 것은 아니라서 「우리 집」 같은 말을 쓰지 않는다.
 DEFAULT_BOOK_NAMES: Final = MappingProxyType(
     {
-        BookKind.COUPLE: "우리 집",
-        BookKind.FAMILY: "우리 가족",
-        BookKind.TRIP: "우리 여행",
-        BookKind.ROOM: "우리 방",
+        BookKind.COUPLE: "둘이 쓰는 돈",
+        BookKind.FAMILY: "가족 생활비",
+        BookKind.TRIP: "여행 경비",
+        BookKind.ROOM: "공동 생활비",
     }
 )
 

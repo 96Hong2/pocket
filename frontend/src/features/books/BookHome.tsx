@@ -15,6 +15,7 @@ import {
   type SettlementOut,
 } from '../../shared/api';
 import { readBookInviteSent } from '../../shared/lib/bookInviteSent';
+import { cx } from '../../shared/lib/cx';
 import { markBookIntroSeen, readBookIntroSeen } from '../../shared/lib/bookIntroSeen';
 import { formatCurrency, formatDayLabel, toLedgerDate } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
@@ -51,8 +52,11 @@ export interface BookHomeProps {
   onRecord: () => void;
 }
 
-/** 「최근 같이 쓴 돈」 이 먼저 보여 주는 줄 수. 아래 정산 카드가 내리지 않고 보이게 한다. */
-const RECENT_LIMIT = 5;
+/**
+ * 「최근 같이 쓴 돈」 이 먼저 보여 주는 줄 수.
+ * 토스 웹뷰(390x746)에서 예산 줄이 서도 아래 정산 카드가 탭바에 안 가리고 보이는 만큼이다.
+ */
+const RECENT_LIMIT = 3;
 
 /**
  * 공유 가계부를 볼 때의 홈.
@@ -108,6 +112,7 @@ function BookHomeBody({
 
   const items = entries.data?.items;
   const shownItems = items == null || showAll ? items : items.slice(0, RECENT_LIMIT);
+  const moreShown = items != null && shownItems != null && shownItems.length < items.length;
   // 쓴 돈이 0원인 달에는 정산 카드를 세우지 않는다. 빈 달에 「딱 맞아요」 는 할 말이 아니다.
   const settleShown =
     settles &&
@@ -178,10 +183,10 @@ function BookHomeBody({
                 ))}
               </Card>
               {/*
-                다섯 줄만 먼저 보인다. 아래 정산 카드가 한 번에 보이게 한다.
+                세 줄만 먼저 보인다. 아래 정산 카드가 내리지 않고 보이게 한다.
                 더 보려면 같은 자리에서 펼친다. 새 화면으로 가지 않는다.
               */}
-              {shownItems.length < items.length ? (
+              {moreShown ? (
                 <button type="button" className="book-home__more" onClick={() => setShowAll(true)}>
                   이번 달 {items.length}건 모두 보기
                 </button>
@@ -208,7 +213,10 @@ function BookHomeBody({
       </section>
 
       {settleShown && settlement.data != null ? (
-        <Link className="book-settle-card" to={bookSettlePath(book.id)}>
+        <Link
+          className={cx('book-settle-card', moreShown && 'book-settle-card--after-more')}
+          to={bookSettlePath(book.id)}
+        >
           <span className="book-settle-card__text">
             <span className="book-settle-card__title">{settleTitle(settlement.data)}</span>
             <span className="book-settle-card__line">{settleLine(book, settlement.data)}</span>

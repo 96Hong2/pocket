@@ -13,6 +13,8 @@ import {
 import type {
   AssetsOut,
   AssetSnapshotPut,
+  BookCategoryCreate,
+  BookCategoryOut,
   BookCreate,
   BookEntryCreate,
   BookEntryCreated,
@@ -141,6 +143,26 @@ function imageBody(dataUris: string[]): { image: string } | { images: string[] }
  */
 function baseDayBody(day: string | null | undefined): { base_day?: string } {
   return day ? { base_day: day } : {};
+}
+
+/**
+ * 분석을 어디에 적으려고 하나. 고른 「적을 날」 과 적을 공유 가계부.
+ *
+ * `bookId` 를 주면 서버가 그 가계부의 분류로 고르고 지출만 켠다. 저장하면 공유 기록이 된다.
+ */
+export interface AnalyzeTarget {
+  baseDay?: string | null;
+  bookId?: string | null;
+}
+
+function analyzeTargetBody(target: AnalyzeTarget | undefined): {
+  base_day?: string;
+  book_id?: string;
+} {
+  return {
+    ...baseDayBody(target?.baseDay),
+    ...(target?.bookId ? { book_id: target.bookId } : {}),
+  };
 }
 
 /**
@@ -376,14 +398,11 @@ export interface ApiClient extends Transport {
   /**
    * 줄글 분석. 거래를 만들지 않고 검토 단위만 만든다.
    *
-   * `baseDay` 는 화면에서 고른 「적을 날」 이다. **적힌 날짜가 있으면 그쪽이 이기고**,
+   * `target.baseDay` 는 화면에서 고른 「적을 날」 이다. **적힌 날짜가 있으면 그쪽이 이기고**,
    * 모델이 날짜를 못 찾은 줄만 이 날로 간다. 안 보내면 서버가 잰 오늘이다.
+   * `target.bookId` 를 주면 그 공유 가계부에 적을 묶음이 된다.
    */
-  analyzeText(
-    text: string,
-    baseDay?: string | null,
-    options?: CallOptions,
-  ): Promise<ImportBatchOut>;
+  analyzeText(text: string, target?: AnalyzeTarget, options?: CallOptions): Promise<ImportBatchOut>;
   /**
    * 캡처 분석. 줄글과 같은 검토 단위를 돌려준다.
    *
@@ -395,14 +414,14 @@ export interface ApiClient extends Transport {
    */
   analyzeCapture(
     dataUris: string[],
-    baseDay?: string | null,
+    target?: AnalyzeTarget,
     options?: CallOptions,
   ): Promise<ImportBatchOut>;
 
   /** 영수증 분석. 캡처와 같은 배관이고 경로와 지시만 다르다. */
   analyzeReceipt(
     dataUris: string[],
-    baseDay?: string | null,
+    target?: AnalyzeTarget,
     options?: CallOptions,
   ): Promise<ImportBatchOut>;
   /** 후보 한 줄 고치기. 보낸 항목만 바뀌고, 응답은 묶음 전체다. */
@@ -412,7 +431,7 @@ export interface ApiClient extends Transport {
     body: ImportCandidatePatch,
     options?: CallOptions,
   ): Promise<ImportBatchOut>;
-  /** 고른 후보를 실제 거래로 저장한다. */
+  /** 고른 후보를 실제 거래로 저장한다. 공유 가계부 묶음이면 공유 기록이 되고 `book_id` 가 온다. */
   commitImport(batchId: string, options?: CallOptions): Promise<ImportCommitOut>;
   /** 검토를 접는다. 없어도 204 다. */
   deleteImport(batchId: string, options?: CallOptions): Promise<void>;
@@ -512,6 +531,22 @@ export interface ApiClient extends Transport {
   moveEntryOut(bookId: string, entryId: string, options?: CallOptions): Promise<MoveOutResult>;
   /** 내 지출 하나를 공유 가계부로 옮긴다. 내 거래는 지워진다. */
   moveEntryIn(bookId: string, body: MoveInIn, options?: CallOptions): Promise<BookEntryCreated>;
+  /**
+   * 공유 가계부로 옮긴 것을 되돌린다. 새로 만들지 않고 원래 내 거래를 살린다.
+   * 태그, 결제 수단, 예산 제외, 시각이 그대로다. 되돌릴 수 없으면 409 `CONFLICT`.
+   */
+  undoMoveIn(bookId: string, entryId: string, options?: CallOptions): Promise<MoveOutResult>;
+  /**
+   * 내 가계부로 옮긴 것을 되돌린다. 그때 생긴 거래를 지우고 공유 기록을 그대로 살린다.
+   * 낸 사람과 분류가 옮기기 전과 같다. 되돌릴 수 없으면 409 `CONFLICT`.
+   */
+  undoMoveOut(bookId: string, entryId: string, options?: CallOptions): Promise<BookEntryOut>;
+  /** 공유 분류 만들기. 멤버 누구나. 같은 이름이면 409, 가계부당 30개까지. 「기타」 바로 앞에 선다. */
+  createBookCategory(
+    bookId: string,
+    body: BookCategoryCreate,
+    options?: CallOptions,
+  ): Promise<BookCategoryOut>;
   getSettlement(
     bookId: string,
     period?: SettlementPeriod,
@@ -896,31 +931,31 @@ export function createApiClient(options: TransportOptions): ApiClient {
       });
     },
 
-    analyzeText(text, baseDay, call) {
+    analyzeText(text, target, call) {
       return transport.request<ImportBatchOut>({
         method: 'POST',
         path: `${PATHS.imports}/text`,
-        body: { text, ...baseDayBody(baseDay) },
+        body: { text, ...analyzeTargetBody(target) },
         signal: call?.signal,
         timeoutMs: TEXT_TIMEOUT_MS,
       });
     },
 
-    analyzeCapture(dataUris, baseDay, call) {
+    analyzeCapture(dataUris, target, call) {
       return transport.request<ImportBatchOut>({
         method: 'POST',
         path: `${PATHS.imports}/capture`,
-        body: { ...imageBody(dataUris), ...baseDayBody(baseDay) },
+        body: { ...imageBody(dataUris), ...analyzeTargetBody(target) },
         signal: call?.signal,
         timeoutMs: imageTimeout(dataUris.length),
       });
     },
 
-    analyzeReceipt(dataUris, baseDay, call) {
+    analyzeReceipt(dataUris, target, call) {
       return transport.request<ImportBatchOut>({
         method: 'POST',
         path: `${PATHS.imports}/receipt`,
-        body: { ...imageBody(dataUris), ...baseDayBody(baseDay) },
+        body: { ...imageBody(dataUris), ...analyzeTargetBody(target) },
         signal: call?.signal,
         timeoutMs: imageTimeout(dataUris.length),
       });
@@ -1206,6 +1241,31 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<BookEntryCreated>({
         method: 'POST',
         path: `${bookPath(bookId)}/entries/move-in`,
+        body,
+        signal: call?.signal,
+      });
+    },
+
+    undoMoveIn(bookId, entryId, call) {
+      return transport.request<MoveOutResult>({
+        method: 'POST',
+        path: `${bookEntryPath(bookId, entryId)}/undo-move-in`,
+        signal: call?.signal,
+      });
+    },
+
+    undoMoveOut(bookId, entryId, call) {
+      return transport.request<BookEntryOut>({
+        method: 'POST',
+        path: `${bookEntryPath(bookId, entryId)}/undo-move-out`,
+        signal: call?.signal,
+      });
+    },
+
+    createBookCategory(bookId, body, call) {
+      return transport.request<BookCategoryOut>({
+        method: 'POST',
+        path: `${bookPath(bookId)}/categories`,
         body,
         signal: call?.signal,
       });

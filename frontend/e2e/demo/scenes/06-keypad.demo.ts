@@ -47,9 +47,6 @@ const EXPENSE_CATEGORIES = [
 /** 시트에 올라오지 않는 카테고리. 지출만 걸러 내는지 되짚는 데 쓴다. */
 const NOT_ON_SHEET = ['월급', '용돈', '부업', '기타 수입', '이체'] as const;
 
-const EMPTY_HINT = '금액을 누르고 카테고리를 고르면 바로 저장돼요';
-const READY_HINT = '카테고리를 고르면 저장돼요';
-
 /** 카테고리 조회 하나만 겨냥한다. 다른 요청은 그대로 서버로 간다. */
 const CATEGORIES_ROUTE = '**/api/v1/categories';
 
@@ -62,7 +59,8 @@ test('09 키패드로 금액을 찍는 규칙', async ({ home, recordSheet, demo
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));
-  await expect(recordSheet.input.hint).toHaveText(EMPTY_HINT);
+  // 금액 아래 안내 줄은 없다. 상태마다 줄이 생겼다 사라지면 키패드가 들썩인다.
+  await expect(recordSheet.input.hint).toHaveCount(0);
   await demo.beat(2);
 
   await demo.step('기록 방법은 네 가지. 키패드·줄글·캡처·영수증이 모두 열려 있다');
@@ -88,8 +86,7 @@ test('09 키패드로 금액을 찍는 규칙', async ({ home, recordSheet, demo
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(AMOUNT));
   await demo.beat();
 
-  await demo.step('금액이 생기면 힌트가 바뀐다. 이제 칩을 누르는 것이 곧 저장이다');
-  await expect(recordSheet.input.hint).toHaveText(READY_HINT);
+  await demo.step('금액이 생기면 칩을 누르는 것이 곧 저장이다');
   await expect(recordSheet.input.categoryChip('식비')).toBeEnabled();
   await demo.beat(3);
 
@@ -100,8 +97,8 @@ test('09 키패드로 금액을 찍는 규칙', async ({ home, recordSheet, demo
     await demo.beat();
   }
 
-  await demo.step('0원으로 돌아오면 안내도 처음 문구로 되돌아간다');
-  await expect(recordSheet.input.hint).toHaveText(EMPTY_HINT);
+  await demo.step('0원으로 돌아와도 안내 줄은 생기지 않는다');
+  await expect(recordSheet.input.hint).toHaveCount(0);
   await demo.beat(2);
 
   await demo.step('0원에서 칩을 누르면 저장이 아니라 고르기다. 저장은 아직 잠겨 있다');

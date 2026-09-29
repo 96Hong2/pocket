@@ -16,7 +16,6 @@ import {
   BOOK_KINDS,
   bookKindIcon,
   bookKindLabel,
-  bookNameWithSuffix,
   defaultBookName,
   defaultSettleRule,
   myNameIn,
@@ -51,7 +50,8 @@ function ruleOptions(kind: BookKind): SettleRule[] {
  * 가계부 만들기. 한 화면 안에서 두 단계로 간다.
  *
  * 1. 누구와 쓰나: 카드를 누르면 곧바로 다음 단계다. 확인 버튼이 없다.
- * 2. 돈 나누기와 내 이름: 이름과 돈 나누기는 유형에 맞춰 미리 채워 둔다. 채울 것은 내 이름 하나다.
+ * 2. 가계부 이름, 내 이름, 돈 나누기: 이름과 돈 나누기는 유형에 맞춰 미리 채워 둔다.
+ *    채울 것은 내 이름 하나고, 가계부 이름은 그 자리에서 바로 고칠 수 있다.
  *
  * 「만들고 초대하기」 한 번에 만들기, 초대 링크, 토스 공유창이 이어진다. 공유창에서 돌아오면
  * 결과와 상관없이 그 가계부 홈이다. 혼자인 홈에 초대장을 다시 보낼 자리가 있다.
@@ -97,14 +97,14 @@ function DetailStep({ kind, onBack }: { kind: BookKind; onBack: () => void }) {
   // 다른 가계부에서 쓰던 이름. 목록이 늦게 오면 사람이 손대기 전까지만 따라간다.
   const [typedName, setTypedName] = useState<string | null>(null);
   const myName = typedName ?? myNameIn(books.data?.items ?? []) ?? '';
-  const [customizing, setCustomizing] = useState(false);
   const [bookName, setBookName] = useState(defaultBookName(kind));
   const [busy, setBusy] = useState(false);
 
   // 두 번째 단계에서 뒤로가기를 누르면 앱을 나가지 않고 첫 단계로 돌아간다.
   useOverlayBackClose(true, onBack, busy);
 
-  const title = bookName.trim() === '' ? defaultBookName(kind) : bookName.trim();
+  // 칸을 비우면 기본 이름으로 만든다.
+  const name = bookName.trim() === '' ? defaultBookName(kind) : bookName.trim();
   const canSubmit = myName.trim() !== '' && !busy;
   const message = create.error instanceof ApiError ? create.error.message : null;
 
@@ -114,12 +114,12 @@ function DetailStep({ kind, onBack }: { kind: BookKind; onBack: () => void }) {
     try {
       const book = await create.mutateAsync({
         kind,
-        name: title,
+        name,
         settle_rule: rule,
         my_name: myName.trim(),
       });
       analytics.log(EVENTS.bookChanged, { action: 'created', kind }, { kind: 'click' });
-      // 보냈는지는 우리 집 홈 카드가 말한다. 알림까지 띄우면 같은 말을 두 번 한다.
+      // 보냈는지는 공유 홈 카드가 말한다. 알림까지 띄우면 같은 말을 두 번 한다.
       await invite.send(book);
       setViewingBookId(book.id);
       navigate(ROUTES.home, { replace: true });
@@ -132,7 +132,26 @@ function DetailStep({ kind, onBack }: { kind: BookKind; onBack: () => void }) {
   return (
     <div className="book-create">
       <p className="book-create__step">2/2</p>
-      <h1 className="page__title book-create__title">{bookNameWithSuffix(title)}를 만들게요</h1>
+      {/* 제목은 유형으로 고정한다. 이름 칸에 적는 대로 제목이 따라 흔들리면 어수선하다. */}
+      <h1 className="page__title book-create__title">{bookKindLabel(kind)} 가계부를 만들게요</h1>
+
+      {/* 기본 이름이 채워진 채 바로 고칠 수 있다. 처음 누르면 전체가 골라져 그대로 덮어 쓴다. */}
+      <BookField
+        label="가계부 이름"
+        value={bookName}
+        onChange={setBookName}
+        maxLength={20}
+        selectOnFirstFocus
+      />
+
+      <BookField
+        label="내 이름"
+        value={myName}
+        onChange={setTypedName}
+        placeholder="예: 은홍"
+        maxLength={10}
+        hint="같이 쓰는 사람에게 보이는 이름이에요"
+      />
 
       <p className="book-create__label" id="book-create-rule">
         돈 나누기
@@ -152,23 +171,6 @@ function DetailStep({ kind, onBack }: { kind: BookKind; onBack: () => void }) {
           </button>
         ))}
       </div>
-
-      <BookField
-        label="내 이름"
-        value={myName}
-        onChange={setTypedName}
-        placeholder="예: 은홍"
-        maxLength={10}
-        hint="같이 쓰는 사람에게 보이는 이름이에요"
-      />
-
-      {customizing ? (
-        <BookField label="가계부 이름" value={bookName} onChange={setBookName} maxLength={20} />
-      ) : (
-        <button type="button" className="book-create__more" onClick={() => setCustomizing(true)}>
-          직접 설정하기
-        </button>
-      )}
 
       {message != null ? (
         <p className="book-manage__notice" role="alert">

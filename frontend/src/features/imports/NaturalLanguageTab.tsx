@@ -33,8 +33,8 @@ export interface NaturalLanguageTabProps {
    */
   draftRef?: { current: boolean };
   onDone: () => void;
-  /** 저장이 성공한 순간. 닫기보다 앞선다. */
-  onSaved?: (day: string | null) => void;
+  /** 저장이 성공한 순간. 닫기보다 앞선다. 공유 가계부에 적었으면 그 id 도 준다. */
+  onSaved?: (day: string | null, bookId: string | null) => void;
   /**
    * 화면에서 고른 「적을 날」. 오늘이면 `null` 이다.
    *
@@ -42,6 +42,12 @@ export interface NaturalLanguageTabProps {
    * 9월 23일을 골라 두고 「어제 커피」 라고 적으면 어제로 간다.
    */
   baseDay?: string | null;
+  /**
+   * 적을 공유 가계부. 없으면 내 가계부다.
+   *
+   * 읽을 때 넘긴 가계부에 묶음이 묶인다. 분류는 그 가계부 것으로 오고 지출만 켜진다.
+   */
+  bookId?: string | null;
 }
 
 /**
@@ -57,6 +63,7 @@ export function NaturalLanguageTab({
   onDone,
   onSaved,
   baseDay = null,
+  bookId = null,
 }: NaturalLanguageTabProps) {
   const analytics = useAnalytics();
   const analyze = useAnalyzeText();
@@ -130,8 +137,10 @@ export function NaturalLanguageTab({
         </div>
       </div>
 
-      {/* 수입도 이 칸에 적으면 된다. 읽고 나서 줄마다 지출·수입을 바꿀 수 있다. */}
-      <p className="nl__aside">수입도 같이 적어도 돼요. 읽은 뒤에 줄마다 고칠 수 있어요</p>
+      {/* 수입도 이 칸에 적으면 된다. 읽고 나서 줄마다 지출·수입을 바꿀 수 있다. 공유 가계부는 지출만 받는다. */}
+      {bookId == null ? (
+        <p className="nl__aside">수입도 같이 적어도 돼요. 읽은 뒤에 줄마다 고칠 수 있어요</p>
+      ) : null}
 
       {message ? (
         <p className="nl__notice" role="alert">
@@ -155,7 +164,7 @@ export function NaturalLanguageTab({
           );
           const startedAt = Date.now();
           analyze.mutate(
-            { value: text.trim(), baseDay },
+            { value: text.trim(), baseDay, bookId },
             {
               onSettled: () => onBusyChange(false),
               onSuccess: (result) => {

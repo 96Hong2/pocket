@@ -76,6 +76,8 @@ erDiagram
   books ||--o{ settlements : "정산 끝 표시"
   book_categories |o--o{ book_entries : "분류한다"
   book_members |o--o{ book_entries : "적은 사람, 낸 사람"
+  transactions |o--o{ book_entries : "옮기기로 이어진 거래"
+  books |o--o{ import_batches : "공유 가계부에 적을 묶음"
 ```
 
 ## users
@@ -270,6 +272,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | `detected_count` / `committed_count` | "N건 인식, M건 저장" 문구의 근거 |
 | `error_code` | 재시도 화면에서 무엇이 실패했는지 구분하는 코드. **원문은 담지 않는다** |
 | `completed_at` | |
+| `book_id` | 공유 가계부에 적으려고 읽은 묶음이면 그 가계부(`CASCADE`). 비면 내 가계부 |
 
 | import_candidates | 설명 |
 |---|---|
@@ -278,6 +281,8 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | `is_selected` | 사용자가 저장하기로 고른 것 |
 | `sort_order` | 화면 순서 |
 | `transaction_id` | 저장을 마치면 만들어진 거래를 가리킨다 |
+| `book_category_id` | 공유 묶음에서 고른 그 가계부의 분류(`SET NULL`). `category_id` 는 개인 분류 외래키라 여기 따로 둔다 |
+| `book_entry_id` | 공유 묶음을 저장하면 만들어진 공유 기록(`SET NULL`) |
 
 제약은 `amount > 0`, `confidence` 0~1. 배치를 지우면 후보도 지워진다.
 
@@ -453,7 +458,8 @@ pref.budget_auto_carryover = false         → 복사 안 함
 
 `book_id`, `name varchar(40)`, `icon_key varchar(64)`, `sort_order int`, `deleted_at`(1차는 안 씀).
 unique `(book_id, name)`. 만들 때 종류별 목록을 서버가 심는다(`BOOK_CATEGORY_SEEDS`). 모든 종류가
-「기타」 를 갖고 있어 옮기기에서 같은 이름이 없을 때 그리로 간다. 1차는 분류를 더하거나 고치지 않는다.
+「기타」 를 갖고 있어 옮기기에서 같은 이름이 없을 때 그리로 간다. 멤버 누구나 분류를 더할 수 있고
+(가계부당 30개, 「기타」 바로 앞에 선다), 고치거나 지우는 길은 아직 없다.
 
 ### book_entries
 
@@ -467,7 +473,9 @@ unique `(book_id, name)`. 만들 때 종류별 목록을 서버가 심는다(`BO
 | `paid_by_member_id` | `uuid?` | 낸 사람. 기본은 적은 사람. 지금 멤버만 고를 수 있다 |
 | `updated_by_member_id` | `uuid?` | 적은 사람이 아닌 멤버가 마지막으로 고쳤으면 그 멤버, 적은 사람이 고쳤으면 비운다 |
 | `deleted_at`, `deleted_by_member_id` | | 적은 사람이나 관리자가 지운다. 되돌리면 둘 다 비운다 |
-| `moved_out_at` | `timestamptz?` | 내 가계부로 옮겨 지웠으면 찍는다. 개인 거래가 이미 생겼으니 되돌리기로 살리지 않는다(404) |
+| `moved_out_at` | `timestamptz?` | 내 가계부로 옮겨 지웠으면(또는 공유로 옮긴 것을 되돌렸으면) 찍는다. 개인 거래가 살아 있으니 지운 기록 되돌리기로 살리지 않는다(404) |
+| `moved_from_transaction_id` | `uuid?` | 공유로 옮겨 온 내 거래(`transactions`, `SET NULL`). `undo-move-in` 이 새로 만들지 않고 이 거래를 살린다 |
+| `moved_to_transaction_id` | `uuid?` | 내 가계부로 옮겨 생긴 거래(`SET NULL`). `undo-move-out` 이 이 거래를 지우고 기록을 살린다 |
 
 인덱스 `ix_book_entries_book_id_occurred_on`. 달 거르기는 `occurred_on` 날짜 비교뿐이다.
 

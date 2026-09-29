@@ -69,13 +69,16 @@ test('읽어 온 지출을 이체로 바꾸면 분류 칸이 사라지고 저장
   await recordSheet.nl.openEdit(TRANSFER_NAME);
   // 분류를 고르다가 종류가 틀린 것을 본다. 실제로 이 순서로 발견한다.
   await recordSheet.nl.form.pickCategory('식비');
-  await expect(recordSheet.nl.form.categoryChip('식비')).toHaveAttribute('aria-pressed', 'true');
+  await expect(recordSheet.nl.form.categoryButton).toHaveAccessibleName('분류 식비, 바꾸기');
   await expect(recordSheet.nl.form.paymentGroup).toBeVisible();
+  // 격자를 다시 열어 둔 채로 종류를 바꾼다.
+  await recordSheet.nl.form.openCategories();
 
   await recordSheet.nl.form.typeTab('이체').click();
   await expect(recordSheet.nl.form.typeTab('이체')).toBeChecked();
   // 이체는 집계 밖이라 분류에 뜻이 없다. 골라 둔 것까지 자리째 사라진다.
   await expect(recordSheet.nl.form.categoryGroup).toHaveCount(0);
+  await expect(recordSheet.nl.form.categoryButton).toHaveCount(0);
   // 무엇으로 냈는지도 마찬가지다. 자리를 남기면 고른 값을 서버가 조용히 버린다.
   await expect(recordSheet.nl.form.paymentGroup).toHaveCount(0);
 
@@ -303,7 +306,10 @@ test('이체 글씨는 지출·수입과 한 줄에 서고, 눌러도 포커스�
     if (link == null) return null;
     const a = pill.getBoundingClientRect();
     const b = link.getBoundingClientRect();
-    return { middle: Math.abs(a.top + a.height / 2 - (b.top + b.height / 2)), after: b.left - a.right };
+    return {
+      middle: Math.abs(a.top + a.height / 2 - (b.top + b.height / 2)),
+      after: b.left - a.right,
+    };
   });
   expect(gap, '이체 글씨가 알약 옆에 없다').not.toBeNull();
   // 가운데 높이가 같아야 한 줄이다. 좁은 폭에서 아래로 떨어지면 여기서 걸린다.

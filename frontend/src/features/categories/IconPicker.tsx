@@ -55,6 +55,8 @@ export interface IconPickerProps {
    * 아직 아무것도 안 고른 사람에게 「다시 고르기」 라고 적으면, 자기가 뭘 골랐다고 착각한다.
    */
   hasPick?: boolean;
+  /** 기본 아이콘만 고르게 한다. 이모지·사진 탭을 세우지 않는다(공유 가계부 분류). */
+  basicOnly?: boolean;
 }
 
 /**
@@ -75,6 +77,7 @@ export function IconPicker({
   disabled = false,
   startOpen = true,
   hasPick = true,
+  basicOnly = false,
 }: IconPickerProps) {
   const picked = parseCustomIcon(custom);
   const [source, setSource] = useState<Source>(picked?.kind ?? 'basic');
@@ -103,16 +106,18 @@ export function IconPicker({
         {/* 지금 걸린 것을 늘 보여 준다. 탭을 옮겨도 이 자리는 안 바뀐다. */}
         {/* 색도 함께 그린다. 아래에서 색을 고르는데 위 미리보기가 회색이면 안 먹은 줄 안다. */}
         <CategoryAvatar icon={value} custom={custom} color={color} size={52} />
-        <SegmentedControl
-          className="icon-picker__tabs"
-          options={SOURCES}
-          value={source}
-          onChange={(next) => {
-            if (next !== 'emoji') markInvalid(false);
-            setSource(next);
-          }}
-          ariaLabel="아이콘 고르는 방법"
-        />
+        {basicOnly ? null : (
+          <SegmentedControl
+            className="icon-picker__tabs"
+            options={SOURCES}
+            value={source}
+            onChange={(next) => {
+              if (next !== 'emoji') markInvalid(false);
+              setSource(next);
+            }}
+            ariaLabel="아이콘 고르는 방법"
+          />
+        )}
       </div>
 
       {source === 'basic' ? (

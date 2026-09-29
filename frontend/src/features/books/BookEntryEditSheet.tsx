@@ -8,6 +8,7 @@ import {
   useDeleteBookEntry,
   useMoveEntryOut,
   useRestoreBookEntry,
+  useUndoMoveOut,
   useUpdateBookEntry,
   type BookEntryOut,
   type BookEntryUpdate,
@@ -24,6 +25,8 @@ import {
   LeaveConfirm,
   iconOf,
 } from '../../shared/ui';
+
+import { CategoryComposeOverlay } from '../categories';
 
 import {
   asPickable,
@@ -58,6 +61,7 @@ export function BookEntryEditSheet({ book, entry, onClose }: BookEntryEditSheetP
   const toast = useToast();
   // 되돌리기는 시트가 닫힌 뒤 알림에서 누른다. 그래서 요청 훅을 닫혀도 남는 이 바깥에 둔다.
   const restore = useRestoreBookEntry();
+  const undoMove = useUndoMoveOut();
   const dirtyRef = useRef(false);
   const [asking, setAsking] = useState(false);
 
@@ -95,6 +99,34 @@ export function BookEntryEditSheet({ book, entry, onClose }: BookEntryEditSheetP
     });
   }
 
+  /** 내 가계부로 옮긴 뒤. 되돌리면 같은 기록이 낸 사람·분류·고친 사람째 돌아온다. */
+  function afterMoveOut(moved: BookEntryOut): void {
+    toast.show({
+      text: '내 가계부로 옮겼어요',
+      actionLabel: '되돌리기',
+      onAction: () => {
+        // 되돌림은 옮김으로 세지 않는다. 옮긴 횟수가 되돌린 만큼 부푼다.
+        analytics.log(
+          EVENTS.recordChanged,
+          { action: 'undo_move', to: 'shared', book: 'shared' },
+          { kind: 'click' },
+        );
+        undoMove.mutate(
+          { bookId: moved.book_id, entryId: moved.id },
+          {
+            onError: (error) =>
+              toast.show({
+                text:
+                  error instanceof ApiError
+                    ? (error.serverMessage ?? '되돌리지 못했어요')
+                    : '되돌리지 못했어요',
+              }),
+          },
+        );
+      },
+    });
+  }
+
   return (
     <BottomSheet
       open={entry != null}
@@ -111,6 +143,7 @@ export function BookEntryEditSheet({ book, entry, onClose }: BookEntryEditSheetP
           dirtyRef={dirtyRef}
           onClose={onClose}
           onDeleted={afterDelete}
+          onMovedOut={afterMoveOut}
           onSaved={(text) => toast.show({ text })}
         />
       ) : null}
@@ -135,6 +168,7 @@ function EntryForm({
   dirtyRef,
   onClose,
   onDeleted,
+  onMovedOut,
   onSaved,
 }: {
   book: BookOut;
@@ -143,6 +177,8 @@ function EntryForm({
   dirtyRef: { current: boolean };
   onClose: () => void;
   onDeleted: (entry: BookEntryOut) => void;
+  /** 내 가계부로 옮긴 뒤. 알림과 되돌리기는 시트 바깥이 띄운다. */
+  onMovedOut: (entry: BookEntryOut) => void;
   onSaved: (text: string) => void;
 }) {
   const analytics = useAnalytics();
@@ -163,6 +199,8 @@ function EntryForm({
   const [asking, setAsking] = useState(false);
   const [futureAsking, setFutureAsking] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  /** 새 분류 만들기 창이 떴나. 이 가계부 분류를 만들어 멤버 모두에게 보인다. */
+  const [creating, setCreating] = useState(false);
   const confirmRef = useRef<HTMLDivElement>(null);
 
   // 작은 화면에서는 버튼 줄이 접힌 아래에 있다. 물음이 열리면 그 자리로 데려간다.
@@ -220,9 +258,12 @@ function EntryForm({
       if (toMine) {
         await moveOut.mutateAsync({ bookId: book.id, entryId: entry.id });
         analytics.log(EVENTS.recordChanged, { action: 'move', to: 'mine', book: 'shared' });
+        onClose();
+        onMovedOut(entry);
+        return;
       }
       onClose();
-      onSaved(toMine ? '내 가계부로 옮겼어요' : editedToast(book));
+      onSaved(editedToast(book));
     } catch (error) {
       setFailed(
         error instanceof ApiError
@@ -328,6 +369,19 @@ function EntryForm({
           selectedId={categoryId}
           disabled={busy || readOnly}
           onPick={(category) => setCategoryId(category.id)}
+          onCreate={readOnly ? undefined : () => setCreating(true)}
+          // 공유 분류는 관리 화면이 없다. 그리로 가라는 줄을 세우지 않는다.
+          manageNote={false}
+        />
+
+        {/* 고치던 날짜·상호·금액은 뒤에 그대로 남는다. 만들면 그 분류가 골라진다. */}
+        <CategoryComposeOverlay
+          open={creating}
+          fixedKind="expense"
+          bookId={book.id}
+          onBack={() => setCreating(false)}
+          onClose={() => setCreating(false)}
+          onCreated={(created) => setCategoryId(created.id)}
         />
 
         <BookPayerRow

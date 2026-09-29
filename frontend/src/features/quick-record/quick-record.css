@@ -239,6 +239,7 @@
     color: var(--color-placeholder);
   }
 
+  /* 저장 뒤 금액을 고칠 때만 선다. 기록 시트 키패드에는 안내 줄이 없다. */
   .keypad__hint {
     margin: 4px 0 0;
     font-size: var(--text-12);
@@ -363,6 +364,14 @@
     justify-content: flex-end;
   }
 
+  /*
+    공유 가계부 키패드. 방법 탭 아래에 날짜 칩 한 줄이 따로 서므로 탭과의 틈을 한 단계 줄여
+    키패드까지 한 화면에 든다(390x746).
+  */
+  .record--dest .record__panel--book {
+    margin-top: 4px;
+  }
+
   .record--dest .keypad__head {
     padding: 4px 0 2px;
   }
@@ -382,10 +391,6 @@
 
     .record--dest .keypad__amount {
       font-size: 28px;
-    }
-
-    .record--dest .keypad__hint {
-      margin-top: 2px;
     }
 
     .record--dest .keypad__keys {

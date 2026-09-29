@@ -34,6 +34,9 @@ from app.integrations.llm.port import (
 )
 from app.integrations.llm.prompts import (
     RECEIPT_TASK_MARKER,
+    SHARED_BOOK_MARKER,
+    for_shared_book,
+    listed_categories,
     natural_language_prompt,
     receipt_prompt,
     retry_prompt,
@@ -49,6 +52,7 @@ __all__ = [
     "OPENAI_DEFAULT_MODEL",
     "OPENAI_ESCALATION_MODEL",
     "RECEIPT_TASK_MARKER",
+    "SHARED_BOOK_MARKER",
     "ExtractedTransaction",
     "GeminiStructuredClient",
     "LlmError",
@@ -67,8 +71,10 @@ __all__ = [
     "TransactionType",
     "attach_source",
     "build_meta",
+    "for_shared_book",
     "get_escalation_client",
     "get_llm_client",
+    "listed_categories",
     "natural_language_prompt",
     "receipt_prompt",
     "retry_prompt",

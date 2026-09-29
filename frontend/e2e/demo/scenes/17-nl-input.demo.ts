@@ -103,7 +103,7 @@ test('37 이해한 결과를 눌러서 고친다', async ({ demo, home, recordSh
   await demo.beat(2);
 
   await demo.step('분류도 다시 고른다');
-  await recordSheet.nl.form.categoryChip('생활').click();
+  await recordSheet.nl.form.pickCategory('생활');
   await demo.beat(2);
 
   await demo.step('고친 값이 목록과 저장 버튼에 함께 반영된다');
@@ -169,7 +169,7 @@ test('39 한 번 고친 분류를 기억한다', async ({ categories, demo, home
 
   await demo.step('생활로 바꿔서 저장한다');
   await recordSheet.nl.openEdit('올리브영');
-  await recordSheet.nl.form.categoryChip('생활').click();
+  await recordSheet.nl.form.pickCategory('생활');
   await recordSheet.nl.form.apply();
   await recordSheet.nl.save();
   await recordSheet.nl.confirmButton.click();

@@ -51,11 +51,14 @@ from app.models import (
     Category,
     CategoryKind,
     Settlement,
+    Transaction,
     User,
 )
 from app.modules import ledger
 from app.modules.books.schemas import (
+    BOOK_CATEGORY_LIMIT,
     BookCategoryChangeOut,
+    BookCategoryCreate,
     BookCategoryOut,
     BookCreate,
     BookEntryCreate,
@@ -86,7 +89,9 @@ from app.modules.transactions import service as transactions
 
 __all__ = [
     "absorb_memberships",
+    "book_categories",
     "create_book",
+    "create_category",
     "create_entry",
     "create_invite",
     "delete_book",
@@ -99,15 +104,21 @@ __all__ = [
     "list_books",
     "list_entries",
     "mark_settlement_done",
+    "month_state_for",
     "move_entry_in",
     "move_entry_out",
     "preview_invite",
     "remove_member",
+    "require_book_category",
     "restore_book",
     "restore_entry",
+    "stage_entry",
+    "undo_move_in",
+    "undo_move_out",
     "undo_settlement_done",
     "update_book",
     "update_entry",
+    "writable_book",
 ]
 
 _BOOK_NOT_FOUND = "가계부를 찾지 못했어요."
@@ -902,6 +913,7 @@ def move_entry_out(
     entry.deleted_by_member_id = access.me.id
     # 되돌리기로 살리면 같은 돈이 두 가계부에 함께 잡힌다.
     entry.moved_out_at = now
+    entry.moved_to_transaction_id = tx.id
     session.commit()
     return MoveOutResult(transaction_id=tx.id)
 
@@ -935,12 +947,197 @@ def move_entry_in(
         occurred_on=ledger.local_date(tx.occurred_at, ledger.user_tz(user)),
         created_by_member_id=access.me.id,
         paid_by_member_id=access.me.id,
+        moved_from_transaction_id=tx.id,
     )
     session.add(entry)
     tx.deleted_at = _now()
     session.commit()
     session.refresh(entry)
     return _created(session, access, entry)
+
+
+_CANNOT_UNDO = "되돌릴 수 없는 기록이에요."
+
+
+def _my_transaction(session: Session, user: User, tx_id: uuid.UUID | None) -> Transaction | None:
+    tx = session.get(Transaction, tx_id) if tx_id is not None else None
+    return tx if tx is not None and tx.user_id == user.id else None
+
+
+def undo_move_in(
+    session: Session, user: User, book_id: uuid.UUID, entry_id: uuid.UUID
+) -> MoveOutResult:
+    """공유 가계부로 옮긴 것을 되돌린다. 새로 만들지 않고 지워 둔 원본 거래를 살린다.
+
+    태그, 결제 수단, 예산 제외, 원래 시각, 출처가 그대로 돌아온다. 공유 기록은 지우고
+    `moved_out_at` 을 찍어, 지운 기록 되돌리기로 다시 살아나 같은 돈이 두 번 잡히지 않게 한다.
+    """
+    access = _access(session, user, book_id)
+    _require_open(access.book)
+    entry = _live_entry(session, access.book, entry_id)
+    if entry.created_by_member_id not in _my_member_ids(session, access.book.id, user.id):
+        raise _not_found(_ENTRY_NOT_FOUND)
+    tx = _my_transaction(session, user, entry.moved_from_transaction_id)
+    if tx is None or tx.deleted_at is None:
+        raise ApiError(ErrorCode.CONFLICT, _CANNOT_UNDO, status_code=409)
+
+    now = _now()
+    tx.deleted_at = None
+    # 옮겨 둔 사이 그날에 적은 「안 썼어요」 는 되살린 지출과 함께 남을 수 없다.
+    transactions.clear_no_spend_for_spending(session, user, tx)
+    entry.deleted_at = now
+    entry.deleted_by_member_id = access.me.id
+    entry.moved_out_at = now
+    entry.moved_to_transaction_id = tx.id
+    session.commit()
+    return MoveOutResult(transaction_id=tx.id)
+
+
+def undo_move_out(
+    session: Session, user: User, book_id: uuid.UUID, entry_id: uuid.UUID
+) -> BookEntryOut:
+    """내 가계부로 옮긴 것을 되돌린다. 그때 생긴 거래를 지우고 공유 기록을 그대로 살린다.
+
+    낸 사람, 분류, 고친 사람이 옮기기 전과 같다. 거래에 환불이 붙었으면 되돌릴 지출을 잃어 막는다.
+    """
+    access = _access(session, user, book_id)
+    _require_open(access.book)
+    entry = session.get(BookEntry, entry_id)
+    if (
+        entry is None
+        or entry.book_id != access.book.id
+        or entry.deleted_at is None
+        or entry.moved_out_at is None
+    ):
+        raise _not_found(_ENTRY_NOT_FOUND)
+    mine = _my_member_ids(session, access.book.id, user.id)
+    if entry.created_by_member_id not in mine:
+        raise _not_found(_ENTRY_NOT_FOUND)
+    tx = _my_transaction(session, user, entry.moved_to_transaction_id)
+    if tx is None or tx.deleted_at is not None or transactions.is_refunded(session, tx.id):
+        raise ApiError(ErrorCode.CONFLICT, _CANNOT_UNDO, status_code=409)
+
+    tx.deleted_at = _now()
+    entry.deleted_at = None
+    entry.deleted_by_member_id = None
+    entry.moved_out_at = None
+    entry.moved_to_transaction_id = None
+    session.commit()
+    session.refresh(entry)
+    return _entry_out(entry, mine, access.is_owner)
+
+
+# ── 공유 분류 ───────────────────────────────────────────
+
+
+def book_categories(session: Session, book: Book) -> list[BookCategory]:
+    """지우지 않은 분류를 화면 순서대로."""
+    return list(
+        session.scalars(
+            select(BookCategory)
+            .where(BookCategory.book_id == book.id, BookCategory.deleted_at.is_(None))
+            .order_by(BookCategory.sort_order, BookCategory.name)
+        )
+    )
+
+
+def create_category(
+    session: Session, user: User, book_id: uuid.UUID, body: BookCategoryCreate
+) -> BookCategoryOut:
+    """멤버 누구나 만든다. 「기타」 바로 앞에 세운다. 모두의 화면에 같이 보인다."""
+    access = _access(session, user, book_id, lock=True)
+    _require_open(access.book)
+    rows = list(session.scalars(select(BookCategory).where(BookCategory.book_id == access.book.id)))
+    live = sorted(
+        (row for row in rows if row.deleted_at is None), key=lambda row: (row.sort_order, row.name)
+    )
+    same = next((row for row in rows if row.name == body.name), None)
+    if same is not None and same.deleted_at is None:
+        raise ApiError(ErrorCode.DUPLICATE_CATEGORY, "이미 있는 분류예요.", status_code=409)
+    if len(live) >= BOOK_CATEGORY_LIMIT:
+        raise ApiError(
+            ErrorCode.INVALID_REQUEST,
+            f"분류는 {BOOK_CATEGORY_LIMIT}개까지 만들 수 있어요.",
+            status_code=422,
+        )
+
+    fallback = next((row for row in live if row.name == FALLBACK_CATEGORY), None)
+    if fallback is None:
+        order = (live[-1].sort_order + 10) if live else 10
+    else:
+        # 「기타」 부터 뒤를 한 칸씩 민다.
+        order = fallback.sort_order
+        for row in live:
+            if row.sort_order >= order:
+                row.sort_order += 10
+    # 이름이 겹치는 지운 줄이 있으면 그 줄을 살린다. 이름은 가계부 안에서 하나다.
+    row = same or BookCategory(book_id=access.book.id, name=body.name)
+    row.deleted_at = None
+    row.icon_key = body.icon_key
+    row.sort_order = order
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return BookCategoryOut.model_validate(row)
+
+
+# ── 다른 모듈이 공유 가계부에 적을 때 ─────────────────────
+
+
+def writable_book(session: Session, user: User, book_id: uuid.UUID) -> tuple[Book, BookMember]:
+    """지금 멤버이고 끝나지 않은 가계부. 아니면 404 또는 BOOK_ENDED."""
+    access = _access(session, user, book_id)
+    _require_open(access.book)
+    return access.book, access.me
+
+
+def require_book_category(session: Session, book: Book, category_id: uuid.UUID | None) -> None:
+    _require_category(session, book, category_id)
+
+
+def stage_entry(
+    session: Session,
+    book: Book,
+    me: BookMember,
+    *,
+    amount: Decimal,
+    category_id: uuid.UUID | None,
+    title: str | None,
+    occurred_on: date,
+) -> BookEntry:
+    """공유 기록 한 줄을 만든다. 낸 사람은 나, commit 은 부르는 쪽이 한 번에 한다.
+
+    분류가 비었거나 이제 없으면 「기타」 로 둔다.
+    """
+    if category_id is not None:
+        row = session.get(BookCategory, category_id)
+        if row is None or row.book_id != book.id or row.deleted_at is not None:
+            category_id = None
+    entry = BookEntry(
+        book_id=book.id,
+        amount=amount,
+        category_id=category_id or _book_category_for(session, book, None),
+        title=title,
+        occurred_on=occurred_on,
+        created_by_member_id=me.id,
+        paid_by_member_id=me.id,
+    )
+    session.add(entry)
+    session.flush()
+    return entry
+
+
+def month_state_for(session: Session, book: Book, days: Sequence[date]) -> BookMonthStateOut:
+    """여러 날에 걸쳐 적었을 때 저장 뒤 화면이 말할 달.
+
+    이번 달이 섞여 있으면 이번 달, 아니면 가장 늦은 날의 달이다. 여행 가계부는 여행 전체다.
+    """
+    if book.kind is BookKind.TRIP:
+        return _month_state(session, book, _trip_period(session, book), whole=True)
+    current = BudgetPeriod.containing(_today(book))
+    if not days or any(current.start <= day <= current.end for day in days):
+        return _month_state(session, book, current)
+    return _month_state(session, book, BudgetPeriod.containing(max(days)))
 
 
 # ── 정산 ───────────────────────────────────────────────

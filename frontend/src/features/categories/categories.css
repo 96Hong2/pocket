@@ -224,9 +224,11 @@
     */
     grid-auto-rows: 56px;
     gap: 6px;
-    /* 칸이 시트를 다 먹으면 저장 버튼이 화면 밖으로 나간다. 격자만 따로 굴린다. */
-    max-height: 244px;
-    overflow-y: auto;
+    /*
+      격자는 높이를 가두지 않고 다 선다. 굴리는 것은 바깥 창 한 곳이다.
+      격자만 따로 굴리면 줄 가운데서 잘려 보이고, 나머지 줄은 안 보이는 스크롤 뒤에 숨는다.
+      저장은 시트에서는 바닥, 화면을 통째로 쓸 때는 맨 위에 붙어 있어 격자가 길어도 늘 보인다.
+    */
     padding: 6px;
     background: var(--color-surface-sunken);
     border-radius: var(--radius-md);
@@ -480,23 +482,13 @@
     background: var(--color-surface);
   }
 
-  /* 크게 연 시트에서는 아이콘 자리가 남는 높이를 먹어, 저장이 바닥에 붙는다. */
-  .pk-sheet--tall .cat-sheet__field--icon {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-    flex-direction: column;
-  }
-
-  .pk-sheet--tall .cat-sheet__field--icon .icon-picker,
-  .pk-sheet--tall .cat-sheet__field--icon .icon-picker__grid {
-    flex: 1;
-    min-height: 0;
-  }
-
-  /* 시트가 커졌으니 격자를 좁은 상자에 가둘 이유가 없다. */
-  .pk-sheet--tall .icon-picker__grid {
-    max-height: none;
+  /*
+    크게 연 시트는 시트 한 곳만 굴러간다. 폼은 내용만큼 자라고, 짧으면 남는 높이를 채워
+    저장 줄이 바닥에 붙는다. 시트 공용 규칙은 본문을 시트 높이에 가둬 격자만 따로 굴렸다.
+  */
+  .cat-sheet.pk-sheet--tall > .pk-sheet__body,
+  .cat-sheet.pk-sheet--tall > .pk-sheet__body > .cat-sheet__body {
+    flex: 1 0 auto;
   }
 
   /* ── 화면 하나를 통째로 쓰는 분류 만들기 ─────────── */
@@ -618,9 +610,13 @@
     350 안에 354 가 들어갔다). 여기서는 바탕이 본문 폭과 정확히 같으면 충분하다.
   */
   .cat-compose .cat-sheet__bar {
-    top: 0;
-    margin-inline: 0;
-    padding-inline: 0;
+    /*
+      창 위쪽 여백까지 덮는다. 격자가 다 서서 창 전체가 굴러가니, 안 덮으면 올라가는
+      칸이 그 틈으로 비친다. 시트 바닥 줄(`.cat-sheet__foot`)과 같은 짝이다.
+    */
+    top: calc(-12px - var(--safe-top));
+    margin: calc(-12px - var(--safe-top)) 0 0;
+    padding: calc(16px + var(--safe-top)) 0 10px;
   }
 
   /*
