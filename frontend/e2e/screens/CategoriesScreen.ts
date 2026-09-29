@@ -457,7 +457,7 @@ class CategorySheet {
     await expect(this.reopenIconsButton).toBeVisible();
   }
 
-  /** 접힌 격자를 다시 펴는 버튼. */
+  /** 접힌 격자를 다시 펴는 자리. 맨 위에 크게 보이는 고른 아이콘이다(연필 표시). */
   get reopenIconsButton(): Locator {
     return this.root.getByRole('button', { name: '아이콘 다시 고르기' });
   }

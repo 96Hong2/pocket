@@ -29,6 +29,7 @@ import type {
   InvitePreviewOut,
   JoinIn,
   MoveInIn,
+  MoveOutIn,
   MoveOutResult,
   SettlementDoneIn,
   SettlementOut,
@@ -528,7 +529,12 @@ export interface ApiClient extends Transport {
   deleteBookEntry(bookId: string, entryId: string, options?: CallOptions): Promise<void>;
   restoreBookEntry(bookId: string, entryId: string, options?: CallOptions): Promise<BookEntryOut>;
   /** 적은 사람만. 내 가계부에 거래가 생기고 공유 기록은 지워진다. */
-  moveEntryOut(bookId: string, entryId: string, options?: CallOptions): Promise<MoveOutResult>;
+  moveEntryOut(
+    bookId: string,
+    entryId: string,
+    body?: MoveOutIn,
+    options?: CallOptions,
+  ): Promise<MoveOutResult>;
   /** 내 지출 하나를 공유 가계부로 옮긴다. 내 거래는 지워진다. */
   moveEntryIn(bookId: string, body: MoveInIn, options?: CallOptions): Promise<BookEntryCreated>;
   /**
@@ -1229,10 +1235,11 @@ export function createApiClient(options: TransportOptions): ApiClient {
       });
     },
 
-    moveEntryOut(bookId, entryId, call) {
+    moveEntryOut(bookId, entryId, body, call) {
       return transport.request<MoveOutResult>({
         method: 'POST',
         path: `${bookEntryPath(bookId, entryId)}/move-out`,
+        body,
         signal: call?.signal,
       });
     },

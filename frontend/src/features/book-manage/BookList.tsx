@@ -63,7 +63,7 @@ export function BookList() {
       {ended.length > 0 ? (
         <section className="books-page__section" aria-labelledby="books-ended">
           <h2 id="books-ended" className="books-page__label">
-            끝난 가계부
+            완료한 가계부
           </h2>
           <BookRows books={ended} />
         </section>

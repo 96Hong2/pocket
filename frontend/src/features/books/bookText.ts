@@ -140,5 +140,5 @@ export function splitBooks(items: readonly BookOut[]): { active: BookOut[]; ende
 /** 우리 집 홈 맨 위 한 줄 알림. */
 export function noticeText(notice: BookNotice): string {
   if (notice.kind === 'joined') return `${notice.name}님이 들어왔어요`;
-  return notice.name == null ? '가계부가 끝났어요' : `${notice.name}님이 가계부를 끝냈어요`;
+  return notice.name == null ? '가계부가 완료됐어요' : `${notice.name}님이 가계부를 완료했어요`;
 }

@@ -410,7 +410,7 @@ export default function HomePage() {
     공유 가계부를 보다 나간 사람만 그 가계부에서 시작한다(`BookViewProvider`).
     그걸 정하는 동안은 내 가계부를 그리지 않는다. 빈 내 가계부가 한 번 비쳤다가 바뀌지 않게.
 
-    **가계부가 하나도 없는 사람의 홈은 지금과 똑같다.** 맨 위 칩도 없다. 끝난 가계부만
+    **가계부가 하나도 없는 사람의 홈은 지금과 똑같다.** 맨 위 칩도 없다. 완료한 가계부만
     남은 사람에게는 칩이 선다. 거기서 지난 기록을 다시 볼 수 있어야 한다.
   */
   const { viewingBookId, setViewingBookId, restoring } = useBookView();

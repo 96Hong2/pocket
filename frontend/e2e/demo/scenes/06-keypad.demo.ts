@@ -179,7 +179,7 @@ test('10 카테고리 칩과 불러오기 실패', async ({
     await expect(recordSheet.input.categoryChip(name)).toBeVisible();
   }
   // 수입·이체도 기본 카테고리지만 기록 시트는 지출만 올린다.
-  // 알약 옆 밑줄 글씨 「이체」 도 이름이 같은 버튼이라, 버튼이 아니라 분류 칩 이름으로 센다.
+  // 셋째 알약 「이체」 도 이름이 같은 버튼이라, 버튼이 아니라 분류 칩 이름으로 센다.
   const onSheet = await recordSheet.input.categoryChipNames();
   for (const name of NOT_ON_SHEET) {
     expect(onSheet).not.toContain(name);
@@ -319,7 +319,7 @@ test('59 이체한 돈은 지출에 안 들어간다', async ({ demo, home, prep
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(TRANSFER_AMOUNT));
   await demo.beat(2);
 
-  await demo.step('「지출」, 「수입」 옆 밑줄 글씨 「이체」 를 누른다');
+  await demo.step('「지출」, 「수입」 옆 셋째 알약 「이체」 를 누른다');
   await recordSheet.input.transferButton.click();
   await expect(recordSheet.input.transferPanel).toBeVisible();
   await demo.beat(2);

@@ -45,7 +45,7 @@ import {
   iconOf,
 } from '../../shared/ui';
 
-import { BookDestinationRow, movedInToast } from '../books';
+import { BookDestinationRow, asPickable, movedInToast, sameNameCategoryId } from '../books';
 import { CategoryComposeOverlay } from '../categories';
 import { TagPicker } from '../tags';
 
@@ -316,11 +316,28 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
   const [moveTo, setMoveTo] = useState<string | null>(null);
   const target = movable ? moveTo : null;
   const targetBook = activeBooks.find((book) => book.id === target) ?? null;
+  /*
+    옮길 가계부에서 달 분류. 적을 곳을 바꾸면 분류 칸이 그 가계부 것으로 바뀐다.
+    처음에는 지금 분류와 같은 이름, 없으면 「기타」 가 골라져 있다. 가계부마다 따로 기억한다.
+  */
+  const [bookPicks, setBookPicks] = useState<Record<string, string>>({});
+  const targetCategories = targetBook == null ? [] : asPickable(targetBook.categories);
+  const targetCategoryId =
+    targetBook == null
+      ? null
+      : (bookPicks[targetBook.id] ??
+        sameNameCategoryId(
+          targetCategories,
+          categories.find((item) => item.id === categoryId)?.name,
+        ));
   const pickable = switchable
     ? categoriesOfKind(kind, categories)
     : categories.filter((item) => item.kind === CATEGORY_KIND[transaction.type]);
   // 머리의 아이콘은 지금 고른 카테고리를 따라간다. 저장한 값만 보면 바꾼 뒤에도 옛 그림이 남는다.
-  const headCategory = categories.find((item) => item.id === categoryId);
+  const headCategory =
+    targetBook != null
+      ? targetCategories.find((item) => item.id === targetCategoryId)
+      : categories.find((item) => item.id === categoryId);
 
   const nextAmount = Number(amount);
   // 저장할 수 없는 금액이면 완료를 잠근다. 열어 두면 금액만 조용히 빠지고 나머지가 저장된다.
@@ -417,6 +434,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
         created = await moveIn.mutateAsync({
           bookId: targetBook.id,
           transactionId: transaction.id,
+          categoryId: targetCategoryId,
         });
       } catch {
         setFailed('move');
@@ -592,9 +610,24 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
           한 화면에서 배운 것이 다음 화면에서도 통해야 한다.
         */}
         {targetBook != null ? (
-          <p className="tx-edit__hint">
-            분류는 {targetBook.name}에 같은 이름이 있으면 그대로, 없으면 기타로 들어가요
-          </p>
+          /*
+            옮길 가계부의 분류를 그대로 세운다. 한 줄로 「같은 이름이 없으면 기타」 라고만 적으면
+            어느 분류로 들어갈지 옮긴 뒤에야 안다. 새 분류는 그 가계부 분류가 되어 멤버 모두에게 보인다.
+          */
+          <CategoryPicker
+            key={targetBook.id}
+            className="tx-edit__cats"
+            ariaLabel="카테고리"
+            size="sm"
+            categories={targetCategories}
+            selectedId={targetCategoryId}
+            disabled={busy}
+            onPick={(category) =>
+              setBookPicks((picks) => ({ ...picks, [targetBook.id]: category.id }))
+            }
+            onCreate={() => setCreating(true)}
+            manageNote={false}
+          />
         ) : (
           <>
             <CategoryPicker
@@ -695,11 +728,17 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
         open={creating}
         // 종류는 위 토글이 이미 정했다. 여기서 다시 묻지 않는다.
         fixedKind={kind}
+        // 공유 가계부로 옮기는 중이면 그 가계부 분류를 만든다.
+        bookId={targetBook?.id}
         onBack={() => setCreating(false)}
         onClose={() => setCreating(false)}
         // 만들자마자 이 기록의 분류로 둔다. 다시 찾아 누르게 하면 만든 보람이 없다.
         onCreated={(created) => {
-          setCategoryId(created.id);
+          if (targetBook != null) {
+            setBookPicks((picks) => ({ ...picks, [targetBook.id]: created.id }));
+          } else {
+            setCategoryId(created.id);
+          }
           setCreating(false);
         }}
       />

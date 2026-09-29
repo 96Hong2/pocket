@@ -58,7 +58,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | `INVITE_EXPIRED` | 409 | 공유 가계부 초대 링크가 만료됐다(7일). 초대한 사람에게 새 링크를 받아야 한다. 화면 문구 「초대 링크가 만료됐어요」 |
 | `INVITE_CLOSED` | 409 | 더 쓸 수 없는 초대 링크다. 새 초대가 나왔거나 연인·부부 초대를 이미 한 사람이 썼다. 「더 이상 쓸 수 없는 초대 링크예요」 |
 | `BOOK_FULL` | 409 | 공유 가계부 인원(10명)이 다 찼다. 「이 가계부는 10명이 다 찼어요」 |
-| `BOOK_ENDED` | 409 | 끝난 공유 가계부에 적거나 초대하거나 들어오려 했다. 관리자가 다시 열면 된다. 「끝난 가계부라 적을 수 없어요」 |
+| `BOOK_ENDED` | 409 | 완료한 공유 가계부에 적거나 초대하거나 들어오려 했다. 관리자가 다시 열면 된다. 「완료한 가계부라 적을 수 없어요」 |
 | `PARSE_UNAVAILABLE` | 503 | 지금은 읽지 못했다. 잠시 뒤 다시. 문구가 갈린다: 줄글은 '문장을', 캡처는 '캡처를', 영수증은 '영수증을' |
 | `HTTP_ERROR` | 그대로 | 라우팅 단계에서 난 오류(없는 경로, 허용하지 않는 메서드) |
 | `INTERNAL_ERROR` | 500 | 서버 오류. 본문 형태는 위와 같다 |
@@ -709,7 +709,7 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 
 세 입구 모두 본문에 `book_id` 를 받는다: `{ "text": "...", "book_id": "…" }`. 주면 그 공유 가계부에 적을 묶음이다.
 
-- 스위치 `SHARED_BOOKS_ENABLED` 가 꺼졌거나 지금 멤버가 아니면 404 `NOT_FOUND`, 끝난 가계부면 409 `BOOK_ENDED`. **모델을 부르기 전에** 막아 하루 상한도 안 쓴다.
+- 스위치 `SHARED_BOOKS_ENABLED` 가 꺼졌거나 지금 멤버가 아니면 404 `NOT_FOUND`, 완료한 가계부면 409 `BOOK_ENDED`. **모델을 부르기 전에** 막아 하루 상한도 안 쓴다.
 - 모델에게 보여 주는 분류 이름은 그 가계부의 분류다. 내 상호 규칙은 쓰지 않는다. 후보 `category_id` 는 그 가계부 분류 id 이고, 목록에 없는 이름이면 `null` 이다(저장할 때 「기타」).
 - 지출이 아닌 줄(수입, 이체, 환불)은 `is_selected: false` 로 온다.
 - `is_duplicate` 는 **그 가계부에 살아 있는 기록**, 또는 같은 묶음의 앞줄과 같은 날·같은 금액이고 상호가 둘 다 있으면 같은 상호일 때다. 누가 적었든 본다. 내 개인 거래는 보지 않는다.
@@ -1150,18 +1150,18 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 | PATCH | `/books/{id}` | 필드마다 | 보낸 필드만 고친다. `name`, `ended` 는 관리자만, `settle_rule`, `monthly_budget` 은 멤버 누구나. `monthly_budget: null` 은 예산을 지운다 |
 | DELETE | `/books/{id}` | 관리자 | 204. 소프트 삭제하고 초대를 닫는다 |
 | POST | `/books/{id}/restore` | 지운 관리자 | `BookOut`. 지운 지 30일 안이고 그 사람이 아직 관리자일 때만. 아니면 404 |
-| POST | `/books/{id}/invites` | 멤버 | 201 `BookInviteOut`. 앞의 살아 있는 초대를 닫는다. 끝난 가계부면 409 `BOOK_ENDED` |
+| POST | `/books/{id}/invites` | 멤버 | 201 `BookInviteOut`. 앞의 살아 있는 초대를 닫는다. 완료한 가계부면 409 `BOOK_ENDED` |
 | GET | `/invites/{code}` | 누구나 | `InvitePreviewOut`. 모르는 코드, 형식이 틀린 코드, 지운 가계부는 404 |
 | POST | `/invites/{code}/join` | 누구나 | `BookOut`. 이미 멤버면 그대로 돌려준다. 오류는 아래 표 |
 | POST | `/books/{id}/leave` | 멤버 | 204. 관리자가 나가면 가장 먼저 들어온 멤버가 관리자가 된다. 아무도 안 남으면 가계부를 지운다 |
 | DELETE | `/books/{id}/members/{member_id}` | 관리자 | 204. 자기 자신은 안 된다(404). 초대는 닫지 않는다. 내보낸 사람만 그 전에 나온 링크로 못 돌아온다(`closed`) |
 | GET | `/books/{id}/entries?year&month` | 멤버 | 그 달의 기록(`BookEntryListOut`). 안 보내면 가계부 시간대의 이번 달. 날짜가 늦은 것부터 |
-| POST | `/books/{id}/entries` | 멤버 | 201 `BookEntryCreated`(기록 + 그 기록이 든 달의 상태). 여행 가계부는 달 대신 여행 전체다(지우지 않은 기록 전부, `period_start` 는 가장 이른 기록 날, `period_end` 는 가계부 시간대의 오늘). 끝난 가계부면 409 |
+| POST | `/books/{id}/entries` | 멤버 | 201 `BookEntryCreated`(기록 + 그 기록이 든 달의 상태). 여행 가계부는 달 대신 여행 전체다(지우지 않은 기록 전부, `period_start` 는 가장 이른 기록 날, `period_end` 는 가계부 시간대의 오늘). 완료한 가계부면 409 |
 | PATCH | `/books/{id}/entries/{entry_id}` | 멤버 | `BookEntryOut`. 적은 사람이 아닌 멤버가 고치면 `updated_by_member_id` 가 그 멤버, 적은 사람이 고치면 비운다 |
 | DELETE | `/books/{id}/entries/{entry_id}` | 적은 사람, 관리자 | 204 소프트 삭제 |
 | POST | `/books/{id}/entries/{entry_id}/restore` | 적은 사람, 관리자 | `BookEntryOut`. 지운 것만 되돌린다. 내 가계부로 옮긴 기록은 404 |
-| POST | `/books/{id}/entries/{entry_id}/move-out` | 적은 사람 | `MoveOutResult`. 내 지출을 만들고 공유 기록을 지운다(한 commit) |
-| POST | `/books/{id}/entries/move-in` | 멤버 | 201 `BookEntryCreated`. 내 지출 하나를 옮기고 원본을 지운다(한 commit) |
+| POST | `/books/{id}/entries/{entry_id}/move-out` | 적은 사람 | `MoveOutResult`. 내 지출을 만들고 공유 기록을 지운다(한 commit). 바디 `{"category_id": …}` 는 고른 내 지출 분류다. 안 보내면 같은 이름의 내 분류, 없으면 「기타」. 수입 분류나 남의 분류면 422 |
+| POST | `/books/{id}/entries/move-in` | 멤버 | 201 `BookEntryCreated`. 내 지출 하나를 옮기고 원본을 지운다(한 commit). 바디의 `category_id` 는 고른 이 가계부 분류다. 안 보내면 같은 이름, 없으면 「기타」. 다른 가계부 분류면 422 |
 | POST | `/books/{id}/entries/{entry_id}/undo-move-in` | 적은 사람 | `MoveOutResult`(`transaction_id`). 옮겨 온 원본 거래를 살리고 공유 기록을 지운다. 되돌릴 수 없으면 409 `CONFLICT` |
 | POST | `/books/{id}/entries/{entry_id}/undo-move-out` | 적은 사람 | `BookEntryOut`. 그때 생긴 거래를 지우고 공유 기록을 살린다. 되돌릴 수 없으면 409 `CONFLICT` |
 | POST | `/books/{id}/categories` | 멤버 | 201 `BookCategoryOut`. 바디 `{"name": "반려동물", "icon_key": "07_heart"}`. 같은 이름이면 409 `DUPLICATE_CATEGORY`, 가계부당 30개까지(422). 「기타」 바로 앞에 선다 |
@@ -1175,7 +1175,7 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 | 상태(`status`) | 합류하면 | 언제 |
 | --- | --- | --- |
 | `member` | 200 그대로 | 이미 지금 멤버다. `book_id` 가 실리고, 이 초대를 만든 사람이면 `is_inviter: true` |
-| `ended` | 409 `BOOK_ENDED` | 끝난 가계부 |
+| `ended` | 409 `BOOK_ENDED` | 완료한 가계부 |
 | `closed` | 409 `INVITE_CLOSED` | 새 초대가 나왔거나 연인·부부 초대를 한 사람이 썼다. 지웠다 되살린 가계부의 옛 초대도 닫힌 채다. 이 링크가 나온 뒤 내보내진 사람에게도 `closed` 다 |
 | `expired` | 409 `INVITE_EXPIRED` | 만든 지 7일이 지났다 |
 | `full` | 409 `BOOK_FULL` | 지금 멤버가 10명이다 |

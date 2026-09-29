@@ -500,6 +500,26 @@ def test_내_가계부로_옮기면_같은_이름의_분류로_가고_없으면_
     assert _entries(api, trip["id"]) == []
 
 
+def test_내_가계부로_옮길_때_고른_내_분류로_간다(
+    api: TestClient, default_categories: list[Category]
+) -> None:
+    trip = _create(api, kind="trip", name="우리 여행")
+    entry = _add(api, trip["id"], category_id=_category(trip, "놀거리"))["entry"]
+    base = f"/api/v1/books/{trip['id']}/entries/{entry['id']}"
+
+    # 수입 분류나 남의 것은 받지 않는다. 기록은 공유 가계부에 그대로 있다.
+    income = str(next(row.id for row in default_categories if row.kind.value == "income"))
+    r = api.post(f"{base}/move-out", json={"category_id": income}, headers=AUTH)
+    assert r.status_code == 422
+    assert len(_entries(api, trip["id"])) == 1
+
+    culture = _default(default_categories, "여가·취미")
+    moved = api.post(f"{base}/move-out", json={"category_id": culture}, headers=AUTH)
+    assert moved.status_code == 200, moved.text
+    items = {row["id"]: row for row in _personal_items(api)}
+    assert items[moved.json()["transaction_id"]]["category_id"] == culture
+
+
 def test_남이_적은_기록은_내_가계부로_옮길_수_없다(api: TestClient) -> None:
     book = _pair(api)
     theirs = _add(api, book["id"], headers=OTHER)["entry"]
@@ -538,6 +558,32 @@ def test_내_지출을_공유_가계부로_옮기면_내_가계부에서_빠진�
         headers=AUTH,
     )
     assert r.json()["entry"]["category_id"] == _category(trip, "기타")
+
+
+def test_공유_가계부로_옮길_때_고른_가계부_분류로_간다(
+    api: TestClient, default_categories: list[Category]
+) -> None:
+    trip = _create(api, kind="trip", name="우리 여행")
+    other = _create(api, kind="trip", name="다른 여행")
+    tx = _personal(api, _default(default_categories, "식비"))
+    url = f"/api/v1/books/{trip['id']}/entries/move-in"
+
+    # 다른 가계부의 분류는 받지 않는다. 내 거래는 그대로 있다.
+    r = api.post(
+        url,
+        json={"transaction_id": tx["id"], "category_id": _category(other, "놀거리")},
+        headers=AUTH,
+    )
+    assert r.status_code == 422
+    assert len(_personal_items(api)) == 1
+
+    r = api.post(
+        url,
+        json={"transaction_id": tx["id"], "category_id": _category(trip, "놀거리")},
+        headers=AUTH,
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["entry"]["category_id"] == _category(trip, "놀거리")
 
 
 def test_환불이_걸린_지출과_남의_거래는_옮기지_않는다(

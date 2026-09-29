@@ -9,8 +9,8 @@ import { expect, test } from '../support/fixtures';
  * 이체를 다루는 자리는 여럿인데 전부 `prep` 으로 심어 두고 본다. 그래서 사람이 이체를
  * 만드는 길은 한 번도 밟힌 적이 없었다.
  *
- * 입구는 둘이다. **검토 폼의 종류 고르기**와 **키패드 지출·수입 옆 밑줄 글씨 「이체」**
- * (ADR-0040). 어느 쪽으로 들어와도 같은 것이 나와야 한다. 한쪽만 지키면 두 입구가
+ * 입구는 둘이다. **검토 폼의 종류 고르기**와 **키패드 지출·수입 옆 셋째 알약 「이체」**
+ * (ADR-0043). 어느 쪽으로 들어와도 같은 것이 나와야 한다. 한쪽만 지키면 두 입구가
  * 갈린 줄 모른 채 테스트는 전부 초록이다.
  *
  * 여기서 지키는 것은 하나로 이어진다. 이체는 돈이 나간 것이 아니다. 목록에는 남되
@@ -281,13 +281,12 @@ test('이체를 켜면 지출·수입 알약이 꺼지고, 알약을 누르면 �
 });
 
 /**
- * 이체 글씨의 자리.
+ * 지출·수입·이체 알약의 모양.
  *
- * 분류 아래 회색 줄 「계좌 사이 옮긴 돈이에요」 는 이체라는 말이 없어 무엇인지 안 읽혔다(ADR-0040).
- * 그래서 지출·수입과 **같은 줄**에 선다. 줄이 갈리면 다시 「종류」 로 안 읽힌다.
- * 누른 글씨는 사라지지 않으니 포커스도 그 자리에 남아, 읽는 프로그램이 켜짐과 꺼짐을 읽는다.
+ * 이체만 밑줄 글씨로 두었더니 한 묶음으로 안 읽혔다. 셋이 **같은 폭, 같은 높이**로 한 줄에 서고,
+ * 날짜 칩도 같은 줄 오른쪽 끝에 남는다. 누른 알약은 사라지지 않으니 포커스도 그 자리에 남는다.
  */
-test('이체 글씨는 지출·수입과 한 줄에 서고, 눌러도 포커스가 그 자리에 남는다', async ({
+test('지출·수입·이체는 같은 크기의 알약으로 한 줄에 서고, 눌러도 포커스가 그 자리에 남는다', async ({
   home,
   recordSheet,
 }) => {
@@ -297,32 +296,38 @@ test('이체 글씨는 지출·수입과 한 줄에 서고, 눌러도 포커스�
   await recordSheet.waitOpen();
 
   /*
-    두 자리를 **같은 순간에** 잰다. 시트가 올라오는 중에 하나씩 재면 그 사이 시트가 움직여
-    한 줄인데도 높이가 어긋나 보인다.
+    세 알약과 날짜 칩을 **같은 순간에** 잰다. 시트가 올라오는 중에 하나씩 재면 그 사이 시트가
+    움직여 한 줄인데도 높이가 어긋나 보인다.
   */
   await expect(recordSheet.input.transferButton).toBeVisible();
-  const gap = await recordSheet.input.kindButton('수입').evaluate((pill) => {
-    const link = pill.closest('.record__kinds')?.querySelector('.record__transfer-link');
-    if (link == null) return null;
-    const a = pill.getBoundingClientRect();
-    const b = link.getBoundingClientRect();
+  const boxes = await recordSheet.input.kindToggle.evaluate((group) => {
+    const pills = [...group.querySelectorAll('button')].map((pill) => pill.getBoundingClientRect());
+    const chip = group.parentElement?.querySelector('.record__day-chip')?.getBoundingClientRect();
     return {
-      middle: Math.abs(a.top + a.height / 2 - (b.top + b.height / 2)),
-      after: b.left - a.right,
+      pills: pills.map((box) => ({
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+        middle: box.top + box.height / 2,
+      })),
+      chipMiddle: chip == null ? null : chip.top + chip.height / 2,
     };
   });
-  expect(gap, '이체 글씨가 알약 옆에 없다').not.toBeNull();
+  expect(boxes.pills).toHaveLength(3);
+  expect(new Set(boxes.pills.map((box) => box.width)).size, '알약 폭이 서로 다르다').toBe(1);
+  expect(new Set(boxes.pills.map((box) => box.height)).size, '알약 높이가 서로 다르다').toBe(1);
   // 가운데 높이가 같아야 한 줄이다. 좁은 폭에서 아래로 떨어지면 여기서 걸린다.
-  expect(gap?.middle ?? 99).toBeLessThan(2);
-  expect(gap?.after ?? -1).toBeGreaterThanOrEqual(0);
+  for (const box of boxes.pills) {
+    expect(Math.abs(box.middle - (boxes.chipMiddle ?? 0))).toBeLessThan(2);
+  }
 
   await recordSheet.input.transferButton.click();
   await expect(recordSheet.input.transferPanel).toBeVisible();
   expect(await recordSheet.focusInside).toBe(true);
   await expect(recordSheet.input.transferButton).toBeFocused();
 
+  // 이미 켠 알약을 한 번 더 눌러도 그대로다. 나오는 길은 지출·수입 알약이다.
   await recordSheet.input.transferButton.click();
-  await expect(recordSheet.input.transferPanel).toHaveCount(0);
+  await expect(recordSheet.input.transferPanel).toBeVisible();
   await expect(recordSheet.input.transferButton).toBeFocused();
 });
 

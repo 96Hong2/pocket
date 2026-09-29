@@ -3,6 +3,11 @@ import { createContext, useContext, useEffect, useRef } from 'react';
 export interface OverlayContextValue {
   /** 지금 열려 있는 오버레이가 있는지. */
   hasOpen: boolean;
+  /**
+   * 오버레이가 열릴 때마다 부른다. 앞서 떠 있던 알림을 걷는 데 쓴다. 반환값을 부르면 풀린다.
+   * 값으로 두지 않는다. 값이 바뀌면 열린 오버레이가 모두 다시 등록되어 끝없이 돈다.
+   */
+  onOpen(listener: () => void): () => void;
   /** 가장 나중에 열린 오버레이를 닫는다. 닫을 게 없으면 false. */
   closeTop(): boolean;
   /** 오버레이가 열릴 때 자기 닫기 함수를 맡긴다. 반환값을 부르면 등록이 풀린다. */

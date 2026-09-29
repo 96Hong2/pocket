@@ -152,7 +152,7 @@ function BookHomeBody({
       {book.active_member_count === 1 && !book.ended ? <AloneCard book={book} /> : null}
 
       {book.ended ? (
-        <p className="book-home__ended">끝난 가계부예요</p>
+        <p className="book-home__ended">완료한 가계부예요</p>
       ) : (
         <Button
           className="home-cta"

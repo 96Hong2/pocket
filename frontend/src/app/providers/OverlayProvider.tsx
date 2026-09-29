@@ -9,6 +9,7 @@ import { OverlayContext } from './overlayContext';
 export function OverlayProvider({ children }: { children: ReactNode }) {
   const stack = useRef<Array<() => void>>([]);
   const [hasOpen, setHasOpen] = useState(false);
+  const listeners = useRef(new Set<() => void>());
 
   const sync = useCallback(() => {
     setHasOpen(stack.current.length > 0);
@@ -17,6 +18,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     (close: () => void) => {
       stack.current = [...stack.current, close];
+      for (const listener of listeners.current) listener();
       sync();
       return () => {
         stack.current = stack.current.filter((item) => item !== close);
@@ -34,9 +36,16 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     return true;
   }, []);
 
+  const onOpen = useCallback((listener: () => void) => {
+    listeners.current.add(listener);
+    return () => {
+      listeners.current.delete(listener);
+    };
+  }, []);
+
   const value = useMemo(
-    () => ({ hasOpen, closeTop, register }),
-    [hasOpen, closeTop, register],
+    () => ({ hasOpen, closeTop, register, onOpen }),
+    [hasOpen, closeTop, register, onOpen],
   );
 
   return <OverlayContext value={value}>{children}</OverlayContext>;

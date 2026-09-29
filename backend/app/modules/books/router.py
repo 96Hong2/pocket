@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Body, Depends, Response, status
 
 from app.api.deps import AppSettings, CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES, ApiError, ErrorCode
@@ -31,6 +32,7 @@ from app.modules.books.schemas import (
     InvitePreviewOut,
     JoinIn,
     MoveInIn,
+    MoveOutIn,
     MoveOutResult,
     SettlementDoneIn,
     SettlementOut,
@@ -195,9 +197,15 @@ def restore_entry(
 
 @router.post("/{book_id}/entries/{entry_id}/move-out", response_model=MoveOutResult)
 def move_out(
-    book_id: uuid.UUID, entry_id: uuid.UUID, session: DbSession, user: CurrentUser
+    book_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+    body: Annotated[MoveOutIn | None, Body()] = None,
 ) -> MoveOutResult:
-    return service.move_entry_out(session, user, book_id, entry_id)
+    # 본문 없이 부르는 앞선 판이 있다. 그때는 서버가 같은 이름으로 분류를 고른다.
+    category_id = body.category_id if body is not None else None
+    return service.move_entry_out(session, user, book_id, entry_id, category_id=category_id)
 
 
 @router.post("/{book_id}/entries/{entry_id}/undo-move-in", response_model=MoveOutResult)
