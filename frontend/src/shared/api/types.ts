@@ -195,6 +195,7 @@ export type BookMonthStateOut = Schemas['BookMonthStateOut'];
 export type BookEntryCreated = Schemas['BookEntryCreated'];
 export type MoveOutResult = Schemas['MoveOutResult'];
 export type MoveInIn = Schemas['MoveInIn'];
+export type MoveOutIn = Schemas['MoveOutIn'];
 export type SettlementMemberOut = Schemas['SettlementMemberOut'];
 export type SettlementTransferOut = Schemas['SettlementTransferOut'];
 export type SettlementDoneOut = Schemas['SettlementDoneOut'];

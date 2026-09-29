@@ -306,20 +306,44 @@
     border-color: var(--color-amber-700);
   }
 
-  /* 격자를 접어 둔 자리. 사진 버튼과 같은 생김새라 같은 무게로 읽힌다. */
-  .icon-picker__reopen {
-    width: 100%;
-    min-height: 44px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    font-size: var(--text-14);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-ink);
+  /*
+    격자를 접은 뒤 맨 위 아이콘. 누르면 격자가 다시 펴진다.
+    모서리의 연필 표시가 눌러서 바꾸는 자리라는 것을 알린다. 글자 버튼은 따로 두지 않는다.
+  */
+  .icon-picker__current {
+    position: relative;
+    flex: none;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  .icon-picker__reopen:disabled {
-    color: var(--color-muted);
+  .icon-picker__current:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  .icon-picker__current:focus-visible {
+    outline: 2px solid var(--color-sage-700);
+    outline-offset: 2px;
+  }
+
+  /* 아이콘 상자 안쪽 모서리에 둔다. 밖으로 내밀면 좁은 폭에서 가로로 넘친 것으로 잡힌다. */
+  .icon-picker__edit {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--color-surface);
+    border-radius: 50%;
+    background: var(--color-sage-700);
+    color: var(--color-surface);
   }
 
   .icon-picker__photo-actions {

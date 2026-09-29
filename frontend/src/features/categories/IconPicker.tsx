@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
 import { BridgeError } from '../../shared/toss';
@@ -86,9 +86,15 @@ export function IconPicker({
 
     아이콘이 예순 칸을 넘어 격자가 화면을 다 먹었다. 그 아래 저장 버튼이 안 보여서,
     이름까지 다 적고도 어디를 눌러야 저장인지 못 찾았다는 신고가 왔다.
-    고르고 나면 더 볼 일이 없는 목록이라 접고, 다시 고를 길만 남긴다.
+    고르고 나면 더 볼 일이 없는 목록이라 접는다. **다시 고르는 길은 맨 위의 그 아이콘이다.**
+    「아이콘 다시 고르기」 버튼을 따로 두면 한 줄을 더 차지하고, 방금 누른 아이콘을 다시
+    누르면 된다는 기대와도 어긋났다.
   */
   const [gridOpen, setGridOpen] = useState(startOpen);
+  /** 맨 위 아이콘으로 격자를 다시 폈나. 눌린 버튼이 사라지므로 초점을 격자의 고른 칸으로 옮긴다. */
+  const [reopened, setReopened] = useState(false);
+  /** 격자가 펴져 있는 동안에는 맨 위 아이콘이 미리보기일 뿐이다. 접혔을 때만 누르는 자리다. */
+  const reopenable = !(source === 'basic' && gridOpen);
 
   /*
     이모지 탭을 떠나면 막힌 것도 함께 풀린다.
@@ -105,7 +111,36 @@ export function IconPicker({
       <div className="icon-picker__head">
         {/* 지금 걸린 것을 늘 보여 준다. 탭을 옮겨도 이 자리는 안 바뀐다. */}
         {/* 색도 함께 그린다. 아래에서 색을 고르는데 위 미리보기가 회색이면 안 먹은 줄 안다. */}
-        <CategoryAvatar icon={value} custom={custom} color={color} size={52} />
+        {reopenable ? (
+          /* 누르면 기본 아이콘 격자를 다시 편다. 이모지·사진 탭에 있었으면 기본으로 옮긴다. */
+          <button
+            type="button"
+            className="icon-picker__current"
+            aria-label={hasPick ? '아이콘 다시 고르기' : '아이콘 고르기'}
+            disabled={disabled}
+            onClick={() => {
+              markInvalid(false);
+              setSource('basic');
+              setGridOpen(true);
+              setReopened(true);
+            }}
+          >
+            <CategoryAvatar icon={value} custom={custom} color={color} size={52} />
+            <span className="icon-picker__edit" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12">
+                <path
+                  d="M8.2 1.6l2.2 2.2-6.1 6.1-2.8.6.6-2.8z"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </button>
+        ) : (
+          <CategoryAvatar icon={value} custom={custom} color={color} size={52} />
+        )}
         {basicOnly ? null : (
           <SegmentedControl
             className="icon-picker__tabs"
@@ -125,23 +160,13 @@ export function IconPicker({
           <BasicGrid
             value={custom == null ? value : null}
             disabled={disabled}
+            focusOnOpen={reopened}
             onPick={(icon) => {
               onChange({ icon, custom: null });
               setGridOpen(false);
             }}
           />
-        ) : (
-          <div className="icon-picker__pane">
-            <button
-              type="button"
-              className="icon-picker__reopen"
-              disabled={disabled}
-              onClick={() => setGridOpen(true)}
-            >
-              {hasPick ? '아이콘 다시 고르기' : '아이콘 고르기'}
-            </button>
-          </div>
-        )
+        ) : null
       ) : source === 'emoji' ? (
         <EmojiField
           glyph={picked?.kind === 'emoji' ? picked.glyph : ''}
@@ -166,14 +191,28 @@ export function IconPicker({
 function BasicGrid({
   value,
   disabled,
+  focusOnOpen,
   onPick,
 }: {
   value: IconName | null;
   disabled: boolean;
+  focusOnOpen: boolean;
   onPick: (icon: IconName) => void;
 }) {
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!focusOnOpen) return;
+    const grid = gridRef.current;
+    (
+      grid?.querySelector<HTMLElement>('[aria-pressed="true"]') ?? grid?.querySelector('button')
+    )?.focus();
+    // 펴질 때 한 번만 옮긴다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div className="icon-picker__grid" role="group" aria-label="아이콘">
+    <div className="icon-picker__grid" role="group" aria-label="아이콘" ref={gridRef}>
       {SM_ICONS.map((icon) => (
         <button
           key={icon}

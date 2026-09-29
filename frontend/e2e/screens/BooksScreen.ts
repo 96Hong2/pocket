@@ -136,7 +136,7 @@ export class BookListArea {
   }
 
   get endedLabel(): Locator {
-    return this.page.getByText('끝난 가계부', { exact: true });
+    return this.page.getByText('완료한 가계부', { exact: true });
   }
 }
 
@@ -278,7 +278,7 @@ export class BookOwnerActions {
   }
 
   get endButton(): Locator {
-    return this.page.getByRole('button', { name: '가계부 끝내기', exact: true });
+    return this.page.getByRole('button', { name: '가계부 완료하기', exact: true });
   }
 
   get reopenButton(): Locator {

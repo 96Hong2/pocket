@@ -1616,7 +1616,7 @@ export interface components {
         };
         /**
          * BookRole
-         * @description 가계부마다 관리자는 한 명이다. 이름 바꾸기, 끝내기, 지우기, 내보내기는 관리자만 한다.
+         * @description 가계부마다 관리자는 한 명이다. 이름 바꾸기, 완료하기, 지우기, 내보내기는 관리자만 한다.
          * @enum {string}
          */
         BookRole: "owner" | "member";
@@ -2574,6 +2574,16 @@ export interface components {
              * Format: uuid
              */
             transaction_id: string;
+            /** Category Id */
+            category_id?: string | null;
+        };
+        /**
+         * MoveOutIn
+         * @description 내 가계부로 옮기면서 고른 내 지출 분류. 안 보내면 같은 이름의 분류, 없으면 「기타」 다.
+         */
+        MoveOutIn: {
+            /** Category Id */
+            category_id?: string | null;
         };
         /**
          * MoveOutResult
@@ -9963,7 +9973,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MoveOutIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

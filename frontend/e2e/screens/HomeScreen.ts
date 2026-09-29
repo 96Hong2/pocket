@@ -1091,7 +1091,7 @@ class HomeBookArea {
   }
 
   get endedLine(): Locator {
-    return this.page.getByText('끝난 가계부예요', { exact: true });
+    return this.page.getByText('완료한 가계부예요', { exact: true });
   }
 
   /** 정산 한 줄. 누르면 정산 화면이다. */
@@ -1295,12 +1295,9 @@ class BookEntryEditArea {
     return this.root.getByRole('switch', { name: '예산 계산에서 제외' });
   }
 
-  /** 공유 가계부를 골랐을 때 분류 자리에 서는 한 줄. */
-  moveCategoryNote(bookName: string): Locator {
-    return this.root.getByText(
-      `분류는 ${bookName}에 같은 이름이 있으면 그대로, 없으면 기타로 들어가요`,
-      { exact: true },
-    );
+  /** 공유 기록 수정 시트의 「낸 사람」 줄. 내 가계부로 옮기려고 고르면 걷힌다. */
+  get payerGroup(): Locator {
+    return this.root.getByRole('group', { name: '낸 사람', exact: true });
   }
 
   /** 개인 수정 시트의 「완료」. 옮길 곳을 고른 뒤 누른다. */

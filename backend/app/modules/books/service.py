@@ -1,7 +1,7 @@
 """공유 가계부 서비스.
 
 멤버가 아니거나 권한이 없으면 404 NOT_FOUND 로 답한다. 있는지조차 알리지 않는다.
-끝난 가계부에 쓰려 하면 409 BOOK_ENDED 다. 트랜잭션 경계는 여기 있다(서비스가 commit 한다).
+완료한 가계부에 쓰려 하면 409 BOOK_ENDED 다. 트랜잭션 경계는 여기 있다(서비스가 commit 한다).
 개인 거래 표와 개인 조회는 건드리지 않는다. 옮기기 두 개만 두 쪽을 한 commit 으로 묶는다.
 
 달은 가계부 시간대로 끊는다. 기록의 날짜는 적는 사람 화면의 날짜를 그대로 받아 두었으므로
@@ -130,7 +130,7 @@ _CODE_RE = re.compile(INVITE_CODE_PATTERN)
 # 초대 화면의 상태와 합류할 때의 오류가 같은 판정을 쓴다. 둘이 어긋나면 화면은 「같이 쓰기」 를
 # 보여 놓고 누르면 막히게 된다.
 _JOIN_ERRORS: dict[str, tuple[ErrorCode, str]] = {
-    "ended": (ErrorCode.BOOK_ENDED, "끝난 가계부라 들어갈 수 없어요."),
+    "ended": (ErrorCode.BOOK_ENDED, "완료한 가계부라 들어갈 수 없어요."),
     "closed": (ErrorCode.INVITE_CLOSED, "더 이상 쓸 수 없는 초대 링크예요."),
     "expired": (ErrorCode.INVITE_EXPIRED, "초대 링크가 만료됐어요."),
     "full": (ErrorCode.BOOK_FULL, f"이 가계부는 {MAX_MEMBERS}명이 다 찼어요."),
@@ -208,7 +208,7 @@ def _require_owner(access: _Access) -> None:
         raise _not_found()
 
 
-def _require_open(book: Book, message: str = "끝난 가계부라 적을 수 없어요.") -> None:
+def _require_open(book: Book, message: str = "완료한 가계부라 적을 수 없어요.") -> None:
     if book.ended_at is not None:
         raise ApiError(ErrorCode.BOOK_ENDED, message, status_code=409)
 
@@ -419,9 +419,9 @@ def restore_book(session: Session, user: User, book_id: uuid.UUID) -> BookOut:
 
 
 def create_invite(session: Session, user: User, book_id: uuid.UUID) -> BookInviteOut:
-    """앞선 살아 있는 초대를 닫고 새로 만든다. 끝난 가계부면 BOOK_ENDED."""
+    """앞선 살아 있는 초대를 닫고 새로 만든다. 완료한 가계부면 BOOK_ENDED."""
     access = _access(session, user, book_id)
-    _require_open(access.book, "끝난 가계부라 초대할 수 없어요.")
+    _require_open(access.book, "완료한 가계부라 초대할 수 없어요.")
     now = _now()
     _close_invites(session, access.book.id, now)
     invite = _new_invite(access.book, access.me, now)
@@ -882,22 +882,41 @@ def _book_category_for(session: Session, book: Book, name: str | None) -> uuid.U
     return by_name.get(FALLBACK_CATEGORY)
 
 
+def _require_personal_expense(session: Session, user: User, category_id: uuid.UUID) -> None:
+    """내 화면에 보이는 지출 분류만. 수입 분류로 옮기면 지출이 수입 분류를 단다."""
+    categories.require_owned(session, user, category_id)
+    row = session.get(Category, category_id)
+    if row is None or row.kind is not CategoryKind.EXPENSE:
+        raise ApiError(ErrorCode.INVALID_CATEGORY, "지출 분류를 골라 주세요.", status_code=422)
+
+
 def move_entry_out(
-    session: Session, user: User, book_id: uuid.UUID, entry_id: uuid.UUID
+    session: Session,
+    user: User,
+    book_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    *,
+    category_id: uuid.UUID | None = None,
 ) -> MoveOutResult:
-    """적은 사람만. 내 거래를 만들고 공유 기록을 지우는 것을 한 commit 으로 묶는다."""
+    """적은 사람만. 내 거래를 만들고 공유 기록을 지우는 것을 한 commit 으로 묶는다.
+
+    `category_id` 는 옮기면서 고른 내 분류다. 안 주면 같은 이름의 내 분류, 없으면 「기타」.
+    """
     access = _access(session, user, book_id)
     _require_open(access.book)
     entry = _live_entry(session, access.book, entry_id)
     if entry.created_by_member_id not in _my_member_ids(session, access.book.id, user.id):
         raise _not_found(_ENTRY_NOT_FOUND)
 
-    # 설정 행이 없으면 여기서 만들며 commit 한다. 아무것도 바꾸기 전에 부른다.
-    overrides = categories.category_overrides(session, user)
-    book_category = session.get(BookCategory, entry.category_id) if entry.category_id else None
-    category_id = _personal_category_for(
-        session, user, overrides, book_category.name if book_category is not None else None
-    )
+    if category_id is not None:
+        _require_personal_expense(session, user, category_id)
+    else:
+        # 설정 행이 없으면 여기서 만들며 commit 한다. 아무것도 바꾸기 전에 부른다.
+        overrides = categories.category_overrides(session, user)
+        book_category = session.get(BookCategory, entry.category_id) if entry.category_id else None
+        category_id = _personal_category_for(
+            session, user, overrides, book_category.name if book_category is not None else None
+        )
 
     tx = transactions.stage_moved_expense(
         session,
@@ -934,14 +953,19 @@ def move_entry_in(
         # 환불이 걸린 지출을 옮기면 개인 쪽 환불이 되돌릴 지출을 잃는다.
         raise ApiError(ErrorCode.INVALID_REQUEST, "옮길 수 없는 기록이에요.", status_code=422)
 
-    overrides = categories.category_overrides(session, user)
-    personal = session.get(Category, tx.category_id) if tx.category_id else None
-    name = categories.effective_name(personal, overrides) if personal is not None else None
+    if body.category_id is not None:
+        _require_category(session, access.book, body.category_id)
+        book_category_id: uuid.UUID | None = body.category_id
+    else:
+        overrides = categories.category_overrides(session, user)
+        personal = session.get(Category, tx.category_id) if tx.category_id else None
+        name = categories.effective_name(personal, overrides) if personal is not None else None
+        book_category_id = _book_category_for(session, access.book, name)
 
     entry = BookEntry(
         book_id=access.book.id,
         amount=tx.amount,
-        category_id=_book_category_for(session, access.book, name),
+        category_id=book_category_id,
         title=tx.merchant,
         memo=tx.memo,
         occurred_on=ledger.local_date(tx.occurred_at, ledger.user_tz(user)),

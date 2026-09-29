@@ -18,7 +18,7 @@ export interface BookPickerSheetProps {
 /**
  * 어느 가계부를 볼지 고르는 창. 홈과 리포트가 같은 창을 쓴다.
  *
- * 내 가계부가 늘 맨 위다. 그 아래 쓰는 중인 가계부, 맨 아래 「끝난 가계부」 를 둔다.
+ * 내 가계부가 늘 맨 위다. 그 아래 쓰는 중인 가계부, 맨 아래 「완료한 가계부」 를 둔다.
  * 고르면 바로 닫힌다. 확인 버튼을 두지 않는다.
  */
 export function BookPickerSheet({
@@ -62,7 +62,7 @@ export function BookPickerSheet({
 
       {ended.length > 0 ? (
         <>
-          <p className="book-picker__label">끝난 가계부</p>
+          <p className="book-picker__label">완료한 가계부</p>
           <ul className="book-picker__list">
             {ended.map((book) => (
               <li key={book.id}>

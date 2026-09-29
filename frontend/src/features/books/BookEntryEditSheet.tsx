@@ -9,12 +9,13 @@ import {
   useMoveEntryOut,
   useRestoreBookEntry,
   useUndoMoveOut,
+  useCategories,
   useUpdateBookEntry,
   type BookEntryOut,
   type BookEntryUpdate,
   type BookOut,
 } from '../../shared/api';
-import { CategoryPicker, FutureDayConfirm } from '../../shared/ledger';
+import { CategoryPicker, FutureDayConfirm, categoriesOfKind } from '../../shared/ledger';
 import { isFutureDay } from '../../shared/lib/format';
 import { DAY_MAX } from '../../shared/lib/limits';
 import {
@@ -35,6 +36,7 @@ import {
   editedToast,
   entryCategory,
   entryTitle,
+  sameNameCategoryId,
   wroteLine,
 } from './bookEntryText';
 import { BookDestinationRow } from './BookDestinationRow';
@@ -185,6 +187,7 @@ function EntryForm({
   const update = useUpdateBookEntry();
   const remove = useDeleteBookEntry();
   const moveOut = useMoveEntryOut();
+  const personal = useCategories();
   const dayId = useId();
 
   const readOnly = book.ended;
@@ -196,6 +199,13 @@ function EntryForm({
   const [payerId, setPayerId] = useState<string | null>(entry.paid_by_member_id);
   /** 내 가계부로 옮길까. 적은 사람에게만 이 줄이 선다. */
   const [toMine, setToMine] = useState(false);
+  /*
+    내 가계부로 옮길 때 달 내 분류. 적을 곳을 바꾸면 분류 칸이 내 분류로 바뀐다.
+    공유 분류를 그대로 보여 주면 거기서 고른 것이 옮긴 뒤 「기타」 로 바뀌어 있었다.
+    처음에는 같은 이름, 없으면 「기타」 가 골라져 있다. 고르지 않고 옮겨도 서버가 같은 규칙을 쓴다.
+  */
+  const [mineCategoryId, setMineCategoryId] = useState<string | null>(null);
+  const [minePicked, setMinePicked] = useState(false);
   const [asking, setAsking] = useState(false);
   const [futureAsking, setFutureAsking] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -211,8 +221,18 @@ function EntryForm({
   const busy = update.isPending || remove.isPending || moveOut.isPending;
   const nextAmount = Number(amount);
   const amountOk = amount !== '' && Number.isFinite(nextAmount) && nextAmount > 0;
-  const headCategory =
-    book.categories.find((category) => category.id === categoryId) ?? entryCategory(book, entry);
+  const mineCategories = categoriesOfKind('expense', personal.data?.items ?? []);
+  const bookCategoryName =
+    book.categories.find((category) => category.id === categoryId)?.name ??
+    entryCategory(book, entry)?.name;
+  // 직접 고르기 전에는 공유 쪽에서 고른 분류를 따라간다. 공유 칸에서 바꾸고 넘어와도 맞는 것이 서 있다.
+  const mineSelected = minePicked
+    ? mineCategoryId
+    : sameNameCategoryId(mineCategories, bookCategoryName);
+  const headCategory = toMine
+    ? (mineCategories.find((category) => category.id === mineSelected) ?? null)
+    : (book.categories.find((category) => category.id === categoryId) ??
+      entryCategory(book, entry));
   const edited = editedLine(book, entry);
   const own = entry.can_move;
 
@@ -222,6 +242,8 @@ function EntryForm({
     if (day !== entry.occurred_on) next.occurred_on = day;
     if (trimmed !== (entry.title ?? '')) next.title = trimmed === '' ? null : trimmed;
     if (amountOk && nextAmount !== savedAmount) next.amount = String(nextAmount);
+    // 내 가계부로 옮기면 공유 분류와 낸 사람은 쓰이지 않는다. 되돌리면 옮기기 전 그대로 돌아온다.
+    if (toMine) return next;
     if (categoryId !== entry.category_id) next.category_id = categoryId;
     if (payerId !== entry.paid_by_member_id && payerId != null) next.paid_by_member_id = payerId;
     return next;
@@ -256,7 +278,11 @@ function EntryForm({
         });
       }
       if (toMine) {
-        await moveOut.mutateAsync({ bookId: book.id, entryId: entry.id });
+        await moveOut.mutateAsync({
+          bookId: book.id,
+          entryId: entry.id,
+          categoryId: mineSelected,
+        });
         analytics.log(EVENTS.recordChanged, { action: 'move', to: 'mine', book: 'shared' });
         onClose();
         onMovedOut(entry);
@@ -361,36 +387,69 @@ function EntryForm({
           />
         </div>
 
-        <CategoryPicker
-          className="tx-edit__cats"
-          ariaLabel="카테고리"
-          size="sm"
-          categories={asPickable(book.categories)}
-          selectedId={categoryId}
-          disabled={busy || readOnly}
-          onPick={(category) => setCategoryId(category.id)}
-          onCreate={readOnly ? undefined : () => setCreating(true)}
-          // 공유 분류는 관리 화면이 없다. 그리로 가라는 줄을 세우지 않는다.
-          manageNote={false}
-        />
+        {/* 적을 곳이 바뀌면 분류 칸도 그 가계부 것으로 바뀐다. 펼친 상태는 따라가지 않는다. */}
+        {toMine ? (
+          <CategoryPicker
+            key="mine"
+            className="tx-edit__cats"
+            ariaLabel="카테고리"
+            size="sm"
+            categories={mineCategories}
+            selectedId={mineSelected}
+            disabled={busy}
+            onPick={(category) => {
+              setMinePicked(true);
+              setMineCategoryId(category.id);
+            }}
+            onCreate={() => setCreating(true)}
+            manageNote={false}
+          />
+        ) : (
+          <CategoryPicker
+            key="book"
+            className="tx-edit__cats"
+            ariaLabel="카테고리"
+            size="sm"
+            categories={asPickable(book.categories)}
+            selectedId={categoryId}
+            disabled={busy || readOnly}
+            onPick={(category) => setCategoryId(category.id)}
+            onCreate={readOnly ? undefined : () => setCreating(true)}
+            // 공유 분류는 관리 화면이 없다. 그리로 가라는 줄을 세우지 않는다.
+            manageNote={false}
+          />
+        )}
 
-        {/* 고치던 날짜·상호·금액은 뒤에 그대로 남는다. 만들면 그 분류가 골라진다. */}
+        {/*
+          고치던 날짜·상호·금액은 뒤에 그대로 남는다. 만들면 그 분류가 골라진다.
+          내 가계부로 옮기는 중이면 내 분류를, 아니면 이 가계부 분류를 만든다.
+        */}
         <CategoryComposeOverlay
           open={creating}
           fixedKind="expense"
-          bookId={book.id}
+          bookId={toMine ? undefined : book.id}
           onBack={() => setCreating(false)}
           onClose={() => setCreating(false)}
-          onCreated={(created) => setCategoryId(created.id)}
+          onCreated={(created) => {
+            if (toMine) {
+              setMinePicked(true);
+              setMineCategoryId(created.id);
+            } else {
+              setCategoryId(created.id);
+            }
+          }}
         />
 
-        <BookPayerRow
-          className="book-edit__payer"
-          book={book}
-          value={payerId}
-          disabled={busy || readOnly}
-          onChange={setPayerId}
-        />
+        {/* 낸 사람은 같이 쓰는 기록에만 있다. 내 가계부로 옮기면 쓰이지 않는다. */}
+        {toMine ? null : (
+          <BookPayerRow
+            className="book-edit__payer"
+            book={book}
+            value={payerId}
+            disabled={busy || readOnly}
+            onChange={setPayerId}
+          />
+        )}
 
         {!amountOk && !readOnly ? (
           <p className="tx-edit__hint">금액은 1원부터 넣을 수 있어요</p>
@@ -415,7 +474,7 @@ function EntryForm({
         {readOnly ? (
           <>
             <p className="book-edit__ended" role="status">
-              끝난 가계부라 고칠 수 없어요
+              완료한 가계부라 고칠 수 없어요
             </p>
             <Button variant="outline" fullWidth onClick={onClose}>
               닫기

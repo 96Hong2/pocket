@@ -54,8 +54,8 @@ type Confirm = { kind: 'kick'; member: BookMemberOut } | { kind: 'delete' } | { 
 /**
  * 가계부 하나의 설정.
  *
- * 멤버, 초대장, 돈 나누기, 예산은 멤버 누구나 본다. 이름 바꾸기, 끝내기, 지우기, 내보내기는
- * 관리자만 본다. 끝내기는 묻지 않고 하고 알림에서 되돌린다. 멤버 모두에게 영향이 가는 지우기,
+ * 멤버, 초대장, 돈 나누기, 예산은 멤버 누구나 본다. 이름 바꾸기, 완료하기, 지우기, 내보내기는
+ * 관리자만 본다. 완료하기는 묻지 않고 하고 알림에서 되돌린다. 멤버 모두에게 영향이 가는 지우기,
  * 나가기, 내보내기만 확인 창을 띄운다.
  */
 export function BookSettings({
@@ -171,7 +171,7 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
         );
         if (ended) {
           toast.show({
-            text: '가계부를 끝냈어요',
+            text: '가계부를 완료했어요',
             actionLabel: '되돌리기',
             onAction: () => setEnded(false),
           });
@@ -271,7 +271,7 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
             <h2 className="book-settings__name">{book.name}</h2>
             <p className="book-settings__meta">
               {bookKindLabel(book.kind)} 가계부
-              {book.ended ? <Chip variant="excluded">끝남</Chip> : null}
+              {book.ended ? <Chip variant="excluded">완료</Chip> : null}
             </p>
           </div>
         </div>
@@ -402,13 +402,13 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
                   <button
                     type="button"
                     className="link-row"
-                    aria-label="가계부 끝내기"
+                    aria-label="가계부 완료하기"
                     aria-describedby={endNoteId}
                     disabled={update.isPending}
                     onClick={() => setEnded(true)}
                   >
                     <RowText
-                      title="가계부 끝내기"
+                      title="가계부 완료하기"
                       note="기록은 남고 더 적을 수 없어요"
                       noteId={endNoteId}
                     />
@@ -503,7 +503,7 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
               title={`${withJosa(book.name, '을/를')} 지울까요?`}
               lines={[
                 '기록이 멤버 모두의 화면에서 사라져요',
-                ...(book.ended ? [] : ['기록을 남기려면 「끝내기」를 써 주세요']),
+                ...(book.ended ? [] : ['기록을 남기려면 「가계부 완료하기」를 써 주세요']),
               ]}
             />
           }

@@ -14,7 +14,7 @@ import { expect, test as base } from '../support/fixtures';
  * - **초대받은 사람은 처음 안내보다 초대 화면을 먼저 본다.** 들어온 뒤에도 안내가 안 뜬다.
  * - 링크로 막 들어온 사람이 설명 없이 첫 공동 지출을 적고, 만든 사람 화면에 들어온다.
  * - 못 쓰는 링크(닫힘, 다 참, 모르는 코드)는 한 문장과 버튼 하나로 끝난다.
- * - 끝내기와 지우기는 알림에서 되돌린다. 지우기·나가기·내보내기는 한 번 묻는다.
+ * - 완료하기와 지우기는 알림에서 되돌린다. 지우기·나가기·내보내기는 한 번 묻는다.
  * - 이 화면들에는 광고가 없다.
  *
  * 배경(다른 사람의 가계부, 합류한 멤버, 기록)은 API 로 심고, 확인하려는 동작은 화면으로 한다.
@@ -413,7 +413,12 @@ test('관리자가 바꾼 이름이 상대의 가계부 고르기 창에 보인�
   });
 });
 
-test('끝내기는 묻지 않고, 알림의 되돌리기가 다시 연다', async ({ books, home, page, prep }) => {
+test('가계부 완료하기는 묻지 않고, 알림의 되돌리기가 다시 연다', async ({
+  books,
+  home,
+  page,
+  prep,
+}) => {
   const bookId = await prep.createBook({ myName: '은홍' });
 
   await books.openSettings(bookId);
@@ -422,14 +427,14 @@ test('끝내기는 묻지 않고, 알림의 되돌리기가 다시 연다', asyn
   await expect(books.confirm).toHaveCount(0);
   await expect(books.settings.owner.reopenButton).toBeVisible();
 
-  await books.toastAction('가계부를 끝냈어요').click();
+  await books.toastAction('가계부를 완료했어요').click();
   await expect(books.settings.owner.endButton).toBeVisible();
   expect((await prep.book(bookId)).ended).toBe(false);
 
   const logs = await logsNamed(page, 'book_changed');
   expect(logs.map((log) => log.params.action)).toEqual(['ended', 'reopened']);
 
-  await test.step('끝난 가계부 홈에는 기록하기 대신 끝났다는 줄이 선다', async () => {
+  await test.step('완료한 가계부 홈에는 기록하기 대신 완료했다는 줄이 선다', async () => {
     await prep.setBookEnded(bookId, true);
     await home.open();
     await home.waitReady();

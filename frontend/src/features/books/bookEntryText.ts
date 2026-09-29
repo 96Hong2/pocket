@@ -47,6 +47,18 @@ export function entryCategory(book: BookOut, entry: BookEntryOut): BookCategoryO
   return book.categories.find((category) => category.id === entry.category_id) ?? null;
 }
 
+/**
+ * 다른 가계부로 옮길 때 먼저 골라 둘 분류. 같은 이름이 있으면 그것, 없으면 「기타」 다.
+ * 고르지 않고 옮겼을 때 서버가 쓰는 규칙과 같다. 둘 다 없으면 `null`(분류 없이 옮긴다).
+ */
+export function sameNameCategoryId(
+  targets: readonly CategoryOut[],
+  name: string | null | undefined,
+): string | null {
+  const found = name == null ? undefined : targets.find((category) => category.name === name);
+  return (found ?? targets.find((category) => category.name === '기타'))?.id ?? null;
+}
+
 /** 줄 제목. 적은 내용이 있으면 그것, 없으면 분류 이름이다. */
 export function entryTitle(book: BookOut, entry: BookEntryOut): string {
   return entry.title ?? entryCategory(book, entry)?.name ?? '기록';

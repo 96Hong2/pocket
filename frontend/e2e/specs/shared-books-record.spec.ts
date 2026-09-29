@@ -295,7 +295,11 @@ test('내 지출을 수정 시트에서 우리 집으로 옮기고, 알림에서
 }) => {
   const bookId = await prep.createBook({ name: '우리 집', myName: '은홍' });
   await partner.prep.joinBook(await prep.bookInviteCode(bookId), '준호');
-  await prep.addTransaction({ amount: 9_000, merchant: '다이소' });
+  await prep.addTransaction({
+    amount: 9_000,
+    merchant: '다이소',
+    categoryId: await prep.categoryIdByName('생활'),
+  });
   await prep.addTransaction({ amount: 4_000, merchant: '편의점' });
 
   await home.open();
@@ -305,21 +309,28 @@ test('내 지출을 수정 시트에서 우리 집으로 옮기고, 알림에서
   await home.today.row('다이소').click();
   await home.bookEdit.waitOpen();
   await expect(home.bookEdit.destinationPill('내 가계부')).toHaveAttribute('aria-pressed', 'true');
-  await expect(home.bookEdit.categoryGroup).toBeVisible();
+  await expect(home.bookEdit.categoryChip('편의점')).toBeVisible();
   await home.bookEdit.destinationPill('우리 집').click();
 
-  // 옮기면 안 쓰이는 내 가계부 칸은 걷히고, 분류가 어떻게 되는지 한 줄만 남는다.
+  // 옮기면 안 쓰이는 내 가계부 칸은 걷히고, 분류 칸은 우리 집 분류로 바뀐다.
   await expect(home.bookEdit.kindToggle).toHaveCount(0);
   await expect(home.bookEdit.paymentGroup).toHaveCount(0);
-  await expect(home.bookEdit.categoryGroup).toHaveCount(0);
   await expect(home.bookEdit.excludeToggle).toHaveCount(0);
-  await expect(home.bookEdit.moveCategoryNote('우리 집')).toBeVisible();
+  await expect(home.bookEdit.categoryChip('편의점')).toHaveCount(0);
+  // 같은 이름(「생활」)이 먼저 골라져 있다. 다른 것을 고르면 그 분류로 들어간다.
+  await expect(home.bookEdit.categoryChip('생활')).toHaveAttribute('aria-pressed', 'true');
+  await home.bookEdit.categoryChip('데이트').click();
+  await expect(home.bookEdit.categoryChip('데이트')).toHaveAttribute('aria-pressed', 'true');
 
   await home.bookEdit.doneButton.click();
   await home.bookEdit.waitClosed();
   // 내 지출이 이제 준호에게도 보인다는 것까지 알림이 말한다.
   await expect(home.toast.withText('우리 집으로 옮겼어요. 준호도 볼 수 있어요')).toBeVisible();
   await expect(home.hero.monthSpent).toHaveText('4,000원');
+
+  const date = (await prep.book(bookId)).categories.find((category) => category.name === '데이트');
+  const [moved] = await prep.bookEntries(bookId);
+  expect(moved?.category_id).toBe(date?.id);
 
   await test.step('알림의 되돌리기로 내 가계부에 돌아온다', async () => {
     await home.toast.undoButton.click();
@@ -468,6 +479,30 @@ test.describe('토스 웹뷰 한 화면(390x746)', () => {
     await expect(recordSheet.input.numberKey('00')).toBeInViewport({ ratio: 1 });
     await expect(recordSheet.input.backspaceKey).toBeInViewport({ ratio: 1 });
     expect(await recordSheet.overflowY()).toBe(0);
+  });
+
+  /*
+    내 가계부 키패드. 적을 곳 줄과 알약 셋, 분류 넉 줄이 서도 맨 아래 줄 키(00, 0, 지우기)까지
+    한 화면에 든다. 금액 위아래에 여백을 준 만큼 시트가 조금 더 올라온다(92dvh).
+  */
+  test('내 가계부에 적을 때도 금액 여백을 두고 키패드 맨 아래 줄까지 한 화면에 든다', async ({
+    home,
+    prep,
+    recordSheet,
+  }) => {
+    await prep.createBook({ name: '데이트통장' });
+
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await expect(recordSheet.destination.pill('내 가계부')).toHaveAttribute('aria-pressed', 'true');
+
+    await expect(recordSheet.input.numberKey('00')).toBeInViewport({ ratio: 1 });
+    await expect(recordSheet.input.numberKey('0')).toBeInViewport({ ratio: 1 });
+    await expect(recordSheet.input.backspaceKey).toBeInViewport({ ratio: 1 });
+    expect(await recordSheet.overflowY()).toBe(0);
+    expect(await recordSheet.horizontalScrollers()).toEqual([]);
   });
 });
 

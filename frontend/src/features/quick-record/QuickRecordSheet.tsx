@@ -37,7 +37,6 @@ import {
 import {
   CategoryPicker,
   FutureDayConfirm,
-  KindToggle,
   categoriesOfKind,
   kindOf,
   type LedgerKind,
@@ -83,6 +82,13 @@ const TABS: SegmentedOption<RecordTab>[] = [
   { value: 'nl', label: '줄글' },
   { value: 'capture', label: '캡처' },
   { value: 'receipt', label: '영수증' },
+];
+
+/** 키패드 맨 위 알약 셋. 이체도 같은 모양이다. 고르는 순간 아래 분류 목록이 그 종류로 바뀐다. */
+const RECORD_KINDS: { value: LedgerKind | 'transfer'; label: string }[] = [
+  { value: 'expense', label: '지출' },
+  { value: 'income', label: '수입' },
+  { value: 'transfer', label: '이체' },
 ];
 
 interface SavedState {
@@ -266,6 +272,7 @@ export function QuickRecordSheet({
         아이콘 격자를 펴면 그때 시트가 알아서 자란다.
       */
       size={reviewing ? 'tall' : 'auto'}
+      className="record-sheet"
       ariaLabel="10초 기록"
     >
       <RecordBody
@@ -451,8 +458,8 @@ function RecordBody({
   // 지출인가 수입인가. 이 값이 고를 수 있는 분류와 저장할 종류를 함께 정한다.
   const [kind, setKind] = useState<LedgerKind>('expense');
   /*
-    **이체는 알약이 아니라 알약 옆 밑줄 글씨 「이체」 로 켠다**(ADR-0040). 세 번째 알약은
-    폭이 모자라 날짜 칩을 밀어내고, 분류 아래 회색 줄은 이체라는 말이 없어 안 읽혔다.
+    **이체는 지출·수입과 같은 알약 셋째 칸이다.** 한때 밑줄 글씨로 두었는데(ADR-0040) 모양이
+    달라 한 묶음으로 안 읽혔다. 알약 셋을 같은 크기로 줄여 날짜 칩과 한 줄에 들인다.
 
     이체는 집계 어디에도 안 들어가서(ADR-0005) 분류를 고를 자리가 없다. 켜는 순간
     분류 목록이 사라지고 저장 버튼이 바로 선다. 지출·수입 알약을 누르면 다시 나온다.
@@ -1114,9 +1121,9 @@ function RecordBody({
           tabIndex={-1}
         >
           {/*
-            **한 줄에 둘이 선다.** 왼쪽은 무엇을 적을지(지출·수입), 오른쪽은 언제 적을지다.
+            **한 줄에 둘이 선다.** 왼쪽은 무엇을 적을지(지출·수입·이체), 오른쪽은 언제 적을지다.
             둘 다 금액보다 먼저 정하는 값이라 같은 층에 두고, 서로 다른 일이라 **모양을
-            가른다.** 왼쪽은 테두리 있는 알약 둘, 오른쪽은 테두리 없는 조용한 버튼 하나다.
+            가른다.** 왼쪽은 테두리 있는 알약 셋, 오른쪽은 테두리 없는 조용한 버튼 하나다.
             같은 모양으로 나란히 두면 세 칸짜리 한 묶음으로 읽혀, 날짜가 종류의 하나처럼 보인다.
           */}
           {/* 공유 가계부에 적을 때는 고를 종류가 없다. 날짜 칩만 오른쪽 끝 제자리에 남는다. */}
@@ -1131,33 +1138,29 @@ function RecordBody({
             */}
             {/* 공유 가계부는 지출만 받는다. 눌러도 바뀌지 않는 「지출」 하나를 세우지 않는다. */}
             {shared ? null : (
-              <div className="record__kinds">
-                <KindToggle
-                  className="record__kind"
-                  value={isTransfer ? null : kind}
-                  disabled={savingNow}
-                  ariaLabel="지출인지 수입인지"
-                  onChange={(next) => {
-                    setIsTransfer(false);
-                    if (next === kind) return;
-                    setKind(next);
-                    setPickedId(null);
-                    setListOpen(true);
-                  }}
-                />
-                {/*
-                  드물게 쓰는 것이라 알약만큼 크게 두지 않는다. 밑줄로 눌리는 글씨인 것만 알린다.
-                  다시 누르면 꺼지고, 알약에서 고르던 종류로 돌아간다.
-                */}
-                <button
-                  type="button"
-                  className="record__transfer-link"
-                  aria-pressed={isTransfer}
-                  disabled={savingNow}
-                  onClick={() => setIsTransfer((on) => !on)}
-                >
-                  이체
-                </button>
+              <div className="pk-kind record__kind" role="group" aria-label="지출, 수입, 이체">
+                {RECORD_KINDS.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    className="pk-kind__item"
+                    aria-pressed={(isTransfer ? 'transfer' : kind) === item.value}
+                    disabled={savingNow}
+                    onClick={() => {
+                      if (item.value === 'transfer') {
+                        setIsTransfer(true);
+                        return;
+                      }
+                      setIsTransfer(false);
+                      if (item.value === kind) return;
+                      setKind(item.value);
+                      setPickedId(null);
+                      setListOpen(true);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
             )}
 

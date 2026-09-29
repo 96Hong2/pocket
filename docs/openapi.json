@@ -9479,6 +9479,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MoveOutIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -11786,7 +11803,7 @@
           "member"
         ],
         "title": "BookRole",
-        "description": "가계부마다 관리자는 한 명이다. 이름 바꾸기, 끝내기, 지우기, 내보내기는 관리자만 한다."
+        "description": "가계부마다 관리자는 한 명이다. 이름 바꾸기, 완료하기, 지우기, 내보내기는 관리자만 한다."
       },
       "BookUpdate": {
         "properties": {
@@ -14429,6 +14446,18 @@
             "type": "string",
             "format": "uuid",
             "title": "Transaction Id"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
           }
         },
         "type": "object",
@@ -14437,6 +14466,25 @@
         ],
         "title": "MoveInIn",
         "description": "공유 가계부로 옮길 내 거래."
+      },
+      "MoveOutIn": {
+        "properties": {
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          }
+        },
+        "type": "object",
+        "title": "MoveOutIn",
+        "description": "내 가계부로 옮기면서 고른 내 지출 분류. 안 보내면 같은 이름의 분류, 없으면 「기타」 다."
       },
       "MoveOutResult": {
         "properties": {

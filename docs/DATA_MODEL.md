@@ -424,7 +424,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | `settle_rule` | `even` \| `none` | `even` 은 반반(인원수대로), `none` 은 같이 모은 돈이라 정산이 없다 |
 | `monthly_budget` | `numeric(14,0)?` | 달마다 같은 예산. CHECK `IS NULL OR > 0`. 비우면 예산이 없다 |
 | `timezone` | `varchar(64)` | 만든 사람의 `users.timezone` 을 옮겨 적는다. 멤버마다 달라도 「이번 달」 은 하나다 |
-| `ended_at` | `timestamptz?` | 관리자가 끝내면 찍고 다시 열면 비운다. 끝난 가계부는 기록·초대·합류를 막는다(409 `BOOK_ENDED`) |
+| `ended_at` | `timestamptz?` | 관리자가 「가계부 완료하기」 를 누르면 찍고 다시 열면 비운다. 완료한 가계부는 기록·초대·합류를 막는다(409 `BOOK_ENDED`) |
 | `deleted_at`, `deleted_by_user_id` | | 관리자가 지우거나 마지막 멤버가 나가면 찍는다. 지운 관리자가 30일 안에 되살릴 수 있다 |
 | `created_by_user_id` | `uuid?` | `SET NULL` |
 

@@ -7,8 +7,9 @@
   /* ── 보는 가계부 칩 ─────────────────────────────────── */
 
   /*
-    흰 알약 고르기 칸. 누르는 자리는 44px 이고, 보이는 알약은 위아래 4px 안쪽에 그린다.
-    알약 왼쪽 끝이 버튼 상자 왼쪽 끝이라 아래 카드 가장자리와 곧게 선다.
+    테두리와 그림자 없이 옅은 세이지 바탕만 깐다. 흰 알약에 테두리와 그림자를 두르면 화면에서
+    혼자 튀었다. 바탕과 한 계열이라 튀지 않고, 바탕과는 갈려 눌러서 고르는 자리로 읽힌다.
+    글자는 본문 한 단계(14px)다. 손가락 자리는 44px 그대로 두고 보이는 알약만 32px 이다.
   */
   .book-chip {
     position: relative;
@@ -22,9 +23,9 @@
     background: transparent;
     border: 0;
     font: inherit;
-    font-size: var(--text-16);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-ink);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-sage-800);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
@@ -32,16 +33,16 @@
   .book-chip::before {
     content: '';
     position: absolute;
-    inset: 4px 0;
+    inset: 6px 0;
     z-index: -1;
-    border: 1px solid var(--color-border);
     border-radius: var(--radius-pill);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-card);
+    /* sage-50 은 바탕(#F7F5F0)과 거의 같아 폰 화면에서 안 갈렸다. 한 단계 짙은 색을 옅게 깐다. */
+    background: var(--color-sage-100);
+    opacity: 0.6;
   }
 
   .book-chip:active::before {
-    background: var(--color-surface-sunken);
+    opacity: 1;
   }
 
   .book-chip__name {
@@ -53,7 +54,9 @@
 
   .book-chip__caret {
     flex-shrink: 0;
-    color: var(--color-ink);
+    width: 14px;
+    height: 14px;
+    color: var(--color-sage-700);
   }
 
   .book-chip:focus-visible {
@@ -180,6 +183,18 @@
     white-space: nowrap;
   }
 
+  /*
+    기록 시트에서는 아래 지출·수입·이체 알약과 같은 높이(32px)다. 손가락 자리는 위아래로 넓혀
+    44px 이다. 수정 시트는 아래 지출·수입 알약(36px)과 맞춰 그대로 둔다.
+  */
+  .record__dest .book-dest__pill.pk-kind__item {
+    height: 32px;
+  }
+
+  .record__dest .book-dest__pill.pk-kind__item::after {
+    inset: -6px 0;
+  }
+
   .book-dest__pill--name.pk-kind__item {
     flex: 1 1 auto;
   }
@@ -188,19 +203,16 @@
     .book-dest {
       margin-bottom: 6px;
     }
-
-    .book-dest__pill.pk-kind__item {
-      height: 34px;
-    }
-
-    .book-dest__pill.pk-kind__item::after {
-      inset: -5px 0;
-    }
   }
 
+  /*
+    말줄임을 하려고 블록으로 두었다. 블록은 버튼 안에서 왼쪽에 붙어, 알약이 이름보다 넓으면
+    이름이 왼쪽으로 쏠렸다(「데이트통장」). 좌우 자동 여백으로 가운데에 세운다.
+  */
   .book-dest__name {
     display: block;
     max-width: 7.5em;
+    margin-inline: auto;
     overflow: hidden;
     text-overflow: ellipsis;
   }

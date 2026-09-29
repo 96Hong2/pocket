@@ -54,65 +54,35 @@
     margin-bottom: 4px;
   }
 
+  /*
+    지출·수입·이체 알약 셋. **셋이 같은 폭, 같은 높이다.** 이체만 밑줄 글씨로 두었더니 한 묶음으로
+    안 읽혔다. 대신 알약을 한 단계 줄여(32px) 날짜 칩과 한 줄에 들이고, 아래 금액에 여백을 준다.
+    손가락 자리는 위아래 6px 씩 넓혀 44px 을 지킨다.
+  */
   .record__kind {
     flex: none;
+    gap: 6px;
   }
 
-  /* 지출·수입 알약과 이체 글씨를 한 덩어리로 왼쪽에 묶는다. 날짜 칩은 오른쪽 끝 그대로다. */
-  .record__kinds {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    flex: none;
-  }
-
-  /*
-    이체를 켜는 글씨. 알약보다 한 단계 작고 테두리가 없다. **밑줄이 눌리는 글씨라는 표시다.**
-    높이는 알약과 같은 36px 이고, 손가락 닿는 자리는 알약처럼 위아래 4px 씩 넓힌다(44px).
-  */
-  .record__transfer-link {
-    position: relative;
-    height: 36px;
-    padding: 0 8px;
-    border: 0;
-    background: none;
-    color: var(--color-muted);
-    font-family: inherit;
+  .record__kind .pk-kind__item {
+    width: 58px;
+    min-width: 0;
+    height: 32px;
+    padding: 0;
     font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    white-space: nowrap;
   }
 
-  .record__transfer-link::after {
-    content: '';
-    position: absolute;
-    inset: -4px 0;
-  }
-
-  .record__transfer-link[aria-pressed='true'] {
-    color: var(--color-sage-700);
-    font-weight: var(--font-weight-bold);
-  }
-
-  .record__transfer-link:disabled {
-    opacity: 0.45;
+  .record__kind .pk-kind__item::after {
+    inset: -6px 0;
   }
 
   /*
-    좁은 폰(폴드 겉화면 344, 360)에서는 알약 폭을 줄인다. 84px 그대로면 알약 둘과 「이체」,
-    날짜 칩이 한 줄에 안 들어가 날짜 칩 끝이 시트 밖으로 나간다(344 에서 22px).
-    글자 두 자에 좌우 12px 이면 68px 로도 넉넉하다. 지난 날을 고른 칩(좌우 10px)까지 들어간다.
+    좁은 폰(폴드 겉화면 344, 360)에서는 알약 폭을 줄인다. 알약 셋과 지난 날을 고른 날짜 칩
+    (좌우 10px)이 한 줄에 들어가야 한다. 글자 두 자에 52px 이면 넉넉하다.
   */
   @media (max-width: 374px) {
     .record__kind .pk-kind__item {
-      min-width: 68px;
-      padding: 0 12px;
-    }
-
-    .record__transfer-link {
-      padding: 0 6px;
+      width: 52px;
     }
   }
 
@@ -121,7 +91,7 @@
 
     **테두리도 바탕도 없다.** 왼쪽 알약과 같은 옷을 입히면 「지출·수입·날짜」 가 한 묶음으로
     읽힌다. 여기서는 글자와 그림만 두고, 꺾쇠 하나로 눌러서 바꾸는 자리임을 알린다.
-    키는 왼쪽 알약(36px)과 맞춰 두 덩어리의 바닥이 어긋나지 않게 한다.
+    키는 왼쪽 알약(32px)과 맞춰 두 덩어리의 바닥이 어긋나지 않게 한다.
   */
   .record__day-pick {
     position: relative;
@@ -133,7 +103,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    height: 36px;
+    height: 32px;
     padding: 0 6px;
     font-size: var(--text-13);
     font-weight: var(--font-weight-semibold);
@@ -167,11 +137,12 @@
     **`display: none` 이나 `visibility: hidden` 으로 감추면 안 된다.** 그러면 기기가
     그리는 달력이 안 열려서 날짜를 아예 못 바꾼다. 보이지 않게만 하고 자리는 남긴다.
   */
+  /* 보이는 칩은 32px 이지만 누르는 칸은 위아래로 6px 씩 넓혀 44px 이다. 옆 알약과 같다. */
   .record__day-input {
     position: absolute;
-    inset: 0;
+    inset: -6px 0;
     width: 100%;
-    height: 100%;
+    height: auto;
     padding: 0;
     border: 0;
     background: transparent;
@@ -222,6 +193,29 @@
   }
 
   /* ── 금액과 키패드 ──────────────────────────────── */
+  /*
+    기록 시트의 금액. 위 알약 줄과 아래 분류 사이에 숨 쉴 자리를 둔다. 붙어 있으면 금액이
+    알약과 분류에 끼어 답답했다. 대신 시트를 조금 더 키워(92dvh) 키패드 아래 줄까지 한 화면에 든다.
+  */
+  /*
+    키패드 탭의 금액·분류만. 줄글·캡처 검토 목록과 저장 뒤 화면도 이 칸 안에 있어서,
+    직계 자식으로 좁히지 않으면 거기 칩과 금액 칸까지 같이 바뀐다.
+  */
+  .record__panel > .keypad__head {
+    padding: 14px 0 10px;
+  }
+
+  /*
+    기록 시트의 분류 알약. 위 알약 줄과 함께 한 단계 줄인다(44 → 40px, 간격 8 → 6px).
+    줄인 만큼이 금액 위아래 여백이 된다. 네 줄이어도 키패드 맨 아래 줄이 한 화면에 든다.
+  */
+  .record__panel > .cat-chips {
+    gap: 6px;
+  }
+
+  .record__panel > .cat-chips > .cat-chips__item {
+    height: 40px;
+  }
 
   .keypad__head {
     padding: 10px 0 6px;
@@ -256,7 +250,7 @@
   .keypad__key {
     display: grid;
     place-items: center;
-    height: 56px;
+    height: 54px;
     border: 0;
     border-radius: var(--radius-md);
     background: transparent;
@@ -373,7 +367,7 @@
   }
 
   .record--dest .keypad__head {
-    padding: 4px 0 2px;
+    padding: 12px 0 8px;
   }
 
   .record--dest .keypad__keys {
@@ -553,7 +547,6 @@
     background: var(--color-surface-sunken);
     color: var(--color-muted);
   }
-
 }
 
 @layer components {
@@ -565,5 +558,16 @@
   */
   .feedback__tags {
     margin-top: 4px;
+  }
+}
+
+@layer components {
+  /*
+    키패드로 적는 시트는 다른 시트보다 조금 더 올라온다(88 → 92dvh). 금액 위아래 여백을
+    넉넉히 두고도 키패드 맨 아래 줄(00, 0, 지우기)이 한 화면에 들어야 한다.
+    검토 화면(높이를 못 박은 시트)은 그대로 88dvh 다.
+  */
+  .pk-sheet.record-sheet:not(.pk-sheet--tall) {
+    max-height: 92dvh;
   }
 }

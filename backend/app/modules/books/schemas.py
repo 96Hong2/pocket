@@ -342,6 +342,14 @@ class MoveInIn(BaseModel):
     """공유 가계부로 옮길 내 거래."""
 
     transaction_id: uuid.UUID
+    # 옮기면서 고른 이 가계부 분류. 안 보내면 같은 이름의 분류, 없으면 「기타」 다.
+    category_id: uuid.UUID | None = None
+
+
+class MoveOutIn(BaseModel):
+    """내 가계부로 옮기면서 고른 내 지출 분류. 안 보내면 같은 이름의 분류, 없으면 「기타」 다."""
+
+    category_id: uuid.UUID | None = None
 
 
 # ── 정산 ───────────────────────────────────────────────

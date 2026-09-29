@@ -74,7 +74,7 @@ class ErrorCode(StrEnum):
     INVITE_CLOSED = "INVITE_CLOSED"
     # 가계부 인원이 다 찼다.
     BOOK_FULL = "BOOK_FULL"
-    # 끝난 가계부라 적거나 초대할 수 없다. 다시 열면 된다.
+    # 완료한 가계부라 적거나 초대할 수 없다. 다시 열면 된다.
     BOOK_ENDED = "BOOK_ENDED"
     PARSE_UNAVAILABLE = "PARSE_UNAVAILABLE"
     HTTP_ERROR = "HTTP_ERROR"

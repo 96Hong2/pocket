@@ -310,16 +310,16 @@ class RecordInput {
   }
 
   /**
-   * 지출인지 수입인지 고르는 알약 두 개.
+   * 지출·수입·이체 알약 셋. 셋이 같은 모양, 같은 크기다.
    *
    * 방법 탭과 달리 `role="radio"` 가 아니라 aria-pressed 를 쓰는 버튼이다.
    * 탭과 같은 모양으로 그리면 탭이 두 줄인 것처럼 읽혀 일부러 다르게 뒀다.
    */
   get kindToggle(): Locator {
-    return this.root.getByRole('group', { name: '지출인지 수입인지' });
+    return this.root.getByRole('group', { name: '지출, 수입, 이체' });
   }
 
-  kindButton(label: '지출' | '수입'): Locator {
+  kindButton(label: '지출' | '수입' | '이체'): Locator {
     return this.kindToggle.getByRole('button', { name: label, exact: true });
   }
 
@@ -443,7 +443,7 @@ class RecordInput {
   }
 
   /** 금액보다 먼저 고른 뒤 접혀 있는 한 줄. 누르면 목록이 다시 펴진다. */
-  /** 지출·수입 알약 바로 옆 밑줄 글씨 「이체」. 누르면 켜지고 다시 누르면 꺼진다. */
+  /** 지출·수입 옆 셋째 알약 「이체」. 지출이나 수입 알약을 누르면 꺼진다. */
   get transferButton(): Locator {
     return this.root.getByRole('button', { name: '이체', exact: true });
   }

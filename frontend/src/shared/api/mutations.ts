@@ -1016,8 +1016,12 @@ export function useMoveEntryOut() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { bookId: string; entryId: string }) =>
-      client.moveEntryOut(input.bookId, input.entryId),
+    mutationFn: (input: { bookId: string; entryId: string; categoryId?: string | null }) =>
+      client.moveEntryOut(
+        input.bookId,
+        input.entryId,
+        input.categoryId == null ? undefined : { category_id: input.categoryId },
+      ),
     onSuccess: (_, input) => {
       refreshBook(queryClient, input.bookId);
       void invalidateMoney(queryClient);
@@ -1035,8 +1039,11 @@ export function useMoveEntryIn() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { bookId: string; transactionId: string }) =>
-      client.moveEntryIn(input.bookId, { transaction_id: input.transactionId }),
+    mutationFn: (input: { bookId: string; transactionId: string; categoryId?: string | null }) =>
+      client.moveEntryIn(input.bookId, {
+        transaction_id: input.transactionId,
+        category_id: input.categoryId ?? null,
+      }),
     onSuccess: (_, input) => {
       refreshBook(queryClient, input.bookId);
       void invalidateMoney(queryClient);

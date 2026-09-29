@@ -351,6 +351,71 @@ test('공유 가계부로 되돌리면 원래 낸 사람과 분류가 그대로�
   await expect(home.bookEdit.categoryChip('장보기')).toHaveAttribute('aria-pressed', 'true');
 });
 
+/**
+ * 공유 기록을 내 가계부로 옮길 때 분류 칸이 내 분류로 바뀐다.
+ *
+ * 공유 분류가 그대로 서 있으면 거기서 「데이트」 를 골라도 옮긴 뒤에는 「기타」 로 바뀌어 있었다.
+ * 옮긴 뒤 뜨는 「되돌리기」 알림이 가계부 고르기 창의 「내 가계부」 줄을 덮어, 그 줄을 누른
+ * 손가락이 되돌리기를 눌렀다. 옮긴 기록이 내 가계부에서 사라진 것처럼 보인 까닭이다(운영 로그로 확인).
+ */
+test('공유 기록을 내 가계부로 옮기면 분류 칸이 내 분류로 바뀌고, 고르기 창을 열면 알림이 걷힌다', async ({
+  home,
+  page,
+  partner,
+  prep,
+}) => {
+  const bookId = await prep.createBook({ myName: '은홍' });
+  await partner.prep.joinBook(await prep.bookInviteCode(bookId), '준호');
+  await prep.addBookEntry(bookId, { amount: 15_000, category: '생활', title: '영화' });
+
+  await home.open();
+  await home.waitReady();
+  await home.book.switchTo(BOOK);
+  await home.book.recent.row('영화').click();
+  await home.bookEdit.waitOpen();
+  await expect(home.bookEdit.categoryChip('데이트')).toBeVisible();
+  await expect(home.bookEdit.payerGroup).toBeVisible();
+
+  await home.bookEdit.destinationPill('내 가계부').click();
+  // 공유 분류는 걷히고 내 분류가 선다. 같은 이름(「생활」)이 먼저 골라져 있다. 낸 사람 줄도 걷힌다.
+  await expect(home.bookEdit.categoryChip('데이트')).toHaveCount(0);
+  await expect(home.bookEdit.categoryChip('생활')).toHaveAttribute('aria-pressed', 'true');
+  await expect(home.bookEdit.payerGroup).toHaveCount(0);
+  await home.bookEdit.categoryChip('여가·취미').click();
+  await expect(home.bookEdit.categoryChip('여가·취미')).toHaveAttribute('aria-pressed', 'true');
+
+  // 다시 공유 가계부를 고르면 공유 분류와 낸 사람이 옮기기 전 그대로 돌아온다.
+  await home.bookEdit.destinationPill(BOOK).click();
+  await expect(home.bookEdit.categoryChip('생활')).toHaveAttribute('aria-pressed', 'true');
+  await expect(home.bookEdit.payerGroup).toBeVisible();
+  await home.bookEdit.destinationPill('내 가계부').click();
+  await expect(home.bookEdit.categoryChip('여가·취미')).toHaveAttribute('aria-pressed', 'true');
+
+  await home.bookEdit.saveButton.click();
+  await home.bookEdit.waitClosed();
+  await expect(home.toast.withText('내 가계부로 옮겼어요')).toBeVisible();
+
+  await test.step('고르기 창을 열면 앞서 뜬 알림이 걷혀 「내 가계부」 줄을 덮지 않는다', async () => {
+    // 알림과 같은 순간에 뜬 창은 알림을 안 걷는다. 사람이 칩을 누르는 데 걸리는 틈을 둔다.
+    await page.waitForTimeout(400);
+    await home.book.chip.click();
+    await expect(home.book.picker).toBeVisible();
+    await expect(home.toast.withText('내 가계부로 옮겼어요')).toHaveCount(0);
+    await expect(home.toast.undoButton).toHaveCount(0);
+    await home.book.pickerRow('내 가계부').click();
+    await expect(home.book.picker).toHaveCount(0);
+  });
+
+  // 되돌리기가 눌리지 않았다. 옮긴 기록이 내 가계부에 고른 분류로 서 있다.
+  await expect(home.today.row('영화')).toBeVisible();
+  expect(await prep.bookEntries(bookId)).toEqual([]);
+  await home.today.row('영화').click();
+  await expect(home.edit.categoryChip('여가·취미')).toHaveAttribute('aria-pressed', 'true');
+  expect((await logsNamed(page, 'record_changed')).map((log) => log.params.action)).not.toContain(
+    'undo_move',
+  );
+});
+
 test('공유 기록 수정 시트에서 만든 새 분류가 골라지고, 저장하면 그 분류로 바뀐다', async ({
   home,
   partner,
