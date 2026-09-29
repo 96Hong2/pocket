@@ -1616,7 +1616,7 @@ export interface components {
         };
         /**
          * BookRole
-         * @description 가계부마다 관리자는 한 명이다. 이름 바꾸기, 끝내기, 지우기, 내보내기는 관리자만 한다.
+         * @description 가계부마다 관리자는 한 명이다. 이름 바꾸기, 완료하기, 지우기, 내보내기는 관리자만 한다.
          * @enum {string}
          */
         BookRole: "owner" | "member";
