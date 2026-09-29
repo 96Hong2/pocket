@@ -15,6 +15,8 @@ from app.api.errors import ERROR_RESPONSES, ApiError, ErrorCode
 from app.api.months import MonthQuery
 from app.modules.books import service
 from app.modules.books.schemas import (
+    BookCategoryCreate,
+    BookCategoryOut,
     BookCreate,
     BookEntryCreate,
     BookEntryCreated,
@@ -87,6 +89,15 @@ def destroy(book_id: uuid.UUID, session: DbSession, user: CurrentUser) -> Respon
 @router.post("/{book_id}/restore", response_model=BookOut)
 def restore(book_id: uuid.UUID, session: DbSession, user: CurrentUser) -> BookOut:
     return service.restore_book(session, user, book_id)
+
+
+@router.post(
+    "/{book_id}/categories", response_model=BookCategoryOut, status_code=status.HTTP_201_CREATED
+)
+def create_category(
+    book_id: uuid.UUID, body: BookCategoryCreate, session: DbSession, user: CurrentUser
+) -> BookCategoryOut:
+    return service.create_category(session, user, book_id, body)
 
 
 # ── 초대와 멤버 ─────────────────────────────────────────
@@ -187,6 +198,21 @@ def move_out(
     book_id: uuid.UUID, entry_id: uuid.UUID, session: DbSession, user: CurrentUser
 ) -> MoveOutResult:
     return service.move_entry_out(session, user, book_id, entry_id)
+
+
+@router.post("/{book_id}/entries/{entry_id}/undo-move-in", response_model=MoveOutResult)
+def undo_move_in(
+    book_id: uuid.UUID, entry_id: uuid.UUID, session: DbSession, user: CurrentUser
+) -> MoveOutResult:
+    # 옮기기 전 내 거래를 그대로 살린다. 태그, 결제 수단, 시각이 남는다.
+    return service.undo_move_in(session, user, book_id, entry_id)
+
+
+@router.post("/{book_id}/entries/{entry_id}/undo-move-out", response_model=BookEntryOut)
+def undo_move_out(
+    book_id: uuid.UUID, entry_id: uuid.UUID, session: DbSession, user: CurrentUser
+) -> BookEntryOut:
+    return service.undo_move_out(session, user, book_id, entry_id)
 
 
 # ── 정산 ───────────────────────────────────────────────

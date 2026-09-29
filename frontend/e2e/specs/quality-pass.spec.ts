@@ -118,7 +118,8 @@ test('검토 화면에서 수입으로 바꾸면 수입 분류를 고를 수 있
   await recordSheet.nl.openEdit('용돈');
   await recordSheet.nl.form.typeTab('지출').click();
 
-  // 지출로 바꾸면 지출 분류가 보인다.
+  // 지출로 바꾸면 지출 분류가 보인다. 격자는 분류 칩을 눌러야 열린다.
+  await recordSheet.nl.form.openCategories();
   await expect(recordSheet.nl.form.categoryChip(CATEGORY)).toBeVisible();
 
   await recordSheet.nl.form.typeTab('수입').click();
@@ -152,12 +153,19 @@ test('날짜 칸이 제 자리를 넘지 않는다', async ({ goal, home, page, 
     await recordSheet.methodTab('줄글').click();
     await recordSheet.nl.analyze('점심 12000');
     await recordSheet.nl.openEdit('점심');
+    // 날짜 칸은 날짜 칩을 눌러야 열린다.
+    await recordSheet.nl.form.openDay();
 
     // 금액과 나란히 두 칸으로 서는 자리다. 여기가 가장 좁다.
-    expect(await overflowOf(recordSheet.nl.form.dayField), '날짜 칸이 폼 밖으로 나갔다').toBeLessThanOrEqual(1);
+    expect(
+      await overflowOf(recordSheet.nl.form.dayField),
+      '날짜 칸이 폼 밖으로 나갔다',
+    ).toBeLessThanOrEqual(1);
     // 한 칸이 삐져나가면 화면 전체가 가로로 밀린다. 그쪽도 함께 본다.
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
       '화면이 가로로 밀린다',
     ).toBeLessThanOrEqual(0);
     await recordSheet.closeByEsc();
@@ -170,7 +178,10 @@ test('날짜 칸이 제 자리를 넘지 않는다', async ({ goal, home, page, 
     await goal.form.waitOpen();
 
     await expect(goal.form.deadlineField).toBeVisible();
-    expect(await overflowOf(goal.form.deadlineField), '기한 칸이 시트 밖으로 나갔다').toBeLessThanOrEqual(1);
+    expect(
+      await overflowOf(goal.form.deadlineField),
+      '기한 칸이 시트 밖으로 나갔다',
+    ).toBeLessThanOrEqual(1);
   });
 });
 

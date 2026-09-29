@@ -31,7 +31,9 @@ from app.modules import ledger
 from app.modules.reports.schemas import BreakdownRowOut
 
 __all__ = [
+    "BOOK_CATEGORY_LIMIT",
     "BookCategoryChangeOut",
+    "BookCategoryCreate",
     "BookCategoryOut",
     "BookCreate",
     "BookEntryCreate",
@@ -130,6 +132,20 @@ class BookCategoryOut(BaseModel):
     name: str
     icon_key: str
     sort_order: int
+
+
+# 가계부 하나에 둘 수 있는 분류 수. 기록 시트 격자가 한 화면을 넘지 않는 선이다.
+BOOK_CATEGORY_LIMIT = 30
+
+
+class BookCategoryCreate(BaseModel):
+    """공유 분류 만들기. 사진 아이콘은 받지 않는다. 올린 사람 기기에만 있어 상대 화면에 안 뜬다."""
+
+    name: str = Field(min_length=1, max_length=40)
+    icon_key: str = Field(min_length=1, max_length=64)
+
+    _trim = field_validator("name", "icon_key", mode="before")(_strip)
+    _check_name = field_validator("name", "icon_key")(_clean_name)
 
 
 class BookInviteOut(BaseModel):
@@ -317,7 +333,7 @@ class BookEntryCreated(BaseModel):
 
 
 class MoveOutResult(BaseModel):
-    """내 가계부로 옮겨 새로 생긴 거래."""
+    """내 가계부 쪽 거래. 옮겨서 새로 생겼거나, 옮기기를 되돌려 다시 살아난 것."""
 
     transaction_id: uuid.UUID
 

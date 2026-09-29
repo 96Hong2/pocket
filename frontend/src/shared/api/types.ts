@@ -171,6 +171,8 @@ export type BookRole = Schemas['BookRole'];
 /** 멤버 한 명. 나간 멤버는 `name` 이 null 로 온다. 서버가 이름을 보내지 않는다. */
 export type BookMemberOut = Schemas['BookMemberOut'];
 export type BookCategoryOut = Schemas['BookCategoryOut'];
+/** 공유 분류 만들기. 이름은 1~40자(앞뒤 공백을 걷는다), `icon_key` 는 64자까지. */
+export type BookCategoryCreate = Schemas['BookCategoryCreate'];
 /** 지금 쓸 수 있는 초대 링크. 닫혔거나 만료됐으면 가계부의 `invite` 가 null 이다. */
 export type BookInviteOut = Schemas['BookInviteOut'];
 export type BookOut = Schemas['BookOut'];

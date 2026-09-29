@@ -39,12 +39,16 @@ from app.integrations.llm import (
     TransactionSource,
     TransactionType,
     attach_source,
+    for_shared_book,
     natural_language_prompt,
     receipt_prompt,
     retry_prompt,
     screenshot_prompt,
 )
 from app.models import (
+    Book,
+    BookEntry,
+    BookMember,
     Category,
     CategoryKind,
     ImportBatch,
@@ -56,6 +60,8 @@ from app.models import (
     User,
 )
 from app.modules import ledger
+from app.modules.books import service as books
+from app.modules.books.schemas import BookMonthStateOut
 from app.modules.categories import service as categories
 from app.modules.transactions import service as transactions
 
@@ -123,7 +129,14 @@ class CommitResult:
     합계는 지출만 센다. 검토 화면의 저장 버튼과 같은 규칙이라야 두 화면이 같은 숫자를 말한다.
     """
 
-    __slots__ = ("batch", "budget_outcome", "created_count", "expense_total", "outcome")
+    __slots__ = (
+        "batch",
+        "book_month",
+        "budget_outcome",
+        "created_count",
+        "expense_total",
+        "outcome",
+    )
 
     def __init__(
         self,
@@ -133,6 +146,7 @@ class CommitResult:
         expense_total: Decimal,
         outcome: transactions.SaveOutcome | None,
         budget_outcome: transactions.SaveOutcome | None,
+        book_month: BookMonthStateOut | None = None,
     ) -> None:
         self.batch = batch
         self.created_count = created_count
@@ -140,6 +154,51 @@ class CommitResult:
         self.outcome = outcome
         # 예산은 마지막 한 건이 아니라 저장한 것들 중 오늘이 속한 기간을 고른다.
         self.budget_outcome = budget_outcome
+        # 공유 가계부에 적었을 때만 있다.
+        self.book_month = book_month
+
+
+_EXPENSE_ONLY = "공유 가계부에는 지출만 적을 수 있어요."
+
+
+class _BookScope(NamedTuple):
+    """공유 가계부 묶음이 분석, 수정, 저장에서 들고 다니는 것."""
+
+    book: Book
+    me: BookMember
+    #: 모델에게 보여 줄 이름. 화면 순서 그대로다.
+    names: list[str]
+    category_ids: dict[str, uuid.UUID]
+
+
+class _SpendKey(NamedTuple):
+    """공유 쪽 중복 판정 단위. 같은 날, 같은 금액, 상호가 둘 다 있으면 같은 상호."""
+
+    day: date
+    amount: Decimal
+    merchant: str
+
+    def matches(self, other: _SpendKey) -> bool:
+        if self.day != other.day or self.amount != other.amount:
+            return False
+        return not self.merchant or not other.merchant or self.merchant == other.merchant
+
+
+def _book_scope(session: Session, user: User, book_id: uuid.UUID | None) -> _BookScope | None:
+    """공유 가계부에 적는 길이면 그 가계부를 연다. 멤버가 아니면 404, 끝났으면 BOOK_ENDED."""
+    if book_id is None:
+        return None
+    # 스위치가 꺼져 있으면 공유 가계부 경로와 같이 없는 것처럼 답한다.
+    if not get_settings().shared_books_enabled:
+        raise ApiError(ErrorCode.NOT_FOUND, "찾을 수 없어요.", status_code=404)
+    book, me = books.writable_book(session, user, book_id)
+    rows = books.book_categories(session, book)
+    return _BookScope(
+        book=book,
+        me=me,
+        names=[row.name for row in rows],
+        category_ids={row.name: row.id for row in rows},
+    )
 
 
 def parse_text(
@@ -151,8 +210,11 @@ def parse_text(
     escalation: LlmStructuredClient | None = None,
     today: date | None = None,
     base_day: date | None = None,
+    book_id: uuid.UUID | None = None,
 ) -> ImportBatch:
     """줄글에서 거래 후보를 뽑아 검토 단위를 만든다."""
+    # 상한을 쓰기 전에 본다. 들어갈 수 없는 가계부로 모델을 부르지 않는다.
+    scope = _book_scope(session, user, book_id)
     day = today or ledger.today_for(user)
     base = _base_day(base_day, day)
     _require_quota(session, user, day, label="줄글 분석")
@@ -170,7 +232,7 @@ def parse_text(
         read = _read_twice_if_odd(
             client,
             escalation,
-            prompt=natural_language_prompt(day, _category_names(session, user)),
+            prompt=_prompt(natural_language_prompt, session, user, day, scope),
             today=day,
             subject="문장을",
             text=cleaned.text,
@@ -185,6 +247,7 @@ def parse_text(
         client=client,
         input_length=len(text),
         redacted_count=cleaned.count,
+        scope=scope,
     )
 
 
@@ -198,6 +261,7 @@ def parse_image(
     escalation: LlmStructuredClient | None = None,
     today: date | None = None,
     base_day: date | None = None,
+    book_id: uuid.UUID | None = None,
 ) -> ImportBatch:
     """이미지 한 장에서 거래 후보를 뽑아 검토 단위를 만든다. 아래 여러 장짜리의 한 장 갈래다."""
     return parse_images(
@@ -209,6 +273,7 @@ def parse_image(
         escalation=escalation,
         today=today,
         base_day=base_day,
+        book_id=book_id,
     )
 
 
@@ -222,6 +287,7 @@ def parse_images(
     escalation: LlmStructuredClient | None = None,
     today: date | None = None,
     base_day: date | None = None,
+    book_id: uuid.UUID | None = None,
 ) -> ImportBatch:
     """사진 여러 장에서 거래 후보를 뽑아 **검토 단위 하나**를 만든다.
 
@@ -243,6 +309,7 @@ def parse_images(
         )
 
     kind = _IMAGE_KINDS[source]
+    scope = _book_scope(session, user, book_id)
     day = today or ledger.today_for(user)
     base = _base_day(base_day, day)
     _require_quota(session, user, day, label=kind.quota_label, count=len(images))
@@ -250,7 +317,7 @@ def parse_images(
     # 돌리고 · 여백을 잘라내고 · 줄인 뒤에 보낸다. 위치 정보도 여기서 끊긴다.
     sent = [prepare_image(image) for image in images]
     total_bytes = sum(len(one.data) for one in sent)
-    prompt = kind.prompt(day, _category_names(session, user))
+    prompt = _prompt(kind.prompt, session, user, day, scope)
 
     with _counted(
         session,
@@ -282,7 +349,21 @@ def parse_images(
         # redact() 는 문자열만 가린다. 이미지 안의 카드번호는 가릴 수단이 없고,
         # 0 이 그 사실을 표에 남긴 것이다.
         redacted_count=0,
+        scope=scope,
     )
+
+
+def _prompt(
+    build: Callable[[date, list[str]], str],
+    session: Session,
+    user: User,
+    day: date,
+    scope: _BookScope | None,
+) -> str:
+    """공유 가계부에 적을 때는 그 가계부 분류 이름을 주고 공유 가계부라고 알린다."""
+    if scope is None:
+        return build(day, _category_names(session, user))
+    return for_shared_book(build(day, scope.names))
 
 
 def _build_batch(
@@ -297,6 +378,7 @@ def _build_batch(
     input_length: int,
     redacted_count: int,
     attempts: int | None = None,
+    scope: _BookScope | None = None,
 ) -> ImportBatch:
     """추출 결과를 검토 단위로 옮긴다. 줄글·캡처·영수증이 이 뒤로는 같은 길을 지난다.
 
@@ -319,12 +401,15 @@ def _build_batch(
         detected_count=len(candidates),
         # 상한을 넘겨 버린 건수를 남긴다. 조용히 사라지면 사용자가 몇 건을 잃었는지 모른다.
         error_code=f"TRUNCATED:{dropped}" if dropped else None,
+        book_id=scope.book.id if scope is not None else None,
     )
     session.add(batch)
     session.flush()
 
-    known = _known_fingerprints(session, user)
-    rules = _rules_by_merchant(session, user)
+    # 공유 쪽은 내 거래와 내 상호 규칙을 보지 않는다. 그 가계부에 이미 적힌 것과 견준다.
+    known = _known_fingerprints(session, user) if scope is None else set()
+    rules = _rules_by_merchant(session, user) if scope is None else {}
+    spends = _book_spends(session, scope.book) if scope is not None else []
     for order, (candidate, needs_eyes) in enumerate(candidates):
         session.add(
             _to_row(
@@ -339,6 +424,8 @@ def _build_batch(
                 rules,
                 # 두 모델을 다 거치고도 이상한 줄은 사람이 봐야 한다.
                 needs_eyes=needs_eyes,
+                scope=scope,
+                spends=spends,
             )
         )
 
@@ -390,14 +477,32 @@ def update_candidate(
     if row is None:
         raise ApiError(ErrorCode.NOT_FOUND, "고칠 항목을 찾지 못했어요.", status_code=404)
 
-    if "category_id" in data:
+    scope = _book_scope(session, user, batch.book_id)
+    data = dict(data)
+    if scope is not None:
+        next_type = data.get("type", row.type)
+        if next_type != TransactionType.EXPENSE and (
+            "type" in data or data.get("is_selected") is True
+        ):
+            raise ApiError(ErrorCode.INVALID_REQUEST, _EXPENSE_ONLY, status_code=422)
+        if "category_id" in data:
+            # 필드 이름은 같고 가리키는 곳만 그 가계부의 분류다.
+            book_category = data.pop("category_id")
+            books.require_book_category(session, scope.book, book_category)  # type: ignore[arg-type]
+            data["book_category_id"] = book_category
+    elif "category_id" in data:
         categories.require_owned(session, user, data["category_id"])  # type: ignore[arg-type]
 
     # 재판정에 쓸 고치기 전 상태. setattr 로 값이 바뀌기 전에 떠 둔다.
     was_duplicate = row.is_duplicate
     was_refund = row.type == TransactionType.REFUND
     # 서버가 스스로 꺼 둔 줄인지. 셋 중 아무 이유도 없이 꺼져 있으면 사람이 손으로 끈 것이다.
-    was_blocked = was_duplicate or was_refund or row.confidence < LOW_CONFIDENCE_THRESHOLD
+    was_blocked = (
+        was_duplicate
+        or was_refund
+        or row.confidence < LOW_CONFIDENCE_THRESHOLD
+        or _outside_book(row, scope)
+    )
 
     for field, value in data.items():
         if field == "occurred_at" and isinstance(value, datetime):
@@ -416,12 +521,15 @@ def update_candidate(
         row.was_edited = True
         fingerprint = _fingerprint_of(row, user)
         row.fingerprint = fingerprint.value
-        row.is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in (
-            _known_fingerprints(session, user) | _siblings_before(session, row)
-        )
+        if scope is not None:
+            row.is_duplicate = _duplicate_in_book(session, user, scope, batch, row)
+        else:
+            row.is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in (
+                _known_fingerprints(session, user) | _siblings_before(session, row)
+            )
         if "is_selected" not in data:
             now_refund = row.type == TransactionType.REFUND
-            now_blocked = row.is_duplicate or now_refund
+            now_blocked = row.is_duplicate or now_refund or _outside_book(row, scope)
             if now_blocked and not (was_duplicate or was_refund):
                 # 고쳐서 이제야 이미 있는 것과 같아졌거나 환불이 된 줄만 끈다.
                 # 안 끄면 켜진 채 남아 같은 거래가 두 번 저장된다.
@@ -443,7 +551,7 @@ def commit_batch(
     *,
     today: date | None = None,
 ) -> CommitResult:
-    """고른 후보를 실제 거래로 저장한다."""
+    """고른 후보를 실제 거래로 저장한다. 공유 가계부 묶음이면 공유 기록으로 저장한다."""
     batch = _require_open(session, user, batch_id)
     day = today or ledger.today_for(user)
     chosen = [row for row in batch.candidates if row.is_selected]
@@ -451,6 +559,9 @@ def commit_batch(
         raise ApiError(
             ErrorCode.INVALID_REQUEST, "저장할 항목을 하나 이상 골라 주세요.", status_code=422
         )
+    scope = _book_scope(session, user, batch.book_id)
+    if scope is not None:
+        return _commit_to_book(session, user, batch, chosen, scope)
 
     for row in chosen:
         if row.type == TransactionType.REFUND:
@@ -505,6 +616,56 @@ def commit_batch(
         expense_total=total,
         outcome=outcome,
         budget_outcome=_budget_outcome(outcomes, ledger.period_for(user, day)),
+    )
+
+
+def _commit_to_book(
+    session: Session,
+    user: User,
+    batch: ImportBatch,
+    chosen: list[ImportCandidate],
+    scope: _BookScope,
+) -> CommitResult:
+    """고른 지출을 공유 기록으로 한 번에 저장한다. 낸 사람은 나, 날짜는 내 시간대의 날이다.
+
+    결제 수단과 출처는 공유 기록에 칸이 없어 버린다. 상호 규칙은 배우지 않는다.
+    내 분류를 가리키는 규칙이라 공유 분류로 고른 것을 담을 수 없다.
+    """
+    if any(row.type != TransactionType.EXPENSE for row in chosen):
+        raise ApiError(ErrorCode.INVALID_REQUEST, _EXPENSE_ONLY, status_code=422)
+    tz = ledger.user_tz(user)
+    total = Decimal(0)
+    days: list[date] = []
+    for row in chosen:
+        occurred_on = ledger.local_date(row.occurred_at, tz)
+        days.append(occurred_on)
+        total += row.amount
+        if row.book_entry_id is not None:
+            continue
+        entry = books.stage_entry(
+            session,
+            scope.book,
+            scope.me,
+            amount=row.amount,
+            category_id=row.book_category_id,
+            title=row.merchant,
+            occurred_on=occurred_on,
+        )
+        row.book_entry_id = entry.id
+
+    batch.status = ImportBatchStatus.COMMITTED
+    batch.committed_count = len(chosen)
+    batch.error_code = None
+    batch.completed_at = datetime.now(UTC)
+    session.commit()
+    session.refresh(batch)
+    return CommitResult(
+        batch=batch,
+        created_count=len(chosen),
+        expense_total=total,
+        outcome=None,
+        budget_outcome=None,
+        book_month=books.month_state_for(session, scope.book, days),
     )
 
 
@@ -753,30 +914,48 @@ def _to_row(
     known: set[str],
     rules: dict[str, _LearnedRule],
     needs_eyes: bool = False,
+    scope: _BookScope | None = None,
+    spends: list[_SpendKey] | None = None,
 ) -> ImportCandidate:
     occurred_at = _occurred_at(candidate.occurred_at, user, today, base_day)
     # 돌아온 값도 가린다. 캡처는 입력을 가릴 수단이 없어(이미지다) 여기가 유일한 그물이고,
     # 줄글도 모델이 지어낸 숫자가 섞일 수 있다. 여기서 막지 않으면 거래·기억한 분류에 영구히 남는다.
     merchant = redact(candidate.merchant).text if candidate.merchant else None
     merchant_normalized = normalize_merchant(merchant) or None
-    category_id = _category_for(session, user, candidate, merchant_normalized, rules)
     amount = Decimal(candidate.amount)
+    occurred_on = ledger.local_date(occurred_at, ledger.user_tz(user))
     fingerprint = build_fingerprint(
-        occurred_on=ledger.local_date(occurred_at, ledger.user_tz(user)),
+        occurred_on=occurred_on,
         amount=Money(amount),
         type=candidate.type,
         merchant=merchant,
     )
-    is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in known
-    # 이 줄도 「이미 본 것」 에 넣는다. 사진 여러 장을 한 묶음으로 읽으면서 생긴 자리다.
-    # 카드 내역이 한 화면에 안 들어와 두세 장을 이어 찍으면 **경계의 한두 줄이 두 장에
-    # 다 찍힌다.** 저장된 거래하고만 대조하면 그 둘이 서로를 못 보고 둘 다 켜진 채로
-    # 올라가, 같은 결제가 두 번 저장된다.
-    if fingerprint.duplicate_eligible:
-        known.add(fingerprint.value)
+    if scope is None:
+        category_id = _category_for(session, user, candidate, merchant_normalized, rules)
+        book_category_id = None
+        is_duplicate = fingerprint.duplicate_eligible and fingerprint.value in known
+        # 이 줄도 「이미 본 것」 에 넣는다. 사진 여러 장을 한 묶음으로 읽으면서 생긴 자리다.
+        # 카드 내역이 한 화면에 안 들어와 두세 장을 이어 찍으면 **경계의 한두 줄이 두 장에
+        # 다 찍힌다.** 저장된 거래하고만 대조하면 그 둘이 서로를 못 보고 둘 다 켜진 채로
+        # 올라가, 같은 결제가 두 번 저장된다.
+        if fingerprint.duplicate_eligible:
+            known.add(fingerprint.value)
+    else:
+        category_id = None
+        book_category_id = (
+            scope.category_ids.get(candidate.category) if candidate.category else None
+        )
+        is_duplicate = False
+        if candidate.type == TransactionType.EXPENSE and spends is not None:
+            # 같이 쓰는 사람이 먼저 적었거나, 이어 찍은 사진에 두 번 찍힌 줄이다.
+            key = _SpendKey(occurred_on, amount, merchant_normalized or "")
+            is_duplicate = any(key.matches(other) for other in spends)
+            spends.append(key)
     low = candidate.confidence < LOW_CONFIDENCE_THRESHOLD
     # 환불은 되돌릴 지출을 골라야 한다. 대상 없이 저장하면 쓴 적 없는 돈이 예산으로 돌아온다.
     needs_target = candidate.type == TransactionType.REFUND
+    # 공유 가계부는 같이 쓴 돈만 받는다. 수입과 이체는 내 가계부에만 적는다.
+    not_shared = scope is not None and candidate.type != TransactionType.EXPENSE
     return ImportCandidate(
         import_batch_id=batch.id,
         occurred_at=occurred_at,
@@ -785,13 +964,16 @@ def _to_row(
         merchant=merchant,
         merchant_normalized=merchant_normalized,
         category_id=category_id,
+        book_category_id=book_category_id,
         payment_method=candidate.payment_method,
         confidence=candidate.confidence,
         fingerprint=fingerprint.value,
         is_duplicate=is_duplicate,
         # 확신이 낮거나 · 이미 있거나 · 서버 검증에 걸린 것은 스스로 켜지지 않는다.
         # 사람이 켜야 저장된다.
-        is_selected=not low and not is_duplicate and not needs_target and not needs_eyes,
+        is_selected=(
+            not low and not is_duplicate and not needs_target and not needs_eyes and not not_shared
+        ),
         sort_order=order,
     )
 
@@ -950,6 +1132,44 @@ def _siblings_before(session: Session, row: ImportCandidate) -> set[str]:
         ImportCandidate.fingerprint.is_not(None),
     )
     return {value for value in session.scalars(stmt) if value}
+
+
+def _outside_book(row: ImportCandidate, scope: _BookScope | None) -> bool:
+    return scope is not None and row.type != TransactionType.EXPENSE
+
+
+def _book_spends(session: Session, book: Book) -> list[_SpendKey]:
+    """그 가계부에 살아 있는 기록. 누가 적었든 본다."""
+    stmt = select(BookEntry.occurred_on, BookEntry.amount, BookEntry.title).where(
+        BookEntry.book_id == book.id, BookEntry.deleted_at.is_(None)
+    )
+    return [
+        _SpendKey(day, Decimal(amount), normalize_merchant(title))
+        for day, amount, title in session.execute(stmt)
+    ]
+
+
+def _duplicate_in_book(
+    session: Session, user: User, scope: _BookScope, batch: ImportBatch, row: ImportCandidate
+) -> bool:
+    """고친 줄을 다시 판정한다. 가계부 기록과, 같은 묶음에서 앞에 선 지출 줄을 본다."""
+    if row.type != TransactionType.EXPENSE:
+        return False
+    tz = ledger.user_tz(user)
+
+    def key_of(item: ImportCandidate) -> _SpendKey:
+        day = ledger.local_date(item.occurred_at, tz)
+        return _SpendKey(day, item.amount, item.merchant_normalized or "")
+
+    before = [
+        key_of(other)
+        for other in batch.candidates
+        if other.id != row.id
+        and other.sort_order < row.sort_order
+        and other.type == TransactionType.EXPENSE
+    ]
+    key = key_of(row)
+    return any(key.matches(other) for other in [*_book_spends(session, scope.book), *before])
 
 
 def _fingerprint_of(row: ImportCandidate, user: User) -> Fingerprint:

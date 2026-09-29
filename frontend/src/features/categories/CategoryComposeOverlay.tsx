@@ -47,6 +47,8 @@ export interface CategoryComposeOverlayProps {
   onCreated: (created: CategoryOut) => void;
   /** 저장이 도는 동안. 감싼 자리가 닫기를 잠그는 데 쓴다. */
   onBusyChange?: (busy: boolean) => void;
+  /** 분류를 만들 공유 가계부. 없으면 내 분류다. */
+  bookId?: string | null;
 }
 
 export function CategoryComposeOverlay({
@@ -56,6 +58,7 @@ export function CategoryComposeOverlay({
   onClose,
   onCreated,
   onBusyChange,
+  bookId = null,
 }: CategoryComposeOverlayProps) {
   /*
     저장이 도는 동안에는 뒤로가기로 안 닫힌다. 닫히면 적어 둔 이름과 고른 그림이
@@ -160,6 +163,7 @@ export function CategoryComposeOverlay({
         onBack={requestBack}
         onClose={onClose}
         onCreated={onCreated}
+        bookId={bookId}
       />
       {asking ? (
         <LeaveConfirm

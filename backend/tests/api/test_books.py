@@ -560,6 +560,246 @@ def test_환불이_걸린_지출과_남의_거래는_옮기지_않는다(
     assert api.post(url, json={"transaction_id": tx["id"]}, headers=OTHER).status_code == 404
 
 
+# ── 옮기기 되돌리기 ─────────────────────────────────────
+
+
+def _tag(client: TestClient, name: str = "데이트") -> str:
+    r = client.post("/api/v1/tags", json={"name": name}, headers=AUTH)
+    assert r.status_code == 201, r.text
+    return str(next(row["id"] for row in r.json()["items"] if row["name"] == name))
+
+
+def test_공유로_옮긴_것을_되돌리면_원래_거래가_태그와_결제_수단째_돌아온다(
+    api: TestClient, default_categories: list[Category]
+) -> None:
+    book = _pair(api)
+    body = {
+        "occurred_at": "2026-08-20T19:30:00+09:00",
+        "amount": "18000",
+        "type": "expense",
+        "source": "screenshot",
+        "merchant": "김밥천국",
+        "memo": "둘이 먹음",
+        "category_id": _default(default_categories, "식비"),
+        "tag_id": _tag(api),
+        "payment_method": "credit",
+        "excluded_from_budget": True,
+    }
+    created = api.post("/api/v1/transactions", json=body, headers=AUTH)
+    assert created.status_code == 201, created.text
+    before = created.json()["transaction"]
+
+    moved = api.post(
+        f"/api/v1/books/{book['id']}/entries/move-in",
+        json={"transaction_id": before["id"]},
+        headers=AUTH,
+    )
+    assert moved.status_code == 201, moved.text
+    entry = moved.json()["entry"]
+    base = f"/api/v1/books/{book['id']}/entries/{entry['id']}"
+
+    # 같이 쓰는 사람은 되돌릴 수 없다.
+    assert api.post(f"{base}/undo-move-in", headers=OTHER).status_code == 404
+    undone = api.post(f"{base}/undo-move-in", headers=AUTH)
+    assert undone.status_code == 200, undone.text
+    assert undone.json() == {"transaction_id": before["id"]}
+
+    after = _personal_items(api)
+    assert len(after) == 1
+    keep = ("id", "amount", "merchant", "memo", "category_id", "tag_id", "payment_method")
+    assert {k: after[0][k] for k in keep} == {k: before[k] for k in keep}
+    assert after[0]["excluded_from_budget"] is True
+    assert after[0]["source"] == "screenshot"
+    assert after[0]["occurred_at"] == before["occurred_at"]
+    assert _entries(api, book["id"]) == []
+
+    # 지운 기록 되돌리기로 다시 살아나면 같은 돈이 두 번 잡힌다.
+    assert api.post(f"{base}/restore", headers=AUTH).status_code == 404
+    assert api.post(f"{base}/undo-move-in", headers=AUTH).status_code == 404
+    assert len(_personal_items(api)) == 1
+
+
+def test_옮긴_사이_그날_적은_안_썼어요는_옮기기를_되돌리면_걷힌다(
+    api: TestClient, default_categories: list[Category]
+) -> None:
+    book = _pair(api)
+    body = {
+        "occurred_at": "2026-08-20T19:30:00+09:00",
+        "amount": "18000",
+        "type": "expense",
+        "source": "keypad",
+        "merchant": "김밥천국",
+        "category_id": _default(default_categories, "식비"),
+    }
+    created = api.post("/api/v1/transactions", json=body, headers=AUTH)
+    assert created.status_code == 201, created.text
+    tx_id = created.json()["transaction"]["id"]
+    moved = api.post(
+        f"/api/v1/books/{book['id']}/entries/move-in",
+        json={"transaction_id": tx_id},
+        headers=AUTH,
+    )
+    assert moved.status_code == 201, moved.text
+    entry = moved.json()["entry"]
+
+    # 옮기고 나면 그날 목록이 비어 「안 썼어요」 를 적을 수 있다.
+    mark = {
+        "occurred_at": "2026-08-20T09:00:00+09:00",
+        "amount": "0",
+        "type": "expense",
+        "source": "no_spend",
+        "merchant": None,
+    }
+    marked = api.post("/api/v1/transactions", json=mark, headers=AUTH)
+    assert marked.status_code == 201, marked.text
+
+    undone = api.post(
+        f"/api/v1/books/{book['id']}/entries/{entry['id']}/undo-move-in", headers=AUTH
+    )
+    assert undone.status_code == 200, undone.text
+
+    after = _personal_items(api)
+    assert [row["id"] for row in after] == [tx_id]
+    assert all(row["source"] != "no_spend" for row in after)
+
+
+def test_옮겨_온_것이_아닌_기록은_옮기기_되돌리기가_없다(api: TestClient) -> None:
+    book = _pair(api)
+    entry = _add(api, book["id"])["entry"]
+
+    r = api.post(f"/api/v1/books/{book['id']}/entries/{entry['id']}/undo-move-in", headers=AUTH)
+    assert r.status_code == 409
+    assert _error(r) == "CONFLICT"
+    assert len(_entries(api, book["id"])) == 1
+
+
+def test_내_가계부로_옮긴_것을_되돌리면_낸_사람과_분류와_고친_사람이_그대로다(
+    api: TestClient, default_categories: list[Category]
+) -> None:
+    book = _pair(api)
+    date_category = _category(book, "데이트")
+    entry = _add(
+        api,
+        book["id"],
+        category_id=date_category,
+        title="영화",
+        paid_by_member_id=_member(book, "준호"),
+    )["entry"]
+    base = f"/api/v1/books/{book['id']}/entries/{entry['id']}"
+    edited = api.patch(base, json={"memo": "팝콘 포함"}, headers=OTHER)
+    assert edited.status_code == 200, edited.text
+
+    moved = api.post(f"{base}/move-out", headers=AUTH)
+    assert moved.status_code == 200, moved.text
+    assert [row["id"] for row in _personal_items(api)] == [moved.json()["transaction_id"]]
+
+    # 적은 사람만 되돌린다.
+    assert api.post(f"{base}/undo-move-out", headers=OTHER).status_code == 404
+    undone = api.post(f"{base}/undo-move-out", headers=AUTH)
+    assert undone.status_code == 200, undone.text
+    back = undone.json()
+    assert back["id"] == entry["id"]
+    assert (back["paid_by_member_id"], back["category_id"]) == (
+        _member(book, "준호"),
+        date_category,
+    )
+    assert back["updated_by_member_id"] == _member(book, "준호")
+    assert (back["title"], back["memo"], back["amount"]) == ("영화", "팝콘 포함", "32000")
+    assert _personal_items(api) == []
+    assert [row["id"] for row in _entries(api, book["id"], headers=OTHER)] == [entry["id"]]
+
+    # 이미 살아 있으면 되돌릴 것이 없다.
+    assert api.post(f"{base}/undo-move-out", headers=AUTH).status_code == 404
+
+
+def test_옮긴_거래에_환불이_붙으면_내_가계부로_옮기기를_되돌리지_않는다(api: TestClient) -> None:
+    book = _pair(api)
+    entry = _add(api, book["id"])["entry"]
+    base = f"/api/v1/books/{book['id']}/entries/{entry['id']}"
+    moved = api.post(f"{base}/move-out", headers=AUTH).json()
+    refund = {
+        "occurred_at": "2026-08-21T10:00:00+09:00",
+        "amount": "3000",
+        "type": "refund",
+        "source": "keypad",
+        "refund_of_transaction_id": moved["transaction_id"],
+    }
+    assert api.post("/api/v1/transactions", json=refund, headers=AUTH).status_code == 201
+
+    r = api.post(f"{base}/undo-move-out", headers=AUTH)
+    assert r.status_code == 409
+    assert _entries(api, book["id"]) == []
+
+
+def test_끝난_가계부에서는_옮기기를_되돌리지_않는다(
+    api: TestClient, default_categories: list[Category]
+) -> None:
+    book = _pair(api)
+    tx = _personal(api, _default(default_categories, "식비"))
+    entry = api.post(
+        f"/api/v1/books/{book['id']}/entries/move-in",
+        json={"transaction_id": tx["id"]},
+        headers=AUTH,
+    ).json()["entry"]
+    api.patch(f"/api/v1/books/{book['id']}", json={"ended": True}, headers=AUTH)
+
+    r = api.post(f"/api/v1/books/{book['id']}/entries/{entry['id']}/undo-move-in", headers=AUTH)
+    assert r.status_code == 409
+    assert _error(r) == "BOOK_ENDED"
+    assert _personal_items(api) == []
+
+
+# ── 공유 분류 ───────────────────────────────────────────
+
+
+def test_공유_분류는_멤버_누구나_만들고_기타_바로_앞에_선다(api: TestClient) -> None:
+    book = _pair(api)
+    url = f"/api/v1/books/{book['id']}/categories"
+
+    r = api.post(url, json={"name": "  반려동물  ", "icon_key": "07_heart"}, headers=OTHER)
+    assert r.status_code == 201, r.text
+    made = r.json()
+    assert (made["name"], made["icon_key"]) == ("반려동물", "07_heart")
+
+    names = [
+        c["name"] for c in api.get(f"/api/v1/books/{book['id']}", headers=AUTH).json()["categories"]
+    ]
+    assert names[-2:] == ["반려동물", "기타"]
+    assert len(names) == len(book["categories"]) + 1
+
+    again = api.post(url, json={"name": "반려동물", "icon_key": "26_sparkles"}, headers=AUTH)
+    assert again.status_code == 409
+    assert _error(again) == "DUPLICATE_CATEGORY"
+    assert again.json()["error"]["message"] == "이미 있는 분류예요."
+    assert (
+        api.post(url, json={"name": "   ", "icon_key": "07_heart"}, headers=AUTH).status_code == 422
+    )
+
+
+def test_공유_분류는_30개까지다(api: TestClient) -> None:
+    book = _create(api)
+    url = f"/api/v1/books/{book['id']}/categories"
+    for n in range(30 - len(book["categories"])):
+        r = api.post(url, json={"name": f"분류{n}", "icon_key": "26_sparkles"}, headers=AUTH)
+        assert r.status_code == 201, r.text
+
+    r = api.post(url, json={"name": "하나 더", "icon_key": "26_sparkles"}, headers=AUTH)
+    assert r.status_code == 422
+    assert len(api.get(f"/api/v1/books/{book['id']}", headers=AUTH).json()["categories"]) == 30
+
+
+def test_멤버가_아니거나_끝난_가계부에는_분류를_만들_수_없다(api: TestClient) -> None:
+    book = _pair(api)
+    url = f"/api/v1/books/{book['id']}/categories"
+    body = {"name": "반려동물", "icon_key": "07_heart"}
+
+    assert api.post(url, json=body, headers=THIRD).status_code == 404
+    api.patch(f"/api/v1/books/{book['id']}", json={"ended": True}, headers=AUTH)
+    r = api.post(url, json=body, headers=OTHER)
+    assert r.status_code == 409
+    assert _error(r) == "BOOK_ENDED"
+
+
 # ── 정산 ───────────────────────────────────────────────
 
 

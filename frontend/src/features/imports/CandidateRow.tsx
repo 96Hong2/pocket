@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
 
 import {
@@ -50,8 +51,36 @@ const TYPES: SegmentedOption<TransactionType>[] = [
   { value: 'transfer', label: '이체' },
 ];
 
+/** 줄 머리 아래 날짜·분류 칩을 눌러 여는 칸. 한 번에 하나만 열린다. */
+type Editor = 'date' | 'category';
+
+/**
+ * 펼친 폼에 지금 적혀 있는 분류·금액·종류.
+ *
+ * 줄 머리와 저장 버튼 합계가 서버 값 대신 이것을 그린다. 안 그러면 칩은 새 분류인데
+ * 바로 위 아이콘은 옛 분류라 한 줄에 분류가 둘 선다.
+ */
+export interface RowPreview {
+  id: string;
+  categoryId: string | null;
+  amount: number;
+  type: TransactionType;
+}
+
+/** 「새 분류」 를 눌렀을 때 뜨는 창에 넘기는 것. */
+export interface CategoryComposeSlot {
+  open: boolean;
+  /** 지금 고치는 줄의 종류. 만들 분류의 종류가 이것으로 정해진다. */
+  kind: LedgerKind;
+  /** 만들지 않고 고치던 줄로 돌아간다. */
+  onBack: () => void;
+  /** 만든 것을 돌려주면 이 줄에 바로 골라진다. */
+  onCreated: (created: CategoryOut) => void;
+}
+
 export interface CandidateRowProps {
   candidate: ImportCandidateOut;
+  /** 이 줄에서 고를 수 있는 분류. 줄이 종류에 맞춰 한 번 더 거른다. */
   categories: CategoryOut[];
   /** 이 검토가 속한 기록 흐름. 「더 보기」를 편 로그가 이 값을 물고 간다. */
   flowId: FlowId;
@@ -66,6 +95,24 @@ export interface CandidateRowProps {
   onSave: (body: ImportCandidatePatch) => void;
   /** 펼친 폼이 아직 안 보낸 값을 목록이 꺼내 갈 수 있게 하는 통로. */
   onDraftChange: (read: (() => ImportCandidatePatch) | null) => void;
+  /** 펼친 폼에 적힌 값. 이 줄 것이면 머리가 이것을 그린다. */
+  preview: RowPreview | null;
+  /** 폼이 적힌 값을 올리는 통로. 폼이 내려가면 null 을 올린다. */
+  onPreviewChange: (update: (current: RowPreview | null) => RowPreview | null) => void;
+  /**
+   * 지출만 받는 자리인가(공유 가계부 검토).
+   *
+   * 참이면 종류와 결제 수단을 고치는 칸을 세우지 않는다. 접힌 줄의 지출·수입 ⇄,
+   * 환불 안내와 「수입으로 바꾸기」, 폼의 지출/수입/이체와 결제 수단이 빠진다.
+   */
+  expenseOnly?: boolean;
+  /**
+   * 「새 분류」 를 눌렀을 때 뜨는 만들기 창.
+   *
+   * 안 주면 내 분류를 만드는 창을 쓴다. `null` 이면 「새 분류」 칸이 없다.
+   * 다른 곳(공유 가계부)에 분류를 만들 때는 그 창을 여기 끼운다.
+   */
+  renderCompose?: ((slot: CategoryComposeSlot) => ReactNode) | null;
 }
 
 /**
@@ -86,38 +133,49 @@ export function CandidateRow({
   onEditClose,
   onSave,
   onDraftChange,
+  preview,
+  onPreviewChange,
+  expenseOnly = false,
+  renderCompose,
 }: CandidateRowProps) {
   const category = categories.find((item) => item.id === candidate.category_id);
+  // 펼친 동안 머리는 폼에 적힌 것을 그린다. 접으면 서버 값으로 돌아간다.
+  const shown = editing && preview?.id === candidate.id ? preview : null;
+  const headCategory =
+    shown == null ? category : categories.find((item) => item.id === shown.categoryId);
   /*
     상호를 못 읽었을 때 「이름 없음」 이라고 적지 않는다. 읽히기로는 사용자가 뭔가
     빠뜨린 것처럼 들리는데 실제로는 영수증에 총액만 있던 것이다. 저장하고 나면
     같은 줄이 원장에서 분류 이름으로 불리므로, 여기서도 같은 이름을 쓴다.
   */
-  const name = candidate.merchant ?? category?.name ?? '기록';
-  const amount = parseDecimalOr(candidate.amount, 0);
+  const name = candidate.merchant ?? headCategory?.name ?? '기록';
+  const amount = shown?.amount ?? parseDecimalOr(candidate.amount, 0);
+  const day = toLedgerDate(new Date(candidate.occurred_at));
   // 이체는 여기서 못 바꾼다. 분류가 없는 종류라 한 번 누르는 것으로 오갈 수 없다.
-  const swap: LedgerKind | null =
-    candidate.type === 'expense' ? 'income' : candidate.type === 'income' ? 'expense' : null;
-  /*
-    환불로 읽힌 줄.
-
-    되돌릴 지출을 함께 골라야 저장할 수 있는데 그 자리가 아직 없다. 그래서 이 줄은 켤 수
-    없고, 예전에는 그 사실을 어디에도 적지 않은 채 '이체' 라고만 보여 줬다. 카드 캐시백이
-    여기 걸려서, 왜 저장이 안 되는지 알 길이 없었다.
-
-    지금은 두 가지를 한 자리에서 말한다: 왜 못 켜는지, 그리고 무엇을 하면 되는지.
-    캐시백·환급처럼 실제로 들어온 돈이면 수입으로 바꿔 한 번에 저장한다.
-  */
-  const isRefund = candidate.type === 'refund';
+  const swap: LedgerKind | null = expenseOnly
+    ? null
+    : candidate.type === 'expense'
+      ? 'income'
+      : candidate.type === 'income'
+        ? 'expense'
+        : null;
 
   /*
-    앞날 날짜로 읽힌 줄.
-
-    가계부는 이미 쓴 돈을 적는 곳이라 앞날은 거의 다 잘못 읽은 것이다. 줄글에 '내일' 이라
-    적었거나, '9/16' 을 올해로 읽어 앞날이 된 경우다. **막지는 않는다.** 정말 그렇게 적고
-    싶을 수도 있어서, 저장 전에 눈에 띄게 해 두고 한 줄로 확인만 시킨다.
+    접힌 줄의 날짜·분류 칩을 누르면 줄을 펴면서 그 칸을 바로 연다.
+    펴는 일은 목록이 한다(앞 줄에 적어 둔 것을 먼저 보낸 뒤 편다). 무엇을 열지는 여기
+    적어 두고, 폼이 처음 설 때 한 번 읽는다.
   */
-  const futureDay = isFutureDay(toLedgerDate(new Date(candidate.occurred_at)));
+  const [opening, setOpening] = useState<Editor | null>(null);
+  /*
+    지출만 받는 자리에 수입·이체·환불로 읽힌 줄. 켜지도 고치지도 못하게 흐리게 둔다.
+    종류를 바꾸는 칸이 없는 자리라, 열어 봐야 할 수 있는 일이 없다.
+  */
+  const locked = expenseOnly && candidate.type !== 'expense';
+  const rowDisabled = disabled || locked;
+  function open(editor: Editor | null): void {
+    setOpening(editor);
+    onEdit();
+  }
 
   /*
     펼친 줄을 화면 맨 위로 끌어올린다.
@@ -132,7 +190,11 @@ export function CandidateRow({
   }, [editing]);
 
   return (
-    <li className="nl-item" ref={rowRef} data-testid={TEST_IDS.nlCandidateRow}>
+    <li
+      className={cx('nl-item', locked && 'nl-item--locked')}
+      ref={rowRef}
+      data-testid={TEST_IDS.nlCandidateRow}
+    >
       <div className="nl-item__head">
         {/*
           라벨이 감싸는 것은 체크박스 하나뿐이다. 예전에는 이름과 아이콘까지 라벨 안이라
@@ -146,7 +208,7 @@ export function CandidateRow({
             // 이름을 그대로 읽는다. 화면에서 이 칸이 가리키는 것이 그 줄이다.
             aria-label={name}
             // 환불은 켜 봐야 저장에서 통째로 막힌다. 켤 수 있게 두면 여덟 건이 다 안 들어간다.
-            disabled={disabled || isRefund}
+            disabled={rowDisabled || candidate.type === 'refund'}
             onChange={(event) => onToggle(event.target.checked)}
           />
         </label>
@@ -154,11 +216,11 @@ export function CandidateRow({
         <button
           type="button"
           className="nl-item__open"
-          disabled={disabled}
+          disabled={rowDisabled}
           aria-expanded={editing}
-          onClick={editing ? onEditClose : onEdit}
+          onClick={editing ? onEditClose : () => open(null)}
         >
-          <CategoryAvatar {...iconOf(category)} size={52} />
+          <CategoryAvatar {...iconOf(headCategory)} size={52} />
           <span className="nl-item__name">{name}</span>
           {/*
             종류를 숫자로 드러낸다. 수입은 앞에 + 가 붙고 색이 갈린다.
@@ -167,7 +229,7 @@ export function CandidateRow({
           <Amount
             className={candidate.is_low_confidence ? 'nl-item__amount--unsure' : undefined}
             value={amount}
-            tone={candidate.type}
+            tone={shown?.type ?? candidate.type}
             size={17}
             data-testid={TEST_IDS.nlCandidateAmount}
           />
@@ -175,86 +237,6 @@ export function CandidateRow({
           <span className="nl-item__sr">, 눌러서 고치기</span>
         </button>
       </div>
-
-      <div className="nl-item__meta">
-        {/*
-          앞날 날짜는 거의 다 잘못 읽은 것이다('내일' 이라 적었거나 '9/16' 을 올해로 읽었거나).
-          막지는 않는다. 정말 그렇게 적고 싶을 수도 있어 **눈에 띄게만** 해 둔다.
-        */}
-        <span
-          data-testid={TEST_IDS.nlCandidateDate}
-          className={cx(futureDay && 'nl-item__date--future')}
-        >
-          {formatDayLabel(toLedgerDate(new Date(candidate.occurred_at)))}
-        </span>
-        {/*
-          제목이 이미 분류 이름일 때(상호를 못 읽은 줄) 여기 또 적지 않는다.
-          「식비 · 식비」 로 두 번 읽힌다. 원장 줄도 같은 규칙으로 부제를 비운다.
-        */}
-        {candidate.merchant != null || category == null ? (
-          <>
-            <span className="nl-item__dot" aria-hidden="true">
-              ·
-            </span>
-            <span>{category?.name ?? '분류 없음'}</span>
-          </>
-        ) : null}
-        {/*
-          읽어 온 종류를 겉으로 드러내고 한 번에 바꾼다. 예전에는 '고치기' 를 펴야 보였는데,
-          사진과 문장에서 가장 자주 틀리는 값이 이것이라 그 자리가 너무 멀었다.
-        */}
-        {/*
-          줄을 펼치면 아래 폼에 지출·수입·이체 세 칸짜리가 나온다. 그때 이 버튼까지 두면
-          같은 값을 고치는 자리가 한 화면에 둘이라 어느 쪽이 진짜인지 헷갈린다.
-          접혀 있을 때만 보여 준다.
-        */}
-        {editing ? null : swap != null ? (
-          <button
-            type="button"
-            className="nl-item__kind"
-            disabled={disabled}
-            aria-label={`${KIND_LABEL[candidate.type]}이에요. 눌러서 ${KIND_LABEL[swap]}으로 바꾸기`}
-            onClick={() => onKindChange(kindPatch(swap, candidate.category_id, categories))}
-          >
-            {KIND_LABEL[candidate.type]}
-            <span aria-hidden="true">⇄</span>
-          </button>
-        ) : (
-          <span className="nl-item__kind nl-item__kind--fixed">{KIND_LABEL[candidate.type]}</span>
-        )}
-        {candidate.is_duplicate ? <Chip variant="caution">이미 있어요</Chip> : null}
-        {candidate.is_low_confidence && !isRefund ? <Chip variant="caution">확인 필요</Chip> : null}
-        {futureDay ? <Chip variant="caution">앞날</Chip> : null}
-      </div>
-
-      {/* 칩만으로는 무엇을 하라는 말인지 모른다. 할 일을 한 줄로 적는다. */}
-      {futureDay ? (
-        <p className="nl-item__future" data-testid={TEST_IDS.nlCandidateFuture}>
-          아직 오지 않은 날이에요. 날짜가 맞는지 확인해 주세요
-        </p>
-      ) : null}
-
-      {isRefund ? (
-        <div className="nl-item__refund">
-          <p className="nl-item__refund-text">
-            환불로 읽었어요. 되돌릴 지출을 골라야 해서 이대로는 저장할 수 없어요
-          </p>
-          <div className="nl-item__refund-actions">
-            {/* 카드 캐시백·환급은 실제로 들어온 돈이다. 이 한 번으로 저장 대상이 된다. */}
-            <button
-              type="button"
-              className="nl-item__refund-fix"
-              disabled={disabled}
-              onClick={() => onKindChange(kindPatch('income', candidate.category_id, categories))}
-            >
-              수입으로 바꾸기
-            </button>
-            <span className="nl-item__refund-hint">
-              이미 적어 둔 지출을 취소하려면 내역에서 그 건을 찾아 되돌려요
-            </span>
-          </div>
-        </div>
-      ) : null}
 
       {editing ? (
         <CandidateForm
@@ -264,10 +246,60 @@ export function CandidateRow({
           categories={categories}
           flowId={flowId}
           disabled={disabled}
+          expenseOnly={expenseOnly}
+          initialEditor={opening}
+          renderCompose={renderCompose}
+          onKindChange={onKindChange}
           onSave={onSave}
           onDraftChange={onDraftChange}
+          onPreviewChange={onPreviewChange}
         />
-      ) : null}
+      ) : (
+        <>
+          <div className="nl-item__meta">
+            <DayChip day={day} open={false} disabled={rowDisabled} onClick={() => open('date')} />
+            <CategorySlot
+              type={candidate.type}
+              category={category}
+              // 상호가 없으면 제목이 이미 분류 이름이다. 누를 칩이 아니면 「식비 · 식비」 로 두 번 읽힌다.
+              plainHidden={candidate.merchant == null && category != null}
+              open={false}
+              disabled={rowDisabled}
+              onClick={() => open('category')}
+            />
+            {/*
+              읽어 온 종류를 겉으로 드러내고 한 번에 바꾼다. 예전에는 '고치기' 를 펴야 보였는데,
+              사진과 문장에서 가장 자주 틀리는 값이 이것이라 그 자리가 너무 멀었다.
+              펼치면 아래 폼에 세 칸짜리가 나오므로 접혀 있을 때만 보여 준다.
+            */}
+            {swap != null ? (
+              <button
+                type="button"
+                className="nl-item__kind"
+                disabled={disabled}
+                aria-label={`${KIND_LABEL[candidate.type]}이에요. 눌러서 ${KIND_LABEL[swap]}으로 바꾸기`}
+                onClick={() => onKindChange(kindPatch(swap, candidate.category_id, categories))}
+              >
+                {KIND_LABEL[candidate.type]}
+                <span aria-hidden="true">⇄</span>
+              </button>
+            ) : expenseOnly && candidate.type === 'expense' ? null : (
+              <span className="nl-item__kind nl-item__kind--fixed">
+                {KIND_LABEL[candidate.type]}
+              </span>
+            )}
+            <RowFlags candidate={candidate} future={isFutureDay(day)} />
+          </div>
+          <RowNotices
+            candidate={candidate}
+            categories={categories}
+            future={isFutureDay(day)}
+            expenseOnly={expenseOnly}
+            disabled={disabled}
+            onKindChange={onKindChange}
+          />
+        </>
+      )}
     </li>
   );
 }
@@ -291,6 +323,189 @@ function Caret({ open }: { open: boolean }) {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+/** 칩 끝의 작은 꺾쇠. 누르면 아래에 칸이 열린다는 뜻이다. */
+function ChipCaret() {
+  return (
+    <svg
+      className="nl-item__chip-caret"
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M2 4l3 3 3-3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/*
+  날짜와 분류는 **메타 줄 글자 자체가 누르는 자리**다.
+
+  예전에는 줄을 펴면 날짜 칸과 분류 격자가 늘 열려 있어 한참 내려야 「이대로 고치기」 가
+  나왔다. 위에서 분류만 누르고 넘어가면 고친 것이 남는지도 헷갈렸다. 지금은 고른 값만
+  칩으로 보이고, 누르면 그 바로 아래에 칸이 열린다.
+*/
+function DayChip({
+  day,
+  open,
+  disabled,
+  onClick,
+}: {
+  day: string;
+  open: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const label = formatDayLabel(day);
+  return (
+    <button
+      type="button"
+      className={cx(
+        'nl-item__chip',
+        // 앞날은 거의 다 잘못 읽은 것이다. 막지는 않고 눈에 띄게만 해 둔다.
+        isFutureDay(day) && 'nl-item__date--future',
+      )}
+      data-testid={TEST_IDS.nlCandidateDate}
+      aria-label={`날짜 ${label}, 바꾸기`}
+      aria-expanded={open}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {label}
+      <ChipCaret />
+    </button>
+  );
+}
+
+/** 분류 칩. 이체처럼 분류가 없는 종류에는 누를 것이 없어 글자만 둔다. */
+function CategorySlot({
+  type,
+  category,
+  plainHidden = false,
+  open,
+  disabled,
+  onClick,
+}: {
+  type: TransactionType;
+  category: CategoryOut | undefined;
+  /** 글자로만 설 때 감출지. 누르는 칩은 늘 선다. */
+  plainHidden?: boolean;
+  open: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const label = category?.name ?? '분류 없음';
+  if (type !== 'expense' && type !== 'income') {
+    if (plainHidden) return null;
+    return (
+      <>
+        <span className="nl-item__dot" aria-hidden="true">
+          ·
+        </span>
+        <span>{label}</span>
+      </>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="nl-item__chip"
+      // 「분류 분류 없음」 으로 읽히지 않게, 안 고른 칩은 할 일만 읽는다.
+      aria-label={category == null ? '분류 고르기' : `분류 ${label}, 바꾸기`}
+      aria-expanded={open}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <span className="nl-item__chip-text">{label}</span>
+      <ChipCaret />
+    </button>
+  );
+}
+
+function RowFlags({ candidate, future }: { candidate: ImportCandidateOut; future: boolean }) {
+  return (
+    <>
+      {candidate.is_duplicate ? <Chip variant="caution">이미 있어요</Chip> : null}
+      {candidate.is_low_confidence && candidate.type !== 'refund' ? (
+        <Chip variant="caution">확인 필요</Chip>
+      ) : null}
+      {future ? <Chip variant="caution">앞날</Chip> : null}
+    </>
+  );
+}
+
+/*
+  환불로 읽힌 줄.
+
+  되돌릴 지출을 함께 골라야 저장할 수 있는데 그 자리가 아직 없다. 그래서 이 줄은 켤 수
+  없고, 예전에는 그 사실을 어디에도 적지 않은 채 '이체' 라고만 보여 줬다. 카드 캐시백이
+  여기 걸려서, 왜 저장이 안 되는지 알 길이 없었다.
+
+  지금은 두 가지를 한 자리에서 말한다: 왜 못 켜는지, 그리고 무엇을 하면 되는지.
+  캐시백·환급처럼 실제로 들어온 돈이면 수입으로 바꿔 한 번에 저장한다.
+  지출만 받는 자리에는 수입이 없으니 이 안내도 없다.
+*/
+function RowNotices({
+  candidate,
+  categories,
+  future,
+  expenseOnly,
+  disabled,
+  onKindChange,
+}: {
+  candidate: ImportCandidateOut;
+  categories: CategoryOut[];
+  future: boolean;
+  expenseOnly: boolean;
+  disabled: boolean;
+  onKindChange: (body: ImportCandidatePatch) => void;
+}) {
+  return (
+    <>
+      {/* 칩만으로는 무엇을 하라는 말인지 모른다. 할 일을 한 줄로 적는다. */}
+      {future ? (
+        <p className="nl-item__future" data-testid={TEST_IDS.nlCandidateFuture}>
+          아직 오지 않은 날이에요. 날짜가 맞는지 확인해 주세요
+        </p>
+      ) : null}
+
+      {expenseOnly && candidate.type !== 'expense' ? (
+        <p className="nl-item__locked">내 가계부에만 적을 수 있어요</p>
+      ) : null}
+
+      {candidate.type === 'refund' && !expenseOnly ? (
+        <div className="nl-item__refund">
+          <p className="nl-item__refund-text">
+            환불로 읽었어요. 되돌릴 지출을 골라야 해서 이대로는 저장할 수 없어요
+          </p>
+          <div className="nl-item__refund-actions">
+            {/* 카드 캐시백·환급은 실제로 들어온 돈이다. 이 한 번으로 저장 대상이 된다. */}
+            <button
+              type="button"
+              className="nl-item__refund-fix"
+              disabled={disabled}
+              onClick={() => onKindChange(kindPatch('income', candidate.category_id, categories))}
+            >
+              수입으로 바꾸기
+            </button>
+            <span className="nl-item__refund-hint">
+              이미 적어 둔 지출을 취소하려면 내역에서 그 건을 찾아 되돌려요
+            </span>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -322,15 +537,22 @@ interface CandidateFormProps {
   categories: CategoryOut[];
   flowId: FlowId;
   disabled: boolean;
+  expenseOnly: boolean;
+  /** 처음 설 때 바로 열어 둘 칸. 접힌 줄의 칩을 눌러 펼쳤을 때 쓴다. */
+  initialEditor: Editor | null;
+  renderCompose: CandidateRowProps['renderCompose'];
+  onKindChange: (body: ImportCandidatePatch) => void;
   onSave: (body: ImportCandidatePatch) => void;
   /**
    * 아직 안 보낸 값을 꺼내 가는 통로.
    *
-   * 여기 적은 것은 「이대로 고치기」를 눌러야 서버로 갔다. 그래서 상호를 고치고 곧바로
-   * 아래 저장 버튼을 누르면 **적은 것이 통째로 버려졌다**(실제로 겪은 일이다).
-   * 줄을 접거나 저장하기 직전에 바깥이 이 함수를 불러 마지막 값을 가져간다.
+   * 여기 적은 것은 버튼을 눌러야 서버로 갔다. 그래서 상호를 고치고 곧바로 아래 저장
+   * 버튼을 누르면 **적은 것이 통째로 버려졌다**(실제로 겪은 일이다).
+   * 줄을 접거나, 다른 줄을 펴거나, 한 번에 바꾸거나, 저장하기 직전에 바깥이 이 함수를
+   * 불러 마지막 값을 가져간다.
    */
   onDraftChange: (read: (() => ImportCandidatePatch) | null) => void;
+  onPreviewChange: CandidateRowProps['onPreviewChange'];
 }
 
 /** 그 종류로 고를 수 있는 분류. 이체는 집계에서 빠지므로 분류를 두지 않는다. */
@@ -346,8 +568,13 @@ function CandidateForm({
   categories,
   flowId,
   disabled,
+  expenseOnly,
+  initialEditor,
+  renderCompose,
+  onKindChange,
   onSave,
   onDraftChange,
+  onPreviewChange,
 }: CandidateFormProps) {
   const analytics = useAnalytics();
   const [merchant, setMerchant] = useState(candidate.merchant ?? '');
@@ -358,18 +585,49 @@ function CandidateForm({
   // 영수증에 「신용」 이 찍혀 있으면 이미 채워져 있다. 못 읽었으면 여기서 고른다.
   const [method, setMethod] = useState<PaymentMethod | null>(candidate.payment_method);
   /*
-    분류 만들기 자리가 열렸나.
+    칩 아래 열린 칸. 날짜 칸과 분류 격자는 기본으로 닫혀 있다.
+    폼에는 상호·금액·종류·결제 수단만 서서, 펼치자마자 「완료」 까지 한눈에 든다.
+  */
+  const [editor, setEditor] = useState<Editor | null>(initialEditor);
+  /*
+    폼 밖에서 종류가 바뀌었다(환불 줄의 「수입으로 바꾸기」 는 바로 보낸다). 옛 종류를 들고
+    있으면 다음에 나갈 때 그것을 도로 보내, 줄이 환불로 돌아가며 꺼진다.
+  */
+  const [seenType, setSeenType] = useState(candidate.type);
+  if (seenType !== candidate.type) {
+    setSeenType(candidate.type);
+    setType(candidate.type);
+    setCategoryId(candidate.category_id ?? null);
+  }
+  /*
+    분류 만들기 창이 떴나.
 
-    읽어 온 줄을 고치다가 「맞는 칸이 없다」 를 깨닫는 순간이 여기다. 기록 시트와 같은
-    방식으로 시트를 하나 더 띄우지 않고 분류 칸이 만들기 폼으로 바뀐다.
+    읽어 온 줄을 고치다가 「맞는 칸이 없다」 를 깨닫는 순간이 여기다.
     적어 둔 상호·금액·날짜가 살아 있어야 만들고 나서 이어 저장한다.
   */
   const [creating, setCreating] = useState(false);
+
+  // 뒤로가기는 열어 둔 칸부터 닫는다. 줄과 시트는 그다음이다.
+  useOverlayBackClose(editor != null, () => setEditor(null));
 
   const amount = Number(digits);
   // 연도 오타(`0202`)는 칸의 min·max 로 안 막힌다. 서버는 422 로 돌려보낸다.
   const dayOk = isDayInRange(day);
   const canSave = digits !== '' && amount > 0 && day !== '' && dayOk && !disabled && !creating;
+  const pickable = pickableFor(type, categories);
+  const picked = categories.find((item) => item.id === categoryId);
+  const future = isFutureDay(day);
+
+  // 지우다 만 금액(빈 칸, 0)은 원래 값으로 둔다. draft 도 그런 값은 안 보낸다.
+  const shownAmount = amount > 0 ? amount : parseDecimalOr(candidate.amount, 0);
+  const candidateId = candidate.id;
+  useEffect(() => {
+    onPreviewChange(() => ({ id: candidateId, categoryId, amount: shownAmount, type }));
+  }, [onPreviewChange, candidateId, categoryId, shownAmount, type]);
+  useEffect(
+    () => () => onPreviewChange((current) => (current?.id === candidateId ? null : current)),
+    [onPreviewChange, candidateId],
+  );
 
   /** 지금 칸에 적힌 것 중 원래와 달라진 것만. 아무것도 안 바꿨으면 빈 객체다. */
   function draft(): ImportCandidatePatch {
@@ -400,114 +658,216 @@ function CandidateForm({
     return () => onDraftChange(null);
   });
 
+  function toggleEditor(next: Editor): void {
+    setEditor((current) => (current === next ? null : next));
+  }
+
+  const composeSlot: CategoryComposeSlot = {
+    open: creating && (type === 'expense' || type === 'income'),
+    kind: type === 'income' ? 'income' : 'expense',
+    onBack: () => setCreating(false),
+    onCreated: (created) => {
+      setCategoryId(created.id);
+      setCreating(false);
+      setEditor(null);
+    },
+  };
+
   return (
-    <div className="nl-form">
-      {/*
-        상호는 한 줄을 다 쓴다. 금액과 나란히 두었더니 금액칸이 제 몫보다 넓게 자라
-        상호가 115px 까지 좁아졌다(글자 서너 자). 가게 이름은 이 폼에서 가장 길게 적는 값이다.
-      */}
-      <label className="nl-form__field">
-        <span className="nl-form__label">상호</span>
-        <input
-          className="nl-form__input"
-          value={merchant}
-          onChange={(event) => setMerchant(event.target.value)}
-          placeholder="어디서 썼나요"
-          maxLength={120}
-        />
-      </label>
-
-      <AmountField variant="compact" label="금액" value={digits} onChange={setDigits} />
-
-      {/*
-        **날짜는 제 줄을 통째로 쓴다.** 금액과 나란히 반칸에 두었더니 iOS 에서 칸 밖으로
-        삐져나가 화면에 가로 스크롤이 생겼다. 날짜 칸의 폭은 브라우저가 정하는 것이라
-        우리가 깎을 수 없다. 좁은 칸에 우겨넣지 않는 쪽으로 푼다.
-      */}
-      <label className="nl-form__field">
-        <span className="nl-form__label">날짜</span>
-        <input
-          className="nl-form__input pk-date"
-          type="date"
-          min={DAY_MIN}
-          max={DAY_MAX}
-          value={day}
-          onChange={(event) => setDay(event.target.value)}
-        />
-      </label>
-
-      <SegmentedControl
-        className="nl-form__types"
-        options={TYPES}
-        value={type}
-        onChange={(next) => {
-          setType(next);
-          // 종류가 바뀌면 고른 분류가 그 종류의 것이 아닐 수 있다. 남겨 두면 수입이
-          // '식비' 로 저장된다. 이체는 집계 밖이라 분류를 아예 두지 않는다.
-          setCategoryId((current) =>
-            pickableFor(next, categories).some((item) => item.id === current) ? current : null,
-          );
-        }}
-        ariaLabel="종류"
-      />
-
-      {/* 지출에만 선다. 수입·이체에는 결제 수단이라는 것이 없다. */}
-      {type === 'expense' ? (
-        <PaymentMethodPicker
-          className="nl-form__pay"
-          value={method}
+    <>
+      <div className="nl-item__meta">
+        <DayChip
+          day={day}
+          open={editor === 'date'}
           disabled={disabled}
-          onChange={setMethod}
+          onClick={() => toggleEditor('date')}
+        />
+        <CategorySlot
+          type={type}
+          category={picked}
+          open={editor === 'category'}
+          disabled={disabled}
+          onClick={() => toggleEditor('category')}
+        />
+        <RowFlags candidate={candidate} future={future} />
+      </div>
+
+      {editor === 'date' ? (
+        <DayEditor
+          day={day}
+          disabled={disabled}
+          onPick={(next) => {
+            setDay(next);
+            setEditor(null);
+          }}
         />
       ) : null}
 
       {/*
-        수입도 어디서 온 돈인지 고를 수 있어야 한다. 이체만 분류가 없다.
-        기록 시트와 같은 것을 쓴다. 앞자리 열한 개만 보이고 나머지는 「더 보기」 뒤다.
+        분류 칩 바로 아래에 연다. 하나를 고르면 적용되고 격자는 저절로 닫힌다.
+        「관리 › 카테고리 관리」 안내는 여기서 뺀다. 잠깐 열어 하나 고르는 자리다.
       */}
-      {type !== 'expense' && type !== 'income' ? null : (
+      {editor === 'category' && pickable.length > 0 ? (
         <CategoryPicker
-          className="nl-form__cats"
+          className="nl-form__cats nl-item__editor"
           size="sm"
-          categories={pickableFor(type, categories)}
+          categories={pickable}
           selectedId={categoryId}
           disabled={disabled}
-          onPick={(item) => setCategoryId(item.id)}
-          onCreate={() => setCreating(true)}
+          manageNote={false}
+          onPick={(item) => {
+            setCategoryId(item.id);
+            setEditor(null);
+          }}
+          onCreate={renderCompose === null ? undefined : () => setCreating(true)}
           onExpand={() =>
             analytics.log(
               EVENTS.categoryMoreOpened,
-              { where: 'review', shown: pickableFor(type, categories).length },
+              { where: 'review', shown: pickable.length },
               { flowId, kind: 'click' },
             )
           }
         />
-      )}
+      ) : null}
 
-      <Button
-        className="nl-form__done"
-        fullWidth
-        disabled={!canSave}
-        onClick={() => onSave(draft())}
-      >
-        이대로 고치기
-      </Button>
+      <RowNotices
+        candidate={candidate}
+        categories={categories}
+        future={future}
+        expenseOnly={expenseOnly}
+        disabled={disabled}
+        onKindChange={onKindChange}
+      />
+
+      <div className="nl-form">
+        {/*
+          상호는 한 줄을 다 쓴다. 금액과 나란히 두었더니 금액칸이 제 몫보다 넓게 자라
+          상호가 115px 까지 좁아졌다(글자 서너 자). 가게 이름은 이 폼에서 가장 길게 적는 값이다.
+        */}
+        <label className="nl-form__field">
+          <span className="nl-form__label">상호</span>
+          <input
+            className="nl-form__input"
+            value={merchant}
+            onChange={(event) => setMerchant(event.target.value)}
+            placeholder="어디서 썼나요"
+            maxLength={120}
+          />
+        </label>
+
+        <AmountField variant="compact" label="금액" value={digits} onChange={setDigits} />
+
+        {expenseOnly ? null : (
+          <SegmentedControl
+            className="nl-form__types"
+            options={TYPES}
+            value={type}
+            onChange={(next) => {
+              setType(next);
+              // 종류가 바뀌면 고른 분류가 그 종류의 것이 아닐 수 있다. 남겨 두면 수입이
+              // '식비' 로 저장된다. 이체는 집계 밖이라 분류를 아예 두지 않는다.
+              setCategoryId((current) =>
+                pickableFor(next, categories).some((item) => item.id === current) ? current : null,
+              );
+              // 열어 둔 격자는 새 종류의 분류로 바뀐다. 이체는 고를 분류가 없어 닫는다.
+              if (next === 'transfer') {
+                setEditor((current) => (current === 'category' ? null : current));
+              }
+            }}
+            ariaLabel="종류"
+          />
+        )}
+
+        {/* 지출에만 선다. 수입·이체에는 결제 수단이라는 것이 없다. */}
+        {type === 'expense' && !expenseOnly ? (
+          <PaymentMethodPicker
+            className="nl-form__pay"
+            value={method}
+            disabled={disabled}
+            onChange={setMethod}
+          />
+        ) : null}
+
+        {/*
+          짧아진 폼의 끝. 펼치자마자 보이는 자리라 위에서 고치고 바로 누른다.
+          안 눌러도 고친 것은 남는다(접기·다른 줄·한 번에 바꾸기·저장이 먼저 보낸다).
+        */}
+        <Button
+          className="nl-form__done"
+          variant="outline"
+          fullWidth
+          disabled={!canSave}
+          onClick={() => onSave(draft())}
+        >
+          완료
+        </Button>
+      </div>
 
       {/*
         새 분류 만들기. **화면을 통째로 덮는 한 장으로 연다.**
 
-        예전에는 이 자리에 회색 상자로 끼워 넣었는데, 검토 줄 한가운데라 「저장」 이 상자
-        안쪽 어딘가에 있었다. 아이콘 격자를 펴면 화면 밖으로 밀렸다. 기록 시트의 키패드
-        탭과 같은 화면을 쓰도록 바꿨다. 고치던 상호·금액·날짜는 뒤에 그대로 살아 있다.
+        검토 줄 한가운데에 끼워 넣으면 「저장」 이 상자 안쪽 어딘가에 있고, 아이콘 격자를
+        펴면 화면 밖으로 밀렸다. 고치던 상호·금액·날짜는 뒤에 그대로 살아 있다.
       */}
-      <CategoryComposeOverlay
-        open={creating && (type === 'expense' || type === 'income')}
-        fixedKind={type === 'income' ? 'income' : 'expense'}
-        onBack={() => setCreating(false)}
-        onClose={() => setCreating(false)}
-        onCreated={(created) => {
-          setCategoryId(created.id);
-          setCreating(false);
+      {renderCompose === undefined ? (
+        <CategoryComposeOverlay
+          open={composeSlot.open}
+          fixedKind={composeSlot.kind}
+          onBack={composeSlot.onBack}
+          onClose={composeSlot.onBack}
+          onCreated={composeSlot.onCreated}
+        />
+      ) : renderCompose === null ? null : (
+        renderCompose(composeSlot)
+      )}
+    </>
+  );
+}
+
+/**
+ * 날짜 칩 아래 열리는 칸. 열리자마자 기기 달력을 띄운다.
+ *
+ * 값은 칸이 들고 있다가 **제대로 된 날이 들어올 때만** 올리고 닫는다. 연도를 치는
+ * 중간(`0002`)이 폼에 올라가 칩 글자가 흔들리지 않게 한다. 비운 채 닫는 기기도 있어
+ * 빈 값은 무시한다. 그러면 원래 날이 그대로 남는다.
+ */
+function DayEditor({
+  day,
+  disabled,
+  onPick,
+}: {
+  day: string;
+  disabled: boolean;
+  onPick: (day: string) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const input = ref.current;
+    if (input == null) return;
+    input.focus({ preventScroll: true });
+    if (typeof input.showPicker !== 'function') return;
+    try {
+      input.showPicker();
+    } catch {
+      // 누른 손길이 식었거나 못 띄우는 기기다. 칸이 열려 있으니 눌러서 고르면 된다.
+    }
+  }, []);
+
+  // 칸은 줄 폭을 다 쓴다. 날짜 칸 폭은 기기가 정해서, 좁은 자리에 두면 iOS 에서 삐져나간다.
+  return (
+    <div className="nl-item__editor">
+      <input
+        ref={ref}
+        className="nl-form__input pk-date"
+        type="date"
+        aria-label="날짜"
+        min={DAY_MIN}
+        max={DAY_MAX}
+        defaultValue={day}
+        disabled={disabled}
+        onChange={(event) => {
+          const next = event.target.value;
+          if (next !== '' && isDayInRange(next)) onPick(next);
         }}
       />
     </div>

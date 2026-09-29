@@ -1,17 +1,24 @@
 /*
   공유 가계부 공용 조각. 홈·리포트의 가계부 칩과 고르기 창, 예산 창.
-  화면마다의 스펙(우리 집 홈, 저장 뒤 화면, 기록 수정)은 이 파일 아래쪽에 이어 붙인다.
+  화면마다의 스펙(공유 홈, 저장 뒤 화면, 기록 수정)은 이 파일 아래쪽에 이어 붙인다.
 */
 
 @layer components {
   /* ── 보는 가계부 칩 ─────────────────────────────────── */
+
+  /*
+    흰 알약 고르기 칸. 누르는 자리는 44px 이고, 보이는 알약은 위아래 4px 안쪽에 그린다.
+    알약 왼쪽 끝이 버튼 상자 왼쪽 끝이라 아래 카드 가장자리와 곧게 선다.
+  */
   .book-chip {
+    position: relative;
+    isolation: isolate;
     display: inline-flex;
     align-items: center;
     gap: 4px;
     max-width: 100%;
     min-height: 44px;
-    padding: 0 4px;
+    padding: 0 10px 0 14px;
     background: transparent;
     border: 0;
     font: inherit;
@@ -19,6 +26,22 @@
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .book-chip::before {
+    content: '';
+    position: absolute;
+    inset: 4px 0;
+    z-index: -1;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .book-chip:active::before {
+    background: var(--color-surface-sunken);
   }
 
   .book-chip__name {
@@ -30,14 +53,16 @@
 
   .book-chip__caret {
     flex-shrink: 0;
-    font-size: var(--text-12);
-    color: var(--color-muted);
+    color: var(--color-ink);
   }
 
   .book-chip:focus-visible {
+    outline: none;
+  }
+
+  .book-chip:focus-visible::before {
     outline: 2px solid var(--color-sage-300);
     outline-offset: 2px;
-    border-radius: var(--radius-xs);
   }
 
   /* ── 가계부 고르기 창 ────────────────────────────────── */
@@ -116,7 +141,7 @@
 }
 
 /*
-  기록 시트의 「적을 곳」, 저장 뒤 화면, 기록 수정, 우리 집 홈.
+  기록 시트의 「적을 곳」, 저장 뒤 화면, 기록 수정, 공유 홈.
 */
 @layer components {
   /* ── 적을 곳 ────────────────────────────────────────── */
@@ -314,7 +339,7 @@
     text-align: center;
   }
 
-  /* ── 우리 집 홈 ─────────────────────────────────────── */
+  /* ── 공유 홈 ───────────────────────────────────────── */
 
   /* 맨 위 한 줄. 왼쪽 가계부 칩, 오른쪽 멤버 얼굴. 개인 홈에서는 칩 하나만 선다. */
   .book-home__top {
@@ -492,7 +517,7 @@
   }
 
   .book-home__recent {
-    margin-top: 24px;
+    margin-top: 20px;
   }
 
   .book-home__title {
@@ -502,12 +527,12 @@
     color: var(--color-ink);
   }
 
-  /* 다섯 줄 아래 「이번 달 N건 모두 보기」. 같은 자리에서 목록을 펼친다. */
+  /* 세 줄 아래 「이번 달 N건 모두 보기」. 같은 자리에서 목록을 펼친다. */
   .book-home__more {
     display: block;
     width: 100%;
     min-height: 44px;
-    margin-top: 4px;
+    margin-top: 0;
     border: 0;
     background: none;
     color: var(--color-sage-700);
@@ -550,6 +575,11 @@
     box-shadow: var(--shadow-card);
     color: inherit;
     text-decoration: none;
+  }
+
+  /* 「모두 보기」 글씨 버튼 안쪽 여백이 이미 틈이 된다. 위아래 틈을 같게 맞춘다. */
+  .book-settle-card--after-more {
+    margin-top: 4px;
   }
 
   .book-settle-card:active {

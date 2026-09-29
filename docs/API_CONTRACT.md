@@ -705,6 +705,19 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 (ADR-0010) **이 값이 "이 거래가 어느 분석에서 나왔나" 의 유일한 실마리다.** 줄글로 저장한
 거래에도 같이 채워진다.
 
+#### 공유 가계부에 적기(`book_id`)
+
+세 입구 모두 본문에 `book_id` 를 받는다: `{ "text": "...", "book_id": "…" }`. 주면 그 공유 가계부에 적을 묶음이다.
+
+- 스위치 `SHARED_BOOKS_ENABLED` 가 꺼졌거나 지금 멤버가 아니면 404 `NOT_FOUND`, 끝난 가계부면 409 `BOOK_ENDED`. **모델을 부르기 전에** 막아 하루 상한도 안 쓴다.
+- 모델에게 보여 주는 분류 이름은 그 가계부의 분류다. 내 상호 규칙은 쓰지 않는다. 후보 `category_id` 는 그 가계부 분류 id 이고, 목록에 없는 이름이면 `null` 이다(저장할 때 「기타」).
+- 지출이 아닌 줄(수입, 이체, 환불)은 `is_selected: false` 로 온다.
+- `is_duplicate` 는 **그 가계부에 살아 있는 기록**, 또는 같은 묶음의 앞줄과 같은 날·같은 금액이고 상호가 둘 다 있으면 같은 상호일 때다. 누가 적었든 본다. 내 개인 거래는 보지 않는다.
+- 응답 `ImportBatchOut.book_id` 에 그 가계부가 실린다.
+- PATCH 의 `category_id` 는 그 가계부 분류로 검증한다(아니면 422 `INVALID_CATEGORY`). `type` 을 지출 밖으로 바꾸거나 지출이 아닌 줄을 `is_selected: true` 로 켜면 422 `INVALID_REQUEST`.
+- commit 은 고른 줄을 공유 기록으로 한 번에 저장한다: 금액, 상호 → `title`, 내 시간대의 날 → `occurred_on`, 분류(없으면 「기타」), 적은 사람과 낸 사람은 나. 결제 수단과 출처는 버리고 상호 규칙은 배우지 않는다. 고른 줄에 지출이 아닌 것이 있으면 422. 응답에 `book_id` 와 `book_month`(`BookMonthStateOut`: 이번 달이 섞였으면 이번 달, 아니면 가장 늦은 날의 달, 여행 가계부는 여행 전체)가 오고 `feedback`, `budget` 은 `null` 이다.
+- 이미 저장한 묶음에 다시 commit 하면 409 `CONFLICT` 다.
+
 ### 기억한 분류
 
 | 메서드 | 경로 | 하는 일 |
@@ -1149,6 +1162,9 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 | POST | `/books/{id}/entries/{entry_id}/restore` | 적은 사람, 관리자 | `BookEntryOut`. 지운 것만 되돌린다. 내 가계부로 옮긴 기록은 404 |
 | POST | `/books/{id}/entries/{entry_id}/move-out` | 적은 사람 | `MoveOutResult`. 내 지출을 만들고 공유 기록을 지운다(한 commit) |
 | POST | `/books/{id}/entries/move-in` | 멤버 | 201 `BookEntryCreated`. 내 지출 하나를 옮기고 원본을 지운다(한 commit) |
+| POST | `/books/{id}/entries/{entry_id}/undo-move-in` | 적은 사람 | `MoveOutResult`(`transaction_id`). 옮겨 온 원본 거래를 살리고 공유 기록을 지운다. 되돌릴 수 없으면 409 `CONFLICT` |
+| POST | `/books/{id}/entries/{entry_id}/undo-move-out` | 적은 사람 | `BookEntryOut`. 그때 생긴 거래를 지우고 공유 기록을 살린다. 되돌릴 수 없으면 409 `CONFLICT` |
+| POST | `/books/{id}/categories` | 멤버 | 201 `BookCategoryOut`. 바디 `{"name": "반려동물", "icon_key": "07_heart"}`. 같은 이름이면 409 `DUPLICATE_CATEGORY`, 가계부당 30개까지(422). 「기타」 바로 앞에 선다 |
 | GET | `/books/{id}/settlement?year&month` | 멤버 | `SettlementOut`. 여행 가계부는 달을 무시하고 전체(`period: "all"`) |
 | POST | `/books/{id}/settlement/done` | 멤버 | `SettlementOut`. 지금 보낼 돈을 적어 둔다. 같이 모은 돈(`none`)이면 422 |
 | DELETE | `/books/{id}/settlement/done?year&month` | 멤버 | `SettlementOut`. 지금 끝낸 표시를 되돌린다. 없으면 404 |
@@ -1176,6 +1192,9 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 **옮기기**
 - 내 가계부로(`move-out`): 금액, 상호(`title`), 메모를 그대로 옮기고 시각은 그 날 정오(내 시간대)다. 분류는 내 화면에 **같은 이름으로 보이는** 지출 분류, 없으면 기본 「기타」. 피드백 판정은 부르지 않는다.
 - 공유 가계부로(`move-in`): 내 지출만. 무지출 표시, 환불, 환불이 걸린 지출은 422 `INVALID_REQUEST`. 분류는 가계부에 같은 이름이 있으면 그것, 없으면 가계부 「기타」. 날짜는 내 시간대의 그 날, 낸 사람은 나.
+- 두 옮기기 모두 이어진 개인 거래를 공유 기록에 적어 둔다(`moved_from_transaction_id`, `moved_to_transaction_id`). **되돌리기는 새로 만들지 않고 원본을 살린다.**
+  - `undo-move-in`: 기록이 살아 있고 내가 적었으며, 옮겨 온 내 거래가 지워진 상태일 때만. 거래의 태그, 결제 수단, 예산 제외, 시각, 출처가 그대로 돌아온다. 기록은 지우고 `moved_out_at` 을 찍어 `restore` 로 다시 살아나지 않는다.
+  - `undo-move-out`: 내 가계부로 옮겨 지운 기록이고 내가 적었으며, 그때 생긴 거래가 살아 있을 때만. 그 거래에 환불이 붙었으면 409. 낸 사람, 분류, 고친 사람이 옮기기 전과 같다.
 
 **정산**(`app/domain/settlement.py`)
 - 그 기간에 한 번이라도 멤버였던 사람과 그 기간에 돈을 낸 사람이 나눈다. 여행은 전체 기간, 전체 멤버다.

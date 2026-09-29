@@ -18,6 +18,7 @@ from app.domain.aggregation import PaymentMethod, TransactionSource, Transaction
 from app.integrations.llm import LOW_CONFIDENCE_THRESHOLD, LlmStructuredClient
 from app.models.import_batch import ImportBatch, ImportBatchStatus, ImportCandidate
 from app.modules import ledger
+from app.modules.books.schemas import BookMonthStateOut
 from app.modules.budgets.schemas import BudgetStateOut
 from app.modules.transactions.schemas import FeedbackOut
 
@@ -64,6 +65,8 @@ class BaseDayIn(BaseModel):
     """
 
     base_day: date | None = None
+    # 공유 가계부에 적으려고 읽는 것이면 그 가계부. 분류를 그 가계부 것으로 고르고 지출만 켠다.
+    book_id: uuid.UUID | None = None
 
     @field_validator("base_day")
     @classmethod
@@ -151,6 +154,7 @@ class ImportCandidateOut(BaseModel):
     amount: Decimal
     type: TransactionType
     merchant: str | None = None
+    # 공유 가계부 묶음이면 그 가계부의 분류다.
     category_id: uuid.UUID | None = None
     # 영수증·캡처에서 읽어 낸 결제 수단. 못 읽었으면 null 이고 화면에서 고를 수 있다.
     # 기본값을 두지 않는다. 「안 보냄」 과 「null」 이 같아지면 화면이 undefined 를 다뤄야 한다.
@@ -169,6 +173,8 @@ class ImportBatchOut(BaseModel):
     detected_count: int
     # 상한을 넘겨 버린 건수 같은, 화면이 알려야 할 사정. 원문은 담지 않는다.
     error_code: str | None = None
+    # 공유 가계부에 적으려고 읽은 묶음이면 그 가계부. 저장하면 공유 기록이 된다.
+    book_id: uuid.UUID | None = None
     # 지금 고른 것의 건수. 저장 버튼에 그대로 적는다.
     selected_count: int
     # 고른 것 중 **지출**만 더한 값. 수입·이체를 지출과 한 덩어리로 더하면
@@ -182,6 +188,7 @@ class ImportCandidatePatch(BaseModel):
     """후보 한 줄 고치기. 보낸 항목만 바뀐다.
 
     `merchant` 와 `category_id` 는 명시적으로 null 을 보내면 비운다.
+    공유 가계부 묶음이면 `category_id` 는 그 가계부의 분류이고, 종류는 지출만 받는다.
     '안 보냄' 과 'null 로 보냄' 을 가르려고 라우터가 exclude_unset 으로 넘긴다.
     """
 
@@ -230,16 +237,19 @@ class ImportCommitOut(BaseModel):
     expense_total: Decimal
     feedback: FeedbackOut | None = None
     budget: BudgetStateOut | None = None
+    # 공유 가계부에 적었으면 그 가계부와, 적은 날이 든 달의 상태. 이때 feedback, budget 은 null.
+    book_id: uuid.UUID | None = None
+    book_month: BookMonthStateOut | None = None
 
 
-def to_candidate(row: ImportCandidate) -> ImportCandidateOut:
+def to_candidate(row: ImportCandidate, *, shared: bool = False) -> ImportCandidateOut:
     return ImportCandidateOut(
         id=row.id,
         occurred_at=ledger.as_utc(row.occurred_at),
         amount=row.amount,
         type=row.type,
         merchant=row.merchant,
-        category_id=row.category_id,
+        category_id=row.book_category_id if shared else row.category_id,
         payment_method=row.payment_method,
         confidence=row.confidence,
         is_low_confidence=row.confidence < LOW_CONFIDENCE_THRESHOLD,
@@ -253,7 +263,8 @@ def to_batch(batch: ImportBatch, *, client: LlmStructuredClient) -> ImportBatchO
 
     고른 건수와 합계는 여기서 센다. 화면이 다시 더하면 두 곳의 계산이 어긋난다.
     """
-    candidates = [to_candidate(row) for row in batch.candidates]
+    shared = batch.book_id is not None
+    candidates = [to_candidate(row, shared=shared) for row in batch.candidates]
     chosen = [item for item in candidates if item.is_selected]
     spent = [item.amount for item in chosen if item.type == TransactionType.EXPENSE]
     return ImportBatchOut(
@@ -262,6 +273,7 @@ def to_batch(batch: ImportBatch, *, client: LlmStructuredClient) -> ImportBatchO
         status=batch.status,
         detected_count=batch.detected_count,
         error_code=batch.error_code,
+        book_id=batch.book_id,
         selected_count=len(chosen),
         selected_expense_total=sum(spent, Decimal(0)),
         meta=ImportMetaOut(

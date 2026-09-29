@@ -913,6 +913,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/books/{book_id}/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Category */
+        post: operations["create_category_api_v1_books__book_id__categories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/books/{book_id}/invites": {
         parameters: {
             query?: never;
@@ -1045,6 +1062,40 @@ export interface paths {
         put?: never;
         /** Move Out */
         post: operations["move_out_api_v1_books__book_id__entries__entry_id__move_out_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books/{book_id}/entries/{entry_id}/undo-move-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Undo Move In */
+        post: operations["undo_move_in_api_v1_books__book_id__entries__entry_id__undo_move_in_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books/{book_id}/entries/{entry_id}/undo-move-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Undo Move Out */
+        post: operations["undo_move_out_api_v1_books__book_id__entries__entry_id__undo_move_out_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1277,6 +1328,16 @@ export interface components {
             previous: string;
             /** Delta */
             delta: string;
+        };
+        /**
+         * BookCategoryCreate
+         * @description 공유 분류 만들기. 사진 아이콘은 받지 않는다. 올린 사람 기기에만 있어 상대 화면에 안 뜬다.
+         */
+        BookCategoryCreate: {
+            /** Name */
+            name: string;
+            /** Icon Key */
+            icon_key: string;
         };
         /** BookCategoryOut */
         BookCategoryOut: {
@@ -2211,6 +2272,8 @@ export interface components {
             detected_count: number;
             /** Error Code */
             error_code?: string | null;
+            /** Book Id */
+            book_id?: string | null;
             /** Selected Count */
             selected_count: number;
             /** Selected Expense Total */
@@ -2258,6 +2321,7 @@ export interface components {
          * @description 후보 한 줄 고치기. 보낸 항목만 바뀐다.
          *
          *     `merchant` 와 `category_id` 는 명시적으로 null 을 보내면 비운다.
+         *     공유 가계부 묶음이면 `category_id` 는 그 가계부의 분류이고, 종류는 지출만 받는다.
          *     '안 보냄' 과 'null 로 보냄' 을 가르려고 라우터가 exclude_unset 으로 넘긴다.
          */
         ImportCandidatePatch: {
@@ -2289,6 +2353,9 @@ export interface components {
             expense_total: string;
             feedback?: components["schemas"]["FeedbackOut"] | null;
             budget?: components["schemas"]["BudgetStateOut"] | null;
+            /** Book Id */
+            book_id?: string | null;
+            book_month?: components["schemas"]["BookMonthStateOut"] | null;
         };
         /**
          * ImportImageIn
@@ -2300,6 +2367,8 @@ export interface components {
         ImportImageIn: {
             /** Base Day */
             base_day?: string | null;
+            /** Book Id */
+            book_id?: string | null;
             /** Image */
             image?: string | null;
             /** Images */
@@ -2324,6 +2393,8 @@ export interface components {
         ImportTextIn: {
             /** Base Day */
             base_day?: string | null;
+            /** Book Id */
+            book_id?: string | null;
             /** Text */
             text: string;
         };
@@ -2506,7 +2577,7 @@ export interface components {
         };
         /**
          * MoveOutResult
-         * @description 내 가계부로 옮겨 새로 생긴 거래.
+         * @description 내 가계부 쪽 거래. 옮겨서 새로 생겼거나, 옮기기를 되돌려 다시 살아난 것.
          */
         MoveOutResult: {
             /**
@@ -8993,6 +9064,97 @@ export interface operations {
             };
         };
     };
+    create_category_api_v1_books__book_id__categories_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookCategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookCategoryOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     create_invite_api_v1_books__book_id__invites_post: {
         parameters: {
             query?: never;
@@ -9810,6 +9972,182 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoveOutResult"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    undo_move_in_api_v1_books__book_id__entries__entry_id__undo_move_in_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveOutResult"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    undo_move_out_api_v1_books__book_id__entries__entry_id__undo_move_out_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookEntryOut"];
                 };
             };
             /** @description 식별키가 없거나 검증에 실패 */

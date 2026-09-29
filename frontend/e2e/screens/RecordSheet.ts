@@ -235,7 +235,10 @@ class RecordInput {
     return this.root.getByTestId(TEST_IDS.recordAmount);
   }
 
-  /** 다음에 무엇을 하면 되는지 알려 주는 한 줄. 저장 중에는 문구가 바뀐다. */
+  /**
+   * 금액 아래 안내 한 줄. **기록 시트에는 없다**(모든 상태에서 뺐다).
+   * 저장 뒤 패널에서 금액을 고칠 때만 선다. 없다는 것을 개수로 단언하는 자리다.
+   */
   get hint(): Locator {
     return this.root.getByTestId(TEST_IDS.recordHint);
   }
@@ -454,9 +457,14 @@ class RecordInput {
     return this.root.getByRole('button', { name: /다시 고르기$/ });
   }
 
-  /** 카테고리를 먼저 고른 다음에만 나오는 저장 버튼. */
+  /**
+   * 카테고리를 먼저 고른 다음에만 나오는 저장 버튼.
+   *
+   * 저장이 도는 동안에는 이름이 `저장하는 중` 으로 바뀐다. 키패드 위 안내 줄을 없애
+   * 저장 중이라는 표시를 이 버튼이 맡는다. 같은 버튼을 계속 잡으려고 두 이름을 함께 본다.
+   */
   get saveButton(): Locator {
-    return this.root.getByRole('button', { name: '저장', exact: true });
+    return this.root.getByRole('button', { name: /^저장(하는 중)?$/ });
   }
 }
 
@@ -825,6 +833,21 @@ class RecordNaturalLanguage {
     return this.root.getByText(/건 저장했어요/);
   }
 
+  /** 공유 가계부에 저장한 뒤의 한 줄. `둘이 쓰는 돈에 2건 적었어요` */
+  savedInBook(bookName: string): Locator {
+    return this.root.getByText(new RegExp(`^${escapeRegExp(bookName)}에 \\d+건 적었어요$`));
+  }
+
+  /** 탭 패널 자체. 저장 뒤에는 그 달 같이 쓴 돈과 누가 보는지가 여기 적힌다. */
+  get panel(): Locator {
+    return this.root;
+  }
+
+  /** 공유 가계부 검토에서 지출이 아닌 줄에 붙는 한 줄. 이 줄은 켤 수 없다. */
+  lockedNote(name: string): Locator {
+    return this.row(name).getByText('내 가계부에만 적을 수 있어요', { exact: true });
+  }
+
   get rows(): Locator {
     return this.root.getByTestId(TEST_IDS.nlCandidateRow);
   }
@@ -847,8 +870,14 @@ class RecordNaturalLanguage {
     return this.amount(name).evaluate((el) => getComputedStyle(el).color);
   }
 
+  /** 날짜 칩. 글자는 `9월 29일` 이고, 접힌 줄에서 누르면 줄이 펴지며 날짜 칸이 바로 열린다. */
   day(name: string): Locator {
     return this.row(name).getByTestId(TEST_IDS.nlCandidateDate);
+  }
+
+  /** 분류 칩. 접힌 줄에서 누르면 줄이 펴지며 분류 격자가 바로 열린다. */
+  categoryButton(name: string): Locator {
+    return this.row(name).getByRole('button', { name: /^분류 (.+, 바꾸기|고르기)$/ });
   }
 
   /** `이미 있어요`·`확인 필요` 같은 칩. 없으면 개수 0 이다. */
@@ -917,7 +946,7 @@ class RecordNaturalLanguage {
 
   async openEdit(name: string): Promise<void> {
     await this.editTrigger(name).click();
-    await expect(this.root.getByRole('button', { name: '이대로 고치기' })).toBeVisible();
+    await expect(this.root.getByRole('button', { name: '완료', exact: true })).toBeVisible();
   }
 
   /** 펼쳐 둔 고치기 폼. 한 번에 하나만 열린다. */
@@ -939,6 +968,22 @@ class RecordNaturalLanguageForm {
     this.root = root;
   }
 
+  /**
+   * 지금 펼친 줄. 끝에 「완료」 가 있는 줄이다.
+   *
+   * 날짜·분류 칩은 접힌 줄에도 있어 패널 전체로 잡으면 여러 줄 것이 섞인다.
+   */
+  private get row(): Locator {
+    return this.root
+      .getByTestId(TEST_IDS.nlCandidateRow)
+      .filter({ has: this.root.page().getByRole('button', { name: '완료', exact: true }) });
+  }
+
+  /** 펼친 줄 머리의 분류 아이콘. 폼에서 고른 분류를 「완료」 전에도 따라 그린다. */
+  get headAvatar(): Locator {
+    return this.row.getByRole('button', { name: /눌러서 고치기$/ }).locator('img');
+  }
+
   get merchantField(): Locator {
     return this.root.getByLabel('상호');
   }
@@ -947,24 +992,61 @@ class RecordNaturalLanguageForm {
     return this.root.getByLabel('금액');
   }
 
+  /**
+   * 머리 아래 날짜 칩. `날짜 9월 29일, 바꾸기` 라는 이름을 달고, 글자는 `9월 29일` 이다.
+   * 누르면 바로 아래에 날짜 칸이 열린다.
+   */
+  get dayChip(): Locator {
+    return this.row.getByTestId(TEST_IDS.nlCandidateDate);
+  }
+
+  /** 날짜 칩을 눌러야 열리는 칸. 기본으로 닫혀 있고, 날을 고르면 저절로 닫힌다. */
   get dayField(): Locator {
-    return this.root.getByLabel('날짜');
+    return this.row.getByLabel('날짜', { exact: true });
+  }
+
+  /** 날짜 칸을 연다. 이미 열려 있으면 그대로 둔다. */
+  async openDay(): Promise<void> {
+    if ((await this.dayField.count()) === 0) await this.dayChip.click();
+    await expect(this.dayField).toBeVisible();
+  }
+
+  /** 날짜를 바꾼다. 칸을 열고 적으면 칸이 닫히고 칩 글자가 바뀐다. */
+  async setDay(iso: string): Promise<void> {
+    await this.openDay();
+    await this.dayField.fill(iso);
+    await expect(this.dayField).toHaveCount(0);
+  }
+
+  /**
+   * 머리 아래 분류 칩. `분류 식비, 바꾸기`, 안 골랐으면 `분류 고르기`.
+   * 이체처럼 분류가 없는 종류에는 없다.
+   */
+  get categoryButton(): Locator {
+    return this.row.getByRole('button', { name: /^분류 (.+, 바꾸기|고르기)$/ });
   }
 
   get doneButton(): Locator {
-    return this.root.getByRole('button', { name: '이대로 고치기' });
+    return this.root.getByRole('button', { name: '완료', exact: true });
   }
 
   typeTab(label: '지출' | '수입' | '이체' | '환불'): Locator {
     return this.root.getByRole('radiogroup', { name: '종류' }).getByRole('radio', { name: label });
   }
 
+  /** 분류 칩을 눌러야 열리는 격자. 하나를 고르면 저절로 닫힌다. */
   get categoryGroup(): Locator {
     return this.root.getByRole('group', { name: '분류' });
   }
 
   categoryChip(name: string): Locator {
     return this.categoryGroup.getByRole('button', { name });
+  }
+
+  /** 분류 격자를 연다. 이미 열려 있으면 그대로 둔다. */
+  async openCategories(): Promise<void> {
+    if ((await this.categoryGroup.count()) === 0) await this.categoryButton.click();
+    await expect(this.categoryGroup).toBeVisible();
   }
 
   /** 앞자리에 안 선 분류를 펼치는 칩. 기록 시트와 같은 규칙이다. */
@@ -981,20 +1063,23 @@ class RecordNaturalLanguageForm {
     return this.categoryGroup.getByRole('button', { name: '새 분류', exact: true });
   }
 
-  /** 숨긴 분류가 있으면 한 번 펼치고 만들기를 연다. 기록 시트와 같은 규칙이다. */
+  /** 격자를 열고, 숨긴 분류가 있으면 한 번 펼쳐 만들기를 연다. 기록 시트와 같은 규칙이다. */
   async openNewCategory(): Promise<void> {
+    await this.openCategories();
     if ((await this.newCategoryButton.count()) === 0) {
       await this.moreCategoriesButton.click();
     }
     await this.newCategoryButton.click();
   }
 
-  /** 앞자리에 없으면 한 번 펼치고 고른다. */
+  /** 격자를 열고, 앞자리에 없으면 한 번 펼쳐 고른다. 고르면 격자가 닫힌다. */
   async pickCategory(name: string): Promise<void> {
+    await this.openCategories();
     if ((await this.categoryChip(name).count()) === 0) {
       await this.moreCategoriesButton.click();
     }
     await this.categoryChip(name).click();
+    await expect(this.categoryGroup).toHaveCount(0);
   }
 
   /**
@@ -1015,6 +1100,7 @@ class RecordNaturalLanguageForm {
     await this.paymentButton(label).click();
   }
 
+  /** 짧은 폼 끝의 「완료」. 고친 것을 보내고 줄을 접는다. */
   async apply(): Promise<void> {
     await this.doneButton.click();
     await expect(this.doneButton).toHaveCount(0);
@@ -1249,6 +1335,21 @@ class RecordImageImport {
     return this.root.getByText(/건 저장했어요/);
   }
 
+  /** 공유 가계부에 저장한 뒤의 한 줄. `둘이 쓰는 돈에 2건 적었어요` */
+  savedInBook(bookName: string): Locator {
+    return this.root.getByText(new RegExp(`^${escapeRegExp(bookName)}에 \\d+건 적었어요$`));
+  }
+
+  /** 탭 패널 자체. 저장 뒤에는 그 달 같이 쓴 돈과 누가 보는지가 여기 적힌다. */
+  get panel(): Locator {
+    return this.root;
+  }
+
+  /** 공유 가계부 검토에서 지출이 아닌 줄에 붙는 한 줄. 이 줄은 켤 수 없다. */
+  lockedNote(name: string): Locator {
+    return this.row(name).getByText('내 가계부에만 적을 수 있어요', { exact: true });
+  }
+
   get rows(): Locator {
     return this.root.getByTestId(TEST_IDS.nlCandidateRow);
   }
@@ -1284,7 +1385,7 @@ class RecordImageImport {
 
   async openEdit(name: string): Promise<void> {
     await this.editTrigger(name).click();
-    await expect(this.root.getByRole('button', { name: '이대로 고치기' })).toBeVisible();
+    await expect(this.root.getByRole('button', { name: '완료', exact: true })).toBeVisible();
   }
 
   /** 펼쳐 둔 고치기 폼. 한 번에 하나만 열린다. */
@@ -1449,6 +1550,11 @@ class RecordBookFeedback {
 
   get moveOutButton(): Locator {
     return this.root.getByRole('button', { name: '내 가계부로 옮기기', exact: true });
+  }
+
+  /** 옮긴 뒤에만 선다. 누르면 같은 기록이 이 가계부로 돌아온다. */
+  get undoMoveButton(): Locator {
+    return this.root.getByRole('button', { name: '되돌리기', exact: true });
   }
 
   get confirmButton(): Locator {

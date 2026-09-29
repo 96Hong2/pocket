@@ -225,8 +225,10 @@ test.describe('일부러 실패시켰을 때', () => {
     await expect(recordSheet.nl.notice).toContainText('고친 내용을 저장하지 못했어요');
     // 한 줄을 못 고쳤다고 검토하던 것이 통째로 사라지면 분석 한 번이 날아간다.
     await expect(recordSheet.nl.rows).toHaveCount(1);
-    await expect(recordSheet.nl.saveButton).toHaveText(`1건 저장 · ${formatCurrency(12000)}`);
+    // 고친 금액은 펼친 폼에 그대로 남는다. 저장하면 그것부터 다시 보내므로 버튼도 그 금액을 말한다.
     await expect(recordSheet.nl.form.doneButton).toBeVisible();
+    await expect(recordSheet.nl.form.amountField).toHaveValue('13,000');
+    await expect(recordSheet.nl.saveButton).toHaveText(`1건 저장 · ${formatCurrency(13000)}`);
     // 잠금이 안 풀리면 시트를 닫을 길이 영영 없다.
     await expect(recordSheet.methodTab('키패드')).toBeEnabled();
     await expect(recordSheet.closeButton).toBeVisible();

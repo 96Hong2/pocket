@@ -1,18 +1,21 @@
 /**
  * 공유 기록 한 줄을 화면 말로 옮기는 규칙.
  *
- * 우리 집 홈의 목록, 저장 뒤 화면, 기록 수정이 같은 기록을 같은 말로 부르게 한 곳에 둔다.
+ * 공유 홈의 목록, 저장 뒤 화면, 기록 수정이 같은 기록을 같은 말로 부르게 한 곳에 둔다.
  * 부수효과 없는 함수만 둔다.
  */
 
-import type {
-  BookCategoryOut,
-  BookEntryOut,
-  BookOut,
-  CategoryOut,
-  SettlementOut,
+import {
+  parseDecimal,
+  parseDecimalOr,
+  type BookCategoryOut,
+  type BookEntryOut,
+  type BookMonthStateOut,
+  type BookOut,
+  type CategoryOut,
+  type SettlementOut,
 } from '../../shared/api';
-import { formatCurrency, LEDGER_TIME_ZONE } from '../../shared/lib/format';
+import { formatCurrency, LEDGER_TIME_ZONE, toLedgerDate } from '../../shared/lib/format';
 import { withJosa } from '../../shared/lib/josa';
 
 import { findMember, memberName, otherActiveMembers } from './bookText';
@@ -20,7 +23,7 @@ import { findMember, memberName, otherActiveMembers } from './bookText';
 /**
  * 가계부 분류를 분류 고르기(`CategoryPicker`)가 받는 모양으로 바꾼다.
  *
- * 공유 분류는 아홉 개를 넘지 않아 전부 앞자리에 선다. 만들기와 관리는 없다.
+ * 공유 분류는 몇 개 안 돼 전부 앞자리에 선다. 멤버가 새 분류를 더할 수 있고 관리 화면은 없다.
  */
 export function asPickable(categories: readonly BookCategoryOut[]): CategoryOut[] {
   return [...categories]
@@ -91,7 +94,7 @@ export function othersSeeLine(book: BookOut): string | null {
 }
 
 /**
- * 내 지출을 공유 가계부로 옮긴 뒤 알림. 「우리 집으로 옮겼어요. 준호도 볼 수 있어요」
+ * 내 지출을 공유 가계부로 옮긴 뒤 알림. 「둘이 쓰는 돈으로 옮겼어요. 준호도 볼 수 있어요」
  *
  * 내 기록이 이제 남에게 보인다는 것을 알림에서 바로 말한다. 혼자 쓰는 가계부면 앞 문장만이다.
  */
@@ -124,6 +127,24 @@ export function deleteOthersText(book: BookOut, entry: BookEntryOut): string {
 export function monthWord(periodStart: string, today: string): string {
   if (periodStart.slice(0, 7) === today.slice(0, 7)) return '이번 달';
   return `${Number(periodStart.slice(5, 7))}월`;
+}
+
+/**
+ * 「이번 달 남은 예산 215,200원」 또는 「이번 달 같이 쓴 돈 32,000원」.
+ *
+ * 여행 가계부는 달이 아니라 여행 전체로 정산한다. 서버도 여행 전체를 세어 보낸다(`month`).
+ * 그래서 「이번 여행에 같이 쓴 돈」 이다.
+ */
+export function monthLine(book: BookOut, month: BookMonthStateOut): string {
+  const trip = book.kind === 'trip';
+  const when = trip ? '이번 여행' : monthWord(month.period_start, toLedgerDate(new Date()));
+  const remaining = parseDecimal(month.remaining);
+  if (month.budget != null && remaining != null) {
+    if (remaining < 0) return `${when} 예산보다 ${formatCurrency(-remaining)} 더 썼어요`;
+    return `${when} 남은 예산 ${formatCurrency(remaining)}`;
+  }
+  const spent = formatCurrency(parseDecimalOr(month.spent, 0));
+  return trip ? `${when}에 같이 쓴 돈 ${spent}` : `${when} 같이 쓴 돈 ${spent}`;
 }
 
 /**

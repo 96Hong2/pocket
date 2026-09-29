@@ -19,9 +19,16 @@ const SECOND_AMOUNT = 100_000;
 const CATEGORY = '식비';
 const BUDGET = 500_000;
 
-test('01 처음 열어 기록하고 그 자리에서 고치기까지 한 바퀴', async ({ demo, home, recordSheet }) => {
+test('01 처음 열어 기록하고 그 자리에서 고치기까지 한 바퀴', async ({
+  demo,
+  home,
+  recordSheet,
+}) => {
   await home.open();
-  await demo.open('10초 기록 한 바퀴', '홈 CTA · 금액 · 카테고리, 세 단계로 저장하고 그 줄에서 바로 고치기까지');
+  await demo.open(
+    '10초 기록 한 바퀴',
+    '홈 CTA · 금액 · 카테고리, 세 단계로 저장하고 그 줄에서 바로 고치기까지',
+  );
   await home.waitReady();
 
   // 첫 진입. 예산을 묻는 화면이 아니라 0원과 부담 덜기 한마디로 시작한다.
@@ -41,7 +48,8 @@ test('01 처음 열어 기록하고 그 자리에서 고치기까지 한 바퀴'
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));
-  await expect(recordSheet.input.hint).toHaveText('금액을 누르고 카테고리를 고르면 바로 저장돼요');
+  // 안내 줄 없이 금액과 칩만 선다. 누를 곳이 곧 설명이다.
+  await expect(recordSheet.input.hint).toHaveCount(0);
   // 순서를 강요하지 않는다. 금액이 아직 0원이어도 카테고리는 열려 있다.
   await expect(recordSheet.input.categoryChip(CATEGORY)).toBeEnabled();
   await demo.beat(2);
@@ -49,7 +57,6 @@ test('01 처음 열어 기록하고 그 자리에서 고치기까지 한 바퀴'
   await demo.step('2단계 · 키패드로 금액만 찍어요');
   await recordSheet.input.enterAmount(AMOUNT);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(AMOUNT));
-  await expect(recordSheet.input.hint).toHaveText('카테고리를 고르면 저장돼요');
   await expect(recordSheet.input.categoryChip(CATEGORY)).toBeEnabled();
   await demo.beat(2);
 

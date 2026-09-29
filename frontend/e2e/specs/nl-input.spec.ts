@@ -132,7 +132,6 @@ test('후보 줄을 누르면 고치기가 펼쳐지고, 저장 대상 선택은
   await expect(recordSheet.nl.form.merchantField).toHaveCount(0);
 });
 
-
 test('저장 버튼 하나에 건수와 합계가 적히고, 선택을 바꾸면 함께 바뀐다', async ({
   home,
   recordSheet,
@@ -163,7 +162,7 @@ test('한 건을 고치면 목록과 저장 버튼이 그 자리에서 따라온
   await recordSheet.nl.openEdit('점심');
   await recordSheet.nl.form.merchantField.fill('김밥천국');
   await recordSheet.nl.form.amountField.fill('13000');
-  await recordSheet.nl.form.categoryChip('생활').click();
+  await recordSheet.nl.form.pickCategory('생활');
   await recordSheet.nl.form.apply();
 
   await expect(recordSheet.nl.amount('김밥천국')).toHaveText(formatCurrency(13000));
@@ -245,7 +244,7 @@ test('분류를 바꿔 저장하면 다음번에 그 분류가 먼저 잡힌다'
   await expect(recordSheet.nl.row('올리브영')).toContainText('건강·미용');
 
   await recordSheet.nl.openEdit('올리브영');
-  await recordSheet.nl.form.categoryChip('생활').click();
+  await recordSheet.nl.form.pickCategory('생활');
   await recordSheet.nl.form.apply();
   await recordSheet.nl.save();
   await recordSheet.nl.confirmButton.click();
@@ -268,7 +267,7 @@ test('기억한 분류를 카테고리 관리에서 보고 지우면 원래 분�
   await recordSheet.methodTab('줄글').click();
   await recordSheet.nl.analyze('올리브영 23000');
   await recordSheet.nl.openEdit('올리브영');
-  await recordSheet.nl.form.categoryChip('생활').click();
+  await recordSheet.nl.form.pickCategory('생활');
   await recordSheet.nl.form.apply();
   await recordSheet.nl.save();
   await recordSheet.nl.confirmButton.click();
@@ -313,7 +312,7 @@ test('날짜를 고치면 목록의 날짜가 그대로 따라온다', async ({ 
   await expect(recordSheet.nl.day('점심')).toHaveText(today());
 
   await recordSheet.nl.openEdit('점심');
-  await recordSheet.nl.form.dayField.fill(twoDaysAgoIso());
+  await recordSheet.nl.form.setDay(twoDaysAgoIso());
   await recordSheet.nl.form.apply();
 
   await expect(recordSheet.nl.day('점심')).toHaveText(formatDayLabel(twoDaysAgoIso()));
@@ -398,7 +397,7 @@ test('이미 저장한 것의 분류만 바꿔도 저장 대상이 되지 않는
   await recordSheet.methodTab('줄글').click();
   await recordSheet.nl.analyze('점심 12000');
   await recordSheet.nl.openEdit('점심');
-  await recordSheet.nl.form.categoryChip('생활').click();
+  await recordSheet.nl.form.pickCategory('생활');
   await recordSheet.nl.form.apply();
 
   await expect(recordSheet.nl.chip('점심', '이미 있어요')).toBeVisible();
@@ -408,9 +407,9 @@ test('이미 저장한 것의 분류만 바꿔도 저장 대상이 되지 않는
 /**
  * **적은 것이 저장돼야 한다.**
  *
- * 펼친 줄의 값은 「이대로 고치기」를 눌러야만 서버로 갔다. 그래서 상호를 고치고 곧바로
+ * 펼친 줄의 값은 줄 끝 버튼을 눌러야만 서버로 갔다. 그래서 상호를 고치고 곧바로
  * 아래 저장을 누르면 적은 것이 통째로 버려졌다. 사용자가 실기기에서 겪은 일이다.
- * 「이대로 고치기」를 **일부러 안 누르고** 저장하는 것이 이 테스트의 전부다.
+ * 줄 끝 「완료」를 **일부러 안 누르고** 저장하는 것이 이 테스트의 전부다.
  */
 test('상호를 고치고 바로 저장해도 고친 이름으로 들어간다', async ({ home, recordSheet }) => {
   await home.open();
@@ -440,10 +439,180 @@ test('줄을 접기만 해도 적어 둔 상호가 남는다', async ({ home, re
 
   await recordSheet.nl.openEdit('점심');
   await recordSheet.nl.form.merchantField.fill('토끼 키링');
-  // 「이대로 고치기」가 아니라 줄 머리를 다시 눌러 접는다.
+  // 「완료」가 아니라 줄 머리를 다시 눌러 접는다.
   await recordSheet.nl.editTrigger('점심').click();
 
   await expect(recordSheet.nl.checkbox('토끼 키링')).toBeVisible();
+});
+
+// ── 날짜·분류 칩 ─────────────────────────────────
+
+/*
+  펼친 폼에는 상호·금액·종류·결제 수단만 선다. 날짜와 분류는 머리 아래 칩을 눌러야 열린다.
+  폼이 짧아야 펼치자마자 「완료」 가 보이고, 위에서 분류만 누르고 넘어가도 고친 것이 남는다.
+*/
+test('분류 칩을 눌러 고르면 격자가 닫히고 그 분류로 저장된다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+
+  await recordSheet.nl.openEdit('점심');
+  // 날짜 칸과 분류 격자는 기본으로 닫혀 있다.
+  await expect(recordSheet.nl.form.dayField).toHaveCount(0);
+  await expect(recordSheet.nl.form.categoryGroup).toHaveCount(0);
+
+  await recordSheet.nl.form.categoryButton.click();
+  await expect(recordSheet.nl.form.categoryGroup).toBeVisible();
+  // 잠깐 열어 하나 고르는 자리라 관리 안내는 없다.
+  await expect(
+    recordSheet.nl.form.categoryGroup.getByText('카테고리 관리', { exact: false }),
+  ).toHaveCount(0);
+  await recordSheet.nl.form.categoryChip('생활').click();
+
+  await expect(recordSheet.nl.form.categoryGroup).toHaveCount(0);
+  await expect(recordSheet.nl.form.categoryButton).toHaveAccessibleName('분류 생활, 바꾸기');
+
+  await recordSheet.nl.save();
+  await recordSheet.nl.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  await home.waitReady();
+  await expect(home.today.row('점심')).toBeVisible();
+  // 상호가 제목을 가져간 줄은 분류 이름이 제목 아래로 내려간다.
+  await expect(home.today.subtitle('생활')).toBeVisible();
+});
+
+test('날짜 칩을 눌러 바꾸면 그 날로 저장된다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+
+  // 접힌 줄의 날짜 칩을 누르면 줄이 펴지며 날짜 칸이 바로 열린다.
+  await recordSheet.nl.day('점심').click();
+  await expect(recordSheet.nl.form.dayField).toBeVisible();
+  await expect(recordSheet.nl.form.doneButton).toBeVisible();
+
+  await recordSheet.nl.form.dayField.fill(twoDaysAgoIso());
+  // 고르면 칸이 닫히고 칩 글자가 바뀐다.
+  await expect(recordSheet.nl.form.dayField).toHaveCount(0);
+  await expect(recordSheet.nl.form.dayChip).toHaveText(formatDayLabel(twoDaysAgoIso()));
+
+  await recordSheet.nl.save();
+  await recordSheet.nl.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  // 홈은 방금 적은 날로 옮겨 가 있다.
+  await home.waitReady();
+  await expect(home.today.title).toHaveText(formatDayLabel(twoDaysAgoIso()));
+  await expect(home.today.row('점심')).toBeVisible();
+});
+
+test('분류만 바꾸고 다른 줄을 펴도 바꾼 분류가 남는다', async ({ home, recordSheet }) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(THREE_ITEMS);
+  await expect(recordSheet.nl.rows).toHaveCount(3);
+
+  // 접힌 줄의 분류 칩을 누르면 줄이 펴지며 격자가 바로 열린다.
+  await recordSheet.nl.categoryButton('점심').click();
+  await expect(recordSheet.nl.form.categoryGroup).toBeVisible();
+  await recordSheet.nl.form.categoryChip('생활').click();
+
+  // 「완료」 를 안 누르고 다른 줄로 간다.
+  await recordSheet.nl.editTrigger('택시').click();
+  await expect(recordSheet.nl.form.merchantField).toHaveValue('택시');
+
+  await expect(recordSheet.nl.categoryButton('점심')).toHaveAccessibleName('분류 생활, 바꾸기');
+});
+
+test('펼친 줄이 좁은 화면에서도 스크롤 없이 「완료」 까지 보인다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  // 토스 웹뷰 실측 크기다(아이폰 390pt 폭에서 상태줄과 토스 머리줄을 뺀 높이).
+  await page.setViewportSize({ width: 390, height: 746 });
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(THREE_ITEMS);
+  await expect(recordSheet.nl.rows).toHaveCount(3);
+
+  // 맨 위 줄과 맨 아래 줄 둘 다 본다. 아래 줄은 더 올라갈 자리가 없어 바닥 저장 줄 바로 위에 선다.
+  for (const name of ['점심', '택시']) {
+    await recordSheet.nl.openEdit(name);
+    const done = recordSheet.nl.form.doneButton;
+    // 펼친 줄이 맨 위로 부드럽게 올라간다. 멈출 때까지 기다린 뒤 잰다.
+    await expect(async () => {
+      const before = await done.boundingBox();
+      await page.waitForTimeout(120);
+      const after = await done.boundingBox();
+      expect(before?.y).toBe(after?.y);
+    }).toPass();
+
+    const box = await done.boundingBox();
+    // 바닥에 붙은 저장 줄(취소 · N건 저장). 버튼이 아니라 바탕을 깐 줄 전체가 가린다.
+    const foot = await recordSheet.nl.saveButton.locator('xpath=..').boundingBox();
+    expect(box, '「완료」 가 그려지지 않았다').not.toBeNull();
+    expect(foot, '바닥 저장 줄이 그려지지 않았다').not.toBeNull();
+    expect(box!.y, `${name}: 「완료」 가 화면 위로 밀려났다`).toBeGreaterThanOrEqual(0);
+    expect(box!.y + box!.height, `${name}: 「완료」 가 바닥 저장 줄에 가렸다`).toBeLessThanOrEqual(
+      foot!.y,
+    );
+    await expect(done).toBeInViewport({ ratio: 1 });
+    await recordSheet.nl.form.apply();
+  }
+});
+
+test('펼친 줄을 맨 위로 올려도 윗변이 시트 손잡이 밑에 들어가지 않는다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
+  await page.setViewportSize({ width: 390, height: 746 });
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000 커피 4500 택시 9000 약국 7000 빵집 3000 문구 2000');
+  await expect(recordSheet.nl.rows).toHaveCount(6);
+
+  // 둘째 줄은 아래 줄이 넉넉해 끝까지 끌어올려진다. 윗변이 손잡이에 붙는지는 그 자리에서만 보인다.
+  const row = recordSheet.nl.rows.nth(1);
+  await row.getByRole('button', { name: /눌러서 고치기$/ }).click();
+  await expect(recordSheet.nl.form.doneButton).toBeVisible();
+  await expect(async () => {
+    const before = await row.boundingBox();
+    await page.waitForTimeout(120);
+    const after = await row.boundingBox();
+    expect(before?.y).toBe(after?.y);
+  }).toPass();
+
+  const handle = await recordSheet.closeButton.boundingBox();
+  const top = await row.boundingBox();
+  expect(handle, '손잡이가 그려지지 않았다').not.toBeNull();
+  expect(top, '펼친 줄이 그려지지 않았다').not.toBeNull();
+  const gap = top!.y - (handle!.y + handle!.height);
+  // 테두리와 둥근 모서리가 손잡이 바탕에 덮이지 않게 8px 띄운 자리에 선다.
+  expect(gap, '펼친 줄 윗변이 손잡이 밑에 들어갔다').toBeGreaterThanOrEqual(7.5);
+  expect(gap, '펼친 줄이 맨 위로 올라오지 않았다').toBeLessThanOrEqual(9);
+
+  // 손잡이 위 여백 띠로 위로 올라간 카드가 비치지 않는다. 시트 윗변 바로 아래는 손잡이 바탕이다.
+  const topBandIsHandle = await page.evaluate(() => {
+    const sheet = document.querySelector('.pk-sheet');
+    if (sheet == null) return false;
+    const rect = sheet.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + 2);
+    return hit?.closest('.pk-sheet__handle') != null;
+  });
+  expect(topBandIsHandle, '손잡이 위 여백 띠로 아래 내용이 비친다').toBe(true);
 });
 
 // ── 읽어 온 것을 잃지 않기 ────────────────────────
@@ -524,11 +693,7 @@ test('저장을 마친 뒤에는 묻지 않고 그냥 닫힌다', async ({ home,
   await recordSheet.waitClosed();
 });
 
-test('취소를 누르면 시트가 닫히고 한 건도 저장되지 않는다', async ({
-  home,
-  page,
-  recordSheet,
-}) => {
+test('취소를 누르면 시트가 닫히고 한 건도 저장되지 않는다', async ({ home, page, recordSheet }) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
@@ -604,6 +769,63 @@ test('내일 날짜는 켜져 있어도 확인하라고 알려 준다', async ({
   await expect(recordSheet.nl.saveButton).toBeEnabled();
   // 화면은 그래도 알려 준다. 켜져 있다고 맞는 날짜인 것은 아니다.
   await expect(recordSheet.nl.futureNotices).toHaveCount(1);
+});
+
+/*
+  저장을 누르면 펼친 줄에 고쳐 둔 것을 먼저 보내고, 돌려받은 날로 앞날인지 가린다.
+  서버 값으로 판정하면 칩으로 고친 날과 반대로 묻거나, 묻지 않고 앞날로 넣는다.
+*/
+test('앞날로 읽힌 줄을 칩으로 지난 날로 고치고 바로 저장하면 묻지 않는다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze(`${isoInDays(1)} 커피 4500`);
+  await expect(recordSheet.nl.futureNotices).toHaveCount(1);
+
+  await recordSheet.nl.openEdit('커피');
+  await recordSheet.nl.form.setDay(twoDaysAgoIso());
+  // 「완료」 없이 저장한다.
+  await recordSheet.nl.saveButton.click();
+
+  await expect(recordSheet.nl.savedTitle).toBeVisible();
+  await expect(recordSheet.futureDayConfirm.dialog).toHaveCount(0);
+  await recordSheet.nl.confirmButton.click();
+  await recordSheet.waitClosed();
+
+  await home.waitReady();
+  await expect(home.today.title).toHaveText(formatDayLabel(twoDaysAgoIso()));
+  await expect(home.today.row('커피')).toBeVisible();
+});
+
+test('지난 날 줄을 칩으로 앞날로 고치고 바로 저장하면 그 날로 묻는다. 버튼 합계도 고친 금액이다', async ({
+  home,
+  recordSheet,
+}) => {
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.methodTab('줄글').click();
+  await recordSheet.nl.analyze('점심 12000');
+
+  await recordSheet.nl.openEdit('점심');
+  await recordSheet.nl.form.amountField.fill('15000');
+  // 「완료」 전에도 버튼이 고친 금액을 말한다. 저장하면 이 금액이 들어간다.
+  await expect(recordSheet.nl.saveButton).toHaveText(`1건 저장 · ${formatCurrency(15000)}`);
+  await recordSheet.nl.form.setDay(isoInDays(1));
+  await recordSheet.nl.saveButton.click();
+
+  const ask = recordSheet.futureDayConfirm;
+  await expect(ask.dialog).toBeVisible();
+  await expect(ask.dialog).toContainText(formatDayLabel(isoInDays(1)));
+  await ask.fixButton.click();
+  await expect(ask.dialog).toHaveCount(0);
+  // 저장되지 않았다. 고치던 줄이 그대로 있다.
+  await expect(recordSheet.nl.savedTitle).toHaveCount(0);
+  await expect(recordSheet.nl.rows).toHaveCount(1);
 });
 
 test('오늘과 지난 날에는 그 안내가 없다', async ({ home, recordSheet }) => {

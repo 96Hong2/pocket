@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { BookMemberOut, BookOut } from '../../shared/api';
 
 import {
-  bookNameWithSuffix,
+  defaultBookName,
   memberName,
   membersBucket,
   myNameIn,
@@ -73,10 +73,11 @@ describe('공유 가계부 이름과 규칙', () => {
     expect(myNameIn([])).toBeNull();
   });
 
-  it('이름 뒤에 가계부를 붙이되 이미 가계부로 끝나면 두 번 붙이지 않는다', () => {
-    expect(bookNameWithSuffix('우리 집')).toBe('우리 집 가계부');
-    expect(bookNameWithSuffix('우리집 가계부')).toBe('우리집 가계부');
-    expect(bookNameWithSuffix('  우리가계부 ')).toBe('우리가계부');
+  it('기본 이름은 유형에 맞는 평범한 말이다. 연인·부부를 「집」 으로 부르지 않는다', () => {
+    expect(defaultBookName('couple')).toBe('둘이 쓰는 돈');
+    expect(defaultBookName('family')).toBe('가족 생활비');
+    expect(defaultBookName('trip')).toBe('여행 경비');
+    expect(defaultBookName('room')).toBe('공동 생활비');
   });
 
   it('끝난 가계부를 따로 모은다. 서버가 준 순서는 그대로다', () => {

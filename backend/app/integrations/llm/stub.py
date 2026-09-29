@@ -31,7 +31,11 @@ from app.integrations.llm.port import (
     SchemaT,
     require_single_input,
 )
-from app.integrations.llm.prompts import RECEIPT_TASK_MARKER
+from app.integrations.llm.prompts import (
+    RECEIPT_TASK_MARKER,
+    SHARED_BOOK_MARKER,
+    listed_categories,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +64,18 @@ _CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("여가·취미", ("영화", "게임", "공연", "책", "여행")),
     ("건강·미용", ("병원", "약국", "미용실", "헬스", "화장품", "올리브영")),
 )
+
+# 공유 가계부 분류에 없는 이름을 무엇으로 옮길지. 앞에 적은 것부터 목록에 있는지 본다.
+# 실제 모델은 받은 목록에서 고르므로 이 표가 필요 없다. 스텁이 같은 모양을 내려고 둔다.
+_SHARED_ALIASES: dict[str, tuple[str, ...]] = {
+    "식비": ("외식·배달", "식비"),
+    "카페·간식": ("카페", "외식·배달"),
+    "쇼핑": ("생활", "생필품"),
+    "생활": ("생활", "생필품", "장보기"),
+    "주거·고정비": ("주거비", "월세", "공과금"),
+    "여가·취미": ("여가·취미", "놀거리"),
+    "건강·미용": ("의료",),
+}
 
 # 캡처가 오면 그대로 내는 예시. 이미지를 읽지 않는다. 배관이 도는지 보려고 정해 둔 값이라
 # 이 결과로 인식 정확도를 재면 안 된다.
@@ -136,11 +152,46 @@ class StubLlmStructuredClient:
                 if RECEIPT_TASK_MARKER in prompt
                 else sample_image_extraction(today)
             )
-            return schema.model_validate(sample.model_dump())
-        del prompt  # 줄글은 규칙 파서가 읽는다. 프롬프트를 보지 않는다.
+            return schema.model_validate(_for_shared_book(sample, prompt).model_dump())
+        # 줄글은 규칙 파서가 읽는다. 프롬프트는 공유 가계부 분류로 옮길 때만 본다.
         assert text is not None
         extraction = parse_text(text, today=today)
-        return schema.model_validate(extraction.model_dump())
+        return schema.model_validate(_for_shared_book(extraction, prompt).model_dump())
+
+
+def _for_shared_book(extraction: TransactionExtraction, prompt: str) -> TransactionExtraction:
+    """공유 가계부에 적을 때 분류를 그 가계부 목록 안의 이름으로 옮긴다.
+
+    순서: 상호에 목록 이름(또는 「·」 로 나눈 조각)이 들어 있으면 그것 → 고른 이름이 목록에
+    있으면 그대로 → `_SHARED_ALIASES` → 없음. 지출만 고른다. 공유 분류는 모두 지출이다.
+    """
+    if SHARED_BOOK_MARKER not in prompt:
+        return extraction
+    names = listed_categories(prompt)
+    moved = [
+        item.model_copy(
+            update={
+                "category": _shared_category(item.merchant, item.category, names)
+                if item.type is TransactionType.EXPENSE
+                else None
+            }
+        )
+        for item in extraction.candidates
+    ]
+    return extraction.model_copy(update={"candidates": moved})
+
+
+def _shared_category(merchant: str | None, guess: str | None, names: tuple[str, ...]) -> str | None:
+    if merchant:
+        for name in names:
+            parts = (name, *name.split("·"))
+            if any(len(part) >= 2 and part in merchant for part in parts):
+                return name
+    if guess is None:
+        return None
+    if guess in names:
+        return guess
+    return next((alias for alias in _SHARED_ALIASES.get(guess, ()) if alias in names), None)
 
 
 def sample_image_extraction(today: date | None = None) -> TransactionExtraction:

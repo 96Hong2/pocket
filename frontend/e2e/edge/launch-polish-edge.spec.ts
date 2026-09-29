@@ -323,6 +323,8 @@ test.describe('가장 좁은 화면', () => {
     await recordSheet.methodTab('줄글').click();
     await recordSheet.nl.analyze('점심 12000');
     await recordSheet.nl.openEdit('점심');
+    // 날짜 칸은 날짜 칩을 눌러야 열린다.
+    await recordSheet.nl.form.openDay();
 
     const overflow = await recordSheet.nl.form.dayField.evaluate((element) => {
       const parent = element.parentElement;

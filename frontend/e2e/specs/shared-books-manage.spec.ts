@@ -72,7 +72,9 @@ test.describe('초대받은 사람이 처음 여는 앱', () => {
       await owner.books.create.kindButton('연인·부부').click();
 
       // 이름과 돈 나누기는 이미 채워져 있다. 채울 것은 내 이름 하나다.
-      await expect(owner.books.create.stepTitle('우리 집')).toBeVisible();
+      // 제목은 유형으로 고정이고, 가계부 이름은 숨기지 않고 맨 위 칸에 채워 둔다.
+      await expect(owner.books.create.stepTitle('연인·부부')).toBeVisible();
+      await expect(owner.books.create.bookName).toHaveValue('둘이 쓰는 돈');
       await expect(owner.books.create.settleOption('반반')).toHaveAttribute('aria-checked', 'true');
       await expect(owner.books.create.submitButton).toBeDisabled();
       await owner.books.create.myName.fill('은홍');
@@ -89,7 +91,7 @@ test.describe('초대받은 사람이 처음 여는 앱', () => {
     });
 
     await test.step('공유창에서 돌아오면 그 가계부 홈이다', async () => {
-      await expect(owner.books.homeChip('우리 집')).toBeVisible();
+      await expect(owner.books.homeChip('둘이 쓰는 돈')).toBeVisible();
       // 알림은 띄우지 않는다. 카드가 같은 말을 한다.
       await expect(owner.books.toast('초대장을 보냈어요')).toHaveCount(0);
       // 보냈으니 「아직 혼자예요 [초대장 보내기]」 가 아니라 기다리면 된다는 말이 선다.
@@ -123,13 +125,13 @@ test.describe('초대받은 사람이 처음 여는 앱', () => {
 
     await test.step('받은 사람은 처음 안내보다 초대 화면을 먼저 본다', async () => {
       await page.goto(appPath(sent.path));
-      await expect(books.join.title).toHaveText('은홍님이 「우리 집」에 초대했어요');
+      await expect(books.join.title).toHaveText('은홍님이 「둘이 쓰는 돈」에 초대했어요');
       await expect(books.join.lockLine).toHaveText('내 가계부 기록은 은홍님에게 보이지 않아요');
       await expect(books.onboarding).toHaveCount(0);
       await expect(books.join.joinButton).toBeDisabled();
     });
 
-    await test.step('이름 하나 적고 같이 쓰기를 누르면 우리 집 홈이다', async () => {
+    await test.step('이름 하나 적고 같이 쓰기를 누르면 공유 홈이다', async () => {
       await books.join.nameInput.fill('준호');
       // 홈으로 넘어가는 그 순간에 「처음 안내를 봤다」 가 이미 적혀 있어야 한다. 넘어간 뒤에
       // 읽으면 안내를 띄운 문지기가 같은 값을 적어 버려 빠진 것을 못 잡는다.
@@ -143,7 +145,7 @@ test.describe('초대받은 사람이 처음 여는 앱', () => {
         };
       });
       await books.join.joinButton.click();
-      await expect(books.homeChip('우리 집')).toBeVisible();
+      await expect(books.homeChip('둘이 쓰는 돈')).toBeVisible();
       await expect(books.onboarding).toHaveCount(0);
       const navigations = await page.evaluate(
         () => (window as unknown as { __seenAtNav: [string, string | null][] }).__seenAtNav,
@@ -168,20 +170,23 @@ test.describe('초대받은 사람이 처음 여는 앱', () => {
     await test.step('처음 한 번 어디에 적을지 고른다는 안내가 뜨고, 알겠어요로 닫힌다', async () => {
       await expect(home.book.cards.intro).toBeVisible();
       await expect(home.book.cards.intro).toContainText(
-        '기록할 때 「내 가계부」와 「우리 집」 중 한 곳을 골라요',
+        '기록할 때 「내 가계부」와 「둘이 쓰는 돈」 중 한 곳을 골라요',
       );
       await home.book.cards.introOkButton.click();
       await expect(home.book.cards.intro).toHaveCount(0);
     });
 
-    await test.step('기록하기를 누르면 우리 집이 골라져 있고, 32,000원 장보기를 적는다', async () => {
+    await test.step('기록하기를 누르면 둘이 쓰는 돈이 골라져 있고, 32,000원 장보기를 적는다', async () => {
       await home.recordButton.click();
       await recordSheet.waitOpen();
-      await expect(recordSheet.destination.pill('우리 집')).toHaveAttribute('aria-pressed', 'true');
+      await expect(recordSheet.destination.pill('둘이 쓰는 돈')).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
       await recordSheet.input.enterAmount(32_000);
       await recordSheet.input.pickCategory('장보기');
 
-      await expect(recordSheet.bookFeedback.savedLabel('우리 집')).toBeVisible();
+      await expect(recordSheet.bookFeedback.savedLabel('둘이 쓰는 돈')).toBeVisible();
       await expect(recordSheet.bookFeedback.card).toContainText('은홍도 바로 볼 수 있어요');
       await expect(recordSheet.bookFeedback.payer('준호')).toHaveAttribute('aria-pressed', 'true');
       await recordSheet.bookFeedback.confirmButton.click();
@@ -198,16 +203,51 @@ test.describe('초대받은 사람이 처음 여는 앱', () => {
       await expect(owner.home.book.recent.row('장보기')).toContainText('32,000원');
     });
 
-    await test.step('다시 열면 우리 집 홈에서 시작하고, 안내들은 다시 안 뜬다', async () => {
+    await test.step('다시 열면 공유 홈에서 시작하고, 안내들은 다시 안 뜬다', async () => {
       await page.reload();
       await home.waitReady();
-      // 준호는 내 가계부에 적은 것이 없다. 보던 우리 집에서 바로 시작해야 다음 기록도 우리 집에 간다.
-      await expect(home.book.chip).toHaveAccessibleName('보는 가계부 우리 집');
+      // 준호는 내 가계부에 적은 것이 없다. 보던 둘이 쓰는 돈에서 바로 시작해야 다음 기록도 둘이 쓰는 돈에 간다.
+      await expect(home.book.chip).toHaveAccessibleName('보는 가계부 둘이 쓰는 돈');
       await expect(home.book.recent.row('장보기')).toBeVisible();
       await expect(home.book.cards.intro).toHaveCount(0);
       await expect(books.onboarding).toHaveCount(0);
     });
   });
+});
+
+test('가계부 이름은 채워진 채 맨 위에 서고, 처음 누르면 통째로 골라져 바로 덮어 쓴다', async ({
+  books,
+  page,
+}) => {
+  await books.openNew();
+  await books.create.kindButton('여행·모임').click();
+
+  await expect(books.create.stepTitle('여행·모임')).toBeVisible();
+  await expect(books.create.bookName).toHaveValue('여행 경비');
+  // 칸 순서는 가계부 이름, 내 이름, 돈 나누기다.
+  const nameTop = (await books.create.bookName.boundingBox())?.y ?? 0;
+  const myNameTop = (await books.create.myName.boundingBox())?.y ?? 0;
+  const ruleTop = (await books.create.settleOption('똑같이 나눠요').boundingBox())?.y ?? 0;
+  expect(nameTop).toBeLessThan(myNameTop);
+  expect(myNameTop).toBeLessThan(ruleTop);
+
+  await books.create.bookName.click();
+  await page.keyboard.type('제주 여행');
+  await expect(books.create.bookName).toHaveValue('제주 여행');
+  // 제목은 칸에 적는 대로 흔들리지 않는다.
+  await expect(books.create.stepTitle('여행·모임')).toBeVisible();
+
+  // 두 번째로 누르면 커서만 선다. 고치려던 글자를 통째로 날리지 않는다.
+  await books.create.myName.click();
+  await books.create.bookName.click();
+  await page.keyboard.type('도');
+  expect(await books.create.bookName.inputValue()).toHaveLength('제주 여행도'.length);
+
+  // 비우고 만들면 기본 이름으로 만든다.
+  await books.create.bookName.fill('');
+  await books.create.myName.fill('은홍');
+  await books.create.submitButton.click();
+  await expect(books.homeChip('여행 경비')).toBeVisible();
 });
 
 test.describe('못 쓰는 초대 링크', () => {
@@ -268,7 +308,7 @@ test.describe('못 쓰는 초대 링크', () => {
     const code = await prep.bookInviteCode(bookId);
 
     await books.openJoin(code);
-    await expect(books.homeChip('우리 집')).toBeVisible();
+    await expect(books.homeChip('둘이 쓰는 돈')).toBeVisible();
     await expect(books.toast('내가 보낸 초대장이에요')).toBeVisible();
     // 이 기기에서 초대장을 보낸 적이 없으니 아직 혼자라고 하고 보내기를 크게 세운다.
     await expect(home.book.cards.alone).toBeVisible();
@@ -293,7 +333,7 @@ test('정산은 PRD 숫자대로 한 문장이고, 끝내고 되돌릴 수 있�
 
   await books.openSettle(bookId);
   await books.settle.waitReady();
-  await expect(books.settle.heading).toHaveText('우리 집 정산');
+  await expect(books.settle.heading).toHaveText('둘이 쓰는 돈 정산');
   // 창 제목에는 가계부 이름을 싣지 않는다.
   await expect(page).toHaveTitle('정산');
   await expect(books.settle.line('준호가 은홍에게 12,500원 보내면 반반이에요')).toBeVisible();
@@ -355,7 +395,7 @@ test('관리자가 바꾼 이름이 상대의 가계부 고르기 창에 보인�
   await partner.home.open();
   await partner.books.homeChip('내 가계부').click();
   await expect(partner.books.pickerRow('우리 둘')).toBeVisible();
-  await expect(partner.books.pickerRow('우리 집')).toHaveCount(0);
+  await expect(partner.books.pickerRow('둘이 쓰는 돈')).toHaveCount(0);
 
   await test.step('연인 가계부에 둘이 다 차면 초대장 버튼 없이 「멤버 2명」 이다', async () => {
     await expect(books.settings.membersLabel).toHaveText('멤버 2명');
@@ -393,7 +433,7 @@ test('끝내기는 묻지 않고, 알림의 되돌리기가 다시 연다', asyn
     await prep.setBookEnded(bookId, true);
     await home.open();
     await home.waitReady();
-    await home.book.switchTo('우리 집');
+    await home.book.switchTo('둘이 쓰는 돈');
     await expect(home.book.endedLine).toBeVisible();
     await expect(home.recordButton).toHaveCount(0);
   });
@@ -402,7 +442,7 @@ test('끝내기는 묻지 않고, 알림의 되돌리기가 다시 연다', asyn
     await prep.setBookEnded(bookId, false);
     await page.reload();
     await home.waitReady();
-    await home.book.switchTo('우리 집');
+    await home.book.switchTo('둘이 쓰는 돈');
     await expect(home.recordButton).toBeVisible();
     await expect(home.book.endedLine).toHaveCount(0);
   });
@@ -418,14 +458,14 @@ test('지우기는 한 번 묻고, 알림의 되돌리기가 되살려 그 가�
   await books.openSettings(bookId);
   await books.settings.waitReady();
   await books.settings.owner.deleteButton.click();
-  await expect(books.confirm).toContainText('우리 집을 지울까요?');
+  await expect(books.confirm).toContainText('둘이 쓰는 돈을 지울까요?');
 
   // 시스템 뒤로가기는 확인 창만 닫는다. 설정 화면은 그대로다.
   await pressSystemBack(page);
   await expect(books.confirm).toHaveCount(0);
   await expect(books.settings.heading).toBeVisible();
   await books.settings.owner.deleteButton.click();
-  await expect(books.confirm).toContainText('우리 집을 지울까요?');
+  await expect(books.confirm).toContainText('둘이 쓰는 돈을 지울까요?');
 
   // 머무는 쪽이 기본이다. 먼저 그대로 두기를 눌러도 아무 일도 없다.
   await books.confirmButton('그대로 두기').click();
@@ -438,7 +478,7 @@ test('지우기는 한 번 묻고, 알림의 되돌리기가 되살려 그 가�
   expect(await prep.books()).toHaveLength(0);
 
   await books.toastAction('가계부를 지웠어요').click();
-  await expect(books.homeChip('우리 집')).toBeVisible();
+  await expect(books.homeChip('둘이 쓰는 돈')).toBeVisible();
   expect(await prep.books()).toHaveLength(1);
 
   const logs = await logsNamed(page, 'book_changed');
@@ -456,10 +496,10 @@ test('멤버는 한 번 묻고 나간다. 내 가계부는 그대로다', async 
   await expect(partner.books.settings.owner.renameButton).toHaveCount(0);
 
   await partner.books.settings.leaveButton.click();
-  await expect(partner.books.confirm).toContainText('내가 적은 기록은 우리 집에 남아요');
+  await expect(partner.books.confirm).toContainText('내가 적은 기록은 둘이 쓰는 돈에 남아요');
   await partner.books.confirmButton('나가기').click();
 
-  await expect(partner.books.toast('우리 집에서 나왔어요')).toBeVisible();
+  await expect(partner.books.toast('둘이 쓰는 돈에서 나왔어요')).toBeVisible();
   expect(await partner.prep.books()).toHaveLength(0);
   expect((await prep.book(bookId)).active_member_count).toBe(1);
   const logs = await logsNamed(partner.page, 'book_member_changed');

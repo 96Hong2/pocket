@@ -6,7 +6,7 @@ import { TEST_IDS } from '../../src/shared/testIds';
 /**
  * 같이 쓰는 가계부의 하위 화면 다섯: 목록 · 만들기 · 설정 · 정산 · 초대.
  *
- * 우리 집 홈과 기록 시트의 「적을 곳」 은 여기가 아니라 HomeScreen · RecordSheet 에 있다.
+ * 공유 홈과 기록 시트의 「적을 곳」 은 여기가 아니라 HomeScreen · RecordSheet 에 있다.
  * 셀렉터는 이 파일 안에만 둔다. 이름은 화면 문구 그대로다.
  */
 export class BooksScreen {
@@ -158,9 +158,9 @@ export class BookCreateArea {
     return this.page.getByRole('button', { name: startsWith(label) });
   }
 
-  /** 둘째 단계 제목. 「우리 집 가계부를 만들게요」 */
-  stepTitle(bookName: string): Locator {
-    return this.page.getByRole('heading', { name: `${bookName} 가계부를 만들게요` });
+  /** 둘째 단계 제목. 유형 이름으로 고정이다. 「연인·부부 가계부를 만들게요」 */
+  stepTitle(kindLabel: string): Locator {
+    return this.page.getByRole('heading', { name: `${kindLabel} 가계부를 만들게요` });
   }
 
   /** 「돈 나누기」 칸 하나. 「반반」·「같이 모은 돈」·「똑같이 나눠요」 */
@@ -172,10 +172,7 @@ export class BookCreateArea {
     return this.page.getByLabel('내 이름', { exact: true });
   }
 
-  get customizeButton(): Locator {
-    return this.page.getByRole('button', { name: '직접 설정하기', exact: true });
-  }
-
+  /** 둘째 단계 맨 위 칸. 유형에 맞는 기본 이름이 채워져 있다. */
   get bookName(): Locator {
     return this.page.getByLabel('가계부 이름', { exact: true });
   }

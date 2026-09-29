@@ -429,14 +429,12 @@ function RecordBody({
     지금은 고른 날을 세 탭에 함께 내려보낸다(`baseDay`). 적힌 날짜가 있으면 그쪽이 이기고,
     못 찾은 줄만 고른 날로 간다. 그래서 잠글 이유가 없어졌다.
   */
-  const startTab: RecordTab =
-    openedOnPastDay || bookId != null ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB);
-  const [tabState, setTab] = useState<RecordTab>(startTab);
   /*
-    공유 가계부에는 키패드로만 적는다. 줄글·사진은 내 가계부로만 들어가는 길이다.
-    고른 탭은 버리지 않는다. 내 가계부로 돌아오면 그 탭이 다시 선다.
+    공유 가계부도 네 방식을 다 쓴다. 줄글·사진으로 읽은 것은 검토한 뒤 그 가계부에 들어간다.
+    읽을 때 고른 가계부에 묶음이 묶이므로, 검토 중에는 「적을 곳」 을 잠근다.
   */
-  const tab: RecordTab = shared ? 'keypad' : tabState;
+  const startTab: RecordTab = openedOnPastDay ? 'keypad' : (initialTab ?? DEFAULT_RECORD_TAB);
+  const [tab, setTab] = useState<RecordTab>(startTab);
   /*
     남은 사진 장수. **캡처와 영수증이 하나를 나눠 쓴다.**
 
@@ -702,19 +700,34 @@ function RecordBody({
    */
   function finish(): void {
     // 공유 기록은 서버가 방식을 기억하지 않는다. 캐시만 바꾸면 서버와 어긋난다.
-    if (savedEntry == null) rememberMethod();
+    if (savedEntry == null && !shared) rememberMethod();
     const waiting = TABS.map((option) => option.value).find(
       (key) => key !== tab && (reviewCounts[key] ?? 0) > 0,
     );
     if (waiting != null) {
       setSaved(null);
       setSavedEntry(null);
-      // 기다리는 것은 줄글·사진으로 읽어 둔 것이라 내 가계부로만 간다.
-      setChosenDest(null);
+      /*
+        적을 곳은 그대로 둔다. 읽어 둔 것이 있는 동안 적을 곳이 잠겨 있어, 지금 고른
+        가계부가 곧 그 묶음을 읽을 때 고른 가계부다.
+      */
       setTab(waiting);
       return;
     }
     onDone();
+  }
+
+  /**
+   * 줄글·사진으로 읽은 것을 저장한 뒤.
+   *
+   * 공유 가계부에 적었으면 키패드로 한 건 적었을 때와 같다. 방식은 서버가 기억하지 않고,
+   * 홈이 보던 내 가계부의 날로 옮겨 가지도 않는다.
+   */
+  function afterImportSaved(savedDay: string | null, savedBook: string | null): void {
+    markRecorded();
+    if (savedBook != null) return;
+    rememberMethod();
+    if (savedDay != null) tellRecorded(savedDay);
   }
 
   /**
@@ -911,7 +924,8 @@ function RecordBody({
    * 공유 가계부는 지출만 받는다. 수입·이체를 켜 둔 채 옮기면 지출로 되돌린다.
    */
   function chooseDestination(next: string | null): void {
-    if (next === destination) return;
+    // 읽어 둔 것은 읽을 때 고른 가계부에 묶여 있다. 검토를 끝내거나 취소해야 바꾼다.
+    if (next === destination || pending > 0) return;
     setChosenDest(next);
     setPickedId(null);
     setListOpen(true);
@@ -941,20 +955,12 @@ function RecordBody({
   }
 
   // 저장 버튼은 카테고리를 골라 목록을 접었을 때만 나온다. 목록을 다시 펴면 칩을 누르는
-  // 것이 곧 저장이라 버튼이 없다. 힌트가 같은 값을 봐야 없는 버튼을 가리키지 않는다.
-  // 이체는 고를 분류가 없어 금액만 있으면 바로 저장한다.
+  // 것이 곧 저장이라 버튼이 없다. 이체는 고를 분류가 없어 금액만 있으면 바로 저장한다.
   const saveTarget = listOpen ? null : picked;
   const canSave = isTransfer || saveTarget != null;
 
   // 「적을 곳」 줄이 서 있나. 저장 뒤와 분류를 만드는 동안에는 접는다.
   const destShown = hasShared && !done && !creating;
-
-  let hint = '금액을 누르고 카테고리를 고르면 바로 저장돼요';
-  if (savingNow) hint = '저장하는 중이에요';
-  else if (isTransfer) hint = amount > 0 ? '저장을 누르면 기록돼요' : '금액을 누르면 저장돼요';
-  else if (saveTarget != null && amount > 0) hint = '저장을 누르면 기록돼요';
-  else if (amount > 0) hint = '카테고리를 고르면 저장돼요';
-  else if (picked) hint = '금액을 누르면 저장할 수 있어요';
 
   return (
     <div className={destShown ? 'record record--dest' : 'record'}>
@@ -968,12 +974,12 @@ function RecordBody({
           books={activeBooks}
           value={destination}
           preferredId={bookId}
-          disabled={savingNow || busy}
+          disabled={savingNow || busy || pending > 0}
           onChange={chooseDestination}
         />
       ) : null}
 
-      {done || creating || shared ? null : (
+      {done || creating ? null : (
         <>
           <SegmentedControl
             className="record__tabs"
@@ -1014,15 +1020,12 @@ function RecordBody({
           <NaturalLanguageTab
             flowId={flowId}
             baseDay={isBackfill ? recordDay : null}
+            bookId={destination}
             onBusyChange={markBusy}
             onReviewChange={trackReview('nl')}
             draftRef={nlDraftRef}
             onDone={finish}
-            onSaved={(savedDay) => {
-              rememberMethod();
-              markRecorded();
-              if (savedDay != null) tellRecorded(savedDay);
-            }}
+            onSaved={afterImportSaved}
           />
         </div>
 
@@ -1031,14 +1034,11 @@ function RecordBody({
             kind="capture"
             flowId={flowId}
             baseDay={isBackfill ? recordDay : null}
+            bookId={destination}
             onBusyChange={markBusy}
             onReviewChange={trackReview('capture')}
             onDone={finish}
-            onSaved={(savedDay) => {
-              rememberMethod();
-              markRecorded();
-              if (savedDay != null) tellRecorded(savedDay);
-            }}
+            onSaved={afterImportSaved}
             // 캡처에도 같은 길을 둔다. 권한이 꺼져 있거나 오늘 몫을 다 쓴 자리에서
             // 빠져나갈 데가 없으면 그 사람은 기록 자체를 포기한다.
             fallbackAction={keypadFallback}
@@ -1051,14 +1051,11 @@ function RecordBody({
             kind="receipt"
             flowId={flowId}
             baseDay={isBackfill ? recordDay : null}
+            bookId={destination}
             onBusyChange={markBusy}
             onReviewChange={trackReview('receipt')}
             onDone={finish}
-            onSaved={(savedDay) => {
-              rememberMethod();
-              markRecorded();
-              if (savedDay != null) tellRecorded(savedDay);
-            }}
+            onSaved={afterImportSaved}
             // 사진으로 안 되면 손으로 찍는 길이 바로 옆에 있어야 한다. 여기서 막히면 기록을 포기한다.
             fallbackAction={keypadFallback}
             credits={photoCredits}
@@ -1111,7 +1108,7 @@ function RecordBody({
       {done ? null : (
         /* tabIndex 는 포커스를 되받을 자리다. Tab 순서에는 안 들어간다(-1). */
         <div
-          className="record__panel"
+          className={shared ? 'record__panel record__panel--book' : 'record__panel'}
           hidden={creating || tab !== 'keypad'}
           ref={keypadRef}
           tabIndex={-1}
@@ -1208,7 +1205,7 @@ function RecordBody({
             </span>
           </div>
 
-          <AmountDisplay digits={digits} hint={hint} />
+          <AmountDisplay digits={digits} />
 
           {saveError ? (
             <p className="record__notice" role="alert">
@@ -1243,10 +1240,11 @@ function RecordBody({
               categories={pickable}
               disabled={savingNow}
               onPick={pickCategory}
-              // 공유 가계부 분류는 1차에 만들거나 고칠 수 없다. 입구를 세우지 않는다.
+              // 공유 분류는 관리 화면이 없다. 만들기만 있고, 만든 것은 멤버 모두에게 보인다.
               onManage={shared ? undefined : onManage}
+              manageNote={!shared}
               selectedId={pickedId}
-              onCreate={shared ? undefined : () => setCreating(true)}
+              onCreate={() => setCreating(true)}
               onOpenChange={setListExpanded}
               onExpand={() =>
                 analytics.log(
@@ -1273,9 +1271,11 @@ function RecordBody({
             <Button
               className="record__save"
               disabled={amount <= 0 || savingNow}
+              aria-busy={savingNow}
               onClick={() => requestSave(isTransfer ? null : saveTarget, amount)}
             >
-              저장
+              {/* 안내 줄이 없어 저장 중인지는 이 버튼이 말한다. 칩으로 저장할 때는 칩이 모두 잠긴다. */}
+              {savingNow ? '저장하는 중' : '저장'}
             </Button>
           ) : null}
 
@@ -1306,6 +1306,8 @@ function RecordBody({
             layout="page"
             // 종류는 위에서 이미 골랐다. 여기서 다시 묻지 않는다.
             fixedKind={kind}
+            // 공유 가계부에 적는 중이면 그 가계부 분류를 만든다.
+            bookId={destination}
             // 저장하는 동안에는 시트가 안 닫힌다. 닫히면 적어 둔 이름과 고른 그림이 함께 사라진다.
             onBusyChange={markBusy}
             dirtyRef={composeDirtyRef}

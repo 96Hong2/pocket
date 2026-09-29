@@ -179,6 +179,13 @@ class BookEntry(Entity, SoftDeleteMixin):
     )
     # 내 가계부로 옮겨 지웠으면 찍는다. 개인 거래가 이미 생겼으니 되돌리기로 살리지 않는다.
     moved_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 옮기기로 이어진 내 거래. 되돌리기가 새로 만들지 않고 그 거래를 그대로 살린다.
+    moved_from_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True
+    )
+    moved_to_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class Settlement(Entity):

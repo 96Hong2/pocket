@@ -47,6 +47,7 @@ def analyze_text(
         client=client,
         escalation=escalation,
         base_day=body.base_day,
+        book_id=body.book_id,
     )
     return to_batch(batch, client=client)
 
@@ -69,6 +70,7 @@ def analyze_capture(
         client=client,
         escalation=escalation,
         base_day=body.base_day,
+        book_id=body.book_id,
     )
     return to_batch(batch, client=client)
 
@@ -91,6 +93,7 @@ def analyze_receipt(
         client=client,
         escalation=escalation,
         base_day=body.base_day,
+        book_id=body.book_id,
     )
     return to_batch(batch, client=client)
 
@@ -133,6 +136,8 @@ def commit(
         expense_total=result.expense_total,
         feedback=to_feedback(outcome.feedback) if outcome is not None else None,
         budget=budget,
+        book_id=result.batch.book_id,
+        book_month=result.book_month,
     )
 
 

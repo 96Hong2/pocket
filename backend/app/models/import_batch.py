@@ -56,6 +56,10 @@ class ImportBatch(Entity):
     # 재시도 화면에서 무엇이 실패했는지 구분하는 코드. 원문은 담지 않는다.
     error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 공유 가계부에 적으려고 읽은 묶음이면 그 가계부. 비면 내 가계부다.
+    book_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("books.id", ondelete="CASCADE"), nullable=True
+    )
 
     candidates: Mapped[list[ImportCandidate]] = relationship(
         back_populates="batch",
@@ -107,6 +111,13 @@ class ImportCandidate(Entity):
     # 저장을 마치면 만들어진 거래를 가리킨다.
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True
+    )
+    # 공유 가계부 묶음에서 쓰는 두 칸. 분류는 그 가계부의 것이고, 저장하면 기록을 가리킨다.
+    book_category_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("book_categories.id", ondelete="SET NULL"), nullable=True
+    )
+    book_entry_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("book_entries.id", ondelete="SET NULL"), nullable=True
     )
 
     batch: Mapped[ImportBatch] = relationship(back_populates="candidates")

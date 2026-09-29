@@ -43,12 +43,14 @@ test('사진에서 읽어 온 줄을 펼쳐도 가로로 넘치지 않는다', a
   await expect(recordSheet.capture.readLine).toBeVisible();
 
   // 날짜 칸이 여기 있다. 접어 둔 채로만 재면 그 칸을 한 번도 안 보고 지나간다.
+  // 칸은 날짜 칩을 눌러야 열린다.
   await recordSheet.capture.openEdit('스타벅스');
+  await recordSheet.capture.form.openDay();
   expect(await horizontalScrollers(page)).toEqual([]);
 
   // 날짜 칸이 제 자리를 넘지 않는지도 눈금으로 확인한다.
   const fits = await page.evaluate(() => {
-    const field = document.querySelector<HTMLElement>('.nl-form input[type=date]');
+    const field = document.querySelector<HTMLElement>('.nl-item__editor input[type=date]');
     if (field == null) return null;
     const box = field.getBoundingClientRect();
     const parent = field.parentElement!.getBoundingClientRect();

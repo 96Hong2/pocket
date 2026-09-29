@@ -152,8 +152,7 @@ test('16 저장이 실패해도 시트는 닫히지 않고 금액이 남는다',
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(FAIL_AMOUNT));
   await recordSheet.input.pickCategory(CATEGORY);
 
-  await demo.step('답이 올 때까지는 저장하는 중이라고 말한다');
-  await expect(recordSheet.input.hint).toHaveText('저장하는 중이에요');
+  await demo.step('답이 올 때까지는 칩을 전부 잠근다');
   // 두 번 들어가지 않게 칩을 전부 잠근다. 누른 것만이 아니라 다른 칩도 같이 잠긴다.
   await expect(recordSheet.input.categoryChip(CATEGORY)).toBeDisabled();
   await expect(recordSheet.input.categoryChip(OTHER_CATEGORY)).toBeDisabled();

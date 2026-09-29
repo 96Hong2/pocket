@@ -8,8 +8,8 @@ import {
   useBooks,
   useDeleteTransaction,
   useMoveEntryIn,
-  useMoveEntryOut,
   useTags,
+  useUndoMoveIn,
   useUpdateTransaction,
   type BookOut,
   type CategoryOut,
@@ -82,27 +82,31 @@ export function EditSheet({ transaction, categories, month, onClose }: EditSheet
   const toast = useToast();
   /*
     옮긴 뒤 알림의 「되돌리기」. 시트가 닫힌 뒤에 눌리므로 요청 훅을 닫혀도 남는 이 바깥에 둔다.
-    되돌리기는 옮겨 간 공유 기록을 다시 내 가계부로 옮긴다(새 거래로 들어온다).
+    되돌리기는 새로 만들지 않고 원래 거래를 되살린다. 태그·결제 수단·예산 제외·시각이 그대로다.
   */
-  const moveOut = useMoveEntryOut();
+  const undoMove = useUndoMoveIn();
 
   function afterMoveIn(book: BookOut, entryId: string): void {
     toast.show({
       text: movedInToast(book),
       actionLabel: '되돌리기',
       onAction: () => {
+        // 되돌림은 옮김으로 세지 않는다. 옮긴 횟수가 되돌린 만큼 부푼다.
         analytics.log(
           EVENTS.recordChanged,
-          { action: 'move', to: 'mine', book: 'shared' },
+          { action: 'undo_move', to: 'mine', book: 'shared' },
           { kind: 'click' },
         );
-        moveOut.mutate(
+        undoMove.mutate(
           { bookId: book.id, entryId },
           {
-            onSuccess: () => toast.show({ text: '내 가계부로 옮겼어요' }),
+            onSuccess: () => toast.show({ text: '내 가계부로 되돌렸어요' }),
             onError: (error) =>
               toast.show({
-                text: error instanceof ApiError ? error.message : '되돌리지 못했어요',
+                text:
+                  error instanceof ApiError
+                    ? (error.serverMessage ?? '되돌리지 못했어요')
+                    : '되돌리지 못했어요',
               }),
           },
         );

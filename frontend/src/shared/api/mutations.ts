@@ -23,6 +23,7 @@ import { moneyQueryKeys, queryKeys } from './queryKeys';
 import type {
   AssetsOut,
   AssetSnapshotPut,
+  BookCategoryOut,
   BookCreate,
   BookEntryCreate,
   BookEntryUpdate,
@@ -411,6 +412,8 @@ export interface AnalyzeInput<T> {
   value: T;
   /** 화면에서 고른 「적을 날」. 오늘이면 `null` 이다. */
   baseDay: string | null;
+  /** 적을 공유 가계부. 비우면 내 가계부다. 주면 분류가 그 가계부 것으로 오고 지출만 켜진다. */
+  bookId?: string | null;
 }
 
 /**
@@ -422,7 +425,8 @@ export function useAnalyzeText() {
   const client = useApiClient();
 
   return useMutation({
-    mutationFn: (input: AnalyzeInput<string>) => client.analyzeText(input.value, input.baseDay),
+    mutationFn: (input: AnalyzeInput<string>) =>
+      client.analyzeText(input.value, { baseDay: input.baseDay, bookId: input.bookId }),
   });
 }
 
@@ -436,10 +440,12 @@ export function useAnalyzeImage(kind: 'capture' | 'receipt') {
   const client = useApiClient();
 
   return useMutation({
-    mutationFn: (input: AnalyzeInput<string[]>): Promise<ImportBatchOut> =>
-      kind === 'receipt'
-        ? client.analyzeReceipt(input.value, input.baseDay)
-        : client.analyzeCapture(input.value, input.baseDay),
+    mutationFn: (input: AnalyzeInput<string[]>): Promise<ImportBatchOut> => {
+      const target = { baseDay: input.baseDay, bookId: input.bookId };
+      return kind === 'receipt'
+        ? client.analyzeReceipt(input.value, target)
+        : client.analyzeCapture(input.value, target);
+    },
   });
 }
 
@@ -466,6 +472,8 @@ export function usePatchImportCandidate() {
  * **응답의 예산 블록을 캐시에 덮어쓰지 않는다.** 지난 달 날짜로 저장하면 서버가 그 달의
  * 예산 상태를 주는데, 그걸 이번 달 자리에 넣으면 홈이 남의 달 숫자를 보여준다.
  * 여기는 10초 루프가 아니라 검토를 마친 뒤라 왕복 한 번이 더 들어도 된다.
+ *
+ * 공유 가계부 묶음이면(응답 `book_id`) 그 가계부만 다시 받는다. 내 돈은 움직이지 않았다.
  */
 export function useCommitImport() {
   const client = useApiClient();
@@ -473,7 +481,11 @@ export function useCommitImport() {
 
   return useMutation({
     mutationFn: (batchId: string): Promise<ImportCommitOut> => client.commitImport(batchId),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result.book_id != null) {
+        refreshBook(queryClient, result.book_id);
+        return;
+      }
       void queryClient.invalidateQueries({ queryKey: queryKeys.merchantRules() });
       return invalidateMoney(queryClient);
     },
@@ -1028,6 +1040,78 @@ export function useMoveEntryIn() {
     onSuccess: (_, input) => {
       refreshBook(queryClient, input.bookId);
       void invalidateMoney(queryClient);
+    },
+  });
+}
+
+/**
+ * 공유 가계부로 옮긴 것 되돌리기. 원래 내 거래가 태그·결제 수단째 살아난다.
+ * 옮기기와 같이 가계부와 개인 쪽 돈 캐시를 함께 다시 받는다.
+ */
+export function useUndoMoveIn() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; entryId: string }) =>
+      client.undoMoveIn(input.bookId, input.entryId),
+    onSuccess: (_, input) => {
+      refreshBook(queryClient, input.bookId);
+      void invalidateMoney(queryClient);
+    },
+  });
+}
+
+/**
+ * 내 가계부로 옮긴 것 되돌리기. 공유 기록이 낸 사람·분류째 살아나고 그때 생긴 거래는 지워진다.
+ */
+export function useUndoMoveOut() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; entryId: string }) =>
+      client.undoMoveOut(input.bookId, input.entryId),
+    onSuccess: (_, input) => {
+      refreshBook(queryClient, input.bookId);
+      void invalidateMoney(queryClient);
+    },
+  });
+}
+
+/** 새 분류를 「기타」 바로 앞에 끼운다. 서버가 세우는 자리와 같다. */
+function withCategory(categories: BookCategoryOut[], created: BookCategoryOut): BookCategoryOut[] {
+  const rest = categories.filter((row) => row.id !== created.id);
+  const at = rest.findIndex((row) => row.name === '기타');
+  return at < 0 ? [...rest, created] : [...rest.slice(0, at), created, ...rest.slice(at)];
+}
+
+/**
+ * 공유 분류 만들기. 멤버 모두에게 보인다.
+ *
+ * 응답을 가계부 캐시에 바로 끼워 넣는다. 만들기 창을 닫자마자 격자에 새 분류가 서 있어야 한다.
+ */
+export function useCreateBookCategory() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { bookId: string; name: string; iconKey: string }) =>
+      client.createBookCategory(input.bookId, { name: input.name, icon_key: input.iconKey }),
+    onSuccess: (created, input) => {
+      const insert = (book: BookOut): BookOut => ({
+        ...book,
+        categories: withCategory(book.categories, created),
+      });
+      queryClient.setQueryData<BookOut>(queryKeys.book(input.bookId), (prev) =>
+        prev == null ? prev : insert(prev),
+      );
+      queryClient.setQueryData<BookListOut>(queryKeys.books(), (prev) =>
+        prev == null
+          ? prev
+          : { ...prev, items: prev.items.map((b) => (b.id === input.bookId ? insert(b) : b)) },
+      );
+      refreshBook(queryClient, input.bookId);
     },
   });
 }

@@ -45,6 +45,14 @@ function composeIconLabel(page: Page): Locator {
   return page.locator('.cat-sheet__field--icon > .cat-sheet__label');
 }
 
+/**
+ * 새 분류 만들기를 품은 기록 시트. 아이콘 격자는 안쪽 스크롤 없이 다 서고, 굴러가는 것은
+ * 이 시트 하나다.
+ */
+function composeSheet(page: Page): Locator {
+  return page.locator('.pk-sheet').filter({ has: page.locator('.icon-picker__grid') });
+}
+
 async function swipeDownAt(page: Page, target: Locator): Promise<void> {
   const box = await target.boundingBox();
   if (box == null) throw new Error('끌 자리를 화면에서 못 찾았다');
@@ -194,13 +202,18 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await expect(form.iconGrid).toBeVisible();
 
     /*
-      격자를 한 번 굴려 놓고 되올린다. **신고된 장면이 정확히 이것이다.**
+      격자 위에서 한 번 굴려 놓고 쓸어내린다. **신고된 장면이 정확히 이것이다.**
+      격자는 이제 안쪽 스크롤 없이 다 서고, 굴러가는 것은 격자를 품은 기록 시트다.
+      그래서 시트를 굴리고, 손짓은 전처럼 격자 위에서 시작한다.
       확인 창이 대신 막아 준 것이 아니라 손짓 판정이 막았는지를 보려고, 창이 안 뜬 것까지
       단언한다. 이게 없으면 판정을 옛날로 되돌려도 이 검사가 초록으로 남는다.
     */
-    await page.locator('.icon-picker__grid').evaluate((node) => {
+    const scrolled = await composeSheet(page).evaluate((node) => {
       node.scrollTop = 120;
+      return node.scrollTop;
     });
+    // 실제로 굴러갔는지 못 박는다. 안 굴렀으면 맨 위에서 쓴 것이라 다른 규칙을 재게 된다.
+    expect(scrolled).toBe(120);
     await swipeDown(page, '.icon-picker__grid');
     await expect(recordSheet.leave.dialog).toHaveCount(0);
     await expect(form.title).toBeVisible();
@@ -233,20 +246,21 @@ test.describe('굴러가는 시트는 굴리는 손짓으로 안 닫힌다', () 
    * 실제로 그렇게 만들었다가 사보타주에 안 걸려서 고쳤다. 자리(맨 위)와 시각(방금 굴림)
    * 둘 다 신고된 장면과 같아야 한다.
    */
-  async function backToTopThenSwipe(page: Page, selector: string): Promise<void> {
-    const box = await page.locator(selector).first().boundingBox();
-    if (box == null) throw new Error(`${selector} 를 화면에서 못 찾았다`);
+  async function backToTopThenSwipe(
+    page: Page,
+    scroller: Locator,
+    target: Locator = scroller,
+  ): Promise<void> {
+    const box = await target.first().boundingBox();
+    if (box == null) throw new Error('쓸 자리를 화면에서 못 찾았다');
     const x = box.x + box.width / 2;
     const y = box.y + Math.min(40, box.height / 3);
 
-    const top = await page
-      .locator(selector)
-      .first()
-      .evaluate((node) => {
-        node.scrollTop = 200; // 내려 읽었다
-        node.scrollTop = 0; // 되올렸다. 여기서 scroll 이 난다
-        return node.scrollTop;
-      });
+    const top = await scroller.first().evaluate((node) => {
+      node.scrollTop = 200; // 내려 읽었다
+      node.scrollTop = 0; // 되올렸다. 여기서 scroll 이 난다
+      return node.scrollTop;
+    });
     // 맨 위에 실제로 닿았는지 못 박는다. 안 닿았으면 옛 규칙으로도 통과한다.
     expect(top).toBe(0);
 
@@ -269,11 +283,11 @@ test.describe('굴러가는 시트는 굴리는 손짓으로 안 닫힌다', () 
     await calendar.list.pick('김밥천국');
     await expect(calendar.edit.dialog).toBeVisible();
 
-    await backToTopThenSwipe(page, '.tx-edit__scroll');
+    await backToTopThenSwipe(page, page.locator('.tx-edit__scroll'));
     await expect(calendar.edit.dialog).toBeVisible();
   });
 
-  test('분류 만들기: 격자를 맨 위까지 되올린 뒤 한 번 더 쓸어도 안 닫힌다', async ({
+  test('분류 만들기: 격자 위에서 맨 위까지 되올린 뒤 한 번 더 쓸어도 안 닫힌다', async ({
     page,
     home,
     recordSheet,
@@ -287,7 +301,8 @@ test.describe('굴러가는 시트는 굴리는 손짓으로 안 닫힌다', () 
     const form = recordSheet.input.newCategoryForm;
     await expect(form.iconGrid).toBeVisible();
 
-    await backToTopThenSwipe(page, '.icon-picker__grid');
+    // 굴러가는 것은 격자를 품은 시트다. 손짓은 격자 위에서 시작한다.
+    await backToTopThenSwipe(page, composeSheet(page), page.locator('.icon-picker__grid'));
     await expect(form.title).toBeVisible();
   });
 

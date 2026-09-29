@@ -4,10 +4,13 @@ import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   ApiError,
+  useBook,
   useCategories,
+  useCreateBookCategory,
   useCreateCategory,
   useDeleteCategory,
   useUpdateCategory,
+  type BookCategoryOut,
   type CategoryOut,
   type TagColor,
 } from '../../shared/api';
@@ -144,6 +147,13 @@ export interface CategoryEditFormProps {
   layout?: 'sheet' | 'page';
   /** `page` 에서 맨 위 「이전」 을 눌렀을 때. 만들지 않고 왔던 화면으로 돌아간다. */
   onBack?: () => void;
+  /**
+   * 분류를 만들 공유 가계부. 주면 내 분류가 아니라 그 가계부 분류를 만든다.
+   *
+   * 멤버 모두의 화면에 서는 분류라 이름과 기본 아이콘만 받는다. 사진은 올린 사람 화면에만
+   * 뜨고, 색은 공유 분류에 칸이 없다.
+   */
+  bookId?: string | null;
 }
 
 /**
@@ -161,13 +171,18 @@ export function CategoryEditForm({
   onCreated,
   layout = 'sheet',
   onBack,
+  bookId = null,
 }: CategoryEditFormProps) {
   const colorId = useId();
   const analytics = useAnalytics();
   /** 화면 하나를 통째로 쓰는 자리인가. 묻는 순서와 버튼 자리가 이 값을 따라간다. */
   const page = layout === 'page';
+  /** 공유 가계부 분류를 만드는 중인가. 고치기는 없다. */
+  const forBook = bookId != null && category == null;
   const categories = useCategories();
+  const book = useBook(forBook ? bookId : null);
   const create = useCreateCategory();
+  const createInBook = useCreateBookCategory();
   const update = useUpdateCategory();
   const remove = useDeleteCategory();
   /** 기본 분류인가. 지우기와 종류 바꾸기만 막힌다. 이름·아이콘·색은 고칠 수 있다. */
@@ -219,7 +234,7 @@ export function CategoryEditForm({
   */
   const [iconPicked, setIconPicked] = useState(category != null);
 
-  const busy = create.isPending || update.isPending || remove.isPending;
+  const busy = create.isPending || createInBook.isPending || update.isPending || remove.isPending;
 
   /*
     적어 둔 것이 있나. 나가기 전에 한 번 물을지를 이 값이 가른다.
@@ -248,11 +263,14 @@ export function CategoryEditForm({
     접는 방식은 서버와 같다(`categoryNameKey`).
   */
   const takenNames = useMemo(() => {
-    const items = categories.data?.items ?? [];
+    // 공유 가계부에 만들 때는 그 가계부 분류와 겹치는지만 본다. 내 분류와는 따로 산다.
+    const items: readonly { id: string; name: string }[] = forBook
+      ? (book.data?.categories ?? [])
+      : (categories.data?.items ?? []);
     return new Set(
       items.filter((item) => item.id !== category?.id).map((item) => categoryNameKey(item.name)),
     );
-  }, [categories.data, category?.id]);
+  }, [book.data, categories.data, category?.id, forBook]);
   const duplicate = page && trimmed !== '' && takenNames.has(categoryNameKey(trimmed));
 
   const canSave = trimmed !== '' && !iconInvalid && !duplicate && !busy;
@@ -277,7 +295,8 @@ export function CategoryEditForm({
   const failure =
     (confirming ? failureOf(remove.error, '카테고리를 지우지 못했어요.') : null) ??
     failureOf(update.error, '카테고리를 저장하지 못했어요.') ??
-    failureOf(create.error, '카테고리를 저장하지 못했어요.');
+    failureOf(create.error, '카테고리를 저장하지 못했어요.') ??
+    failureOf(createInBook.error, '분류를 만들지 못했어요.');
 
   /**
    * 무엇을 건드렸나. 로그에만 쓴다.
@@ -302,7 +321,7 @@ export function CategoryEditForm({
   function logged(action: 'created' | 'updated' | 'deleted', fields: string): void {
     analytics.log(
       EVENTS.categoryChanged,
-      { action, scope: isDefault ? 'default' : 'mine', kind, fields },
+      { action, scope: forBook ? 'shared' : isDefault ? 'default' : 'mine', kind, fields },
       { kind: 'click' },
     );
   }
@@ -312,6 +331,21 @@ export function CategoryEditForm({
     // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
     onBusyChange?.(true);
     const fields = touched();
+
+    if (forBook && bookId != null) {
+      createInBook.mutate(
+        { bookId, name: trimmed, iconKey: icon },
+        {
+          onSettled: () => onBusyChange?.(false),
+          onSuccess: (created) => {
+            logged('created', fields);
+            onCreated?.(bookCategoryAsPickable(created));
+            onClose();
+          },
+        },
+      );
+      return;
+    }
 
     if (category == null) {
       create.mutate(
@@ -393,7 +427,7 @@ export function CategoryEditForm({
         </p>
       ) : null}
 
-      {category == null && fixedKind == null ? (
+      {category == null && fixedKind == null && !forBook ? (
         <div className="cat-sheet__field">
           <span className="cat-sheet__label">종류</span>
           <KindToggle value={kind} onChange={setKind} disabled={busy} ariaLabel="분류의 종류" />
@@ -433,6 +467,8 @@ export function CategoryEditForm({
           custom={custom}
           color={color}
           disabled={busy}
+          // 공유 분류는 기본 아이콘만. 사진·이모지는 상대 화면에 그려지지 않는다.
+          basicOnly={forBook}
           /*
             새로 만들 때는 **어디서 열든** 펴 둔다. 접어 두면 「아이콘 고르기」 를 한 번 더
             눌러야 격자가 나오는데, 여기 온 사람은 아이콘을 고르러 온 사람이다.
@@ -455,7 +491,7 @@ export function CategoryEditForm({
         잃지 않고, 안 골라도 저장되는 값이라 없는 동안 막히는 것도 없다.
         (`hidden` 으로 감추지 않는다. 이 칸은 `display: flex` 라 그 속성이 안 먹는다)
       */}
-      {page && !iconPicked ? null : (
+      {(page && !iconPicked) || forBook ? null : (
         <div className="cat-sheet__field">
           <span className="cat-sheet__label" id={`${colorId}-label`}>
             색
@@ -547,6 +583,22 @@ export function CategoryEditForm({
       )}
     </div>
   );
+}
+
+/** 만든 공유 분류를 분류 고르기가 받는 모양으로. 공유 분류는 지출만 받는다. */
+function bookCategoryAsPickable(created: BookCategoryOut): CategoryOut {
+  return {
+    id: created.id,
+    name: created.name,
+    kind: 'expense',
+    icon_key: created.icon_key,
+    icon_custom: null,
+    color: null,
+    is_quick: true,
+    sort_order: created.sort_order,
+    is_default: true,
+    usage_count: 0,
+  };
 }
 
 /** 왜 막혔는지는 서버가 안다. 이름 중복 같은 문구를 화면이 새로 짓지 않는다. */

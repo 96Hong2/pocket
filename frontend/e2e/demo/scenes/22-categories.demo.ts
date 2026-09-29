@@ -98,7 +98,7 @@ test('47 기억한 자동 분류를 보고 지운다', async ({ categories, demo
 
   await demo.step('내가 쓰는 대로 생활로 바꾼다');
   await recordSheet.nl.openEdit('올리브영');
-  await recordSheet.nl.form.categoryChip('생활').click();
+  await recordSheet.nl.form.pickCategory('생활');
   await recordSheet.nl.form.apply();
   await expect(recordSheet.nl.row('올리브영')).toContainText('생활');
   await demo.beat(3);
