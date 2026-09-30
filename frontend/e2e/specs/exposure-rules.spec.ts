@@ -173,6 +173,7 @@ test('고른 색은 뗄 수 있다. 한 번 고르면 묶이지 않는다', asyn
   await categories.sheet.waitClosed();
 
   await categories.openEdit('교통');
-  await expect(categories.sheet.clearColorButton).toHaveAttribute('aria-pressed', 'true');
+  // 뗄 색이 없으니 「기본색으로」 는 잠기고, 고른 칸도 없다.
+  await expect(categories.sheet.clearColorButton).toBeDisabled();
   await expect(categories.sheet.colorCell('하늘')).toHaveAttribute('aria-pressed', 'false');
 });

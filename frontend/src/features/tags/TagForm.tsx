@@ -102,14 +102,14 @@ export function TagForm({ tag, kind, onDone, onCancel }: TagFormProps) {
           카테고리와 같은 것을 쓴다. 두 벌로 두면 한쪽에만 색이 늘거나 동그라미 크기가
           달라져서, 같은 일을 하는 화면이 앱 안에서 서로 달라 보인다.
 
-          태그는 색을 반드시 하나 고른다(`clearable` 없음). 태그에는 아이콘이 없어서
+          태그는 색을 반드시 하나 고른다(「기본색」 없음). 태그에는 아이콘이 없어서
           색이 곧 그 태그의 얼굴이다.
         */}
         <ColorPicker
           value={color}
           disabled={busy}
           labelledBy={`${nameId}-color`}
-          onChange={(next) => setColor(next ?? TAG_COLORS[0])}
+          onChange={setColor}
         />
       </div>
 

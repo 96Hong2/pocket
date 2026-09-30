@@ -3,8 +3,8 @@ import type { TagColor } from '../api';
 /**
  * 태그 색을 CSS 변수 이름으로 바꾸는 **유일한** 자리.
  *
- * 값 자체는 `shared/ui/ui.css` 가 갖고 있다. 칩·점·카테고리 아바타가 같은 변수를 쓰므로,
- * 색을 하나 고치면 그 자리들이 함께 바뀐다. 여기서 hex 를 다시 적으면 어긋난다.
+ * 값 자체는 `shared/ui/ui.css` 가 갖고 있다. 칩·점은 파스텔을, 카테고리 아바타는 같은 색의
+ * 옅은 쪽(`-tint`)을 쓴다. 여기서 hex 를 다시 적으면 어긋난다.
  *
  * 색 목록의 정본은 서버(`app/domain/tags.py`)다. 여기서는 그 키를 그대로 쓴다.
  *
@@ -26,6 +26,15 @@ export function tagInkVar(color: TagColor): string {
 /** 더 옅은 바탕. 목록 줄의 작은 칩이 쓴다. */
 export function tagSoftVar(color: TagColor): string {
   return `var(--tag-${color}-soft)`;
+}
+
+/**
+ * 분류 동그라미의 바탕. 명도를 색을 안 고른 기본 동그라미에 가깝게 둔 옅은 쪽이다.
+ * 파스텔 그대로 깔면 그 분류만 칩 줄에서 튄다.
+ */
+export function tagTintVar(color: TagColor): string {
+  // 색이 하나 늘 때 `-tint` 를 빠뜨리면 동그라미가 투명해진다. 그때는 파스텔로 칠한다.
+  return `var(--tag-${color}-tint, var(--tag-${color}))`;
 }
 
 /**

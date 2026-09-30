@@ -49,8 +49,8 @@ interface ImageImportMode {
   feature: string;
   /** 무엇을 고르면 되는지 한 줄. 가운뎃점으로 이은 낱말이 줄 끝에서 갈리지 않게 묶어 둔다. */
   guide: ReactNode;
-  /** 안내를 감싸는 카드. 그림과 보조문이 함께 선다. 캡처에만 있다. */
-  intro?: { icon: IconName; note: string };
+  /** 안내를 감싸는 카드. 그림과 안내 한 줄이 함께 선다. */
+  intro?: { icon: IconName };
   pickLabel: string;
   /** 앨범·카메라를 아예 열지 못했을 때의 한 줄. */
   pickAlert: string;
@@ -84,7 +84,7 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
         괜찮아요.
       </>
     ),
-    intro: { icon: '23_document', note: '원본 이미지는 정리 후 바로 지워져요' },
+    intro: { icon: '23_document' },
     pickLabel: '캡처 고르기',
     pickAlert: '앨범을 열지 못했어요',
     // 실제 단계와 순서를 맞춘다. 지어낸 단계를 보여 주면 그 시간이 더 길게 느껴진다.
@@ -115,7 +115,7 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
         영수증이 잘 보이게 찍어주세요. <span className="capture__unit">총액이 나오면 돼요.</span>
       </>
     ),
-    intro: { icon: '43_camera', note: '원본 이미지는 정리 후 바로 지워져요' },
+    intro: { icon: '43_camera' },
     pickLabel: '영수증 찍기',
     pickAlert: '카메라를 열지 못했어요',
     progressSteps: [
@@ -290,7 +290,6 @@ export function ImageImportTab({
         <div className="capture__intro">
           <img className="capture__icon" src={iconUrl(mode.intro.icon)} alt="" aria-hidden="true" />
           <p className="capture__guide">{mode.guide}</p>
-          <span className="capture__privacy">{mode.intro.note}</span>
         </div>
       ) : (
         <p className="capture__guide">{mode.guide}</p>

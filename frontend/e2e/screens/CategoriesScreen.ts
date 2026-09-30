@@ -330,7 +330,7 @@ class CategorySheet {
   /**
    * 색 고르기. 태그 시트와 같은 컴포넌트라 이름도 같다.
    *
-   * 카테고리에만 격자 위에 「색 없음」 버튼이 하나 더 있다. 아이콘이 이미 얼굴이라
+   * 카테고리에만 「색」 글자 옆에 「기본색으로」 버튼이 하나 더 있다. 아이콘이 이미 얼굴이라
    * 색을 안 골라도 되고, 한 번 고른 색을 떼는 길도 그것뿐이다.
    */
   get colorGroup(): Locator {
@@ -342,13 +342,14 @@ class CategorySheet {
   }
 
   /**
-   * 색을 떼는 버튼. **격자 밖에 있다.**
+   * 색을 떼는 버튼. **격자 밖, 「색」 글자와 같은 줄 오른쪽 끝에 있다.**
    *
    * 열네 칸 사이에 끼우면 열다섯이 되어 셋째 줄에 하나만 남고, 따뜻한 줄과 찬 줄이
    * 한 칸씩 밀린다. 색이 아니라 하는 일이라 동그라미가 아니라 글자다.
+   * 뗄 색이 없으면 잠겨 있다.
    */
   get clearColorButton(): Locator {
-    return this.colorGroup.getByRole('button', { name: '색 없음', exact: true });
+    return this.root.getByRole('button', { name: '기본색으로', exact: true });
   }
 
   /** 기본 분류를 열었을 때만 있는 한 줄. 고친 것이 어디까지 가는지 말한다. */

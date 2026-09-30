@@ -60,14 +60,6 @@
     word-break: keep-all;
   }
 
-  /* 상자 밖 한 줄. 이 방법으로 무엇까지 되는지 말한다. */
-  .nl__aside {
-    margin: -4px 0 0;
-    font-size: var(--text-12);
-    color: var(--color-muted);
-    word-break: keep-all;
-  }
-
   /* 후보 목록의 머리글. 목록과는 8px 만 띄운다. */
   .nl__read {
     margin-bottom: -6px;
@@ -566,7 +558,8 @@
     flex-direction: column;
     align-items: center;
     gap: 12px;
-    padding: 28px 22px 24px;
+    /* 그림 파일 위쪽에 여백이 있어 위를 조금 덜 준다. 눈으로는 위아래가 같다. */
+    padding: 24px 22px 28px;
     border-radius: var(--radius-inset);
     background: var(--color-bg);
     text-align: center;
@@ -598,12 +591,6 @@
     max-width: none;
     font-size: var(--text-14);
     color: var(--color-muted);
-  }
-
-  .capture__privacy {
-    font-size: var(--text-12);
-    color: var(--color-muted);
-    word-break: keep-all;
   }
 
   /* 사진을 못 고르거나 못 읽었을 때. 다시 해야 하는 줄이라 앰버로 세운다. */

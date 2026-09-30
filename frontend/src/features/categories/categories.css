@@ -426,6 +426,46 @@
     color: var(--color-muted);
   }
 
+  /* 칸 이름과 그 칸의 작은 버튼 하나가 서는 줄. 이름은 왼쪽, 버튼은 오른쪽 끝. */
+  .cat-sheet__field-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    /* 아래 버튼의 누르는 자리(11px)가 다음 줄 첫 칸을 덮지 않게 간격을 그만큼 둔다. */
+    margin-bottom: 6px;
+  }
+
+  /*
+    분류 색을 떼는 자리. 「색」 글자 옆에 서므로 크기도 그 글자에 가깝게 둔다.
+    제목 오른쪽의 할 일 버튼(「걸어두기」)과 같은 세이지 알약이라 눌러도 되는 줄 안다.
+    보이는 크기는 작게 두고, 누르는 자리만 위아래로 넓혀 44px 을 채운다.
+    옆으로는 넓히지 않는다. 시트 오른쪽 끝에 붙어 있어 옆으로 넓히면 가로로 넘친다.
+  */
+  .cat-sheet__default-color {
+    position: relative;
+    height: 22px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    line-height: 22px;
+  }
+
+  .cat-sheet__default-color::after {
+    content: '';
+    position: absolute;
+    inset: -11px 0;
+  }
+
+  .cat-sheet__default-color:disabled {
+    opacity: 0.4;
+  }
+
   /* 라벨 아래 한 줄. 지금 고르는 것이 나중에 어디서 쓰이는지 말한다. */
   /* 시트 맨 위에 서는 한 줄. 칸에 딸린 설명이 아니라 이 시트 전체가 무엇인지 말한다. */
   .cat-sheet__note--lead {

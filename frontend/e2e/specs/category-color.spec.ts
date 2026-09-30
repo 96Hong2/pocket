@@ -21,11 +21,14 @@ async function avatarBackground(locator: Locator): Promise<string> {
   return locator.evaluate((node) => getComputedStyle(node).backgroundColor);
 }
 
-/** 팔레트의 그 색을 브라우저가 푼 값으로. hex 를 검사에 적어 두지 않으려고 이 길로 돈다. */
+/**
+ * 분류 동그라미에 깔리는 그 색(`-tint`)을 브라우저가 푼 값으로.
+ * hex 를 검사에 적어 두지 않으려고 이 길로 돈다.
+ */
 async function paletteColor(locator: Locator, name: string): Promise<string> {
   return locator.evaluate((node, key: string) => {
     const probe = document.createElement('span');
-    probe.style.backgroundColor = `var(--tag-${key})`;
+    probe.style.backgroundColor = `var(--tag-${key}-tint)`;
     node.appendChild(probe);
     const value = getComputedStyle(probe).backgroundColor;
     probe.remove();
