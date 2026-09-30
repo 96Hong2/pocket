@@ -74,8 +74,8 @@ export function PrivacyNotice({ adSlot }: { adSlot?: ReactNode }) {
       {adSlot}
 
       <p className="setting-note">
-        캡처 원본은 정리 직후 지워져요. 저장되는 것은 날짜, 금액, 상호, 분류처럼 기록에 필요한
-        것뿐이에요.
+        캡처 원본은 정리 직후 지워져요. 캡처에서는 날짜, 금액, 상호처럼 기록에 필요한 것만 읽어
+        남겨요. 무엇을 저장하고 어디로 보내는지는 개인정보처리방침에 적어 뒀어요.
       </p>
 
       {/*

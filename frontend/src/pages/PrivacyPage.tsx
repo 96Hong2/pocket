@@ -30,7 +30,9 @@ export default function PrivacyPage() {
             <li className="privacy__item">
               기록마다 키패드, 줄글, 캡처, 영수증 중 무엇으로 적었는지
             </li>
-            <li className="privacy__item">읽어 온 뒤 저장하기 전에 보여 주는 날짜, 금액, 상호</li>
+            <li className="privacy__item">
+              사진이나 줄글로 읽어 온 날짜, 금액, 상호, 결제 수단. 저장한 뒤에도 서버에 남아요
+            </li>
             <li className="privacy__item">반복 지출의 이름, 금액, 날짜</li>
             <li className="privacy__item">목표의 이름, 금액, 날짜와 자산의 이름, 금액</li>
             <li className="privacy__item">내가 만들거나 이름을 바꾼 분류와 그 아이콘</li>
@@ -49,8 +51,9 @@ export default function PrivacyPage() {
             떼어 낼 수는 없어요.
           </p>
           <p className="privacy__text">
-            기록, 예산, 목표, 반복 지출, 태그, 분류는 지워도 화면에서만 사라지고, 서버에는 지운
-            표시를 해 둔 채 남아요.
+            기록, 예산, 목표, 반복 지출, 태그, 분류, 기억한 분류는 지워도 화면에서만 사라지고,
+            서버에는 지운 표시를 해 둔 채 남아요. 자산은 적어 둔 날마다 목록이 따로 남아서, 오늘 뺀
+            항목도 지난날 목록에는 남아요.
           </p>
         </Card>
 
@@ -151,9 +154,10 @@ export default function PrivacyPage() {
             때가 있어요. 이때 처음 결과에서 이상했던 날짜와 금액도 함께 나가요.
           </p>
           <p className="privacy__text">
-            익명 식별키나 이메일처럼 나를 가리키는 값은 함께 보내지 않아요. 다만 글이나 사진 안에
-            이름이 적혀 있으면 그대로 나가요. 사진에 붙은 촬영 위치 같은 정보는 대부분 떼고
-            보내지만, 사진을 다듬지 못하면 그대로 나갈 수 있어요.
+            토스가 주는 이름 없는 사용자 번호(익명 식별키)나 이메일처럼 나를 가리키는 값은 함께
+            보내지 않아요. 다만 글이나 사진 안에 이름이 적혀 있으면 그대로 나가요. 사진에 붙은 촬영
+            위치 같은 정보는 대부분 떼고 보내지만, 다듬지 못했거나 손댈 필요가 없던 작은 사진은
+            그대로 나갈 수 있어요.
           </p>
           <p className="privacy__text">
             보낸 것을 OpenAI가 나중에 다시 쓰도록 보관해 두는 기능은 꺼서 보내요. 다만 OpenAI는
@@ -169,14 +173,17 @@ export default function PrivacyPage() {
           <h2 className="privacy__title">그 밖에 맡기거나 나가는 곳</h2>
           <ul className="privacy__list">
             <li className="privacy__item">
-              Google Cloud(서울): 서버와 데이터베이스, 서버 접속 기록을 두는 곳이에요. 위에 적은
-              저장하는 것은 모두 여기에 있어요
+              Google Cloud: 서버와 데이터베이스는 서울에 있고, 위에 적은 저장하는 것은 모두 여기에
+              있어요. 서버 기록과 접속 기록은 지역을 정하지 않은 Google Cloud 기록 저장소에 30일
+              동안 남아요. 데이터베이스 백업은 Google Cloud 아시아 지역에 14일치를 두고, 지운 것도
+              그동안 백업에는 남아요
             </li>
             <li className="privacy__item">
               토스: 익명 식별키 확인, 앱 사용 통계, 광고, 기록 알림, 공유 링크 만들기
             </li>
             <li className="privacy__item">
-              Google(Gmail): 「이메일로 지켜 두기」를 할 때 받는 주소와 확인 코드가 든 메일을 보내요
+              Google(Gmail): 「이메일로 지켜 두기」를 할 때 받는 주소와 확인 코드가 든 메일을
+              보내요. 보낸 메일은 앱의 Gmail 보낸편지함에 남아요
             </li>
             <li className="privacy__item">공유창에서 고른 앱: 초대장이나 공유 문구</li>
             <li className="privacy__item">
@@ -206,8 +213,8 @@ export default function PrivacyPage() {
         <Card>
           <h2 className="privacy__title">읽어 달라고 보내기 전</h2>
           <p className="privacy__text">
-            직접 적어 넣은 글은 카드번호, 계좌번호, 전화번호처럼 긴 번호를 가린 뒤에 보내요.
-            돌려받은 상호명에 번호가 섞여 있으면 그것도 가려서 저장해요.
+            「줄글」에 적어 읽어 달라고 보낸 글은 카드번호, 계좌번호, 전화번호처럼 긴 번호를 가린
+            뒤에 보내요. 돌려받은 상호명에 번호가 섞여 있으면 그것도 가려서 저장해요.
           </p>
           <p className="privacy__text">
             열 자리보다 짧은 번호는 가리지 않아요. 띄어 쓰거나 점으로 끊어 적은 번호도 못 가릴 때가
@@ -249,7 +256,7 @@ export default function PrivacyPage() {
             <li className="privacy__item">연령대와 성별</li>
           </ul>
           <p className="privacy__text">
-            「앱 데이터 초기화」를 하면 기록, 예산, 목표, 자산, 내가 만든 분류, 기억한 상호가
+            「앱 데이터 초기화」를 하면 기록, 예산, 목표, 자산, 내가 만든 분류, 기억한 분류가
             화면에서 사라져요. 잘못 눌렀을 때를 위해 서버에서는 지운 표시만 해 둬요. 읽어 온 뒤
             저장하지 않은 목록, 읽기를 쓴 횟수, 앱 설정, 알림 설정은 그때 바로 지워요.
           </p>

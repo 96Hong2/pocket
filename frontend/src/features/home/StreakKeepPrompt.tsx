@@ -81,9 +81,9 @@ export function StreakKeepPrompt({ open, onClose }: { open: boolean; onClose: ()
         title="기록을 안전하게"
       >
         <p className="streak-keep__body">이메일을 등록하면 내 기록을 안전하게 저장할 수 있어요!</p>
-        {/* 무엇이 걸려 있는지 한 줄로 밝힌다. 지금은 이 기기에만 있다는 사실이 권유의 전부다. */}
+        {/* 무엇이 걸려 있는지 한 줄로 밝힌다. 지금은 이 기기에서만 열 수 있다는 사실이 권유의 전부다. */}
         <p className="streak-keep__note">
-          지금은 이 기기에만 있어요. 기기를 바꾸면 일주일치가 함께 사라져요
+          지금은 이 기기에서만 열 수 있어요. 기기를 바꾸면 일주일치를 다시 열 수 없어요
         </p>
         <Button
           fullWidth

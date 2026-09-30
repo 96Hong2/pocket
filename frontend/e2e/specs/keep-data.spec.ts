@@ -34,14 +34,12 @@ test('처음 온 사람에게는 안 뜬다', async ({ manage, page }) => {
   await seedOpens(page, 1);
   await manage.open();
   await manage.waitReady();
-  await expect(page.getByText('지금은 이 기기에만 있어요', { exact: false })).toHaveCount(0);
+  await expect(page.getByText('지금은 이 기기에서만 열 수 있어요', { exact: false })).toHaveCount(
+    0,
+  );
 });
 
-test('몇 번 와 본 사람에게만 뜨고, 누르면 내 계정으로 간다', async ({
-  account,
-  manage,
-  page,
-}) => {
+test('몇 번 와 본 사람에게만 뜨고, 누르면 내 계정으로 간다', async ({ account, manage, page }) => {
   await seedOpens(page, 5);
   await manage.open();
   await manage.waitReady();
@@ -62,7 +60,9 @@ test('안 할래요를 누르면 그 뒤로 다시 안 뜬다', async ({ manage,
   await manage.waitReady();
 
   await page.getByRole('button', { name: '안 할래요', exact: true }).click();
-  await expect(page.getByText('지금은 이 기기에만 있어요', { exact: false })).toHaveCount(0);
+  await expect(page.getByText('지금은 이 기기에서만 열 수 있어요', { exact: false })).toHaveCount(
+    0,
+  );
 
   const logs = await logsNamed(page, 'account_link_result');
   expect(logs.map((log) => log.params.result)).toEqual(['prompt_dismissed']);
@@ -70,5 +70,7 @@ test('안 할래요를 누르면 그 뒤로 다시 안 뜬다', async ({ manage,
   // 다시 들어와도 없다. 같은 말을 두 번 하면 그때부터 잔소리다.
   await manage.open();
   await manage.waitReady();
-  await expect(page.getByText('지금은 이 기기에만 있어요', { exact: false })).toHaveCount(0);
+  await expect(page.getByText('지금은 이 기기에서만 열 수 있어요', { exact: false })).toHaveCount(
+    0,
+  );
 });

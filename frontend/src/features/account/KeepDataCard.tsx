@@ -67,7 +67,7 @@ export function KeepDataCard() {
       <div className="keep-data__text">
         <p className="keep-data__title">기록을 지켜 두세요</p>
         <p className="keep-data__body">
-          지금은 이 기기에만 있어요. 이메일 하나면 기기를 바꿔도 따라와요
+          지금은 이 기기에서만 열 수 있어요. 이메일 하나면 기기를 바꿔도 따라와요
         </p>
       </div>
       <div className="keep-data__actions">
