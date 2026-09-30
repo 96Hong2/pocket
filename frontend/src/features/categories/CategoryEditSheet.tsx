@@ -493,17 +493,29 @@ export function CategoryEditForm({
       */}
       {(page && !iconPicked) || forBook ? null : (
         <div className="cat-sheet__field">
-          <span className="cat-sheet__label" id={`${colorId}-label`}>
-            색
-          </span>
           {/*
-            태그와 같은 것을 쓴다. 카테고리는 아이콘이 이미 얼굴이라 **색을 안 골라도 된다.**
-            격자 위의 「색 없음」 이 그 자리이고, 한 번 고른 색을 떼는 길도 그것뿐이다.
+            카테고리는 아이콘이 이미 얼굴이라 **색을 안 골라도 된다.** 한 번 고른 색을 떼는 길은
+            「기본색으로」 하나다. 「색」 글자와 같은 줄에 두어 격자 위에 한 줄을 따로 쓰지 않는다.
+            켜고 끄는 버튼이 아니라 하는 일을 적은 버튼이다. 켜짐 표시로 두면 눌러야 할 때는
+            라벨처럼, 누를 게 없을 때는 버튼처럼 보였다. 뗄 색이 없으면 흐리게 잠근다.
           */}
+          <div className="cat-sheet__field-head">
+            <span className="cat-sheet__label" id={`${colorId}-label`}>
+              색
+            </span>
+            <button
+              type="button"
+              className="cat-sheet__default-color"
+              disabled={busy || photoPicked || color == null}
+              onClick={() => setColor(null)}
+            >
+              기본색으로
+            </button>
+          </div>
           <ColorPicker
             value={color}
+            tone="category"
             disabled={busy || photoPicked}
-            clearable
             labelledBy={`${colorId}-label`}
             onChange={setColor}
           />

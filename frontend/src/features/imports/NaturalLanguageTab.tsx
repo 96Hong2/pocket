@@ -137,11 +137,6 @@ export function NaturalLanguageTab({
         </div>
       </div>
 
-      {/* 수입도 이 칸에 적으면 된다. 읽고 나서 줄마다 지출·수입을 바꿀 수 있다. 공유 가계부는 지출만 받는다. */}
-      {bookId == null ? (
-        <p className="nl__aside">수입도 같이 적어도 돼요. 읽은 뒤에 줄마다 고칠 수 있어요</p>
-      ) : null}
-
       {message ? (
         <p className="nl__notice" role="alert">
           {message}

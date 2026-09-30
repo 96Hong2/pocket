@@ -1,7 +1,9 @@
 import type { CSSProperties } from 'react';
 
+import type { TagColor } from '../api';
+
 import { cx } from '../lib/cx';
-import { TAG_COLORS } from '../lib/tagColors';
+import { TAG_COLORS, tagTintVar } from '../lib/tagColors';
 import { iconUrl, parseCustomIcon, type IconName } from './icons';
 
 export interface CategoryAvatarProps {
@@ -16,7 +18,8 @@ export interface CategoryAvatarProps {
   /**
    * 동그라미 바탕색(`category.color`). 안 고른 분류는 null 이고 무채색 기본 바탕이다.
    *
-   * 태그와 같은 열네 색을 쓴다. 팔레트를 둘로 두면 한 화면에 안 어울리는 색이 두 벌 선다.
+   * 태그와 같은 열네 색의 옅은 쪽(`-tint`)을 쓴다. 팔레트를 둘로 두면 한 화면에 안 어울리는
+   * 색이 두 벌 서고, 파스텔 그대로는 기본 동그라미보다 진해서 그 분류만 튄다.
    * 리포트의 링은 여전히 **자리 색**(`--color-donut-N`)이라 여기와 섞이지 않는다.
    *
    * 모르는 값이면 조용히 기본 바탕으로 돌아간다. 옛 판이 적어 둔 색 하나 때문에
@@ -56,7 +59,7 @@ export function CategoryAvatar({
         {
           width: `${size}px`,
           height: `${size}px`,
-          ...(tinted ? { '--pk-avatar-bg': `var(--tag-${color})` } : null),
+          ...(tinted ? { '--pk-avatar-bg': tagTintVar(color as TagColor) } : null),
         } as CSSProperties
       }
     >

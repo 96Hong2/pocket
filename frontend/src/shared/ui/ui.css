@@ -1,9 +1,11 @@
 /*
   파스텔 열네 색.
 
-  **태그와 카테고리가 같은 값을 쓴다.** 팔레트를 둘로 두면 한 화면에 서로 안 어울리는
-  색이 두 벌 서고, 대비를 맞춘 자리도 두 곳이 된다. 값 목록의 정본은 서버
-  (`app/domain/tags.py`)이고, 그 키를 `shared/lib/tagColors.ts` 가 변수 이름으로 바꾼다.
+  **태그와 카테고리가 같은 열네 색을 쓴다.** 팔레트를 둘로 두면 한 화면에 서로 안 어울리는
+  색이 두 벌 서고, 대비를 맞춘 자리도 두 곳이 된다. 카테고리 동그라미만 같은 색의 옅은 쪽
+  (`-tint`)을 쓴다. `-tint` 는 손으로 섞은 값이라 파스텔을 고치면 함께 고친다.
+  값 목록의 정본은 서버(`app/domain/tags.py`)이고, 그 키를 `shared/lib/tagColors.ts` 가
+  변수 이름으로 바꾼다.
 
   **바탕은 파스텔, 글자는 같은 계열의 진한 색이다.** 진한 바탕에 흰 글자를 얹던 것을
   뒤집었다. 칩이 열넷 서는 화면에서 진한 색은 화면 전체를 시끄럽게 만든다.
@@ -70,6 +72,27 @@
   --tag-lilac-soft: #F1E8F8;
   --tag-plum-soft: #F8E7F4;
   --tag-slate-soft: #EBEEF0;
+
+  /*
+    분류 동그라미 바탕. soft 65 : 파스텔 35 로 섞었다.
+    파스텔 그대로는 색을 안 고른 기본 동그라미(sage-50)보다 두세 단계 진해서 그 줄만 튀었고,
+    soft 그대로는 모래, 연두, 회색이 기본과 구분이 안 됐다.
+    옅게 할수록 색끼리도 가까워진다(민트와 청록, 분홍과 자두). 더 옅히려면 그 값을 먼저 본다.
+  */
+  --tag-rose-tint: #FBE3EB;
+  --tag-coral-tint: #FCE5DA;
+  --tag-amber-tint: #FBEDCF;
+  --tag-sand-tint: #F4EBDC;
+  --tag-olive-tint: #E9EED5;
+  --tag-sage-tint: #DFEBDA;
+  --tag-mint-tint: #D7ECE7;
+  --tag-teal-tint: #D5EAEE;
+  --tag-sky-tint: #DDEBF8;
+  --tag-ocean-tint: #DBE3F7;
+  --tag-indigo-tint: #E2E0F5;
+  --tag-lilac-tint: #ECE0F5;
+  --tag-plum-tint: #F5DFEF;
+  --tag-slate-tint: #E5E8EB;
 }
 
 /*
@@ -1063,22 +1086,17 @@
   }
 
   /*
-    색을 고른 분류. 태그와 같은 파스텔 열넷을 쓴다.
+    색을 고른 분류. 태그와 같은 열네 색의 옅은 쪽(`-tint`)을 쓴다.
 
     색은 **바탕에만** 건다. 그림에는 손대지 않는다. 우리 아이콘은 저마다 색이 있어서,
     바탕색에 맞춰 물들이면 무슨 그림인지 알아보기 어려워진다. 고른 색이 하는 일은
     목록에서 그 줄을 빨리 찾게 하는 것이고, 그건 바탕만으로 충분하다.
-  */
-  /*
-    색을 고른 분류.
 
-    **테두리를 한 겹 두른다.** 팔레트를 옅게 민 뒤로 모래·회색처럼 흰색에 가까운 색은
-    흰 카드 위에서 동그라미가 있는지조차 안 보였다. 색을 안 고른 기본 바탕과도 구분이
-    안 됐다. 이 한 겹이 「색을 골랐다」 를 색의 진하기와 상관없이 보이게 한다.
+    **테두리를 두르지 않는다.** 기본 동그라미에 없는 테두리가 색 고른 분류에만 있으면
+    그 칩만 진하게 튄다. 명도는 기본 동그라미와 가깝게 두고 색조로 구분한다.
   */
   .pk-avatar--tinted {
     background: var(--pk-avatar-bg);
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07);
   }
 
   .pk-avatar__img {
@@ -1108,39 +1126,6 @@
   }
 
   /* ── ColorPicker ────────────────────────────────────── */
-  /*
-    색 고르기 한 덩어리. 「색 없음」 이 격자 위에 오른쪽으로 붙고, 그 아래 색 열넷이 선다.
-    격자 안에 끼우면 열다섯이 되어 셋째 줄에 하나만 남는다.
-  */
-  .pk-colors-field {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  /*
-    색을 떼는 자리. 색이 아니라 **하는 일**이라 동그라미가 아니라 글자로 둔다.
-    오른쪽 끝에 두어 색을 고르러 온 눈이 먼저 걸리지 않게 한다.
-  */
-  .pk-colors__clear {
-    align-self: flex-end;
-    min-height: 32px;
-    padding: 6px 12px;
-    border: 1px solid var(--color-dashed);
-    border-radius: var(--radius-pill);
-    background: var(--color-surface);
-    color: var(--color-muted);
-    font-family: inherit;
-    font-size: var(--text-12);
-    font-weight: var(--font-weight-semibold);
-  }
-
-  .pk-colors__clear[aria-pressed='true'] {
-    border-color: var(--color-sage-700);
-    background: var(--color-sage-50);
-    color: var(--color-sage-700);
-  }
-
   /*
     **한 줄에 일곱 개씩이다.** flex-wrap 으로 두면 화면 폭에 따라 6개·8개로 접혀
     줄이 들쭉날쭉해지고, 색의 자리를 손이 기억하지 못한다.
@@ -1175,6 +1160,21 @@
     background: var(--tag-color);
     color: var(--tag-ink);
     box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.1);
+  }
+
+  /*
+    분류 색 칸. 동그라미가 실제로 깔릴 옅은 색이라 테두리도 그만큼 옅게 둔다.
+    흰 시트 위에서 모래·회색 칸이 사라지지 않을 만큼만 남긴다.
+  */
+  .pk-colors--tint .pk-colors__swatch {
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.05);
+  }
+
+  .pk-colors--tint .pk-colors__cell[aria-pressed='true'] .pk-colors__swatch {
+    box-shadow:
+      inset 0 0 0 1px rgb(0 0 0 / 0.05),
+      0 0 0 3px var(--color-surface),
+      0 0 0 5px var(--tag-ink);
   }
 
   /*
