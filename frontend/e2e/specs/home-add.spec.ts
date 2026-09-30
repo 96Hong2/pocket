@@ -7,6 +7,20 @@ import { expect, test } from '../support/fixtures';
 */
 test.use({ showStarterCards: true });
 
+/*
+  같이 쓰는 가계부 안내는 이 파일의 카드들보다 앞에 선다. 여기서는 닫아 둔 사람으로 연다.
+  그 카드는 `books-intro.spec.ts` 가 본다.
+*/
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem('__ait_storage:card-dismissed-books-intro', '');
+    } catch {
+      /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+    }
+  });
+});
+
 /**
  * 홈 화면에 추가하도록 이끄는 자리.
  *
@@ -109,7 +123,7 @@ test('닫으면 다시 들어와도 뜨지 않는다', async ({ home, page, prep
  * 밀린 내역·홈 추가·저녁 알림이 한꺼번에 서 있었다. 하나씩 물어도 각자 닫기 전까지는
  * 다음 회차에 다시 선다.
  */
-test('홈 추가를 닫아야 저녁 알림이 선다. 한 번에 하나다', async ({ home, prep }) => {
+test('홈 추가를 닫으면 그날은 쉬고, 다음 날 저녁 알림이 선다', async ({ home, prep }) => {
   await prep.addTransaction({ amount: 12000 });
   await home.open();
   await home.waitReady();
@@ -117,10 +131,14 @@ test('홈 추가를 닫아야 저녁 알림이 선다. 한 번에 하나다', as
   await expect(home.addToHome.card).toBeVisible();
   await expect(home.remind.card).toHaveCount(0);
 
-  // 홈 추가를 닫으면 그 자리에 알림이 선다. 닫는 ✕ 는 각자 갖는다.
+  // 닫자마자 다음 권유가 올라오면 닫은 손을 「다음 것」 으로 읽은 셈이다.
   await home.addToHome.closeButton.click();
   await expect(home.addToHome.card).toHaveCount(0);
+  await expect(home.remind.card).toHaveCount(0);
+
+  await home.passQuietDay();
   await expect(home.remind.card).toBeVisible();
+  await expect(home.addToHome.card).toHaveCount(0);
 });
 
 test('카드에서 바로 저녁 8시 알림이 켜진다', async ({ home, notifications, prep }) => {
@@ -128,8 +146,9 @@ test('카드에서 바로 저녁 8시 알림이 켜진다', async ({ home, notif
   await home.open();
   await home.waitReady();
 
-  // 권유는 한 번에 하나다. 앞의 것을 닫아야 알림 카드가 선다.
+  // 권유는 한 번에 하나다. 앞의 것을 닫고 하루가 지나야 알림 카드가 선다.
   await home.addToHome.closeButton.click();
+  await home.passQuietDay();
   await home.remind.turnOnButton.click();
 
   // 켠 그 자리에서 답한다. 카드가 말없이 사라지면 눌린 것인지 알 수 없다.
@@ -158,8 +177,9 @@ test.describe('알림 저장 실패', () => {
     await prep.addTransaction({ amount: 12000 });
     await home.open();
     await home.waitReady();
-    // 권유는 한 번에 하나다. 앞의 것을 닫아야 알림 카드가 선다.
+    // 권유는 한 번에 하나다. 앞의 것을 닫고 하루가 지나야 알림 카드가 선다.
     await home.addToHome.closeButton.click();
+    await home.passQuietDay();
 
     await page.route('**/api/v1/notifications/settings', async (route) => {
       if (route.request().method() !== 'PATCH') {
@@ -191,31 +211,40 @@ test('이미 켜 둔 사람에게는 알림 카드가 안 뜬다', async ({ home
   // 켠 사람에게 또 권하면 그건 광고다.
   await expect(home.remind.card).toHaveCount(0);
   await expect(home.addToHome.card).toBeVisible();
+
+  /*
+    알림 카드가 안 그려지는 사람이라고 **뒤의 카드까지 막히면 안 된다.** 카드 안에서 조용히
+    빈 것을 돌려주던 때는 홈이 그 자리를 「섰다」 로 세어, 켠 사람에게 예산 제안과 별점,
+    공유가 영영 안 떴다.
+  */
+  await test.step('알림 자리를 건너 다음 권유가 선다', async () => {
+    await home.addToHome.closeButton.click();
+    await home.passQuietDay();
+    await expect(home.remind.card).toHaveCount(0);
+    await expect(home.budget.suggestCard).toBeVisible();
+  });
 });
 
 /**
- * 두 번째 기회.
+ * 홈 추가의 두 번째 기회.
  *
  * 첫 기록 직후에는 이 앱을 계속 쓸지조차 모르는 상태라, 그때 닫은 것은 「싫다」 가 아니라
  * 「아직 모르겠다」 에 가깝다. 다섯 번을 적은 사람은 계속 쓰기로 한 사람이다.
  * **딱 한 번 더 묻고**, 거기서 또 닫으면 그게 대답이다.
  */
-test('닫았어도 다섯 번째 기록에서 한 번 더 뜬다', async ({ home, page, prep }) => {
+test('홈 추가는 닫았어도 다섯 번째 기록에서 한 번 더 뜬다', async ({ home, page, prep }) => {
   await prep.addTransaction({ amount: 12000 });
   await home.open();
   await home.waitReady();
 
   await home.addToHome.closeButton.click();
-  await home.remind.closeButton.click();
   await expect(home.addToHome.card).toHaveCount(0);
-  await expect(home.remind.card).toHaveCount(0);
 
   // 네 건을 더해 다섯 건으로 만든다.
   for (let i = 0; i < 4; i += 1) {
     await prep.addTransaction({ amount: 3000 + i });
   }
-  await page.reload();
-  await home.waitReady();
+  await home.passQuietDay();
 
   // 두 번째 기회에도 한 번에 하나다. 홈 추가가 먼저다.
   await expect(home.addToHome.card).toBeVisible();
@@ -223,12 +252,69 @@ test('닫았어도 다섯 번째 기록에서 한 번 더 뜬다', async ({ home
 
   await test.step('여기서 닫으면 그게 대답이다', async () => {
     await home.addToHome.closeButton.click();
-    await expect(home.remind.card).toBeVisible();
-    await home.remind.closeButton.click();
     await page.reload();
     await home.waitReady();
     await expect(home.addToHome.card).toHaveCount(0);
+  });
+});
+
+/**
+ * 저녁 알림은 **켤 때까지 묻되, 닫을수록 뜸해진다.**
+ *
+ * 닫은 뒤 3일, 7일, 14일, 그 뒤로는 30일. 그 사이에 세 번은 새로 적었어야 한다.
+ * 안 쓰는 사람에게 알림을 권하면 「이 앱이 나를 부르려 한다」 로만 읽힌다.
+ * 날짜는 앞당길 수 없어 저장된 「닫은 날」 만 옮긴다(`home.moveRemindClosedDaysAgo`).
+ */
+test('저녁 알림은 닫을수록 다시 묻는 간격이 길어진다', async ({ home, page, prep }) => {
+  // 홈 추가는 두 번 다 닫은 사람으로 연다. 다섯 번째 기록에서 홈 추가가 다시 서면 알림이 비켜 준다.
+  await page.addInitScript(() => {
+    try {
+      for (const card of ['home-add', 'home-add-again']) {
+        window.localStorage.setItem(`__ait_storage:card-dismissed-${card}`, '');
+      }
+    } catch {
+      /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+    }
+  });
+  await prep.addTransaction({ amount: 12000 });
+  await home.open();
+  await home.waitReady();
+
+  await expect(home.remind.card).toBeVisible();
+  await home.remind.closeButton.click();
+  await expect(home.remind.card).toHaveCount(0);
+  expect(await home.remindNudgeState()).toMatchObject({ closes: 1, recordsAtClose: 1 });
+
+  await test.step('사흘이 지나도 그 사이에 안 적었으면 안 묻는다', async () => {
+    await home.moveRemindClosedDaysAgo(3);
     await expect(home.remind.card).toHaveCount(0);
+  });
+
+  for (let i = 0; i < 3; i += 1) {
+    await prep.addTransaction({ amount: 3000 + i });
+  }
+
+  await test.step('이틀째에는 세 번 적었어도 아직이다', async () => {
+    await home.moveRemindClosedDaysAgo(2);
+    await expect(home.remind.card).toHaveCount(0);
+  });
+
+  await test.step('사흘이 지나고 세 번 적었으면 다시 묻는다', async () => {
+    await home.moveRemindClosedDaysAgo(3);
+    await expect(home.remind.card).toBeVisible();
+    await home.remind.closeButton.click();
+    expect(await home.remindNudgeState()).toMatchObject({ closes: 2, recordsAtClose: 4 });
+  });
+
+  for (let i = 0; i < 3; i += 1) {
+    await prep.addTransaction({ amount: 4000 + i });
+  }
+
+  await test.step('두 번 닫은 사람은 이레를 기다린다', async () => {
+    await home.moveRemindClosedDaysAgo(6);
+    await expect(home.remind.card).toHaveCount(0);
+    await home.moveRemindClosedDaysAgo(7);
+    await expect(home.remind.card).toBeVisible();
   });
 });
 
@@ -255,7 +341,7 @@ test('한 번을 놓쳐도 앱 설정에서 같은 안내를 연다', async ({ p
  * 때문**이다. 예산을 정할 때까지 계속 뜨고, 카드 자체도 관리 탭에서 언제든 정할 수
  * 있다고 적는다. 반대로 한 번뿐인 안내는 그 자리를 내주면 영영 안 뜬다.
  */
-test('예산 제안은 한 번뿐인 안내에 비켜 주고, 닫으면 바로 선다', async ({ home, prep }) => {
+test('예산 제안은 한 번뿐인 안내에 비켜 주고, 앞의 것을 닫은 다음 날 선다', async ({ home, prep }) => {
   await prep.addTransaction({ amount: 12000 });
 
   await home.open();
@@ -265,10 +351,13 @@ test('예산 제안은 한 번뿐인 안내에 비켜 주고, 닫으면 바로 �
   await expect(home.remind.card).toHaveCount(0);
   await expect(home.budget.suggestCard).toHaveCount(0);
 
-  await test.step('앞의 둘을 차례로 닫으면 예산 제안이 그 자리에 선다', async () => {
+  await test.step('앞의 둘을 하루에 하나씩 닫으면 예산 제안이 그 자리에 선다', async () => {
     await home.addToHome.closeButton.click();
+    await home.passQuietDay();
     await expect(home.budget.suggestCard).toHaveCount(0);
     await home.remind.closeButton.click();
+    await expect(home.budget.suggestCard).toHaveCount(0);
+    await home.passQuietDay();
     await expect(home.budget.suggestCard).toBeVisible();
   });
 });
@@ -304,9 +393,12 @@ test('밀린 내역이 뜨면 다른 권유 카드는 쉰다', async ({ home, pr
   await expect(home.remind.card).toHaveCount(0);
   await expect(home.budget.suggestCard).toHaveCount(0);
 
-  await test.step('닫으면 그 자리를 다음 것이 이어받는다', async () => {
+  await test.step('닫으면 그날은 쉬고, 다음 날 다음 것이 이어받는다', async () => {
     await home.recovery.closeButton.click();
     await expect(home.recovery.card).toHaveCount(0);
+    await expect(home.addToHome.card).toHaveCount(0);
+
+    await home.passQuietDay();
     // 여기서도 하나뿐이다. 홈 추가가 서고 저녁 알림은 그다음 회차로 간다.
     await expect(home.addToHome.card).toBeVisible();
     await expect(home.remind.card).toHaveCount(0);

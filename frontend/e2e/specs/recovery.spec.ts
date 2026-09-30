@@ -186,7 +186,10 @@ test('닫은 뒤 다시 적고 또 비면 복구 카드가 새로 뜬다', async
   */
   await prep.addExpense({ amount: 5_000, daysAgo: 3 });
 
-  await home.open();
-  await home.waitReady();
+  /*
+    실제로는 다시 적고 또 사흘을 비운 뒤라 닫은 날과 다른 날이다. 권유를 닫은 날은 다른
+    권유를 쉬므로(`card-quiet-day`) 그 표만 걷고 연다.
+  */
+  await home.passQuietDay();
   await expect(home.recovery.card).toBeVisible();
 });

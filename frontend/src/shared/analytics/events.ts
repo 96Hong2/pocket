@@ -106,6 +106,20 @@ export const EVENTS = {
   onboardingResult: 'onboarding_result',
   /** 알림을 켜려 했을 때의 결과. 이 앱이 사람을 다시 데려오는 유일한 장치다. */
   notificationResult: 'notification_result',
+  /**
+   * 홈의 저녁 알림 카드를 닫았다. 몇 번째로 닫았는지(`closes`)를 싣는다.
+   *
+   * 닫을수록 다시 묻는 간격이 길어진다(`remindCadence.ts`). 몇 번째에서 켜는 사람이
+   * 끊기는지 봐야 간격을 줄일지 늘릴지가 갈린다. `notification_result` 의 `home_card` 와 함께 본다.
+   */
+  remindCardDismissed: 'remind_card_dismissed',
+  /**
+   * 홈의 같이 쓰는 가계부 안내 카드. 만들기로 갔나(`opened`), 닫았나(`dismissed`).
+   *
+   * 새 기능을 알리는 카드라 한 번뿐이다. 닫은 수가 누른 수보다 한참 많으면 문구가 아니라
+   * 기능이 이 사람들에게 필요 없다는 뜻이다.
+   */
+  booksIntroResult: 'books_intro_result',
 
   /**
    * 태그를 만들거나 고치거나 지웠다.

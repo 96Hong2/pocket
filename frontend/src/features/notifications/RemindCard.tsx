@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
 import { ROUTES } from '../../app/router/routes';
@@ -24,11 +24,28 @@ const DEFAULT_LABEL = '저녁 8시';
  * 홈 화면 추가와 **다른 카드**다. 하나는 앱을 찾기 쉽게 하는 일이고 하나는 우리가
  * 부르는 일이라, 하나만 하고 싶은 사람이 나머지 하나를 같이 닫게 두지 않는다.
  */
-export function RemindCard({ onDismiss }: { onDismiss: () => void }) {
+export function RemindCard({
+  onDismiss,
+  onDecline,
+  onTurnedOn,
+}: {
+  onDismiss: () => void;
+  /** 토스 알림 동의를 거절했다. 다시 묻는 간격을 센다. 카드는 걷지 않는다. */
+  onDecline?: () => void;
+  /** 켰다. 「알려 드릴게요」 한 줄을 보여 주는 동안 카드가 제자리에 있어야 한다. */
+  onTurnedOn?: () => void;
+}) {
   const settings = useNotificationSettings();
   const remind = useRemindOptIn('home_card');
   // 방금 켰다. 카드가 바로 사라지면 눌린 것인지 알 수 없어 한 줄로 답한다.
   const [justOn, setJustOn] = useState(false);
+
+  const rejected = remind.blocker === 'rejected';
+  useEffect(() => {
+    if (rejected) onDecline?.();
+    // 거절이 막 생긴 그 순간에만 센다. 부르는 쪽 함수가 새로 만들어졌다고 다시 세지 않는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rejected]);
 
   // 못 쓰는 환경이면 아예 안 세운다. 켤 수 없는 버튼을 권유로 세우지 않는다.
   if (!remind.supported) return null;
@@ -61,9 +78,12 @@ export function RemindCard({ onDismiss }: { onDismiss: () => void }) {
         <Button
           variant="primarySmall"
           fullWidth
-          disabled={remind.busy || remind.blocker === 'rejected'}
+          disabled={remind.busy || rejected}
           onClick={() => {
-            void remind.turnOn(REMIND_AT_DEFAULT).then((on) => setJustOn(on));
+            void remind.turnOn(REMIND_AT_DEFAULT).then((on) => {
+              if (on) onTurnedOn?.();
+              setJustOn(on);
+            });
           }}
         >
           {DEFAULT_LABEL} 알림 받기

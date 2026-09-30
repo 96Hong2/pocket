@@ -7,9 +7,10 @@ import { RECORD_QUERY } from '../app/router/routes';
 import { AdSlot } from '../features/ads';
 import { BookChip, BookHome } from '../features/books';
 import { AddToHomeCard } from '../features/home-add';
-import { RemindCard } from '../features/notifications';
+import { RemindCard, useRemindNudge } from '../features/notifications';
 import { RecurringDueCard } from '../features/recurring';
 import {
+  BooksIntroCard,
   BudgetSuggestCard,
   ClosingEntryCard,
   GoalDoneCard,
@@ -21,10 +22,13 @@ import {
   ShareAppCard,
   StreakCelebration,
   TodayList,
+  pickHomeNotice,
   resolveHeroLayout,
   resolveHomeView,
   toHomeViewInput,
   useCardDismiss,
+  useClosingEntry,
+  useNudgeQuiet,
 } from '../features/home';
 import { QuickRecordSheet, type RecordFrom, type RecordTab } from '../features/quick-record';
 import { EditSheet } from '../features/transactions';
@@ -35,8 +39,10 @@ import {
   useBudget,
   useCategories,
   useGoal,
+  useNotificationSettings,
   usePreferences,
   useRecurringDue,
+  useSharedBooksEnabled,
   useTransactions,
   type TransactionOut,
 } from '../shared/api';
@@ -120,14 +126,27 @@ function HomeContent({
   */
   const ratingAsk = useCardDismiss('rating-ask', '');
   /*
-    홈 화면 추가와 저녁 알림은 **두 번 묻는다.** 첫 기록 직후와 다섯 번째 기록 때다.
+    홈 화면 추가는 **두 번 묻는다.** 첫 기록 직후와 다섯 번째 기록 때다.
     첫 기록 때는 이 앱을 계속 쓸지조차 모르는 상태라 그때 닫은 것은 대답이 아니다.
     표(mark)로 가르지 않고 키를 둘로 나눈 이유는 `shared/lib/cardDismiss.ts` 에 적어 뒀다.
   */
   const homeAdd = useCardDismiss('home-add', '');
   const homeAddAgain = useCardDismiss('home-add-again', '');
-  const remind = useCardDismiss('remind', '');
-  const remindAgain = useCardDismiss('remind-again', '');
+  /*
+    저녁 알림은 켤 때까지 **계속 묻되 닫을수록 뜸해진다.** 닫은 뒤 3일, 7일, 14일, 그 뒤로는
+    30일마다, 그 사이 세 번은 새로 적었을 때만 다시 선다(`features/notifications/remindCadence.ts`).
+  */
+  const remindNudge = useRemindNudge(budget.data?.transaction_count ?? null);
+  const notificationSettings = useNotificationSettings();
+  // 방금 켠 카드는 「알려 드릴게요」 를 말하는 동안 제자리에 있어야 한다. 켜진 설정이 먼저 와도 걷지 않는다.
+  const [remindJustOn, setRemindJustOn] = useState(false);
+  // 한 번뿐인 새 기능 안내. 만들거나 들어간 가계부가 있으면 처음부터 안 뜬다.
+  const booksIntro = useCardDismiss('books-intro', '');
+  const booksEnabled = useSharedBooksEnabled();
+  const books = useBooks();
+  const closingMonth = useClosingEntry();
+  // 오늘 권유를 하나 닫았으면 다른 권유는 내일로 미룬다.
+  const nudgeQuiet = useNudgeQuiet();
 
   // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다.
   // 아직 오는 중일 때만 기다리게 하고, 실패·미지원은 위 안내가 이유를 말한다.
@@ -150,69 +169,109 @@ function HomeContent({
   // 그 자리에서 통째로 return 하면 '10초 기록' 버튼까지 사라져, 읽기 실패가 쓰기 진입점을 막는다.
   const view = budget.data != null ? resolveHomeView(toHomeViewInput(budget.data)) : null;
   /*
-    **스스로 서는 권유 카드는 한 번에 하나다.**
+    **스스로 서는 안내는 한 번에 하나다.** 홈 어디에 서든 센다(사용자 지시, 2026-09-30).
 
-    둘까지 허용하던 규칙을 하나로 좁혔다. 출시판을 쓴 사람이 보낸 화면에 「밀린 내역 정리」·
+    둘까지 허용하던 규칙을 하나로 좁혔었다. 출시판을 쓴 사람이 보낸 화면에 「밀린 내역 정리」·
     「홈 화면에 추가」·「저녁 알림」 이 한꺼번에 서 있었다. 초록 버튼이 기록하기까지 넷이라
-    무엇을 눌러야 하는 화면인지 읽히지 않는다. 규칙이 기록 버튼 **아래**만 세고 있었고,
-    그 위에 서는 밀린 내역 카드는 아무도 안 세고 있었던 것이 원인이다.
+    무엇을 눌러야 하는 화면인지 읽히지 않는다. 그때 「곧 나갈 돈」 과 지난달 결산 안내는
+    셈 밖에 있었는데, 이제 둘도 센다. 사실을 알리는 것도 알림이고, 둘이 함께 서면 같은 문제다.
 
-    「곧 나갈 돈」 은 이 셈에서 뺀다. 권유가 아니라 오늘 실제로 돈이 빠져나간다는 **사실**이고,
-    그 사람이 걸어 둔 것에만 뜬다. 그래서 최대는 사실 하나 + 권유 하나다.
+    순서: 곧 나갈 돈 → 지난달 결산 → 밀린 내역 → 같이 쓰는 가계부 → 홈 화면 추가 → 저녁 알림
+    → 예산 제안 → 별점 → 공유.
 
-    순서: 밀린 내역 → 홈 화면 추가 → 저녁 알림 → 예산 제안 → 별점 → 공유.
-
-    - **밀린 내역이 맨 앞이다.** 며칠 비운 사람이 지금 이 화면에 온 이유가 그것이다.
+    - **곧 나갈 돈이 맨 앞이다.** 오늘이나 내일 실제로 돈이 빠져나가는 일이고, 그 사람이
+      걸어 둔 것에만 이틀 뜬다. 그 이틀은 다른 안내가 비켜 준다.
+    - **지난달 결산은 달 초 이레만 선다.** 한 번 열어 보면 사라지고, 기다려 주면 그 달은 끝이다.
+      밀린 내역은 다시 적을 때까지 기다려 준다. 달 초에 며칠 비운 사람은 결산을 먼저 보고,
+      돌아오면 밀린 내역이 선다.
+    - **밀린 내역이 그다음이다.** 며칠 비운 사람이 지금 이 화면에 온 이유가 그것이다.
       나머지는 다음에 물어도 되지만 이 사람은 지금 이어 붙이지 않으면 다시 안 온다.
-    - 홈 화면 추가와 저녁 알림은 **한 쌍으로 두던 것을 떼었다.** 둘 다 한 번뿐인 안내라
-      자리를 내주면 영영 안 뜬다는 것이 붙여 둔 이유였는데, 두 번째 기회(`secondChance`)가
-      이미 있고 각자 닫기 전까지는 다음 회차에 다시 선다. 한 번에 하나씩 물으면 된다.
-    - 예산 제안은 비켜 준다. **안 사라지고 기다리기 때문**이다. 예산을 정할 때까지 계속
-      뜨고, 카드 자체도 관리 탭에서 언제든 정할 수 있다고 적는다.
+    - 같이 쓰는 가계부 안내는 한 번뿐인 새 기능 소식이다. 이미 한 번씩 본 권유보다 앞에 선다.
+    - 홈 화면 추가와 저녁 알림은 한 번에 하나씩 묻는다. 홈 화면 추가는 두 번(`secondChance`),
+      저녁 알림은 켤 때까지 닫을수록 뜸하게 묻는다.
+    - 예산 제안은 비켜 준다. **안 사라지고 기다리기 때문**이다.
     - 별점과 공유가 맨 뒤이고 **별점이 앞이다.** 공유는 다섯 번째 기록부터 이미 서 있던
-      카드라, 스무 번을 적을 때까지 안 누른 사람에게는 답이 나온 셈이다. 별점은 한 번뿐이라
-      닫고 나면 다음 회차부터 공유가 다시 선다.
+      카드라, 스무 번을 적을 때까지 안 누른 사람에게는 답이 나온 셈이다.
       못 뜨는 토스 버전에서는 별점 카드 자체를 그리지 않는다(`supports('review')`).
+
+    **하나를 닫으면 그날은 다음 권유를 세우지 않는다**(`useNudgeQuiet`). 닫자마자 다음 카드가
+    올라오면 닫은 손을 「다음 것」 으로 읽은 셈이다. 곧 나갈 돈은 사실이라 이 규칙 밖이다.
   */
   const dueSoon = (recurringDue.data?.length ?? 0) > 0;
   // 두 번째 기회면 두 번째 표를 본다. 그래야 첫 번째에 닫은 사람에게 한 번 더 뜬다.
   const homeAddCard = view?.secondChance === true ? homeAddAgain : homeAdd;
-  const remindCard = view?.secondChance === true ? remindAgain : remind;
+  const quiet = nudgeQuiet.quiet;
+
+  /*
+    그 카드가 실제로 그려지는 사람인지까지 여기서 가린다. 카드 안에서 조용히 null 을 돌려주면
+    이 셈은 「섰다」 로 보고 뒤의 카드를 모두 막는다. 알림을 이미 켠 사람에게 별점과 공유가
+    영영 안 뜨던 것이 그것이었다.
+
+    아직 모르는 것(가계부 목록, 알림 설정, 닫은 기록)이 있으면 그 뒤 카드는 기다린다.
+    뒤의 카드가 먼저 섰다가 앞의 카드로 바뀌면 누르려던 자리가 바뀐다.
+  */
+  const hasRecords = budget.data?.has_any_transaction === true;
+  const booksIntroUnknown = booksEnabled && hasRecords && books.isPending;
+  const booksIntroEligible =
+    booksEnabled && books.data != null && books.data.items.length === 0 && hasRecords;
+  const remindSupported = bridge.supports('notification');
+  const remindUnknown =
+    remindSupported && hasRecords && (notificationSettings.isPending || remindNudge.due == null);
+  const remindEligible =
+    remindSupported &&
+    hasRecords &&
+    notificationSettings.data != null &&
+    !notificationSettings.data.is_enabled &&
+    remindNudge.due === true;
 
   /*
     앞의 것이 서면 뒤의 것은 다음 회차로 미룬다. 자리마다 「여기는 괜찮다」 고 더하면
     총량을 아무도 안 세게 되고, 그 결과가 사용자가 보낸 그 화면이다.
   */
-  const showRecovery = view?.mode === 'recovery' && budget.data != null && !recovery.hidden;
-  const showHomeAdd =
-    view?.showHomeAdd === true && !homeAddCard.hidden && !dueSoon && !showRecovery;
-  const showRemind =
-    view?.showRemind === true && !remindCard.hidden && !dueSoon && !showRecovery && !showHomeAdd;
-  const showBudgetSuggestion =
-    view?.showBudgetSuggestion === true &&
-    !budgetSuggest.hidden &&
-    !dueSoon &&
-    !showRecovery &&
-    !showHomeAdd &&
-    !showRemind;
-  const showRatingAsk =
-    view?.showRatingAsk === true &&
-    !ratingAsk.hidden &&
-    bridge.supports('review') &&
-    !dueSoon &&
-    !showRecovery &&
-    !showBudgetSuggestion &&
-    !showHomeAdd &&
-    !showRemind;
-  const showShareInvite =
-    view?.showShareInvite === true &&
-    !shareInvite.hidden &&
-    !dueSoon &&
-    !showRecovery &&
-    !showRatingAsk &&
-    !showBudgetSuggestion &&
-    !showHomeAdd &&
-    !showRemind;
+  const slot = (show: boolean, wait = false): 'show' | 'wait' | 'skip' =>
+    quiet ? 'skip' : show ? 'show' : wait ? 'wait' : 'skip';
+  const notice = dueSoon
+    ? null
+    : pickHomeNotice([
+        { key: 'closing', state: slot(closingMonth != null) },
+        {
+          key: 'recovery',
+          state: slot(view?.mode === 'recovery' && budget.data != null && !recovery.hidden),
+        },
+        {
+          key: 'booksIntro',
+          state: slot(
+            booksIntroEligible && !booksIntro.hidden,
+            booksIntroUnknown && !booksIntro.hidden,
+          ),
+        },
+        { key: 'homeAdd', state: slot(view?.showHomeAdd === true && !homeAddCard.hidden) },
+        // 방금 켰으면 오늘 닫은 것이 있어도 「알려 드릴게요」 는 제자리에 둔다.
+        { key: 'remind', state: remindJustOn ? 'show' : slot(remindEligible, remindUnknown) },
+        {
+          key: 'budget',
+          state: slot(view?.showBudgetSuggestion === true && !budgetSuggest.hidden),
+        },
+        {
+          key: 'rating',
+          state: slot(view?.showRatingAsk === true && !ratingAsk.hidden && bridge.supports('review')),
+        },
+        { key: 'share', state: slot(view?.showShareInvite === true && !shareInvite.hidden) },
+      ]);
+  const showRecovery = notice === 'recovery';
+  const showClosing = notice === 'closing';
+  const showBooksIntro = notice === 'booksIntro';
+  const showHomeAdd = notice === 'homeAdd';
+  const showRemind = notice === 'remind';
+  const showBudgetSuggestion = notice === 'budget';
+  const showRatingAsk = notice === 'rating';
+  const showShareInvite = notice === 'share';
+
+  /** 권유 카드를 닫았다. 그 카드를 감추고, 오늘은 다음 권유를 세우지 않는다. */
+  const closeNudge = (dismiss: () => void) => () => {
+    dismiss();
+    nudgeQuiet.hush();
+  };
 
   return (
     <>
@@ -238,7 +297,7 @@ function HomeContent({
         <RecoveryCard
           progress={budget.data.recovery}
           onCatchUp={() => onRecord('capture')}
-          onDismiss={recovery.dismiss}
+          onDismiss={closeNudge(recovery.dismiss)}
         />
       ) : null}
 
@@ -285,18 +344,29 @@ function HomeContent({
       <RecurringDueCard />
 
       {/* 기록 버튼 바로 아래. 여기 서는 것은 **하나뿐**이다. 순서는 위 주석에 적어 뒀다. */}
-      {showHomeAdd ? <AddToHomeCard onDismiss={homeAddCard.dismiss} /> : null}
-      {showRemind ? <RemindCard onDismiss={remindCard.dismiss} /> : null}
-      {showRatingAsk ? <ReviewAskCard onDismiss={ratingAsk.dismiss} /> : null}
-      {showShareInvite ? <ShareAppCard onDismiss={shareInvite.dismiss} /> : null}
+      {showBooksIntro ? (
+        <BooksIntroCard onDismiss={closeNudge(booksIntro.dismiss)} onOpen={booksIntro.dismiss} />
+      ) : null}
+      {showHomeAdd ? <AddToHomeCard onDismiss={closeNudge(homeAddCard.dismiss)} /> : null}
+      {showRemind ? (
+        <RemindCard
+          onDismiss={closeNudge(remindNudge.close)}
+          onDecline={remindNudge.decline}
+          onTurnedOn={() => setRemindJustOn(true)}
+        />
+      ) : null}
+      {showRatingAsk ? <ReviewAskCard onDismiss={closeNudge(ratingAsk.dismiss)} /> : null}
+      {showShareInvite ? <ShareAppCard onDismiss={closeNudge(shareInvite.dismiss)} /> : null}
 
       {/*
         지난달 결산 안내. 달이 바뀐 뒤 며칠 동안, 지난달에 기록이 있고 아직 안 봤을 때만
         스스로 나타난다. 기록 버튼 아래에 두어 오늘 할 일을 가리지 않는다.
       */}
-      <ClosingEntryCard />
+      {showClosing && closingMonth != null ? <ClosingEntryCard month={closingMonth} /> : null}
 
-      {showBudgetSuggestion ? <BudgetSuggestCard onDismiss={budgetSuggest.dismiss} /> : null}
+      {showBudgetSuggestion ? (
+        <BudgetSuggestCard onDismiss={closeNudge(budgetSuggest.dismiss)} />
+      ) : null}
 
       {/*
         목표가 있을 때만 그린다. 조회가 실패하면 이 자리를 비우고 오류 자리를 만들지 않는다.

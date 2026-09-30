@@ -5,6 +5,7 @@ import {
   RECOVERY_AFTER_DAYS,
   SECOND_CHANCE_AFTER_RECORDS,
   SHARE_AFTER_RECORDS,
+  pickHomeNotice,
   resolveHeroLayout,
   resolveHomeView,
   type HomeViewInput,
@@ -197,5 +198,31 @@ describe('별점 권유', () => {
       input({ hasAnyTransaction: true, transactionCount: RATING_AFTER_RECORDS }),
     );
     expect(many.showRatingAsk).toBe(true);
+  });
+});
+
+describe('pickHomeNotice', () => {
+  it('처음 서는 하나만 고른다', () => {
+    expect(
+      pickHomeNotice([
+        { key: 'closing', state: 'skip' },
+        { key: 'booksIntro', state: 'show' },
+        { key: 'homeAdd', state: 'show' },
+      ]),
+    ).toBe('booksIntro');
+  });
+
+  it('앞자리를 아직 모르면 뒤의 것을 세우지 않는다', () => {
+    expect(
+      pickHomeNotice([
+        { key: 'booksIntro', state: 'wait' },
+        { key: 'homeAdd', state: 'show' },
+      ]),
+    ).toBeNull();
+  });
+
+  it('아무것도 안 서면 null 이다', () => {
+    expect(pickHomeNotice([{ key: 'share', state: 'skip' }])).toBeNull();
+    expect(pickHomeNotice([])).toBeNull();
   });
 });

@@ -107,6 +107,17 @@ test.describe('홈 추가 안내를 처음 보는 사람', () => {
   */
   test.use({ showStarterCards: true });
 
+  // 같이 쓰는 가계부 안내가 홈 추가보다 앞에 선다. 여기서는 그것을 닫아 둔 사람으로 연다.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('__ait_storage:card-dismissed-books-intro', '');
+      } catch {
+        /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+      }
+    });
+  });
+
   test('안내가 떠 있을 때 뒤로가기는 미니앱이 아니라 시트를 가져간다', async ({
     appShell,
     home,

@@ -49,7 +49,7 @@ async function seedEnoughRecords(prep: {
 async function seedNoticesDismissed(page: Page): Promise<void> {
   await page.addInitScript(() => {
     try {
-      for (const card of ['home-add', 'home-add-again', 'remind', 'remind-again']) {
+      for (const card of ['home-add', 'home-add-again', 'remind', 'remind-again', 'books-intro']) {
         window.localStorage.setItem(`__ait_storage:card-dismissed-${card}`, '');
       }
     } catch {
@@ -107,17 +107,18 @@ test('별점 카드를 닫으면 닫았다고 남고 다시 뜨지 않는다', a
 
   await home.rating.closeButton.click();
   await expect(home.rating.card).toHaveCount(0);
-  // 별점이 비키면 그 자리에 공유가 다시 선다. 자리를 빌린 것이지 뺏은 것이 아니다.
-  await expect(home.share.card).toBeVisible();
+  // 닫은 그날은 다음 권유를 세우지 않는다. 닫는 손을 「다음 것」 으로 읽지 않는다.
+  await expect(home.share.card).toHaveCount(0);
 
   const asked = await logsNamed(page, 'rating_asked');
   expect(asked.map((log) => log.params.result)).toEqual(['dismissed']);
   // 닫은 사람에게 창이 열릴 일은 없다.
   expect(await reviewsOpened(page)).toBe(0);
 
-  await home.open();
-  await home.waitReady();
+  // 다음 날에는 별점이 비킨 자리에 공유가 다시 선다. 자리를 빌린 것이지 뺏은 것이 아니다.
+  await home.passQuietDay();
   await expect(home.rating.card).toHaveCount(0);
+  await expect(home.share.card).toBeVisible();
 });
 
 test('기본 분류의 이름과 색을 바꾸면 기록 화면까지 그대로 따라간다', async ({
