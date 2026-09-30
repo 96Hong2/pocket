@@ -134,7 +134,7 @@ function ResetForm({ analytics, storage, reset, agreed, onAgreedChange, onDone }
 
   return (
     <div className="reset-sheet">
-      <p className="reset-sheet__lead">지금까지 이 앱에 넣은 것이 전부 사라져요.</p>
+      <p className="reset-sheet__lead">아래 것이 사라져요.</p>
 
       {/* 무엇이 사라지는지 이름으로 적는다. "데이터" 한 단어로는 무엇을 잃는지 모른다. */}
       <ul className="reset-sheet__list">
@@ -148,7 +148,8 @@ function ResetForm({ analytics, storage, reset, agreed, onAgreedChange, onDone }
       </ul>
 
       <p className="reset-sheet__warn">
-        잘못 눌렀을 때를 위해 서버에서 바로 없애지는 않아요. 연령대·성별도 그대로 둬요.
+        잘못 눌렀을 때를 위해 서버에서 바로 없애지는 않아요. 태그, 반복 지출, 같이 쓰는 가계부,
+        이메일 연결, 연령대·성별은 그대로 둬요.
       </p>
 
       <label className="reset-sheet__agree">

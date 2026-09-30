@@ -425,7 +425,7 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
                 >
                   <RowText
                     title="가계부 지우기"
-                    note="멤버 모두의 기록이 사라져요"
+                    note="멤버 모두의 화면에서 기록이 사라져요"
                     noteId={deleteNoteId}
                   />
                 </button>
