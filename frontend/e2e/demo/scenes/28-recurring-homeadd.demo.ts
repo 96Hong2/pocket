@@ -21,6 +21,14 @@ test('57 매달 나가는 돈을 미리 적어 두고, 홈에 앱을 놓는다',
   page,
   recurring,
 }) => {
+  // 같이 쓰는 가계부 안내는 홈 화면 추가보다 앞에 선다. 이 장면은 그것을 닫아 둔 사람이다.
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem('__ait_storage:card-dismissed-books-intro', '');
+    } catch {
+      /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+    }
+  });
   await recurring.open();
   await recurring.waitReady();
   await demo.open('반복 지출', '매달 같은 날 나가는 돈을 그날이나 전날 알려 준다');
@@ -79,9 +87,14 @@ test('57 매달 나가는 돈을 미리 적어 두고, 홈에 앱을 놓는다',
   await home.addToHome.doneButton.click();
   await expect(home.addToHome.sheet).toHaveCount(0);
 
-  await demo.step('✕ 로 닫으면 그 자리를 저녁 알림 카드가 받는다');
+  await demo.step('✕ 로 닫으면 그날은 다른 권유를 쉰다');
   await home.addToHome.closeButton.click();
   await expect(home.addToHome.card).toHaveCount(0);
+  await expect(home.remind.card).toHaveCount(0);
+  await demo.beat(3);
+
+  await demo.step('다음 날 그 자리를 저녁 알림 카드가 받는다');
+  await home.passQuietDay();
   await expect(home.remind.card).toBeVisible();
   await demo.beat(3);
 

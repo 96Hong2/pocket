@@ -9,6 +9,9 @@
  * POCKET_SHOT_DIR=<폴더> node scripts/store-shots.mjs
  * ```
  *
+ * 같이 쓰는 가계부 판(2026-09-30)은 1번과 3번 앞에 `POCKET_SHOT_SET=shared` 를 붙인다.
+ * 비우면 2026-09-25 판이 그대로 나온다.
+ *
  * **자르는 일은 여기서 안 한다.** 어느 카드까지 담을지는 그때그때 화면을 보고 정하는
  * 판단이라, 숫자로 박아 두면 다음 판에서 반드시 어긋난다. 자른 결과의 이름만 약속한다.
  */
@@ -28,6 +31,9 @@ const OUT = resolve(DIR, 'store');
 
 const uri = (buf) => `data:image/png;base64,${buf.toString('base64')}`;
 const crop = (name) => uri(readFileSync(`${CROPS}/${name}.png`));
+
+/** 어느 판을 만드나. 비우면 2026-09-25 판, `shared` 면 같이 쓰는 가계부 판. */
+const SET = process.env.POCKET_SHOT_SET ?? '';
 
 const logo = uri(readFileSync(resolve(HERE, '../public/icons/app-logo-192.png')));
 
@@ -74,6 +80,33 @@ const PAGES = [
   },
 ];
 
+/*
+  같이 쓰는 가계부 판 세 장. 부제에 송금처럼 읽히는 말을 쓰지 않는다. 앱은 나눈 금액만 보여 준다.
+  `crops/` 에 book-home, book-settle, book-join 이 있어야 한다.
+*/
+const SHARED_PAGES = [
+  {
+    file: '1-둘이 쓰는 돈은.png',
+    title: '둘이 쓰는 돈은|같이 적어요',
+    sub: '각자 적은 기록이 한곳에 모이고 누가 적었는지 보여요',
+    shot: 'book-home',
+  },
+  {
+    file: '2-나눌 돈은.png',
+    title: '나눌 돈은|알아서 계산해요',
+    sub: '둘이면 반반, 여럿이면 인원수대로 나눠 보여줘요',
+    shot: 'book-settle',
+  },
+  {
+    file: '3-링크 하나로.png',
+    title: '링크 하나로|같이 써요',
+    sub: '받은 사람은 가입 없이 이름만 적으면 돼요',
+    shot: 'book-join',
+  },
+];
+
+const LIST = SET === 'shared' ? SHARED_PAGES : PAGES;
+
 mkdirSync(OUT, { recursive: true });
 
 /*
@@ -115,7 +148,7 @@ async function toConsoleSize(buffer) {
   return Buffer.from(shrunk, 'base64');
 }
 
-for (const item of PAGES) {
+for (const item of LIST) {
   const params = new URLSearchParams({
     layout: item.layout ?? 'one',
     title: item.title,

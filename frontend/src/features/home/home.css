@@ -174,6 +174,22 @@
     box-shadow: var(--shadow-card);
   }
 
+  /* ✕ 를 링크 밖 형제로 둔다. 링크 안에 두면 닫으려던 손이 결산을 연다. */
+  .home-closing-wrap {
+    position: relative;
+  }
+
+  .home-closing-wrap > .home-closing {
+    padding-right: 48px;
+  }
+
+  .home-closing-wrap > .pk-card-close {
+    position: absolute;
+    top: 16px;
+    right: 4px;
+    margin: 0;
+  }
+
   .home-closing__title {
     font-size: var(--text-15);
     font-weight: var(--font-weight-bold);
@@ -368,6 +384,14 @@
   .home-card__text strong {
     color: var(--color-sage-700);
     font-weight: var(--font-weight-bold);
+  }
+
+  /*
+    ✕ 는 오른쪽 위에 둔다. 글이 세 줄이 되는 카드(같이 쓰는 가계부 안내, 저녁 알림)에서
+    가운데 서면 닫는 자리로 안 읽혔다. 첫 줄 높이에 맞춘다.
+  */
+  .home-card__head > .pk-card-close {
+    align-self: flex-start;
   }
 
   /* 「예산 정하기」 아래 한 단 낮게. 같은 무게로 두면 무엇부터 할지 정해지지 않는다. */

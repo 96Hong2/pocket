@@ -166,9 +166,8 @@ test('복구 카드를 닫으면 사라지고, 다시 열어도 안 뜬다', asy
   // 카드만 사라지고 나머지는 그대로다. 닫기가 홈을 망가뜨리지 않는다.
   await expect(home.recordButton).toBeVisible();
 
-  // 표시가 기기에 남는다. 다시 들어와도 같은 상황이면 안 뜬다.
-  await home.open();
-  await home.waitReady();
+  // 표시가 기기에 남는다. 닫은 날이 지나 다시 들어와도 같은 상황이면 안 뜬다.
+  await home.passQuietDay();
   await expect(home.recovery.card).toHaveCount(0);
 });
 
@@ -186,7 +185,10 @@ test('닫은 뒤 다시 적고 또 비면 복구 카드가 새로 뜬다', async
   */
   await prep.addExpense({ amount: 5_000, daysAgo: 3 });
 
-  await home.open();
-  await home.waitReady();
+  /*
+    실제로는 다시 적고 또 사흘을 비운 뒤라 닫은 날과 다른 날이다. 권유를 닫은 날은 다른
+    권유를 쉬므로(`card-quiet-day`) 그 표만 걷고 연다.
+  */
+  await home.passQuietDay();
   await expect(home.recovery.card).toBeVisible();
 });

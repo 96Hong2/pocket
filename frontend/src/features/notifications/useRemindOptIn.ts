@@ -3,7 +3,10 @@ import { useState } from 'react';
 import { useBridge } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { useSaveNotificationSettings } from '../../shared/api';
+import { toLedgerDate } from '../../shared/lib/format';
 import { BridgeError, type MiniAppBridge } from '../../shared/toss';
+
+import { markRemindClosed } from './remindCadence';
 
 /**
  * 알림을 켜는 절차가 두 자리에 있다. 알림 설정 화면과 홈의 권유 카드다.
@@ -123,6 +126,11 @@ export function useRemindOptIn(where: RemindOptInWhere): {
   function turnOff(): void {
     setBlocker(null);
     save.mutate({ is_enabled: false });
+    /*
+      스스로 끈 사람에게 홈 카드가 다음 날 「켜 볼까요?」 라고 하면 방금 한 선택을 무시하는 것이다.
+      가장 긴 간격부터 센다. 이 화면은 기록 건수를 몰라 날짜만 본다.
+    */
+    void markRemindClosed(bridge.storage, toLedgerDate(new Date()), null, true);
   }
 
   return {

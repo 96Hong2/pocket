@@ -15,6 +15,9 @@ import type { KeyValueStore } from '../toss';
 /**
  * 닫을 수 있는 카드. 키가 겹치지 않게 여기 한 곳에서 이름을 정한다.
  *
+ * `remind`·`remind-again` 은 이제 새로 적지 않는다. 저녁 알림은 닫을수록 뜸해지는 간격으로
+ * 바뀌었고(`features/notifications/remindCadence.ts`), 두 키는 그리로 옮길 때 한 번 읽힌다.
+ *
  * `-again` 이 붙은 둘은 **두 번째 기회**다. 첫 기록 때 닫은 사람에게 다섯 번째 기록에서
  * 한 번만 더 보여 준다. 표(mark)로 가르지 않고 키를 따로 둔 이유는, 표는 같은지 다른지만
  * 보기 때문에 「1회차에서 닫았다」 와 「5회차에서 닫았다」 를 함께 기억하지 못해서다.
@@ -27,7 +30,8 @@ export type DismissibleCard =
   | 'home-add-again'
   | 'remind'
   | 'remind-again'
-  | 'rating-ask';
+  | 'rating-ask'
+  | 'books-intro';
 
 function keyFor(card: DismissibleCard): string {
   return `card-dismissed-${card}`;
@@ -64,5 +68,29 @@ export async function markCardDismissed(
     await store.set(keyFor(card), mark);
   } catch {
     /* 저장소가 막힌 환경에서도 화면은 그대로 돈다. */
+  }
+}
+
+const QUIET_KEY = 'card-quiet-day';
+
+/**
+ * 권유 카드를 닫은 날. 그날은 다른 권유를 새로 세우지 않는다.
+ *
+ * 카드는 한 번에 하나만 서는데, 하나를 닫으면 순서상 다음 카드가 그 자리에 바로 올라왔다.
+ * 닫는 손을 「그만 좀」 으로 읽지 않고 「다음 것」 으로 읽은 셈이다. 다음 권유는 다음 날로 미룬다.
+ */
+export async function readQuietDay(store: KeyValueStore): Promise<string | null> {
+  try {
+    return await store.get(QUIET_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export async function markQuietDay(store: KeyValueStore, day: string): Promise<void> {
+  try {
+    await store.set(QUIET_KEY, day);
+  } catch {
+    /* 못 적으면 다음 카드가 오늘 한 번 더 설 뿐이다. */
   }
 }

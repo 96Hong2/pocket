@@ -19,6 +19,8 @@ import {
 export function useCardDismiss(
   card: DismissibleCard,
   mark: string,
+  /** 이 값이 바뀌면 다시 읽는다. 다른 화면이 이 표를 적는 카드가 쓴다. */
+  recheck?: unknown,
 ): { hidden: boolean; dismiss: () => void } {
   const bridge = useBridge();
   const [dismissed, setDismissed] = useState<boolean | null>(null);
@@ -35,7 +37,7 @@ export function useCardDismiss(
     return () => {
       alive = false;
     };
-  }, [bridge, card, mark]);
+  }, [bridge, card, mark, recheck]);
 
   return {
     hidden: dismissed === true,

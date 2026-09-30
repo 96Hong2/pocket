@@ -70,7 +70,7 @@ test('건너뛰고 첫 기록을 마쳐도 홈에 두라는 말을 또 듣지 �
   await expect(home.addToHome.sheet).toHaveCount(0);
 });
 
-test('끝까지 보고 시작해도 첫 기록 뒤에 같은 말을 또 듣지 않는다', async ({
+test('끝까지 보고 시작해도 첫 기록 뒤에 홈 추가 시트가 스스로 열리지 않는다', async ({
   home,
   onboarding,
   recordSheet,
@@ -79,8 +79,8 @@ test('끝까지 보고 시작해도 첫 기록 뒤에 같은 말을 또 듣지 �
   await onboarding.nextButton.click();
   await onboarding.nextButton.click();
 
-  // 이 장이 홈 화면에 두는 법을 이미 말한다. 첫 기록 뒤에 또 하면 안내가 아니라 잔소리다.
-  await expect(onboarding.title('홈 화면에 두면 더 빨라요')).toBeVisible();
+  // 셋째 장은 같이 쓰는 가계부다. 홈 화면 추가는 시트가 스스로 열리지 않고 홈 카드가 맡는다.
+  await expect(onboarding.title('같이 쓰는 돈은 같이 적어요')).toBeVisible();
   await onboarding.nextButton.click();
   await expect(onboarding.title('마지막으로 두 가지만')).toBeVisible();
   await onboarding.startButton.click();

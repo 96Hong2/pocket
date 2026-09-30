@@ -341,7 +341,7 @@ function silenceStarterCards(): void {
     거기서 던지면 그 오류가 콘솔 감시에 잡혀 관계없는 테스트가 깨진다(플랫폼 엣지 넷이 그랬다).
   */
   try {
-    for (const card of ['home-add', 'home-add-again', 'remind', 'remind-again']) {
+    for (const card of ['home-add', 'home-add-again', 'remind', 'remind-again', 'books-intro']) {
       window.localStorage.setItem(`__ait_storage:card-dismissed-${card}`, '');
     }
   } catch {

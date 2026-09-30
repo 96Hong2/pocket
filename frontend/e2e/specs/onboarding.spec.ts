@@ -27,7 +27,9 @@ test('처음 열면 네 장을 지나 바로 시작한다', async ({ home, onboa
   await expect(page.getByText('분류·태그별로 어디에 썼나')).toBeVisible();
   await onboarding.nextButton.click();
 
-  await expect(onboarding.title('홈 화면에 두면 더 빨라요')).toBeVisible();
+  // 셋째 장은 같이 쓰는 가계부다. 홈 화면 추가는 첫 기록 뒤 홈 카드가 맡는다.
+  await expect(onboarding.title('같이 쓰는 돈은 같이 적어요')).toBeVisible();
+  await expect(page.getByText('같이 쓰는 가계부', { exact: true })).toBeVisible();
   await onboarding.nextButton.click();
 
   // 마지막 장에서 두 가지를 묻는다. 여기서는 「다음」이 아니라 「시작하기」다.

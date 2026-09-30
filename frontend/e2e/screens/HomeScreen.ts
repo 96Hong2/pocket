@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 import { ROUTES } from '../../src/app/router/routes';
-import { withTopic } from '../../src/shared/lib/format';
+import { shiftDay, toLedgerDate, withTopic } from '../../src/shared/lib/format';
 import { TEST_IDS } from '../../src/shared/testIds';
 
 import { EditSheetArea } from './CalendarScreen';
@@ -37,6 +37,8 @@ export class HomeScreen {
   readonly addToHome: AddToHomeArea;
   /** 홈 화면 추가 바로 아래에 따로 서는 저녁 알림 카드. */
   readonly remind: RemindCardArea;
+  /** 같이 쓰는 가계부가 생겼다는 한 번뿐인 안내. 가계부가 없는 사람에게만 뜬다. */
+  readonly booksIntro: BooksIntroArea;
   /** 며칠 비웠을 때 뜨는 복귀 카드. */
   readonly recovery: RecoveryCard;
   /** 기록 버튼 아래 공유 권유 카드. 몇 번 적어 본 사람에게만 뜬다. */
@@ -65,6 +67,7 @@ export class HomeScreen {
     this.ads = new AdArea(page);
     this.addToHome = new AddToHomeArea(page);
     this.remind = new RemindCardArea(page);
+    this.booksIntro = new BooksIntroArea(page);
     this.recovery = new RecoveryCard(page);
     this.share = new HomeShareCard(page);
     this.rating = new HomeRatingCard(page);
@@ -77,6 +80,56 @@ export class HomeScreen {
 
   async open(): Promise<void> {
     await this.page.goto(ROUTES.home);
+  }
+
+  /**
+   * 하루가 지난 것으로 두고 다시 연다.
+   *
+   * 권유 카드를 하나 닫으면 그날은 다음 권유가 안 선다(`card-quiet-day`). 시간을 앞당길 수
+   * 없어 그 표를 어제로 옮긴다. 서버가 세는 날 수(며칠 비웠나)는 그대로다.
+   */
+  async passQuietDay(): Promise<void> {
+    // 지우지 않고 어제로 적는다. 지우면 「날이 바뀌면 풀린다」 가 아니라 「표가 없다」 를 보게 된다.
+    const yesterday = shiftDay(toLedgerDate(new Date()), -1);
+    await this.page.evaluate((day) => {
+      window.localStorage.setItem('__ait_storage:card-quiet-day', day);
+    }, yesterday);
+    await this.page.reload();
+    await this.waitReady();
+  }
+
+  /**
+   * 저녁 알림 카드를 마지막으로 닫은 날을 며칠 전으로 옮기고 다시 연다.
+   *
+   * 닫을수록 다시 묻는 간격이 길어진다(`remindCadence.ts`). 며칠을 기다릴 수 없어 저장된
+   * 닫은 날만 옮긴다. 닫은 횟수와 그때의 기록 수는 앱이 적은 그대로 둔다.
+   */
+  async moveRemindClosedDaysAgo(days: number): Promise<void> {
+    const day = shiftDay(toLedgerDate(new Date()), -days);
+    const yesterday = shiftDay(toLedgerDate(new Date()), -1);
+    await this.page.evaluate(([closedOn, quietDay]) => {
+      const key = '__ait_storage:remind-nudge';
+      const saved = JSON.parse(window.localStorage.getItem(key) ?? 'null') as {
+        closedOn: string;
+      } | null;
+      if (saved == null) throw new Error('저녁 알림을 닫은 기록이 없어요.');
+      saved.closedOn = closedOn;
+      window.localStorage.setItem(key, JSON.stringify(saved));
+      window.localStorage.setItem('__ait_storage:card-quiet-day', quietDay);
+    }, [day, yesterday] as const);
+    await this.page.reload();
+    await this.waitReady();
+  }
+
+  /** 저장된 저녁 알림 카드 상태. 닫은 적이 없으면 `null`. */
+  async remindNudgeState(): Promise<{
+    closes: number;
+    closedOn: string;
+    recordsAtClose: number | null;
+  } | null> {
+    return this.page.evaluate(() =>
+      JSON.parse(window.localStorage.getItem('__ait_storage:remind-nudge') ?? 'null'),
+    );
   }
 
   /**
@@ -706,6 +759,27 @@ class AddToHomeArea {
  *
  * 버튼 하나로 저녁 8시가 정해진다. 시각을 고르게 하면 그 자리에서 고민이 시작된다.
  */
+class BooksIntroArea {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  get card(): Locator {
+    return this.page.getByRole('group', { name: '같이 쓰는 가계부 안내', exact: true });
+  }
+
+  /** 누르면 같이 쓰는 가계부 만들기 화면으로 바로 간다. */
+  get createButton(): Locator {
+    return this.card.getByRole('button', { name: '같이 쓰는 가계부 만들기', exact: true });
+  }
+
+  get closeButton(): Locator {
+    return this.card.getByRole('button', { name: '같이 쓰는 가계부 안내 닫기', exact: true });
+  }
+}
+
 class RemindCardArea {
   private readonly page: Page;
 

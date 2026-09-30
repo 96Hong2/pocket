@@ -147,7 +147,9 @@ test('한 번에 한 장만 서고, 적으면 다음 것이 올라온다', async
  * 그건 권유가 아니라 오늘 실제로 돈이 빠져나간다는 사실이다. 그 아래 권유가 둘씩 붙으면
  * 정작 급한 것이 안 읽힌다. 카드가 셋 쌓인 화면을 직접 찍어 보고 정했다.
  */
-test('곧 나갈 돈이 있으면 홈 화면 추가 권유는 비켜 준다', async ({ home, recurring }) => {
+test('곧 나갈 돈이 있으면 홈 화면 추가 권유는 비켜 준다', async ({ home, prep, recurring }) => {
+  // 기록이 하나 있는 사람이다. 없으면 권유가 애초에 안 서서 비켜 줬는지 알 수 없다.
+  await prep.addTransaction({ amount: 12000 });
   await recurring.open();
   await recurring.waitReady();
   await recurring.create({ name: '넷플릭스', amount: 17000, day: today() });
@@ -156,12 +158,17 @@ test('곧 나갈 돈이 있으면 홈 화면 추가 권유는 비켜 준다', as
   await home.waitReady();
 
   await expect(home.recurring.card).toBeVisible();
+  await expect(home.booksIntro.card).toHaveCount(0);
   await expect(home.addToHome.card).toHaveCount(0);
 
-  // 그 일을 끝내면 그때 권유가 올라온다.
+  /*
+    그 일을 끝내면 그때 권유가 올라온다. 순서상 맨 앞인 같이 쓰는 가계부 안내 하나만 선다.
+    적어서 걷은 것은 권유를 닫은 것이 아니라 그날도 쉬지 않는다.
+  */
   await home.recurring.recordButton.click();
   await expect(home.recurring.card).toHaveCount(0);
-  await expect(home.addToHome.card).toBeVisible();
+  await expect(home.booksIntro.card).toBeVisible();
+  await expect(home.addToHome.card).toHaveCount(0);
 });
 
 /**

@@ -165,3 +165,40 @@ export function resolveHeroLayout(hero: HomeHero | undefined, hasBudget: boolean
       return hasBudget ? 'remainingBudget' : 'incomeAndSpent';
   }
 }
+
+/** 홈에 스스로 서는 안내. 서는 순서는 `HomePage` 가 넘기는 배열 순서다. */
+export type HomeNotice =
+  | 'recovery'
+  | 'closing'
+  | 'booksIntro'
+  | 'homeAdd'
+  | 'remind'
+  | 'budget'
+  | 'rating'
+  | 'share';
+
+/**
+ * 한 자리의 지금 상태.
+ *
+ * - show  설 조건이 다 맞았다
+ * - wait  설지 아직 모른다(조회나 기기 저장을 읽는 중). 뒤의 것은 기다린다
+ * - skip  안 선다
+ */
+export interface NoticeSlot {
+  key: HomeNotice;
+  state: 'show' | 'wait' | 'skip';
+}
+
+/**
+ * 순서대로 보고 **처음 서는 하나만** 고른다.
+ *
+ * 모르는 자리가 먼저 나오면 아무것도 고르지 않는다. 뒤의 카드가 먼저 섰다가 앞의 카드로
+ * 바뀌면 누르려던 자리가 손가락 밑에서 바뀐다. 한 박자 늦게 서는 쪽이 낫다.
+ */
+export function pickHomeNotice(slots: NoticeSlot[]): HomeNotice | null {
+  for (const slot of slots) {
+    if (slot.state === 'show') return slot.key;
+    if (slot.state === 'wait') return null;
+  }
+  return null;
+}
