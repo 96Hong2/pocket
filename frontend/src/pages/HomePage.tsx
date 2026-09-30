@@ -39,6 +39,7 @@ import {
   useBudget,
   useCategories,
   useGoal,
+  useMe,
   useNotificationSettings,
   usePreferences,
   useRecurringDue,
@@ -140,11 +141,20 @@ function HomeContent({
   const notificationSettings = useNotificationSettings();
   // 방금 켠 카드는 「알려 드릴게요」 를 말하는 동안 제자리에 있어야 한다. 켜진 설정이 먼저 와도 걷지 않는다.
   const [remindJustOn, setRemindJustOn] = useState(false);
+  // 토스 동의를 거절했다. 왜 못 켰는지 적힌 줄을 읽을 수 있게 이번 방문 동안은 제자리에 둔다.
+  const [remindDeclined, setRemindDeclined] = useState(false);
   // 한 번뿐인 새 기능 안내. 만들거나 들어간 가계부가 있으면 처음부터 안 뜬다.
-  const booksIntro = useCardDismiss('books-intro', '');
+  /*
+    처음 안내에서 같이 쓰는 가계부 장을 본 사람은 안내가 이 표를 적는다. 홈은 안내 뒤에 이미
+    떠 있으므로 안내가 걷힐 때 다시 읽는다.
+  */
+  const onboardingShowing = useOnboardingShowing();
+  const booksIntro = useCardDismiss('books-intro', '', onboardingShowing);
   const booksEnabled = useSharedBooksEnabled();
   const books = useBooks();
-  const closingMonth = useClosingEntry();
+  const closingEntry = useClosingEntry();
+  const closingMonth = closingEntry.month;
+  const me = useMe();
   // 오늘 권유를 하나 닫았으면 다른 권유는 내일로 미룬다.
   const nudgeQuiet = useNudgeQuiet();
 
@@ -176,16 +186,15 @@ function HomeContent({
     무엇을 눌러야 하는 화면인지 읽히지 않는다. 그때 「곧 나갈 돈」 과 지난달 결산 안내는
     셈 밖에 있었는데, 이제 둘도 센다. 사실을 알리는 것도 알림이고, 둘이 함께 서면 같은 문제다.
 
-    순서: 곧 나갈 돈 → 지난달 결산 → 밀린 내역 → 같이 쓰는 가계부 → 홈 화면 추가 → 저녁 알림
+    순서: 곧 나갈 돈 → 밀린 내역 → 지난달 결산 → 같이 쓰는 가계부 → 홈 화면 추가 → 저녁 알림
     → 예산 제안 → 별점 → 공유.
 
     - **곧 나갈 돈이 맨 앞이다.** 오늘이나 내일 실제로 돈이 빠져나가는 일이고, 그 사람이
       걸어 둔 것에만 이틀 뜬다. 그 이틀은 다른 안내가 비켜 준다.
-    - **지난달 결산은 달 초 이레만 선다.** 한 번 열어 보면 사라지고, 기다려 주면 그 달은 끝이다.
-      밀린 내역은 다시 적을 때까지 기다려 준다. 달 초에 며칠 비운 사람은 결산을 먼저 보고,
-      돌아오면 밀린 내역이 선다.
     - **밀린 내역이 그다음이다.** 며칠 비운 사람이 지금 이 화면에 온 이유가 그것이다.
       나머지는 다음에 물어도 되지만 이 사람은 지금 이어 붙이지 않으면 다시 안 온다.
+    - **지난달 결산은 달 초 이레만 선다.** 기다리는 카드들보다 앞이다. 열어 보거나 ✕ 로 닫으면
+      그 달은 끝이다. 닫을 길이 없으면 이레 동안 다른 안내를 모두 막는다.
     - 같이 쓰는 가계부 안내는 한 번뿐인 새 기능 소식이다. 이미 한 번씩 본 권유보다 앞에 선다.
     - 홈 화면 추가와 저녁 알림은 한 번에 하나씩 묻는다. 홈 화면 추가는 두 번(`secondChance`),
       저녁 알림은 켤 때까지 닫을수록 뜸하게 묻는다.
@@ -211,7 +220,8 @@ function HomeContent({
     뒤의 카드가 먼저 섰다가 앞의 카드로 바뀌면 누르려던 자리가 바뀐다.
   */
   const hasRecords = budget.data?.has_any_transaction === true;
-  const booksIntroUnknown = booksEnabled && hasRecords && books.isPending;
+  // 기능 스위치(내 계정 응답)를 모르는 동안도 기다린다. 모를 때는 꺼진 것으로 읽힌다.
+  const booksIntroUnknown = hasRecords && (me.isPending || (booksEnabled && books.isPending));
   const booksIntroEligible =
     booksEnabled && books.data != null && books.data.items.length === 0 && hasRecords;
   const remindSupported = bridge.supports('notification');
@@ -233,11 +243,11 @@ function HomeContent({
   const notice = dueSoon
     ? null
     : pickHomeNotice([
-        { key: 'closing', state: slot(closingMonth != null) },
         {
           key: 'recovery',
           state: slot(view?.mode === 'recovery' && budget.data != null && !recovery.hidden),
         },
+        { key: 'closing', state: slot(closingMonth != null, closingEntry.unknown) },
         {
           key: 'booksIntro',
           state: slot(
@@ -246,8 +256,11 @@ function HomeContent({
           ),
         },
         { key: 'homeAdd', state: slot(view?.showHomeAdd === true && !homeAddCard.hidden) },
-        // 방금 켰으면 오늘 닫은 것이 있어도 「알려 드릴게요」 는 제자리에 둔다.
-        { key: 'remind', state: remindJustOn ? 'show' : slot(remindEligible, remindUnknown) },
+        // 방금 켰거나 거절했으면 그 답을 읽는 동안은 제자리에 둔다.
+        {
+          key: 'remind',
+          state: remindJustOn || remindDeclined ? 'show' : slot(remindEligible, remindUnknown),
+        },
         {
           key: 'budget',
           state: slot(view?.showBudgetSuggestion === true && !budgetSuggest.hidden),
@@ -350,8 +363,22 @@ function HomeContent({
       {showHomeAdd ? <AddToHomeCard onDismiss={closeNudge(homeAddCard.dismiss)} /> : null}
       {showRemind ? (
         <RemindCard
-          onDismiss={closeNudge(remindNudge.close)}
-          onDecline={remindNudge.decline}
+          onDismiss={() => {
+            /*
+              켜고 나서 「알려 드릴게요」 를 닫은 것은 닫은 횟수로 세지 않는다.
+              거절한 뒤 닫은 것은 거절할 때 이미 한 번 셌다(`useRemindNudge` 가 두 번 세지 않는다).
+            */
+            if (!remindJustOn) remindNudge.close();
+            setRemindJustOn(false);
+            setRemindDeclined(false);
+            nudgeQuiet.hush();
+          }}
+          onDecline={() => {
+            // 거절도 대답이다. ✕ 로 닫은 것과 같이 그날은 다른 권유를 쉰다.
+            remindNudge.decline();
+            setRemindDeclined(true);
+            nudgeQuiet.hush();
+          }}
           onTurnedOn={() => setRemindJustOn(true)}
         />
       ) : null}
@@ -362,7 +389,9 @@ function HomeContent({
         지난달 결산 안내. 달이 바뀐 뒤 며칠 동안, 지난달에 기록이 있고 아직 안 봤을 때만
         스스로 나타난다. 기록 버튼 아래에 두어 오늘 할 일을 가리지 않는다.
       */}
-      {showClosing && closingMonth != null ? <ClosingEntryCard month={closingMonth} /> : null}
+      {showClosing && closingMonth != null ? (
+        <ClosingEntryCard month={closingMonth} onDismiss={closeNudge(closingEntry.dismiss)} />
+      ) : null}
 
       {showBudgetSuggestion ? (
         <BudgetSuggestCard onDismiss={closeNudge(budgetSuggest.dismiss)} />

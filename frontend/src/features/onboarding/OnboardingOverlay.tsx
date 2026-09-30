@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 
-import { useOverlayBackClose } from '../../app/providers';
+import { useBridge, useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { useSaveProfile, type AgeBand, type Gender } from '../../shared/api';
+import { markCardDismissed } from '../../shared/lib/cardDismiss';
 import { cx } from '../../shared/lib/cx';
 import { Button, Select, iconUrl, type IconName } from '../../shared/ui';
 import { AGE_BANDS, GENDERS } from '../account';
@@ -61,7 +62,7 @@ const SLIDES: Slide[] = [
     title: '같이 쓰는 돈은 같이 적어요',
     body: (
       <>
-        연인, 가족과 <b>관리</b> → <b>같이 쓰는 가계부</b>
+        <b>관리</b> → <b>같이 쓰는 가계부</b>에서 초대해요
       </>
     ),
   },
@@ -95,15 +96,28 @@ const SLIDES: Slide[] = [
  */
 export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
   const analytics = useAnalytics();
+  const bridge = useBridge();
   const saveProfile = useSaveProfile();
   const [index, setIndex] = useState(0);
+  // 어디까지 넘겨 봤나. 앞 장으로 돌아가도 본 것은 본 것이다.
+  const [reached, setReached] = useState(0);
   const [ageBand, setAgeBand] = useState<AgeBand | null>(null);
   const [gender, setGender] = useState<Gender | null>(null);
   const slide = SLIDES[index];
   const last = index === SLIDES.length - 1;
 
+  // 표를 적는 동안 두 번 눌려도 한 번만 끝낸다.
+  const finished = useRef(false);
+
   function finish(result: 'done' | 'skipped'): void {
+    if (finished.current) return;
+    finished.current = true;
     analytics.log(EVENTS.onboardingResult, { result, slide: slide.key }, { kind: 'click' });
+    /*
+      같이 쓰는 가계부 장을 본 사람에게는 홈의 같은 안내를 세우지 않는다. 첫 기록 뒤 그 자리는
+      홈 화면 추가 카드의 몫이다(이 안내에서 그 장을 뺀 이유). 못 보고 건너뛴 사람에게는 선다.
+    */
+    const sawBooks = reached >= SLIDES.findIndex((item) => item.key === 'books');
     /*
       고른 것이 있으면 보낸다. **답을 기다리지 않는다.**
       이 값 때문에 홈이 늦게 열리면 안 된다.
@@ -123,7 +137,12 @@ export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
         : { result: 'skipped', where: 'onboarding' },
       { kind: 'click' },
     );
-    onDone();
+    // 표를 다 적은 뒤에 걷는다. 걷히는 순간 홈이 그 표를 다시 읽는다.
+    if (sawBooks) {
+      void markCardDismissed(bridge.storage, 'books-intro', '').finally(onDone);
+    } else {
+      onDone();
+    }
   }
 
   /*
@@ -205,6 +224,7 @@ export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
               return;
             }
             setIndex((current) => current + 1);
+            setReached((current) => Math.max(current, index + 1));
           }}
         >
           {last ? '시작하기' : '다음'}

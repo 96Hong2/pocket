@@ -86,10 +86,14 @@ export class HomeScreen {
    * 하루가 지난 것으로 두고 다시 연다.
    *
    * 권유 카드를 하나 닫으면 그날은 다음 권유가 안 선다(`card-quiet-day`). 시간을 앞당길 수
-   * 없어 그 표만 걷는다. 서버가 세는 날 수(며칠 비웠나)는 그대로다.
+   * 없어 그 표를 어제로 옮긴다. 서버가 세는 날 수(며칠 비웠나)는 그대로다.
    */
   async passQuietDay(): Promise<void> {
-    await this.page.evaluate(() => window.localStorage.removeItem('__ait_storage:card-quiet-day'));
+    // 지우지 않고 어제로 적는다. 지우면 「날이 바뀌면 풀린다」 가 아니라 「표가 없다」 를 보게 된다.
+    const yesterday = shiftDay(toLedgerDate(new Date()), -1);
+    await this.page.evaluate((day) => {
+      window.localStorage.setItem('__ait_storage:card-quiet-day', day);
+    }, yesterday);
     await this.page.reload();
     await this.waitReady();
   }
@@ -102,7 +106,8 @@ export class HomeScreen {
    */
   async moveRemindClosedDaysAgo(days: number): Promise<void> {
     const day = shiftDay(toLedgerDate(new Date()), -days);
-    await this.page.evaluate((closedOn) => {
+    const yesterday = shiftDay(toLedgerDate(new Date()), -1);
+    await this.page.evaluate(([closedOn, quietDay]) => {
       const key = '__ait_storage:remind-nudge';
       const saved = JSON.parse(window.localStorage.getItem(key) ?? 'null') as {
         closedOn: string;
@@ -110,8 +115,8 @@ export class HomeScreen {
       if (saved == null) throw new Error('저녁 알림을 닫은 기록이 없어요.');
       saved.closedOn = closedOn;
       window.localStorage.setItem(key, JSON.stringify(saved));
-      window.localStorage.removeItem('__ait_storage:card-quiet-day');
-    }, day);
+      window.localStorage.setItem('__ait_storage:card-quiet-day', quietDay);
+    }, [day, yesterday] as const);
     await this.page.reload();
     await this.waitReady();
   }

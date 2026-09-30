@@ -1,3 +1,4 @@
+import { forceAgreementResult } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
 
 /*
@@ -98,7 +99,7 @@ test('기록이 이미 있는 채로 열어도 카드가 선다', async ({ home,
   await expect(home.addToHome.card).toBeVisible();
 });
 
-test('닫으면 다시 들어와도 뜨지 않는다', async ({ home, page, prep }) => {
+test('닫으면 다시 들어와도 뜨지 않는다', async ({ home, prep }) => {
   await prep.addTransaction({ amount: 12000 });
   await home.open();
   await home.waitReady();
@@ -107,8 +108,9 @@ test('닫으면 다시 들어와도 뜨지 않는다', async ({ home, page, prep
   await home.addToHome.closeButton.click();
   await expect(home.addToHome.card).toHaveCount(0);
 
-  await page.reload();
-  await home.waitReady();
+  // 닫은 날이 지나도 그대로다. 다음 순서인 저녁 알림이 서야 판정이 끝난 것이다.
+  await home.passQuietDay();
+  await expect(home.remind.card).toBeVisible();
   await expect(home.addToHome.card).toHaveCount(0);
 });
 
@@ -154,6 +156,12 @@ test('카드에서 바로 저녁 8시 알림이 켜진다', async ({ home, notif
   // 켠 그 자리에서 답한다. 카드가 말없이 사라지면 눌린 것인지 알 수 없다.
   await expect(home.remind.card).toContainText('저녁 8시에 알려 드릴게요');
   await expect(home.remind.turnOnButton).toHaveCount(0);
+
+  await test.step('답을 읽고 ✕ 를 누르면 닫히고, 닫은 횟수로 세지 않는다', async () => {
+    await home.remind.closeButton.click();
+    await expect(home.remind.card).toHaveCount(0);
+    expect(await home.remindNudgeState()).toBeNull();
+  });
 
   await test.step('알림 설정에도 그대로 켜져 있다', async () => {
     await notifications.open();
@@ -232,7 +240,7 @@ test('이미 켜 둔 사람에게는 알림 카드가 안 뜬다', async ({ home
  * 「아직 모르겠다」 에 가깝다. 다섯 번을 적은 사람은 계속 쓰기로 한 사람이다.
  * **딱 한 번 더 묻고**, 거기서 또 닫으면 그게 대답이다.
  */
-test('홈 추가는 닫았어도 다섯 번째 기록에서 한 번 더 뜬다', async ({ home, page, prep }) => {
+test('홈 추가는 닫았어도 다섯 번째 기록에서 한 번 더 뜬다', async ({ home, prep }) => {
   await prep.addTransaction({ amount: 12000 });
   await home.open();
   await home.waitReady();
@@ -252,8 +260,8 @@ test('홈 추가는 닫았어도 다섯 번째 기록에서 한 번 더 뜬다',
 
   await test.step('여기서 닫으면 그게 대답이다', async () => {
     await home.addToHome.closeButton.click();
-    await page.reload();
-    await home.waitReady();
+    await home.passQuietDay();
+    await expect(home.remind.card).toBeVisible();
     await expect(home.addToHome.card).toHaveCount(0);
   });
 });
@@ -287,6 +295,8 @@ test('저녁 알림은 닫을수록 다시 묻는 간격이 길어진다', async
 
   await test.step('사흘이 지나도 그 사이에 안 적었으면 안 묻는다', async () => {
     await home.moveRemindClosedDaysAgo(3);
+    // 알림 자리를 건너 다음 순서(예산 제안)가 서야 판정이 끝난 것이다.
+    await expect(home.budget.suggestCard).toBeVisible();
     await expect(home.remind.card).toHaveCount(0);
   });
 
@@ -296,6 +306,7 @@ test('저녁 알림은 닫을수록 다시 묻는 간격이 길어진다', async
 
   await test.step('이틀째에는 세 번 적었어도 아직이다', async () => {
     await home.moveRemindClosedDaysAgo(2);
+    await expect(home.budget.suggestCard).toBeVisible();
     await expect(home.remind.card).toHaveCount(0);
   });
 
@@ -312,10 +323,46 @@ test('저녁 알림은 닫을수록 다시 묻는 간격이 길어진다', async
 
   await test.step('두 번 닫은 사람은 이레를 기다린다', async () => {
     await home.moveRemindClosedDaysAgo(6);
+    await expect(home.budget.suggestCard).toBeVisible();
     await expect(home.remind.card).toHaveCount(0);
     await home.moveRemindClosedDaysAgo(7);
     await expect(home.remind.card).toBeVisible();
   });
+});
+
+/**
+ * 토스 알림 동의를 거절한 것도 대답이다.
+ *
+ * 한 번 닫은 것으로 세어 다시 묻는 간격이 시작된다. 카드는 왜 못 켰는지 적힌 줄을 읽을 수
+ * 있게 이번 방문 동안 제자리에 있고, 그 뒤 ✕ 를 눌러도 두 번 세지 않는다.
+ */
+test('알림 동의를 거절하면 한 번 닫은 것으로 세고 카드는 이유를 보여 준다', async ({
+  home,
+  page,
+  prep,
+}) => {
+  await page.addInitScript(() => {
+    try {
+      for (const card of ['home-add', 'home-add-again']) {
+        window.localStorage.setItem(`__ait_storage:card-dismissed-${card}`, '');
+      }
+    } catch {
+      /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+    }
+  });
+  await forceAgreementResult('agreementRejected')(page);
+  await prep.addTransaction({ amount: 12000 });
+  await home.open();
+  await home.waitReady();
+
+  await home.remind.turnOnButton.click();
+  await expect(home.remind.card).toContainText('토스 알림 동의를 하지 않아');
+  await expect(home.remind.turnOnButton).toBeDisabled();
+  await expect.poll(() => home.remindNudgeState()).toMatchObject({ closes: 1 });
+
+  await home.remind.closeButton.click();
+  await expect(home.remind.card).toHaveCount(0);
+  expect(await home.remindNudgeState()).toMatchObject({ closes: 1 });
 });
 
 test('한 번을 놓쳐도 앱 설정에서 같은 안내를 연다', async ({ page, settings }) => {

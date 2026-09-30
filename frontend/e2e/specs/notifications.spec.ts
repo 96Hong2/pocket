@@ -117,6 +117,20 @@ test('켜는 그 순간에만 동의를 묻고, 정한 시각이 다시 열어�
     await expect(notifications.timeInput).toBeDisabled();
     expect(agreements(), '끄는데 동의를 물었다').toBe(1);
   });
+
+  /*
+    스스로 끈 사람에게 홈 카드가 다음 날 다시 권하면 방금 한 선택을 무시하는 것이다.
+    가장 긴 간격(30일)부터 세고, 이 화면은 기록 수를 몰라 날짜만 본다.
+  */
+  await test.step('끈 것은 홈 알림 카드의 가장 긴 간격으로 적힌다', async () => {
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          JSON.parse(window.localStorage.getItem('__ait_storage:remind-nudge') ?? 'null'),
+        ),
+      )
+      .toMatchObject({ closes: 4, recordsAtClose: null });
+  });
 });
 
 test('동의를 거절하면 켜지지 않고 이유를 알려 준다', async ({ page, notifications }) => {

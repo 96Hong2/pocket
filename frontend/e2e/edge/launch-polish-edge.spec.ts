@@ -295,6 +295,17 @@ test.describe('가장 좁은 화면', () => {
   // 다른 테스트는 이 카드를 닫아 두고 시작한다(support/fixtures.ts). 여기서는 켜서 본다.
   test.use({ showStarterCards: true });
 
+  // 같이 쓰는 가계부 안내가 홈 추가보다 앞에 선다. 여기서는 홈 추가 카드를 보려고 닫아 둔다.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('__ait_storage:card-dismissed-books-intro', '');
+      } catch {
+        /* 저장소를 못 여는 문서에서는 이 앱이 돌지 않는다. */
+      }
+    });
+  });
+
   test('날짜 칸도 홈 추가 안내도 화면을 가로로 밀지 않는다', async ({
     home,
     page,

@@ -67,9 +67,8 @@ test('닫으면 다시 뜨지 않는다', async ({ home, prep }) => {
   await home.share.closeButton.click();
   await expect(home.share.card).toHaveCount(0);
 
-  // 닫아 둔 표시는 기기에 남는다. 다시 열어도 그대로여야 한다.
-  await home.open();
-  await home.waitReady();
+  // 닫아 둔 표시는 기기에 남는다. 닫은 날이 지나 다시 열어도 그대로여야 한다.
+  await home.passQuietDay();
   await expect(home.share.card).toHaveCount(0);
 });
 
@@ -175,7 +174,9 @@ test('예산을 아직 안 정했으면 예산 먼저 묻고 공유는 비켜 �
   await expect(home.budget.suggestLead).toBeVisible();
   await expect(home.share.card).toHaveCount(0);
 
-  // 예산 안내를 닫으면 그때 공유를 묻는다. 한 번에 하나씩이다.
+  // 예산 안내를 닫은 날은 쉬고, 다음 날 공유를 묻는다. 한 번에 하나씩이다.
   await home.budget.closeButton.click();
+  await expect(home.share.card).toHaveCount(0);
+  await home.passQuietDay();
   await expect(home.share.card).toBeVisible();
 });

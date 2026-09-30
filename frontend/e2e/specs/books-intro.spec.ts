@@ -54,6 +54,8 @@ test('버튼을 누르면 만들기 화면이 바로 열리고, 돌아와도 다
   await home.open();
   await home.waitReady();
   // 만들기를 열어 봤으면 안내는 할 일을 다 했다. 입구는 관리 탭에 늘 있다.
+  // 다음 순서(홈 화면 추가)가 서야 판정이 끝난 것이다.
+  await expect(home.addToHome.card).toBeVisible();
   await expect(home.booksIntro.card).toHaveCount(0);
 });
 
@@ -89,4 +91,60 @@ test('같이 쓰는 가계부가 이미 있으면 안 뜬다', async ({ home, pr
   await expect(home.booksIntro.card).toHaveCount(0);
   // 안내 자리를 비워 두지 않는다. 다음 권유가 선다.
   await expect(home.addToHome.card).toBeVisible();
+});
+
+/**
+ * 처음 안내에서 같이 쓰는 가계부 장을 본 새 사용자.
+ *
+ * 그 장이 이미 알렸으니 첫 기록 뒤 홈에서 또 말하지 않는다. 그 자리는 홈 화면 추가 카드의
+ * 몫이다(처음 안내에서 홈 화면 추가 장을 뺀 이유). 첫 장에서 건너뛴 사람은 못 봤으니 선다.
+ */
+test.describe('처음 안내를 거친 새 사용자', () => {
+  test.use({ showOnboarding: true });
+
+  async function recordOnce(
+    home: { recordButton: { click(): Promise<void> }; waitReady(): Promise<void> },
+    recordSheet: {
+      waitOpen(): Promise<void>;
+      input: { enterAmount(v: number): Promise<void>; pickCategory(n: string): Promise<void> };
+      feedback: { waitSaved(): Promise<void> };
+      closeByEsc(): Promise<void>;
+    },
+  ): Promise<void> {
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.input.enterAmount(12000);
+    await recordSheet.input.pickCategory('식비');
+    await recordSheet.feedback.waitSaved();
+    await recordSheet.closeByEsc();
+  }
+
+  test('같이 쓰는 가계부 장을 봤으면 첫 기록 뒤 홈 화면 추가가 선다', async ({
+    home,
+    onboarding,
+    recordSheet,
+  }) => {
+    await home.open();
+    await onboarding.nextButton.click();
+    await onboarding.nextButton.click();
+    await expect(onboarding.title('같이 쓰는 돈은 같이 적어요')).toBeVisible();
+    await onboarding.nextButton.click();
+    await onboarding.startButton.click();
+    await home.waitReady();
+
+    await recordOnce(home, recordSheet);
+    await expect(home.addToHome.card).toBeVisible();
+    await expect(home.booksIntro.card).toHaveCount(0);
+  });
+
+  test('첫 장에서 건너뛴 사람에게는 홈에서 알린다', async ({ home, onboarding, recordSheet }) => {
+    await home.open();
+    await expect(onboarding.title('사진 한 장이면 끝나요')).toBeVisible();
+    await onboarding.skipButton.click();
+    await home.waitReady();
+
+    await recordOnce(home, recordSheet);
+    await expect(home.booksIntro.card).toBeVisible();
+    await expect(home.addToHome.card).toHaveCount(0);
+  });
 });

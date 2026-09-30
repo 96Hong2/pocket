@@ -166,9 +166,8 @@ test('복구 카드를 닫으면 사라지고, 다시 열어도 안 뜬다', asy
   // 카드만 사라지고 나머지는 그대로다. 닫기가 홈을 망가뜨리지 않는다.
   await expect(home.recordButton).toBeVisible();
 
-  // 표시가 기기에 남는다. 다시 들어와도 같은 상황이면 안 뜬다.
-  await home.open();
-  await home.waitReady();
+  // 표시가 기기에 남는다. 닫은 날이 지나 다시 들어와도 같은 상황이면 안 뜬다.
+  await home.passQuietDay();
   await expect(home.recovery.card).toHaveCount(0);
 });
 

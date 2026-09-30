@@ -363,9 +363,8 @@ test('예산 카드를 닫으면 사라지고, 어디서 다시 정하는지 알
   await expect(home.budget.suggestLead).toHaveCount(0);
   await expect(home.budget.saveButton).toHaveCount(0);
 
-  // 다시 들어와도 안 뜬다. 예산을 정할 때까지 조르지 않는다.
-  await home.open();
-  await home.waitReady();
+  // 닫은 날이 지나 다시 들어와도 안 뜬다. 예산을 정할 때까지 조르지 않는다.
+  await home.passQuietDay();
   await expect(home.budget.suggestLead).toHaveCount(0);
 
   // 그리고 카드가 가리킨 그 자리에 실제로 예산을 정하는 길이 있다.
