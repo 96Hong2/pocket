@@ -117,9 +117,12 @@ export class ManageScreen {
    * 몇 번 와 본 사람에게만, 그리고 메일을 보낼 수단이 있을 때만 선다.
    */
   get keepDataNote(): Locator {
-    return this.page.getByText('지금은 이 기기에만 있어요. 이메일 하나면 기기를 바꿔도 따라와요', {
-      exact: true,
-    });
+    return this.page.getByText(
+      '지금은 이 기기에서만 열 수 있어요. 이메일 하나면 기기를 바꿔도 따라와요',
+      {
+        exact: true,
+      },
+    );
   }
 
   /** 그 줄에서 내 계정으로 가는 입구. */

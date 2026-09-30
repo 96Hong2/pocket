@@ -302,7 +302,7 @@ class DataResetArea {
 
   /** 실제로 지우는 버튼. 저장 버튼과 같은 초록이면 손이 습관대로 누른다. */
   get confirmButton(): Locator {
-    return this.sheet.getByRole('button', { name: '전부 지우기', exact: true });
+    return this.sheet.getByRole('button', { name: '지우기', exact: true });
   }
 
   /** 지우지 못했을 때 그 자리에 뜨는 한 줄. 시트를 닫아 버리면 실패를 말할 자리가 없다. */

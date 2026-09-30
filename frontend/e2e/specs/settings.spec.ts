@@ -177,7 +177,7 @@ test('개인정보처리방침 링크가 실제로 도착한다', async ({ appSh
   await settings.waitReady();
 
   await expect(settings.captureNotice).toHaveText(
-    '캡처 원본은 정리 직후 지워져요. 저장되는 것은 날짜, 금액, 상호, 분류처럼 기록에 필요한 것뿐이에요.',
+    '캡처 원본은 정리 직후 지워져요. 캡처에서는 날짜, 금액, 상호처럼 기록에 필요한 것만 읽어 남겨요. 무엇을 저장하고 어디로 보내는지는 개인정보처리방침에 적어 뒀어요.',
   );
   await expect(settings.privacyLink).toBeVisible();
 
@@ -189,6 +189,12 @@ test('개인정보처리방침 링크가 실제로 도착한다', async ({ appSh
   await expect(settings.text(/^캡처와 영수증 원본 이미지는 저장하지 않아요\./)).toHaveText(
     '캡처와 영수증 원본 이미지는 저장하지 않아요. 서버가 파일로 옮겨 적지 않고, 분석이 끝나는 순간 사라져요.',
   );
+
+  // 같이 쓰는 가계부는 사람이 적은 이름을 받아 멤버에게 보여 준다. 「이름은 저장하지 않는다」 가
+  // 남아 있으면 이 화면이 거짓이 된다. 받지 않는 것은 토스에 등록된 이름이다.
+  await expect(settings.text(/^같이 쓰는 가계부$/)).toBeVisible();
+  await expect(settings.text(/^이름과 전화번호$/)).toHaveCount(0);
+  await expect(settings.text(/^토스에 등록된 이름과 전화번호\./)).toBeVisible();
 
   // 화면 안에 뒤로가기가 없다. 토스 앱의 시스템 뒤로가기로 앱 설정에 돌아온다.
   await appShell.pressBack();
@@ -222,10 +228,7 @@ test('예산 시작일 자리가 없고, 하위 화면은 둘뿐이다', async (
   정하세요」 라고 적어 두면 대부분 안 간다. 그래서 그 자리에서 바로 연다.
 */
 
-test('예산 없이 남은 예산을 고르면 그 자리에서 예산을 정할 수 있다', async ({
-  home,
-  settings,
-}) => {
+test('예산 없이 남은 예산을 고르면 그 자리에서 예산을 정할 수 있다', async ({ home, settings }) => {
   await settings.open();
   await settings.waitReady();
   await settings.chooseHero('남은 예산');
