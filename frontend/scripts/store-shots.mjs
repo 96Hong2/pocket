@@ -86,8 +86,8 @@ const PAGES = [
 */
 const SHARED_PAGES = [
   {
-    file: '1-둘이 쓰는 돈은.png',
-    title: '둘이 쓰는 돈은|같이 적어요',
+    file: '1-공유 가계부로.png',
+    title: '공유 가계부로|둘이 같이 적어요',
     sub: '각자 적은 기록이 한곳에 모이고 누가 적었는지 보여요',
     shot: 'book-home',
   },
