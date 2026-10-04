@@ -1,5 +1,6 @@
 import type { Locator } from '@playwright/test';
 
+import { formatMonthLabel, shiftMonth, toLedgerDate } from '../../src/shared/lib/format';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -12,6 +13,11 @@ import { expect, test } from '../support/fixtures';
  * **단언은 「보인다」 가 아니라 「같은 자리에 있다」 다.** 자리표시자가 떠 있는 것만
  * 확인하면 그것이 얼마나 높은지는 아무도 안 본다. 실제로 그렇게 통과하고 있었다.
  */
+
+/** 이번 달부터 거슬러 센 달 이름. `MONTH_LABEL[1]` 이 지난달이다. 달이 바뀌어도 검사가 같은 걸음을 걷는다. */
+const MONTH_LABEL = [0, 1, 2, 3].map((back) =>
+  formatMonthLabel(shiftMonth(toLedgerDate(new Date()).slice(0, 7), -back)),
+);
 
 const BUDGETS = '**/api/v1/budgets?*';
 const SUMMARY = '**/api/v1/transactions/summary?*';
@@ -44,7 +50,7 @@ test('관리 탭에서 달을 넘겨도 아래 목록이 제자리에 있다', a
   await manage.waitReady();
 
   // 예산이 없는 지난달로 간다. 거기서 또 지난달로 가는 동안을 본다.
-  await manage.goToMonth('2026년 8월');
+  await manage.goToMonth(MONTH_LABEL[1]);
   await expect(manage.closedNotice).toBeVisible();
 
   const below = page.getByRole('navigation', { name: '관리 하위 화면' });
@@ -56,7 +62,7 @@ test('관리 탭에서 달을 넘겨도 아래 목록이 제자리에 있다', a
     await route.fallback();
   });
 
-  await page.getByRole('button', { name: '2026년 7월로 이동' }).click();
+  await page.getByRole('button', { name: `${MONTH_LABEL[2]}로 이동` }).click();
 
   await test.step('불러오는 동안에도 같은 자리다', async () => {
     // 자리표시자가 떠 있는 그 순간을 잡는다.
@@ -86,10 +92,15 @@ test('달력에서 달을 넘겨도 격자와 목록이 제자리에 있다', as
     await route.fallback();
   });
 
-  await page.getByRole('button', { name: /^2026년 \d{1,2}월로 이동$/ }).first().click();
+  await page
+    .getByRole('button', { name: /^2026년 \d{1,2}월로 이동$/ })
+    .first()
+    .click();
 
   await test.step('합계 자리가 카드로 부풀지 않는다', async () => {
-    await expect(page.getByRole('status', { name: '이번 달 합계를 불러오는 중이에요' })).toBeVisible();
+    await expect(
+      page.getByRole('status', { name: '이번 달 합계를 불러오는 중이에요' }),
+    ).toBeVisible();
     expectSamePlace(await topOf(calendar.grid.box), gridTop, '합계 자리가 부풀어 달력이 밀렸다');
     expectSamePlace(await topOf(calendar.search.input), searchTop, '검색 칸이 밀렸다');
   });
@@ -112,7 +123,7 @@ test('달마다 격자 높이가 같다', async ({ calendar, page }) => {
   await calendar.waitReady();
 
   const heights: number[] = [];
-  for (const label of ['2026년 8월', '2026년 7월', '2026년 6월']) {
+  for (const label of [MONTH_LABEL[1], MONTH_LABEL[2], MONTH_LABEL[3]]) {
     await calendar.goToMonth(label);
     await calendar.waitReady();
     const box = await calendar.grid.box.boundingBox();

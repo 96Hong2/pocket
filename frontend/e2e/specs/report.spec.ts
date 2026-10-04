@@ -428,8 +428,10 @@ test('달력에서 달을 옮기면 주소가 도로 끌고 오지 않는다', a
   await calendar.waitReady();
 
   // 주소는 들어올 때 한 번만 읽는다. 계속 보고 있으면 화살표가 안 듣는다.
-  await calendar.goToMonth('2026년 7월');
-  await expect(calendar.monthLabel).toHaveText('2026년 7월');
+  // 리포트에서 지난달로 간 채 왔으니, 달력 화살표 한 번은 두 달 전이다.
+  const twoMonthsBack = formatMonthLabel(shiftMonth(THIS_MONTH, -2));
+  await calendar.goToMonth(twoMonthsBack);
+  await expect(calendar.monthLabel).toHaveText(twoMonthsBack);
 });
 
 /**

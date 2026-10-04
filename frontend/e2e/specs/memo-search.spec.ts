@@ -1,3 +1,4 @@
+import { toLedgerDate } from '../../src/shared/lib/format';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -10,10 +11,7 @@ import { expect, test } from '../support/fixtures';
  * 검색은 그 메모까지 본다. 그리고 숫자만 적으면 **그 금액**을 찾는다.
  */
 
-test('저장한 뒤에 메모를 적고, 목록 줄에서 그 메모를 읽는다', async ({
-  home,
-  recordSheet,
-}) => {
+test('저장한 뒤에 메모를 적고, 목록 줄에서 그 메모를 읽는다', async ({ home, recordSheet }) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
@@ -204,7 +202,13 @@ test('찾는 동안에도 달력이 그 자리에 있고, 날을 누르면 검�
 
   await test.step('달력의 날을 누르면 그 날 목록으로 돌아온다', async () => {
     // 검색 중에도 달력이 눌려야 한다. 안 그러면 보이기만 하는 죽은 자리가 된다.
-    await calendar.grid.select(calendar.grid.cellName('2026-09-02'));
+    // 이번 달 1일(기록 없음)을 누른다. 오늘이 1일이면 오늘 칸(아까 적은 12,000원)이다.
+    const today = toLedgerDate(new Date());
+    const target =
+      Number(today.slice(8, 10)) >= 2
+        ? calendar.grid.cellName(`${today.slice(0, 8)}01`)
+        : calendar.grid.cellName(today, { expense: 12000 });
+    await calendar.grid.select(target);
     await expect(calendar.search.input).toHaveValue('');
     await expect(calendar.search.resultCount).toHaveCount(0);
     await expect(calendar.list.dayTotal).toBeVisible();

@@ -238,6 +238,8 @@ test('홈의 예산 제안 카드에서도 계산기로 갈 수 있다', async (
   await seedLastMonth(prep);
   // 카드는 기록이 하나라도 있고 예산이 없을 때만 뜬다.
   await prep.addExpense({ amount: 20_000, daysAgo: 0 });
+  // 달 초에는 지난달 결산 카드가 이 자리를 먼저 차지한다. 봤다고 적어 두고 연다.
+  await home.markClosingSeen(lastMonth());
 
   await home.open();
   await home.waitReady();
