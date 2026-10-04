@@ -30,7 +30,7 @@ import { Button, ErrorState, LoadingState } from '../../shared/ui';
 import { asPickable, monthLine, othersSeeLine } from '../books';
 import { CategoryComposeOverlay } from '../categories';
 
-import { CandidateRow, type RowPreview } from './CandidateRow';
+import { CandidateRow, type RowPreview, type RuleAnswer } from './CandidateRow';
 
 export interface ImportReviewProps {
   /** 서버가 읽어 준 묶음. 껍데기가 들고 있고 여기서는 고쳐 준 것을 돌려주기만 한다. */
@@ -126,6 +126,28 @@ export function ImportReview({
   const [futureDay, setFutureDay] = useState<string | null>(null);
   /** 펼친 줄의 폼에 적힌 값. 줄 머리와 저장 버튼 합계가 이것을 따라간다. */
   const [preview, setPreview] = useState<RowPreview | null>(null);
+
+  /*
+    분류 없이 읽힌 상호에 분류를 골라 넣으면 「다음부터 이렇게 저장할까요」 하고 묻는 줄.
+
+    **읽어 온 그 순간** 분류가 없고 상호는 있던 줄만이다. 나중에 분류가 붙었는지는 보지
+    않는다. 묶음이 바뀌면 다시 센다. 공유 가계부 묶음은 상호를 기억하지 않아 묻지 않는다.
+    답은 후보 id 로 들고 있어 줄을 접었다 펴도 남는다.
+  */
+  const askedRef = useRef<{ batchId: string; ids: Set<string> } | null>(null);
+  if (askedRef.current?.batchId !== batch.id) {
+    const rows = shared ? [] : (batch.candidates ?? []);
+    askedRef.current = {
+      batchId: batch.id,
+      ids: new Set(
+        rows
+          .filter((item) => item.category_id == null && item.merchant != null)
+          .map((item) => item.id),
+      ),
+    };
+  }
+  const asked = askedRef.current.ids;
+  const [ruleAnswers, setRuleAnswers] = useState<Record<string, RuleAnswer>>({});
 
   /*
     무엇을 몇 번 고쳤나. 값이 아니라 **어느 칸을 몇 번** 인지만 센다.
@@ -335,6 +357,16 @@ export function ImportReview({
               }}
               preview={preview}
               onPreviewChange={setPreview}
+              askRule={asked.has(candidate.id)}
+              ruleAnswer={ruleAnswers[candidate.id] ?? null}
+              onRuleAnswer={(answer) => {
+                setRuleAnswers((current) => ({ ...current, [candidate.id]: answer }));
+                analytics.log(
+                  EVENTS.merchantRuleAsked,
+                  { method, answer },
+                  { flowId, kind: 'click' },
+                );
+              }}
               onSave={(body) => {
                 draft.current = null;
                 if (Object.keys(body).length === 0) {
@@ -456,7 +488,14 @@ export function ImportReview({
     );
 
     const startedAt = Date.now();
-    commit.mutate(latest.id, {
+    // 물었는데 「네」 가 아닌 줄은 저장만 하고 기억하지 않는다. 그런 줄이 없으면 본문도 없다.
+    const skipRuleIds = [...asked].filter((id) => ruleAnswers[id] !== 'remember');
+    commit.mutate(
+      {
+        batchId: latest.id,
+        body: skipRuleIds.length > 0 ? { skip_rule_candidate_ids: skipRuleIds } : undefined,
+      },
+      {
       onSettled: () => onBusyChange(false),
       onSuccess: (result) => {
         // **서버가 몇 건을 넣었는지 답한 뒤에만** 성공이다.

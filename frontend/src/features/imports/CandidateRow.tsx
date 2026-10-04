@@ -65,7 +65,12 @@ export interface RowPreview {
   categoryId: string | null;
   amount: number;
   type: TransactionType;
+  /** 상호 칸에 적힌 것. 비우면 null. 기억할지 묻는 줄이 이 이름을 부른다. */
+  merchant: string | null;
 }
+
+/** 「다음부터 이렇게 저장할까요」 에 고른 답. 답하기 전에는 null 로 둔다. */
+export type RuleAnswer = 'remember' | 'skip';
 
 /** 「새 분류」 를 눌렀을 때 뜨는 창에 넘기는 것. */
 export interface CategoryComposeSlot {
@@ -113,6 +118,16 @@ export interface CandidateRowProps {
    * 다른 곳(공유 가계부)에 분류를 만들 때는 그 창을 여기 끼운다.
    */
   renderCompose?: ((slot: CategoryComposeSlot) => ReactNode) | null;
+  /**
+   * 분류 없이 읽힌 줄이라, 분류를 골라 넣으면 다음부터 그렇게 저장할지 물을지.
+   *
+   * 저장은 상호마다 분류를 스스로 기억한다. 모델이 붙인 분류는 그대로 두고, 모델도 몰라서
+   * 사람이 골라 넣은 것만 묻는다. 공유 가계부 묶음은 상호를 기억하지 않아 묻지 않는다.
+   */
+  askRule?: boolean;
+  /** 그 물음에 고른 답. 목록이 들고 있어 줄을 접었다 펴도 남는다. */
+  ruleAnswer?: RuleAnswer | null;
+  onRuleAnswer?: (answer: RuleAnswer) => void;
 }
 
 /**
@@ -137,6 +152,9 @@ export function CandidateRow({
   onPreviewChange,
   expenseOnly = false,
   renderCompose,
+  askRule = false,
+  ruleAnswer = null,
+  onRuleAnswer,
 }: CandidateRowProps) {
   const category = categories.find((item) => item.id === candidate.category_id);
   // 펼친 동안 머리는 폼에 적힌 것을 그린다. 접으면 서버 값으로 돌아간다.
@@ -188,6 +206,21 @@ export function CandidateRow({
     if (!editing) return;
     rowRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }, [editing]);
+
+  /*
+    기억할지 묻는 칸. 펼친 폼에서는 분류 칩 바로 아래(격자가 닫힌 자리)에, 접힌 줄에서는
+    메타 줄 아래에 선다. 폼 안에만 두면 「완료」 와 함께 사라져 묻지 않은 셈이 된다.
+  */
+  const ruleSlot =
+    askRule && !locked ? (
+      <RulePrompt
+        merchant={shown == null ? (candidate.merchant ?? null) : shown.merchant}
+        category={headCategory}
+        type={shown?.type ?? candidate.type}
+        answer={ruleAnswer}
+        onAnswer={onRuleAnswer}
+      />
+    ) : null;
 
   return (
     <li
@@ -253,6 +286,7 @@ export function CandidateRow({
           onSave={onSave}
           onDraftChange={onDraftChange}
           onPreviewChange={onPreviewChange}
+          ruleSlot={ruleSlot}
         />
       ) : (
         <>
@@ -298,9 +332,66 @@ export function CandidateRow({
             disabled={disabled}
             onKindChange={onKindChange}
           />
+          {ruleSlot}
         </>
       )}
     </li>
+  );
+}
+
+/**
+ * 분류 없이 읽힌 상호에 분류를 골라 넣은 뒤 한 번 묻는 칸.
+ *
+ * 저장은 상호마다 분류를 스스로 기억하는데, 모델도 몰랐던 상호에 사람이 넣은 분류는
+ * 한 번 들른 가게가 영영 그 분류로 굳는 길이다. 그래서 그 자리만 묻는다. 「네」 라고 해야
+ * 기억하고, 「이번만」 이거나 답하지 않고 저장하면 저장만 한다.
+ *
+ * 분류를 아직 안 골랐거나 상호가 없으면 기억할 것이 없어 서지 않는다.
+ */
+function RulePrompt({
+  merchant,
+  category,
+  type,
+  answer,
+  onAnswer,
+}: {
+  merchant: string | null;
+  category: CategoryOut | undefined;
+  type: TransactionType;
+  answer: RuleAnswer | null;
+  onAnswer: ((answer: RuleAnswer) => void) | undefined;
+}) {
+  if (merchant == null || category == null) return null;
+  if (type !== 'expense' && type !== 'income') return null;
+  if (answer === 'skip') return null;
+  if (answer === 'remember') {
+    // 아직 저장 전이다. 「기억했어요」 라고 하면 저장을 안 하고 닫은 사람에게 거짓이 된다.
+    return (
+      <p className="nl-item__ask-done" data-testid={TEST_IDS.nlCandidateAskDone}>
+        저장하면 「{category.name}」 분류로 기억해요
+      </p>
+    );
+  }
+  return (
+    <div
+      className="nl-item__ask"
+      role="group"
+      aria-label="분류 기억하기"
+      data-testid={TEST_IDS.nlCandidateAsk}
+    >
+      {/* 「기록은」 「분류로」 로 받아 상호와 분류 이름 뒤에 토씨를 고를 일이 없다. */}
+      <p className="nl-item__ask-text">
+        앞으로 「{merchant}」 기록은 「{category.name}」 분류로 저장할까요?
+      </p>
+      <div className="nl-item__ask-actions">
+        <button type="button" className="nl-item__ask-yes" onClick={() => onAnswer?.('remember')}>
+          네, 기억하기
+        </button>
+        <button type="button" className="nl-item__ask-no" onClick={() => onAnswer?.('skip')}>
+          이번만
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -553,6 +644,8 @@ interface CandidateFormProps {
    */
   onDraftChange: (read: (() => ImportCandidatePatch) | null) => void;
   onPreviewChange: CandidateRowProps['onPreviewChange'];
+  /** 기억할지 묻는 칸. 분류 칩 바로 아래, 격자가 닫힌 자리에 세운다. 없으면 null. */
+  ruleSlot: ReactNode;
 }
 
 /** 그 종류로 고를 수 있는 분류. 이체는 집계에서 빠지므로 분류를 두지 않는다. */
@@ -575,6 +668,7 @@ function CandidateForm({
   onSave,
   onDraftChange,
   onPreviewChange,
+  ruleSlot,
 }: CandidateFormProps) {
   const analytics = useAnalytics();
   const [merchant, setMerchant] = useState(candidate.merchant ?? '');
@@ -621,9 +715,16 @@ function CandidateForm({
   // 지우다 만 금액(빈 칸, 0)은 원래 값으로 둔다. draft 도 그런 값은 안 보낸다.
   const shownAmount = amount > 0 ? amount : parseDecimalOr(candidate.amount, 0);
   const candidateId = candidate.id;
+  const shownMerchant = merchant.trim() === '' ? null : merchant.trim();
   useEffect(() => {
-    onPreviewChange(() => ({ id: candidateId, categoryId, amount: shownAmount, type }));
-  }, [onPreviewChange, candidateId, categoryId, shownAmount, type]);
+    onPreviewChange(() => ({
+      id: candidateId,
+      categoryId,
+      amount: shownAmount,
+      type,
+      merchant: shownMerchant,
+    }));
+  }, [onPreviewChange, candidateId, categoryId, shownAmount, type, shownMerchant]);
   useEffect(
     () => () => onPreviewChange((current) => (current?.id === candidateId ? null : current)),
     [onPreviewChange, candidateId],
@@ -729,6 +830,9 @@ function CandidateForm({
           }
         />
       ) : null}
+
+      {/* 분류를 고르면 격자가 닫힌 그 자리에 묻는 칸이 선다. 고른 손이 아직 거기 있다. */}
+      {editor === 'category' ? null : ruleSlot}
 
       <RowNotices
         candidate={candidate}

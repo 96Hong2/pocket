@@ -47,6 +47,14 @@ export const EVENTS = {
    */
   recordLeaveAsked: 'record_leave_asked',
 
+  /**
+   * 분류 없이 읽힌 상호에 분류를 골라 넣자 「다음부터 이렇게 저장할까요」 하고 물었고,
+   * 무엇을 골랐나(`answer`: `remember`·`skip`). 답하지 않고 저장하면 로그도 없고 기억도 없다.
+   *
+   * 상호와 분류 이름은 싣지 않는다. 그 사람이 어디서 무엇을 사는지가 로그에 남는다.
+   */
+  merchantRuleAsked: 'merchant_rule_asked',
+
   /** 저장 버튼을 눌렀다. */
   saveRequested: 'save_requested',
   /** 저장이 실제로 끝났다. **DB 에 들어간 건수를 서버가 답한 뒤에만 성공으로 적는다.** */

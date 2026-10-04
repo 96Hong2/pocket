@@ -53,6 +53,7 @@ import type {
   TagUpdate,
   ImportBatchOut,
   ImportCandidatePatch,
+  ImportCommitIn,
   ImportCommitOut,
   MeOut,
   MerchantRuleCreate,
@@ -480,7 +481,13 @@ export function useCommitImport() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (batchId: string): Promise<ImportCommitOut> => client.commitImport(batchId),
+    mutationFn: ({
+      batchId,
+      body,
+    }: {
+      batchId: string;
+      body?: ImportCommitIn;
+    }): Promise<ImportCommitOut> => client.commitImport(batchId, body),
     onSuccess: (result) => {
       if (result.book_id != null) {
         refreshBook(queryClient, result.book_id);

@@ -177,6 +177,10 @@ export const TEST_IDS = {
   nlCandidateDate: 'nl-candidate-date',
   /** 앞날 날짜로 읽힌 줄에만 뜨는 확인 안내. */
   nlCandidateFuture: 'nl-candidate-future',
+  /** 분류 없이 읽힌 상호에 분류를 골라 넣으면 뜨는 「다음부터 이렇게 저장할까요」 물음. */
+  nlCandidateAsk: 'nl-candidate-ask',
+  /** 그 물음에 「네」 라고 한 뒤 남는 한 줄. */
+  nlCandidateAskDone: 'nl-candidate-ask-done',
   /** 카테고리 관리에서 기억한 분류 한 줄 */
   merchantRuleRow: 'merchant-rule-row',
   /** 저장 직후 피드백 한 줄 */

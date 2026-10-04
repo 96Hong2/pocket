@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterator
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
@@ -550,8 +550,13 @@ def commit_batch(
     batch_id: uuid.UUID,
     *,
     today: date | None = None,
+    skip_rule_ids: Collection[uuid.UUID] = (),
 ) -> CommitResult:
-    """고른 후보를 실제 거래로 저장한다. 공유 가계부 묶음이면 공유 기록으로 저장한다."""
+    """고른 후보를 실제 거래로 저장한다. 공유 가계부 묶음이면 공유 기록으로 저장한다.
+
+    `skip_rule_ids` 에 든 줄은 저장하되 상호와 분류를 기억하지 않는다. 분류 없이 읽힌
+    상호에 사람이 분류를 골라 넣었을 때 화면이 한 번 묻고, 「네」 가 아니면 여기로 온다.
+    """
     batch = _require_open(session, user, batch_id)
     day = today or ledger.today_for(user)
     chosen = [row for row in batch.candidates if row.is_selected]
@@ -602,7 +607,8 @@ def commit_batch(
         outcomes.append(outcome)
         row.transaction_id = tx.id
         total += spent
-        _learn_rule(session, user, row)
+        if row.id not in skip_rule_ids:
+            _learn_rule(session, user, row)
 
     batch.status = ImportBatchStatus.COMMITTED
     batch.committed_count = len(chosen)
