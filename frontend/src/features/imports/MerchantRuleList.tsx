@@ -118,7 +118,7 @@ export function MerchantRuleList() {
         <EmptyState
           size="inline"
           title="아직 기억한 분류가 없어요"
-          description="저장하면 상호마다 분류를 기억해요. 자주 가는 곳은 지금 걸어 둬도 돼요"
+          description="저장하면 상호마다 분류를 기억해요. 분류를 몰랐던 상호는 한 번 물어봐요. 자주 가는 곳은 지금 걸어 둬도 돼요"
         />
       ) : null}
 

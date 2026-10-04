@@ -30,7 +30,10 @@ import { Button, ErrorState, LoadingState } from '../../shared/ui';
 import { asPickable, monthLine, othersSeeLine } from '../books';
 import { CategoryComposeOverlay } from '../categories';
 
-import { CandidateRow, type RowPreview } from './CandidateRow';
+import { CandidateRow, type RowPreview, type RuleAnswer } from './CandidateRow';
+
+/** 후보 id 마다 다음부터 그렇게 저장할지 물었을 때 고른 답과 그때의 분류. */
+type RuleAnswers = Record<string, { answer: RuleAnswer; categoryId: string }>;
 
 export interface ImportReviewProps {
   /** 서버가 읽어 준 묶음. 껍데기가 들고 있고 여기서는 고쳐 준 것을 돌려주기만 한다. */
@@ -126,6 +129,43 @@ export function ImportReview({
   const [futureDay, setFutureDay] = useState<string | null>(null);
   /** 펼친 줄의 폼에 적힌 값. 줄 머리와 저장 버튼 합계가 이것을 따라간다. */
   const [preview, setPreview] = useState<RowPreview | null>(null);
+
+  /*
+    분류 없이 읽힌 상호에 분류를 골라 넣으면 다음부터 그렇게 저장할지 묻는 줄.
+
+    **읽어 온 그 순간** 분류가 없고 상호는 있던 줄만이다. 나중에 분류가 붙었는지는 보지
+    않는다. 묶음이 바뀌면 다시 센다. 공유 가계부 묶음은 상호를 기억하지 않아 묻지 않는다.
+    답은 후보 id 로 들고 있어 줄을 접었다 펴도 남는다.
+  */
+  const askedRef = useRef<{ batchId: string; ids: Set<string> } | null>(null);
+  if (askedRef.current?.batchId !== batch.id) {
+    const rows = shared ? [] : (batch.candidates ?? []);
+    // 상호는 안 본다. 총액만 읽힌 영수증에 사람이 상호와 분류를 함께 적어도 같은 물음이다.
+    askedRef.current = {
+      batchId: batch.id,
+      ids: new Set(rows.filter((item) => item.category_id == null).map((item) => item.id)),
+    };
+  }
+  const asked = askedRef.current.ids;
+  /*
+    답은 그때 고른 분류와 함께 둔다. 「네」 라고 한 뒤 분류를 바꾸면 그 답은 옛 분류 것이라
+    다시 묻는다. ref 에도 같은 값을 적는다. 저장은 버튼을 누른 렌더의 값이 아니라 보내는
+    순간의 답을 읽어야 한다(느린 망에서 그 사이에 답할 수 있다).
+  */
+  const [ruleAnswers, setRuleAnswers] = useState<RuleAnswers>({});
+  const ruleAnswersRef = useRef<RuleAnswers>({});
+  function answerRule(candidateId: string, answer: RuleAnswer, categoryId: string): void {
+    const next = { ...ruleAnswersRef.current, [candidateId]: { answer, categoryId } };
+    ruleAnswersRef.current = next;
+    setRuleAnswers(next);
+    analytics.log(EVENTS.merchantRuleAsked, { method, answer }, { flowId, kind: 'click' });
+  }
+  /** 「기억하기」 를 무른다. 답을 지우면 물음이 다시 선다. */
+  function clearRule(candidateId: string): void {
+    const { [candidateId]: _dropped, ...rest } = ruleAnswersRef.current;
+    ruleAnswersRef.current = rest;
+    setRuleAnswers(rest);
+  }
 
   /*
     무엇을 몇 번 고쳤나. 값이 아니라 **어느 칸을 몇 번** 인지만 센다.
@@ -335,6 +375,10 @@ export function ImportReview({
               }}
               preview={preview}
               onPreviewChange={setPreview}
+              askRule={asked.has(candidate.id)}
+              ruleAnswer={ruleAnswers[candidate.id] ?? null}
+              onRuleAnswer={(answer, categoryId) => answerRule(candidate.id, answer, categoryId)}
+              onRuleClear={() => clearRule(candidate.id)}
               onSave={(body) => {
                 draft.current = null;
                 if (Object.keys(body).length === 0) {
@@ -446,6 +490,11 @@ export function ImportReview({
         selected_count: latest.selected_count,
         edited_count: touched.current.size,
         ...editParams(edits.current),
+        // 몇 줄에 물었고 몇 줄이 「네」 였나. 답하지 않은 줄은 이 둘의 차이로 센다.
+        rule_asked: asked.size,
+        rule_remembered: [...asked].filter(
+          (id) => ruleAnswersRef.current[id]?.answer === 'remember',
+        ).length,
       },
       { flowId },
     );
@@ -456,41 +505,57 @@ export function ImportReview({
     );
 
     const startedAt = Date.now();
-    commit.mutate(latest.id, {
-      onSettled: () => onBusyChange(false),
-      onSuccess: (result) => {
-        // **서버가 몇 건을 넣었는지 답한 뒤에만** 성공이다.
-        // 버튼을 누른 것도, 200 을 받은 것도 저장된 것이 아니다.
-        analytics.log(
-          EVENTS.saveResult,
-          {
-            method,
-            result: 'ok',
-            created_count: result.created_count,
-            elapsed_ms: Date.now() - startedAt,
-            book: shared ? 'shared' : 'mine',
-          },
-          { flowId },
-        );
-        // 다음에 내 가계부를 보다가 시트를 열어도 이 가계부가 둘째 칩에 선다.
-        if (result.book_id != null) void writeBookLast(bridge.storage, result.book_id);
-        setSaved(result);
-        onSaved?.(savedDay(result), result.book_id ?? null);
-      },
-      onError: (error) => {
-        analytics.log(
-          EVENTS.saveResult,
-          {
-            method,
-            result: 'failed',
-            elapsed_ms: Date.now() - startedAt,
-            error_code: error instanceof ApiError ? error.code : 'unknown',
-            book: shared ? 'shared' : 'mine',
-          },
-          { flowId },
-        );
-      },
+    /*
+      물었는데 「네」 가 아닌 줄은 저장만 하고 기억하지 않는다. 「네」 는 그때 고른 분류 것이라,
+      보내는 순간의 분류와 같을 때만 친다. 그런 줄이 없으면 본문도 없다.
+    */
+    const answers = ruleAnswersRef.current;
+    const skipRuleIds = [...asked].filter((id) => {
+      const stored = answers[id];
+      const row = latest.candidates?.find((item) => item.id === id);
+      return !(stored?.answer === 'remember' && stored.categoryId === row?.category_id);
     });
+    commit.mutate(
+      {
+        batchId: latest.id,
+        body: skipRuleIds.length > 0 ? { skip_rule_candidate_ids: skipRuleIds } : undefined,
+      },
+      {
+        onSettled: () => onBusyChange(false),
+        onSuccess: (result) => {
+          // **서버가 몇 건을 넣었는지 답한 뒤에만** 성공이다.
+          // 버튼을 누른 것도, 200 을 받은 것도 저장된 것이 아니다.
+          analytics.log(
+            EVENTS.saveResult,
+            {
+              method,
+              result: 'ok',
+              created_count: result.created_count,
+              elapsed_ms: Date.now() - startedAt,
+              book: shared ? 'shared' : 'mine',
+            },
+            { flowId },
+          );
+          // 다음에 내 가계부를 보다가 시트를 열어도 이 가계부가 둘째 칩에 선다.
+          if (result.book_id != null) void writeBookLast(bridge.storage, result.book_id);
+          setSaved(result);
+          onSaved?.(savedDay(result), result.book_id ?? null);
+        },
+        onError: (error) => {
+          analytics.log(
+            EVENTS.saveResult,
+            {
+              method,
+              result: 'failed',
+              elapsed_ms: Date.now() - startedAt,
+              error_code: error instanceof ApiError ? error.code : 'unknown',
+              book: shared ? 'shared' : 'mine',
+            },
+            { flowId },
+          );
+        },
+      },
+    );
   }
 
   /**
@@ -520,6 +585,9 @@ export function ImportReview({
           candidateId: target.id,
           body: { category_id: category.id },
         });
+        // 「이번 묶음은 다 여행」 같은 결정이다. 상호마다 앞으로 기억할지 묻는 것과 결이 달라
+        // 이 줄은 묻지 않고 예전처럼 저장하면서 기억한다.
+        asked.delete(target.id);
       }
     } catch {
       // 왜 안 됐는지는 patch.error 가 이미 들고 있어 안내 줄에 그대로 나온다.

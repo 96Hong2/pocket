@@ -3260,6 +3260,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ImportCommitIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -13797,6 +13814,21 @@
         "type": "object",
         "title": "ImportCandidatePatch",
         "description": "후보 한 줄 고치기. 보낸 항목만 바뀐다.\n\n`merchant` 와 `category_id` 는 명시적으로 null 을 보내면 비운다.\n공유 가계부 묶음이면 `category_id` 는 그 가계부의 분류이고, 종류는 지출만 받는다.\n'안 보냄' 과 'null 로 보냄' 을 가르려고 라우터가 exclude_unset 으로 넘긴다."
+      },
+      "ImportCommitIn": {
+        "properties": {
+          "skip_rule_candidate_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Skip Rule Candidate Ids"
+          }
+        },
+        "type": "object",
+        "title": "ImportCommitIn",
+        "description": "저장하면서 함께 보내는 선택 사항. 안 보내면 예전과 같다.\n\n저장은 상호마다 분류를 스스로 기억한다. 그런데 분류 없이 읽힌 상호에 사람이 분류를\n골라 넣은 줄은 화면이 다음부터 그렇게 저장할지 묻는다. 「이번만」 이라고 답했거나\n답하지 않은 줄의 id 가 여기 온다. 그 줄은 저장은 되고 기억만 안 한다.\n\n옛 판은 이 본문을 보내지 않는다. 그러면 모든 줄을 예전처럼 기억한다."
       },
       "ImportCommitOut": {
         "properties": {

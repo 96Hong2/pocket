@@ -423,8 +423,19 @@ def test_예산을_넘기면_초과_판정과_초과액이_함께_온다(client:
 
     서비스가 예산 상태를 넘기지 않으면 여기서 초과가 아니라 큰 지출로 떨어진다.
     """
-    client.put("/api/v1/budgets?year=2026&month=9", json={"amount": "600000"}, headers=AUTH)
-    body = client.post("/api/v1/transactions", json=_payload(amount="700000"), headers=AUTH).json()
+    # 예산은 끝난 달에 쓸 수 없다(422). 이번 달에 걸고 이번 달 날짜로 적는다.
+    today = datetime.now(ZoneInfo(ledger.DEFAULT_TIMEZONE)).date()
+    budget = client.put(
+        f"/api/v1/budgets?year={today.year}&month={today.month}",
+        json={"amount": "600000"},
+        headers=AUTH,
+    )
+    assert budget.status_code == 200, budget.text
+    body = client.post(
+        "/api/v1/transactions",
+        json=_payload(amount="700000", occurred_at=f"{today.isoformat()}T12:30:00+09:00"),
+        headers=AUTH,
+    ).json()
 
     feedback = body["feedback"]
     assert feedback["kind"] == "over_budget"

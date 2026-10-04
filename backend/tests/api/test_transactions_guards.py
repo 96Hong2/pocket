@@ -6,11 +6,15 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models import Category
+from app.modules import ledger
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
 
@@ -32,12 +36,18 @@ def _create(client: TestClient, **over: object) -> dict:
     return r.json()
 
 
-def _summary(client: TestClient) -> dict:
-    return client.get("/api/v1/transactions/summary?year=2026&month=9", headers=AUTH).json()
+def _summary(client: TestClient, period: str = "year=2026&month=9") -> dict:
+    return client.get(f"/api/v1/transactions/summary?{period}", headers=AUTH).json()
+
+
+# 예산은 끝난 달에 쓸 수 없다(422). 예산이 필요한 검사는 이번 달에 적고 이번 달을 읽는다.
+TODAY = datetime.now(ZoneInfo(ledger.DEFAULT_TIMEZONE)).date()
+THIS_MONTH = f"year={TODAY.year}&month={TODAY.month}"
+TODAY_NOON = f"{TODAY.isoformat()}T12:30:00+09:00"
 
 
 def _budget(client: TestClient) -> dict:
-    return _summary(client)["budget"]
+    return _summary(client, THIS_MONTH)["budget"]
 
 
 # ── 환불 ────────────────────────────────────────────────
@@ -123,13 +133,21 @@ def test_예산에서_뺀_지출을_환불해도_예산이_늘지_않는다(
     client: TestClient, db: Session, default_categories: list[Category]
 ) -> None:
     """환불이 예산 제외를 물려받지 않으면 예산에서 뺀 돈이 예산으로 되돌아온다."""
-    client.put("/api/v1/budgets?year=2026&month=9", json={"amount": "600000"}, headers=AUTH)
-    spent = _create(client, amount="100000", excluded_from_budget=True)["transaction"]["id"]
+    budget = client.put(f"/api/v1/budgets?{THIS_MONTH}", json={"amount": "600000"}, headers=AUTH)
+    assert budget.status_code == 200, budget.text
+    spent = _create(client, amount="100000", excluded_from_budget=True, occurred_at=TODAY_NOON)[
+        "transaction"
+    ]["id"]
     assert _budget(client)["remaining_budget"] == "600000"
 
     refund = client.post(
         "/api/v1/transactions",
-        json=_payload(amount="100000", type="refund", refund_of_transaction_id=spent),
+        json=_payload(
+            amount="100000",
+            type="refund",
+            refund_of_transaction_id=spent,
+            occurred_at=TODAY_NOON,
+        ),
         headers=AUTH,
     )
     assert refund.status_code == 201, refund.text

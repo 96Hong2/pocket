@@ -52,6 +52,7 @@ import type {
   GoalStateOut,
   ImportBatchOut,
   ImportCandidatePatch,
+  ImportCommitIn,
   ImportCommitOut,
   MerchantRuleCreate,
   MerchantRuleListOut,
@@ -432,8 +433,15 @@ export interface ApiClient extends Transport {
     body: ImportCandidatePatch,
     options?: CallOptions,
   ): Promise<ImportBatchOut>;
-  /** 고른 후보를 실제 거래로 저장한다. 공유 가계부 묶음이면 공유 기록이 되고 `book_id` 가 온다. */
-  commitImport(batchId: string, options?: CallOptions): Promise<ImportCommitOut>;
+  /**
+   * 고른 후보를 실제 거래로 저장한다. 공유 가계부 묶음이면 공유 기록이 되고 `book_id` 가 온다.
+   * 기억하지 않을 줄이 있을 때만 `body` 를 보낸다. 없으면 본문 없는 예전 요청 그대로다.
+   */
+  commitImport(
+    batchId: string,
+    body?: ImportCommitIn,
+    options?: CallOptions,
+  ): Promise<ImportCommitOut>;
   /** 검토를 접는다. 없어도 204 다. */
   deleteImport(batchId: string, options?: CallOptions): Promise<void>;
   listMerchantRules(options?: CallOptions): Promise<MerchantRuleListOut>;
@@ -976,10 +984,11 @@ export function createApiClient(options: TransportOptions): ApiClient {
       });
     },
 
-    commitImport(batchId, call) {
+    commitImport(batchId, body, call) {
       return transport.request<ImportCommitOut>({
         method: 'POST',
         path: `${importPath(batchId)}/commit`,
+        body,
         signal: call?.signal,
       });
     },
