@@ -17,7 +17,7 @@
 | 사진 고르기에서 막히나 | `image_pick_result` | 성공·취소·권한 거절·미지원, 장수 |
 | 인식이 얼마나 걸리고 왜 실패하나 | `parse_started` · `parse_finished` | 방식, 성공·부분·0건·실패, 소요 시간, 후보 수, 오류 코드 |
 | 결과를 얼마나 고치나 | `review_shown` · `review_finished` | 후보 수, 고른 수, 손댄 건수, **칸별 고친 횟수** |
-| 모르는 상호의 분류를 기억하길 바라나 | `merchant_rule_asked` | 분류 없이 읽힌 상호에 분류를 골라 넣자 「다음부터 이렇게 저장할까요」 하고 물었을 때 무엇을 골랐나(`answer`: `remember`·`skip`)와 방식. 2026-10-04~. 답하지 않고 저장한 사람은 로그가 없다(기억도 안 한다). **상호와 분류 이름은 싣지 않는다** |
+| 모르는 상호의 분류를 기억하길 바라나 | `merchant_rule_asked` · `review_finished` | 분류 없이 읽힌 상호에 분류를 골라 넣자 다음부터 그렇게 저장할지 물었을 때 무엇을 골랐나(`answer`: `remember`·`skip`)와 방식. 2026-10-04~. 답하지 않고 저장하면 이 로그는 없고 기억도 안 한다. 분모는 `review_finished` 의 `rule_asked`(물은 줄 수)와 `rule_remembered`(「기억하기」 수)로 센다. **상호와 분류 이름은 싣지 않는다** |
 | 읽어 온 것을 잃나 | `record_leave_asked` · `review_cancelled` | 물었나·머물렀나·나갔나와 그때 몇 건, 스스로 버린 건수 |
 | 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드, 키패드로 적은 종류(`type`: `expense`·`income`·**`transfer`**, 2026-09-27~. 「이체」 글씨가 쓰이는지 센다), **어느 가계부에 적었나**(`book`: `mine`·`shared`, 2026-09-28~. 공유 가계부가 없는 사람은 늘 `mine`) |
 | 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움과 **지우려다 그만둠**(`delete_asked`·`delete_cancelled`·`delete`), 고친 칸 이름, 그 기록의 입력 방식. 2026-09-28~ **옮김**(`move`, `to`: `mine`·`shared`)과 **되돌림**(`restore`, 지운 공유 기록을 알림에서 되살림), 2026-09-29~ **옮기기 되돌림**(`undo_move`, `to` 는 돌아간 쪽. 원본을 되살리는 것이라 `move` 로 세지 않는다), 공유 기록을 고치거나 지웠으면 `book: 'shared'` |

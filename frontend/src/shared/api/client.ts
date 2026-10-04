@@ -433,8 +433,10 @@ export interface ApiClient extends Transport {
     body: ImportCandidatePatch,
     options?: CallOptions,
   ): Promise<ImportBatchOut>;
-  /** 고른 후보를 실제 거래로 저장한다. 공유 가계부 묶음이면 공유 기록이 되고 `book_id` 가 온다. */
-  /** 기억하지 않을 줄이 있을 때만 `body` 를 보낸다. 없으면 본문 없는 예전 요청 그대로다. */
+  /**
+   * 고른 후보를 실제 거래로 저장한다. 공유 가계부 묶음이면 공유 기록이 되고 `book_id` 가 온다.
+   * 기억하지 않을 줄이 있을 때만 `body` 를 보낸다. 없으면 본문 없는 예전 요청 그대로다.
+   */
   commitImport(
     batchId: string,
     body?: ImportCommitIn,

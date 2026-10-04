@@ -260,6 +260,9 @@ def test_기억하지_않을_줄을_보내면_저장만_하고_기억하지_않�
     )
     assert committed.status_code == 200, committed.text
     assert committed.json()["created_count"] == 1
+    # 저장된 거래는 고른 분류 그대로다. 분류가 빠졌으면 기억할 것이 없어 이 테스트가 헛통과한다.
+    saved = client.get("/api/v1/transactions", headers=AUTH).json()["items"]
+    assert [str(item["category_id"]) for item in saved] == [names["생활"]]
 
     assert client.get("/api/v1/merchant-rules", headers=AUTH).json()["items"] == []
     # 다음 분석은 다시 처음부터 판단한다.
@@ -279,7 +282,8 @@ def test_본문_없이_저장하면_예전처럼_모든_줄을_기억한다(
         json={"category_id": names["생활"]},
         headers=AUTH,
     )
-    client.post(f"/api/v1/imports/{batch['id']}/commit", headers=AUTH)
+    committed = client.post(f"/api/v1/imports/{batch['id']}/commit", headers=AUTH)
+    assert committed.status_code == 200, committed.text
 
     rules = client.get("/api/v1/merchant-rules", headers=AUTH).json()["items"]
     assert [(rule["merchant"], str(rule["category_id"])) for rule in rules] == [

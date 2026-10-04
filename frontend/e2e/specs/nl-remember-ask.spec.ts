@@ -1,16 +1,19 @@
 import type { HomeScreen } from '../screens/HomeScreen';
 import type { RecordSheet } from '../screens/RecordSheet';
+import { logsNamed, readLogs } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
 
 /**
- * 분류 없이 읽힌 상호에 분류를 골라 넣으면 「다음부터 이렇게 저장할까요」 하고 묻는다.
+ * 분류 없이 읽힌 상호에 분류를 골라 넣으면 다음부터 그렇게 저장할지 묻는다.
  *
  * 저장은 상호마다 분류를 스스로 기억한다(`nl-input.spec.ts` 「기억하기」). 그 길을 그대로
  * 두고, 모델도 몰라서 사람이 골라 넣은 분류만 한 번 묻는다. 여기서 지키는 것은 넷이다.
- * 「네」 라고 하면 기억하고, 「이번만」 이면 저장만 하고, 답하지 않아도 저장만 하고,
+ * 「기억하기」 면 기억하고, 「이번만」 이면 저장만 하고, 답하지 않아도 저장만 하고,
  * 모델이 분류를 붙여 준 줄에는 묻지 않는다.
  *
  * 「하나슈퍼」 는 스텁 모델의 어느 낱말표에도 없어 분류 없이 읽힌다.
+ * 공유 가계부에서 묻지 않는 것은 `shared-books-inputs.spec.ts`, 이체로 바꾸면 사라지는 것은
+ * `story-transfer.spec.ts` 가 본다.
  */
 
 async function analyzeUnknownMerchant({
@@ -30,10 +33,11 @@ async function analyzeUnknownMerchant({
   await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toHaveCount(0);
 }
 
-test('분류 없이 읽힌 상호에 분류를 골라 넣으면 묻고, 「네」 라고 하면 다음부터 그 분류가 먼저 잡힌다', async ({
+test('분류 없이 읽힌 상호에 분류를 골라 넣으면 묻고, 「기억하기」 면 다음부터 그 분류가 먼저 잡힌다', async ({
   categories,
   home,
   recordSheet,
+  page,
 }) => {
   await analyzeUnknownMerchant({ home, recordSheet });
 
@@ -47,15 +51,28 @@ test('분류 없이 읽힌 상호에 분류를 골라 넣으면 묻고, 「네�
 
   await recordSheet.nl.rememberButton('하나슈퍼').click();
   await expect(prompt).toHaveCount(0);
-  await expect(recordSheet.nl.ruleNote('하나슈퍼')).toContainText('저장하면');
+  await expect(recordSheet.nl.ruleNote('하나슈퍼')).toContainText('저장할 때');
 
-  // 줄을 접어도 「네」 라고 한 것이 남는다.
+  await test.step('잘못 눌렀으면 「되돌리기」 로 물음이 다시 선다', async () => {
+    await recordSheet.nl.ruleUndoButton('하나슈퍼').click();
+    await expect(prompt).toBeVisible();
+    await recordSheet.nl.rememberButton('하나슈퍼').click();
+    await expect(recordSheet.nl.ruleNote('하나슈퍼')).toBeVisible();
+  });
+
+  // 줄을 접어도 「기억하기」 라고 한 것이 남는다.
   await recordSheet.nl.form.apply();
   await expect(recordSheet.nl.ruleNote('하나슈퍼')).toBeVisible();
 
   await recordSheet.nl.save();
   await recordSheet.nl.confirmButton.click();
   await recordSheet.waitClosed();
+
+  await test.step('답한 횟수만 로그에 남고 상호는 싣지 않는다', async () => {
+    const asked = await logsNamed(page, 'merchant_rule_asked');
+    expect(asked.map((log) => log.params.answer)).toEqual(['remember', 'remember']);
+    expect(JSON.stringify(await readLogs(page))).not.toContain('하나슈퍼');
+  });
 
   await test.step('카테고리 관리에 기억한 분류로 서고, 다음 분석에서 먼저 잡힌다', async () => {
     await categories.open();
@@ -86,7 +103,11 @@ test('「이번만」 을 고르면 저장은 되고 기억은 하지 않는다'
   await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toHaveCount(0);
   await expect(recordSheet.nl.ruleNote('하나슈퍼')).toHaveCount(0);
 
+  // 접어도 「이번만」 이 남아 다시 묻지 않고, 고른 분류는 그대로다.
   await recordSheet.nl.form.apply();
+  await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toHaveCount(0);
+  await expect(recordSheet.nl.row('하나슈퍼')).toContainText('생활');
+
   await recordSheet.nl.save();
   await expect(recordSheet.nl.savedTitle).toContainText('1건 저장했어요');
   await recordSheet.nl.confirmButton.click();
@@ -111,6 +132,13 @@ test('답하지 않고 저장하면 기억하지 않는다. 물음은 줄을 접
   // 「완료」 로 줄을 접어도 물음은 그 자리에 남는다. 폼 안에만 있었으면 여기서 사라졌다.
   await recordSheet.nl.form.apply();
   await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toBeVisible();
+
+  await test.step('체크를 끈 줄은 저장되지 않으니 묻지도 않는다', async () => {
+    await recordSheet.nl.checkbox('하나슈퍼').uncheck();
+    await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toHaveCount(0);
+    await recordSheet.nl.checkbox('하나슈퍼').check();
+    await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toBeVisible();
+  });
 
   await recordSheet.nl.save();
   await expect(recordSheet.nl.savedTitle).toContainText('1건 저장했어요');
