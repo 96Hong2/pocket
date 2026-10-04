@@ -134,9 +134,12 @@ test('답하지 않고 저장하면 기억하지 않는다. 물음은 줄을 접
   await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toBeVisible();
 
   await test.step('체크를 끈 줄은 저장되지 않으니 묻지도 않는다', async () => {
-    await recordSheet.nl.checkbox('하나슈퍼').uncheck();
+    // 체크는 서버가 답한 뒤에 바뀐다. `uncheck()` 는 누른 직후 상태를 재서 느린 기기에서 헛걸린다.
+    await recordSheet.nl.checkbox('하나슈퍼').click();
+    await expect(recordSheet.nl.checkbox('하나슈퍼')).not.toBeChecked();
     await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toHaveCount(0);
-    await recordSheet.nl.checkbox('하나슈퍼').check();
+    await recordSheet.nl.checkbox('하나슈퍼').click();
+    await expect(recordSheet.nl.checkbox('하나슈퍼')).toBeChecked();
     await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toBeVisible();
   });
 
