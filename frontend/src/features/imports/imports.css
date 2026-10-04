@@ -479,11 +479,6 @@
     word-break: keep-all;
   }
 
-  /* 접힌 줄에서는 날짜·분류 칩과 같은 자리에서 시작한다. */
-  .nl-item__ask-done--inset {
-    padding-left: 98px;
-  }
-
   .nl-item__ask-undo {
     min-height: 28px;
     padding: 0 2px;

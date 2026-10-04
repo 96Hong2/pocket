@@ -211,8 +211,9 @@ export function CandidateRow({
   }, [editing]);
 
   /*
-    기억할지 묻는 칸. 펼친 폼에서는 분류 칩 바로 아래(격자가 닫힌 자리)에, 접힌 줄에서는
-    메타 줄 아래에 선다. 폼 안에만 두면 「완료」 와 함께 사라져 묻지 않은 셈이 된다.
+    기억할지 묻는 칸. 펼친 폼의 「완료」 아래에만 선다. 접힌 줄의 분류 칩은 누르면 줄이
+    펼쳐지므로 분류를 고르는 자리는 늘 폼이고, 접으면 물음도 함께 접힌다. 답은 바깥이
+    들고 있어 다시 펴면 그대로다.
   */
   const ruleSlot =
     askRule && !locked && candidate.is_selected ? (
@@ -227,8 +228,6 @@ export function CandidateRow({
             ? ruleAnswer.answer
             : null
         }
-        // 접힌 줄에서는 남는 한 줄을 칩 자리(98px)에 맞춘다. 펼친 폼은 칸이 줄 폭을 다 쓴다.
-        inset={!editing}
         disabled={disabled}
         onAnswer={onRuleAnswer}
         onClear={onRuleClear}
@@ -345,7 +344,6 @@ export function CandidateRow({
             disabled={disabled}
             onKindChange={onKindChange}
           />
-          {ruleSlot}
         </>
       )}
     </li>
@@ -367,7 +365,6 @@ function RulePrompt({
   category,
   type,
   answer,
-  inset,
   disabled,
   onAnswer,
   onClear,
@@ -377,7 +374,6 @@ function RulePrompt({
   category: CategoryOut | undefined;
   type: TransactionType;
   answer: RuleAnswer | null;
-  inset: boolean;
   disabled: boolean;
   onAnswer: ((answer: RuleAnswer, categoryId: string) => void) | undefined;
   onClear: (() => void) | undefined;
@@ -389,7 +385,7 @@ function RulePrompt({
     // 아직 저장 전이다. 「기억했어요」 라고 하면 저장을 안 하고 닫은 사람에게 거짓이 된다.
     return (
       <p
-        className={cx('nl-item__ask-done', inset && 'nl-item__ask-done--inset')}
+        className="nl-item__ask-done"
         role="status"
         data-testid={TEST_IDS.nlCandidateAskDone}
       >

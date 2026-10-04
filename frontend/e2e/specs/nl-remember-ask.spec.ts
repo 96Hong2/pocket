@@ -60,9 +60,12 @@ test('분류 없이 읽힌 상호에 분류를 골라 넣으면 묻고, 「기�
     await expect(recordSheet.nl.ruleNote('하나슈퍼')).toBeVisible();
   });
 
-  // 줄을 접어도 「기억하기」 라고 한 것이 남는다.
+  // 줄을 접으면 답한 줄도 함께 접힌다. 답은 남아 있어 다시 펴면 그대로다.
   await recordSheet.nl.form.apply();
+  await expect(recordSheet.nl.ruleNote('하나슈퍼')).toHaveCount(0);
+  await recordSheet.nl.openEdit('하나슈퍼');
   await expect(recordSheet.nl.ruleNote('하나슈퍼')).toBeVisible();
+  await recordSheet.nl.form.apply();
 
   await recordSheet.nl.save();
   await recordSheet.nl.confirmButton.click();
@@ -103,10 +106,12 @@ test('「이번만」 을 고르면 저장은 되고 기억은 하지 않는다'
   await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toHaveCount(0);
   await expect(recordSheet.nl.ruleNote('하나슈퍼')).toHaveCount(0);
 
-  // 접어도 「이번만」 이 남아 다시 묻지 않고, 고른 분류는 그대로다.
+  // 접었다 다시 펴도 「이번만」 이 남아 다시 묻지 않고, 고른 분류는 그대로다.
   await recordSheet.nl.form.apply();
-  await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toHaveCount(0);
   await expect(recordSheet.nl.row('하나슈퍼')).toContainText('생활');
+  await recordSheet.nl.openEdit('하나슈퍼');
+  await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toHaveCount(0);
+  await recordSheet.nl.form.apply();
 
   await recordSheet.nl.save();
   await expect(recordSheet.nl.savedTitle).toContainText('1건 저장했어요');
@@ -118,7 +123,7 @@ test('「이번만」 을 고르면 저장은 되고 기억은 하지 않는다'
   await expect(categories.rules.emptyTitle).toBeVisible();
 });
 
-test('답하지 않고 저장하면 기억하지 않는다. 물음은 줄을 접어도 남아 있다', async ({
+test('답하지 않고 저장하면 기억하지 않는다. 물음은 줄을 접으면 함께 접힌다', async ({
   categories,
   home,
   recordSheet,
@@ -129,8 +134,10 @@ test('답하지 않고 저장하면 기억하지 않는다. 물음은 줄을 접
   await recordSheet.nl.form.pickCategory('생활');
   await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toBeVisible();
 
-  // 「완료」 로 줄을 접어도 물음은 그 자리에 남는다. 폼 안에만 있었으면 여기서 사라졌다.
+  // 「완료」 로 줄을 접으면 물음도 접힌다. 답하지 않았으니 다시 펴면 또 묻는다.
   await recordSheet.nl.form.apply();
+  await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toHaveCount(0);
+  await recordSheet.nl.openEdit('하나슈퍼');
   await expect(recordSheet.nl.rulePrompt('하나슈퍼')).toBeVisible();
 
   await test.step('체크를 끈 줄은 저장되지 않으니 묻지도 않는다', async () => {
