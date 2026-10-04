@@ -99,6 +99,18 @@ export class HomeScreen {
   }
 
   /**
+   * 그 달 결산 카드를 이미 본 것으로 두고 연다. `open()` 보다 먼저 부른다.
+   *
+   * 달 초 이레 동안은 지난달 결산 카드가 홈 안내 자리의 앞쪽에 선다(`pickHomeNotice`).
+   * 그 뒤 카드(예산 제안, 홈 추가)를 보려는 검사가 날짜에 따라 갈리지 않게, 결산은 봤다고 적어 둔다.
+   */
+  async markClosingSeen(month: string): Promise<void> {
+    await this.page.addInitScript((key: string) => {
+      window.localStorage.setItem(key, '1');
+    }, `__ait_storage:closing-seen-${month}`);
+  }
+
+  /**
    * 저녁 알림 카드를 마지막으로 닫은 날을 며칠 전으로 옮기고 다시 연다.
    *
    * 닫을수록 다시 묻는 간격이 길어진다(`remindCadence.ts`). 며칠을 기다릴 수 없어 저장된
@@ -107,16 +119,19 @@ export class HomeScreen {
   async moveRemindClosedDaysAgo(days: number): Promise<void> {
     const day = shiftDay(toLedgerDate(new Date()), -days);
     const yesterday = shiftDay(toLedgerDate(new Date()), -1);
-    await this.page.evaluate(([closedOn, quietDay]) => {
-      const key = '__ait_storage:remind-nudge';
-      const saved = JSON.parse(window.localStorage.getItem(key) ?? 'null') as {
-        closedOn: string;
-      } | null;
-      if (saved == null) throw new Error('저녁 알림을 닫은 기록이 없어요.');
-      saved.closedOn = closedOn;
-      window.localStorage.setItem(key, JSON.stringify(saved));
-      window.localStorage.setItem('__ait_storage:card-quiet-day', quietDay);
-    }, [day, yesterday] as const);
+    await this.page.evaluate(
+      ([closedOn, quietDay]) => {
+        const key = '__ait_storage:remind-nudge';
+        const saved = JSON.parse(window.localStorage.getItem(key) ?? 'null') as {
+          closedOn: string;
+        } | null;
+        if (saved == null) throw new Error('저녁 알림을 닫은 기록이 없어요.');
+        saved.closedOn = closedOn;
+        window.localStorage.setItem(key, JSON.stringify(saved));
+        window.localStorage.setItem('__ait_storage:card-quiet-day', quietDay);
+      },
+      [day, yesterday] as const,
+    );
     await this.page.reload();
     await this.waitReady();
   }

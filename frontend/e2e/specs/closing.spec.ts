@@ -232,6 +232,8 @@ test('홈의 결산 카드는 달 초에만 뜨고, 한 번 열어 보면 사라
   report,
 }) => {
   await seedRichMonth(prep);
+  // 지난달 기록만 있으면 「밀린 내역」 카드가 앞자리를 차지해 결산 카드가 안 선다. 오늘 한 건 적어 둔다.
+  await prep.addExpense({ amount: 1_000, daysAgo: 0 });
 
   await home.open();
   await home.waitReady();

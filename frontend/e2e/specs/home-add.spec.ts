@@ -1,4 +1,5 @@
 import { forceAgreementResult } from '../support/aitMock';
+import { lastMonth } from '../support/api';
 import { expect, test } from '../support/fixtures';
 
 /*
@@ -388,7 +389,10 @@ test('한 번을 놓쳐도 앱 설정에서 같은 안내를 연다', async ({ p
  * 때문**이다. 예산을 정할 때까지 계속 뜨고, 카드 자체도 관리 탭에서 언제든 정할 수
  * 있다고 적는다. 반대로 한 번뿐인 안내는 그 자리를 내주면 영영 안 뜬다.
  */
-test('예산 제안은 한 번뿐인 안내에 비켜 주고, 앞의 것을 닫은 다음 날 선다', async ({ home, prep }) => {
+test('예산 제안은 한 번뿐인 안내에 비켜 주고, 앞의 것을 닫은 다음 날 선다', async ({
+  home,
+  prep,
+}) => {
   await prep.addTransaction({ amount: 12000 });
 
   await home.open();
@@ -431,6 +435,8 @@ test('예산 제안은 한 번뿐인 안내에 비켜 주고, 앞의 것을 닫�
 test('밀린 내역이 뜨면 다른 권유 카드는 쉰다', async ({ home, prep }) => {
   // 나흘 비운 사람. 사흘을 넘겨야 밀린 내역 카드가 선다.
   await prep.addExpense({ amount: 12_000, daysAgo: 4 });
+  // 달 초에는 나흘 전이 지난달이라 결산 카드가 다음 차례에 끼어든다. 봤다고 적어 두고 연다.
+  await home.markClosingSeen(lastMonth());
 
   await home.open();
   await home.waitReady();

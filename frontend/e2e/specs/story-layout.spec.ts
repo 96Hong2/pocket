@@ -1,4 +1,9 @@
-import { formatCurrency, formatDayLabel, toLedgerDate } from '../../src/shared/lib/format';
+import {
+  formatCurrency,
+  formatDayLabel,
+  formatMonthLabel,
+  toLedgerDate,
+} from '../../src/shared/lib/format';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -294,7 +299,11 @@ test.describe('큰 금액이 달력과 수정 시트를 밀어낼 때', () => {
 
     await calendar.open();
     await calendar.waitReady();
-    await calendar.grid.select(new RegExp(`${Number(twoDaysAgo.slice(8, 10))}일`));
+    // 달 초면 그저께가 지난달이다. 그 달로 간 뒤, 「2일」 이 「12일」 에도 걸리지 않게 칸 이름 전체로 고른다.
+    if (twoDaysAgo.slice(0, 7) !== ledgerToday.slice(0, 7)) {
+      await calendar.goToMonth(formatMonthLabel(twoDaysAgo.slice(0, 7)));
+    }
+    await calendar.grid.select(calendar.grid.cellName(twoDaysAgo, { expense: HUGE }));
     await calendar.list.pick('전세금');
     await calendar.edit.waitOpen();
 
