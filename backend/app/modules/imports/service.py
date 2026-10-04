@@ -1013,8 +1013,11 @@ def _occurred_at(
     tz = ledger.user_tz(user)
     if occurred_on is None:
         occurred_on = base_day or today
-    if occurred_on == today:
-        return datetime.now(UTC)
+    now = datetime.now(tz)
+    # 「오늘」 이 시계의 오늘일 때만 지금 시각이다. 자정을 막 넘겼거나 기준일을 따로 받은
+    # 자리에서 지금 시각을 쓰면 그 건이 다른 날, 다른 달로 간다.
+    if occurred_on == today and now.date() == today:
+        return now.astimezone(UTC)
     return datetime.combine(occurred_on, time(hour=12), tzinfo=tz).astimezone(UTC)
 
 
