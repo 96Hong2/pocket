@@ -22,6 +22,7 @@ from app.modules.imports import service
 from app.modules.imports.schemas import (
     ImportBatchOut,
     ImportCandidatePatch,
+    ImportCommitIn,
     ImportCommitOut,
     ImportImageIn,
     ImportTextIn,
@@ -116,9 +117,14 @@ def patch_candidate(
 
 @router.post("/{batch_id}/commit", response_model=ImportCommitOut)
 def commit(
-    batch_id: uuid.UUID, session: DbSession, user: CurrentUser, client: LlmClient
+    batch_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+    client: LlmClient,
+    body: ImportCommitIn | None = None,
 ) -> ImportCommitOut:
-    result = service.commit_batch(session, user, batch_id)
+    skip_rule_ids = set(body.skip_rule_candidate_ids) if body is not None else set()
+    result = service.commit_batch(session, user, batch_id, skip_rule_ids=skip_rule_ids)
     outcome = result.outcome
     # 예산은 마지막 한 건이 아니라 서비스가 고른 기간의 것으로 말한다.
     for_budget = result.budget_outcome

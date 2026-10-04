@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterator
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
@@ -550,8 +550,13 @@ def commit_batch(
     batch_id: uuid.UUID,
     *,
     today: date | None = None,
+    skip_rule_ids: Collection[uuid.UUID] = (),
 ) -> CommitResult:
-    """고른 후보를 실제 거래로 저장한다. 공유 가계부 묶음이면 공유 기록으로 저장한다."""
+    """고른 후보를 실제 거래로 저장한다. 공유 가계부 묶음이면 공유 기록으로 저장한다.
+
+    `skip_rule_ids` 에 든 줄은 저장하되 상호와 분류를 기억하지 않는다. 분류 없이 읽힌
+    상호에 사람이 분류를 골라 넣었을 때 화면이 한 번 묻고, 「네」 가 아니면 여기로 온다.
+    """
     batch = _require_open(session, user, batch_id)
     day = today or ledger.today_for(user)
     chosen = [row for row in batch.candidates if row.is_selected]
@@ -602,7 +607,8 @@ def commit_batch(
         outcomes.append(outcome)
         row.transaction_id = tx.id
         total += spent
-        _learn_rule(session, user, row)
+        if row.id not in skip_rule_ids:
+            _learn_rule(session, user, row)
 
     batch.status = ImportBatchStatus.COMMITTED
     batch.committed_count = len(chosen)
@@ -1007,8 +1013,11 @@ def _occurred_at(
     tz = ledger.user_tz(user)
     if occurred_on is None:
         occurred_on = base_day or today
-    if occurred_on == today:
-        return datetime.now(UTC)
+    now = datetime.now(tz)
+    # 「오늘」 이 시계의 오늘일 때만 지금 시각이다. 자정을 막 넘겼거나 기준일을 따로 받은
+    # 자리에서 지금 시각을 쓰면 그 건이 다른 날, 다른 달로 간다.
+    if occurred_on == today and now.date() == today:
+        return now.astimezone(UTC)
     return datetime.combine(occurred_on, time(hour=12), tzinfo=tz).astimezone(UTC)
 
 

@@ -105,8 +105,11 @@ test('공유 가계부에서 줄글로 적으면 검토한 지출만 그 가계�
     await expect(compose.title).toHaveCount(0);
 
     await expect(recordSheet.nl.form.categoryButton).toHaveAccessibleName('분류 교통, 바꾸기');
+    // 분류 없이 읽힌 줄에 분류를 골랐지만 공유 가계부는 상호를 기억하지 않는다. 묻지도 않는다.
+    await expect(recordSheet.nl.rulePrompt('택시')).toHaveCount(0);
     await recordSheet.nl.form.doneButton.click();
     await expect(recordSheet.nl.categoryButton('택시')).toHaveAccessibleName('분류 교통, 바꾸기');
+    await expect(recordSheet.nl.rulePrompt('택시')).toHaveCount(0);
   });
 
   await test.step('저장하면 공유 가계부 말투로 말한다', async () => {

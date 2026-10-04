@@ -83,6 +83,8 @@ export type ImportCandidatePatch = Schemas['ImportCandidatePatch'];
 export type ImportTextIn = Schemas['ImportTextIn'];
 /** 캡처 한 장. `data:image/png;base64,...` 형태의 문자열 한 필드다. */
 export type ImportImageIn = Schemas['ImportImageIn'];
+/** 저장하면서 함께 보내는 선택 사항. 기억하지 않을 줄의 id. 비어 있으면 안 보낸다. */
+export type ImportCommitIn = Schemas['ImportCommitIn'];
 export type ImportCommitOut = Schemas['ImportCommitOut'];
 /** 기억한 분류 규칙. 지울 수 있다. */
 export type MerchantRuleOut = Schemas['MerchantRuleOut'];

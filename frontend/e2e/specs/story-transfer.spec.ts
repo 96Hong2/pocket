@@ -79,6 +79,8 @@ test('읽어 온 지출을 이체로 바꾸면 분류 칸이 사라지고 저장
   // 이체는 집계 밖이라 분류에 뜻이 없다. 골라 둔 것까지 자리째 사라진다.
   await expect(recordSheet.nl.form.categoryGroup).toHaveCount(0);
   await expect(recordSheet.nl.form.categoryButton).toHaveCount(0);
+  // 「카드값」 은 분류 없이 읽혀 식비를 고르자 기억할지 물었다. 이체에는 기억할 분류가 없어 함께 사라진다.
+  await expect(recordSheet.nl.rulePrompt(TRANSFER_NAME)).toHaveCount(0);
   // 무엇으로 냈는지도 마찬가지다. 자리를 남기면 고른 값을 서버가 조용히 버린다.
   await expect(recordSheet.nl.form.paymentGroup).toHaveCount(0);
 

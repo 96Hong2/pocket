@@ -235,6 +235,88 @@ def test_규칙을_지우면_원래_분류로_돌아간다(client: TestClient, d
     assert str(again["candidates"][0]["category_id"]) == names["건강·미용"]
 
 
+def test_기억하지_않을_줄을_보내면_저장만_하고_기억하지_않는다(
+    client: TestClient, default_categories
+) -> None:
+    """분류 없이 읽힌 상호에 사람이 분류를 골라 넣으면 화면이 한 번 묻는다.
+
+    「네」 가 아니면 그 줄의 id 가 저장 본문에 실려 온다. 저장은 그대로 되고 기억만 빠진다.
+    """
+    names = {category.name: str(category.id) for category in default_categories}
+    batch = _analyze(client, "하나슈퍼 8000")
+    candidate = batch["candidates"][0]
+    # 스텁 모델의 어느 낱말표에도 없는 상호다. 화면이 묻는 줄이 바로 이 모양이다.
+    assert candidate["category_id"] is None
+
+    client.patch(
+        f"/api/v1/imports/{batch['id']}/candidates/{candidate['id']}",
+        json={"category_id": names["생활"]},
+        headers=AUTH,
+    )
+    committed = client.post(
+        f"/api/v1/imports/{batch['id']}/commit",
+        json={"skip_rule_candidate_ids": [candidate["id"]]},
+        headers=AUTH,
+    )
+    assert committed.status_code == 200, committed.text
+    assert committed.json()["created_count"] == 1
+    # 저장된 거래는 고른 분류 그대로다. 분류가 빠졌으면 기억할 것이 없어 이 테스트가 헛통과한다.
+    saved = client.get("/api/v1/transactions", headers=AUTH).json()["items"]
+    assert [str(item["category_id"]) for item in saved] == [names["생활"]]
+
+    assert client.get("/api/v1/merchant-rules", headers=AUTH).json()["items"] == []
+    # 다음 분석은 다시 처음부터 판단한다.
+    again = _analyze(client, "하나슈퍼 5000")
+    assert again["candidates"][0]["category_id"] is None
+
+
+def test_본문_없이_저장하면_예전처럼_모든_줄을_기억한다(
+    client: TestClient, default_categories
+) -> None:
+    """옛 판은 저장 본문을 보내지 않는다. 그 요청은 하던 대로 전부 기억해야 한다."""
+    names = {category.name: str(category.id) for category in default_categories}
+    batch = _analyze(client, "하나슈퍼 8000")
+    candidate = batch["candidates"][0]
+    client.patch(
+        f"/api/v1/imports/{batch['id']}/candidates/{candidate['id']}",
+        json={"category_id": names["생활"]},
+        headers=AUTH,
+    )
+    committed = client.post(f"/api/v1/imports/{batch['id']}/commit", headers=AUTH)
+    assert committed.status_code == 200, committed.text
+
+    rules = client.get("/api/v1/merchant-rules", headers=AUTH).json()["items"]
+    assert [(rule["merchant"], str(rule["category_id"])) for rule in rules] == [
+        ("하나슈퍼", names["생활"])
+    ]
+
+
+def test_기억하지_않을_줄은_그_줄만_빼고_나머지는_기억한다(
+    client: TestClient, default_categories
+) -> None:
+    names = {category.name: str(category.id) for category in default_categories}
+    batch = _analyze(client, "하나슈퍼 8000 올리브영 23000")
+    by_merchant = {item["merchant"]: item for item in batch["candidates"]}
+    unknown = by_merchant["하나슈퍼"]
+    assert unknown["category_id"] is None
+
+    client.patch(
+        f"/api/v1/imports/{batch['id']}/candidates/{unknown['id']}",
+        json={"category_id": names["생활"]},
+        headers=AUTH,
+    )
+    committed = client.post(
+        f"/api/v1/imports/{batch['id']}/commit",
+        json={"skip_rule_candidate_ids": [unknown["id"]]},
+        headers=AUTH,
+    )
+    assert committed.status_code == 200, committed.text
+    assert committed.json()["created_count"] == 2
+
+    rules = client.get("/api/v1/merchant-rules", headers=AUTH).json()["items"]
+    assert [rule["merchant"] for rule in rules] == ["올리브영"]
+
+
 def test_수입_분류도_기억하고_지출_후보에는_붙이지_않는다(
     client: TestClient, default_categories
 ) -> None:

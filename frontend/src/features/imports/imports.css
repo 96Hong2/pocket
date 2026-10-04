@@ -408,6 +408,95 @@
     word-break: keep-all;
   }
 
+  /*
+    분류 없이 읽힌 상호에 분류를 골라 넣은 뒤 묻는 한 칸. 줄이 접혀도 남는다.
+    환불 안내(앰버)와 갈라 세이지로 둔다. 잘못을 알리는 자리가 아니라 고르는 자리다.
+  */
+  .nl-item__ask {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--color-sage-50);
+    border-radius: var(--radius-inset);
+  }
+
+  .nl-item__ask-text {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-sage-700);
+    word-break: keep-all;
+  }
+
+  .nl-item__ask-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* 고르는 자리다. 환불 안내의 「수입으로 바꾸기」 와 같은 무게로, 저장 버튼보다 세지 않게. */
+  .nl-item__ask-yes,
+  .nl-item__ask-no {
+    flex: none;
+    min-height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .nl-item__ask-yes {
+    background: var(--color-surface);
+    color: var(--color-sage-700);
+  }
+
+  .nl-item__ask-no {
+    background: transparent;
+    color: var(--color-muted);
+  }
+
+  .nl-item__ask-yes:disabled,
+  .nl-item__ask-no:disabled {
+    opacity: 0.45;
+  }
+
+  /* 「기억하기」 뒤 남는 한 줄. 저장 전이라 「기억했다」 가 아니라 「저장할 때 기억한다」 다. */
+  .nl-item__ask-done {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+    margin: 6px 0 0;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-sage-700);
+    word-break: keep-all;
+  }
+
+  /* 접힌 줄에서는 날짜·분류 칩과 같은 자리에서 시작한다. */
+  .nl-item__ask-done--inset {
+    padding-left: 98px;
+  }
+
+  .nl-item__ask-undo {
+    min-height: 28px;
+    padding: 0 2px;
+    border: 0;
+    background: none;
+    color: var(--color-muted);
+    font-family: inherit;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
   /* 공유 가계부 검토의 수입·이체·환불 줄. 저장되지 않는 줄이라 흐리게 둔다. */
   .nl-item--locked .nl-item__head,
   .nl-item--locked .nl-item__meta {

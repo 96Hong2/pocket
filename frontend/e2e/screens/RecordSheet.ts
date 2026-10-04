@@ -861,6 +861,32 @@ class RecordNaturalLanguage {
     return this.root.getByRole('checkbox', { name, exact: true });
   }
 
+  /**
+   * 분류 없이 읽힌 줄에 분류를 골라 넣으면 그 줄 아래 뜨는 물음.
+   * 「기억하기」 와 「이번만」. 줄을 접어도 남고, 답하면 사라진다.
+   * 모델이 분류를 붙여 준 줄, 체크를 끈 줄, 공유 가계부 검토에는 없다.
+   */
+  rulePrompt(name: string): Locator {
+    return this.row(name).getByTestId(TEST_IDS.nlCandidateAsk);
+  }
+
+  rememberButton(name: string): Locator {
+    return this.rulePrompt(name).getByRole('button', { name: '기억하기', exact: true });
+  }
+
+  onceButton(name: string): Locator {
+    return this.rulePrompt(name).getByRole('button', { name: '이번만', exact: true });
+  }
+
+  /** 「기억하기」 뒤 그 자리에 남는 한 줄. 「저장할 때 「생활」 분류로 기억해요」 와 「되돌리기」 */
+  ruleNote(name: string): Locator {
+    return this.row(name).getByTestId(TEST_IDS.nlCandidateAskDone);
+  }
+
+  ruleUndoButton(name: string): Locator {
+    return this.ruleNote(name).getByRole('button', { name: '되돌리기', exact: true });
+  }
+
   amount(name: string): Locator {
     return this.row(name).getByTestId(TEST_IDS.nlCandidateAmount);
   }
@@ -1036,7 +1062,8 @@ class RecordNaturalLanguageForm {
 
   /** 분류 칩을 눌러야 열리는 격자. 하나를 고르면 저절로 닫힌다. */
   get categoryGroup(): Locator {
-    return this.root.getByRole('group', { name: '분류' });
+    // 「분류 기억하기」 물음 칸도 group 이라 이름이 정확히 「분류」 인 것만 잡는다.
+    return this.root.getByRole('group', { name: '분류', exact: true });
   }
 
   categoryChip(name: string): Locator {
