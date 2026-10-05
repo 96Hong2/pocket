@@ -18,12 +18,15 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
+    Uuid,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Entity, MoneyColumn, str_enum_type
+from app.domain.asset_ledger import EntrySide
 from app.models.transaction import PaymentMethod, TransactionSource, TransactionType
 
 
@@ -119,5 +122,12 @@ class ImportCandidate(Entity):
     book_entry_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("book_entries.id", ondelete="SET NULL"), nullable=True
     )
+    # 저축·투자 줄. 거래의 같은 이름 칸으로 넘어간다. asset_name 은 읽어 온 항목 이름이다.
+    asset_item_key: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    asset_side: Mapped[EntrySide | None] = mapped_column(
+        str_enum_type(EntrySide, name="asset_entry_side"), nullable=True
+    )
+    asset_quantity: Mapped[Decimal | None] = mapped_column(Numeric(20, 8), nullable=True)
+    asset_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
     batch: Mapped[ImportBatch] = relationship(back_populates="candidates")

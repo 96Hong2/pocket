@@ -1,6 +1,6 @@
 """월간 결산 판정.
 
-카드 넉 장에 실을 것을 한 번에 낸다: 잘한 것 · 돈 흐름 · 살펴볼 변화 · 다음 달 하나만.
+카드에 실을 것을 한 번에 낸다: 잘한 것 · 돈 흐름 · 순자산 · 살펴볼 변화 · 다음 달 하나만.
 
 **근거가 없으면 아무 말도 만들지 않는다.** 잘한 것이 하나도 없으면 빈 목록이고, 지난달과
 견줄 것이 없으면 변화도 다음 달 제안도 없다. 억지로 채우면 칭찬도 조언도 값을 잃는다.
@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from enum import StrEnum
 
@@ -29,6 +29,8 @@ __all__ = [
     "DayCounts",
     "Highlight",
     "HighlightKind",
+    "NetWorthChange",
+    "NetWorthPoint",
     "NextStep",
     "NextStepKind",
     "build_closing",
@@ -46,6 +48,8 @@ CAP_UNIT = 1000
 class HighlightKind(StrEnum):
     """잘한 것의 종류. **선언 순서가 곧 카드에 실리는 순서다.**"""
 
+    # 그 달 모은 돈(어디에 있고 판 것이 아닌 이체 합). 가장 먼저 말한다.
+    SAVED = "saved"
     # 예산을 정했고 그 안에서 마쳤다.
     WITHIN_BUDGET = "within_budget"
     # 지난달보다 가장 많이 줄인 분류.
@@ -66,8 +70,8 @@ class NextStepKind(StrEnum):
 class Highlight:
     """잘한 것 하나.
 
-    `amount` 는 **그 문장이 그대로 읽을 숫자**다. 예산 안에서 마친 것이면 남긴 돈,
-    분류를 줄인 것이면 줄인 돈, 목표면 옮긴 돈이다. 화면이 빼거나 더하지 않는다.
+    `amount` 는 **그 문장이 그대로 읽을 숫자**다. 모은 돈이면 모은 돈, 예산 안에서 마친 것이면
+    남긴 돈, 분류를 줄인 것이면 줄인 돈, 목표면 옮긴 돈이다. 화면이 빼거나 더하지 않는다.
     """
 
     kind: HighlightKind
@@ -84,12 +88,16 @@ class ClosingFlow:
 
     income: Money
     expense: Money
-    # 옮긴 돈. 지출도 수입도 아니라 차액에 안 들어간다.
+    # 이체 전부. 지출도 수입도 아니라 차액에 안 들어간다. 옛 화면이 「옮긴 돈」 으로 읽는다.
     transfer: Money
-    # 수입 - 지출. 순자산도 남은 예산도 아니다.
+    # 수입 - 지출. 순자산도 남은 예산도 아니다. 모은 돈은 빼지 않는다.
     delta: Money
     recorded_days: int
     total_days: int
+    # 모은 돈: 이체 중 어디에 있고 판 것이 아닌 합.
+    saved: Money
+    # 옮긴 돈: 이체 전부 - 모은 돈. 판 돈도 여기다.
+    moved: Money
 
 
 @dataclass(frozen=True)
@@ -120,6 +128,25 @@ class DayCounts:
 
 
 @dataclass(frozen=True)
+class NetWorthPoint:
+    """달마다 월말 순자산. effective_on 은 그 점이 기대는 스냅샷 날짜다."""
+
+    period: BudgetPeriod
+    effective_on: date
+    net_worth: Money
+
+
+@dataclass(frozen=True)
+class NetWorthChange:
+    current: Money
+    previous: Money
+    # 이번 - 지난. 음수면 줄었다.
+    delta: Money
+    # 그 달까지 몇 달 이어 늘었나. 늘지 않았으면 0.
+    streak: int
+
+
+@dataclass(frozen=True)
 class ClosingFacts:
     """판정에 쓰는 재료. 모으는 일은 서비스가 하고 판정은 여기서만 한다."""
 
@@ -133,6 +160,10 @@ class ClosingFacts:
     # 그 달에 목표로 옮긴 돈.
     goal_contribution: Money
     has_any_transaction: bool
+    # 그 달 모은 돈.
+    saved: Money = field(default_factory=Money.zero)
+    # 그 달까지 오래된 달부터 이어진 월말 점. 스냅샷이 없으면 비어 있다.
+    net_worth_points: tuple[NetWorthPoint, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -145,6 +176,8 @@ class Closing:
     # 지난달보다 가장 많이 늘어난 분류. 견줄 것이 없으면 None.
     change: CategoryChange | None
     next_step: NextStep | None
+    # 그 달에 적은 스냅샷과 앞 달 점이 있을 때만.
+    net_worth: NetWorthChange | None = None
 
 
 def count_days(rows: Iterable[agg.TransactionInput], period: BudgetPeriod) -> DayCounts:
@@ -183,15 +216,47 @@ def build_closing(facts: ClosingFacts) -> Closing:
             delta=facts.totals.monthly_delta,
             recorded_days=facts.days.recorded_days,
             total_days=facts.period.total_days,
+            saved=facts.saved,
+            # 두 값을 따로 읽어 사이에 저장이 끼면 모은 돈이 더 클 수 있다. 음수는 안 보인다.
+            moved=(facts.totals.month_transfer - facts.saved).clamped_to_zero(),
         ),
         change=change,
         next_step=_next_step(change),
+        net_worth=_net_worth(facts),
+    )
+
+
+def _net_worth(facts: ClosingFacts) -> NetWorthChange | None:
+    """그 달 월말 점과 앞 달 점을 견준다. 그 달에 적은 스냅샷이 없으면 말하지 않는다.
+
+    월말 점은 앞 스냅샷을 이어 받으므로, 그 달에 아무것도 안 적었으면 지난달과 같은 값이다.
+    그것을 「그대로예요」 로 말하면 확인하지 않은 숫자를 말하는 셈이다.
+    """
+    points = facts.net_worth_points
+    index = next((i for i, p in enumerate(points) if p.period == facts.period), None)
+    if index is None or index == 0:
+        return None
+    current, previous = points[index], points[index - 1]
+    if not facts.period.contains(current.effective_on):
+        return None
+    streak = 0
+    while index > 0 and points[index].net_worth.amount > points[index - 1].net_worth.amount:
+        streak += 1
+        index -= 1
+    return NetWorthChange(
+        current=current.net_worth,
+        previous=previous.net_worth,
+        delta=current.net_worth - previous.net_worth,
+        streak=streak,
     )
 
 
 def _highlights(facts: ClosingFacts) -> list[Highlight]:
     """근거가 있는 것만, 선언 순서대로, 세 개까지."""
     found: list[Highlight] = []
+
+    if facts.saved.is_positive:
+        found.append(Highlight(HighlightKind.SAVED, amount=facts.saved))
 
     budget = facts.budget_amount
     if budget is not None and facts.totals.budgeted_spend <= budget:

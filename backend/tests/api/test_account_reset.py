@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.domain.categories import DEFAULT_CATEGORIES
 from app.models import (
+    AssetEntry,
     AssetItem,
     AssetSnapshot,
     Budget,
@@ -275,3 +276,36 @@ def test_동의_없이는_지우지_않는다(
 def test_인증_없이는_못_지운다(unauthenticated_client: TestClient) -> None:
     res = unauthenticated_client.post("/api/v1/account/reset", json={"confirm": True})
     assert res.status_code == 401
+
+
+def test_자산_장부도_접히고_다시_적으면_새로_시작한다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    del default_categories
+    stock = {
+        "occurred_at": "2026-09-13T03:00:00+00:00",
+        "amount": "500000",
+        "type": "transfer",
+        "new_asset": {"group": "investment", "kind": "stock", "label": "삼성전자"},
+        "asset_quantity": "2",
+    }
+    res = client.post("/api/v1/transactions", json=stock, headers=AUTH)
+    assert res.status_code == 201, res.text
+    user = db.scalar(select(User))
+    assert user is not None
+    # 시작 값 줄과 산 줄.
+    assert _live(db, AssetEntry, user_id=user.id) == 2
+
+    client.post("/api/v1/account/reset", json={"confirm": True}, headers=AUTH)
+    db.expire_all()
+
+    assert _live(db, AssetEntry, user_id=user.id) == 0
+    assert _count(db, AssetEntry, user_id=user.id) == 2
+    assert client.get("/api/v1/assets", headers=AUTH).json()["items"] == []
+    # 다시 사면 접힌 장부가 섞이지 않고 2주에서 시작한다.
+    again = client.post("/api/v1/transactions", json=stock, headers=AUTH)
+    assert again.status_code == 201, again.text
+    assert (again.json()["asset"]["quantity"], again.json()["asset"]["item_amount"]) == (
+        "2",
+        "500000",
+    )

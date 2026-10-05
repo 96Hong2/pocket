@@ -13,7 +13,9 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    Numeric,
     String,
+    Uuid,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -22,6 +24,7 @@ from app.db.base import Entity, MoneyColumn, SoftDeleteMixin, str_enum_type
 
 # 종류·입력경로의 정의는 domain 한 곳에 있다. 여기서 다시 만들지 않는다.
 from app.domain.aggregation import PaymentMethod, TransactionSource, TransactionType
+from app.domain.asset_ledger import EntrySide
 
 __all__ = ["PaymentMethod", "Transaction", "TransactionSource", "TransactionType"]
 
@@ -95,3 +98,11 @@ class Transaction(Entity, SoftDeleteMixin):
     import_batch_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("import_batches.id", ondelete="SET NULL"), nullable=True, index=True
     )
+
+    # 저축·투자. 이체에 「어디에」 를 붙인 것이다(ADR-0044). 집계는 이 칸을 안 본다.
+    asset_item_key: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    # buy 넣었어요(부채는 갚았어요), sell 팔았어요.
+    asset_side: Mapped[EntrySide | None] = mapped_column(
+        str_enum_type(EntrySide, name="asset_entry_side"), nullable=True
+    )
+    asset_quantity: Mapped[Decimal | None] = mapped_column(Numeric(20, 8), nullable=True)

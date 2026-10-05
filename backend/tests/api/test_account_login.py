@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.integrations.email.factory import get_email_sender
-from app.models import Category, LoginCode, Transaction, User
+from app.models import AssetEntry, AssetSnapshot, Category, LoginCode, Transaction, User
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
 OTHER = {"X-Anon-Key": "second-device-key"}
@@ -264,3 +264,61 @@ def test_합치기를_두_번_거쳐도_처음_기기가_빈_가계부를_보지
     # 기기 A 가 돌아온다. 접힌 계정이 아니라 옮겨 간 곳을 봐야 한다.
     items = client.get("/api/v1/transactions", headers=AUTH).json()["items"]
     assert sorted(item["amount"] for item in items) == ["12000", "7000"], items
+
+
+def test_합치면_두_쪽_자산이_오늘_스냅샷_하나로_묶이고_장부가_이어진다(
+    two_devices: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    _start(two_devices)
+    _verify(two_devices, _peek(two_devices))
+    put = two_devices.put(
+        "/api/v1/assets",
+        json={"items": [{"group": "cash", "label": "토스뱅크", "amount": "1000000"}]},
+        headers=AUTH,
+    )
+    assert put.status_code == 200, put.text
+    # 두 번째 기기는 주식 2주를 500,000원에 샀다.
+    bought = two_devices.post(
+        "/api/v1/transactions",
+        json={
+            "occurred_at": "2026-09-13T03:00:00+00:00",
+            "amount": "500000",
+            "type": "transfer",
+            "new_asset": {"group": "investment", "kind": "stock", "label": "삼성전자"},
+            "asset_quantity": "2",
+        },
+        headers=OTHER,
+    )
+    assert bought.status_code == 201, bought.text
+    stock_key = bought.json()["asset"]["item_key"]
+
+    _start(two_devices)
+    body = _verify(two_devices, _peek(two_devices), headers=OTHER)
+
+    assert body["result"] == "merged"
+    assets = two_devices.get("/api/v1/assets", headers=OTHER).json()
+    assert [item["label"] for item in assets["items"]] == ["토스뱅크", "삼성전자"]
+    assert assets["summary"]["total_assets"] == "1500000"
+    owner = next(user for user in db.scalars(select(User)) if user.deleted_at is None)
+    live = db.scalars(
+        select(AssetSnapshot).where(
+            AssetSnapshot.user_id == owner.id, AssetSnapshot.deleted_at.is_(None)
+        )
+    ).all()
+    assert len(live) == 1
+    assert all(row.user_id == owner.id for row in db.scalars(select(AssetEntry)))
+    # 장부가 같은 키로 이어져 판 기록의 실현 수익이 맞다.
+    sold = two_devices.post(
+        "/api/v1/transactions",
+        json={
+            "occurred_at": "2026-09-14T03:00:00+00:00",
+            "amount": "300000",
+            "type": "transfer",
+            "asset_item_key": stock_key,
+            "asset_side": "sell",
+            "asset_quantity": "1",
+        },
+        headers=AUTH,
+    )
+    assert sold.status_code == 201, sold.text
+    assert sold.json()["asset"]["realized"] == "50000"

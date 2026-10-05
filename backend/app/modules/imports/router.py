@@ -49,6 +49,7 @@ def analyze_text(
         escalation=escalation,
         base_day=body.base_day,
         book_id=body.book_id,
+        with_assets=body.with_assets,
     )
     return to_batch(batch, client=client)
 
@@ -72,6 +73,7 @@ def analyze_capture(
         escalation=escalation,
         base_day=body.base_day,
         book_id=body.book_id,
+        with_assets=body.with_assets,
     )
     return to_batch(batch, client=client)
 
@@ -95,6 +97,7 @@ def analyze_receipt(
         escalation=escalation,
         base_day=body.base_day,
         book_id=body.book_id,
+        with_assets=body.with_assets,
     )
     return to_batch(batch, client=client)
 

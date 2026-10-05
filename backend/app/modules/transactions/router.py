@@ -6,15 +6,19 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, Query, Response, status
+from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES
 from app.api.months import MonthQuery
+from app.models import Transaction, User
 from app.modules import ledger
+from app.modules.assets import entries as asset_entries
 from app.modules.budgets import service as budgets
 from app.modules.budgets.schemas import BudgetStateOut, to_budget_state
 from app.modules.transactions import service
 from app.modules.transactions.schemas import (
+    AssetResultOut,
     CalendarDayOut,
     CalendarMonthOut,
     PeriodSummaryOut,
@@ -42,15 +46,43 @@ def _budget_out(outcome: service.SaveOutcome) -> BudgetStateOut | None:
     )
 
 
+def _outs(session: Session, user: User, rows: list[Transaction]) -> list[TransactionOut]:
+    """거래 응답. 저축·투자면 「어디에」 이름을 최신 스냅샷에서 붙인다."""
+    labels = asset_entries.asset_labels(session, user, (row.asset_item_key for row in rows))
+    outs = []
+    for row in rows:
+        out = TransactionOut.model_validate(row)
+        if row.asset_item_key is not None:
+            out = out.model_copy(update={"asset_label": labels.get(row.asset_item_key)})
+        outs.append(out)
+    return outs
+
+
+def _asset_out(session: Session, user: User, tx: Transaction) -> AssetResultOut | None:
+    result = asset_entries.asset_result(session, user, tx)
+    if result is None:
+        return None
+    return AssetResultOut(
+        item_key=result.item_key,
+        label=result.label,
+        item_amount=result.item_amount.amount,
+        quantity=result.quantity,
+        month_saved=result.month_saved.amount,
+        realized=result.realized.amount if result.realized is not None else None,
+        rate=result.rate,
+    )
+
+
 @router.post("", response_model=TransactionCreated, status_code=status.HTTP_201_CREATED)
 def create(body: TransactionCreate, session: DbSession, user: CurrentUser) -> TransactionCreated:
     tx, outcome = service.create_transaction(session, user, body.model_dump())
     return TransactionCreated(
-        transaction=TransactionOut.model_validate(tx),
+        transaction=_outs(session, user, [tx])[0],
         feedback=to_feedback(outcome.feedback),
         budget=_budget_out(outcome),
         undo_window_seconds=int(service.UNDO_WINDOW.total_seconds()),
         undo_until=service.undo_deadline(tx),
+        asset=_asset_out(session, user, tx),
     )
 
 
@@ -62,9 +94,10 @@ def update(
         session, user, tx_id, body.model_dump(exclude_unset=True)
     )
     return TransactionUpdated(
-        transaction=TransactionOut.model_validate(tx),
+        transaction=_outs(session, user, [tx])[0],
         feedback=to_feedback(outcome.feedback),
         budget=_budget_out(outcome),
+        asset=_asset_out(session, user, tx),
     )
 
 
@@ -88,7 +121,7 @@ def index(
         session, user, period=period, day=day, query=q, limit=limit, cursor=cursor
     )
     return TransactionListOut(
-        items=[TransactionOut.model_validate(r) for r in page.items],
+        items=_outs(session, user, page.items),
         next_cursor=page.next_cursor,
     )
 

@@ -16,18 +16,22 @@ from decimal import Decimal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.api.amounts import MAX_AMOUNT, integral_won, ratio_out
+from app.api.amounts import MAX_AMOUNT, integral_won, quantity_in, quantity_out, ratio_out
 from app.api.months import MAX_YEAR, MIN_YEAR
 from app.domain.aggregation import PaymentMethod, TransactionSource, TransactionType
+from app.domain.asset_ledger import AssetSide, InvestKind
+from app.domain.assets import AssetGroup
 from app.domain.feedback import AchievementKind, FeedbackKind, FeedbackResult
 from app.domain.money import Money
 from app.modules import ledger
 from app.modules.budgets.schemas import BudgetStateOut
 
 __all__ = [
+    "AssetResultOut",
     "CalendarDayOut",
     "CalendarMonthOut",
     "FeedbackOut",
+    "NewAssetIn",
     "PeriodSummaryOut",
     "TransactionCreate",
     "TransactionCreated",
@@ -92,6 +96,49 @@ def _clean_memo(value: str | None) -> str | None:
     return stripped or None
 
 
+class NewAssetIn(BaseModel):
+    """기록 흐름에서 새로 만드는 자산 항목. 거래와 같은 commit 에서 오늘 스냅샷에 붙는다."""
+
+    group: AssetGroup
+    kind: InvestKind | None = None
+    label: str | None = Field(default=None, max_length=80)
+
+    @field_validator("label")
+    @classmethod
+    def _blank_is_none(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
+            raise ValueError("이름에 넣을 수 없는 문자가 있어요.")
+        return value.strip() or None
+
+    @model_validator(mode="after")
+    def _investment_needs_kind_and_name(self) -> NewAssetIn:
+        if self.group is AssetGroup.INVESTMENT:
+            if self.kind is None:
+                raise ValueError("투자 항목은 종류를 골라 주세요.")
+            if self.label is None:
+                raise ValueError("투자 항목은 이름을 적어 주세요.")
+        elif self.kind is not None:
+            raise ValueError("종류는 투자 항목에만 고를 수 있어요.")
+        return self
+
+
+_ASSET_FIELDS = ("asset_item_key", "asset_side", "asset_quantity", "new_asset")
+
+
+def _check_asset_fields(
+    model: TransactionCreate | TransactionUpdate,
+) -> None:
+    """「어디에」 와 새 항목은 하나만. 쪽·수량만 오고 어디에가 없으면 막는다."""
+    if model.asset_item_key is not None and model.new_asset is not None:
+        raise ValueError("어디에는 기존 항목과 새 항목 중 하나만 보내 주세요.")
+    has_target = model.asset_item_key is not None or model.new_asset is not None
+    dangling = model.asset_side is not None or model.asset_quantity is not None
+    if dangling and not has_target and isinstance(model, TransactionCreate):
+        raise ValueError("어디에를 함께 보내 주세요.")
+
+
 class TransactionCreate(BaseModel):
     """표준 거래 형식. 파싱 결과와 손입력이 같은 형태로 들어온다."""
 
@@ -111,11 +158,27 @@ class TransactionCreate(BaseModel):
     # 무엇으로 냈나. 안 고르면 null 이고, 지출이 아닌 종류에는 붙지 않는다.
     payment_method: PaymentMethod | None = None
     refund_of_transaction_id: uuid.UUID | None = None
+    # 저축·투자(ADR-0044). 이체에만 붙는다. 옛 번들은 안 보내고 그대로 저장된다.
+    asset_item_key: uuid.UUID | None = Field(default=None, description="어디에. 자산 항목 키")
+    asset_side: AssetSide | None = Field(default=None, description="안 보내면 buy")
+    asset_quantity: Decimal | None = Field(
+        default=None, gt=0, description="주식·ETF·코인만. 소수 8자리까지"
+    )
+    new_asset: NewAssetIn | None = Field(default=None, description="어디에를 새로 만들 때")
 
     _check_amount = field_validator("amount")(integral_won)
     _check_occurred_at = field_validator("occurred_at")(_in_range)
     _check_merchant = field_validator("merchant")(_clean_text)
     _check_memo = field_validator("memo")(_clean_memo)
+    _check_quantity = field_validator("asset_quantity")(quantity_in)
+
+    @model_validator(mode="after")
+    def _asset_only_for_transfer(self) -> TransactionCreate:
+        _check_asset_fields(self)
+        has_asset = any(getattr(self, name) is not None for name in _ASSET_FIELDS)
+        if has_asset and self.type is not TransactionType.TRANSFER:
+            raise ValueError("저축·투자는 이체로만 적을 수 있어요.")
+        return self
 
     @model_validator(mode="after")
     def _zero_only_for_no_spend(self) -> TransactionCreate:
@@ -146,11 +209,22 @@ class TransactionUpdate(BaseModel):
     excluded_from_budget: bool | None = None
     # 분류와 같이 null 이 「지운다」 다. 골랐다가 되무를 수 있어야 한다.
     payment_method: PaymentMethod | None = None
+    # 저축·투자. asset_item_key 에 null 을 보내면 그냥 이체가 된다.
+    asset_item_key: uuid.UUID | None = None
+    asset_side: AssetSide | None = None
+    asset_quantity: Decimal | None = Field(default=None, gt=0)
+    new_asset: NewAssetIn | None = None
 
     _check_amount = field_validator("amount")(integral_won)
     _check_occurred_at = field_validator("occurred_at")(_in_range)
     _check_merchant = field_validator("merchant")(_clean_text)
     _check_memo = field_validator("memo")(_clean_memo)
+    _check_quantity = field_validator("asset_quantity")(quantity_in)
+
+    @model_validator(mode="after")
+    def _one_target(self) -> TransactionUpdate:
+        _check_asset_fields(self)
+        return self
 
     @model_validator(mode="after")
     def _reject_explicit_nulls(self) -> TransactionUpdate:
@@ -178,8 +252,14 @@ class TransactionOut(BaseModel):
     confidence: float
     excluded_from_budget: bool
     payment_method: PaymentMethod | None
+    # 저축·투자면 「어디에」 와 쪽, 수량. 이름은 최신 스냅샷의 그 키 이름이다.
+    asset_item_key: uuid.UUID | None = None
+    asset_side: AssetSide | None = None
+    asset_quantity: Decimal | None = None
+    asset_label: str | None = None
 
     _stamp_occurred_at = field_validator("occurred_at", mode="before")(_as_utc)
+    _trim_quantity = field_validator("asset_quantity", mode="after")(quantity_out)
 
 
 class TransactionListOut(BaseModel):
@@ -233,6 +313,23 @@ class FeedbackOut(BaseModel):
     achievement_no_spend_days: int | None = None
 
 
+class AssetResultOut(BaseModel):
+    """저축·투자를 저장하거나 고친 뒤 화면에 그릴 것. 숫자는 서버가 장부를 접어 셌다."""
+
+    item_key: uuid.UUID
+    label: str | None
+    # 그 항목의 지금 금액(순자산에 드는 값).
+    item_amount: Decimal
+    quantity: Decimal | None = None
+    # 이 기록이 든 달의 모은 돈(이체 중 어디에가 있고 판 것이 아닌 합).
+    month_saved: Decimal
+    # 팔았으면 이 판 기록의 실현 수익과 수익률(%). 넣었으면 null.
+    realized: Decimal | None = None
+    rate: Decimal | None = None
+
+    _trim_quantity = field_validator("quantity", mode="after")(quantity_out)
+
+
 class TransactionCreated(BaseModel):
     transaction: TransactionOut
     feedback: FeedbackOut
@@ -243,6 +340,8 @@ class TransactionCreated(BaseModel):
     undo_window_seconds: int
     # 되돌리기 마감 시각(UTC). 백그라운드에 다녀왔을 때 남은 시간을 보정하는 데 쓴다.
     undo_until: datetime
+    # 저축·투자일 때만. 옛 번들은 모르는 칸이라 무시한다.
+    asset: AssetResultOut | None = None
 
 
 class TransactionUpdated(BaseModel):
@@ -251,6 +350,7 @@ class TransactionUpdated(BaseModel):
     transaction: TransactionOut
     feedback: FeedbackOut
     budget: BudgetStateOut | None = None
+    asset: AssetResultOut | None = None
 
 
 class PeriodSummaryOut(BaseModel):

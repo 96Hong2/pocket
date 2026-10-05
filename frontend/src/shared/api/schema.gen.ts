@@ -449,6 +449,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assets/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History
+         * @description 달마다 월말 순자산 점. 이번 달 점은 오늘까지의 가장 늦은 스냅샷이다.
+         */
+        get: operations["history_api_v1_assets_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assets/checkin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Checkin
+         * @description 「그대로예요」. 최신 목록을 오늘로 복사한다. 오늘 것이 이미 있으면 그대로 200.
+         */
+        post: operations["checkin_api_v1_assets_checkin_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assets/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Analysis
+         * @description 「내 자산 분석」. 아무것도 저장하지 않는다. 광고 잠금은 화면이 지문으로 건다.
+         */
+        get: operations["analysis_api_v1_assets_analysis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assets/capture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Capture
+         * @description 잔액 화면 한 장을 읽어 후보 목록을 준다. 아무것도 저장하지 않는다.
+         */
+        post: operations["capture_api_v1_assets_capture_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/goals": {
         parameters: {
             query?: never;
@@ -1221,10 +1301,258 @@ export interface components {
          */
         AgeBand: "10s" | "20s" | "30s" | "40s" | "50s" | "60s_plus";
         /**
-         * AssetGroup
+         * AnalysisBundleOut
+         * @description 종류별 입구. 항목이 있는 묶음만 실린다.
+         */
+        AnalysisBundleOut: {
+            scope: components["schemas"]["AnalysisScope"];
+            /** Item Count */
+            item_count: number;
+            /** Fingerprint */
+            fingerprint: string;
+        };
+        /**
+         * AnalysisGoalOut
+         * @description 진행 중 목표 한 줄. progress 는 0~1.
+         */
+        AnalysisGoalOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Target Amount */
+            target_amount: string;
+            /** Current Amount */
+            current_amount: string;
+            /** Remaining */
+            remaining: string;
+            /** Progress */
+            progress: string;
+        };
+        /** AnalysisGroupChangeOut */
+        AnalysisGroupChangeOut: {
+            group: components["schemas"]["AssetGroup"];
+            /** Current */
+            current: string;
+            /** Previous */
+            previous: string;
+            /** Delta */
+            delta: string;
+        };
+        /**
+         * AnalysisGroupSliceOut
+         * @description 도넛 조각 하나(부채 제외). 비율은 % 소수 첫째 자리.
+         */
+        AnalysisGroupSliceOut: {
+            group: components["schemas"]["AssetGroup"];
+            /** Amount */
+            amount: string;
+            /** Ratio */
+            ratio: string | null;
+            /** Ratio Without Pension */
+            ratio_without_pension: string | null;
+        };
+        /**
+         * AnalysisItemSliceOut
+         * @description 종류별 화면의 항목 조각. 큰 것부터.
+         */
+        AnalysisItemSliceOut: {
+            /** Item Key */
+            item_key: string | null;
+            group: components["schemas"]["AssetGroup"];
+            kind: components["schemas"]["InvestKind"] | null;
+            /** Label */
+            label: string | null;
+            /** Amount */
+            amount: string;
+            /** Ratio */
+            ratio: string | null;
+            /** Monthly Amount */
+            monthly_amount: string | null;
+        };
+        /**
+         * AnalysisMonthChangeOut
+         * @description 지난달 월말 점과 지금 목록을 견준다.
+         */
+        AnalysisMonthChangeOut: {
+            /**
+             * Previous Month
+             * @description YYYY-MM
+             */
+            previous_month: string;
+            /**
+             * Previous Effective On
+             * Format: date
+             */
+            previous_effective_on: string;
+            /** Net Worth */
+            net_worth: string;
+            /** Previous Net Worth */
+            previous_net_worth: string;
+            /** Delta */
+            delta: string;
+            /** Groups */
+            groups: components["schemas"]["AnalysisGroupChangeOut"][];
+        };
+        /**
+         * AnalysisReturnRowOut
+         * @description 종목 한 줄. 평가 칸은 지금 가격을 적은 종목만, 실현 칸은 판 기록이 있는 종목만 찬다.
+         */
+        AnalysisReturnRowOut: {
+            /** Item Key */
+            item_key: string | null;
+            kind: components["schemas"]["InvestKind"] | null;
+            /** Label */
+            label: string | null;
+            /** Value */
+            value: string;
+            /** Cost Basis */
+            cost_basis: string | null;
+            /** Gain */
+            gain: string | null;
+            /** Rate */
+            rate: string | null;
+            /** Realized */
+            realized: string | null;
+            /** Realized Rate */
+            realized_rate: string | null;
+        };
+        /**
+         * AnalysisReturnsOut
+         * @description 투자 수익률. 현재가나 판 기록을 적은 종목이 없으면 rows 가 비어 있다.
+         */
+        AnalysisReturnsOut: {
+            /** Rows */
+            rows: components["schemas"]["AnalysisReturnRowOut"][];
+            /** Cost */
+            cost: string;
+            /** Value */
+            value: string;
+            /** Gain */
+            gain: string;
+            /** Rate */
+            rate: string | null;
+            /** Realized */
+            realized: string;
+            /** Realized Rate */
+            realized_rate: string | null;
+        };
+        /**
+         * AnalysisSavingOut
+         * @description 이번 달 저축률. 번 돈이 0 이면 rate 가 null 이다.
+         */
+        AnalysisSavingOut: {
+            /** Saved */
+            saved: string;
+            /** Income */
+            income: string;
+            /** Rate */
+            rate: string | null;
+            goal: components["schemas"]["AnalysisGoalOut"] | null;
+        };
+        /**
+         * AnalysisScope
          * @enum {string}
          */
-        AssetGroup: "cash" | "investment" | "deposit" | "debt";
+        AnalysisScope: "all" | "stock" | "cash";
+        /** AnalysisSummaryOut */
+        AnalysisSummaryOut: {
+            /** Total Assets */
+            total_assets: string;
+            /** Total Assets Without Pension */
+            total_assets_without_pension: string;
+            /** Total Liabilities */
+            total_liabilities: string;
+            /** Net Worth */
+            net_worth: string;
+        };
+        /**
+         * AssetAnalysisOut
+         * @description 분석 한 벌. 서버는 잠금을 모른다. 화면이 본 지문과 fingerprint 를 견준다.
+         *
+         *     all: summary, groups, returns, month_change, saving, bundles.
+         *     stock: items, returns. cash: items, monthly_total. 안 쓰는 칸은 null 이나 빈 배열.
+         */
+        AssetAnalysisOut: {
+            scope: components["schemas"]["AnalysisScope"];
+            /** Fingerprint */
+            fingerprint: string;
+            /** Total */
+            total: string;
+            summary?: components["schemas"]["AnalysisSummaryOut"] | null;
+            /** Groups */
+            groups?: components["schemas"]["AnalysisGroupSliceOut"][];
+            /** Items */
+            items?: components["schemas"]["AnalysisItemSliceOut"][];
+            returns?: components["schemas"]["AnalysisReturnsOut"] | null;
+            month_change?: components["schemas"]["AnalysisMonthChangeOut"] | null;
+            saving?: components["schemas"]["AnalysisSavingOut"] | null;
+            /** Bundles */
+            bundles?: components["schemas"]["AnalysisBundleOut"][];
+            /** Monthly Total */
+            monthly_total?: string | null;
+        };
+        /**
+         * AssetCaptureIn
+         * @description 잔액 화면 캡처 한 장. `data:image/png;base64,...`.
+         */
+        AssetCaptureIn: {
+            /** Image */
+            image: string;
+        };
+        /**
+         * AssetCaptureItemOut
+         * @description 읽은 한 줄. item_key 가 있으면 기존 항목이고 current_amount 가 그 지금 금액이다.
+         */
+        AssetCaptureItemOut: {
+            /** Name */
+            name: string;
+            /** Amount */
+            amount: string;
+            group: components["schemas"]["AssetGroup"];
+            /** Item Key */
+            item_key?: string | null;
+            /** Current Amount */
+            current_amount?: string | null;
+        };
+        /** AssetCaptureMetaOut */
+        AssetCaptureMetaOut: {
+            /** Provider */
+            provider: string;
+            /** Is Stub */
+            is_stub: boolean;
+            /** Notes */
+            notes?: string[];
+        };
+        /**
+         * AssetCaptureOut
+         * @description 잔액을 못 찾았으면 items 가 빈 목록이다. 저장은 PUT /assets(source=screenshot).
+         */
+        AssetCaptureOut: {
+            /** Items */
+            items: components["schemas"]["AssetCaptureItemOut"][];
+            meta: components["schemas"]["AssetCaptureMetaOut"];
+        };
+        /**
+         * AssetCheckinIn
+         * @description 「그대로예요」. 이번 달만 받는다.
+         */
+        AssetCheckinIn: {
+            /**
+             * Month
+             * @description YYYY-MM
+             */
+            month: string;
+        };
+        /**
+         * AssetGroup
+         * @description 선언 순서가 화면 구획 순서다(현금·예적금, 투자, 연금, 보증금·기타, 부채).
+         * @enum {string}
+         */
+        AssetGroup: "cash" | "investment" | "pension" | "deposit" | "debt";
         /**
          * AssetGroupTotalOut
          * @description 그룹 소계. 항목이 없는 그룹도 0 으로 실린다.
@@ -1235,6 +1563,33 @@ export interface components {
             group: components["schemas"]["AssetGroup"];
             /** Total */
             total: string;
+        };
+        /** AssetHistoryOut */
+        AssetHistoryOut: {
+            /** Points */
+            points: components["schemas"]["AssetHistoryPointOut"][];
+        };
+        /**
+         * AssetHistoryPointOut
+         * @description 달마다 월말 점. 그 달 마지막 날 이하에서 가장 늦은 스냅샷이다(이번 달은 오늘까지).
+         */
+        AssetHistoryPointOut: {
+            /**
+             * Month
+             * @description YYYY-MM
+             */
+            month: string;
+            /**
+             * Effective On
+             * Format: date
+             */
+            effective_on: string;
+            /** Total Assets */
+            total_assets: string;
+            /** Total Liabilities */
+            total_liabilities: string;
+            /** Net Worth */
+            net_worth: string;
         };
         /**
          * AssetItemIn
@@ -1249,6 +1604,35 @@ export interface components {
              * @description 원 단위 정수. 0 이상
              */
             amount: number | string;
+            /**
+             * Item Key
+             * @description GET 이 준 항목 키. 없으면 같은 (group, label) 에 맞춘다
+             */
+            item_key?: string | null;
+            /** @description 투자 그룹의 종류만 */
+            kind?: components["schemas"]["InvestKind"] | null;
+            /** Monthly Amount */
+            monthly_amount?: number | string | null;
+            /**
+             * Quantity
+             * @description 수량 종목의 보유 수량
+             */
+            quantity?: number | string | null;
+            /**
+             * Cost Basis
+             * @description 종목의 넣은 돈
+             */
+            cost_basis?: number | string | null;
+            /**
+             * Unit Price
+             * @description 수량 종목의 지금 1주 가격
+             */
+            unit_price?: number | string | null;
+            /**
+             * Price Noted On
+             * @description 지금 가격(금액 종목은 지금 금액)을 적은 날
+             */
+            price_noted_on?: string | null;
         };
         /** AssetItemOut */
         AssetItemOut: {
@@ -1259,7 +1643,56 @@ export interface components {
             amount: string;
             /** Sort Order */
             sort_order: number;
+            /** Item Key */
+            item_key?: string | null;
+            kind?: components["schemas"]["InvestKind"] | null;
+            /** Monthly Amount */
+            monthly_amount?: string | null;
+            /** Quantity */
+            quantity?: string | null;
+            /** Cost Basis */
+            cost_basis?: string | null;
+            /** Unit Price */
+            unit_price?: string | null;
+            /** Price Noted On */
+            price_noted_on?: string | null;
+            /** Realized */
+            realized?: string | null;
+            /** Rate */
+            rate?: string | null;
+            rate_kind?: components["schemas"]["RateKind"] | null;
+            /** Value */
+            value?: string | null;
         };
+        /**
+         * AssetResultOut
+         * @description 저축·투자를 저장하거나 고친 뒤 화면에 그릴 것. 숫자는 서버가 장부를 접어 셌다.
+         */
+        AssetResultOut: {
+            /**
+             * Item Key
+             * Format: uuid
+             */
+            item_key: string;
+            /** Label */
+            label: string | null;
+            /** Item Amount */
+            item_amount: string;
+            /** Quantity */
+            quantity?: string | null;
+            /** Month Saved */
+            month_saved: string;
+            /** Realized */
+            realized?: string | null;
+            /** Rate */
+            rate?: string | null;
+        };
+        /**
+         * AssetSide
+         * @description 거래가 고르는 쪽. set 은 손 수정이 남기는 줄이라 거래에는 없다.
+         * @enum {string}
+         */
+        AssetSide: "buy" | "sell";
         /**
          * AssetSnapshotOut
          * @description 언제 적은 것인지. 화면이 `N월 N일 기준` 을 이 날짜로 적는다.
@@ -1286,6 +1719,8 @@ export interface components {
         AssetSnapshotPut: {
             /** Items */
             items?: components["schemas"]["AssetItemIn"][];
+            /** @description manual 또는 screenshot */
+            source?: components["schemas"]["AssetSource"] | null;
         };
         /**
          * AssetSource
@@ -1305,6 +1740,11 @@ export interface components {
             total_liabilities: string;
             /** Net Worth */
             net_worth: string;
+            /**
+             * Month Saved
+             * @default 0
+             */
+            month_saved: string;
         };
         /**
          * AssetsOut
@@ -1315,6 +1755,8 @@ export interface components {
             summary: components["schemas"]["AssetSummaryOut"];
             /** Groups */
             groups: components["schemas"]["AssetGroupTotalOut"][];
+            /** All Groups */
+            all_groups?: components["schemas"]["AssetGroupTotalOut"][];
             /** Items */
             items: components["schemas"]["AssetItemOut"][];
         };
@@ -1957,6 +2399,30 @@ export interface components {
             recorded_days: number;
             /** Total Days */
             total_days: number;
+            /**
+             * Saved
+             * @default 0
+             */
+            saved: string;
+            /**
+             * Moved
+             * @default 0
+             */
+            moved: string;
+        };
+        /**
+         * ClosingNetWorthOut
+         * @description 순자산 장. 그 달에 적은 스냅샷과 앞 달 점이 있을 때만 온다.
+         */
+        ClosingNetWorthOut: {
+            /** Current */
+            current: string;
+            /** Previous */
+            previous: string;
+            /** Delta */
+            delta: string;
+            /** Streak */
+            streak: number;
         };
         /**
          * ClosingOut
@@ -1985,6 +2451,7 @@ export interface components {
             flow: components["schemas"]["ClosingFlowOut"];
             change: components["schemas"]["ChangeOut"] | null;
             next: components["schemas"]["NextOut"] | null;
+            net_worth?: components["schemas"]["ClosingNetWorthOut"] | null;
         };
         /** EmailStartIn */
         EmailStartIn: {
@@ -2235,7 +2702,7 @@ export interface components {
          * @description 잘한 것의 종류. **선언 순서가 곧 카드에 실리는 순서다.**
          * @enum {string}
          */
-        HighlightKind: "within_budget" | "category_decrease" | "no_spend_days" | "goal_contribution";
+        HighlightKind: "saved" | "within_budget" | "category_decrease" | "no_spend_days" | "goal_contribution";
         /**
          * HighlightOut
          * @description 잘한 것 하나. 문장이 아니라 종류와 숫자만 온다.
@@ -2315,6 +2782,13 @@ export interface components {
             is_duplicate: boolean;
             /** Is Selected */
             is_selected: boolean;
+            /** Asset Item Key */
+            asset_item_key?: string | null;
+            asset_side?: components["schemas"]["AssetSide"] | null;
+            /** Asset Quantity */
+            asset_quantity?: string | null;
+            /** Asset Name */
+            asset_name?: string | null;
         };
         /**
          * ImportCandidatePatch
@@ -2337,6 +2811,11 @@ export interface components {
             payment_method?: components["schemas"]["PaymentMethod"] | null;
             /** Is Selected */
             is_selected?: boolean | null;
+            /** Asset Item Key */
+            asset_item_key?: string | null;
+            asset_side?: components["schemas"]["AssetSide"] | null;
+            /** Asset Quantity */
+            asset_quantity?: number | string | null;
         };
         /**
          * ImportCommitIn
@@ -2383,6 +2862,12 @@ export interface components {
             base_day?: string | null;
             /** Book Id */
             book_id?: string | null;
+            /**
+             * With Assets
+             * @description true 면 저축·투자 줄을 자산 항목(어디에)에 맞춘다
+             * @default false
+             */
+            with_assets: boolean;
             /** Image */
             image?: string | null;
             /** Images */
@@ -2409,9 +2894,20 @@ export interface components {
             base_day?: string | null;
             /** Book Id */
             book_id?: string | null;
+            /**
+             * With Assets
+             * @description true 면 저축·투자 줄을 자산 항목(어디에)에 맞춘다
+             * @default false
+             */
+            with_assets: boolean;
             /** Text */
             text: string;
         };
+        /**
+         * InvestKind
+         * @enum {string}
+         */
+        InvestKind: "stock" | "etf" | "fund" | "coin" | "bond" | "other";
         /**
          * InvitePreviewOut
          * @description 초대 화면이 그리는 것. 지운 가계부와 모르는 코드는 이 모양이 아니라 404 다.
@@ -2611,6 +3107,16 @@ export interface components {
             transaction_id: string;
         };
         /**
+         * NewAssetIn
+         * @description 기록 흐름에서 새로 만드는 자산 항목. 거래와 같은 commit 에서 오늘 스냅샷에 붙는다.
+         */
+        NewAssetIn: {
+            group: components["schemas"]["AssetGroup"];
+            kind?: components["schemas"]["InvestKind"] | null;
+            /** Label */
+            label?: string | null;
+        };
+        /**
          * NextOut
          * @description 다음 달에 해 볼 것 하나. **여기에 적용 버튼은 없다.**
          *
@@ -2759,6 +3265,11 @@ export interface components {
             age_band?: components["schemas"]["AgeBand"] | null;
             gender?: components["schemas"]["Gender"] | null;
         };
+        /**
+         * RateKind
+         * @enum {string}
+         */
+        RateKind: "valuation" | "realized";
         /**
          * RecordMethod
          * @enum {string}
@@ -3173,6 +3684,20 @@ export interface components {
             payment_method?: components["schemas"]["PaymentMethod"] | null;
             /** Refund Of Transaction Id */
             refund_of_transaction_id?: string | null;
+            /**
+             * Asset Item Key
+             * @description 어디에. 자산 항목 키
+             */
+            asset_item_key?: string | null;
+            /** @description 안 보내면 buy */
+            asset_side?: components["schemas"]["AssetSide"] | null;
+            /**
+             * Asset Quantity
+             * @description 주식·ETF·코인만. 소수 8자리까지
+             */
+            asset_quantity?: number | string | null;
+            /** @description 어디에를 새로 만들 때 */
+            new_asset?: components["schemas"]["NewAssetIn"] | null;
         };
         /** TransactionCreated */
         TransactionCreated: {
@@ -3186,6 +3711,7 @@ export interface components {
              * Format: date-time
              */
             undo_until: string;
+            asset?: components["schemas"]["AssetResultOut"] | null;
         };
         /** TransactionListOut */
         TransactionListOut: {
@@ -3223,6 +3749,13 @@ export interface components {
             /** Excluded From Budget */
             excluded_from_budget: boolean;
             payment_method: components["schemas"]["PaymentMethod"] | null;
+            /** Asset Item Key */
+            asset_item_key?: string | null;
+            asset_side?: components["schemas"]["AssetSide"] | null;
+            /** Asset Quantity */
+            asset_quantity?: string | null;
+            /** Asset Label */
+            asset_label?: string | null;
         };
         /**
          * TransactionSource
@@ -3260,6 +3793,12 @@ export interface components {
             /** Excluded From Budget */
             excluded_from_budget?: boolean | null;
             payment_method?: components["schemas"]["PaymentMethod"] | null;
+            /** Asset Item Key */
+            asset_item_key?: string | null;
+            asset_side?: components["schemas"]["AssetSide"] | null;
+            /** Asset Quantity */
+            asset_quantity?: number | string | null;
+            new_asset?: components["schemas"]["NewAssetIn"] | null;
         };
         /**
          * TransactionUpdated
@@ -3269,6 +3808,7 @@ export interface components {
             transaction: components["schemas"]["TransactionOut"];
             feedback: components["schemas"]["FeedbackOut"];
             budget?: components["schemas"]["BudgetStateOut"] | null;
+            asset?: components["schemas"]["AssetResultOut"] | null;
         };
         /**
          * TrendPointOut
@@ -6147,6 +6687,358 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssetsOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    history_api_v1_assets_history_get: {
+        parameters: {
+            query?: {
+                months?: number;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetHistoryOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    checkin_api_v1_assets_checkin_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetCheckinIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetsOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    analysis_api_v1_assets_analysis_get: {
+        parameters: {
+            query?: {
+                scope?: components["schemas"]["AnalysisScope"];
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetAnalysisOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    capture_api_v1_assets_capture_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetCaptureIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetCaptureOut"];
                 };
             };
             /** @description 식별키가 없거나 검증에 실패 */

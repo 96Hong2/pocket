@@ -14,6 +14,7 @@ from app.domain.closing import (
     ClosingFacts,
     DayCounts,
     HighlightKind,
+    NetWorthPoint,
     NextStepKind,
     build_closing,
     count_days,
@@ -58,6 +59,8 @@ def _facts(
     budget: int | None = None,
     goal: int = 0,
     today: date = TODAY,
+    saved: int = 0,
+    points: tuple[NetWorthPoint, ...] = (),
 ) -> ClosingFacts:
     return ClosingFacts(
         period=LAST_MONTH,
@@ -68,6 +71,8 @@ def _facts(
         budget_amount=None if budget is None else won(budget),
         goal_contribution=won(goal),
         has_any_transaction=True,
+        saved=won(saved),
+        net_worth_points=points,
     )
 
 
@@ -197,6 +202,8 @@ def test_돈_흐름에는_옮긴_돈이_따로_실린다():
     assert result.flow.transfer == won(1_000_000)
     assert result.flow.delta == won(2_500_000)
     assert result.flow.total_days == 31
+    # 저축·투자가 없으면 이체 전부가 옮긴 돈이다.
+    assert (result.flow.saved, result.flow.moved) == (won(0), won(1_000_000))
 
 
 def test_아직_지나는_중인_달은_결산하지_않는다():
@@ -249,3 +256,84 @@ def test_기간_밖과_지운_거래는_날_수에_안_들어간다():
     ]
 
     assert count_days(rows, LAST_MONTH) == DayCounts(recorded_days=0, no_spend_days=0)
+
+
+def test_모은_돈은_이체에서_갈라_내고_차액은_안_바꾼다():
+    """모은 돈은 어디에 있는 저축·투자 합, 옮긴 돈은 나머지 이체다. 판 돈은 옮긴 돈에 든다."""
+    result = build_closing(
+        _facts(
+            totals=_totals(expense=500_000, income=3_000_000, transfer=1_000_000),
+            saved=300_000,
+        )
+    )
+
+    assert result.flow.saved == won(300_000)
+    assert result.flow.moved == won(700_000)
+    # 옛 화면이 읽는 이체 전부와 차액은 그대로다.
+    assert result.flow.transfer == won(1_000_000)
+    assert result.flow.delta == won(2_500_000)
+
+
+def test_모은_돈이_있으면_잘한_것의_첫_자리다():
+    result = build_closing(
+        _facts(
+            totals=_totals(spend={FOOD: 200_000}),
+            previous=_totals(spend={FOOD: 300_000}),
+            days=DayCounts(recorded_days=20, no_spend_days=2),
+            budget=300_000,
+            saved=300_000,
+        )
+    )
+
+    # 세 개까지라 안 쓴 날이 잘린다.
+    assert [item.kind for item in result.highlights] == [
+        HighlightKind.SAVED,
+        HighlightKind.WITHIN_BUDGET,
+        HighlightKind.CATEGORY_DECREASE,
+    ]
+    assert result.highlights[0].amount == won(300_000)
+    assert build_closing(_facts(saved=0)).highlights == []
+
+
+def _point(month: int, net_worth: int, day: int = 28) -> NetWorthPoint:
+    return NetWorthPoint(
+        period=BudgetPeriod.of_month(2026, month),
+        effective_on=date(2026, month, day),
+        net_worth=won(net_worth),
+    )
+
+
+def test_순자산이_늘었으면_몇_달_이어_늘었는지_센다():
+    points = (
+        _point(4, 1_000_000),
+        _point(5, 900_000),
+        _point(6, 1_000_000),
+        _point(7, 1_200_000),
+        _point(8, 1_500_000),
+    )
+
+    result = build_closing(_facts(points=points))
+
+    assert result.net_worth is not None
+    assert result.net_worth.current == won(1_500_000)
+    assert result.net_worth.previous == won(1_200_000)
+    assert result.net_worth.delta == won(300_000)
+    assert result.net_worth.streak == 3
+
+
+def test_순자산이_줄었으면_연속은_0이다():
+    result = build_closing(_facts(points=(_point(7, 1_200_000), _point(8, 1_100_000))))
+
+    assert result.net_worth is not None
+    assert (result.net_worth.delta, result.net_worth.streak) == (won(-100_000), 0)
+
+
+def test_그_달에_적은_스냅샷이나_앞_달_점이_없으면_순자산_장이_없다():
+    # 8월 점이 7월 스냅샷을 이어 받았다. 8월에는 아무것도 안 적었다.
+    carried = NetWorthPoint(
+        period=LAST_MONTH, effective_on=date(2026, 7, 20), net_worth=won(1_000_000)
+    )
+
+    assert build_closing(_facts()).net_worth is None
+    assert build_closing(_facts(points=(_point(8, 1_000_000),))).net_worth is None
+    assert build_closing(_facts(points=(_point(7, 900_000), carried))).net_worth is None

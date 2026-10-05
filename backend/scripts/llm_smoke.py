@@ -5,6 +5,7 @@
     uv run python scripts/llm_smoke.py --text "점심 12000 스벅 4500 어제 택시 9000"
     uv run python scripts/llm_smoke.py --image capture.png
     uv run python scripts/llm_smoke.py --image receipt.jpg --receipt
+    uv run python scripts/llm_smoke.py --text "적금 30만 넣음" --assets "청년도약계좌*,삼성전자"
 
 provider·모델·걸린 시간과 후보를 그대로 찍는다. 찍히는 값은 넣은 사진에서 읽은 것이니
 남의 사진으로 돌리지 않는다.
@@ -24,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from app.integrations.llm import (
+    AssetHint,
     LlmError,
     LlmImage,
     TransactionExtraction,
@@ -31,6 +33,7 @@ from app.integrations.llm import (
     natural_language_prompt,
     receipt_prompt,
     screenshot_prompt,
+    with_assets,
 )
 
 _MEDIA_TYPES = {
@@ -47,7 +50,18 @@ def main(argv: list[str] | None = None) -> int:
     source.add_argument("--text", help="줄글 입력")
     source.add_argument("--image", type=Path, help="캡처 또는 영수증 사진 파일")
     parser.add_argument("--receipt", action="store_true", help="사진을 종이 영수증으로 읽는다")
+    parser.add_argument(
+        "--assets", help="자산 항목 이름을 쉼표로. 끝에 * 를 붙이면 매달 넣는 항목(새 번들 지시)"
+    )
     args = parser.parse_args(argv)
+    hints = [
+        AssetHint(name.strip().rstrip("*"), name.strip().endswith("*"))
+        for name in (args.assets or "").split(",")
+        if name.strip()
+    ]
+
+    def prompted(prompt: str) -> str:
+        return with_assets(prompt, hints) if args.assets is not None else prompt
 
     client = get_llm_client()
     today = date.today()
@@ -57,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.text is not None:
         call = client.extract(
-            prompt=natural_language_prompt(today),
+            prompt=prompted(natural_language_prompt(today)),
             schema=TransactionExtraction,
             text=args.text,
             today=today,
@@ -68,7 +82,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"지원하지 않는 확장자: {args.image.suffix}")
             return 2
         image = LlmImage(media_type=media_type, data=args.image.read_bytes())
-        prompt = receipt_prompt(today) if args.receipt else screenshot_prompt(today)
+        prompt = prompted(receipt_prompt(today) if args.receipt else screenshot_prompt(today))
         call = client.extract(prompt=prompt, schema=TransactionExtraction, image=image, today=today)
 
     started = time.monotonic()

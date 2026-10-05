@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.db.base import SoftDeleteMixin
 from app.models import (
+    AssetEntry,
     AssetItem,
     AssetSnapshot,
     Budget,
@@ -70,6 +71,8 @@ def reset_data(session: Session, user: User) -> None:
     snapshots = select(AssetSnapshot.id).where(AssetSnapshot.user_id == user.id)
     fold(AssetItem, AssetItem.snapshot_id.in_(snapshots))
     fold(AssetSnapshot, AssetSnapshot.user_id == user.id)
+    # 자산 장부(산 기록, 판 기록, 손 수정). 스냅샷과 함께 접어야 되살릴 때 값이 맞는다.
+    fold(AssetEntry, AssetEntry.user_id == user.id)
 
     fold(Transaction, Transaction.user_id == user.id)
 

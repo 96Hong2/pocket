@@ -1,0 +1,253 @@
+"""자산 캡처: 잔액 화면 한 장 → 후보 목록. 저장은 PUT /assets(source=screenshot).
+
+스텁은 그림을 안 읽고 정해 둔 세 줄을 낸다. 못 읽은 그림과 계좌번호가 섞인 이름은
+모델을 갈아 끼워 본다. 인식 정확도는 여기서 재지 않는다.
+"""
+
+from __future__ import annotations
+
+import base64
+import logging
+from collections.abc import Callable
+from contextlib import contextmanager
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.domain.aggregation import TransactionSource
+from app.domain.assets import AssetGroup
+from app.domain.redaction import MASK
+from app.integrations.llm import (
+    AssetExtraction,
+    ExtractedAsset,
+    LlmError,
+    get_llm_client,
+)
+from app.integrations.llm.stub import StubLlmStructuredClient
+from app.models import ImportBatch, ParseUsage
+from app.models.asset import AssetSnapshot
+
+AUTH = {"X-Anon-Key": "test-anon-key"}
+ASSETS = "/api/v1/assets"
+CAPTURE = "/api/v1/assets/capture"
+
+MARKER = b"SECRETASSETCAPTURE"
+PNG = (
+    base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    + MARKER * 8
+)
+IMAGE = f"data:image/png;base64,{base64.b64encode(PNG).decode()}"
+ACCOUNT = "123-456-789012"
+
+
+def _put(client: TestClient, items: list[dict], **extra: object) -> dict:
+    res = client.put(ASSETS, json={"items": items, **extra}, headers=AUTH)
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+def _capture(client: TestClient) -> dict:
+    res = client.post(CAPTURE, json={"image": IMAGE}, headers=AUTH)
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+def _row(body: dict, name: str) -> dict:
+    return next(item for item in body["items"] if item["name"] == name)
+
+
+@contextmanager
+def _using(client: TestClient, factory: Callable[[], StubLlmStructuredClient]):
+    overrides = client.app.dependency_overrides  # type: ignore[attr-defined]
+    overrides[get_llm_client] = factory
+    try:
+        yield
+    finally:
+        overrides.pop(get_llm_client, None)
+
+
+class _Reads(StubLlmStructuredClient):
+    """정해 둔 줄을 돌려주고 받은 지시를 적어 둔다."""
+
+    def __init__(self, rows: list[ExtractedAsset]) -> None:
+        super().__init__()
+        self.rows = rows
+        self.prompts: list[str] = []
+
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        self.prompts.append(prompt)
+        assert schema is AssetExtraction
+        return AssetExtraction(rows=self.rows)
+
+
+class _Broken(StubLlmStructuredClient):
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        raise LlmError("모델이 응답하지 않았다")
+
+
+def _seed(client: TestClient) -> dict:
+    return _put(
+        client,
+        [
+            {
+                "group": "cash",
+                "label": "청년도약계좌",
+                "amount": "3000000",
+                "monthly_amount": "300000",
+            },
+            {
+                "group": "investment",
+                "label": "삼성전자",
+                "amount": "600000",
+                "kind": "stock",
+                "quantity": "2",
+                "cost_basis": "500000",
+            },
+        ],
+    )
+
+
+def test_기존_이름은_키와_지금_금액이_붙고_새_이름은_그룹_추정이_붙는다(
+    client: TestClient,
+) -> None:
+    seeded = _seed(client)
+    key = next(item["item_key"] for item in seeded["items"] if item["label"] == "청년도약계좌")
+
+    body = _capture(client)
+
+    names = [item["name"] for item in body["items"]]
+    assert names == ["청년도약계좌", "카카오뱅크", "연금저축펀드"]
+    known = _row(body, "청년도약계좌")
+    assert known["item_key"] == key
+    assert known["amount"] == "3300000"
+    assert known["current_amount"] == "3000000"
+    assert known["group"] == "cash"
+    fresh = _row(body, "연금저축펀드")
+    assert fresh["item_key"] is None
+    assert fresh["current_amount"] is None
+    assert fresh["group"] == "pension"
+    assert body["meta"] == {"provider": "stub", "is_stub": True, "notes": ["stub_image"]}
+
+
+def test_캡처는_아무것도_저장하지_않는다(client: TestClient, db: Session) -> None:
+    before = _seed(client)
+
+    _capture(client)
+
+    assert client.get(ASSETS, headers=AUTH).json()["items"] == before["items"]
+    assert db.scalars(select(ImportBatch)).all() == []
+
+
+def test_잔액이_없는_그림이면_빈_목록이다(client: TestClient) -> None:
+    with _using(client, lambda: _Reads([])):
+        body = _capture(client)
+
+    assert body["items"] == []
+
+
+def test_수량_종목과_맞는_줄은_목록에서_뺀다(client: TestClient) -> None:
+    _seed(client)
+    rows = [
+        ExtractedAsset(name="삼성전자", amount=1_000_000, group=AssetGroup.INVESTMENT),
+        ExtractedAsset(name="청년도약계좌", amount=3_300_000, group=AssetGroup.CASH),
+    ]
+    with _using(client, lambda: _Reads(rows)):
+        body = _capture(client)
+
+    assert [item["name"] for item in body["items"]] == ["청년도약계좌"]
+
+
+def test_이름의_계좌번호는_가려서_돌려준다(client: TestClient, caplog) -> None:
+    rows = [ExtractedAsset(name=f"국민은행 {ACCOUNT}", amount=50_000, group=None)]
+    with caplog.at_level(logging.DEBUG), _using(client, lambda: _Reads(rows)):
+        body = _capture(client)
+
+    [only] = body["items"]
+    assert ACCOUNT not in only["name"]
+    assert MASK in only["name"]
+    # 모르는 그룹은 현금·예적금으로 둔다.
+    assert only["group"] == "cash"
+    assert ACCOUNT not in caplog.text
+    assert MARKER.decode() not in caplog.text
+
+
+def test_지시에_기존_항목_이름을_주고_계좌번호는_가린다(client: TestClient) -> None:
+    _put(
+        client,
+        [
+            {"group": "cash", "label": f"신한 {ACCOUNT}", "amount": "1000"},
+            {"group": "cash", "label": "청년도약계좌", "amount": "1", "monthly_amount": "1"},
+        ],
+    )
+    reader = _Reads([])
+    with _using(client, lambda: reader):
+        _capture(client)
+
+    [prompt] = reader.prompts
+    assert "잔액 화면" in prompt
+    assert "청년도약계좌(매달)" in prompt
+    assert "신한" in prompt
+    assert ACCOUNT not in prompt
+
+
+def test_사용량은_자산_캡처로_남는다(client: TestClient, db: Session) -> None:
+    _capture(client)
+
+    [usage] = db.scalars(select(ParseUsage)).all()
+    assert usage.source == TransactionSource.ASSET_SCREENSHOT
+    assert usage.candidate_count == 3
+    assert usage.failed is False
+
+
+def test_읽기가_실패하면_503_이고_실패로_센다(client: TestClient, db: Session) -> None:
+    with _using(client, _Broken):
+        res = client.post(CAPTURE, json={"image": IMAGE}, headers=AUTH)
+
+    assert res.status_code == 503, res.text
+    message = res.json()["error"]["message"]
+    assert message == "지금은 캡처를 읽지 못했어요. 잠시 뒤 다시 시도해 주세요."
+    [usage] = db.scalars(select(ParseUsage)).all()
+    assert usage.failed is True
+
+
+def test_하루_상한을_넘기면_막힌다(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("NL_PARSE_DAILY_LIMIT", "0")
+    get_settings.cache_clear()
+    try:
+        res = client.post(CAPTURE, json={"image": IMAGE}, headers=AUTH)
+    finally:
+        monkeypatch.delenv("NL_PARSE_DAILY_LIMIT", raising=False)
+        get_settings.cache_clear()
+
+    assert res.status_code == 429, res.text
+    assert "자산 캡처 분석" in res.json()["error"]["message"]
+
+
+def test_캡처로_읽은_목록을_저장하면_출처가_screenshot_이다(
+    client: TestClient, db: Session
+) -> None:
+    _put(client, [{"group": "cash", "label": "카카오뱅크", "amount": "1000000"}])
+
+    _put(
+        client,
+        [{"group": "cash", "label": "카카오뱅크", "amount": "1250000"}],
+        source="screenshot",
+    )
+
+    body = client.get(ASSETS, headers=AUTH).json()
+    assert body["snapshot"]["source"] == "screenshot"
+    assert body["items"][0]["amount"] == "1250000"
+
+
+def test_출처를_안_보낸_옛_PUT_은_지금처럼_manual_이다(client: TestClient, db: Session) -> None:
+    body = _put(client, [{"group": "cash", "label": "카카오뱅크", "amount": "1000000"}])
+
+    assert body["snapshot"]["source"] == "manual"
+    [snapshot] = db.scalars(select(AssetSnapshot)).all()
+    assert snapshot.source == "manual"

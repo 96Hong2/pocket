@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.domain.period import BudgetPeriod
 from app.models import Budget, User
+from app.models.asset import AssetItem, AssetSnapshot
 from app.modules import ledger
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
@@ -178,6 +179,9 @@ def test_안_쓴_날과_옮긴_돈이_그_달_것만_실린다(client: TestClien
     assert body["flow"]["recorded_days"] == 3
     assert body["flow"]["transfer"] == "700000"
     assert body["flow"]["expense"] == "10000"
+    # 어디에 없는 이체는 모은 돈이 아니라 옮긴 돈이다. 자산을 안 적었으면 순자산 장이 없다.
+    assert (body["flow"]["saved"], body["flow"]["moved"]) == ("0", "700000")
+    assert body["net_worth"] is None
 
 
 def test_목표로_옮긴_돈은_그_달_기여만_센다(client: TestClient, default_categories) -> None:
@@ -204,3 +208,87 @@ def test_목표로_옮긴_돈은_그_달_기여만_센다(client: TestClient, de
 
     assert _kinds(body) == ["goal_contribution"]
     assert body["highlights"][0]["amount"] == "300000"
+
+
+def _post(client: TestClient, body: dict) -> dict:
+    response = client.post("/api/v1/transactions", json=body, headers=AUTH)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_모은_돈은_첫_하이라이트이고_판_돈은_옮긴_돈이다(
+    client: TestClient, default_categories
+) -> None:
+    put = client.put(
+        "/api/v1/assets",
+        json={"items": [{"group": "cash", "label": "청년도약계좌", "amount": "1000000"}]},
+        headers=AUTH,
+    )
+    cash_key = put.json()["items"][0]["item_key"]
+    stock = _post(
+        client,
+        {
+            "occurred_at": _at(LAST_MONTH, 6),
+            "amount": "500000",
+            "type": "transfer",
+            "new_asset": {"group": "investment", "kind": "stock", "label": "삼성전자"},
+            "asset_quantity": "2",
+        },
+    )
+    stock_key = stock["asset"]["item_key"]
+    for day, amount, extra in (
+        (7, "300000", {"asset_item_key": cash_key}),
+        (8, "300000", {"asset_item_key": stock_key, "asset_side": "sell", "asset_quantity": "1"}),
+        (9, "100000", {}),
+    ):
+        _post(
+            client,
+            {"occurred_at": _at(LAST_MONTH, day), "amount": amount, "type": "transfer", **extra},
+        )
+    # 이번 달에 넣은 것은 지난달 결산에 안 든다.
+    _post(
+        client,
+        {
+            "occurred_at": _at(THIS_MONTH, 1),
+            "amount": "200000",
+            "type": "transfer",
+            "asset_item_key": cash_key,
+        },
+    )
+
+    body = _closing(client, LAST_MONTH)
+
+    assert body["flow"]["transfer"] == "1200000"
+    assert body["flow"]["saved"] == "800000"
+    assert body["flow"]["moved"] == "400000"
+    assert body["flow"]["delta"] == "0"
+    assert _kinds(body)[0] == "saved"
+    assert body["highlights"][0]["amount"] == "800000"
+
+
+def _snapshot(db: Session, user: User, day: date, amount: int) -> None:
+    row = AssetSnapshot(user_id=user.id, effective_on=day)
+    row.items = [AssetItem(group="cash", label="예금", amount=amount, sort_order=0)]
+    db.add(row)
+
+
+def test_순자산_장은_그_달에_적은_스냅샷과_앞_달_점이_있을_때만_온다(
+    client: TestClient, db: Session, user: User, default_categories
+) -> None:
+    three_months_ago = TWO_MONTHS_AGO.previous_period()
+    _snapshot(db, user, _day(three_months_ago, 20), 900_000)
+    _snapshot(db, user, _day(TWO_MONTHS_AGO, 20), 1_000_000)
+    _snapshot(db, user, _day(LAST_MONTH, 20), 1_300_000)
+    db.commit()
+    _add(client, amount="10000", when=_at(LAST_MONTH, 5))
+
+    body = _closing(client, LAST_MONTH)
+
+    assert body["net_worth"] == {
+        "current": "1300000",
+        "previous": "1000000",
+        "delta": "300000",
+        "streak": 2,
+    }
+    # 이번 달에는 아무것도 안 적었다. 지난달 값을 이어 받은 점으로는 말하지 않는다.
+    assert _closing(client, THIS_MONTH)["net_worth"] is None

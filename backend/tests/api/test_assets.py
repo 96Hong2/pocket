@@ -36,6 +36,7 @@ def test_한_번도_안_적었으면_스냅샷이_없고_전부_0_이다(client:
         "total_assets": "0",
         "total_liabilities": "0",
         "net_worth": "0",
+        "month_saved": "0",
     }
     # 항목이 없는 그룹도 0 으로 실린다. 빠지면 화면이 구획을 못 그린다.
     assert _totals(body) == {"cash": "0", "investment": "0", "deposit": "0", "debt": "0"}

@@ -4329,6 +4329,487 @@
         }
       }
     },
+    "/api/v1/assets/history": {
+      "get": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "History",
+        "description": "달마다 월말 순자산 점. 이번 달 점은 오늘까지의 가장 늦은 스냅샷이다.",
+        "operationId": "history_api_v1_assets_history_get",
+        "parameters": [
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 24,
+              "minimum": 1,
+              "default": 6,
+              "title": "Months"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetHistoryOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/checkin": {
+      "post": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "Checkin",
+        "description": "「그대로예요」. 최신 목록을 오늘로 복사한다. 오늘 것이 이미 있으면 그대로 200.",
+        "operationId": "checkin_api_v1_assets_checkin_post",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetCheckinIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/analysis": {
+      "get": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "Analysis",
+        "description": "「내 자산 분석」. 아무것도 저장하지 않는다. 광고 잠금은 화면이 지문으로 건다.",
+        "operationId": "analysis_api_v1_assets_analysis_get",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/AnalysisScope",
+              "default": "all"
+            }
+          },
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetAnalysisOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/capture": {
+      "post": {
+        "tags": [
+          "assets"
+        ],
+        "summary": "Capture",
+        "description": "잔액 화면 한 장을 읽어 후보 목록을 준다. 아무것도 저장하지 않는다.",
+        "operationId": "capture_api_v1_assets_capture_post",
+        "parameters": [
+          {
+            "name": "X-Anon-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Anon-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetCaptureIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetCaptureOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "식별키가 없거나 검증에 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없거나 내 것이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "되돌리기 만료·동시 저장·이름 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "요청 값 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "하루에 쓸 수 있는 만큼을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "검증 서버가 일시적으로 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/goals": {
       "get": {
         "tags": [
@@ -10743,15 +11224,779 @@
         "title": "AgeBand",
         "description": "연령대. 생년월일을 받지 않는다. 구간이면 집계에 충분하고 개인은 가려진다."
       },
+      "AnalysisBundleOut": {
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/AnalysisScope"
+          },
+          "item_count": {
+            "type": "integer",
+            "title": "Item Count"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope",
+          "item_count",
+          "fingerprint"
+        ],
+        "title": "AnalysisBundleOut",
+        "description": "종류별 입구. 항목이 있는 묶음만 실린다."
+      },
+      "AnalysisGoalOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "target_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Target Amount"
+          },
+          "current_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Current Amount"
+          },
+          "remaining": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remaining"
+          },
+          "progress": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Progress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "target_amount",
+          "current_amount",
+          "remaining",
+          "progress"
+        ],
+        "title": "AnalysisGoalOut",
+        "description": "진행 중 목표 한 줄. progress 는 0~1."
+      },
+      "AnalysisGroupChangeOut": {
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/AssetGroup"
+          },
+          "current": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Current"
+          },
+          "previous": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Previous"
+          },
+          "delta": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Delta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group",
+          "current",
+          "previous",
+          "delta"
+        ],
+        "title": "AnalysisGroupChangeOut"
+      },
+      "AnalysisGroupSliceOut": {
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/AssetGroup"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "ratio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratio"
+          },
+          "ratio_without_pension": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratio Without Pension"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group",
+          "amount",
+          "ratio",
+          "ratio_without_pension"
+        ],
+        "title": "AnalysisGroupSliceOut",
+        "description": "도넛 조각 하나(부채 제외). 비율은 % 소수 첫째 자리."
+      },
+      "AnalysisItemSliceOut": {
+        "properties": {
+          "item_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Key"
+          },
+          "group": {
+            "$ref": "#/components/schemas/AssetGroup"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "ratio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratio"
+          },
+          "monthly_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_key",
+          "group",
+          "kind",
+          "label",
+          "amount",
+          "ratio",
+          "monthly_amount"
+        ],
+        "title": "AnalysisItemSliceOut",
+        "description": "종류별 화면의 항목 조각. 큰 것부터."
+      },
+      "AnalysisMonthChangeOut": {
+        "properties": {
+          "previous_month": {
+            "type": "string",
+            "title": "Previous Month",
+            "description": "YYYY-MM"
+          },
+          "previous_effective_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Previous Effective On"
+          },
+          "net_worth": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Worth"
+          },
+          "previous_net_worth": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Previous Net Worth"
+          },
+          "delta": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Delta"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisGroupChangeOut"
+            },
+            "type": "array",
+            "title": "Groups"
+          }
+        },
+        "type": "object",
+        "required": [
+          "previous_month",
+          "previous_effective_on",
+          "net_worth",
+          "previous_net_worth",
+          "delta",
+          "groups"
+        ],
+        "title": "AnalysisMonthChangeOut",
+        "description": "지난달 월말 점과 지금 목록을 견준다."
+      },
+      "AnalysisReturnRowOut": {
+        "properties": {
+          "item_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Key"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Value"
+          },
+          "cost_basis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Basis"
+          },
+          "gain": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gain"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "realized": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized"
+          },
+          "realized_rate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_key",
+          "kind",
+          "label",
+          "value",
+          "cost_basis",
+          "gain",
+          "rate",
+          "realized",
+          "realized_rate"
+        ],
+        "title": "AnalysisReturnRowOut",
+        "description": "종목 한 줄. 평가 칸은 지금 가격을 적은 종목만, 실현 칸은 판 기록이 있는 종목만 찬다."
+      },
+      "AnalysisReturnsOut": {
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisReturnRowOut"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "cost": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost"
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Value"
+          },
+          "gain": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gain"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "realized": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Realized"
+          },
+          "realized_rate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rows",
+          "cost",
+          "value",
+          "gain",
+          "rate",
+          "realized",
+          "realized_rate"
+        ],
+        "title": "AnalysisReturnsOut",
+        "description": "투자 수익률. 현재가나 판 기록을 적은 종목이 없으면 rows 가 비어 있다."
+      },
+      "AnalysisSavingOut": {
+        "properties": {
+          "saved": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Saved"
+          },
+          "income": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Income"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisGoalOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "saved",
+          "income",
+          "rate",
+          "goal"
+        ],
+        "title": "AnalysisSavingOut",
+        "description": "이번 달 저축률. 번 돈이 0 이면 rate 가 null 이다."
+      },
+      "AnalysisScope": {
+        "type": "string",
+        "enum": [
+          "all",
+          "stock",
+          "cash"
+        ],
+        "title": "AnalysisScope"
+      },
+      "AnalysisSummaryOut": {
+        "properties": {
+          "total_assets": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Assets"
+          },
+          "total_assets_without_pension": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Assets Without Pension"
+          },
+          "total_liabilities": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Liabilities"
+          },
+          "net_worth": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Worth"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_assets",
+          "total_assets_without_pension",
+          "total_liabilities",
+          "net_worth"
+        ],
+        "title": "AnalysisSummaryOut"
+      },
+      "AssetAnalysisOut": {
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/AnalysisScope"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisSummaryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisGroupSliceOut"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisItemSliceOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "returns": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisReturnsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "month_change": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisMonthChangeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "saving": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisSavingOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bundles": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisBundleOut"
+            },
+            "type": "array",
+            "title": "Bundles"
+          },
+          "monthly_total": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope",
+          "fingerprint",
+          "total"
+        ],
+        "title": "AssetAnalysisOut",
+        "description": "분석 한 벌. 서버는 잠금을 모른다. 화면이 본 지문과 fingerprint 를 견준다.\n\nall: summary, groups, returns, month_change, saving, bundles.\nstock: items, returns. cash: items, monthly_total. 안 쓰는 칸은 null 이나 빈 배열."
+      },
+      "AssetCaptureIn": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "maxLength": 6000000,
+            "minLength": 32,
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "AssetCaptureIn",
+        "description": "잔액 화면 캡처 한 장. `data:image/png;base64,...`."
+      },
+      "AssetCaptureItemOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "group": {
+            "$ref": "#/components/schemas/AssetGroup"
+          },
+          "item_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Key"
+          },
+          "current_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "amount",
+          "group"
+        ],
+        "title": "AssetCaptureItemOut",
+        "description": "읽은 한 줄. item_key 가 있으면 기존 항목이고 current_amount 가 그 지금 금액이다."
+      },
+      "AssetCaptureMetaOut": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "is_stub": {
+            "type": "boolean",
+            "title": "Is Stub"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "is_stub"
+        ],
+        "title": "AssetCaptureMetaOut"
+      },
+      "AssetCaptureOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssetCaptureItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/AssetCaptureMetaOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "meta"
+        ],
+        "title": "AssetCaptureOut",
+        "description": "잔액을 못 찾았으면 items 가 빈 목록이다. 저장은 PUT /assets(source=screenshot)."
+      },
+      "AssetCheckinIn": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Month",
+            "description": "YYYY-MM"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month"
+        ],
+        "title": "AssetCheckinIn",
+        "description": "「그대로예요」. 이번 달만 받는다."
+      },
       "AssetGroup": {
         "type": "string",
         "enum": [
           "cash",
           "investment",
+          "pension",
           "deposit",
           "debt"
         ],
-        "title": "AssetGroup"
+        "title": "AssetGroup",
+        "description": "선언 순서가 화면 구획 순서다(현금·예적금, 투자, 연금, 보증금·기타, 부채)."
       },
       "AssetGroupTotalOut": {
         "properties": {
@@ -10771,6 +12016,61 @@
         ],
         "title": "AssetGroupTotalOut",
         "description": "그룹 소계. 항목이 없는 그룹도 0 으로 실린다.\n\n네 그룹이 늘 같은 순서로 오므로 화면이 구획 순서를 다시 정하지 않는다."
+      },
+      "AssetHistoryOut": {
+        "properties": {
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/AssetHistoryPointOut"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "points"
+        ],
+        "title": "AssetHistoryOut"
+      },
+      "AssetHistoryPointOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month",
+            "description": "YYYY-MM"
+          },
+          "effective_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Effective On"
+          },
+          "total_assets": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Assets"
+          },
+          "total_liabilities": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Liabilities"
+          },
+          "net_worth": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Worth"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "effective_on",
+          "total_assets",
+          "total_liabilities",
+          "net_worth"
+        ],
+        "title": "AssetHistoryPointOut",
+        "description": "달마다 월말 점. 그 달 마지막 날 이하에서 가장 늦은 스냅샷이다(이번 달은 오늘까지)."
       },
       "AssetItemIn": {
         "properties": {
@@ -10803,6 +12103,112 @@
             ],
             "title": "Amount",
             "description": "원 단위 정수. 0 이상"
+          },
+          "item_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Key",
+            "description": "GET 이 준 항목 키. 없으면 같은 (group, label) 에 맞춘다"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "투자 그룹의 종류만"
+          },
+          "monthly_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Amount"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity",
+            "description": "수량 종목의 보유 수량"
+          },
+          "cost_basis": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Basis",
+            "description": "종목의 넣은 돈"
+          },
+          "unit_price": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price",
+            "description": "수량 종목의 지금 1주 가격"
+          },
+          "price_noted_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Noted On",
+            "description": "지금 가격(금액 종목은 지금 금액)을 적은 날"
           }
         },
         "type": "object",
@@ -10837,6 +12243,134 @@
           "sort_order": {
             "type": "integer",
             "title": "Sort Order"
+          },
+          "item_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Key"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "monthly_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Amount"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "cost_basis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Basis"
+          },
+          "unit_price": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price"
+          },
+          "price_noted_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Noted On"
+          },
+          "realized": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "rate_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RateKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
           }
         },
         "type": "object",
@@ -10847,6 +12381,90 @@
           "sort_order"
         ],
         "title": "AssetItemOut"
+      },
+      "AssetResultOut": {
+        "properties": {
+          "item_key": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Item Key"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "item_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Item Amount"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "month_saved": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Month Saved"
+          },
+          "realized": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_key",
+          "label",
+          "item_amount",
+          "month_saved"
+        ],
+        "title": "AssetResultOut",
+        "description": "저축·투자를 저장하거나 고친 뒤 화면에 그릴 것. 숫자는 서버가 장부를 접어 셌다."
+      },
+      "AssetSide": {
+        "type": "string",
+        "enum": [
+          "buy",
+          "sell"
+        ],
+        "title": "AssetSide",
+        "description": "거래가 고르는 쪽. set 은 손 수정이 남기는 줄이라 거래에는 없다."
       },
       "AssetSnapshotOut": {
         "properties": {
@@ -10882,6 +12500,17 @@
             "type": "array",
             "maxItems": 40,
             "title": "Items"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetSource"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "manual 또는 screenshot"
           }
         },
         "type": "object",
@@ -10912,6 +12541,12 @@
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Net Worth"
+          },
+          "month_saved": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Month Saved",
+            "default": "0"
           }
         },
         "type": "object",
@@ -10944,6 +12579,13 @@
             },
             "type": "array",
             "title": "Groups"
+          },
+          "all_groups": {
+            "items": {
+              "$ref": "#/components/schemas/AssetGroupTotalOut"
+            },
+            "type": "array",
+            "title": "All Groups"
           },
           "items": {
             "items": {
@@ -12677,6 +14319,18 @@
           "total_days": {
             "type": "integer",
             "title": "Total Days"
+          },
+          "saved": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Saved",
+            "default": "0"
+          },
+          "moved": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Moved",
+            "default": "0"
           }
         },
         "type": "object",
@@ -12690,6 +14344,38 @@
         ],
         "title": "ClosingFlowOut",
         "description": "그 달에 돈이 어떻게 드나들었나. 남은 예산과 다른 이야기다."
+      },
+      "ClosingNetWorthOut": {
+        "properties": {
+          "current": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Current"
+          },
+          "previous": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Previous"
+          },
+          "delta": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Delta"
+          },
+          "streak": {
+            "type": "integer",
+            "title": "Streak"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current",
+          "previous",
+          "delta",
+          "streak"
+        ],
+        "title": "ClosingNetWorthOut",
+        "description": "순자산 장. 그 달에 적은 스냅샷과 앞 달 점이 있을 때만 온다."
       },
       "ClosingOut": {
         "properties": {
@@ -12735,6 +14421,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/NextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "net_worth": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClosingNetWorthOut"
               },
               {
                 "type": "null"
@@ -13476,6 +15172,7 @@
       "HighlightKind": {
         "type": "string",
         "enum": [
+          "saved",
           "within_budget",
           "category_decrease",
           "no_spend_days",
@@ -13708,6 +15405,51 @@
           "is_selected": {
             "type": "boolean",
             "title": "Is Selected"
+          },
+          "asset_item_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Item Key"
+          },
+          "asset_side": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asset_quantity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Quantity"
+          },
+          "asset_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Name"
           }
         },
         "type": "object",
@@ -13809,6 +15551,44 @@
               }
             ],
             "title": "Is Selected"
+          },
+          "asset_item_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Item Key"
+          },
+          "asset_side": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asset_quantity": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Quantity"
           }
         },
         "type": "object",
@@ -13922,6 +15702,12 @@
             ],
             "title": "Book Id"
           },
+          "with_assets": {
+            "type": "boolean",
+            "title": "With Assets",
+            "description": "true 면 저축·투자 줄을 자산 항목(어디에)에 맞춘다",
+            "default": false
+          },
           "image": {
             "anyOf": [
               {
@@ -14008,6 +15794,12 @@
             ],
             "title": "Book Id"
           },
+          "with_assets": {
+            "type": "boolean",
+            "title": "With Assets",
+            "description": "true 면 저축·투자 줄을 자산 항목(어디에)에 맞춘다",
+            "default": false
+          },
           "text": {
             "type": "string",
             "maxLength": 2000,
@@ -14021,6 +15813,18 @@
         ],
         "title": "ImportTextIn",
         "description": "줄글 한 덩어리. 여러 건이 들어 있을 수 있다."
+      },
+      "InvestKind": {
+        "type": "string",
+        "enum": [
+          "stock",
+          "etf",
+          "fund",
+          "coin",
+          "bond",
+          "other"
+        ],
+        "title": "InvestKind"
       },
       "InvitePreviewOut": {
         "properties": {
@@ -14533,6 +16337,41 @@
         "title": "MoveOutResult",
         "description": "내 가계부 쪽 거래. 옮겨서 새로 생겼거나, 옮기기를 되돌려 다시 살아난 것."
       },
+      "NewAssetIn": {
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/AssetGroup"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group"
+        ],
+        "title": "NewAssetIn",
+        "description": "기록 흐름에서 새로 만드는 자산 항목. 거래와 같은 commit 에서 오늘 스냅샷에 붙는다."
+      },
       "NextOut": {
         "properties": {
           "kind": {
@@ -14841,6 +16680,14 @@
         "type": "object",
         "title": "ProfilePatch",
         "description": "연령대·성별. 둘 다 선택이다. 아무것도 안 보내도 「물었다」 는 표시만 남는다."
+      },
+      "RateKind": {
+        "type": "string",
+        "enum": [
+          "valuation",
+          "realized"
+        ],
+        "title": "RateKind"
       },
       "RecordMethod": {
         "type": "string",
@@ -15910,6 +17757,58 @@
               }
             ],
             "title": "Refund Of Transaction Id"
+          },
+          "asset_item_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Item Key",
+            "description": "어디에. 자산 항목 키"
+          },
+          "asset_side": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetSide"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "안 보내면 buy"
+          },
+          "asset_quantity": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Quantity",
+            "description": "주식·ETF·코인만. 소수 8자리까지"
+          },
+          "new_asset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NewAssetIn"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "어디에를 새로 만들 때"
           }
         },
         "type": "object",
@@ -15946,6 +17845,16 @@
             "type": "string",
             "format": "date-time",
             "title": "Undo Until"
+          },
+          "asset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetResultOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -16070,6 +17979,51 @@
                 "type": "null"
               }
             ]
+          },
+          "asset_item_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Item Key"
+          },
+          "asset_side": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asset_quantity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Quantity"
+          },
+          "asset_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Label"
           }
         },
         "type": "object",
@@ -16220,6 +18174,54 @@
                 "type": "null"
               }
             ]
+          },
+          "asset_item_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Item Key"
+          },
+          "asset_side": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asset_quantity": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Quantity"
+          },
+          "new_asset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NewAssetIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -16238,6 +18240,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/BudgetStateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetResultOut"
               },
               {
                 "type": "null"
