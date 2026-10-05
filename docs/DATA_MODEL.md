@@ -144,7 +144,7 @@ erDiagram
 | `merchant_normalized` | `varchar(120)?` | 중복 판정과 자동 분류가 맞춰 보는 정규화 값 |
 | `category_id` | `uuid?` | 분류를 지우면 이 칸만 비고 거래는 남는다. FK 가 `SET NULL` 이지만 실제로는 소프트 삭제라 행이 안 지워지고, 서비스가 분류를 떼어 낸다 |
 | `source` | `keypad` \| `nl` \| `screenshot` \| `receipt` \| `asset_screenshot` \| `no_spend` | 어떤 경로로 들어왔는지 |
-| `asset_item_key` · `asset_side` · `asset_quantity` | null 허용 | 저축·투자. `type=transfer` 에 「어디에」 를 붙인 것이다(ADR-0044). 집계는 이 칸을 안 본다 |
+| `asset_item_key` · `asset_side` · `asset_quantity` | null 허용 | 저축·투자. `type=transfer` 에 「어디에」 를 붙인 것이다(ADR-0045). 집계는 이 칸을 안 본다 |
 | `confidence` | `float` = 1.0 | 0~1. 사용자가 직접 넣은 값은 1.0 |
 | `excluded_from_budget` | `bool` = false | **거래목록·리포트에는 남고 예산 계산에서만 빠진다** |
 | `payment_method` | `credit` \| `debit` \| `cash` \| `null` | 신용카드·체크카드·현금. **지출과 환불에만 붙고** 수입·이체로 고치면 서비스가 비운다. `null` 이 「안 고름」이라 '모름' 값을 따로 두지 않는다 |
@@ -359,7 +359,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 
 ## asset_entries (자산 장부)
 
-**항목 값의 정본은 장부를 들어온 순서(`created_at`)로 접은 결과다**(ADR-0044). 스냅샷 행의 금액·수량·넣은 돈은
+**항목 값의 정본은 장부를 들어온 순서(`created_at`)로 접은 결과다**(ADR-0045). 스냅샷 행의 금액·수량·넣은 돈은
 그 결과를 적어 둔 사본이다. 접는 식은 `domain/asset_ledger.py` 의 순수 함수 `fold` 하나다.
 
 | 칸 | 설명 |

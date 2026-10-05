@@ -158,7 +158,7 @@ class TransactionCreate(BaseModel):
     # 무엇으로 냈나. 안 고르면 null 이고, 지출이 아닌 종류에는 붙지 않는다.
     payment_method: PaymentMethod | None = None
     refund_of_transaction_id: uuid.UUID | None = None
-    # 저축·투자(ADR-0044). 이체에만 붙는다. 옛 번들은 안 보내고 그대로 저장된다.
+    # 저축·투자(ADR-0045). 이체에만 붙는다. 옛 번들은 안 보내고 그대로 저장된다.
     asset_item_key: uuid.UUID | None = Field(default=None, description="어디에. 자산 항목 키")
     asset_side: AssetSide | None = Field(default=None, description="안 보내면 buy")
     asset_quantity: Decimal | None = Field(

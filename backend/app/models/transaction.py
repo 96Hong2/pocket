@@ -99,7 +99,7 @@ class Transaction(Entity, SoftDeleteMixin):
         ForeignKey("import_batches.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
-    # 저축·투자. 이체에 「어디에」 를 붙인 것이다(ADR-0044). 집계는 이 칸을 안 본다.
+    # 저축·투자. 이체에 「어디에」 를 붙인 것이다(ADR-0045). 집계는 이 칸을 안 본다.
     asset_item_key: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     # buy 넣었어요(부채는 갚았어요), sell 팔았어요.
     asset_side: Mapped[EntrySide | None] = mapped_column(

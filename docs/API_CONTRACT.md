@@ -93,7 +93,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 그래서 버튼을 걷어냈다. 엔드포인트를 지우지 않는 것은 이미 나간 판이 아직 이걸 부르기
 때문이다. 지우려면 그 판이 다 갈린 뒤에 지운다.
 
-**저축·투자(ADR-0044).** 저장과 수정 본문에 선택 칸 `asset_item_key`(어디에), `asset_side`(`buy` 기본 \| `sell`),
+**저축·투자(ADR-0045).** 저장과 수정 본문에 선택 칸 `asset_item_key`(어디에), `asset_side`(`buy` 기본 \| `sell`),
 `asset_quantity`(주식·ETF·코인만, 소수 8자리), `new_asset {group, kind, label}`(어디에를 새로 만들 때. 투자는 종류와 이름 필수)이
 있다. **이체(`type=transfer`)에만 붙고** 칸이 없는 이체는 지금처럼 저장된다. 아래는 전부 422 다: 이체가 아닌데 자산 칸,
 수량 종목에 수량 없음, 금액 종목에 수량, 보유보다 많이 팔기, 지금 금액보다 많이 빼기(금액 종목), 남은 금액보다 많이 갚기(부채),
@@ -1041,7 +1041,7 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 | POST | `/assets/capture` | 잔액 화면 캡처 한 장 → 후보 목록(`AssetCaptureOut`). 아무것도 저장하지 않는다. 200 |
 | GET | `/assets/analysis?scope=all` | 「내 자산 분석」(`AssetAnalysisOut`). `scope` 는 `all` \| `stock` \| `cash`. 아무것도 저장하지 않는다 |
 
-**옛 번들(56, 57)을 지키는 두 규칙(ADR-0044).** `groups` 는 옛 넷(`cash`, `investment`, `deposit`, `debt`)만
+**옛 번들(56, 57)을 지키는 두 규칙(ADR-0045).** `groups` 는 옛 넷(`cash`, `investment`, `deposit`, `debt`)만
 싣고 다섯 그룹(연금 포함)은 `all_groups` 에 싣는다. PUT 은 `item_key` 가 오면 그 행, 없으면 같은 (group, label)
 기존 행에 맞추고 **보내지 않은 새 칸은 기존 값을 지킨다.** 수량 종목은 옛 모양 PUT 의 `amount` 를 무시한다.
 장부가 있는 항목은 값이 바뀐 줄만 `set` 장부 줄을 남긴다. 장부가 있는 항목의 모양(통장, 수량 종목, 금액 종목, 부채)을
