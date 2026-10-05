@@ -11,6 +11,10 @@ import {
   type TransportOptions,
 } from './transport';
 import type {
+  AnalysisScope,
+  AssetAnalysisOut,
+  AssetCaptureOut,
+  AssetHistoryOut,
   AssetsOut,
   AssetSnapshotPut,
   BookCategoryCreate,
@@ -196,6 +200,10 @@ const PATHS = {
   imports: '/api/v1/imports',
   merchantRules: '/api/v1/merchant-rules',
   assets: '/api/v1/assets',
+  assetHistory: '/api/v1/assets/history',
+  assetCheckin: '/api/v1/assets/checkin',
+  assetAnalysis: '/api/v1/assets/analysis',
+  assetCapture: '/api/v1/assets/capture',
   goals: '/api/v1/goals',
   tags: '/api/v1/tags',
   recurring: '/api/v1/recurring',
@@ -456,6 +464,17 @@ export interface ApiClient extends Transport {
    * 목록을 못 받은 상태에서 부르면 나머지 줄이 사라진다.
    */
   saveAssets(body: AssetSnapshotPut, options?: CallOptions): Promise<AssetsOut>;
+  /** 달마다 월말 순자산 점. `months` 는 1~24, 안 주면 서버 기본 6. */
+  getAssetHistory(months?: number, options?: CallOptions): Promise<AssetHistoryOut>;
+  /** 「그대로예요」. 최신 목록을 오늘로 복사한다. `month` 는 `YYYY-MM`, 이번 달만. */
+  checkinAssets(month: string, options?: CallOptions): Promise<AssetsOut>;
+  /** 「내 자산 분석」. 아무것도 저장하지 않는다. */
+  getAssetAnalysis(scope: AnalysisScope, options?: CallOptions): Promise<AssetAnalysisOut>;
+  /**
+   * 잔액 화면 캡처 한 장을 읽어 후보를 준다. 저장은 `saveAssets` 에 `source: 'screenshot'`.
+   * `dataUri` 는 `data:image/png;base64,...` 통째다.
+   */
+  captureAssets(dataUri: string, options?: CallOptions): Promise<AssetCaptureOut>;
 
   /** 진행 중인 목표 하나. 없으면 `goal` 이 null 이다. 오류가 아니다. */
   getGoal(options?: CallOptions): Promise<GoalStateOut>;
@@ -1040,6 +1059,43 @@ export function createApiClient(options: TransportOptions): ApiClient {
         path: PATHS.assets,
         body,
         signal: call?.signal,
+      });
+    },
+
+    getAssetHistory(months, call) {
+      return transport.request<AssetHistoryOut>({
+        method: 'GET',
+        path: PATHS.assetHistory,
+        query: { months },
+        signal: call?.signal,
+      });
+    },
+
+    checkinAssets(month, call) {
+      return transport.request<AssetsOut>({
+        method: 'POST',
+        path: PATHS.assetCheckin,
+        body: { month },
+        signal: call?.signal,
+      });
+    },
+
+    getAssetAnalysis(scope, call) {
+      return transport.request<AssetAnalysisOut>({
+        method: 'GET',
+        path: PATHS.assetAnalysis,
+        query: { scope },
+        signal: call?.signal,
+      });
+    },
+
+    captureAssets(dataUri, call) {
+      return transport.request<AssetCaptureOut>({
+        method: 'POST',
+        path: PATHS.assetCapture,
+        body: { image: dataUri },
+        signal: call?.signal,
+        timeoutMs: IMAGE_TIMEOUT_MS,
       });
     },
 

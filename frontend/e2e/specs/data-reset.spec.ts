@@ -126,3 +126,55 @@ test('지우면 한 번만 뜨는 안내도 처음 상태로 돌아간다', asyn
   */
   await expect.poll(async () => onboarding.isVisible, { timeout: 15_000 }).toBe(true);
 });
+
+test('투자 기록은 처리방침에 적혀 있고, 지우면 자산 목록과 투자 기록, 추이까지 사라진다', async ({
+  assets,
+  prep,
+  settings,
+}) => {
+  test.slow();
+  const now = await prep.putAssets([
+    {
+      group: 'investment',
+      label: '삼성전자',
+      amount: 500_000,
+      kind: 'stock',
+      quantity: '2',
+      cost: 500_000,
+      price: 300_000,
+    },
+  ]);
+  const key = now.items[0]?.item_key;
+  if (key == null) throw new Error('삼성전자 항목 키가 없다');
+  await prep.addAssetTransfer({ amount: 250_000, itemKey: key, quantity: '1' });
+  expect(await prep.assetHistoryPoints()).toBeGreaterThan(0);
+
+  // 수량, 넣은 돈, 현재가는 적지만 계좌번호 칸은 없다.
+  await assets.open();
+  await assets.waitReady();
+  await assets.openEdit('삼성전자');
+  await expect(assets.sheet.field('갖고 있는 수량')).toHaveValue('3');
+  await expect(assets.sheet.field('지금 1주 가격')).toBeVisible();
+  await expect(assets.anyText(/계좌번호/)).toHaveCount(0);
+
+  await settings.open();
+  await settings.waitReady();
+  await settings.privacyLink.click();
+  await expect(settings.privacySection('직접 올린 금융 자료')).toBeVisible();
+  await expect(settings.privacySection('투자 기록')).toBeVisible();
+
+  await settings.open();
+  await settings.waitReady();
+  await settings.dataReset.openButton.click();
+  await expect(settings.dataReset.list.filter({ hasText: '투자 기록' })).toHaveCount(1);
+  await settings.dataReset.sheet.getByRole('button', { name: '닫기' }).click();
+  await settings.dataReset.run();
+
+  const after = await prep.assets();
+  expect(after.items).toEqual([]);
+  expect(after.snapshot).toBeNull();
+  expect(await prep.assetHistoryPoints()).toBe(0);
+  await assets.open();
+  await assets.waitReady();
+  await expect(assets.emptyTitle).toBeVisible();
+});

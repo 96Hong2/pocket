@@ -440,6 +440,22 @@
     color: var(--color-amber-700);
   }
 
+  /* 자산 체크인 카드. 물음은 굵은 한 줄, 그 아래 한 줄. */
+  .home-card__line {
+    display: block;
+    color: var(--color-ink);
+  }
+
+  .home-card__actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .home-card__actions > .pk-btn {
+    flex: 1;
+    min-width: 0;
+  }
+
   /* ── 오늘 목록 ──────────────────────────────────── */
 
   .home-today {

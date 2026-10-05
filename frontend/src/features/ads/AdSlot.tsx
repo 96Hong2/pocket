@@ -21,6 +21,7 @@ export type AdPlacement =
   | 'manage'
   | 'settings'
   | 'assets'
+  | 'assets_top'
   | 'goal'
   | 'book_home';
 

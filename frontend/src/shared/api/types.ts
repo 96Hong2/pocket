@@ -46,6 +46,8 @@ export type HighlightOut = Schemas['HighlightOut'];
 export type HighlightKind = Schemas['HighlightKind'];
 /** 그 달 돈 흐름. 남은 예산·순자산과 다른 이야기다. */
 export type ClosingFlowOut = Schemas['ClosingFlowOut'];
+/** 결산 순자산 장. 그 달 스냅샷과 앞 달 월말 점이 있을 때만 온다. */
+export type ClosingNetWorthOut = Schemas['ClosingNetWorthOut'];
 /** 지난달보다 가장 많이 늘어난 분류. 견줄 것이 없으면 null 이다. */
 export type ChangeOut = Schemas['ChangeOut'];
 /** 다음 달에 해 볼 것 하나. 여기에 적용 버튼은 없다. */
@@ -132,6 +134,31 @@ export type AssetSummaryOut = Schemas['AssetSummaryOut'];
 /** 그룹 소계. 항목이 없는 그룹도 0 으로 오고, 오는 순서가 화면 구획 순서다. */
 export type AssetGroupTotalOut = Schemas['AssetGroupTotalOut'];
 export type AssetGroup = Schemas['AssetGroup'];
+/** 투자 종류. 주식·ETF·코인은 수량 종목이다. */
+export type InvestKind = Schemas['InvestKind'];
+/** 수익률이 평가(`valuation`)인지 판 기록(`realized`)인지. */
+export type RateKind = Schemas['RateKind'];
+/** PUT 의 출처. 캡처로 채운 목록이면 `screenshot` 이다. */
+export type AssetSource = Schemas['AssetSource'];
+/** 월말 순자산 점들. 오래된 달부터 온다. */
+export type AssetHistoryOut = Schemas['AssetHistoryOut'];
+export type AssetHistoryPointOut = Schemas['AssetHistoryPointOut'];
+/** 「내 자산 분석」. `fingerprint` 로 광고 잠금을 견준다. */
+export type AssetAnalysisOut = Schemas['AssetAnalysisOut'];
+export type AnalysisScope = Schemas['AnalysisScope'];
+export type AnalysisSummaryOut = Schemas['AnalysisSummaryOut'];
+export type AnalysisGroupSliceOut = Schemas['AnalysisGroupSliceOut'];
+export type AnalysisItemSliceOut = Schemas['AnalysisItemSliceOut'];
+export type AnalysisReturnsOut = Schemas['AnalysisReturnsOut'];
+export type AnalysisReturnRowOut = Schemas['AnalysisReturnRowOut'];
+export type AnalysisMonthChangeOut = Schemas['AnalysisMonthChangeOut'];
+export type AnalysisGroupChangeOut = Schemas['AnalysisGroupChangeOut'];
+export type AnalysisSavingOut = Schemas['AnalysisSavingOut'];
+export type AnalysisGoalOut = Schemas['AnalysisGoalOut'];
+export type AnalysisBundleOut = Schemas['AnalysisBundleOut'];
+/** 잔액 화면 캡처를 읽은 후보. 아무것도 저장되지 않은 상태다. */
+export type AssetCaptureOut = Schemas['AssetCaptureOut'];
+export type AssetCaptureItemOut = Schemas['AssetCaptureItemOut'];
 
 // ── 목표 ──────────────────────────────────────
 /** 목표 조회·저장 응답. 진행 중인 목표가 없으면 `goal` 이 null 이고 그것이 정상이다. */

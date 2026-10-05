@@ -142,15 +142,16 @@ function ResetForm({ analytics, storage, reset, agreed, onAgreedChange, onDone }
         <li>예산과 카테고리 한도</li>
         <li>목표와 모은 돈</li>
         <li>자산 목록</li>
+        <li>투자 기록</li>
         <li>내가 만든 분류와 기억한 분류</li>
         <li>홈 표시 방식·알림 같은 설정</li>
         <li>한 번만 뜨는 안내와 닫아 둔 카드(처음 상태로 돌아가요)</li>
       </ul>
 
       <p className="reset-sheet__warn">
-        기록, 예산, 목표, 자산, 분류는 잘못 눌렀을 때를 위해 서버에서 바로 없애지는 않아요. 설정과
-        알림은 바로 지워요. 태그, 반복 지출, 같이 쓰는 가계부, 이메일 연결, 연령대·성별은 그대로
-        둬요.
+        기록, 예산, 목표, 자산, 투자 기록, 분류는 잘못 눌렀을 때를 위해 서버에서 바로 없애지는
+        않아요. 설정과 알림은 바로 지워요. 태그, 반복 지출, 같이 쓰는 가계부, 이메일 연결,
+        연령대·성별은 그대로 둬요.
       </p>
 
       <label className="reset-sheet__agree">

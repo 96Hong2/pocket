@@ -58,6 +58,45 @@ export default function PrivacyPage() {
         </Card>
 
         <Card>
+          <h2 className="privacy__title">직접 올린 금융 자료</h2>
+          <p className="privacy__text">
+            「캡처로 채우기」에 은행이나 증권 앱의 잔액 화면을 올리면, 그 사진에서 항목 이름과
+            잔액만 읽어요. 자산 목록을 손으로 옮겨 적지 않게 하려는 것이에요. 사진은 저장하지 않고
+            읽는 순간 사라져요. 읽는 일은 사진 읽기와 같이 <b>OpenAI</b>의 모델에 맡겨요.
+          </p>
+          <p className="privacy__text">
+            읽은 이름과 금액은 「저장」을 눌렀을 때만 자산 목록에 들어가고, 그날 목록을 캡처로
+            채웠다는 표시가 함께 남아요. 저장하지 않고 닫으면 아무것도 남지 않아요. 계좌번호는 읽지
+            않고, 이름에 번호가 섞여 있으면 가린 뒤 보여 줘요. 캡처 읽기를 쓴 횟수는 사진 읽기와
+            같이 남아요.
+          </p>
+          <p className="privacy__text">
+            저장한 목록은 다른 자산과 같이 적은 날마다 남아요. 앱 데이터 초기화를 하면 화면에서
+            사라지고, 서버에는 지운 표시를 해 둔 채 남아요.
+          </p>
+        </Card>
+
+        <Card>
+          <h2 className="privacy__title">투자 기록</h2>
+          <ul className="privacy__list">
+            <li className="privacy__item">저축·투자로 적은 기록이 어느 항목에 들어갔는지</li>
+            <li className="privacy__item">넣었는지 팔았는지와 그 수량</li>
+            <li className="privacy__item">종목마다 보유 수량, 넣은 돈, 판 기록의 받은 돈과 수익</li>
+            <li className="privacy__item">
+              직접 적었을 때만: 지금 1주 가격과 적은 날, 매달 넣는 돈
+            </li>
+          </ul>
+          <p className="privacy__text">
+            보유 수량과 수익률, 순자산 추이를 보여 드리려고 저장해요. 지금 가격은 밖에서 받아 오지
+            않고 직접 적은 값만 써요. 증권 계좌번호나 증권사 계정은 묻지 않아요.
+          </p>
+          <p className="privacy__text">
+            기록과 같아서 지워도 화면에서만 사라지고 서버에는 지운 표시를 해 둔 채 남아요. 앱 데이터
+            초기화를 하면 함께 화면에서 사라져요.
+          </p>
+        </Card>
+
+        <Card>
           <h2 className="privacy__title">같이 쓰는 가계부</h2>
           <ul className="privacy__list">
             <li className="privacy__item">가계부 이름과 종류, 돈을 나누는 방식</li>
@@ -256,9 +295,9 @@ export default function PrivacyPage() {
             <li className="privacy__item">연령대와 성별</li>
           </ul>
           <p className="privacy__text">
-            「앱 데이터 초기화」를 하면 기록, 예산, 목표, 자산, 내가 만든 분류, 기억한 분류가
-            화면에서 사라져요. 잘못 눌렀을 때를 위해 서버에서는 지운 표시만 해 둬요. 읽어 온 뒤
-            저장하지 않은 목록, 읽기를 쓴 횟수, 앱 설정, 알림 설정은 그때 바로 지워요.
+            「앱 데이터 초기화」를 하면 기록, 예산, 목표, 자산, 투자 기록, 내가 만든 분류, 기억한
+            분류가 화면에서 사라져요. 잘못 눌렀을 때를 위해 서버에서는 지운 표시만 해 둬요. 읽어 온
+            뒤 저장하지 않은 목록, 읽기를 쓴 횟수, 앱 설정, 알림 설정은 그때 바로 지워요.
           </p>
           <p className="privacy__text">
             지운 표시만 해 둔 것을 나중에 완전히 없애는 작업은 지금 없어요. 앱 안에는 계정을 통째로

@@ -2,6 +2,7 @@ import { test as base, devices, expect, type Page } from '@playwright/test';
 
 import { AccountScreen } from '../screens/AccountScreen';
 import { AppShell } from '../screens/AppShell';
+import { AssetAnalysisScreen } from '../screens/AssetAnalysisScreen';
 import { AssetsScreen } from '../screens/AssetsScreen';
 import { BooksScreen } from '../screens/BooksScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
@@ -89,6 +90,8 @@ interface PocketFixtures {
   notifications: NotificationsScreen;
   /** 자산. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
   assets: AssetsScreen;
+  /** 내 자산 분석. 경로가 달라 별도 화면이다. */
+  assetAnalysis: AssetAnalysisScreen;
   /** 목표. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
   goal: GoalScreen;
   /** 태그 관리. 관리 탭 아래 하위 화면이다. */
@@ -162,6 +165,9 @@ export const test = base.extend<PocketFixtures>({
     await use(new AssetsScreen(page));
   },
 
+  assetAnalysis: async ({ page }, use) => {
+    await use(new AssetAnalysisScreen(page));
+  },
   goal: async ({ page }, use) => {
     await use(new GoalScreen(page));
   },

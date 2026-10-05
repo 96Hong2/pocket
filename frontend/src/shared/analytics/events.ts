@@ -190,8 +190,27 @@ export const EVENTS = {
    *
    * **이름과 금액은 싣지 않는다.** 어느 그룹인지와 지금 몇 줄인지까지다. 순자산은 이 앱에서
    * 가장 사적인 숫자라, 갯수 말고는 아무것도 내보내지 않는다.
+   *
+   * 투자 종류(`kind`), 어디서 고쳤나(`from`), 무슨 칸을 고쳤나(`fields`: `amount`·`price`·`qty`
+   * 를 `+` 로)까지 싣는다. 수량 값과 현재가는 싣지 않는다.
    */
   assetChanged: 'asset_changed',
+  /** 홈 체크인 카드에 답했다(`answer`). */
+  assetCheckinResult: 'asset_checkin_result',
+  /** 순자산 상세 시트를 열었다. 값 없음. */
+  assetNetworthOpened: 'asset_networth_opened',
+  /** 분석 확인 창에서 골랐다(`scope`, `state`, `answer`). */
+  assetAnalysisAsked: 'asset_analysis_asked',
+  /**
+   * 분석 화면이 열렸다. 어떻게 열었나(`ad`)와 광고 없이 열린 이유(`reason`).
+   * `earned` 와 `watched` 는 합치지 않는다(ADR-0024).
+   */
+  assetAnalysisOpened: 'asset_analysis_opened',
+  /**
+   * 잔액 캡처의 단계마다(`step`). 광고(`ad`), 읽은 줄 수(`rows`), 새 항목 수(`new_items`).
+   * **이름과 금액은 싣지 않는다.**
+   */
+  assetCapture: 'asset_capture',
 
   /**
    * 반복 지출을 만들거나 고치거나 지웠다. 잠시 끄고 켠 것도 여기서 센다.
@@ -455,6 +474,39 @@ export type ItemAction = 'created' | 'updated' | 'deleted';
  * 한 칸에 섞으면 「반복 지출을 그만둔 사람」 이 실제보다 많아 보인다.
  */
 export type RecurringAction = ItemAction | 'paused' | 'resumed';
+
+/** 자산 항목의 투자 종류. 투자 그룹이 아니면 `none`. `asset_changed` 의 `kind`. */
+export type AssetKindLog = 'stock' | 'etf' | 'fund' | 'coin' | 'bond' | 'other' | 'none';
+
+/** 자산을 어디서 고쳤나. `asset_changed` 의 `from`. */
+export type AssetChangeFrom = 'assets' | 'record';
+
+/** 고친 칸. `+` 로 이어 `asset_changed` 의 `fields` 에 싣는다. 값은 싣지 않는다. */
+export type AssetChangeField = 'amount' | 'price' | 'qty';
+
+/** 체크인 카드 답. 「그대로예요」·「바뀐 게 있어요」·닫음. */
+export type AssetCheckinAnswer = 'same' | 'changed' | 'dismissed';
+
+/** 분석 범위. 코인 분석은 없다. */
+export type AssetAnalysisScopeLog = 'all' | 'stock' | 'cash';
+
+/** 확인 창이 선 까닭. 처음 잠김(`locked`)과 자산이 바뀌어 다시 잠김(`stale`). */
+export type AssetAnalysisState = 'locked' | 'stale';
+
+/** 확인 창 답. */
+export type AssetAnalysisAnswer = 'ok' | 'close';
+
+/** 분석을 어떻게 열었나. `free` 는 지문이 같아 광고 없이 연 것이다. */
+export type AssetAnalysisAd = 'earned' | 'watched' | 'skipped' | 'free';
+
+/** 광고 없이 열린 이유. `ad` 가 `skipped` 일 때만. */
+export type AssetAnalysisSkipReason = 'no_group' | 'unsupported' | 'failed' | 'stalled';
+
+/** 캡처 단계. */
+export type AssetCaptureStep = 'picked' | 'read' | 'failed' | 'saved' | 'cancelled';
+
+/** 캡처 광고. `free_after_fail` 은 실패 다음 한 번 광고 없이 읽은 것이다. */
+export type AssetCaptureAd = 'watched' | 'skipped' | 'free_after_fail';
 
 /** 공유 가계부에 한 일. `book_changed` 의 `action`. */
 export type BookChangeAction =

@@ -31,7 +31,8 @@ export type DismissibleCard =
   | 'remind'
   | 'remind-again'
   | 'rating-ask'
-  | 'books-intro';
+  | 'books-intro'
+  | 'asset-checkin';
 
 function keyFor(card: DismissibleCard): string {
   return `card-dismissed-${card}`;

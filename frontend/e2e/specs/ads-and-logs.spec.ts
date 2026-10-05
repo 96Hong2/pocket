@@ -11,7 +11,12 @@ import { expect, test } from '../support/fixtures';
  * 로그는 개발·샌드박스에서만 창에 사본이 남는다. 실기기 운영 판에서는 토스 수집기로만 간다.
  */
 
-test('배너가 네 화면에 서고, 자리마다 결과를 남긴다', async ({ appShell, home, page, settings }) => {
+test('배너가 네 화면에 서고, 자리마다 결과를 남긴다', async ({
+  appShell,
+  home,
+  page,
+  settings,
+}) => {
   await home.open();
   await home.waitReady();
   await expect(home.ads.slot).toHaveCount(1);
@@ -54,7 +59,10 @@ test('배너가 네 화면에 서고, 자리마다 결과를 남긴다', async (
     // 앱 설정으로 옮기며 화면이 새로 뜨므로 그 화면 것만 확실히 있다.
     expect(results.map((log) => log.params.placement)).toContain('settings');
     for (const log of results) {
-      expect(log.params.result, `광고 결과가 비어 있다: ${JSON.stringify(log.params)}`).toBeTruthy();
+      expect(
+        log.params.result,
+        `광고 결과가 비어 있다: ${JSON.stringify(log.params)}`,
+      ).toBeTruthy();
     }
   });
 });
@@ -169,7 +177,8 @@ test('이 기기에서 광고를 끄면 빈 자리만 남고 그 이유가 남�
 
 test('배너 자리는 화면마다 흐름을 끊지 않는 끝자리에 선다', async ({ page }) => {
   for (const [path, placement] of [
-    ['/assets', 'assets'],
+    // 자산은 그룹 목록 위 한 자리다(위치는 assets-v2.spec.ts 가 잰다).
+    ['/assets', 'assets_top'],
     ['/goal', 'goal'],
   ] as const) {
     await page.goto(path);

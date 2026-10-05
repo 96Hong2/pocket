@@ -193,6 +193,28 @@ export const TEST_IDS = {
   feedbackMemoField: 'feedback-memo-field',
   /** 앱 정보 시트의 값 목록. 판·배포·기기가 이름 없는 값이라 묶어서 잡는다. */
   diagnostics: 'diagnostics',
+
+  // 내 자산 분석 입구와 화면. 입구는 data-state(locked·open·stale)로 상태를 싣는다.
+  analysisEntry: 'analysis-entry',
+  analysisPage: 'analysis-page',
+  analysisDonut: 'analysis-donut',
+  analysisRing: 'analysis-ring',
+  analysisNoPension: 'analysis-no-pension',
+  analysisNetWorth: 'analysis-net-worth',
+  analysisReturns: 'analysis-returns',
+  analysisMonthChange: 'analysis-month-change',
+  analysisSaving: 'analysis-saving',
+  analysisKindRow: 'analysis-kind-row',
+  analysisMonthly: 'analysis-monthly',
+  // 홈 체크인 카드
+  assetCheckinCard: 'asset-checkin-card',
+  // 잔액 캡처 시트. 줄은 data-state(same·changed·new)를 싣는다.
+  captureSheet: 'asset-capture-sheet',
+  captureReading: 'asset-capture-reading',
+  captureRow: 'asset-capture-row',
+  captureFail: 'asset-capture-fail',
+  // 결산 순자산 장
+  closingNetWorth: 'closing-net-worth',
 } as const;
 
 export type TestIdKey = keyof typeof TEST_IDS;

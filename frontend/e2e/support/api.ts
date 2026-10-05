@@ -1,7 +1,12 @@
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
 import { request, type APIRequestContext, type APIResponse } from '@playwright/test';
 
 import type {
   AssetGroup,
+  AssetsOut,
+  InvestKind,
   BookEntryCreated,
   BookEntryListOut,
   BookEntryOut,
@@ -14,7 +19,7 @@ import type {
 } from '../../src/shared/api/types';
 import { shiftMonth, toLedgerDate } from '../../src/shared/lib/format';
 
-import { E2E_API_URL } from './env';
+import { E2E_API_URL, E2E_DATABASE_URL } from './env';
 
 /**
  * 심을 거래 하나.
@@ -69,6 +74,28 @@ export interface AssetSeed {
   group: AssetGroup;
   amount: number;
   label?: string;
+  /** 투자 그룹의 종류. 주식·ETF·코인은 수량 종목이다. */
+  kind?: InvestKind;
+  /** 수량 종목의 보유 수량. `'2'`, `'0.003'` 처럼 문자열로 준다. */
+  quantity?: string;
+  /** 넣은 돈. */
+  cost?: number;
+  /** 지금 1주(개) 가격. */
+  price?: number;
+  /** 매달 넣는 돈. 0 이어도 매달 넣는 항목이다. */
+  monthly?: number;
+  /** 같은 항목을 이어 받을 때. 안 주면 같은 그룹·이름의 기존 항목에 맞춘다. */
+  itemKey?: string;
+}
+
+/** 저축·투자 거래 하나. 이체 + 어디에(자산 항목)다. */
+export interface AssetTransferSeed {
+  amount: number;
+  itemKey: string;
+  side?: 'buy' | 'sell';
+  quantity?: string;
+  on?: string;
+  daysAgo?: number;
 }
 
 /** 심을 공유 가계부 하나. 안 준 값은 연인·부부 「둘이 쓰는 돈」 반반, 내 이름 「은홍」 이다. */
@@ -322,17 +349,90 @@ export class PrepApi {
    * 서버 저장이 PUT 하나뿐이라 여기도 목록을 통째로 보낸다. 부채도 양수로 넣고
    * 순자산에서 뺄지는 `group` 이 정한다.
    */
-  async putAssets(items: AssetSeed[]): Promise<void> {
+  async putAssets(items: AssetSeed[]): Promise<AssetsOut> {
     const response = await this.context.put('/api/v1/assets', {
       data: {
         items: items.map((item) => ({
           group: item.group,
           label: item.label ?? null,
           amount: String(item.amount),
+          ...(item.kind != null ? { kind: item.kind } : {}),
+          ...(item.quantity != null ? { quantity: item.quantity } : {}),
+          ...(item.cost != null ? { cost_basis: String(item.cost) } : {}),
+          ...(item.price != null ? { unit_price: String(item.price) } : {}),
+          ...(item.monthly != null ? { monthly_amount: String(item.monthly) } : {}),
+          ...(item.itemKey != null ? { item_key: item.itemKey } : {}),
         })),
       },
     });
-    expectOk(response.status(), await response.text(), '자산을 심지 못했다');
+    const text = await response.text();
+    expectOk(response.status(), text, '자산을 심지 못했다');
+    return JSON.parse(text) as AssetsOut;
+  }
+
+  /** 지금 자산 목록. 항목 키를 얻을 때 쓴다. */
+  async assets(): Promise<AssetsOut> {
+    const response = await this.context.get('/api/v1/assets');
+    const text = await response.text();
+    expectOk(response.status(), text, '자산을 읽지 못했다');
+    return JSON.parse(text) as AssetsOut;
+  }
+
+  /**
+   * 가장 최근 스냅샷을 그 날로 옮긴다(`2026-09-15`).
+   *
+   * 서버는 오늘 날짜로만 스냅샷을 만든다. 「지난달에 적어 둔 사람」 은 화면으로도 API 로도
+   * 만들 수 없어서, e2e DB 에서 날짜만 바꾼다. 백엔드의 psycopg 를 그대로 빌려 쓴다.
+   */
+  async moveLatestAssetSnapshot(day: string): Promise<void> {
+    const snapshot = (await this.assets()).snapshot;
+    if (snapshot == null) throw new Error('옮길 자산 스냅샷이 없다');
+    const script = [
+      'import os, sys, psycopg',
+      "url = os.environ['DATABASE_URL'].replace('postgresql+psycopg://', 'postgresql://')",
+      'with psycopg.connect(url) as conn:',
+      "    cur = conn.execute('UPDATE asset_snapshots SET effective_on = %s WHERE id = %s', (sys.argv[1], sys.argv[2]))",
+      '    assert cur.rowcount == 1, cur.rowcount',
+    ].join('\n');
+    execFileSync('uv', ['run', 'python', '-c', script, day, snapshot.id], {
+      cwd: BACKEND_DIR,
+      env: { ...process.env, DATABASE_URL: E2E_DATABASE_URL },
+      stdio: 'pipe',
+    });
+  }
+
+  /** 달마다 월말 점 개수. 초기화가 장부까지 지웠는지 볼 때 쓴다. */
+  async assetHistoryPoints(): Promise<number> {
+    const response = await this.context.get('/api/v1/assets/history');
+    const text = await response.text();
+    expectOk(response.status(), text, '자산 추이를 읽지 못했다');
+    return (JSON.parse(text) as { points: unknown[] }).points.length;
+  }
+
+  /** 「그대로예요」 와 같은 일. 최신 목록을 오늘로 복사한다. 이번 달만 된다. */
+  async checkinAssets(month: string): Promise<AssetsOut> {
+    const response = await this.context.post('/api/v1/assets/checkin', { data: { month } });
+    const text = await response.text();
+    expectOk(response.status(), text, '체크인을 하지 못했다');
+    return JSON.parse(text) as AssetsOut;
+  }
+
+  /** 저축·투자 한 줄. 서버가 장부 줄을 같은 commit 에서 남긴다. */
+  async addAssetTransfer(seed: AssetTransferSeed): Promise<void> {
+    const occurredAt = seed.on != null ? dayNoon(seed.on) : seedTime(seed.daysAgo ?? 0, 0);
+    const response = await this.context.post('/api/v1/transactions', {
+      data: {
+        occurred_at: occurredAt.toISOString(),
+        amount: String(seed.amount),
+        type: 'transfer',
+        source: 'keypad',
+        confidence: 1,
+        asset_item_key: seed.itemKey,
+        asset_side: seed.side ?? 'buy',
+        ...(seed.quantity != null ? { asset_quantity: seed.quantity } : {}),
+      },
+    });
+    expectOk(response.status(), await response.text(), '저축·투자 거래를 심지 못했다');
   }
 
   /**
@@ -528,6 +628,8 @@ export class PrepApi {
     return found.id;
   }
 }
+
+const BACKEND_DIR = fileURLToPath(new URL('../../../backend', import.meta.url));
 
 /**
  * 가계부 시간대 기준 이번 달. `2026-09` 모양이다.

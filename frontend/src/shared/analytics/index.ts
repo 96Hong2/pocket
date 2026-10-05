@@ -10,6 +10,17 @@ export { Analytics, type FlowId, type LogOptions } from './analytics';
 export { AnalyticsContext, useAnalytics } from './context';
 export {
   EVENTS,
+  type AssetAnalysisAd,
+  type AssetAnalysisAnswer,
+  type AssetAnalysisScopeLog,
+  type AssetAnalysisSkipReason,
+  type AssetAnalysisState,
+  type AssetCaptureAd,
+  type AssetCaptureStep,
+  type AssetChangeField,
+  type AssetChangeFrom,
+  type AssetCheckinAnswer,
+  type AssetKindLog,
   type BookChangeAction,
   type BookInviteWhere,
   type BookJoinOutcome,

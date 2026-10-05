@@ -21,6 +21,7 @@ import type { MonthParams, SettlementPeriod } from './client';
 import { useApiClient } from './context';
 import { moneyQueryKeys, queryKeys } from './queryKeys';
 import type {
+  AssetCaptureOut,
   AssetsOut,
   AssetSnapshotPut,
   BookCategoryOut,
@@ -535,11 +536,21 @@ export function useDeleteMerchantRule() {
 }
 
 /**
- * 자산 목록 저장.
+ * 자산 응답을 캐시에 넣고, 그 목록으로 센 추이와 분석을 낡게 한다.
  *
- * 응답이 조회와 같은 모양이라 그대로 캐시에 넣는다. 순자산과 그룹 소계가 왕복 없이
- * 그 자리에서 맞는다. 무효화는 하지 않는다. 예산·거래는 자산과 무관하고, 자산은
- * 방금 보낸 목록이 그대로 정본이라 다시 받을 것이 없다.
+ * 응답이 조회와 같은 모양이라 목록은 다시 받지 않는다. 예산·거래는 자산과 무관하다.
+ */
+function applyAssets(queryClient: QueryClient, assets: AssetsOut): void {
+  queryClient.setQueryData<AssetsOut>(queryKeys.assets(), assets);
+  // 기다리지 않는다. 추이를 다시 받는 동안 저장 뒤 화면이 멈춰 있지 않게.
+  void queryClient.invalidateQueries({ queryKey: queryKeys.assetHistories() });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.assetAnalyses() });
+}
+
+/**
+ * 자산 목록 저장. 캡처로 채운 목록이면 본문에 `source: 'screenshot'` 을 싣는다.
+ *
+ * 순자산과 그룹 소계는 응답으로 그 자리에서 맞는다.
  */
 export function useSaveAssets() {
   const client = useApiClient();
@@ -548,8 +559,33 @@ export function useSaveAssets() {
   return useMutation({
     mutationFn: (body: AssetSnapshotPut): Promise<AssetsOut> => client.saveAssets(body),
     onSuccess: (assets) => {
-      queryClient.setQueryData<AssetsOut>(queryKeys.assets(), assets);
+      applyAssets(queryClient, assets);
     },
+  });
+}
+
+/** 「그대로예요」. `month` 는 `YYYY-MM`, 이번 달만 받는다. 응답은 조회와 같은 모양이다. */
+export function useCheckinAssets() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (month: string): Promise<AssetsOut> => client.checkinAssets(month),
+    onSuccess: (assets) => {
+      applyAssets(queryClient, assets);
+    },
+  });
+}
+
+/**
+ * 잔액 화면 캡처 한 장 읽기. 아무것도 저장하지 않아 캐시를 건드리지 않는다.
+ * 저장은 `useSaveAssets` 에 `source: 'screenshot'` 으로 한다.
+ */
+export function useCaptureAssets() {
+  const client = useApiClient();
+
+  return useMutation({
+    mutationFn: (dataUri: string): Promise<AssetCaptureOut> => client.captureAssets(dataUri),
   });
 }
 

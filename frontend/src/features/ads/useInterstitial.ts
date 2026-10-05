@@ -16,8 +16,14 @@ import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { toLedgerDate } from '../../shared/lib/format';
 import type { KeyValueStore } from '../../shared/toss';
 
-import { SESSION_CAP, allowedToday, countedToday, readDayCount, writeDayCount } from './adFrequency';
-import { useFullScreenAd, type FullScreenAdOutcome } from './useFullScreenAd';
+import {
+  SESSION_CAP,
+  allowedToday,
+  countedToday,
+  readDayCount,
+  writeDayCount,
+} from './adFrequency';
+import { useFullScreenAd, type FullScreenAdOutcome, type FullScreenGroup } from './useFullScreenAd';
 
 /**
  * 전면 광고가 서는 자리.
@@ -38,11 +44,14 @@ import { useFullScreenAd, type FullScreenAdOutcome } from './useFullScreenAd';
  * 한 편만 봤고, 원가는 장수를 따라 느는데 수입이 안 따라왔다. 여기는 무엇을 치르는지
  * 먼저 읽고 스스로 누르는 자리라 리워드와 같은 규칙을 쓴다(ADR-0024).
  *
+ * **`asset_capture` 도 상한을 안 센다.** 잔액 캡처를 읽는 동안 도는 광고라 `photo` 와 같은
+ * 까닭이다. 그룹은 전용(`useInterstitial('asset_capture')`)이고 다른 그룹으로 떨어지지 않는다.
+ *
  * 생활비 계산기는 여기 없다. 광고와 기능을 맞바꾸겠다고 사람이 먼저 누르는 자리라
  * 리워드 광고(`useRewardedAd`)로 나갔고, 그래서 상한도 안 센다(ADR-0024).
  * 사진 여러 장도 같은 이유로 여기 없다(`usePhotoRewardedAd`).
  */
-export type InterstitialWhere = 'closing' | 'photo';
+export type InterstitialWhere = 'closing' | 'photo' | 'asset_capture';
 
 /** 지나온 결과. `capped` 는 상한에 걸려 광고를 아예 부르지 않은 것이다. */
 export type InterstitialOutcome = FullScreenAdOutcome | { result: 'skipped'; reason: 'capped' };
@@ -146,7 +155,7 @@ async function gateBody(
   return outcome;
 }
 
-export function useInterstitial(): {
+export function useInterstitial(group: FullScreenGroup = 'shared'): {
   /**
    * 이 기기에서 애초에 전면 광고가 설 수 있나(광고 그룹과 SDK 지원).
    *
@@ -179,7 +188,7 @@ export function useInterstitial(): {
 } {
   const bridge = useBridge();
   const analytics = useAnalytics();
-  const { busy, available, show: showAd } = useFullScreenAd();
+  const { busy, available, show: showAd } = useFullScreenAd(group);
   /*
     저장소를 읽어야 아는 값이라 이것만 상태로 둔다. 나머지 둘은 그릴 때 그 자리에서 센다.
 

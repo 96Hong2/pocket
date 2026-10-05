@@ -25,7 +25,7 @@ import type {
 } from './client';
 import { useApiClient, useApiReady } from './context';
 import { queryKeys } from './queryKeys';
-import type { BookListOut, BookOut } from './types';
+import type { AnalysisScope, BookListOut, BookOut } from './types';
 
 /** 카테고리 목록. 기본 11개 + 내가 만든 것. */
 export function useCategories() {
@@ -250,6 +250,34 @@ export function useAssets() {
     queryKey: queryKeys.assets(),
     queryFn: ({ signal }) => client.getAssets({ signal }),
     enabled: isReady,
+  });
+}
+
+/** 달마다 월말 순자산 점. 순자산 카드의 작은 추이와 상세 그래프가 쓴다. */
+export function useAssetHistory(months?: number) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.assetHistory(months),
+    queryFn: ({ signal }) => client.getAssetHistory(months, { signal }),
+    enabled: isReady,
+  });
+}
+
+/**
+ * 「내 자산 분석」. 광고 잠금은 화면이 `fingerprint` 로 건다.
+ *
+ * `enabled` 를 끄면 부르지 않는다. 잠긴 입구가 지문만 견줄 때도 같은 키를 쓴다.
+ */
+export function useAssetAnalysis(scope: AnalysisScope, options?: { enabled?: boolean }) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.assetAnalysis(scope),
+    queryFn: ({ signal }) => client.getAssetAnalysis(scope, { signal }),
+    enabled: isReady && (options?.enabled ?? true),
   });
 }
 

@@ -1,5 +1,6 @@
 export { AppRouter } from './AppRouter';
 export {
+  ASSET_SCOPE_QUERY,
   BOOK_FROM_QUERY,
   BOOK_ID_QUERY,
   DEMO_PATH,
@@ -9,10 +10,13 @@ export {
   ROUTES,
   SCREEN_TITLES,
   TAB_ROOTS,
+  assetAnalysisPath,
   bookSettingsPath,
   bookSettlePath,
   isTabRoot,
   joinPath,
   parentOf,
+  parseAssetScope,
+  type AssetAnalysisScope,
   type RoutePath,
 } from './routes';

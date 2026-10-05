@@ -13,6 +13,7 @@ export const ROUTES = {
   calendar: '/calendar',
   goal: '/goal',
   assets: '/assets',
+  assetAnalysis: '/assets/analysis',
   categories: '/manage/categories',
   tags: '/manage/tags',
   recurring: '/manage/recurring',
@@ -65,6 +66,26 @@ export function joinPath(code: string, src: string = JOIN_SRC): string {
 }
 
 /** 개발 중에만 열리는 공용 UI 갤러리. */
+/** 분석 범위 쿼리. `all`·`stock`·`cash`, 모르는 값이면 `all`. */
+export const ASSET_SCOPE_QUERY = 'scope';
+
+export type AssetAnalysisScope = 'all' | 'stock' | 'cash';
+
+export function assetAnalysisPath(scope: AssetAnalysisScope = 'all'): string {
+  return `${ROUTES.assetAnalysis}?${ASSET_SCOPE_QUERY}=${scope}`;
+}
+
+/** 자산 화면을 「바뀐 것만 고쳐요」 창이 열린 채로 연다. 홈 체크인 카드가 쓴다. */
+export const ASSET_CHECKIN_QUERY = 'checkin';
+
+export function assetsCheckinPath(): string {
+  return `${ROUTES.assets}?${ASSET_CHECKIN_QUERY}=1`;
+}
+
+export function parseAssetScope(raw: string | null): AssetAnalysisScope {
+  return raw === 'stock' || raw === 'cash' ? raw : 'all';
+}
+
 export const DEMO_PATH = '/__demo';
 
 /** 탭바가 보이는 화면. 이 셋에서 뒤로가기를 누르면 미니앱이 종료된다. */
@@ -79,6 +100,7 @@ export const PARENT_OF: Record<string, string> = {
   // 목표·자산의 입구는 관리 탭뿐이다. 홈으로 보내면 들어온 자리와 다른 곳으로 나간다.
   [ROUTES.goal]: ROUTES.manage,
   [ROUTES.assets]: ROUTES.manage,
+  [ROUTES.assetAnalysis]: ROUTES.assets,
   [ROUTES.categories]: ROUTES.manage,
   [ROUTES.tags]: ROUTES.manage,
   [ROUTES.recurring]: ROUTES.manage,
@@ -105,6 +127,8 @@ export const SCREEN_TITLES: Record<string, string> = {
   [ROUTES.calendar]: '월간 달력',
   [ROUTES.goal]: '목표',
   [ROUTES.assets]: '자산',
+  // 범위가 달라도 화면 이름은 하나다.
+  [ROUTES.assetAnalysis]: '내 자산 분석',
   [ROUTES.categories]: '카테고리 관리',
   [ROUTES.tags]: '태그',
   [ROUTES.recurring]: '반복 지출',

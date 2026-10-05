@@ -40,11 +40,16 @@
 | 미리 적어 둔 돈을 실제로 적나 | `recurring_result` | 적었나(`recorded`)·미뤘나(`dismissed`), 전날인가 당일인가(`eve`·`today`). **항목 이름과 금액은 싣지 않는다** |
 | 미리 적어 둘 돈을 걸어는 두나 | `recurring_changed` | 만듦·고침·지움과 잠시 끔·다시 켬(`created`·`updated`·`deleted`·`paused`·`resumed`), 앱 알림이 켜져 있나(`enabled`), 이 예고만 다른 시각을 골랐나(`at`: `default`·`custom`), 며칠 전인가(`lead`: `today`·`eve`), 태그를 달았나, 지울 때 켜져 있었나. **항목 이름과 금액은 싣지 않는다** |
 | 태그를 만들기만 하나 실제로 다나 | `tag_changed` · `tag_applied` | 만듦·고침·지움과 갈래(`expense`·`income`), 지울 때 몇 건이 표시를 잃나(`used`), 붙었나·떨어졌나와 어느 자리(`record`·`edit`)와 갈래. 2026-10-05~ `record` 는 둘째 화면에서 골라 저장과 함께 붙은 것이다. **태그 이름은 싣지 않는다** |
-| 자산을 한 번 적고 마나 | `asset_changed` | 더함·고침·지움과 어느 그룹, 그 뒤 남은 줄 수. **이름과 금액은 싣지 않는다** |
+| 자산을 한 번 적고 마나 | `asset_changed` | 더함·고침·지움과 어느 그룹, 그 뒤 남은 줄 수. 자산관리 판부터 투자 종류(`kind`: `stock`·`etf`·`fund`·`coin`·`bond`·`other`·`none`), 어디서 고쳤나(`from`: `assets`·`record`), 고친 칸(`fields`: `amount`·`price`·`qty` 를 `+` 로 이은 값). **이름과 금액, 수량 값, 현재가는 싣지 않는다** |
+| 자산 체크인에 답하나 | `asset_checkin_result` | 홈 체크인 카드의 답(`answer`: `same` 「그대로예요」·`changed` 「바뀐 게 있어요」·`dismissed` 닫음) |
+| 순자산 상세를 여나 | `asset_networth_opened` | 값 없음. 순자산 카드를 연 사람 중 5% 아래면 상세 시트를 걷는다 |
+| 분석 확인 창에서 고르나 | `asset_analysis_asked` | 범위(`scope`: `all`·`stock`·`cash`), 창이 선 까닭(`state`: `locked` 처음·`stale` 자산이 바뀌어 다시), 답(`answer`: `ok`·`close`) |
+| 분석을 어떻게 열었나 | `asset_analysis_opened` | 범위(`scope`), 광고(`ad`: `earned` 끝까지 봄·`watched` 중간에 닫음·`skipped` 광고 없이·`free` 자산이 그대로라 광고 없이), 광고 없이 열린 이유(`reason`: `no_group`·`unsupported`·`failed`·`stalled`). `earned` 와 `watched` 는 합치지 않는다 |
+| 캡처가 자산을 채우나 | `asset_capture` | 단계(`step`: `picked`·`read`·`failed`·`saved`·`cancelled`), 광고(`ad`: `watched`·`skipped`·`free_after_fail` 실패 다음 한 번 광고 없이), 읽은 줄 수(`rows`), 새 항목 수(`new_items`). **항목 이름과 금액은 싣지 않는다** |
 | 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나와 몇 장짜리인가(`cards`), 몇 장째에서 닫았나(`page`·`total`)와 끝까지 봤나(`finished`) |
 | 지난달 리포트를 보러 가나 | **`report_month_changed`** | 옮긴 쪽(`step`: `back`·`forward`), 도착한 달이 이번 달인가(`to`: `this`·`past`), 몇 달 전인가(`months_back`). 2026-09-27~. 지난달 리포트에 광고를 붙이기 전의 기준선이다. **그 달의 날짜와 금액은 싣지 않는다** |
-| 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`·**`book_home`** 우리 집 홈 맨 아래, 2026-09-28~)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
-| 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(2026-09-26~ `closing`·**`photo`** 둘뿐, 아래 「판마다 바뀐 값」)와 결과(`watched`·`skipped`·**`declined`** 확인 창에서 돌아섬, 2026-09-27~), 지나간 이유(`no_group`·`unsupported`·`failed`·`capped`·**`stalled`**) |
+| 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`·**`book_home`** 우리 집 홈 맨 아래, 2026-09-28~·**`assets_top`** 자산 화면 그룹 목록 위, 자산관리 판부터)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
+| 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(2026-09-26~ `closing`·**`photo`**, 자산관리 판부터 **`asset_capture`**, 아래 「판마다 바뀐 값」)와 결과(`watched`·`skipped`·**`declined`** 확인 창에서 돌아섬, 2026-09-27~), 지나간 이유(`no_group`·`unsupported`·`failed`·`capped`·**`stalled`**) |
 | 광고가 뜬 채로 갇히나 | **`ad_stuck_exit`** | 어느 자리의 광고였나(`where`). **앱을 열 때 한 번** 센다. 광고가 뜨는 순간 적어 둔 표가 남아 있으면 지난번이 갇힌 판이다(ADR-0036). ⚠ **갇힌 판의 `interstitial_result` 는 `stalled` 가 아니라 `watched` 다.** 광고는 실제로 떴고 콘솔도 노출로 센다. 2026-09-28 부터 판정은 화면을 푸는 그 시각(전면 15초, 리워드 35초)에 내린다(ADR-0041, 그 전에는 90초). 갇혔다는 사실은 **다음 광고의 `skipped{stalled}`** 와 이 이벤트로 드러난다. 함께 싣는 `deaths` 는 광고가 덮인 채로 **연달아** 죽은 횟수다. **한 번이면 그 기기에서 전면 광고를 끈다**(ADR-0041, 2026-09-27 까지는 두 번). 15초(리워드 35초)에도 덮고 있는 것을 직접 본 판은 이 수와 무관하게 그 한 번으로 끈다. 끄고 나면 `interstitial_result` 가 계속 `skipped{stalled}` 로만 남는다. 광고를 눌러 나간 판은 갇힘에서 뺀다 |
 | 사진을 읽으려고 광고를 보나 | `photo_credit` | 봤나 마다했나 헛돌았나 썼나(`action`: `watched`·**`declined`**·**`wasted`**·`spent`), 어떤 광고였나(`plan`: `interstitial`·`rewarded`), 몇 장짜리였나(`image_count`), 쓰고 나서 무료분이 몇 장 남았나(`left`), 광고가 어떻게 끝났나(`ad`: `earned`·`watched`·`skipped`)와 지나간 이유(`reason`: `no_group`·`unsupported`·`failed`) |
 | 분류를 제 말로 바꿔 쓰나 | `category_changed` | 만듦·고침·지움, 기본 분류인가 내가 만든 것인가(`scope`: `default`·`mine`, 2026-09-29~ 공유 가계부 분류를 만들면 `shared`), 갈래, 무엇을 건드렸나(`fields`: `name`·`icon`·`color` 를 `+` 로 이은 값). **이름은 싣지 않는다** |
@@ -150,6 +155,7 @@
 | 2026-09-22~09-25 (ADR-0029) | `closing` · `assets` · `goal` · `categories` · `tags` · `recurring` |
 | 2026-09-26~ (ADR-0039) | `closing` · `photo`. 관리 탭 하위 화면과 자산 앞의 광고를 걷었다 |
 | 2026-09-27~ | 자리는 위와 같다. `result` 에 **`declined`** 가 더해졌다: 결산 광고 앞 확인 창에서 「닫기」 나 뒤로가기로 돌아선 것. 그 전에는 아무 줄도 안 남아 돌아선 사람을 못 셌다 |
+| 자산관리 판~ | `closing` · `photo` · **`asset_capture`**(잔액 캡처를 읽는 동안, 상한 밖이라 `capped` 가 안 남는다) |
 
 가운데 하루는 자리를 **결산 하나로 줄였던** 때다. 그때 뺀 이유는 자산·리포트 둘 다 사람이
 광고를 부른 적이 없는 자리로 봤기 때문인데, 자산은 실제로 **관리 탭의 카드를 눌러** 들어가고
@@ -267,6 +273,8 @@ SDK 가 알려 주지 않는다. 그래서 우리가 볼 수 있는 것은 누�
 - 영수증·캡처 원본과 OCR·LLM 원문
 - 줄글로 적은 문장, 상호, 메모
 - 금액과 날짜의 실제 값
+- 자산의 수량 값, 현재가, 판 종목에서 받은 돈, 수익 금액
+- 자산 항목 이름과 종목 이름
 - 계좌·카드번호, 인증 헤더, API 요청·응답 본문
 - 예외 메시지 본문과 스택 (`client_error` 는 오류 **이름**과 화면만 남긴다)
 - 수량, 현재가, 받은 돈, 수익 금액의 실제 값, 항목과 종목 이름

@@ -8,9 +8,15 @@
  * 아무 뜻도 없는 칭찬을 하지 않는다. 탓하는 말은 쓰지 않는다(`FORBIDDEN_WORDS`).
  */
 
-import type { ChangeOut, HighlightOut, NextOut } from '../../shared/api';
+import type {
+  ChangeOut,
+  ClosingNetWorthOut,
+  ClosingOut,
+  HighlightOut,
+  NextOut,
+} from '../../shared/api';
 import { parseDecimalOr } from '../../shared/api';
-import { formatCurrency } from '../../shared/lib/format';
+import { formatCurrency, formatSignedCurrency, shiftMonth } from '../../shared/lib/format';
 
 /**
  * 카드 순서. **배열 상수로 못 박는다.**
@@ -25,7 +31,18 @@ export const CLOSING_CARDS = [
   { key: 'next', title: '다음 달 하나만' },
 ] as const;
 
-export type ClosingCardKey = (typeof CLOSING_CARDS)[number]['key'];
+/** 순자산 장. 그 달에 적은 스냅샷과 앞 달 월말 점이 있을 때만 돈 흐름 다음에 낀다. */
+export const NET_WORTH_CARD = { key: 'net_worth', title: '자산' } as const;
+
+export type ClosingCard = (typeof CLOSING_CARDS)[number] | typeof NET_WORTH_CARD;
+export type ClosingCardKey = ClosingCard['key'];
+
+/** 이번 결산에 넘겨 볼 카드들. 순자산이 없으면 기본 넉 장이다. */
+export function closingCards(closing: Pick<ClosingOut, 'net_worth'>): ClosingCard[] {
+  if (closing.net_worth == null) return [...CLOSING_CARDS];
+  const [highlights, flow, ...rest] = CLOSING_CARDS;
+  return [highlights, flow, NET_WORTH_CARD, ...rest];
+}
 
 /** 늘어난 분류 카드 끝에 붙는 한 줄. 변화를 잘못으로 읽지 않게 못 박아 둔다. */
 export const CHANGE_NOTE = '나쁜 게 아니라, 그냥 알아두면 좋은 변화예요.';
@@ -67,6 +84,8 @@ export function highlightLine(highlight: HighlightOut, categoryName?: string): s
   const amount = formatCurrency(parseDecimalOr(highlight.amount, 0));
 
   switch (highlight.kind) {
+    case 'saved':
+      return `${amount} 모았어요`;
     case 'within_budget':
       return `예산 안에서 마쳤어요 · ${amount} 남겼어요`;
     case 'category_decrease':
@@ -99,6 +118,38 @@ export function nextLine(next: NextOut, categoryName?: string): string {
   const cap = formatCurrency(parseDecimalOr(next.suggested_cap, 0));
   const name = categoryName ?? '늘어난 분류';
   return `${name} 예산 ${cap}, 이거 하나면 충분해요`;
+}
+
+/** 순자산 장의 첫 줄. 늘었는지 줄었는지만 말하고 탓하지 않는다. */
+export function netWorthLine(netWorth: ClosingNetWorthOut): string {
+  const delta = parseDecimalOr(netWorth.delta, 0);
+  if (delta > 0) return `순자산이 ${formatSignedCurrency(delta)} 늘었어요`;
+  if (delta < 0) return `순자산이 ${formatCurrency(-delta)} 줄었어요`;
+  return '순자산이 지난달과 같아요';
+}
+
+const MONTH_COUNT = [
+  '',
+  '한',
+  '두',
+  '세',
+  '네',
+  '다섯',
+  '여섯',
+  '일곱',
+  '여덟',
+  '아홉',
+  '열',
+  '열한',
+  '열두',
+];
+
+/** `5월부터 다섯 달 연속 늘고 있어요`. 두 달 넘게 이어 늘었을 때만. */
+export function netWorthStreakLine(month: string, streak: number): string | null {
+  if (streak < 2) return null;
+  const start = monthNumber(shiftMonth(month, -(streak - 1)));
+  const count = streak < MONTH_COUNT.length ? `${MONTH_COUNT[streak]} 달` : `${streak}달`;
+  return `${start}월부터 ${count} 연속 늘고 있어요`;
 }
 
 /** `2026-08` → `8` */
