@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useNavigationType, useSearchParams } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
 import { useBookView, useToast } from '../app/providers';
@@ -28,6 +28,49 @@ import {
 } from '../shared/api';
 import { toLedgerDate } from '../shared/lib/format';
 import { CalendarGlyph } from '../shared/ui';
+
+/**
+ * 분류 화면이나 자산 화면에 다녀오면 보던 자리로 돌아온다. 화면이 바뀌면 앱이 맨 위로 올리므로
+ * 나가기 직전 자리를 리포트 주소(달과 탭)와 함께 적어 두고, 돌아와 그 주소면 한 번 쓴다.
+ */
+const SCROLL_KEY = 'pocket.report.scroll';
+// 본문이 다 그려질 때까지 기다리는 한도. 넘기면 맨 위에 둔다.
+const RESTORE_WAIT_MS = 2000;
+
+interface SavedScroll {
+  at: string;
+  y: number;
+}
+
+function rememberScroll(at: string): void {
+  try {
+    const saved: SavedScroll = { at, y: Math.round(window.scrollY) };
+    sessionStorage.setItem(SCROLL_KEY, JSON.stringify(saved));
+  } catch {
+    // 저장소가 막힌 기기는 돌아오면 맨 위다.
+  }
+}
+
+function readScroll(): SavedScroll | null {
+  try {
+    const raw = sessionStorage.getItem(SCROLL_KEY);
+    if (raw == null) return null;
+    const parsed = JSON.parse(raw) as Partial<SavedScroll> | null;
+    if (typeof parsed?.at !== 'string' || typeof parsed.y !== 'number' || parsed.y <= 0)
+      return null;
+    return { at: parsed.at, y: parsed.y };
+  } catch {
+    return null;
+  }
+}
+
+function forgetScroll(): void {
+  try {
+    sessionStorage.removeItem(SCROLL_KEY);
+  } catch {
+    // 못 지우면 다음에 같은 주소로 돌아올 때 한 번 더 쓰일 뿐이다.
+  }
+}
 
 /** `2026-08` 모양인지. 홈 카드가 붙여 준 값이라 아무 문자열이나 들어올 수 있다. */
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -157,14 +200,43 @@ export default function ReportPage() {
 
   const here = reportPath(month, tab);
 
+  // ‹ 나 뒤로로 돌아왔을 때만 쓴다. 탭바로 들어오면(PUSH) 맨 위에서 연다.
+  const navigationType = useNavigationType();
+  useEffect(() => {
+    const saved = readScroll();
+    if (saved == null) return;
+    if (navigationType === 'PUSH' || saved.at !== here) {
+      forgetScroll();
+      return;
+    }
+    // 돌아온 순간에는 본문이 아직 짧다. 그 자리까지 내려갈 만큼 길어지면 옮긴다.
+    const until = performance.now() + RESTORE_WAIT_MS;
+    let frame = 0;
+    const step = () => {
+      const room = document.documentElement.scrollHeight - window.innerHeight;
+      if (room >= saved.y) {
+        window.scrollTo(0, saved.y);
+        forgetScroll();
+      } else if (performance.now() < until) {
+        frame = requestAnimationFrame(step);
+      } else {
+        forgetScroll();
+      }
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [here, navigationType]);
+
   function openAssets(): void {
     analytics.log(EVENTS.reportItemOpened, { what: 'assets', tab }, { kind: 'click' });
+    rememberScroll(here);
     const state: BackState = { backTo: here };
     void navigate(ROUTES.assets, { state });
   }
 
   function openCategory(key: string, from: 'row' | 'donut'): void {
     analytics.log(EVENTS.reportItemOpened, { what: 'category', tab, from }, { kind: 'click' });
+    rememberScroll(here);
     void navigate(reportCategoryPath(month, tab, key));
   }
 

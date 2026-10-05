@@ -23,15 +23,13 @@ export function AmountDisplay({
   hint?: string;
   /** 수량 칸이 있을 때. 금액 숫자를 누르면 키패드가 다시 금액을 친다. */
   onPress?: () => void;
-  /** 키패드가 다른 칸을 치는 중이라 흐리게. */
+  /** 키패드가 다른 칸을 치는 중. 친 금액은 흐리지 않는다(안 친 것처럼 보인다). */
   dimmed?: boolean;
 }) {
   const amount = (
     <div
       data-testid={TEST_IDS.recordAmount}
-      className={
-        digits === '' || dimmed ? 'keypad__amount keypad__amount--empty' : 'keypad__amount'
-      }
+      className={digits === '' ? 'keypad__amount keypad__amount--empty' : 'keypad__amount'}
       data-numeric=""
       aria-live="polite"
     >

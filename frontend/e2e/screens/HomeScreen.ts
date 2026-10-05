@@ -441,6 +441,13 @@ class TodaySection {
     return this.text(title);
   }
 
+  /** 행 제목 아래 한 줄. 저축·투자 줄은 「저축·투자」 나 「팔았어요」 다. */
+  rowSubtitle(title: string): Locator {
+    return this.text(title).locator(
+      'xpath=following-sibling::div[contains(@class,"pk-tx__subtitle")]',
+    );
+  }
+
   /**
    * 그 행에 그려진 그림.
    *

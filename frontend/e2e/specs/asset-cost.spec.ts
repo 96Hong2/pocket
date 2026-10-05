@@ -148,7 +148,10 @@ test('넣은 돈 모르는 항목을 전부 팔고 받은 돈이 지금 금액�
   await expect(recordSheet.sellPreview).toContainText('넣은 돈 800,000원어치');
   await expect(recordSheet.sellPreview).toContainText('+400,000원');
   await expect(recordSheet.sellPreview).toContainText('+50%');
-  await shot(page, '팔기_전부_넣은돈_적음');
+  // 넣은 돈 칸을 치는 동안에도 받은 돈은 친 금액 그대로 진하게 남는다.
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(1_200_000));
+  await expect(recordSheet.input.amountText).not.toHaveClass(/keypad__amount--empty/);
+  await shot(page, '고친_팔기_넣은돈칸_받은돈_진하게');
 
   await recordSheet.input.saveButton.click();
   await expect(recordSheet.feedback.headline).toHaveText('아마존 팔았어요');

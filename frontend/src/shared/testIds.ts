@@ -226,6 +226,8 @@ export const TEST_IDS = {
   analysisReturns: 'analysis-returns',
   analysisMonthChange: 'analysis-month-change',
   analysisSaving: 'analysis-saving',
+  /** 저축률 카드 이름 옆 기간. 한 달 시작일이 1 이 아닐 때만 선다. */
+  analysisSavingPeriod: 'analysis-saving-period',
   analysisKindRow: 'analysis-kind-row',
   analysisMonthly: 'analysis-monthly',
   analysisMonthlyTotal: 'analysis-monthly-total',

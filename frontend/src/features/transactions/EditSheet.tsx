@@ -471,7 +471,8 @@ function EditForm({
     const trimmed = merchant.trim();
 
     if (day !== savedDay) next.occurred_at = toLedgerNoonIso(day);
-    if (trimmed !== (transaction.merchant ?? '')) next.merchant = trimmed === '' ? null : trimmed;
+    if (!saving && trimmed !== (transaction.merchant ?? ''))
+      next.merchant = trimmed === '' ? null : trimmed;
     const trimmedMemo = memo.trim();
     if (trimmedMemo !== (transaction.memo ?? ''))
       next.memo = trimmedMemo === '' ? null : trimmedMemo;
@@ -670,18 +671,21 @@ function EditForm({
         </div>
 
         <div className="tx-edit__fields">
-          <label className="tx-edit__field">
-            <span className="tx-edit__label">상호</span>
-            <input
-              className="tx-edit__input"
-              value={merchant}
-              onChange={(event) => setMerchant(event.target.value)}
-              placeholder="어디서 썼나요"
-              maxLength={120}
-            />
-          </label>
+          {/* 저축·투자는 어디에 넣었는지가 이름이라 상호 칸을 안 세운다. 적혀 있던 상호는 그대로 둔다. */}
+          {saving ? null : (
+            <label className="tx-edit__field">
+              <span className="tx-edit__label">상호</span>
+              <input
+                className="tx-edit__input"
+                value={merchant}
+                onChange={(event) => setMerchant(event.target.value)}
+                placeholder="어디서 썼나요"
+                maxLength={120}
+              />
+            </label>
+          )}
           <AmountField
-            className="tx-edit__field--amount"
+            className={saving ? 'tx-edit__field' : 'tx-edit__field--amount'}
             variant="compact"
             label="금액"
             value={amount}

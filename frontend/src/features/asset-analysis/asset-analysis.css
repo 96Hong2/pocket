@@ -104,6 +104,19 @@
     word-break: keep-all;
   }
 
+  /* 카드 이름과 기간 알약. 반쪽 카드에서 좁으면 알약이 아랫줄로 내려간다. */
+  .analysis-card__titled {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+  }
+
+  .analysis-card__period {
+    padding: 2px 8px;
+    font-size: var(--text-12);
+  }
+
   .analysis-card__big {
     font-size: 22px;
     font-weight: var(--font-weight-extrabold);

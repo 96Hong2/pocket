@@ -115,7 +115,7 @@ export function rateChipOf(item: AssetItemOut): RateChip | null {
 
 /**
  * 이름 아래 한 줄. 수량 종목은 「2주 보유, 넣은 돈 500,000원」, 금액 종목은 「넣은 돈 …」.
- * 넣은 돈을 모르면 넣은 돈을 적지 않는다.
+ * 넣은 돈을 모르면 넣은 돈을 적지 않는다. 다 팔아 남은 것이 없으면 「보유 없음」.
  */
 export function itemMetaOf(item: AssetItemOut): string | null {
   const holding = holdingOf(item.group, item.kind);
@@ -126,7 +126,11 @@ export function itemMetaOf(item: AssetItemOut): string | null {
       qty > 0 ? `${formatQuantity(item.quantity)}${unitOf(item.kind)} 보유` : '보유 없음';
     return cost > 0 ? `${held}, 넣은 돈 ${formatCurrency(cost)}` : held;
   }
-  if (holding === 'amount' && item.cost_basis != null) return `넣은 돈 ${formatCurrency(cost)}`;
+  if (holding === 'amount' && item.cost_basis != null) {
+    // 다 팔면 넣은 돈도 0 이 된다. 넣은 돈이 남은 채 0원인 종목은 판 것이 아니다.
+    if (cost <= 0 && parseDecimalOr(item.amount, 0) <= 0) return '보유 없음';
+    return `넣은 돈 ${formatCurrency(cost)}`;
+  }
   return null;
 }
 

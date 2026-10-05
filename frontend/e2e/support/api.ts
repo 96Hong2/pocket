@@ -94,6 +94,10 @@ export interface AssetTransferSeed {
   itemKey: string;
   side?: 'buy' | 'sell';
   quantity?: string;
+  /** 금액 종목을 팔 때 남은 금액. `'0'` 이면 다 판다. */
+  remaining?: string;
+  /** 넣은 돈을 모르는 항목을 팔 때 적는 넣은 돈 전체. */
+  costBasis?: string;
   on?: string;
   daysAgo?: number;
   /** 줄 부제 자리에 서고 달력 검색에 걸린다. */
@@ -432,6 +436,8 @@ export class PrepApi {
         asset_item_key: seed.itemKey,
         asset_side: seed.side ?? 'buy',
         ...(seed.quantity != null ? { asset_quantity: seed.quantity } : {}),
+        ...(seed.remaining != null ? { asset_remaining: seed.remaining } : {}),
+        ...(seed.costBasis != null ? { asset_cost_basis: seed.costBasis } : {}),
         ...(seed.memo != null ? { memo: seed.memo } : {}),
       },
     });

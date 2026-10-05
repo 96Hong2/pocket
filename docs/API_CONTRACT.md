@@ -1212,7 +1212,7 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 | `stock` | 주식·ETF·펀드·채권 항목만. `items`(큰 것부터, `ratio`), `returns` |
 | `cash` | 현금·예적금 그룹 항목만. `items`(`monthly_amount` 포함), `monthly_total` |
 
-- `returns`: 현재가(금액 종목은 지금 금액)나 판 기록이 있는 종목만. 줄마다 평가(`gain`, `rate`)와 실현(`realized`, `realized_rate`), 합산은 평가 중인 종목의 `cost`·`value`·`rate` 와 판 기록의 `realized`·`realized_rate`. 코인은 `all` 에만 든다
+- `returns`: 현재가(금액 종목은 지금 금액)나 판 기록이 있는 종목만. 줄마다 평가(`gain`, `rate`)와 실현(`realized`, `realized_rate`), 합산은 평가 중인 종목의 `cost`·`value`·`rate` 와 판 기록의 `realized`·`realized_rate`. 코인은 `all` 에만 든다. `all` 은 종류 없는 투자 항목(캡처로 금액만 들어온 것)도 센다. 넣은 돈을 적고 다 팔면 `realized` 줄로 서서 항목 줄 칩과 숫자가 같다
 - `month_change`: 지난달 월말 점(`/assets/history` 와 같은 함수)과 지금 목록. 순자산과 그룹별 증감. 지난달 점이 없으면 null
 - `saving`: 이번 달 `saved`(= `summary.month_saved`) ÷ 번 돈 `income`. 번 돈이 0 이면 `rate` null. `goal` 은 진행 중 목표 한 줄
 - `bundles`: 종류별 입구(`stock`, `cash`), 항목이 있는 묶음만. 묶음마다 `fingerprint`

@@ -1,5 +1,6 @@
 import type { AssetsOut } from '../../src/shared/api/types';
-import { formatCurrency } from '../../src/shared/lib/format';
+import { formatCurrency, toLedgerDate } from '../../src/shared/lib/format';
+import { formatPeriodRange, periodContaining } from '../../src/shared/lib/monthPeriod';
 import { adsShown, logsNamed } from '../support/aitMock';
 import { lastMonth, thisMonth, type PrepApi } from '../support/api';
 import { expect, test } from '../support/fixtures';
@@ -125,6 +126,9 @@ test('전체 분석에 리포트 같은 그림이 서고, Top 5 를 고치면 �
     formatCurrency(100_000),
   ]);
 
+  // 한 달 시작일이 1 이면 「이번 달」 이 달력 월이라 기간을 안 적는다.
+  await expect(assetAnalysis.savingPeriod).toHaveCount(0);
+
   await shotBothWidths(page, '분석_전체_도넛과_순자산흐름');
   await shotBothWidths(page, '분석_전체_수익률과_지난달대비', assetAnalysis.returns, 'start');
   await shotBothWidths(page, '분석_전체_어디에모았나와_달마다', assetAnalysis.saving, 'start');
@@ -135,7 +139,9 @@ test('전체 분석에 리포트 같은 그림이 서고, Top 5 를 고치면 �
   const edit = new EditSheetArea(page);
   await edit.waitOpen();
   await expect(edit.amount).toHaveValue(/500,?000/);
-  await shotBothWidths(page, '분석_Top5_고치기시트');
+  // 저축·투자 기록에는 상호 칸이 없다.
+  await expect(edit.merchant).toHaveCount(0);
+  await shotBothWidths(page, '고친_저축기록_고치기시트_상호없음');
   await edit.amount.fill('50000');
   await edit.done();
 
@@ -294,4 +300,57 @@ test('전체 분석을 연 뒤 주식 종목이 바뀌면 전체가 다시 광�
     ['all', expect.stringMatching(/^(earned|watched)$/)],
     ['stock', 'free'],
   ]);
+});
+
+test('한 달 시작일이 1 이 아니면 저축률 카드 이름 옆에 기간이 서고, 부채가 없으면 부채는 부호 없이 0원이다', async ({
+  assetAnalysis,
+  page,
+  prep,
+}) => {
+  await prep.setMonthStartDay(25);
+  const assets = await prep.putAssets([{ group: 'cash', label: '카카오뱅크', amount: 1_000_000 }]);
+  await prep.addAssetTransfer({ amount: 300_000, itemKey: keyOf(assets, '카카오뱅크') });
+
+  await assetAnalysis.open('all');
+  await assetAnalysis.adConsentConfirm.click();
+  await assetAnalysis.waitOpen('all');
+
+  const period = formatPeriodRange(periodContaining(toLedgerDate(new Date()), 25));
+  await expect(assetAnalysis.savingPeriod).toHaveText(period);
+  await expect(assetAnalysis.netWorthLine).toContainText(`부채${formatCurrency(0)}`);
+  await expect(assetAnalysis.netWorthLine).not.toContainText('-');
+  await shotBothWidths(page, '고친_내자산분석_저축률_기간', assetAnalysis.saving);
+});
+
+test('종류 없는 항목을 넣은 돈 적고 다 팔면 자산 줄은 보유 없음과 실현 칩이고, 분석 투자 수익률에 판 것으로 선다', async ({
+  assets,
+  assetAnalysis,
+  page,
+  prep,
+}) => {
+  const seeded = await prep.putAssets([
+    { group: 'investment', label: '아마존', amount: 1_577_696 },
+  ]);
+  await prep.addAssetTransfer({
+    amount: 1_700_000,
+    itemKey: keyOf(seeded, '아마존'),
+    side: 'sell',
+    remaining: '0',
+    costBasis: '1200000',
+  });
+
+  await assets.open();
+  await assets.waitReady();
+  await expect(assets.row('아마존')).toContainText('보유 없음');
+  await expect(assets.row('아마존')).not.toContainText('넣은 돈');
+  await expect(assets.rowChip('아마존', /^\+41\.7% 실현$/)).toBeVisible();
+  await shotBothWidths(page, '고친_자산_다판항목_보유없음', assets.row('아마존'));
+
+  await assetAnalysis.open('all');
+  await assetAnalysis.adConsentConfirm.click();
+  await assetAnalysis.waitOpen('all');
+  // 1,700,000원 받고 넣은 돈 1,200,000원: +500,000원, +41.7%. 항목 칩과 같은 숫자다.
+  await expect(assetAnalysis.realizedRow('아마존')).toContainText('+41.7%');
+  await expect(assetAnalysis.realizedRow('아마존')).toContainText(`+${formatCurrency(500_000)}`);
+  await shotBothWidths(page, '고친_내자산분석_판것_수익률', assetAnalysis.returns);
 });
