@@ -249,6 +249,12 @@ test('저축·투자 기록의 로그에 종목 이름, 수량, 금액이 없고
         log.name,
       ),
     );
+    // 다섯 이름이 다 있고, 모두 비지 않은 flow_id 를 실었다. 다 빠져도 크기가 1 이 되는 구멍을 막는다.
+    expect(new Set(flow.map((log) => log.name)).size).toBe(5);
+    for (const log of flow) {
+      expect(typeof log.params.flow_id, log.name).toBe('string');
+      expect(log.params.flow_id, log.name).not.toBe('');
+    }
     expect(new Set(flow.map((log) => log.params.flow_id)).size).toBe(1);
   });
 

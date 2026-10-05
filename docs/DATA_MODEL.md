@@ -351,11 +351,11 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | `sort_order` | 화면에 놓이는 순서. API 가 받은 순서대로 0 부터 붙인다 |
 | `item_key` | 스냅샷이 바뀌어도 같은 항목을 가리키는 키(uuid). 거래와 장부가 이 키로 항목을 찾는다. 배포 중 옛 리비전이 만든 행만 비어 있을 수 있다. (snapshot_id, item_key) 유일 |
 | `kind` | 투자 그룹만. `stock` \| `etf` \| `coin`(수량 종목) \| `fund` \| `bond` \| `other`(금액 종목) |
-| `monthly_amount` | 매달 넣는 돈. 선택 |
+| `monthly_amount` | 매달 넣는 돈. 선택. 0 보다 클 때만 「매달」 항목으로 본다(이름 맞추기, 분석의 매달 넣는 돈 합) |
 | `quantity` · `cost_basis` | 보유 수량(`numeric(20,8)`)과 넣은 돈. **장부를 접은 결과의 사본이다** |
-| `unit_price` · `price_noted_on` | 지금 1주 가격(수량 종목)과 지금 가격·금액을 적은 날. 날이 비어 있으면 평가 수익률을 내지 않는다 |
+| `unit_price` · `price_noted_on` | 지금 1주 가격(수량 종목)과 지금 가격·금액을 적은 날. 날이 비어 있으면 평가 수익률을 내지 않는다. 금액 종목은 PUT 으로 지금 금액이 처음 오거나 바뀌면 그 날이 적힌다 |
 
-수량 종목의 `amount` 는 `quantity × unit_price`, 가격이 없으면 넣은 돈이다. 금액 종목의 `amount` 는 지금 금액이다.
+수량 종목의 `amount` 는 `quantity × unit_price`(원 단위 사사오입), 가격이 없으면 넣은 돈이다. 금액 종목의 `amount` 는 지금 금액이다.
 
 ## asset_entries (자산 장부)
 

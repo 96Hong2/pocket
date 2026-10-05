@@ -3,11 +3,12 @@
 import type { QuantityShape } from '../../shared/analytics';
 import { parseQuantity, parseWon } from '../asset-dest';
 
-/** 서버와 미리보기의 수익률 문자열(`"20.0"`, `"-15.4"`)을 화면 글자로. 자산 화면과 같은 꼴이다. */
+/** 서버와 미리보기의 수익률 문자열(`"20.0"`, `"-15.4"`)을 화면 글자로. 자산 화면과 같은 꼴이다. 0 은 부호 없이 `0%`. */
 export function rateText(rate: string): string {
   const negative = rate.startsWith('-');
   const abs = negative ? rate.slice(1) : rate;
   const trimmed = abs.endsWith('.0') ? abs.slice(0, -2) : abs;
+  if (/^0(\.0*)?$/.test(trimmed)) return '0%';
   return `${negative ? '−' : '+'}${trimmed}%`;
 }
 

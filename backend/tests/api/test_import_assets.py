@@ -240,3 +240,42 @@ def test_종류를_지출로_바꾸면_어디에가_비워진다(client: TestCli
     [patched] = res.json()["candidates"]
     assert patched["asset_item_key"] is None
     assert patched["asset_side"] is None
+
+
+def test_셋째_줄이_장부_검사에_걸리면_아무것도_저장하지_않고_고쳐_다시_저장해도_한_번씩만_든다(
+    client: TestClient, db: Session, default_categories
+) -> None:
+    _seed(client)
+    batch = _read(client, "점심 12000 적금 30만 넣음 삼성전자 1주 30만", with_assets=True)
+    lunch, saving, stock = batch["candidates"]
+    assert lunch["type"] == "expense"
+    assert saving["asset_item_key"] is not None
+    assert stock["asset_quantity"] == "1"
+    url = f"/api/v1/imports/{batch['id']}"
+
+    # 1주를 가졌는데 5주를 판다고 고친다.
+    oversell = client.patch(
+        f"{url}/candidates/{stock['id']}",
+        json={"asset_side": "sell", "asset_quantity": "5"},
+        headers=AUTH,
+    )
+    assert oversell.status_code == 200, oversell.text
+    blocked = client.post(f"{url}/commit", headers=AUTH)
+
+    assert blocked.status_code == 422, blocked.text
+    assert "가진 것보다 많이 팔 수 없어요" in blocked.text
+    assert db.scalars(select(Transaction)).all() == []
+    assert _assets(client)["청년도약계좌"]["amount"] == "3000000"
+
+    fixed = client.patch(
+        f"{url}/candidates/{stock['id']}", json={"asset_quantity": "1"}, headers=AUTH
+    )
+    assert fixed.status_code == 200, fixed.text
+    committed = client.post(f"{url}/commit", headers=AUTH)
+
+    assert committed.status_code == 200, committed.text
+    db.expire_all()
+    saved = db.scalars(select(Transaction).where(Transaction.deleted_at.is_(None))).all()
+    assert sorted(int(tx.amount) for tx in saved) == [12000, 300000, 300000]
+    assert _assets(client)["청년도약계좌"]["amount"] == "3300000"
+    assert _assets(client)["삼성전자"]["quantity"] == "0"

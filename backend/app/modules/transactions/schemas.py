@@ -16,7 +16,14 @@ from decimal import Decimal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.api.amounts import MAX_AMOUNT, integral_won, quantity_in, quantity_out, ratio_out
+from app.api.amounts import (
+    MAX_AMOUNT,
+    QuantityOut,
+    integral_won,
+    quantity_in,
+    quantity_out,
+    ratio_out,
+)
 from app.api.months import MAX_YEAR, MIN_YEAR
 from app.domain.aggregation import PaymentMethod, TransactionSource, TransactionType
 from app.domain.asset_ledger import AssetSide, InvestKind
@@ -255,7 +262,7 @@ class TransactionOut(BaseModel):
     # 저축·투자면 「어디에」 와 쪽, 수량. 이름은 최신 스냅샷의 그 키 이름이다.
     asset_item_key: uuid.UUID | None = None
     asset_side: AssetSide | None = None
-    asset_quantity: Decimal | None = None
+    asset_quantity: QuantityOut | None = None
     asset_label: str | None = None
 
     _stamp_occurred_at = field_validator("occurred_at", mode="before")(_as_utc)
@@ -320,7 +327,7 @@ class AssetResultOut(BaseModel):
     label: str | None
     # 그 항목의 지금 금액(순자산에 드는 값).
     item_amount: Decimal
-    quantity: Decimal | None = None
+    quantity: QuantityOut | None = None
     # 이 기록이 든 달의 모은 돈(이체 중 어디에가 있고 판 것이 아닌 합).
     month_saved: Decimal
     # 팔았으면 이 판 기록의 실현 수익과 수익률(%). 넣었으면 null.

@@ -12281,8 +12281,7 @@
           "quantity": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -12408,8 +12407,7 @@
           "quantity": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -12498,7 +12496,7 @@
               "$ref": "#/components/schemas/AssetItemIn"
             },
             "type": "array",
-            "maxItems": 40,
+            "maxItems": 200,
             "title": "Items"
           },
           "source": {
@@ -15431,8 +15429,7 @@
           "asset_quantity": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -18005,8 +18002,7 @@
           "asset_quantity": {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               },
               {
                 "type": "null"

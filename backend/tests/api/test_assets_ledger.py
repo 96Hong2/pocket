@@ -383,3 +383,133 @@ def test_장부_줄은_사용자와_항목_키로_남고_시작_값_줄이_먼�
         ("buy", 300000),
     ]
     assert rows[0].created_at < rows[1].created_at
+
+
+# ── 리뷰에서 잡은 경계 ─────────────────────────────────
+
+
+def test_새_종목으로_저장한_기록을_되돌리면_빈_항목이_남지_않는다(client: TestClient) -> None:
+    _, created = _stock(client)
+
+    res = client.post(f"{TX}/{created['transaction']['id']}/undo", headers=AUTH)
+
+    assert res.status_code == 204, res.text
+    assert [item["label"] for item in _assets(client)["items"]] == []
+
+
+def test_새_종목으로_저장한_기록을_지워도_빈_항목이_남지_않는다(client: TestClient) -> None:
+    _put(client, [{"group": "cash", "label": "예금", "amount": "1000000"}])
+    _, created = _stock(client)
+
+    res = client.delete(f"{TX}/{created['transaction']['id']}", headers=AUTH)
+
+    assert res.status_code == 204, res.text
+    assert [item["label"] for item in _assets(client)["items"]] == ["예금"]
+
+
+def test_다른_기록이_남은_새_종목은_지워도_목록에_남는다(client: TestClient) -> None:
+    key, created = _stock(client)
+    _save(client, "250000", asset_item_key=key, asset_quantity="1")
+
+    res = client.delete(f"{TX}/{created['transaction']['id']}", headers=AUTH)
+
+    assert res.status_code == 204, res.text
+    stock = _item(_assets(client), "삼성전자")
+    assert stock["quantity"] == "1"
+    assert stock["cost_basis"] == "250000"
+
+
+def test_옛_모양_PUT_으로_이름만_바꿔도_종목_칸과_장부가_이어진다(client: TestClient) -> None:
+    key, _ = _stock(client)
+
+    # 옛 번들은 {group, label, amount} 만, 목록 전체를 같은 차례로 보낸다.
+    body = _put(client, [{"group": "investment", "label": "SAM2", "amount": "500000"}])
+
+    [stock] = body["items"]
+    assert stock["label"] == "SAM2"
+    assert stock["item_key"] == key
+    assert stock["kind"] == "stock"
+    assert stock["quantity"] == "2"
+    assert stock["cost_basis"] == "500000"
+    listed = client.get(TX, headers=AUTH).json()["items"]
+    assert [row["asset_label"] for row in listed] == ["SAM2"]
+
+
+def test_수량_곱하기_1주_가격은_장부와_같이_사사오입한다(client: TestClient) -> None:
+    body = _put(
+        client,
+        [
+            {
+                "group": "investment",
+                "label": "비트코인",
+                "amount": "0",
+                "kind": "coin",
+                "quantity": "0.5",
+                "cost_basis": "30000",
+                "unit_price": "75001",
+            }
+        ],
+    )
+
+    assert _item(body, "비트코인")["amount"] == "37501"
+
+
+def test_아주_작은_수량도_지수_표기_없이_나간다(client: TestClient) -> None:
+    created = _save(
+        client,
+        "100000",
+        new_asset={"group": "investment", "kind": "coin", "label": "코인"},
+        asset_quantity="0.00123456",
+    )
+    key = created["asset"]["item_key"]
+
+    sold = _save(client, "90000", asset_item_key=key, asset_side="sell", asset_quantity="0.0012345")
+
+    assert sold["transaction"]["asset_quantity"] == "0.0012345"
+    assert sold["asset"]["quantity"] == "0.00000006"
+    assert _item(_assets(client), "코인")["quantity"] == "0.00000006"
+    tiny = _save(client, "1000", asset_item_key=key, asset_quantity="0.00000001")
+    assert tiny["transaction"]["asset_quantity"] == "0.00000001"
+    listed = client.get(TX, headers=AUTH).json()["items"]
+    assert "0.00000001" in [row["asset_quantity"] for row in listed]
+
+
+def test_조금_손해_보고_팔아_수익률이_0_이면_부호_없는_0_이다(client: TestClient) -> None:
+    created = _save(
+        client,
+        "250000",
+        new_asset={"group": "investment", "kind": "stock", "label": "카카오"},
+        asset_quantity="1",
+    )
+
+    sold = _save(
+        client,
+        "249900",
+        asset_item_key=created["asset"]["item_key"],
+        asset_side="sell",
+        asset_quantity="1",
+    )
+
+    assert sold["asset"]["realized"] == "-100"
+    assert sold["asset"]["rate"] == "0.0"
+    assert _item(_assets(client), "카카오")["rate"] == "0.0"
+
+
+def test_펀드의_지금_금액을_적으면_평가_수익률이_선다(client: TestClient) -> None:
+    _put(
+        client,
+        [
+            {
+                "group": "investment",
+                "label": "S&P500 펀드",
+                "amount": "1200000",
+                "kind": "fund",
+                "cost_basis": "1000000",
+            }
+        ],
+    )
+
+    fund = _item(_assets(client), "S&P500 펀드")
+    assert fund["rate_kind"] == "valuation"
+    assert fund["rate"] == "20.0"
+    assert fund["price_noted_on"] == datetime.now(KST).date().isoformat()

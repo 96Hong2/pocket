@@ -115,6 +115,40 @@ test('못 읽으면 탓하지 않는 화면이 서고, 다음 한 번은 광고 
   expect(ads.map((log) => log.params.where)).toEqual(['asset_capture']);
 });
 
+test('빈 자산 화면에서 못 읽고 직접 적기로 첫 항목을 적어도, 다음 캡처 한 번은 광고 없이 읽는다', async ({
+  assets,
+  page,
+}) => {
+  test.slow();
+  await page.route(CAPTURE, (route) =>
+    route.request().method() === 'POST' ? route.fulfill(EMPTY) : route.continue(),
+  );
+
+  await assets.open();
+  await assets.waitReady();
+  await assets.captureEntry.click();
+  await assets.capture.pickButton.click();
+  await assets.capture.waitStep('fail');
+  await assets.capture.manualButton.click();
+  await expect(assets.sheet.addDialog).toBeVisible();
+  await assets.sheet.fill({ name: '카카오뱅크', amount: 1_000_000 });
+  await assets.sheet.save();
+  // 빈 화면 갈래에서 본 화면 갈래로 바뀌어 캡처 입구가 새로 선다.
+  await expect(assets.row('카카오뱅크')).toHaveCount(1);
+
+  await page.unroute(CAPTURE);
+  await assets.captureEntry.click();
+  await assets.capture.pickButton.click();
+  await assets.capture.waitStep('review');
+
+  const reads = (await logsNamed(page, 'asset_capture')).filter(
+    (log) => log.params.step === 'read',
+  );
+  expect(reads.map((log) => log.params.ad)).toEqual(['free_after_fail']);
+  const ads = await logsNamed(page, 'interstitial_result');
+  expect(ads.map((log) => log.params.where)).toEqual(['asset_capture']);
+});
+
 test('못 읽은 화면의 직접 적기는 항목 시트를 연다', async ({ assets, page, prep }) => {
   await prep.putAssets([{ group: 'cash', label: '카카오뱅크', amount: 1_000_000 }]);
   await page.route(CAPTURE, (route) =>

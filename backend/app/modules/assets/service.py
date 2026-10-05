@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.amounts import MAX_AMOUNT
 from app.api.errors import ApiError, ErrorCode
 from app.domain import assets as domain
-from app.domain.asset_ledger import EntrySide, Holding, holding_of
+from app.domain.asset_ledger import EntrySide, Holding, LedgerState, holding_of, item_value
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod
 from app.models import User
@@ -35,7 +35,7 @@ from app.models.asset import AssetItem as AssetItemRow, AssetSnapshot, AssetSour
 from app.modules import ledger
 from app.modules.assets import entries
 from app.modules.assets.entries import latest_snapshot, live_rows
-from app.modules.assets.schemas import AssetItemIn, ItemOutValues
+from app.modules.assets.schemas import MAX_ITEMS, AssetItemIn, ItemOutValues
 
 _ONE_DAY = timedelta(days=1)
 
@@ -113,6 +113,33 @@ def _match(
     )
 
 
+def _match_all(
+    items: Sequence[AssetItemIn], previous_rows: list[AssetItemRow]
+) -> list[AssetItemRow | None]:
+    """보낸 줄마다 이어 받을 기존 행.
+
+    옛 번들은 item_key 없이 목록 전체를 같은 차례로 보낸다. 이름만 바꾼 줄은 (group, label) 로
+    안 맞으니, 길이가 같으면 같은 자리의 아직 안 맞춘 같은 그룹 행을 잇는다.
+    """
+    by_key = {row.item_key: row for row in previous_rows if row.item_key is not None}
+    unmatched = list(previous_rows)
+    matches: list[AssetItemRow | None] = []
+    for item in items:
+        previous = _match(item, unmatched, by_key)
+        if previous is not None:
+            unmatched.remove(previous)
+        matches.append(previous)
+
+    legacy = all(item.item_key is None for item in items)
+    if legacy and len(items) == len(previous_rows):
+        for index, item in enumerate(items):
+            row = previous_rows[index]
+            if matches[index] is None and row in unmatched and row.group is item.group:
+                matches[index] = row
+                unmatched.remove(row)
+    return matches
+
+
 def _pick(item: AssetItemIn, name: str, previous: AssetItemRow | None) -> object:
     """보낸 칸은 보낸 값, 안 보낸 칸은 기존 값. 옛 번들은 새 칸을 안 보낸다."""
     if name in item.model_fields_set:
@@ -160,6 +187,10 @@ def _fill(row: AssetItemRow, item: AssetItemIn, previous: AssetItemRow | None, t
         if holding is Holding.AMOUNT:
             cost = _pick(item, "cost_basis", previous)
             row.cost_basis = cost if cost is not None else item.amount  # type: ignore[assignment]
+            # 지금 금액을 새로 적은 날이 평가 기준일이다. 넣은 돈을 모르면 수익률을 세지 않는다.
+            amount_changed = previous is None or previous.amount != item.amount
+            if "price_noted_on" not in sent and cost is not None and amount_changed:
+                noted = today
         else:
             row.cost_basis = None
     row.price_noted_on = noted  # type: ignore[assignment]
@@ -168,7 +199,9 @@ def _fill(row: AssetItemRow, item: AssetItemIn, previous: AssetItemRow | None, t
 def _quantity_value(row: AssetItemRow) -> Decimal:
     if row.unit_price is None or row.quantity is None:
         return row.cost_basis or Decimal(0)
-    value = (row.quantity * row.unit_price).quantize(Decimal(1))
+    # 장부 접기와 같은 셈(사사오입)을 쓴다. 따로 셈하면 장부가 있는 종목과 1원 어긋난다.
+    state = LedgerState(amount=Money.zero(), quantity=row.quantity, cost_basis=None)
+    value = item_value(Holding.QUANTITY, state, Money(row.unit_price)).amount
     if value > MAX_AMOUNT:
         raise ApiError(ErrorCode.INVALID_REQUEST, "금액이 너무 커요.", 422)
     return value
@@ -192,11 +225,15 @@ def replace_items(
 ) -> AssetSnapshot:
     """오늘 스냅샷의 항목을 보낸 목록으로 갈아 끼운다. 없으면 오늘 스냅샷을 만든다.
 
-    같은 항목은 item_key 를 이어 받는다. 키가 없으면 같은 (group, label) 에 맞추고,
-    보내지 않은 새 칸은 기존 값을 지킨다. 맞는 행이 없을 때만 새 키를 준다.
+    같은 항목은 item_key 를 이어 받는다. 키가 없으면 같은 (group, label) 에, 그래도 없으면
+    옛 번들의 같은 자리에 맞춘다. 보내지 않은 새 칸은 기존 값을 지킨다.
+    맞는 행이 없을 때만 새 키를 준다.
     장부가 있는 항목은 값이 바뀐 줄만 set 장부 줄을 남기고 다시 접는다.
     """
     previous_rows = live_rows(latest_snapshot(session, user))
+    # 합치기로 40 을 넘은 목록은 줄이는 저장만 받는다.
+    if len(items) > max(MAX_ITEMS, len(previous_rows)):
+        raise ApiError(ErrorCode.INVALID_REQUEST, "자산 항목이 너무 많아요.", 422)
     snapshot = entries.snapshot_on(session, user, today)
     if snapshot is None:
         snapshot = AssetSnapshot(
@@ -206,15 +243,12 @@ def replace_items(
     elif source is not None:
         snapshot.source = source
 
-    by_key = {row.item_key: row for row in previous_rows if row.item_key is not None}
-    unmatched = list(previous_rows)
+    matches = _match_all(items, previous_rows)
     merged: list[_Merged] = []
     # 비교할 기존 값은 행을 고치기 전에 떼어 둔다. 같은 날이면 그 행을 그대로 고쳐 쓴다.
-    for index, item in enumerate(items):
-        previous = _match(item, unmatched, by_key)
+    for index, (item, previous) in enumerate(zip(items, matches, strict=True)):
         before = None
         if previous is not None:
-            unmatched.remove(previous)
             before = entries.copy_row(previous, previous.sort_order)
             before.item_key = previous.item_key
         if previous is not None and previous.snapshot_id == snapshot.id:

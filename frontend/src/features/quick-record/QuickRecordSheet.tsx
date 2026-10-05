@@ -261,6 +261,7 @@ export function QuickRecordSheet({
   });
   const analytics = useAnalytics();
   const navigate = useNavigate();
+  const savedDismissRef = useRef<() => void>(() => {});
 
   function leave(where: 'close' | 'manage', how: CloseHow): void {
     const flowId = flowRef.current;
@@ -276,6 +277,8 @@ export function QuickRecordSheet({
         { flowId },
       );
     }
+    // 저장 뒤 화면을 확인 없이 닫으면 적금 안내에 답 없이 닫은 것이다.
+    savedDismissRef.current();
     onClose();
     if (where === 'manage') void navigate(ROUTES.categories);
   }
@@ -355,6 +358,7 @@ export function QuickRecordSheet({
         composingRef={composingRef}
         leaveComposeRef={leaveComposeRef}
         escBackRef={escBackRef}
+        savedDismissRef={savedDismissRef}
         flowRef={flowRef}
         savedRef={savedRef}
         stepRef={stepRef}
@@ -415,6 +419,7 @@ function RecordBody({
   composingRef,
   leaveComposeRef,
   escBackRef,
+  savedDismissRef,
   flowRef,
   savedRef,
   stepRef,
@@ -446,6 +451,8 @@ function RecordBody({
   leaveComposeRef: { current: () => void };
   /** Esc 를 한 단계 뒤로 쓰는 길. 받았으면 참을 돌려준다. */
   escBackRef: { current: () => boolean };
+  /** 저장 뒤 화면을 확인 없이 닫을 때 부르는 길. */
+  savedDismissRef: { current: () => void };
   flowRef: { current: FlowId | null };
   savedRef: { current: FlowId | null };
   stepRef: { current: RecordStep };
@@ -1640,6 +1647,7 @@ function RecordBody({
             onMethodPicked={(next) => void writeLastMethod(bridge.storage, next)}
             onConfirm={finish}
             backRef={savedBackRef}
+            dismissRef={savedDismissRef}
           />
         </div>
       ) : null}

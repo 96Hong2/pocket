@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import type { AssetItemOut } from '../../shared/api';
+import type { AssetGroup, AssetItemOut, InvestKind } from '../../shared/api';
 import { AssetDestList } from './AssetDestList';
 import type { AssetDest, AssetDestPick } from './destinations';
 import { NewAssetForm } from './NewAssetForm';
@@ -22,6 +22,9 @@ export interface AssetDestFlowProps {
   title?: string;
   /** 「새 종목이나 통장」 을 둘지. 새 항목을 못 받는 자리(검토 줄)는 false. */
   allowNew?: boolean;
+  /** 새 항목 폼의 처음 그룹과 고를 수 있는 투자 종류. */
+  newInitialGroup?: AssetGroup;
+  newKinds?: readonly InvestKind[];
 }
 
 /** 「다른 곳」 목록과 「새 종목이나 통장」 폼을 한 자리에서. 검토 줄, 고치기, 적금 안내가 쓴다. */
@@ -34,6 +37,8 @@ export function AssetDestFlow({
   onStageChange,
   title,
   allowNew = true,
+  newInitialGroup,
+  newKinds,
 }: AssetDestFlowProps) {
   const [ownStage, setOwnStage] = useState<AssetDestStage>('list');
   const current = stage ?? ownStage;
@@ -43,7 +48,15 @@ export function AssetDestFlow({
   };
 
   if (current === 'new' && allowNew) {
-    return <NewAssetForm destinations={destinations} onDone={onPick} onBack={() => go('list')} />;
+    return (
+      <NewAssetForm
+        destinations={destinations}
+        initialGroup={newInitialGroup}
+        kinds={newKinds}
+        onDone={onPick}
+        onBack={() => go('list')}
+      />
+    );
   }
   return (
     <AssetDestList

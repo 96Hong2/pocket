@@ -65,7 +65,7 @@ from app.models import (
     User,
 )
 from app.modules import ledger
-from app.modules.assets import names as asset_names
+from app.modules.assets import entries as asset_entries, names as asset_names
 from app.modules.books import service as books
 from app.modules.books.schemas import BookMonthStateOut
 from app.modules.categories import service as categories
@@ -636,6 +636,13 @@ def _missing_quantity(session: Session, user: User, row: ImportCandidate) -> boo
     return row.asset_item_key in asset_names.quantity_keys(rows)
 
 
+def _link_candidate(row: ImportCandidate) -> Callable[[Transaction], None]:
+    def link(tx: Transaction) -> None:
+        row.transaction_id = tx.id
+
+    return link
+
+
 def commit_batch(
     session: Session,
     user: User,
@@ -668,6 +675,23 @@ def commit_batch(
                 status_code=422,
             )
         categories.require_owned(session, user, row.category_id)
+    # 줄마다 commit 하므로 중간 줄이 장부 검사에 걸리면 앞 줄만 저장된 채 끝난다. 미리 접어 본다.
+    asset_entries.check_planned(
+        session,
+        user,
+        [
+            asset_entries.PlannedLine(
+                item_key=row.asset_item_key,
+                side=row.asset_side or EntrySide.BUY,
+                amount=row.amount,
+                quantity=row.asset_quantity,
+            )
+            for row in chosen
+            if row.transaction_id is None
+            and row.type == TransactionType.TRANSFER
+            and row.asset_item_key is not None
+        ],
+    )
 
     total = Decimal(0)
     outcome: transactions.SaveOutcome | None = None
@@ -678,7 +702,7 @@ def commit_batch(
             # 앞선 시도에서 이미 저장한 건이다. 다시 저장하면 두 번 들어간다.
             total += spent
             continue
-        tx, outcome = transactions.create_transaction(
+        _, outcome = transactions.create_transaction(
             session,
             user,
             {
@@ -699,9 +723,10 @@ def commit_batch(
                 "asset_quantity": row.asset_quantity,
             },
             today=day,
+            # 거래와 같은 commit 에 실어야 다음 줄이 실패해도 다시 저장할 때 건너뛴다.
+            link=_link_candidate(row),
         )
         outcomes.append(outcome)
-        row.transaction_id = tx.id
         total += spent
         if row.id not in skip_rule_ids:
             _learn_rule(session, user, row)

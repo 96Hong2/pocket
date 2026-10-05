@@ -17,8 +17,8 @@ import { expect, test } from '../support/fixtures';
 
 async function seedPortfolio(prep: PrepApi): Promise<AssetsOut> {
   return prep.putAssets([
-    { group: 'cash', label: '카카오뱅크', amount: 1_000_000, monthly: 300_000 },
-    { group: 'cash', label: '청년도약계좌', amount: 600_000, monthly: 700_000 },
+    { group: 'cash', label: '카카오뱅크', amount: 1_000_000 },
+    { group: 'cash', label: '청년도약계좌', amount: 600_000 },
     {
       group: 'investment',
       label: '삼성전자',
@@ -108,12 +108,19 @@ test('현재가도 판 기록도 없으면 수익률 카드가 빈 말을 하고
 });
 
 test('주식 분석과 예/적금 분석은 각각 확인 창과 광고를 따로 지나 열린다', async ({
+  assets,
   assetAnalysis,
   page,
   prep,
 }) => {
   test.slow();
   await seedPortfolio(prep);
+  // 매달 넣는 돈은 항목 시트에서 토글을 켜고 금액을 적는 길로만 넣는다.
+  await assets.open();
+  await assets.waitReady();
+  await assets.setMonthly('카카오뱅크', 300_000);
+  await assets.setMonthly('청년도약계좌', 700_000);
+  await expect(assets.rowChip('카카오뱅크', /^매달$/)).toBeVisible();
 
   await assetAnalysis.open('all');
   await assetAnalysis.adConsentConfirm.click();
@@ -147,8 +154,13 @@ test('주식 분석과 예/적금 분석은 각각 확인 창과 광고를 따�
   // 1,000,000원과 600,000원 → 62.5%, 37.5%
   await expect(assetAnalysis.legendRow('카카오뱅크')).toContainText('62.5%');
   await expect(assetAnalysis.legendRow('청년도약계좌')).toContainText('37.5%');
-  await expect(assetAnalysis.monthly).toContainText(formatCurrency(300_000));
-  await expect(assetAnalysis.monthly).toContainText(formatCurrency(700_000));
+  // 300,000원 + 700,000원 = 1,000,000원
+  await expect(assetAnalysis.monthly.locator('.analysis-card__big')).toHaveText(
+    formatCurrency(1_000_000),
+  );
+  await expect(assetAnalysis.monthly).toContainText(`매달 ${formatCurrency(300_000)}`);
+  await expect(assetAnalysis.monthly).toContainText(`매달 ${formatCurrency(700_000)}`);
+  await expect(assetAnalysis.monthly).not.toContainText('한 번 넣은 돈');
 
   const opened = await logsNamed(page, 'asset_analysis_opened');
   expect(opened.map((log) => log.params.scope)).toEqual(['cash']);

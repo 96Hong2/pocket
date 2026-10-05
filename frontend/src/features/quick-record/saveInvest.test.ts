@@ -5,7 +5,11 @@ import { averageCostOf, quantityShapeOf, rateText, sameQuantity } from './saveIn
 describe('rateText', () => {
   it('딱 떨어지는 수익률은 소수점을 떼고 부호를 붙인다', () => {
     expect(rateText('20.0')).toBe('+20%');
-    expect(rateText('0.0')).toBe('+0%');
+  });
+
+  it('0 은 부호 없이 적는다. 서버가 보낸 -0.0 도 같다', () => {
+    expect(rateText('0.0')).toBe('0%');
+    expect(rateText('-0.0')).toBe('0%');
   });
 
   it('소수 한 자리는 남기고 빼기는 − 로 적는다', () => {

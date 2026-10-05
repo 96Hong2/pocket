@@ -43,6 +43,15 @@ describe('어디에 목록', () => {
     expect(destGridOf(list).map((entry) => entry.item_key)).toEqual(['youth', 'a', 'b', 'c', 'd']);
   });
 
+  it('매달 넣는 돈이 0 인 항목은 매달 항목으로 앞에 세우지 않는다', () => {
+    const list = [
+      item('a'),
+      item('zero', { monthly_amount: '0' }),
+      item('youth', { monthly_amount: '300000' }),
+    ];
+    expect(destGridOf(list).map((entry) => entry.item_key)).toEqual(['youth', 'a', 'zero']);
+  });
+
   it('고른 항목이 다섯 안에 없으면 다섯째 자리에 선다', () => {
     const list = ['a', 'b', 'c', 'd', 'e', 'f'].map((key) => item(key));
     expect(destGridOf(list, 'f').map((entry) => entry.item_key)).toEqual(['a', 'b', 'c', 'd', 'f']);

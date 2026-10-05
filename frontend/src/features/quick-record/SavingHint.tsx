@@ -24,7 +24,7 @@ import {
   type AssetDestStage,
 } from '../asset-dest';
 
-import { isSavingCategoryName, savingHintDestinations } from './savingHintRules';
+import { isSavingCategoryName, SAVING_HINT_KINDS, savingHintDestinations } from './savingHintRules';
 
 interface SavingHintInput {
   flowId: FlowId;
@@ -115,12 +115,13 @@ export function useSavingHint({
       {
         onSuccess: (updated) => {
           settle('converted');
-          if (dest.type === 'new') {
+          // 장부에 붙은 것만 센다. 있던 항목이면 그 항목 금액이 바뀐 것이다.
+          if (updated.asset != null) {
             const group = destGroupOf(dest);
             analytics.log(
               EVENTS.assetChanged,
               {
-                action: 'created',
+                action: dest.type === 'new' ? 'created' : 'updated',
                 group,
                 kind: group === 'investment' ? (destKindOf(dest) ?? 'none') : 'none',
                 from: 'record',
@@ -187,6 +188,8 @@ export function useSavingHint({
         onStageChange={setStage}
         onPick={convert}
         onBack={() => setStage(null)}
+        newInitialGroup="cash"
+        newKinds={SAVING_HINT_KINDS}
       />
     ) : null;
 

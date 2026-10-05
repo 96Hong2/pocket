@@ -32,6 +32,7 @@ import { useAssetDestinations } from '../asset-dest';
 import { CategoryComposeOverlay } from '../categories';
 
 import { CandidateRow, type RowPreview, type RuleAnswer } from './CandidateRow';
+import { isUnpickedSaving } from './savingRow';
 
 /** 후보 id 마다 다음부터 그렇게 저장할지 물었을 때 고른 답과 그때의 분류. */
 type RuleAnswers = Record<string, { answer: RuleAnswer; categoryId: string }>;
@@ -273,6 +274,24 @@ export function ImportReview({
   const pickableFailed = shared ? bookQuery.isError && book == null : categories.isError;
 
   const busy = patch.isPending || commit.isPending;
+
+  /*
+    저축·투자로 읽었지만 어디에를 못 정한 줄은 고르기 전까지 저장에서 뺀다.
+    서버가 켜 둔 채 보냈으면 한 번 끈다. 사람이 손댄 것이 아니라 고친 수로 세지 않는다.
+  */
+  const unpickedOff = useRef(new Set<string>());
+  useEffect(() => {
+    if (shared || busy) return;
+    const row = (batch.candidates ?? []).find(
+      (item) => item.is_selected && isUnpickedSaving(item) && !unpickedOff.current.has(item.id),
+    );
+    if (row == null) return;
+    unpickedOff.current.add(row.id);
+    patch.mutate(
+      { batchId: batch.id, candidateId: row.id, body: { is_selected: false } },
+      { onSuccess: onBatchChange },
+    );
+  }, [batch, busy, shared, patch, onBatchChange]);
   const failure = patch.error ?? commit.error;
   const message = failure instanceof ApiError ? failure.message : null;
 
@@ -568,6 +587,27 @@ export function ImportReview({
             },
             { flowId },
           );
+          // 저축·투자 줄은 있던 항목 금액을 바꿨다. 이름, 금액, 수량 값은 싣지 않는다.
+          if (!shared) {
+            for (const row of latest.candidates ?? []) {
+              if (!row.is_selected || row.type !== 'transfer' || row.asset_item_key == null) {
+                continue;
+              }
+              const item = destinations.find((entry) => entry.item_key === row.asset_item_key);
+              if (item == null) continue;
+              analytics.log(
+                EVENTS.assetChanged,
+                {
+                  action: 'updated',
+                  group: item.group,
+                  kind: item.group === 'investment' ? (item.kind ?? 'none') : 'none',
+                  from: 'record',
+                  fields: row.asset_quantity == null ? 'amount' : 'amount+qty',
+                },
+                { flowId, kind: 'click' },
+              );
+            }
+          }
           // 다음에 내 가계부를 보다가 시트를 열어도 이 가계부가 둘째 칩에 선다.
           if (result.book_id != null) void writeBookLast(bridge.storage, result.book_id);
           setSaved(result);

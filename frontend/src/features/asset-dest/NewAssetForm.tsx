@@ -18,6 +18,8 @@ export interface NewAssetFormProps {
   destinations: readonly AssetItemOut[];
   /** 처음 고른 그룹. 기록에서는 투자. */
   initialGroup?: AssetGroup;
+  /** 고를 수 있는 투자 종류. 수량을 받을 자리가 없는 곳은 수량 종목을 빼고 넘긴다. */
+  kinds?: readonly InvestKind[];
   /** 「저장」. 서버에는 아직 만들지 않는다. 거래를 저장할 때 `new_asset` 으로 함께 만든다. */
   onDone: (pick: AssetDestPick) => void;
   onBack: () => void;
@@ -27,6 +29,7 @@ export interface NewAssetFormProps {
 export function NewAssetForm({
   destinations,
   initialGroup = 'investment',
+  kinds = INVEST_KINDS,
   onDone,
   onBack,
 }: NewAssetFormProps) {
@@ -79,7 +82,7 @@ export function NewAssetForm({
           <div className="asset-sheet__field">
             <span className="asset-sheet__label">종류</span>
             <div className="asset-sheet__kinds" role="radiogroup" aria-label="투자 종류">
-              {INVEST_KINDS.map((kind) => (
+              {kinds.map((kind) => (
                 <button
                   key={kind}
                   type="button"
@@ -108,7 +111,11 @@ export function NewAssetForm({
               if (event.key === 'Enter') submit();
             }}
             placeholder={
-              draft.group === 'investment' ? '예: 삼성전자, S&P500 ETF' : '예: 토스뱅크 통장'
+              draft.group !== 'investment'
+                ? '예: 토스뱅크 통장'
+                : kinds.includes('stock')
+                  ? '예: 삼성전자, S&P500 ETF'
+                  : '예: S&P500 펀드'
             }
             maxLength={DEST_LABEL_MAX}
             enterKeyHint="done"

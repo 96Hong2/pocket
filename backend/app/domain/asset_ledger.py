@@ -264,7 +264,9 @@ def rate_percent(gain: Money, base: Money) -> Decimal | None:
     with localcontext() as ctx:
         ctx.prec = _PRECISION
         value = gain.amount * 100 / base.amount
-        return value.quantize(_RATE_PLACES, rounding=ROUND_HALF_UP)
+        rounded = value.quantize(_RATE_PLACES, rounding=ROUND_HALF_UP)
+    # 작은 손해가 반올림으로 0 이 되면 "-0.0" 이 남는다. 0 은 부호 없이 낸다.
+    return rounded.copy_abs() if rounded.is_zero() else rounded
 
 
 def item_value(holding: Holding, state: LedgerState, unit_price: Money | None) -> Money:

@@ -54,6 +54,8 @@ interface FeedbackPanelProps {
   onConfirm: () => void;
   /** 시트가 받은 Esc 를 이 화면의 ‹ 와 같은 길로 보내려고 건다. */
   backRef?: { current: () => void };
+  /** 시트를 끌어내리거나 바깥을 눌러 닫을 때 부를 것. 적금 안내에 답 없이 닫혔다고 남긴다. */
+  dismissRef?: { current: () => void };
   /** 맨 위 큰 한 줄. 어디에 적혔는지 말한다. */
   label?: string;
   /** 적금 안내로 저축·투자로 바꾼 뒤. 안 주면 onUpdated 로 간다. */
@@ -91,6 +93,7 @@ export function FeedbackPanel({
   onMethodPicked,
   onConfirm,
   backRef,
+  dismissRef,
   label = '내 가계부에 적었어요',
   onSavingConverted,
 }: FeedbackPanelProps) {
@@ -260,7 +263,14 @@ export function FeedbackPanel({
   useOverlayBackClose(true, confirm);
   useEffect(() => {
     if (backRef != null) backRef.current = confirm;
+    if (dismissRef != null) dismissRef.current = savingHint.dismiss;
   });
+  useEffect(
+    () => () => {
+      if (dismissRef != null) dismissRef.current = () => {};
+    },
+    [dismissRef],
+  );
 
   /** 안 적어도 되는 칸을 펼친다. 펼친 칸이 무엇이었는지만 남긴다. */
   function openField(field: 'merchant' | 'memo'): void {

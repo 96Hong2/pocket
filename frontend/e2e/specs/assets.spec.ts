@@ -70,8 +70,8 @@ test('부채를 더하면 순자산이 줄어든다', async ({ assets, prep }) =
   // 「자산 − 부채」 줄은 카드에서 걷었다. 두 숫자는 카드를 누른 상세에 있다.
   await expect(assets.breakdown).toHaveCount(0);
   await assets.netWorthButton.click();
-  await expect(assets.detailRow('자산')).toContainText(formatCurrency(CASH));
-  await expect(assets.detailRow('부채')).toContainText(formatCurrency(DEBT));
+  await expect(assets.detailValue('자산')).toHaveText(formatCurrency(CASH));
+  await expect(assets.detailValue('부채')).toHaveText(`− ${formatCurrency(DEBT)}`);
 });
 
 test('항목을 지우면 그 자리에서 순자산이 맞는다', async ({ assets, prep }) => {

@@ -62,6 +62,8 @@ describe('수익률 칩', () => {
     expect(formatRate(20)).toBe('+20%');
     expect(formatRate(6.666)).toBe('+6.7%');
     expect(formatRate(-3.25)).toBe('−3.3%');
+    expect(formatRate(-0)).toBe('0%');
+    expect(formatRate(-0.04)).toBe('0%');
     expect(
       rateChipOf(item({ kind: 'etf', rate: '6.7', rate_kind: 'valuation', unit_price: '32000' })),
     ).toEqual({

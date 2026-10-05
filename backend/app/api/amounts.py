@@ -6,11 +6,15 @@
 from __future__ import annotations
 
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Annotated
+
+from pydantic import PlainSerializer
 
 __all__ = [
     "MAX_AMOUNT",
     "MAX_QUANTITY",
     "RATIO_PLACES",
+    "QuantityOut",
     "integral_won",
     "quantity_in",
     "quantity_out",
@@ -67,3 +71,12 @@ def quantity_out(value: Decimal | None) -> Decimal | None:
     if value == value.to_integral_value():
         return value.quantize(Decimal(1))
     return value.normalize()
+
+
+def _fixed_point(value: Decimal) -> str:
+    # str(Decimal) 는 0.00000006 을 "6E-8" 로 낸다. 화면은 지수 표기를 못 읽는다.
+    return format(value, "f")
+
+
+# 응답의 수량 칸. JSON 으로 나갈 때 늘 고정 소수점 문자열이다.
+QuantityOut = Annotated[Decimal, PlainSerializer(_fixed_point, return_type=str, when_used="json")]

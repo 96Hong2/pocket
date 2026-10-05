@@ -16,7 +16,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.api.amounts import MAX_AMOUNT, integral_won, quantity_in, quantity_out
+from app.api.amounts import MAX_AMOUNT, QuantityOut, integral_won, quantity_in, quantity_out
 from app.domain.asset_analysis import AnalysisScope
 from app.domain.asset_ledger import InvestKind, RateKind
 from app.domain.assets import LEGACY_GROUPS, AssetGroup, AssetSummary
@@ -25,6 +25,7 @@ from app.models.asset import AssetSource
 
 __all__ = [
     "MAX_ITEMS",
+    "MAX_PUT_ITEMS",
     "AnalysisBundleOut",
     "AnalysisGoalOut",
     "AnalysisGroupChangeOut",
@@ -53,6 +54,9 @@ __all__ = [
 # 한 스냅샷에 담을 수 있는 항목 수. 화면이 목록을 통째로 보내므로 상한을 여기서 못 박는다.
 # 그룹 넷에 열 줄씩 적어도 남는 수이고, 넘치면 한 화면에서 훑을 수 없다.
 MAX_ITEMS = 40
+# PUT 본문이 받는 항목 수. 계정을 합치면 40 을 넘을 수 있어 줄이는 저장까지 막지 않게 넉넉히 둔다.
+# 늘리는 저장은 서비스가 MAX_ITEMS 로 막는다.
+MAX_PUT_ITEMS = MAX_ITEMS * 5
 
 # 이름 길이. 금융사와 항목 이름이 들어갈 만큼이고 모델 컬럼(String(80))과 같다.
 MAX_LABEL = 80
@@ -111,7 +115,7 @@ class AssetSnapshotPut(BaseModel):
     화면이 목록을 들고 있다가 그대로 보내므로, 빈 배열은 '전부 지웠다' 는 뜻이다.
     """
 
-    items: list[AssetItemIn] = Field(default_factory=list, max_length=MAX_ITEMS)
+    items: list[AssetItemIn] = Field(default_factory=list, max_length=MAX_PUT_ITEMS)
     # 캡처로 읽은 것을 저장하면 screenshot. 안 보내면 지금처럼 오늘 스냅샷의 출처를 그대로 둔다.
     source: AssetSource | None = Field(default=None, description="manual 또는 screenshot")
 
@@ -127,7 +131,7 @@ class AssetItemOut(BaseModel):
     item_key: uuid.UUID | None = None
     kind: InvestKind | None = None
     monthly_amount: Decimal | None = None
-    quantity: Decimal | None = None
+    quantity: QuantityOut | None = None
     cost_basis: Decimal | None = None
     unit_price: Decimal | None = None
     price_noted_on: date | None = None

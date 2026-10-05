@@ -414,8 +414,11 @@ def build_analysis(
             fingerprint=digest,
             total=total,
             items=item_slices(scoped),
+            # 「매달」 은 매달 넣는 돈이 0 보다 클 때다. 이름 맞추기와 화면이 같은 기준을 쓴다.
             monthly_total=Money.total(
-                item.monthly_amount for item in scoped if item.monthly_amount is not None
+                item.monthly_amount
+                for item in scoped
+                if item.monthly_amount is not None and item.monthly_amount.is_positive
             ),
         )
     summary = _summary(scoped)

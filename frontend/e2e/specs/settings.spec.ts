@@ -196,6 +196,20 @@ test('개인정보처리방침 링크가 실제로 도착한다', async ({ appSh
   await expect(settings.text(/^이름과 전화번호$/)).toHaveCount(0);
   await expect(settings.text(/^토스에 등록된 이름과 전화번호\./)).toBeVisible();
 
+  // 내 가계부로 읽을 때와 캡처로 채울 때 자산 항목 이름이 OpenAI 로 함께 나간다.
+  await expect(
+    settings.text(/^그 글과 사진에 오늘 날짜와 분류 이름 목록이 함께 나가요\./),
+  ).toContainText('자산 화면에 적어 둔 항목 이름(최대 40개)과 매달 넣는 항목인지도 함께 나가요');
+  await expect(
+    settings.text(/^그 글과 사진에 오늘 날짜와 분류 이름 목록이 함께 나가요\./),
+  ).toContainText('같이 쓰는 가계부에 적을 때는 자산 항목 이름은 나가지 않고');
+  await expect(
+    settings.text(/^「캡처로 채우기」에 은행이나 증권 앱의 잔액 화면을 올리면/),
+  ).toContainText('이미 적어 둔 자산 항목 이름(최대 40개)과 매달 넣는 항목인지도 함께 나가요');
+  await expect(settings.text(/^사진이나 줄글로 읽어 온 날짜/)).toHaveText(
+    '사진이나 줄글로 읽어 온 날짜, 금액, 상호, 결제 수단과 저축·투자 항목 이름, 수량. 저장한 뒤에도 서버에 남아요',
+  );
+
   // 화면 안에 뒤로가기가 없다. 토스 앱의 시스템 뒤로가기로 앱 설정에 돌아온다.
   await appShell.pressBack();
   await appShell.expectScreen('앱 설정', '홈에 무엇을 먼저 보여줄지 정해요');

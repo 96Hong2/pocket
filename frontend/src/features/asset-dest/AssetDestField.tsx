@@ -24,7 +24,15 @@ export interface AssetDestFieldProps {
   onOther: () => void;
   /** 목록을 받는 중. 칸 자리만 흐리게 잡는다. */
   loading?: boolean;
+  /**
+   * 저장된 곳이 목록에 없을 때(지운 항목, 부채, 목록 실패) 접힌 줄에 보일 이름.
+   * 고르기 전까지는 그 곳을 그대로 둔 것으로 본다.
+   */
+  savedName?: string | null;
 }
+
+/** 저장된 곳이 목록에 없을 때 접힌 줄을 펼친 표시. */
+const SAVED_OPEN = 'saved';
 
 /**
  * 「어디에」. 고르기 전에는 두 칸 격자(매달 넣는 항목 먼저 다섯 + 「다른 곳」),
@@ -36,24 +44,37 @@ export function AssetDestField({
   onPick,
   onOther,
   loading = false,
+  savedName = null,
 }: AssetDestFieldProps) {
   // 펼친 상태를 고른 값마다 둔다. 다른 곳에서 값이 바뀌면 저절로 접힌다.
   const [openFor, setOpenFor] = useState<string | null>(null);
   const valueKey = destKeyOf(value);
 
-  if (value != null && openFor !== valueKey) {
-    const icon = ASSET_GROUP_VIEWS[destGroupOf(value)].icon;
-    const name = destNameOf(value);
-    const sub = destSubOf(value);
+  const collapsed =
+    value != null && openFor !== valueKey
+      ? {
+          icon: ASSET_GROUP_VIEWS[destGroupOf(value)].icon,
+          name: destNameOf(value),
+          sub: destSubOf(value),
+          open: valueKey,
+        }
+      : value == null && savedName != null && openFor !== SAVED_OPEN
+        ? { icon: null, name: savedName, sub: '', open: SAVED_OPEN }
+        : null;
+
+  if (collapsed != null) {
+    const { icon, name, sub } = collapsed;
     return (
       <button
         type="button"
         className="asset-dest__picked"
         aria-expanded={false}
         aria-label={`어디에: ${name}${sub === '' ? '' : `, ${sub}`}. 눌러서 바꾸기`}
-        onClick={() => setOpenFor(valueKey)}
+        onClick={() => setOpenFor(collapsed.open)}
       >
-        <img className="asset-dest__picked-icon" src={iconUrl(icon)} alt="" />
+        {icon != null ? (
+          <img className="asset-dest__picked-icon" src={iconUrl(icon)} alt="" />
+        ) : null}
         <span className="asset-dest__picked-name">{name}</span>
         <span className="asset-dest__picked-sub" data-numeric="">
           {sub}

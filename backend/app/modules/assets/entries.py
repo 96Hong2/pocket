@@ -52,11 +52,14 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "AssetResult",
     "ItemFigures",
+    "PlannedLine",
     "add_entry",
     "add_item",
     "asset_labels",
     "asset_result",
+    "check_planned",
     "copy_row",
+    "drop_if_born_with",
     "ensure_today_snapshot",
     "has_ledger",
     "item_figures",
@@ -331,9 +334,9 @@ def _line(entry: AssetEntry) -> LedgerLine:
     )
 
 
-def _fold(holding: Holding, entries: Sequence[AssetEntry]) -> LedgerFold:
+def _fold(holding: Holding, lines: Sequence[LedgerLine]) -> LedgerFold:
     try:
-        return fold(holding, [_line(entry) for entry in entries])
+        return fold(holding, lines)
     except LedgerError as error:
         raise ledger_error(error) from error
 
@@ -363,7 +366,7 @@ def refold(session: Session, user: User, today: date, keys: Iterable[uuid.UUID])
             # 항목이 목록에서 지워졌다. 장부는 남아도 적을 자리가 없다.
             continue
         holding = holding_of(row.group, row.kind)
-        result = _fold(holding, grouped.get(key, []))
+        result = _fold(holding, [_line(entry) for entry in grouped.get(key, [])])
         if grouped.get(key):
             _write(row, holding, result.state)
     session.flush()
@@ -434,6 +437,109 @@ def sync_transaction(session: Session, user: User, tx: Transaction, today: date)
 
     session.flush()
     refold(session, user, today, touched)
+
+
+def drop_if_born_with(session: Session, user: User, tx: Transaction, today: date) -> None:
+    """지운 거래로만 생긴 빈 항목을 오늘 목록에서 뺀다.
+
+    기록 흐름의 「새 종목이나 통장」 은 0 원짜리 행을 붙이고 거래 줄을 단다. 그 거래를 지우면
+    남는 것은 0 시작 값 줄뿐이라, 행을 두면 자산 화면과 「어디에」 에 빈 항목이 남는다.
+    그 전날까지의 스냅샷에 있던 항목은 사람이 만든 것이라 건드리지 않는다.
+    """
+    key = tx.asset_item_key
+    if key is None or tx.deleted_at is None:
+        return
+    ever = session.scalars(
+        select(AssetEntry).where(AssetEntry.user_id == user.id, AssetEntry.item_key == key)
+    ).all()
+    starts = [entry for entry in ever if entry.transaction_id is None]
+    others = [entry for entry in ever if entry.transaction_id not in (None, tx.id)]
+    if others or len(starts) != 1 or len(ever) != 2:
+        return
+    start = starts[0]
+    if start.side is not EntrySide.SET or start.deleted_at is not None:
+        return
+    if any(value not in (None, 0) for value in (start.amount, start.quantity, start.cost_basis)):
+        return
+    born_on = ledger.local_date(ledger.as_utc(tx.created_at), ledger.user_tz(user))
+    earlier = session.scalar(
+        select(AssetItemRow.id)
+        .join(AssetSnapshot, AssetSnapshot.id == AssetItemRow.snapshot_id)
+        .where(
+            AssetSnapshot.user_id == user.id,
+            AssetSnapshot.effective_on < born_on,
+            AssetItemRow.item_key == key,
+        )
+        .limit(1)
+    )
+    if earlier is not None:
+        return
+    snapshot = snapshot_on(session, user, today)
+    row = row_for_key(snapshot, key)
+    if snapshot is None or row is None:
+        return
+    snapshot.items.remove(row)
+    start.deleted_at = datetime.now(UTC)
+    session.flush()
+
+
+@dataclass(frozen=True)
+class PlannedLine:
+    """한꺼번에 저장할 거래 한 건이 남길 장부 줄."""
+
+    item_key: uuid.UUID
+    side: EntrySide
+    amount: Decimal
+    quantity: Decimal | None
+
+
+def check_planned(session: Session, user: User, planned: Sequence[PlannedLine]) -> None:
+    """여러 거래를 저장하기 전에 장부를 미리 접어 본다. 하나라도 안 되면 아무것도 쓰기 전에 422.
+
+    줄은 저장할 차례대로 각 항목 장부 끝에 붙인다. 거래 저장 길이 붙이는 자리와 같다.
+    """
+    if not planned:
+        return
+    rows = {
+        row.item_key: row
+        for row in live_rows(latest_snapshot(session, user))
+        if row.item_key is not None
+    }
+    keys = {line.item_key for line in planned}
+    grouped: dict[uuid.UUID, list[LedgerLine]] = defaultdict(list)
+    for entry in _entries(session, user, keys):
+        grouped[entry.item_key].append(_line(entry))
+    for key in keys:
+        row = rows.get(key)
+        if row is None:
+            raise ApiError(ErrorCode.INVALID_REQUEST, "그 자산 항목을 찾지 못했어요.", 422)
+        lines = list(grouped.get(key, []))
+        if not lines:
+            amount, quantity, cost = set_line_values(row)
+            lines.append(
+                LedgerLine(
+                    ref="start",
+                    side=EntrySide.SET,
+                    amount=Money(amount),
+                    quantity=quantity,
+                    cost_basis=Money(cost) if cost is not None else None,
+                )
+            )
+        lines.extend(
+            LedgerLine(
+                ref=index,
+                side=line.side,
+                amount=Money(line.amount),
+                quantity=line.quantity,
+            )
+            for index, line in enumerate(planned)
+            if line.item_key == key
+        )
+        holding = holding_of(row.group, row.kind)
+        result = _fold(holding, lines)
+        unit_price = Money(row.unit_price) if row.unit_price is not None else None
+        if item_value(holding, result.state, unit_price).amount > MAX_AMOUNT:
+            raise ApiError(ErrorCode.INVALID_REQUEST, "금액이 너무 커요.", 422)
 
 
 def month_saved(session: Session, user: User, period: BudgetPeriod) -> Money:

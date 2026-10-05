@@ -27,6 +27,12 @@ import { captureDelta, captureRowState, mergeCaptured } from './captureMerge';
 
 type Step = 'intro' | 'reading' | 'review' | 'fail' | 'denied' | 'unsupported';
 
+/**
+ * 못 읽은 다음 한 번은 광고 없이 읽는다. 시트를 닫거나 빈 자산 화면에서 「직접 적기」 로
+ * 넘어가 시트가 새로 마운트돼도 앱을 켜 둔 동안은 남는다.
+ */
+let freeAfterFail = false;
+
 export interface CaptureSheetProps {
   open: boolean;
   onClose: () => void;
@@ -53,8 +59,6 @@ export function CaptureSheet({ open, onClose, onManual }: CaptureSheetProps) {
   const [chosen, setChosen] = useState<boolean[]>([]);
   const [ad, setAd] = useState<AssetCaptureAd>('skipped');
   const [failure, setFailure] = useState<string | null>(null);
-  // 못 읽은 다음 한 번은 광고 없이 읽는다. 시트를 닫아도 이 세션 동안은 기억한다.
-  const [freeNext, setFreeNext] = useState(false);
 
   const picked = rows.filter((_, index) => chosen[index]);
   const newCount = picked.filter((row) => row.item_key == null).length;
@@ -97,8 +101,8 @@ export function CaptureSheet({ open, onClose, onManual }: CaptureSheetProps) {
     analytics.log(EVENTS.assetCapture, { step: 'picked' }, { kind: 'click' });
     setFailure(null);
     setStep('reading');
-    const free = freeNext;
-    setFreeNext(false);
+    const free = freeAfterFail;
+    freeAfterFail = false;
 
     // 읽기와 광고를 같이 건다. 광고가 읽는 시간을 채운다.
     const reading = capture
@@ -114,7 +118,7 @@ export function CaptureSheet({ open, onClose, onManual }: CaptureSheetProps) {
     setAd(adUsed);
 
     if (result.items.length === 0) {
-      setFreeNext(true);
+      freeAfterFail = true;
       setFailure(result.error instanceof ApiError ? result.error.message : null);
       analytics.log(
         EVENTS.assetCapture,

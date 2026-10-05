@@ -82,9 +82,10 @@ export function sanitizeQuantityInput(raw: string): string {
   return `${intPart === '' ? '0' : intPart}.${fraction}`;
 }
 
-/** 수익률 % 표기. `20` → `+20%`, `-3.25` → `−3.3%`. 소수 첫째 자리까지, `.0` 은 뗀다. */
+/** 수익률 % 표기. `20` → `+20%`, `-3.25` → `−3.3%`. 소수 첫째 자리까지, `.0` 은 뗀다. 0 은 부호 없이 `0%`. */
 export function formatRate(rate: number): string {
   const rounded = Math.round(Math.abs(rate) * 10) / 10;
+  if (rounded === 0) return '0%';
   return `${rate >= 0 ? '+' : '−'}${rounded}%`;
 }
 
@@ -131,9 +132,9 @@ export function itemValueOf(item: AssetItemOut): number {
   return parseDecimalOr(item.value ?? item.amount, 0);
 }
 
-/** 매달 칩. 매달 넣는 돈 칸이 비어 있지 않으면(0 포함) 매달 넣는 항목이다. */
+/** 매달 칩. 매달 넣는 돈이 0 보다 크면 매달 넣는 항목이다. 서버 이름 맞추기와 분석도 같은 기준이다. */
 export function isMonthly(item: AssetItemOut): boolean {
-  return item.monthly_amount != null;
+  return parseDecimalOr(item.monthly_amount, 0) > 0;
 }
 
 /** 추이 점의 순자산 숫자들. 오래된 달부터. */

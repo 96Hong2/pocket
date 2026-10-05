@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
 
-from app.api.amounts import MAX_AMOUNT, integral_won, quantity_in, quantity_out
+from app.api.amounts import MAX_AMOUNT, QuantityOut, integral_won, quantity_in, quantity_out
 from app.api.months import MAX_YEAR, MIN_YEAR
 from app.domain.aggregation import PaymentMethod, TransactionSource, TransactionType
 from app.domain.asset_ledger import AssetSide
@@ -172,7 +172,7 @@ class ImportCandidateOut(BaseModel):
     # 저축·투자 줄. with_assets 로 읽은 묶음에만 채워진다. asset_name 은 읽어 온 이름이다.
     asset_item_key: uuid.UUID | None = None
     asset_side: AssetSide | None = None
-    asset_quantity: Decimal | None = None
+    asset_quantity: QuantityOut | None = None
     asset_name: str | None = None
 
     _trim_quantity = field_validator("asset_quantity", mode="after")(quantity_out)

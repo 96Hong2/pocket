@@ -313,6 +313,8 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
     ? destinations.find((item) => item.item_key === transaction.asset_item_key)
     : undefined;
   const dest = pickedDest ?? (savedItem == null ? null : destFromItem(savedItem));
+  // 저장된 곳이 목록에 없으면(지운 항목, 부채, 목록 실패) 어디에를 안 바꾼 것으로 본다.
+  const savedUnlisted = saving && savedSave && pickedDest == null && savedItem == null;
   const byQuantity = saving && dest != null && destHoldingOf(dest) === 'quantity';
   const [side, setSide] = useState<Side>(transaction.asset_side ?? 'buy');
   const [qty, setQty] = useState(quantityValue(transaction.asset_quantity) ?? '');
@@ -406,7 +408,8 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
   // 저장할 수 없는 금액이면 완료를 잠근다. 열어 두면 금액만 조용히 빠지고 나머지가 저장된다.
   const amountOk = amount !== '' && Number.isFinite(nextAmount) && nextAmount > 0;
   // 저축·투자는 어디에가 있어야 하고, 주식, ETF, 코인은 수량도 있어야 한다(서버 422).
-  const destOk = !saving || (dest != null && (!byQuantity || quantityValue(qty) != null));
+  const destOk =
+    !saving || savedUnlisted || (dest != null && (!byQuantity || quantityValue(qty) != null));
 
   /** 저축·투자 칸. 어디에가 바뀌면 쪽과 수량도 함께 보낸다(앞 항목의 수량이 남지 않게). */
   function assetChanges(): TransactionUpdate {
@@ -522,13 +525,13 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
         fields: Object.keys(body).sort().join(','),
         source: transaction.source,
       });
-      // 새 종목이나 통장을 여기서 만들었다. 이름과 금액은 싣지 않는다.
-      if (body.new_asset != null) {
-        const group = body.new_asset.group;
+      // 새 종목이나 통장을 만들었거나 있던 항목에 붙였다. 이름과 금액은 싣지 않는다.
+      if (dest != null && (body.new_asset != null || body.asset_item_key != null)) {
+        const group = destGroupOf(dest);
         analytics.log(EVENTS.assetChanged, {
-          action: 'created',
+          action: body.new_asset != null ? 'created' : 'updated',
           group,
-          kind: group === 'investment' ? (body.new_asset.kind ?? 'none') : 'none',
+          kind: group === 'investment' ? (destKindOf(dest) ?? 'none') : 'none',
           from: 'record',
           fields: byQuantity ? 'amount+qty' : 'amount',
         });
@@ -741,6 +744,8 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
             <AssetDestField
               destinations={destinations}
               value={dest}
+              // 서버가 이름을 못 주면 그 항목이 지금 목록에 없는 것이다(지운 항목).
+              savedName={savedUnlisted ? (transaction.asset_label ?? '지운 항목') : null}
               onPick={({ dest: next }) => setPickedDest(next)}
               onOther={() => setDestOpen(true)}
             />
@@ -936,5 +941,10 @@ function failedText(
 function nameOf(transaction: TransactionOut, categories: CategoryOut[]): string {
   if (transaction.merchant) return transaction.merchant;
   const category = categories.find((item) => item.id === transaction.category_id);
-  return category?.name ?? '기록';
+  if (category != null) return category.name;
+  // 이체는 분류가 없다. 「기록」 대신 종류 이름으로 부른다.
+  if (transaction.type === 'transfer') {
+    return transaction.asset_item_key != null ? '저축·투자' : '이체';
+  }
+  return '기록';
 }

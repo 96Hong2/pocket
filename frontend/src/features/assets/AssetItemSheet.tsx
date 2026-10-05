@@ -17,6 +17,7 @@ import {
   type AssetItemOut,
   type InvestKind,
 } from '../../shared/api';
+import { toLedgerDate } from '../../shared/lib/format';
 import { AmountField, BottomSheet, Button, LeaveConfirm, Toggle } from '../../shared/ui';
 
 import { ASSET_GROUP_VIEWS, assetGroupLabel } from './assetGroups';
@@ -24,6 +25,7 @@ import {
   holdingOf,
   INVEST_KIND_LABEL,
   INVEST_KINDS,
+  isMonthly,
   sanitizeQuantityInput,
   unitOf,
   type Holding,
@@ -139,10 +141,14 @@ interface FormState {
   /** 수량 종목의 지금 1주 가격. */
   price: string;
   monthly: boolean;
+  /** 매달 넣는 돈. 「매달 넣는 돈이에요」 를 켰을 때만 쓴다. */
+  monthlyAmount: string;
 }
 
 const GROUPS = Object.keys(ASSET_GROUP_VIEWS) as AssetGroup[];
 const DEFAULT_KIND: InvestKind = 'stock';
+
+const num = (digits: string): number => (digits === '' ? 0 : Number(digits));
 
 function wonDigits(value: string | null | undefined): string {
   if (value == null || value === '') return '';
@@ -161,6 +167,7 @@ function initialState(saved: AssetItemOut | null, group: AssetGroup): FormState 
       amount: '',
       price: '',
       monthly: false,
+      monthlyAmount: '',
     };
   }
   const holding = holdingOf(saved.group, saved.kind);
@@ -176,7 +183,8 @@ function initialState(saved: AssetItemOut | null, group: AssetGroup): FormState 
     now: holding === 'amount' && (saved.rate_kind === 'valuation' || amount !== cost) ? amount : '',
     amount: holding === 'balance' || holding === 'debt' ? amount : '',
     price: holding === 'quantity' ? wonDigits(saved.unit_price) : '',
-    monthly: saved.monthly_amount != null,
+    monthly: isMonthly(saved),
+    monthlyAmount: isMonthly(saved) ? wonDigits(saved.monthly_amount) : '',
   };
 }
 
@@ -184,7 +192,13 @@ function holdingOfState(state: FormState): Holding {
   return holdingOf(state.group, state.group === 'investment' ? state.kind : null);
 }
 
+/** 부채와 보증금은 매달 넣는 돈을 받지 않는다. */
+function takesMonthly(group: AssetGroup): boolean {
+  return group !== 'debt' && group !== 'deposit';
+}
+
 function canSaveState(state: FormState): boolean {
+  if (takesMonthly(state.group) && state.monthly && num(state.monthlyAmount) <= 0) return false;
   switch (holdingOfState(state)) {
     case 'quantity':
       return state.qty !== '' && state.qty !== '.';
@@ -195,10 +209,18 @@ function canSaveState(state: FormState): boolean {
   }
 }
 
-const num = (digits: string): number => (digits === '' ? 0 : Number(digits));
+/**
+ * 금액 종목의 지금 금액을 언제 적었나. 서버는 이 날짜가 있어야 평가 수익률을 센다.
+ * 지금 금액을 그대로 두면 앞서 적은 날을 지키고, 비우면 지운다.
+ */
+function notedOn(state: FormState, initial: FormState, saved: AssetItemOut | null): string | null {
+  if (state.now === '') return null;
+  if (state.now === initial.now && saved?.price_noted_on != null) return saved.price_noted_on;
+  return toLedgerDate(new Date());
+}
 
 /** 폼을 PUT 한 줄로. 보낸 칸만 서버가 바꾸고 안 보낸 칸은 지킨다. */
-function toPutItem(state: FormState, saved: AssetItemOut | null): AssetItemIn {
+function toPutItem(state: FormState, initial: FormState, saved: AssetItemOut | null): AssetItemIn {
   const holding = holdingOfState(state);
   const label = state.label.trim();
   const item: AssetItemIn = {
@@ -206,10 +228,7 @@ function toPutItem(state: FormState, saved: AssetItemOut | null): AssetItemIn {
     label: label === '' ? null : label,
     amount: 0,
     kind: state.group === 'investment' ? state.kind : null,
-    monthly_amount:
-      state.group === 'debt' || state.group === 'deposit' || !state.monthly
-        ? null
-        : (saved?.monthly_amount ?? 0),
+    monthly_amount: takesMonthly(state.group) && state.monthly ? num(state.monthlyAmount) : null,
   };
   if (saved?.item_key != null) item.item_key = saved.item_key;
 
@@ -221,6 +240,7 @@ function toPutItem(state: FormState, saved: AssetItemOut | null): AssetItemIn {
   } else if (holding === 'amount') {
     item.amount = state.now !== '' ? num(state.now) : num(state.cost);
     item.cost_basis = state.cost !== '' ? num(state.cost) : num(state.now);
+    item.price_noted_on = notedOn(state, initial, saved);
   } else {
     item.amount = num(state.amount);
   }
@@ -338,7 +358,7 @@ function AssetItemForm({
   }
 
   function submit(): void {
-    const next = toPutItem(state, saved);
+    const next = toPutItem(state, initial, saved);
     if (target.sortOrder == null) {
       send([...items.map(toItemIn), next], 'created');
       return;
@@ -443,7 +463,7 @@ function AssetItemForm({
           <AmountField label="금액" value={state.amount} onChange={(amount) => patch({ amount })} />
         )}
 
-        {state.group !== 'debt' && state.group !== 'deposit' ? (
+        {takesMonthly(state.group) ? (
           <div className="asset-sheet__toggle-row">
             <span id={monthlyId} className="asset-sheet__toggle-label">
               매달 넣는 돈이에요
@@ -454,6 +474,13 @@ function AssetItemForm({
               ariaLabelledBy={monthlyId}
             />
           </div>
+        ) : null}
+        {takesMonthly(state.group) && state.monthly ? (
+          <AmountField
+            label="매달 얼마"
+            value={state.monthlyAmount}
+            onChange={(monthlyAmount) => patch({ monthlyAmount })}
+          />
         ) : null}
 
         {onSell != null && saved != null && sellableOf(saved) ? (

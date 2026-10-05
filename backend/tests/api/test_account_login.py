@@ -322,3 +322,37 @@ def test_합치면_두_쪽_자산이_오늘_스냅샷_하나로_묶이고_장부
     )
     assert sold.status_code == 201, sold.text
     assert sold.json()["asset"]["realized"] == "50000"
+
+
+def test_합쳐서_자산_항목이_40개를_넘으면_줄이는_저장은_되고_늘리는_저장은_막힌다(
+    two_devices: TestClient,
+) -> None:
+    _start(two_devices)
+    _verify(two_devices, _peek(two_devices))
+    for headers, name in ((AUTH, "가"), (OTHER, "나")):
+        items = [{"group": "cash", "label": f"{name}{n}", "amount": "1000"} for n in range(25)]
+        put = two_devices.put("/api/v1/assets", json={"items": items}, headers=headers)
+        assert put.status_code == 200, put.text
+
+    _start(two_devices)
+    assert _verify(two_devices, _peek(two_devices), headers=OTHER)["result"] == "merged"
+    merged = two_devices.get("/api/v1/assets", headers=OTHER).json()["items"]
+    assert len(merged) == 50
+
+    kept = [
+        {
+            "group": row["group"],
+            "label": row["label"],
+            "amount": row["amount"],
+            "item_key": row["item_key"],
+        }
+        for row in merged[1:]
+    ]
+    shrunk = two_devices.put("/api/v1/assets", json={"items": kept}, headers=OTHER)
+    assert shrunk.status_code == 200, shrunk.text
+    assert len(shrunk.json()["items"]) == 49
+
+    grown = [*kept, {"group": "cash", "label": "새 통장", "amount": "1000"}]
+    blocked = two_devices.put("/api/v1/assets", json={"items": grown}, headers=OTHER)
+    assert blocked.status_code == 422, blocked.text
+    assert blocked.json()["error"]["code"] == "INVALID_REQUEST"

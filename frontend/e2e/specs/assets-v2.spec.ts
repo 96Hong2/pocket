@@ -57,9 +57,9 @@ test('순자산 카드는 순자산, 추이, 지난달 대비, 모은 돈만 싣
   await assets.netWorthButton.click();
   await expect(assets.detailSheet).toBeVisible();
   await expect(assets.detailChart).toBeVisible();
-  await expect(assets.detailRow('자산')).toContainText(formatCurrency(CASH_NOW + SAVED));
-  await expect(assets.detailRow('부채')).toContainText(formatCurrency(DEBT));
-  await expect(assets.detailRow('순자산')).toContainText(formatCurrency(netNow));
+  await expect(assets.detailValue('자산')).toHaveText(formatCurrency(CASH_NOW + SAVED));
+  await expect(assets.detailValue('부채')).toHaveText(`− ${formatCurrency(DEBT)}`);
+  await expect(assets.detailValue('순자산')).toHaveText(formatCurrency(netNow));
 
   const opened = await logsNamed(page, 'asset_networth_opened');
   expect(opened).toHaveLength(1);
@@ -143,6 +143,28 @@ test('항목 시트에서 지금 1주 가격을 적으면 현재가 없음이 �
 
   const changed = await logsNamed(page, 'asset_changed');
   expect(changed.at(-1)?.params).toMatchObject({ kind: 'stock', from: 'assets', fields: 'price' });
+});
+
+test('펀드에 넣은 돈과 지금 금액을 적으면 항목 줄에 평가 수익률 칩이 선다', async ({
+  assets,
+  prep,
+}) => {
+  await prep.putAssets([{ group: 'cash', label: '카카오뱅크', amount: 1_000_000 }]);
+
+  await assets.open();
+  await assets.waitReady();
+
+  await assets.addButton('투자').click();
+  await assets.sheet.waitOpen();
+  await assets.sheet.kindChoice('펀드').click();
+  await assets.sheet.nameField.fill('테스트 펀드');
+  await assets.sheet.field('넣은 돈').fill('1000000');
+  await assets.sheet.field('지금 금액').fill('1200000');
+  await assets.sheet.save();
+
+  // 넣은 돈 1,000,000원이 지금 1,200,000원 → +20%
+  await expect(assets.row('테스트 펀드')).toContainText(formatCurrency(1_200_000));
+  await expect(assets.rowChip('테스트 펀드', /^\+20%$/)).toBeVisible();
 });
 
 test('그룹 머리의 작은 ＋ 로 그 그룹 항목을 더한다. 큰 추가 버튼과 그룹 설명은 없다', async ({

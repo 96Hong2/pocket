@@ -51,6 +51,8 @@ import { ASSET_GROUP_VIEWS, formatQuantity, sanitizeQuantityInput, unitOf } from
 import { CategoryComposeOverlay } from '../categories';
 import { DAY_MAX, DAY_MIN, isDayInRange } from '../../shared/lib/limits';
 
+import { isSavingRow, isUnpickedSaving } from './savingRow';
+
 /**
  * 고를 수 있는 종류.
  *
@@ -80,9 +82,7 @@ const SIDES: SegmentedOption<Side>[] = [
 type Editor = 'date' | 'category' | 'dest';
 
 function rowKindOf(candidate: ImportCandidateOut): RowKind {
-  return candidate.type === 'transfer' && candidate.asset_item_key != null
-    ? 'save'
-    : candidate.type;
+  return isSavingRow(candidate) ? 'save' : candidate.type;
 }
 
 function destOf(
@@ -108,6 +108,7 @@ function destChipLabel(
   candidate: ImportCandidateOut,
   dest: AssetItemDest | null,
 ): string {
+  if (candidate.asset_item_key == null) return '어디에 고르기';
   if (dest == null) return candidate.asset_name ?? '어디에';
   const quantity = quantityValue(candidate.asset_quantity);
   if (destHoldingOf(dest) !== 'quantity' || quantity == null) return destNameOf(dest);
@@ -226,6 +227,7 @@ export function CandidateRow({
   const rowKind = rowKindOf(candidate);
   const dest = rowKind === 'save' ? destOf(candidate.asset_item_key, destinations) : null;
   const noQuantity = rowKind === 'save' && missingQuantity(candidate, destinations);
+  const unpicked = isUnpickedSaving(candidate);
   // 펼친 동안 머리는 폼에 적힌 것을 그린다. 접으면 서버 값으로 돌아간다.
   const shown = editing && preview?.id === candidate.id ? preview : null;
   const headCategory =
@@ -322,8 +324,11 @@ export function CandidateRow({
             aria-label={name}
             // 환불은 켜 봐야 저장에서 통째로 막힌다. 켤 수 있게 두면 여덟 건이 다 안 들어간다.
             // 수량 종목인데 수량이 비면 저장에서 막힌다. 수량을 채우면 서버가 다시 켠다.
+            // 「어디에」 를 안 고른 저축·투자도 같다. 고르면 켤 수 있다.
             disabled={
-              rowDisabled || candidate.type === 'refund' || (noQuantity && !candidate.is_selected)
+              rowDisabled ||
+              candidate.type === 'refund' ||
+              ((noQuantity || unpicked) && !candidate.is_selected)
             }
             onChange={(event) => onToggle(event.target.checked)}
           />
@@ -383,6 +388,7 @@ export function CandidateRow({
             {rowKind === 'save' ? (
               <DestChip
                 label={destChipLabel(candidate, dest)}
+                unpicked={unpicked}
                 disabled={rowDisabled}
                 onClick={() => open(null)}
               />
@@ -650,10 +656,13 @@ function CategorySlot({
 /** 저축·투자 줄의 「어디에」 칩. 누르면 줄이 펼쳐지고 그 안에서 고른다. */
 function DestChip({
   label,
+  unpicked = false,
   disabled,
   onClick,
 }: {
   label: string;
+  /** 아직 안 골랐으면 칩 글씨가 곧 할 일(「어디에 고르기」)이다. */
+  unpicked?: boolean;
   disabled: boolean;
   onClick: () => void;
 }) {
@@ -661,7 +670,7 @@ function DestChip({
     <button
       type="button"
       className="nl-item__chip"
-      aria-label={`어디에 ${label}, 바꾸기`}
+      aria-label={unpicked ? label : `어디에 ${label}, 바꾸기`}
       data-testid={TEST_IDS.nlCandidateDest}
       disabled={disabled}
       onClick={onClick}
@@ -934,6 +943,8 @@ function CandidateForm({
     const body: ImportCandidatePatch = {};
     const moved = destKey !== savedKey;
     if (moved) body.asset_item_key = destKey;
+    // 어디에를 못 정해 꺼 둔 줄은 고르면 켠다. 수량이 비면 저장에서 막혀 켜지 않는다.
+    const turnOn = isUnpickedSaving(candidate) && !candidate.is_selected;
     // 목록을 아직 못 받았으면 적혀 있던 쪽과 수량을 그대로 둔다.
     if (pickedDest == null) return body;
     // 수량 종목만 쪽을 고른다. 나머지는 어디에가 그대로면 적혀 있던 쪽을 둔다.
@@ -944,6 +955,7 @@ function CandidateForm({
     if (moved || parseQuantity(nextQty) !== parseQuantity(candidate.asset_quantity)) {
       body.asset_quantity = nextQty;
     }
+    if (turnOn && (!byQuantity || nextQty != null)) body.is_selected = true;
     return body;
   }
 

@@ -10,6 +10,7 @@ import base64
 import binascii
 import logging
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -500,12 +501,26 @@ def _sync_asset(
         asset_entries.sync_transaction(session, user, tx, today)
 
 
+def _drop_asset(session: Session, user: User, tx: Transaction) -> None:
+    """지운 거래의 장부 줄을 빼고, 그 거래로만 생긴 빈 항목이면 목록에서도 뺀다."""
+    today = ledger.today_for(user)
+    _sync_asset(session, user, tx, today, had_asset=False)
+    if tx.asset_item_key is not None:
+        asset_entries.drop_if_born_with(session, user, tx, today)
+
+
 # ── 저장 ────────────────────────────────────────────────
 
 
 def create_transaction(
-    session: Session, user: User, data: dict, *, today: date | None = None
+    session: Session,
+    user: User,
+    data: dict,
+    *,
+    today: date | None = None,
+    link: Callable[[Transaction], None] | None = None,
 ) -> tuple[Transaction, SaveOutcome]:
+    """`link` 는 commit 직전에 부른다. 거래 id 를 다른 행에 적어 같은 commit 에 싣는 자리다."""
     day = today or ledger.today_for(user)
     categories.require_owned(session, user, data.get("category_id"))
     _require_tag(session, user, data.get("tag_id"), data.get("type", agg.TransactionType.EXPENSE))
@@ -545,6 +560,9 @@ def create_transaction(
         tx.asset_item_key = _new_asset_key(session, user, day, new_asset)
     _settle_asset_columns(tx)
     _sync_asset(session, user, tx, day, had_asset=False)
+    if link is not None:
+        session.flush()
+        link(tx)
     session.commit()
     session.refresh(tx)
 
@@ -844,7 +862,7 @@ def delete_transaction(session: Session, user: User, tx_id: uuid.UUID) -> None:
     """실제로 지우지 않고 표시만 남긴다. 되돌려도 합계가 맞아야 한다."""
     tx = _get_owned(session, user, tx_id)
     tx.deleted_at = datetime.now(UTC)
-    _sync_asset(session, user, tx, ledger.today_for(user), had_asset=False)
+    _drop_asset(session, user, tx)
     session.commit()
 
 
@@ -858,5 +876,5 @@ def undo_transaction(session: Session, user: User, tx_id: uuid.UUID) -> None:
     if _age(tx.created_at) > UNDO_WINDOW + UNDO_GRACE:
         raise ApiError(ErrorCode.UNDO_EXPIRED, "되돌릴 수 있는 시간이 지났어요.", status_code=409)
     tx.deleted_at = datetime.now(UTC)
-    _sync_asset(session, user, tx, ledger.today_for(user), had_asset=False)
+    _drop_asset(session, user, tx)
     session.commit()

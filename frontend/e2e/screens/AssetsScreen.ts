@@ -91,6 +91,11 @@ export class AssetsScreen {
       .filter({ hasText: /\d원$/ });
   }
 
+  /** 상세 시트 한 줄의 금액만. 줄 전체에 부분 일치를 걸면 「5,000,000원」 끝의 「0원」 에도 걸린다. */
+  detailValue(label: '자산' | '부채' | '순자산'): Locator {
+    return this.detailRow(label).locator('b');
+  }
+
   /** 「내 자산 분석」 입구. `data-state` 가 locked, open, stale 중 하나다. */
   get analysisEntry(): Locator {
     return this.page.getByTestId(TEST_IDS.analysisEntry);
@@ -291,6 +296,16 @@ export class AssetsScreen {
     await this.sheet.save();
   }
 
+  /** 이미 적어 둔 줄에서 「매달 넣는 돈이에요」 를 켜고 매달 얼마를 적는다. 금액을 적기 전에는 저장이 꺼져 있다. */
+  async setMonthly(name: string, amount: number): Promise<void> {
+    await this.openEdit(name);
+    await this.sheet.monthlyToggle.click();
+    await expect(this.sheet.monthlyToggle).toHaveAttribute('aria-checked', 'true');
+    await expect(this.sheet.saveButton).toBeDisabled();
+    await this.sheet.field('매달 얼마').fill(String(amount));
+    await this.sheet.save();
+  }
+
   /** 이미 적어 둔 줄을 지운다. */
   async remove(name: string): Promise<void> {
     await this.openEdit(name);
@@ -357,6 +372,11 @@ class AssetItemSheet {
   /** 이름이 그 말로 시작하는 입력칸(「갖고 있는 수량」, 「넣은 돈」, 「지금 1주 가격」, 「지금 금액」). */
   field(label: string): Locator {
     return this.root.getByLabel(new RegExp(`^${label}`));
+  }
+
+  /** 「매달 넣는 돈이에요」 토글. 켜면 「매달 얼마」 칸이 열린다. */
+  get monthlyToggle(): Locator {
+    return this.root.getByRole('switch', { name: '매달 넣는 돈이에요' });
   }
 
   /** 투자 종류 칩 하나. */

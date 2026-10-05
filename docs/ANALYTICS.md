@@ -40,9 +40,9 @@
 | 미리 적어 둔 돈을 실제로 적나 | `recurring_result` | 적었나(`recorded`)·미뤘나(`dismissed`), 전날인가 당일인가(`eve`·`today`). **항목 이름과 금액은 싣지 않는다** |
 | 미리 적어 둘 돈을 걸어는 두나 | `recurring_changed` | 만듦·고침·지움과 잠시 끔·다시 켬(`created`·`updated`·`deleted`·`paused`·`resumed`), 앱 알림이 켜져 있나(`enabled`), 이 예고만 다른 시각을 골랐나(`at`: `default`·`custom`), 며칠 전인가(`lead`: `today`·`eve`), 태그를 달았나, 지울 때 켜져 있었나. **항목 이름과 금액은 싣지 않는다** |
 | 태그를 만들기만 하나 실제로 다나 | `tag_changed` · `tag_applied` | 만듦·고침·지움과 갈래(`expense`·`income`), 지울 때 몇 건이 표시를 잃나(`used`), 붙었나·떨어졌나와 어느 자리(`record`·`edit`)와 갈래. 2026-10-05~ `record` 는 둘째 화면에서 골라 저장과 함께 붙은 것이다. **태그 이름은 싣지 않는다** |
-| 자산을 한 번 적고 마나 | `asset_changed` | 더함·고침·지움과 어느 그룹, 그 뒤 남은 줄 수. 자산관리 판부터 투자 종류(`kind`: `stock`·`etf`·`fund`·`coin`·`bond`·`other`·`none`), 어디서 고쳤나(`from`: `assets`·`record`), 고친 칸(`fields`: `amount`·`price`·`qty` 를 `+` 로 이은 값). `from=record` 는 저축·투자 저장이 성공한 순간이고 새 항목이면 `created`, 있던 항목이면 `updated`, `fields` 는 `amount` 또는 `amount+qty` 다(`items` 는 안 싣는다). **이름과 금액, 수량 값, 현재가는 싣지 않는다** |
+| 자산을 한 번 적고 마나 | `asset_changed` | 더함·고침·지움과 어느 그룹, 그 뒤 남은 줄 수. 자산관리 판부터 투자 종류(`kind`: `stock`·`etf`·`fund`·`coin`·`bond`·`other`·`none`), 어디서 고쳤나(`from`: `assets`·`record`), 고친 칸(`fields`: `amount`·`price`·`qty` 를 `+` 로 이은 값). `from=record` 는 저축·투자 저장이 성공한 순간이고 새 항목이면 `created`, 있던 항목이면 `updated`, `fields` 는 `amount` 또는 `amount+qty` 다(`items` 는 안 싣는다). 기록하기 저장, 줄글과 사진 검토 저장(저축·투자 줄마다 하나), 저장 뒤 적금 안내로 바꾼 것, 기록 고치기에서 어디에를 붙인 것이 모두 남는다. 고치기에서 어디에를 그대로 두고 금액만 고친 것은 안 남는다. **이름과 금액, 수량 값, 현재가는 싣지 않는다** |
 | 자산 체크인에 답하나 | `asset_checkin_result` | 홈 체크인 카드의 답(`answer`: `same` 「그대로예요」·`changed` 「바뀐 게 있어요」·`dismissed` 닫음) |
-| 적금 지출이 저축·투자로 옮겨 가나 | `saving_hint_result` | 이름에 적금, 저축, 투자, 연금, 청약, IRP 가 든 지출 분류로 저장한 직후 저장 뒤 화면의 안내(기기마다 한 번)에 한 답(`answer`: `converted` 저축·투자로 바꿈·`kept` 「그냥 둘게요」·`dismissed` 답 없이 확인이나 ‹ 로 닫음). 공유 가계부 저장 뒤에는 안 선다. **분류 이름과 금액, 고른 항목 이름은 싣지 않는다** |
+| 적금 지출이 저축·투자로 옮겨 가나 | `saving_hint_result` | 이름에 적금, 저축, 투자, 연금, 청약, IRP 가 든 지출 분류로 저장한 직후 저장 뒤 화면의 안내(기기마다 한 번)에 한 답(`answer`: `converted` 저축·투자로 바꿈·`kept` 「그냥 둘게요」·`dismissed` 답 없이 확인이나 ‹ 로 닫거나, 시트를 끌어내리거나 바깥을 눌러 닫음). 공유 가계부 저장 뒤에는 안 선다. **분류 이름과 금액, 고른 항목 이름은 싣지 않는다** |
 | 순자산 상세를 여나 | `asset_networth_opened` | 값 없음. 순자산 카드를 연 사람 중 5% 아래면 상세 시트를 걷는다 |
 | 분석 확인 창에서 고르나 | `asset_analysis_asked` | 범위(`scope`: `all`·`stock`·`cash`), 창이 선 까닭(`state`: `locked` 처음·`stale` 자산이 바뀌어 다시), 답(`answer`: `ok`·`close`) |
 | 분석을 어떻게 열었나 | `asset_analysis_opened` | 범위(`scope`), 광고(`ad`: `earned` 끝까지 봄·`watched` 중간에 닫음·`skipped` 광고 없이·`free` 자산이 그대로라 광고 없이), 광고 없이 열린 이유(`reason`: `no_group`·`unsupported`·`failed`·`stalled`). `earned` 와 `watched` 는 합치지 않는다 |
@@ -193,6 +193,7 @@
 | `record_started.from` | `asset_item` 이 더해졌다. 이 길로 연 흐름은 첫 화면이 없어 `record_setup_done` 이 안 남는다. 방식별 완료율 분모에서 빠지니 따로 센다 |
 | `feedback_action.action` | `assets`(「자산 보기」)가 더해졌다. 저축·투자 저장 뒤 화면에는 결제 수단과 「어디서 썼나요」 가 없어 `more` 는 `memo` 뿐이다 |
 | `asset_changed.from` | `record` 가 실제로 나기 시작한다. 앞 판에는 `assets` 뿐이다 |
+| `saving_hint_result.answer` | `dismissed` 에 시트를 끌어내리거나 바깥을 눌러 닫은 것도 든다 |
 
 **`blocked` 와 `earned` 는 더 이상 안 나간다.** 장수가 없으면 막던 장치를 ADR-0031 이
 없앴다. 지금은 아무도 막히지 않고 읽는 동안 광고가 함께 돌 뿐이다. 09-22 이전 자료를 지금
