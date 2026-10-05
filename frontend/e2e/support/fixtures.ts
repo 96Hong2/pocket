@@ -13,6 +13,7 @@ import { ManageScreen } from '../screens/ManageScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { RecurringScreen } from '../screens/RecurringScreen';
+import { ReportCategoryScreen } from '../screens/ReportCategoryScreen';
 import { ReportScreen } from '../screens/ReportScreen';
 import { RecordSheet } from '../screens/RecordSheet';
 import { SettingsScreen } from '../screens/SettingsScreen';
@@ -82,6 +83,8 @@ interface PocketFixtures {
   manage: ManageScreen;
   /** 리포트 탭. 총액·도넛·조각 목록·6개월 흐름을 한 화면이 가진다. */
   report: ReportScreen;
+  /** 리포트 분류 줄을 눌러 들어오는 화면. URL 이 달라 별도 화면이다. */
+  reportCategory: ReportCategoryScreen;
   /** 카테고리 관리. 관리 탭 아래 하위 화면이라 URL 이 달라 별도 화면이다. */
   categories: CategoriesScreen;
   /** 앱 설정. 홈 표시 방식과 개인정보 안내를 한 화면이 가진다. */
@@ -147,6 +150,9 @@ export const test = base.extend<PocketFixtures>({
 
   report: async ({ page }, use) => {
     await use(new ReportScreen(page));
+  },
+  reportCategory: async ({ page }, use) => {
+    await use(new ReportCategoryScreen(page));
   },
 
   categories: async ({ page }, use) => {

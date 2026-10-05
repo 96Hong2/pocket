@@ -3,6 +3,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { ROUTES } from '../../src/app/router/routes';
 import { TEST_IDS } from '../../src/shared/testIds';
 
+import { EditSheetArea } from './CalendarScreen';
 import { MonthStartArea } from './MonthStartArea';
 
 /**
@@ -24,6 +25,8 @@ export class ReportScreen {
   readonly insight: ReportInsightArea;
   /** 기간 줄이 여는 한 달 시작일 시트. */
   readonly monthStart: MonthStartArea;
+  /** 큰 지출 줄을 눌러 뜨는 「기록 수정」 시트. 달력과 같은 시트다. */
+  readonly edit: EditSheetArea;
 
   constructor(page: Page) {
     this.page = page;
@@ -32,6 +35,7 @@ export class ReportScreen {
     this.book = new ReportBookArea(page);
     this.insight = new ReportInsightArea(page);
     this.monthStart = new MonthStartArea(page);
+    this.edit = new EditSheetArea(page);
   }
 
   /**
@@ -53,6 +57,11 @@ export class ReportScreen {
     await expect(this.total).toBeVisible();
   }
 
+  /** 탭 줄 오른쪽 「저축·투자 ›」. 자산 화면으로 간다. 공유 가계부 리포트에는 없다. */
+  get assetsLink(): Locator {
+    return this.root.getByRole('button', { name: /^저축·투자/ });
+  }
+
   /** 소비/수입 전환. 기본은 소비다. */
   modeTab(label: '소비' | '수입'): Locator {
     return this.root.getByRole('radio', { name: label, exact: true });
@@ -67,12 +76,19 @@ export class ReportScreen {
     return this.root.getByTestId(TEST_IDS.reportPeriod);
   }
 
+  /** 달은 주소에 들어 있어 눌러도 한 박자 뒤에 그려진다. 이름이 바뀔 때까지 기다린다. */
   async goPreviousMonth(): Promise<void> {
-    await this.monthButton('previous').click();
+    await this.stepMonth('previous');
   }
 
   async goNextMonth(): Promise<void> {
-    await this.monthButton('next').click();
+    await this.stepMonth('next');
+  }
+
+  private async stepMonth(direction: 'previous' | 'next'): Promise<void> {
+    const before = await this.monthLabel().innerText();
+    await this.monthButton(direction).click();
+    await expect(this.monthLabel()).not.toHaveText(before);
   }
 
   /** 지금 열려 있는 주소. 결산처럼 한 번만 쓰는 파라미터가 남았는지 여기로 본다. */
@@ -128,6 +144,41 @@ export class ReportScreen {
     return this.donut.locator('circle');
   }
 
+  /** 조각 하나. 목록 줄과 같은 차례다(0 이 가장 큰 조각). */
+  donutSlice(index: number): Locator {
+    return this.donutSlices.nth(index);
+  }
+
+  /**
+   * 조각 하나를 손가락으로 누른다.
+   *
+   * 조각은 링 위의 호라서 상자 가운데를 누르면 링 구멍에 빠진다. 그 조각 호의 가운데 각도에
+   * 있는 링 위 점을 계산해 누르고, 그 점에 실제로 그 조각이 있는지 먼저 확인한다.
+   */
+  async tapDonutSlice(index: number): Promise<void> {
+    await this.donut.scrollIntoViewIfNeeded();
+    const point = await this.donutSlice(index).evaluate((node) => {
+      const circle = node as unknown as SVGCircleElement;
+      const svg = circle.ownerSVGElement;
+      if (svg == null) throw new Error('도넛 svg 가 없다');
+      const radius = Number(circle.getAttribute('r'));
+      const cx = Number(circle.getAttribute('cx'));
+      const cy = Number(circle.getAttribute('cy'));
+      const round = 2 * Math.PI * radius;
+      const length = Number((circle.getAttribute('stroke-dasharray') ?? '0').split(' ')[0]);
+      const start = -Number(circle.getAttribute('stroke-dashoffset') ?? '0');
+      // 12시에서 시계 방향으로 돈다.
+      const angle = (2 * Math.PI * (start + length / 2)) / round;
+      const box = svg.getBoundingClientRect();
+      const scale = box.width / svg.viewBox.baseVal.width;
+      const x = box.left + (cx + radius * Math.sin(angle)) * scale;
+      const y = box.top + (cy - radius * Math.cos(angle)) * scale;
+      if (document.elementFromPoint(x, y) !== circle) throw new Error('누를 점에 그 조각이 없다');
+      return { x, y };
+    });
+    await this.page.mouse.click(point.x, point.y);
+  }
+
   /**
    * 조각과 목록 줄에 실제로 칠해진 색.
    *
@@ -156,6 +207,15 @@ export class ReportScreen {
 
   amount(name: string | RegExp): Locator {
     return this.row(name).getByTestId(TEST_IDS.reportRowAmount);
+  }
+
+  /** 차례로 본 줄의 이름 칸. 조각과 같은 차례다. */
+  rowNameAt(index: number): Locator {
+    return this.rows.nth(index).locator('.report__row-name');
+  }
+
+  rowAmountAt(index: number): Locator {
+    return this.rows.nth(index).getByTestId(TEST_IDS.reportRowAmount);
   }
 
   share(name: string | RegExp): Locator {

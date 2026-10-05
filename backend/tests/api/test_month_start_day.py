@@ -204,6 +204,32 @@ def test_리포트는_시작일로_자른_기간과_흐름과_같은_날수_비�
     assert september["month_expense"] == "25000"
 
 
+def test_분류_펼치기는_리포트와_같은_시작일_기간을_센다(
+    client: TestClient, pin: Pin, default_categories: object
+) -> None:
+    _set_start_day(client, 25)
+    food = _category(client, "식비")
+    _add(client, date(2026, 9, 24), 1_000, category_id=food)  # 9월 기간 마지막 날
+    first = _add(client, date(2026, 9, 25), 2_000, category_id=food)  # 10월 기간 첫날
+    last = _add(client, date(2026, 10, 24), 4_000, category_id=food)  # 10월 기간 마지막 날
+    _add(client, date(2026, 10, 25), 8_000, category_id=food)  # 11월 기간 첫날
+    pin(date(2026, 10, 26))
+
+    report = _get(client, "/api/v1/reports/monthly?year=2026&month=10")
+    row = next(r for r in report["expense_breakdown"] if r["category_id"] == food)
+    body = _get(client, f"/api/v1/reports/category?year=2026&month=10&tab=expense&key={food}")
+
+    assert _span(body) == ("2026-09-25", "2026-10-24", "2026-10")
+    assert _span(body) == _span(report)
+    assert body["total"] == row["amount"] == "6000"
+    ids = [tx["id"] for tx in body["transactions"]]
+    assert ids == [last["transaction"]["id"], first["transaction"]["id"]]
+    # 질의 없이 부르면 오늘(10월 26일)이 든 「11월」 기간이다.
+    current = _get(client, f"/api/v1/reports/category?tab=expense&key={food}")
+    assert _span(current) == ("2026-10-25", "2026-11-24", "2026-11")
+    assert current["total"] == "8000"
+
+
 def test_결산은_기간_끝이_오늘보다_앞서면_끝난_기간이다(
     client: TestClient, pin: Pin, default_categories: object
 ) -> None:

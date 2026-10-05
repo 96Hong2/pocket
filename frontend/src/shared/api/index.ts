@@ -19,6 +19,7 @@ export type {
   ApiClient,
   BudgetSuggestionParams,
   CallOptions,
+  CategoryReportParams,
   MonthParams,
   SettlementPeriod,
   TransactionListParams,
@@ -42,6 +43,7 @@ export {
   useBudgetSuggestion,
   useCalendar,
   useCategories,
+  useCategoryReport,
   useClosing,
   useCurrentPeriod,
   useGoal,
@@ -58,6 +60,7 @@ export {
   useTags,
   useMonthlyReport,
   useSummary,
+  useFetchTransaction,
   useTransactionPages,
   useTransactions,
 } from './queries';

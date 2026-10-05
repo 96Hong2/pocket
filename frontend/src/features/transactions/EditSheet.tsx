@@ -22,6 +22,7 @@ import {
   CategoryPicker,
   FutureDayConfirm,
   PaymentMethodPicker,
+  SAVING_FALLBACK_ICON,
   categoriesOfKind,
   kindOf,
   type LedgerKind,
@@ -601,8 +602,11 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
     <div className="tx-edit__body">
       <div className="tx-edit__scroll">
         <div className="tx-edit__head">
-          {saving && dest != null ? (
-            <CategoryAvatar icon={ASSET_GROUP_VIEWS[destGroupOf(dest)].icon} size={58} />
+          {saving ? (
+            <CategoryAvatar
+              icon={dest != null ? ASSET_GROUP_VIEWS[destGroupOf(dest)].icon : SAVING_FALLBACK_ICON}
+              size={58}
+            />
           ) : (
             <CategoryAvatar {...iconOf(headCategory)} size={58} />
           )}

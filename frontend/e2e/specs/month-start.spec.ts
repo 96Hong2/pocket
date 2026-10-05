@@ -48,6 +48,7 @@ function salaryPeriod() {
     monthLabel: `${namedYear}년 ${namedMonth}월`,
     monthNumber: namedMonth,
     range: `${short(start)} ~ ${short(end)}`,
+    days: `${startDate.getUTCMonth() + 1}월 25일~${namedMonth}월 24일`,
     preview: `${namedMonth}월은 ${startDate.getUTCMonth() + 1}월 25일부터 ${namedMonth}월 24일까지예요`,
     remaining: (end - today) / DAY_MS + 1,
     elapsed,
@@ -68,6 +69,7 @@ test('관리 탭에서 시작일을 25일로 바꾸면 예산, 리포트, 홈이
   appShell,
   manage,
   report,
+  reportCategory,
   home,
 }) => {
   const expected = salaryPeriod();
@@ -128,6 +130,18 @@ test('관리 탭에서 시작일을 25일로 바꾸면 예산, 리포트, 홈이
   await expect(report.trendLabels).toHaveText(trend.map((key) => `${Number(key.slice(5))}월`));
   await expect(report.trendBar(expected.key)).toHaveAttribute('data-current', '');
   await expect(report.monthButton('next')).toBeDisabled();
+
+  // 분류 화면도 같은 기간을 센다. 기간 앞날의 5,000원은 빠진다. 뒤로 오면 같은 이름 달이다.
+  await report.row('식비').click();
+  await reportCategory.waitReady();
+  expect(reportCategory.url.searchParams.get('month')).toBe(expected.key);
+  await expect(reportCategory.period).toHaveText(expected.days);
+  await expect(reportCategory.total).toHaveText(formatCurrency(12_000));
+  await expect(reportCategory.count).toHaveText('1건');
+  await pressSystemBack(page);
+  await report.waitReady();
+  await expect(report.monthLabel()).toHaveText(expected.monthLabel);
+  await expect(report.periodLine).toHaveText(expected.range);
 
   await appShell.goToTab('홈');
   await expect(home.hero.label).toHaveText(`${expected.monthNumber}월 · 남은 예산`);

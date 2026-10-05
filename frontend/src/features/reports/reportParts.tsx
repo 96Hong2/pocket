@@ -43,6 +43,7 @@ export function BreakdownItem({
   income,
   color,
   topShare,
+  onOpen,
 }: {
   row: BreakdownRowOut;
   category?: ReportCategory;
@@ -52,11 +53,13 @@ export function BreakdownItem({
   color?: string;
   /** 맨 위 줄의 비중. 막대는 이 줄을 가득 채운 것으로 놓고 나머지를 견준다. */
   topShare: number;
+  /** 누르면 그 분류의 기록 화면을 연다. 안 넘기면 줄은 보기만 한다. */
+  onOpen?: () => void;
 }) {
   const amount = parseDecimalOr(row.amount, 0);
   const share = parseDecimal(row.share);
-  return (
-    <li className="report__row" data-testid={TEST_IDS.reportBreakdownRow}>
+  const cells = (
+    <>
       {/*
         링의 조각과 이 줄을 잇는 표시. 세이지에서 앰버로 가는 한 계열이라 조각끼리
         색 차이가 크지 않고, 순서만으로는 어느 조각이 어느 줄인지 짚기 어렵다.
@@ -91,6 +94,23 @@ export function BreakdownItem({
           {share != null ? toPercent(share) : '—'}
         </span>
       </span>
+    </>
+  );
+  if (onOpen == null) {
+    return (
+      <li className="report__row" data-testid={TEST_IDS.reportBreakdownRow}>
+        {cells}
+      </li>
+    );
+  }
+  return (
+    <li data-testid={TEST_IDS.reportBreakdownRow}>
+      <button type="button" className="report__row report__row--link" onClick={onOpen}>
+        {cells}
+        <span className="report__chevron" aria-hidden="true">
+          ›
+        </span>
+      </button>
     </li>
   );
 }

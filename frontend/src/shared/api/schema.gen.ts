@@ -41,7 +41,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Show
+         * @description 기록 하나. 내 것이고 안 지운 것만. 리포트 큰 지출 줄을 눌러 고칠 때 쓴다.
+         *
+         *     `/calendar`·`/summary` 뒤에 둔다. 앞에 두면 그 경로가 이 자리에 잡혀 422 가 난다.
+         */
+        get: operations["show_api_v1_transactions__tx_id__get"];
         put?: never;
         post?: never;
         /** Destroy */
@@ -404,6 +410,26 @@ export interface paths {
         };
         /** Monthly */
         get: operations["monthly_api_v1_reports_monthly_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Category
+         * @description 리포트 분류 줄 하나의 기록. 기간은 `/monthly` 와 같은 규칙으로 정한다.
+         */
+        get: operations["category_api_v1_reports_category_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2350,6 +2376,42 @@ export interface components {
             usage_count: number;
         };
         /**
+         * CategoryReportOut
+         * @description 리포트 분류 줄 하나를 펼친 것. 합계는 그 줄 금액과 같은 셈이다.
+         */
+        CategoryReportOut: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Period Key */
+            period_key: string;
+            /** Tab */
+            tab: string;
+            /** Key */
+            key: string;
+            /** Category Id */
+            category_id: string | null;
+            /** Total */
+            total: string;
+            /** Count */
+            count: number;
+            /** Transactions */
+            transactions: components["schemas"]["TransactionOut"][];
+        };
+        /**
+         * CategoryTab
+         * @description 리포트의 소비·수입 탭. 분류 화면이 어느 쪽 줄을 눌렀는지.
+         * @enum {string}
+         */
+        CategoryTab: "expense" | "income";
+        /**
          * CategoryUpdate
          * @description 보낸 필드만 바꾼다. 종류와 순서는 서버가 정한 값을 그대로 둔다.
          *
@@ -3978,6 +4040,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionCreated"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    show_api_v1_transactions__tx_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                tx_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionOut"];
                 };
             };
             /** @description 식별키가 없거나 검증에 실패 */
@@ -6447,6 +6596,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MonthlyReportOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    category_api_v1_reports_category_get: {
+        parameters: {
+            query: {
+                /** @description 리포트의 소비·수입 탭 */
+                tab: components["schemas"]["CategoryTab"];
+                /** @description 리포트 줄의 키. 카테고리 uuid, uncategorized, rolled_up */
+                key: string;
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryReportOut"];
                 };
             };
             /** @description 식별키가 없거나 검증에 실패 */

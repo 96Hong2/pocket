@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import { assetAnalysisPath, type AssetAnalysisScope } from '../../app/router/routes';
 import {
@@ -82,6 +82,8 @@ export function AnalysisScreen({ scope }: { scope: AssetAnalysisScope }) {
 
 function AllAnalysis({ data, unlock }: { data: AssetAnalysisOut; unlock: AssetAnalysisUnlock }) {
   const navigate = useNavigate();
+  // 종류별 분석도 뒤로는 자산 화면이다. 맡겨 둔 자산 화면의 이동 상태를 그대로 넘긴다.
+  const { state: carried } = useLocation();
   const [noPension, setNoPension] = useState(false);
   const groups = data.groups ?? [];
   const hasPension = groups.some(
@@ -171,7 +173,7 @@ function AllAnalysis({ data, unlock }: { data: AssetAnalysisOut; unlock: AssetAn
                   onClick={() =>
                     unlock.request(
                       { scope: bundle.scope, fingerprint: bundle.fingerprint },
-                      () => void navigate(assetAnalysisPath(bundle.scope)),
+                      () => void navigate(assetAnalysisPath(bundle.scope), { state: carried }),
                     )
                   }
                 >

@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "DEFAULT_TIMEZONE",
     "AchievementFacts",
+    "as_inputs",
     "as_utc",
     "day_bounds",
     "days_since",
@@ -165,6 +166,12 @@ def _to_domain(tx: Transaction, tz: ZoneInfo) -> agg.TransactionInput:
         payment_method=tx.payment_method,
         tag_id=str(tx.tag_id) if tx.tag_id else None,
     )
+
+
+def as_inputs(user: User, rows: Sequence[Transaction]) -> list[agg.TransactionInput]:
+    """이미 읽은 거래를 집계용 값 객체로. 같은 행으로 합계와 목록을 함께 낼 때 쓴다."""
+    tz = user_tz(user)
+    return [_to_domain(t, tz) for t in rows]
 
 
 def load_period_inputs(

@@ -14,7 +14,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { toLedgerDate } from '../lib/format';
 import { DEFAULT_START_DAY, periodContaining, type MonthPeriod } from '../lib/monthPeriod';
@@ -22,13 +22,14 @@ import { DEFAULT_START_DAY, periodContaining, type MonthPeriod } from '../lib/mo
 import { markBookActivity } from './bookActivity';
 import type {
   BudgetSuggestionParams,
+  CategoryReportParams,
   MonthParams,
   SettlementPeriod,
   TransactionListParams,
 } from './client';
 import { useApiClient, useApiReady } from './context';
 import { queryKeys } from './queryKeys';
-import type { AnalysisScope, BookListOut, BookOut } from './types';
+import type { AnalysisScope, BookListOut, BookOut, TransactionOut } from './types';
 
 /** 카테고리 목록. 기본 11개 + 내가 만든 것. */
 export function useCategories() {
@@ -185,6 +186,39 @@ export function useSummary(params?: MonthParams) {
     queryFn: ({ signal }) => client.getSummary(params, { signal }),
     enabled: isReady,
   });
+}
+
+/** 리포트 분류 줄 하나의 기록과 합계. */
+export function useCategoryReport(params: CategoryReportParams) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.categoryReport(params),
+    queryFn: ({ signal }) => client.getCategoryReport(params, { signal }),
+    enabled: isReady,
+  });
+}
+
+/**
+ * 기록 하나를 한 번 받아 온다. 리포트 큰 지출 줄을 눌러 고치기 시트를 열 때 쓴다.
+ *
+ * 화면이 계속 지켜보는 조회로 두지 않는다. 그러면 시트에서 지운 뒤 목록 무효화에 걸려
+ * 같은 id 를 다시 묻고 404 를 받는다.
+ */
+export function useFetchTransaction(): (id: string) => Promise<TransactionOut> {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (id: string) =>
+      queryClient.fetchQuery({
+        queryKey: queryKeys.transaction(id),
+        queryFn: ({ signal }) => client.getTransaction(id, { signal }),
+        staleTime: 0,
+      }),
+    [client, queryClient],
+  );
 }
 
 /**

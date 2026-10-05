@@ -21,6 +21,7 @@ import {
   withTopic,
 } from '../../shared/lib/format';
 import { Button, Card, ErrorState, LoadingState, iconUrl } from '../../shared/ui';
+import { useAssetIcons } from '../assets';
 
 interface TodayListProps {
   /** 보고 있는 날. `2026-09-08` */
@@ -110,6 +111,7 @@ export function TodayList({
 }: TodayListProps) {
   // 캐시를 함께 읽어 요청이 늘지 않는다. 안 오면 태그 표식만 안 그린다.
   const tags = useTags();
+  const assetIcons = useAssetIcons();
   const today = toLedgerDate(new Date());
   const isToday = day === today;
   const label = formatRelativeDay(day);
@@ -190,6 +192,7 @@ export function TodayList({
                 avatarSize={54}
                 density="compact"
                 onClick={onPick ? () => onPick(tx) : undefined}
+                assetIcons={assetIcons}
               />
             ))}
             {/* 아래에 전체 내역 줄이 붙으니 구분선을 감추지 않는다. */}

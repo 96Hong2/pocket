@@ -1,15 +1,31 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
-import { useBookView } from '../app/providers';
-import { ROUTES } from '../app/router/routes';
+import { useBookView, useToast } from '../app/providers';
+import {
+  REPORT_MONTH_QUERY,
+  REPORT_TAB_QUERY,
+  ROUTES,
+  parseReportTab,
+  reportCategoryPath,
+  reportPath,
+  type BackState,
+  type ReportTab,
+} from '../app/router/routes';
 import { AdSlot } from '../features/ads';
 import { BookChip } from '../features/books';
 import { MonthStartSheet } from '../features/budgets';
 import { BookReport, MonthlyReport } from '../features/reports';
+import { EditSheet } from '../features/transactions';
 import { EVENTS, useAnalytics } from '../shared/analytics';
-import { useBooks, useCurrentPeriod } from '../shared/api';
+import {
+  useBooks,
+  useCategories,
+  useCurrentPeriod,
+  useFetchTransaction,
+  type TransactionOut,
+} from '../shared/api';
 import { toLedgerDate } from '../shared/lib/format';
 import { CalendarGlyph } from '../shared/ui';
 
@@ -35,16 +51,19 @@ function monthsBetween(from: string, to: string): number {
  */
 export default function ReportPage() {
   // 내 리포트의 이번 달은 한 달 시작일로 정한 이름 달이다. 공유 가계부는 달력 월 그대로다.
-  const thisMonth = useCurrentPeriod().period.key;
+  const current = useCurrentPeriod();
+  const thisMonth = current.period.key;
   const calendarMonth = toLedgerDate(new Date()).slice(0, 7);
   const analytics = useAnalytics();
   // 홈의 결산 카드가 `?month=2026-08&closing=1` 로 데려온다. 그때는 그 달로 열고
   // 결산까지 펼친다. 주소를 손으로 친 경우에도 어긋난 값이면 그냥 이번 달을 연다.
+  // 달과 탭은 주소가 들고 있다. 분류 화면이나 자산 화면에 다녀와도 보던 달과 탭으로 돌아온다.
   const [params, setParams] = useSearchParams();
-  const asked = params.get('month');
-  const [picked, setMonth] = useState<string | null>(
-    asked != null && MONTH_PATTERN.test(asked) ? asked : null,
-  );
+  const asked = params.get(REPORT_MONTH_QUERY);
+  const tab = parseReportTab(params.get(REPORT_TAB_QUERY));
+  const navigate = useNavigate();
+  const toast = useToast();
+  const categories = useCategories();
   const [periodOpen, setPeriodOpen] = useState(false);
   // 열어 달라는 부탁은 한 번만 쓴다. 주소를 계속 보고 열면, 달을 옮겨 본문을 다시 그릴 때마다
   // 사용자가 누르지도 않은 전체화면 결산이 다시 뜬다.
@@ -66,15 +85,33 @@ export default function ReportPage() {
       ? pickedBookId
       : null;
   // 내 리포트의 달은 이름 달, 가계부의 달은 달력 월이라 같은 「10월」 도 다른 날들이다.
-  // 가계부를 바꾸면 고른 달을 버리고 그쪽의 이번 달로 연다.
+  // 가계부를 바꾸면 주소의 달을 버리고 그쪽의 이번 달로 연다. 주소는 아래 효과가 비우고,
+  // 버린 달 표시는 사람이 달을 옮길 때 지운다.
   const [monthBookId, setMonthBookId] = useState(bookId);
+  const [droppedMonth, setDroppedMonth] = useState<string | null>(null);
   if (monthBookId !== bookId) {
     setMonthBookId(bookId);
-    setMonth(null);
+    setDroppedMonth(asked);
   }
   const baseMonth = bookId == null ? thisMonth : calendarMonth;
+  const picked =
+    asked != null && asked !== droppedMonth && MONTH_PATTERN.test(asked) ? asked : null;
   // 고른 달이 없거나 이번 달보다 뒤면 이번 달을 본다. 시작일을 바꿔 이번 달이 당겨질 때도 같다.
-  const month = picked != null && picked <= baseMonth ? picked : baseMonth;
+  // 내 리포트는 시작일을 받기 전에는 주소의 달을 믿는다. 1 로 세어 자르면 다음 이름 달을 보던
+  // 사람이 다시 열 때 한 달 앞이 잠깐 보인다.
+  const trustAsked = bookId == null && !current.known;
+  const month = picked != null && (trustAsked || picked <= baseMonth) ? picked : baseMonth;
+  useEffect(() => {
+    if (droppedMonth == null) return;
+    setParams(
+      (prev) => {
+        const query = new URLSearchParams(prev);
+        if (query.get(REPORT_MONTH_QUERY) === droppedMonth) query.delete(REPORT_MONTH_QUERY);
+        return query;
+      },
+      { replace: true },
+    );
+  }, [droppedMonth, setParams]);
   // 달을 옮기면 부탁도 접는다. 로딩 중에는 결산 자리가 아직 없어서 부탁을 못 쓴 채로
   // 달만 바뀔 수 있는데, 그러면 엉뚱한 달의 결산이 저절로 열린다.
   const changeMonth = useCallback(
@@ -89,11 +126,60 @@ export default function ReportPage() {
         },
         { kind: 'click' },
       );
-      setMonth(next);
+      setParams(
+        (prev) => {
+          const query = new URLSearchParams(prev);
+          query.set(REPORT_MONTH_QUERY, next);
+          return query;
+        },
+        { replace: true },
+      );
+      setDroppedMonth(null);
       setOpenClosing(false);
     },
-    [analytics, month, baseMonth],
+    [analytics, month, baseMonth, setParams],
   );
+
+  const changeTab = useCallback(
+    (next: ReportTab) => {
+      setParams(
+        (prev) => {
+          const query = new URLSearchParams(prev);
+          if (next === 'income') query.set(REPORT_TAB_QUERY, next);
+          else query.delete(REPORT_TAB_QUERY);
+          return query;
+        },
+        { replace: true },
+      );
+    },
+    [setParams],
+  );
+
+  const here = reportPath(month, tab);
+
+  function openAssets(): void {
+    analytics.log(EVENTS.reportItemOpened, { what: 'assets', tab }, { kind: 'click' });
+    const state: BackState = { backTo: here };
+    void navigate(ROUTES.assets, { state });
+  }
+
+  function openCategory(key: string, from: 'row' | 'donut'): void {
+    analytics.log(EVENTS.reportItemOpened, { what: 'category', tab, from }, { kind: 'click' });
+    void navigate(reportCategoryPath(month, tab, key));
+  }
+
+  // 큰 지출 줄은 id 만 들고 있다. 그 기록을 한 번 받아 쥐고 시트를 연다.
+  const fetchTransaction = useFetchTransaction();
+  const [editing, setEditing] = useState<TransactionOut | null>(null);
+
+  async function openLarge(id: string): Promise<void> {
+    analytics.log(EVENTS.reportItemOpened, { what: 'large', tab }, { kind: 'click' });
+    try {
+      setEditing(await fetchTransaction(id));
+    } catch {
+      toast.show({ text: '기록을 불러오지 못했어요' });
+    }
+  }
 
   // 다 쓴 부탁은 주소에서도 지운다. 히스토리에는 남기지 않는다. 남기면 뒤로가기로
   // 그 주소에 되돌아왔을 때 또 열린다.
@@ -151,6 +237,11 @@ export default function ReportPage() {
         <MonthlyReport
           month={month}
           onMonthChange={changeMonth}
+          mode={tab}
+          onModeChange={changeTab}
+          onOpenAssets={openAssets}
+          onOpenCategory={openCategory}
+          onOpenLarge={(id) => void openLarge(id)}
           autoOpenClosing={openClosing}
           onClosingAutoOpened={consumeClosing}
           adSlot={<AdSlot placement="report" />}
@@ -160,6 +251,12 @@ export default function ReportPage() {
       )}
 
       <MonthStartSheet open={periodOpen} onClose={() => setPeriodOpen(false)} where="report" />
+      <EditSheet
+        transaction={editing}
+        categories={categories.data?.items ?? []}
+        month={{ year: Number(month.slice(0, 4)), month: Number(month.slice(5, 7)) }}
+        onClose={() => setEditing(null)}
+      />
     </div>
   );
 }

@@ -162,6 +162,14 @@ export const TEST_IDS = {
   reportSliceNote: 'report-slice-note',
   /** 결제 수단 목록. 한 번도 안 고른 달에는 아예 없다. */
   reportMethods: 'report-methods',
+  /** 분류 화면 맨 위 이름. */
+  reportCategoryName: 'report-category-name',
+  /** 분류 화면 기간. 서버가 리포트와 같은 한 달 시작일로 자른 날짜다. */
+  reportCategoryPeriod: 'report-category-period',
+  /** 분류 화면 합계. 리포트 그 줄 금액과 같은 셈이다. */
+  reportCategoryTotal: 'report-category-total',
+  /** 분류 화면 건수. */
+  reportCategoryCount: 'report-category-count',
   /*
     결산 입구 카드와 오버레이는 여기 없다. 버튼·다이얼로그라 이름으로 잡힌다.
     이름이 없는 안쪽 줄과 점만 아래에 둔다.

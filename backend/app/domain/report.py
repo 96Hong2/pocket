@@ -20,6 +20,7 @@ __all__ = [
     "MethodRow",
     "TagRanking",
     "TagRow",
+    "breakdown_keys",
     "rank_breakdown",
     "rank_methods",
     "rank_tags",
@@ -59,8 +60,7 @@ def rank_breakdown(
     환불이 지출보다 큰 분류는 합계가 음수인데, 음수 호는 그릴 수 없어 조각에서 뺀다.
     두 값을 함께 보내야 화면이 "도넛이 말하는 것" 과 "실제로 쓴 돈" 을 갈라 적을 수 있다.
     """
-    positive = {key: value for key, value in spend.items() if value.is_positive}
-    ordered = sorted(positive.items(), key=lambda item: (-item[1].amount, _sort_key(item[0])))
+    ordered = _ordered(spend)
 
     total = Money.zero()
     for _, value in ordered:
@@ -76,6 +76,27 @@ def rank_breakdown(
         rows.append(_row(ROLLED_UP, None, folded, total, rolled_count=len(tail)))
 
     return rows, total
+
+
+def breakdown_keys(
+    spend: dict[str | None, Money], key: str, *, limit: int = TOP_LIMIT
+) -> list[str | None]:
+    """리포트 줄 하나가 어느 분류들을 더한 것인지. 줄을 눌러 그 안의 기록을 볼 때 쓴다.
+
+    접은 줄은 `rank_breakdown` 과 같은 순서로 자른 꼬리다. 따로 세면 줄 금액과 목록 합이 갈린다.
+    분류 없음은 `[None]`, 그 밖의 키는 그 분류 하나다(조각에 없는 분류여도 그대로 돌려준다).
+    """
+    if key == ROLLED_UP:
+        return [cid for cid, _ in _ordered(spend)[limit:]]
+    if key == UNCATEGORIZED:
+        return [None]
+    return [key]
+
+
+def _ordered(spend: dict[str | None, Money]) -> list[tuple[str | None, Money]]:
+    """조각에 올릴 줄을 큰 순으로. 음수 호는 그릴 수 없어 뺀다."""
+    positive = {key: value for key, value in spend.items() if value.is_positive}
+    return sorted(positive.items(), key=lambda item: (-item[1].amount, _sort_key(item[0])))
 
 
 def _row(

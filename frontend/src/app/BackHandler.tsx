@@ -2,28 +2,35 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
 import { useBridge, useOverlay } from './providers';
-import { ROUTES, isTabRoot, parentOf } from './router/routes';
+import { ROUTES, backStateOf, isTabRoot, parentOf, parentStateOf } from './router/routes';
 
 /**
  * 시스템 뒤로가기 한 곳.
  *
  * ⚠ 구독하는 순간 플랫폼 기본 뒤로가기가 막힌다. 그래서 여기서 전부 처리한다.
  * 1. 열린 오버레이가 있으면 그것부터 닫는다.
- * 2. 하위 화면이면 상위 화면으로 간다.
+ * 2. 하위 화면이면 들고 온 자리(`BackState`)로, 없으면 상위 화면으로 간다(`ParentState` 를 돌려준다).
  * 3. 탭 루트면 미니앱을 닫는다.
  */
 export function BackHandler() {
   const bridge = useBridge();
   const overlay = useOverlay();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search, state } = useLocation();
 
   const handleBack = useCallback(() => {
     if (overlay.closeTop()) return;
 
-    const parent = parentOf(pathname);
+    const backTo = backStateOf(state);
+    if (backTo != null) {
+      navigate(backTo, { replace: true });
+      return;
+    }
+
+    const parent = parentOf(pathname, search);
     if (parent != null) {
-      navigate(parent, { replace: true });
+      // 상위 화면이 들고 있던 이동 상태를 돌려준다. 그래야 그 화면의 뒤로도 들어온 자리로 간다.
+      navigate(parent, { replace: true, state: parentStateOf(state) });
       return;
     }
 
@@ -36,7 +43,7 @@ export function BackHandler() {
 
     // 어디에도 없는 경로. 홈으로 되돌린다.
     navigate(ROUTES.home, { replace: true });
-  }, [bridge, navigate, overlay, pathname]);
+  }, [bridge, navigate, overlay, pathname, search, state]);
 
   const latest = useRef(handleBack);
   useEffect(() => {
