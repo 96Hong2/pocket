@@ -30,6 +30,8 @@ export { ApiError, apiErrorMessage, CLIENT_ERROR_CODES, parseErrorEnvelope } fro
 export type { ApiErrorCode, ApiErrorInit, ClientErrorCode, ParsedErrorBody } from './errors';
 export { moneyQueryKeys, queryKeys } from './queryKeys';
 export {
+  useAssetAnalysis,
+  useAssetHistory,
   useAssets,
   useBook,
   useBookEntries,
@@ -97,6 +99,8 @@ export {
   useResetAccountData,
   useRestoreBook,
   useRestoreBookEntry,
+  useCaptureAssets,
+  useCheckinAssets,
   useSaveAssets,
   useSaveProfile,
   useSettleDone,

@@ -15,6 +15,7 @@ const ManagePage = lazy(() => import('../../pages/ManagePage'));
 const CalendarPage = lazy(() => import('../../pages/CalendarPage'));
 const GoalPage = lazy(() => import('../../pages/GoalPage'));
 const AssetsPage = lazy(() => import('../../pages/AssetsPage'));
+const AssetAnalysisPage = lazy(() => import('../../pages/AssetAnalysisPage'));
 const CategoriesPage = lazy(() => import('../../pages/CategoriesPage'));
 const TagsPage = lazy(() => import('../../pages/TagsPage'));
 const RecurringPage = lazy(() => import('../../pages/RecurringPage'));
@@ -48,6 +49,7 @@ export function AppRouter() {
           <Route path={ROUTES.calendar} element={<CalendarPage />} />
           <Route path={ROUTES.goal} element={<GoalPage />} />
           <Route path={ROUTES.assets} element={<AssetsPage />} />
+          <Route path={ROUTES.assetAnalysis} element={<AssetAnalysisPage />} />
           <Route path={ROUTES.settings} element={<SettingsPage />} />
           <Route path={ROUTES.privacy} element={<PrivacyPage />} />
           <Route path={ROUTES.notifications} element={<NotificationSettingsPage />} />

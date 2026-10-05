@@ -19,8 +19,11 @@ import logging
 import re
 from datetime import date, timedelta
 
+from app.domain.assets import AssetGroup
 from app.domain.nl_text import find_amounts, read_date, split_entries
 from app.integrations.llm.contracts import (
+    AssetExtraction,
+    ExtractedAsset,
     ExtractedTransaction,
     TransactionExtraction,
     TransactionType,
@@ -32,8 +35,11 @@ from app.integrations.llm.port import (
     require_single_input,
 )
 from app.integrations.llm.prompts import (
+    ASSET_TASK_MARKER,
     RECEIPT_TASK_MARKER,
     SHARED_BOOK_MARKER,
+    AssetHint,
+    listed_asset_names,
     listed_categories,
 )
 
@@ -100,6 +106,22 @@ _IMAGE_SAMPLE: tuple[tuple[str, int, str | None, float, int, TransactionType], .
 # confidence 는 낮은 축이지만 0.5 위라서 서버가 스스로 선택을 켜 둔다.
 _RECEIPT_SAMPLE = (23_500, "식비", 0.72)
 
+# 자산 캡처에 늘 내는 잔액 화면 예시. 이미지를 읽지 않는다. 못 읽은 그림(빈 목록)은 테스트가
+# 클라이언트를 갈아 끼우거나 e2e 가 응답을 바꿔 본다. 지금 캡처 예시와 같은 방식이다.
+_ASSET_SAMPLE: tuple[tuple[str, int, AssetGroup], ...] = (
+    ("청년도약계좌", 3_300_000, AssetGroup.CASH),
+    ("카카오뱅크", 1_250_000, AssetGroup.CASH),
+    ("연금저축펀드", 2_100_000, AssetGroup.PENSION),
+)
+
+# 자산 항목 목록을 받았을 때 저축·투자로 읽는 말. 「N주」 도 저축·투자다.
+_SAVING_KEYWORDS = ("적금", "넣음", "넣었", "저축", "IRP")
+# 어디에가 이것뿐이면 다달이 넣는 항목을 고른다.
+_GENERIC_SAVING = frozenset({"적금", "저축"})
+# 이름에서 떼는 동사 조각.
+_VERB_PREFIXES = ("넣", "샀", "매수")
+_SHARES = re.compile(r"(\d+(?:\.\d+)?)\s*주(?!일)")
+
 # 금액 바로 앞에 붙은 '+'. 사이에 공백이 있어도 같은 뜻으로 본다.
 _PLUS_BEFORE_AMOUNT = re.compile(r"\+\s*$")
 
@@ -139,6 +161,9 @@ class StubLlmStructuredClient:
         today: date | None = None,
     ) -> SchemaT:
         require_single_input(text, image)
+        if schema is AssetExtraction:
+            # 이미지를 읽지 않는다. 배관이 도는지 보려고 정해 둔 잔액 화면 예시다.
+            return schema.model_validate(sample_asset_extraction().model_dump())
         if schema is not TransactionExtraction:
             raise LlmSchemaError(f"스텁은 {TransactionExtraction.__name__} 만 만들 수 있다")
         if image is not None:
@@ -155,7 +180,8 @@ class StubLlmStructuredClient:
             return schema.model_validate(_for_shared_book(sample, prompt).model_dump())
         # 줄글은 규칙 파서가 읽는다. 프롬프트는 공유 가계부 분류로 옮길 때만 본다.
         assert text is not None
-        extraction = parse_text(text, today=today)
+        assets = listed_asset_names(prompt) if ASSET_TASK_MARKER in prompt else None
+        extraction = parse_text(text, today=today, assets=assets)
         return schema.model_validate(_for_shared_book(extraction, prompt).model_dump())
 
 
@@ -229,8 +255,23 @@ def sample_receipt_extraction(today: date | None = None) -> TransactionExtractio
     )
 
 
-def parse_text(text: str, *, today: date | None = None) -> TransactionExtraction:
-    """줄글에서 거래 후보를 뽑는다. 하나도 못 뽑으면 빈 목록."""
+def sample_asset_extraction() -> AssetExtraction:
+    """자산 캡처에 대해 늘 같은 세 줄."""
+    return AssetExtraction(
+        rows=[
+            ExtractedAsset(name=name, amount=amount, group=group)
+            for name, amount, group in _ASSET_SAMPLE
+        ]
+    )
+
+
+def parse_text(
+    text: str, *, today: date | None = None, assets: tuple[AssetHint, ...] | None = None
+) -> TransactionExtraction:
+    """줄글에서 거래 후보를 뽑는다. 하나도 못 뽑으면 빈 목록.
+
+    assets 가 있으면(자산 항목 목록을 받은 지시) 저축·투자 줄을 이체 + asset_name 으로 읽는다.
+    """
     if not text.strip():
         return TransactionExtraction()
 
@@ -243,7 +284,7 @@ def parse_text(text: str, *, today: date | None = None) -> TransactionExtraction
     # 여기서 자르지 않는다. 상한과 '몇 건이 빠졌는지' 는 검토 단위를 만드는 쪽이 정한다.
     # 미리 잘라 넘기면 빠진 건수가 늘 0 이 되어 안내가 영영 뜨지 않는다.
     for entry in entries:
-        parsed = _parse_entry(entry, today=today, inherited=leading)
+        parsed = _parse_entry(entry, today=today, inherited=leading, assets=assets)
         if parsed is None:
             continue
         if leading is None:
@@ -264,7 +305,11 @@ def _leading_date(entries: list[str], *, today: date | None) -> date | None:
 
 
 def _parse_entry(
-    entry: str, *, today: date | None, inherited: date | None
+    entry: str,
+    *,
+    today: date | None,
+    inherited: date | None,
+    assets: tuple[AssetHint, ...] | None = None,
 ) -> ExtractedTransaction | None:
     occurred_at, rest = read_date(entry, today=today)
     amounts = find_amounts(rest)
@@ -288,6 +333,14 @@ def _parse_entry(
     if occurred_at is not None:
         confidence += _DATE_BONUS
 
+    asset_name: str | None = None
+    asset_quantity: float | None = None
+    saving = _saving_of(rest, remainder, assets) if assets is not None else None
+    if saving is not None:
+        transaction_type = TransactionType.TRANSFER
+        category = None
+        asset_name, asset_quantity = saving
+
     return ExtractedTransaction(
         occurred_at=occurred_at or inherited,
         amount=amount.value,
@@ -295,7 +348,37 @@ def _parse_entry(
         merchant=merchant,
         category=category,
         confidence=round(confidence, 2),
+        asset_name=asset_name,
+        asset_quantity=asset_quantity,
     )
+
+
+def _saving_of(
+    text: str, remainder: str, assets: tuple[AssetHint, ...]
+) -> tuple[str | None, float | None] | None:
+    """저축·투자 줄이면 (어디에 이름, 수량). 아니면 None.
+
+    이름은 목록에 있는 이름이 글에 들어 있으면 그것, 「적금」 「저축」 뿐이면 다달이 넣는 항목,
+    아니면 글에서 동사를 뗀 말이다. 「N주」 는 수량으로 옮기고 그 앞말을 이름으로 본다.
+    """
+    shares = _SHARES.search(remainder)
+    if shares is None and not any(keyword in text for keyword in _SAVING_KEYWORDS):
+        return None
+    quantity = float(shares.group(1)) if shares is not None else None
+    listed = sorted((hint for hint in assets if hint.name in text), key=lambda h: -len(h.name))
+    if listed:
+        return listed[0].name, quantity
+    words = _SHARES.sub(" ", remainder).split()
+    words = [word for word in words if not word.startswith(_VERB_PREFIXES)]
+    if words and set(words) <= _GENERIC_SAVING:
+        monthly = [hint for hint in assets if hint.monthly]
+        if len(monthly) == 1:
+            return monthly[0].name, quantity
+    for word in words:
+        hint = next((hint for hint in assets if len(word) >= 2 and word in hint.name), None)
+        if hint is not None:
+            return hint.name, quantity
+    return (" ".join(words)[:80] or None), quantity
 
 
 def _guess_type(text: str) -> TransactionType:

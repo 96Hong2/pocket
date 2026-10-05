@@ -392,6 +392,22 @@
     margin-top: 16px;
   }
 
+  /* 종류가 넷이면 한 줄에 들게 글자 폭만큼 나눠 갖는다. 「저축·투자」 가 두 줄로 꺾이지 않게. */
+  .tx-edit__kind--four .pk-kind__item {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+
+  /* 저축·투자의 어디에, 넣었나 팔았나, 수량. */
+  .tx-edit__asset {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
   /* 칩 자체는 공용 분류 고르기(`cat-chips`)가 그린다. 여기서는 자리만 잡는다. */
   .tx-edit__cats {
     margin-top: 16px;

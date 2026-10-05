@@ -55,6 +55,8 @@ export class HomeScreen {
   readonly bookEdit: BookEntryEditArea;
   /** 화면 아래 한 줄 알림(「지웠어요 [되돌리기]」). 화면을 옮겨도 남는다. */
   readonly toast: ToastArea;
+  /** 「10월 자산, 지난달과 같아요?」 카드. */
+  readonly assetCheckin: AssetCheckinArea;
 
   constructor(page: Page) {
     this.page = page;
@@ -76,6 +78,7 @@ export class HomeScreen {
     this.book = new HomeBookArea(page);
     this.bookEdit = new BookEntryEditArea(page);
     this.toast = new ToastArea(page);
+    this.assetCheckin = new AssetCheckinArea(page);
   }
 
   async open(): Promise<void> {
@@ -1410,5 +1413,26 @@ class ToastArea {
 
   get undoButton(): Locator {
     return this.page.getByRole('button', { name: '되돌리기', exact: true });
+  }
+}
+
+/** 한 달에 한 번 자산을 묻는 카드. */
+class AssetCheckinArea {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  get card(): Locator {
+    return this.page.getByTestId(TEST_IDS.assetCheckinCard);
+  }
+
+  get sameButton(): Locator {
+    return this.card.getByRole('button', { name: '그대로예요', exact: true });
+  }
+
+  get changedButton(): Locator {
+    return this.card.getByRole('button', { name: '바뀐 게 있어요', exact: true });
   }
 }

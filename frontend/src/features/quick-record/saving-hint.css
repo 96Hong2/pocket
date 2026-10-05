@@ -1,0 +1,51 @@
+/*
+  저장 뒤 화면의 적금 안내. 색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
+*/
+
+@layer components {
+  .saving-hint {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-top: 14px;
+    padding: 16px;
+    border-radius: var(--radius-card);
+    background: var(--color-sage-50);
+  }
+
+  .saving-hint__icon {
+    flex: none;
+    width: 32px;
+    height: 32px;
+  }
+
+  .saving-hint__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .saving-hint__title {
+    margin: 4px 0 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.45;
+    word-break: keep-all;
+  }
+
+  .saving-hint__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .saving-hint__actions .pk-btn {
+    min-height: 44px;
+  }
+
+  /* 「어디에」 격자는 아이콘 칸까지 써서 카드 폭을 다 쓴다. 좁은 폭에서 이름이 낱말 중간에서 꺾이지 않게. */
+  .saving-hint .asset-dest__grid {
+    margin-top: 12px;
+    margin-left: -44px;
+  }
+}

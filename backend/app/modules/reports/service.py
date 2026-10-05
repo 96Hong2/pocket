@@ -24,10 +24,14 @@ from app.domain.report import (
 )
 from app.models import Transaction, User
 from app.modules import ledger
+from app.modules.assets import entries as asset_entries, service as assets
 from app.modules.budgets import service as budgets
 from app.modules.goals import service as goals
 
 __all__ = ["MonthlyReport", "build_closing", "build_monthly"]
+
+# 결산 순자산 장이 연속 달을 세는 가장 긴 기간. 자산 추이 상한과 같다.
+_NET_WORTH_MONTHS = 24
 
 # 추이 막대 개수. 조회한 달을 포함해 뒤로 여섯 달이다.
 TREND_MONTHS = 6
@@ -117,6 +121,8 @@ def build_closing(
     previous = period.previous_period()
     rows = ledger.load_period_inputs(session, user, BudgetPeriod(previous.start, period.end))
     budget = budgets.find_budget(session, user, period)
+    # 순자산 연속 판정은 자산 추이와 같은 월말 점을 본다. 그 달 끝(지나는 중이면 오늘)까지.
+    points = assets.month_end_points(session, user, min(period.end, today), _NET_WORTH_MONTHS)
 
     return closing.build_closing(
         closing.ClosingFacts(
@@ -129,6 +135,15 @@ def build_closing(
             goal_contribution=goals.period_contributions(session, user, period),
             # 합계가 0 인 것과 기록이 없는 것은 다르다. 이체만 있어도 기록은 있는 것이다.
             has_any_transaction=any(period.contains(row.occurred_on) for row in rows),
+            saved=asset_entries.month_saved(session, user, period),
+            net_worth_points=tuple(
+                closing.NetWorthPoint(
+                    period=point.month,
+                    effective_on=point.effective_on,
+                    net_worth=point.summary.net_worth,
+                )
+                for point in points
+            ),
         )
     )
 

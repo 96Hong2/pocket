@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # 종류·입력경로는 domain 이 정본이다. 여기서 값 목록을 다시 적지 않는다.
 from app.domain.aggregation import PaymentMethod, TransactionSource, TransactionType
+from app.domain.assets import AssetGroup
 from app.domain.categories import expense_category_names, income_category_names
 
 # 프롬프트와 스텁이 참고하는 분류 이름. 정본은 app/domain/categories.py 다.
@@ -62,6 +63,16 @@ class ExtractedTransaction(BaseModel):
         le=1.0,
         description="이 후보를 얼마나 믿을 수 있는지. 0~1.",
     )
+    # 저축·투자 줄만 채운다. 지시에 자산 항목 목록이 없으면 null 이다.
+    asset_name: str | None = Field(
+        default=None,
+        max_length=80,
+        description="저축·투자면 어디에 넣었는지. 자산 항목 목록에 맞는 이름이 있으면 그 이름.",
+    )
+    asset_quantity: float | None = Field(
+        default=None,
+        description="주식·ETF·코인을 몇 주(개) 샀는지 적혀 있을 때만. 없으면 null.",
+    )
 
     @property
     def is_low_confidence(self) -> bool:
@@ -74,6 +85,33 @@ class TransactionExtraction(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     candidates: list[ExtractedTransaction] = Field(default_factory=list)
+
+
+class ExtractedAsset(BaseModel):
+    """잔액 화면 한 줄. 계좌번호는 담지 않는다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        max_length=80,
+        description="통장·상품·종목 이름. 기존 항목과 같은 것이면 그 이름 그대로. 계좌번호는 빼고.",
+    )
+    amount: int = Field(ge=0, description="화면에 적힌 잔액(평가금액). 부호 없는 정수(원).")
+    group: AssetGroup | None = Field(
+        default=None,
+        description=(
+            "cash 현금·예적금 / investment 투자 / pension 연금 / deposit 보증금·기타"
+            " / debt 대출. 모르겠으면 null."
+        ),
+    )
+
+
+class AssetExtraction(BaseModel):
+    """자산 캡처 Structured Output 최상위 스키마. 잔액이 없는 그림이면 빈 목록이다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rows: list[ExtractedAsset] = Field(default_factory=list)
 
 
 class TransactionCandidate(ExtractedTransaction):

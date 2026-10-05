@@ -1,7 +1,7 @@
 """ORM 모델. alembic autogenerate 가 보려면 여기서 전부 import 되어 있어야 한다."""
 
 from app.db.base import Base
-from app.models.asset import AssetGroup, AssetItem, AssetSnapshot, AssetSource
+from app.models.asset import AssetEntry, AssetGroup, AssetItem, AssetSnapshot, AssetSource
 from app.models.book import (
     Book,
     BookCategory,
@@ -43,6 +43,7 @@ from app.models.user import AgeBand, Gender, LoginCode, User, UserDevice
 
 __all__ = [
     "AgeBand",
+    "AssetEntry",
     "AssetGroup",
     "AssetItem",
     "AssetSnapshot",

@@ -10,6 +10,7 @@ import base64
 import binascii
 import logging
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -19,6 +20,8 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
 from app.domain import aggregation as agg
+from app.domain.asset_ledger import EntrySide
+from app.domain.assets import AssetGroup
 from app.domain.budget import BudgetStatus, evaluate_budget
 from app.domain.feedback import (
     AchievementEvidence,
@@ -38,6 +41,7 @@ from app.domain.period import BudgetPeriod
 from app.domain.tags import TagKind
 from app.models import Category, Tag, Transaction, User
 from app.modules import ledger
+from app.modules.assets import entries as asset_entries
 from app.modules.budgets import service as budgets
 from app.modules.categories import service as categories
 from app.modules.settings import service as settings
@@ -458,18 +462,73 @@ def _projection_achievement(
     )
 
 
+# ── 저축·투자 ──────────────────────────────────────────
+
+_ASSET_COLUMNS = ("asset_item_key", "asset_side", "asset_quantity")
+
+
+def _new_asset_key(session: Session, user: User, today: date, spec: object) -> uuid.UUID:
+    """기록 흐름에서 고른 새 항목을 오늘 스냅샷에 붙이고 키를 돌려준다."""
+    values = spec if isinstance(spec, dict) else dict(vars(spec))
+    group = AssetGroup(values["group"])
+    kind = values.get("kind")
+    return asset_entries.add_item(
+        session, user, today, group=group, kind=kind, label=values.get("label")
+    )
+
+
+def _settle_asset_columns(tx: Transaction) -> None:
+    """어디에가 있으면 쪽은 기본이 넣었어요. 어디에가 없거나 이체가 아니면 자산 칸을 비운다.
+
+    저축·투자에는 분류를 붙이지 않는다. 화면이 분류 자리에 「어디에」 를 그린다.
+    """
+    if tx.type is not agg.TransactionType.TRANSFER or tx.asset_item_key is None:
+        tx.asset_item_key = None
+        tx.asset_side = None
+        tx.asset_quantity = None
+        return
+    if tx.asset_side is None:
+        tx.asset_side = EntrySide.BUY
+    tx.category_id = None
+
+
+def _sync_asset(
+    session: Session, user: User, tx: Transaction, today: date, *, had_asset: bool
+) -> None:
+    """거래와 같은 commit 에서 장부 줄을 맞추고 다시 접는다. 음수 보유면 422."""
+    if had_asset or tx.asset_item_key is not None:
+        session.flush()
+        asset_entries.sync_transaction(session, user, tx, today)
+
+
+def _drop_asset(session: Session, user: User, tx: Transaction) -> None:
+    """지운 거래의 장부 줄을 빼고, 그 거래로만 생긴 빈 항목이면 목록에서도 뺀다."""
+    today = ledger.today_for(user)
+    _sync_asset(session, user, tx, today, had_asset=False)
+    if tx.asset_item_key is not None:
+        asset_entries.drop_if_born_with(session, user, tx, today)
+
+
 # ── 저장 ────────────────────────────────────────────────
 
 
 def create_transaction(
-    session: Session, user: User, data: dict, *, today: date | None = None
+    session: Session,
+    user: User,
+    data: dict,
+    *,
+    today: date | None = None,
+    link: Callable[[Transaction], None] | None = None,
 ) -> tuple[Transaction, SaveOutcome]:
+    """`link` 는 commit 직전에 부른다. 거래 id 를 다른 행에 적어 같은 commit 에 싣는 자리다."""
+    day = today or ledger.today_for(user)
     categories.require_owned(session, user, data.get("category_id"))
     _require_tag(session, user, data.get("tag_id"), data.get("type", agg.TransactionType.EXPENSE))
     _require_no_spend_once(session, user, data)
     target = _refund_target(session, user, data.get("refund_of_transaction_id"), data.get("amount"))
 
     payload = _normalized(data)
+    new_asset = payload.pop("new_asset", None)
     if target is not None:
         # 환불의 종류·예산 반영 여부·분류는 되돌리는 지출이 정한다. 요청 본문 값을 믿지 않는다.
         # 예산에서 뺀 지출을 환불하면서 예산 제외를 안 붙이면 그 돈이 예산으로 되돌아온다.
@@ -489,11 +548,21 @@ def create_transaction(
         payload["tag_id"] = target.tag_id
 
     _drop_method_if_not_spending(payload, payload["type"])
+    wants_asset = new_asset is not None or any(payload.get(name) for name in _ASSET_COLUMNS)
+    if wants_asset and payload["type"] is not agg.TransactionType.TRANSFER:
+        raise ApiError(ErrorCode.INVALID_REQUEST, "저축·투자는 이체로만 적을 수 있어요.", 422)
 
     tx = Transaction(user_id=user.id, **payload)
     _stamp_identity(tx, user)
     session.add(tx)
     _clear_no_spend_for_spending(session, user, tx)
+    if new_asset is not None:
+        tx.asset_item_key = _new_asset_key(session, user, day, new_asset)
+    _settle_asset_columns(tx)
+    _sync_asset(session, user, tx, day, had_asset=False)
+    if link is not None:
+        session.flush()
+        link(tx)
     session.commit()
     session.refresh(tx)
 
@@ -509,7 +578,7 @@ def create_transaction(
         session.rollback()
         logger.exception("기록 방식 기억에 실패했다. 저장은 유지한다 transaction_id=%s", tx.id)
 
-    return tx, evaluate(session, user, tx, today or ledger.today_for(user))
+    return tx, evaluate(session, user, tx, day)
 
 
 def update_transaction(
@@ -519,8 +588,20 @@ def update_transaction(
 
     검증과 시각 정규화는 저장과 같은 것을 쓴다. 여기서 규칙을 다시 쓰면 두 경로가 어긋난다.
     """
+    day = today or ledger.today_for(user)
     tx = _get_owned(session, user, tx_id)
     payload = _normalized(data)
+    new_asset = payload.pop("new_asset", None)
+    had_asset = tx.asset_item_key is not None
+
+    final_type = payload.get("type", tx.type)
+    sent_asset = new_asset is not None or any(payload.get(name) for name in _ASSET_COLUMNS)
+    if sent_asset and final_type is not agg.TransactionType.TRANSFER:
+        raise ApiError(ErrorCode.INVALID_REQUEST, "저축·투자는 이체로만 적을 수 있어요.", 422)
+    if had_asset and "asset_item_key" in payload and payload["asset_item_key"] is None:
+        # 어디에를 비우면 그냥 이체다. 쪽과 수량도 함께 떼어 낸다.
+        payload["asset_side"] = None
+        payload["asset_quantity"] = None
 
     if "category_id" in payload:
         categories.require_owned(session, user, payload["category_id"])
@@ -546,13 +627,17 @@ def update_transaction(
 
     for field, value in payload.items():
         setattr(tx, field, value)
+    if new_asset is not None:
+        tx.asset_item_key = _new_asset_key(session, user, day, new_asset)
+    _settle_asset_columns(tx)
     _stamp_identity(tx, user)
     # 날짜나 종류를 고쳐 지출이 옮겨 간 날에도 표시가 남으면 안 된다.
     _clear_no_spend_for_spending(session, user, tx)
+    _sync_asset(session, user, tx, day, had_asset=had_asset)
     session.commit()
     session.refresh(tx)
 
-    return tx, evaluate(session, user, tx, today or ledger.today_for(user))
+    return tx, evaluate(session, user, tx, day)
 
 
 # ── 조회 ────────────────────────────────────────────────
@@ -777,6 +862,7 @@ def delete_transaction(session: Session, user: User, tx_id: uuid.UUID) -> None:
     """실제로 지우지 않고 표시만 남긴다. 되돌려도 합계가 맞아야 한다."""
     tx = _get_owned(session, user, tx_id)
     tx.deleted_at = datetime.now(UTC)
+    _drop_asset(session, user, tx)
     session.commit()
 
 
@@ -790,4 +876,5 @@ def undo_transaction(session: Session, user: User, tx_id: uuid.UUID) -> None:
     if _age(tx.created_at) > UNDO_WINDOW + UNDO_GRACE:
         raise ApiError(ErrorCode.UNDO_EXPIRED, "되돌릴 수 있는 시간이 지났어요.", status_code=409)
     tx.deleted_at = datetime.now(UTC)
+    _drop_asset(session, user, tx)
     session.commit()

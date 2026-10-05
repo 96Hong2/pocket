@@ -93,12 +93,27 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 그래서 버튼을 걷어냈다. 엔드포인트를 지우지 않는 것은 이미 나간 판이 아직 이걸 부르기
 때문이다. 지우려면 그 판이 다 갈린 뒤에 지운다.
 
+**저축·투자(ADR-0045).** 저장과 수정 본문에 선택 칸 `asset_item_key`(어디에), `asset_side`(`buy` 기본 \| `sell`),
+`asset_quantity`(주식·ETF·코인만, 소수 8자리), `new_asset {group, kind, label}`(어디에를 새로 만들 때. 투자는 종류와 이름 필수)이
+있다. **이체(`type=transfer`)에만 붙고** 칸이 없는 이체는 지금처럼 저장된다. 아래는 전부 422 다: 이체가 아닌데 자산 칸,
+수량 종목에 수량 없음, 금액 종목에 수량, 보유보다 많이 팔기, 지금 금액보다 많이 빼기(금액 종목), 남은 금액보다 많이 갚기(부채),
+없는 항목 키, 지우거나 고쳐 다시 접은 결과가 음수 보유. 저축·투자는 분류를 붙이지 않는다(지출을 저축·투자로 고치면 `category_id` 가
+비고 태그·결제수단은 지금 규칙대로 떨어진다). 지우기와 되돌리기는 장부 줄을 빼고 다시 접는다.
+「새 종목이나 통장」(`new_asset`)으로 만든 항목이 그 기록으로만 생겼으면(장부가 0 시작 값 줄과 그 기록 줄뿐이고,
+기록을 저장한 날 전 스냅샷에 없던 항목) 지우거나 되돌릴 때 오늘 스냅샷에서 그 행도 뺀다.
+
+응답 `transaction` 에 `asset_item_key`, `asset_side`, `asset_quantity`, `asset_label`(최신 스냅샷의 그 키 이름)이 붙고(목록도 같다),
+저장·수정 응답에는 저축·투자일 때만 `asset {item_key, label, item_amount, quantity, month_saved, realized, rate}` 블록이 온다.
+`month_saved` 는 그 기록이 든 달의 모은 돈, `realized`·`rate` 는 팔았을 때 그 판 기록의 실현 수익과 수익률이다.
+
 **금액과 비율은 JSON 에서 문자열로 온다.** 부동소수 오차를 만들지 않으려고 서버가 Decimal 로
 다루기 때문이다. 화면은 `Number()` 로 바꿔 쓴다.
 
 - 금액은 원 단위 정수 문자열이다: `"12000"`, `"-3000"`. 소수점이 붙지 않는다.
 - 비율(`spend_progress`, `pace_ratio`)은 소수점 넷째 자리까지 고정이다: `"0.0240"`, `"0.0000"`.
   자릿수를 고정하지 않으면 0 나눗셈 결과가 `"0E+1"` 같은 지수 표기로 나가서 값이 깨져 보인다.
+- 수량(`quantity`, `asset_quantity`)은 뒤 0 을 뗀 고정 소수점 문자열이다: `"2"`, `"0.003"`, `"0.00000006"`. 지수 표기(`"6E-8"`)로 나가지 않는다.
+- 수익률(`rate`)이 반올림으로 0 이 되면 부호 없이 `"0.0"` 이다. `"-0.0"` 으로 나가지 않는다.
 
 ### 목록 조회
 
@@ -722,6 +737,26 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 - commit 은 고른 줄을 공유 기록으로 한 번에 저장한다: 금액, 상호 → `title`, 내 시간대의 날 → `occurred_on`, 분류(없으면 「기타」), 적은 사람과 낸 사람은 나. 결제 수단과 출처는 버리고 상호 규칙은 배우지 않는다. 고른 줄에 지출이 아닌 것이 있으면 422. 응답에 `book_id` 와 `book_month`(`BookMonthStateOut`: 이번 달이 섞였으면 이번 달, 아니면 가장 늦은 날의 달, 여행 가계부는 여행 전체)가 오고 `feedback`, `budget` 은 `null` 이다.
 - 이미 저장한 묶음에 다시 commit 하면 409 `CONFLICT` 다.
 
+#### 저축·투자 줄(`with_assets`)
+
+세 입구 모두 본문에 `with_assets: true` 를 받는다. **저축·투자 줄을 그릴 수 있는 새 번들만 보낸다.**
+안 보내면(옛 번들 56, 57) 지시도 응답도 지금과 같고 아래 칸은 모두 `null` 이다. 공유 가계부 묶음(`book_id`)에는 적용하지 않는다.
+
+- 모델 지시에 최신 스냅샷의 자산 항목 이름을 분류 이름처럼 준다(이름의 계좌번호 모양은 가린다, 매달 넣는 항목은 `(매달)` 표시).
+  모델 계약 `ExtractedTransaction` 에 `asset_name`, `asset_quantity` 선택 칸이 있다.
+- 이체 후보만 맞춘다. 이름이 같은 항목 → 한쪽이 다른 쪽에 들어 있는 항목 → 「적금」 「저축」 「예금」 만 적었으면 매달 넣는 항목 순서로 보고,
+  **둘 이상에 맞으면 매달 넣는 항목이 하나일 때만** 그것, 아니면 비운다(`app/domain/asset_names.py`).
+- 후보 `ImportCandidateOut` 의 새 칸: `asset_item_key`(맞춘 어디에, 못 맞추면 null), `asset_side`(맞췄으면 `buy`),
+  `asset_quantity`(주식·ETF·코인에 맞췄을 때만 남는다), `asset_name`(읽어 온 이름, 가린 뒤). 맞췄으면 `category_id` 는 null.
+- 수량 종목에 맞췄는데 수량을 못 읽었으면 `is_selected: false` 로 온다. 사람이 수량을 채우면 다시 켜진다.
+- PATCH 는 `asset_item_key`, `asset_side`, `asset_quantity` 를 받는다. `asset_item_key: null` 이면 그냥 이체가 되고 쪽과 수량도 비운다.
+  없는 항목 키는 404, 이체가 아닌 줄에 보내면 422(`type: "transfer"` 를 함께 보낸다), 공유 묶음이면 422.
+  종류를 이체 밖으로 바꾸면 세 칸이 비워진다.
+- commit 은 세 칸을 거래 저장(`POST /transactions` 와 같은 길)에 그대로 넘긴다. 장부 줄이 거래와 같은 commit 에서 생기고,
+  수량 필수·보유 초과 같은 검사도 거기서 422 로 막힌다.
+- 스텁 줄글 규칙: 「적금」 「넣음」 「넣었」 「저축」 「IRP」 가 있거나 「N주」 가 있으면 이체 + `asset_name`. 「삼성전자 2주 50만」 은
+  `asset_name` 삼성전자, `asset_quantity` 2, 금액 500000.
+
 ### 기억한 분류
 
 | 메서드 | 경로 | 하는 일 |
@@ -954,15 +989,18 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
   "is_closed": true,
   "has_any_transaction": true,
   "highlights": [
+    { "kind": "saved", "amount": "300000", "category_id": null, "count": null, "previous": null },
     { "kind": "within_budget", "amount": "70000", "category_id": null, "count": null, "previous": null },
     { "kind": "category_decrease", "amount": "60000", "category_id": "…", "count": null, "previous": "300000" }
   ],
   "flow": {
-    "income": "3000000", "expense": "330000", "transfer": "0",
-    "delta": "2670000", "recorded_days": 12, "total_days": 31
+    "income": "3000000", "expense": "330000", "transfer": "400000",
+    "delta": "2670000", "recorded_days": 12, "total_days": 31,
+    "saved": "300000", "moved": "100000"
   },
   "change": { "category_id": "…", "current": "90000", "previous": "47300", "delta": "42700" },
-  "next": { "kind": "category_cap", "category_id": "…", "suggested_cap": "48000" }
+  "next": { "kind": "category_cap", "category_id": "…", "suggested_cap": "48000" },
+  "net_worth": { "current": "12300000", "previous": "12000000", "delta": "300000", "streak": 5 }
 }
 ```
 
@@ -974,11 +1012,14 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 
 | 필드 | 규칙 |
 | --- | --- |
-| `highlights` | 근거가 있는 것만 **최대 3개**. 순서는 `within_budget` → `category_decrease` → `no_spend_days` → `goal_contribution` 고정. 하나도 없으면 빈 배열 |
-| `highlights[].amount` | **그 종류의 문장이 그대로 읽을 숫자.** 예산이면 남긴 돈, 분류를 줄인 것이면 줄인 돈, 목표면 옮긴 돈 |
+| `highlights` | 근거가 있는 것만 **최대 3개**. 순서는 `saved` → `within_budget` → `category_decrease` → `no_spend_days` → `goal_contribution` 고정. 하나도 없으면 빈 배열 |
+| `highlights[].amount` | **그 종류의 문장이 그대로 읽을 숫자.** 모은 돈이면 모은 돈, 예산이면 남긴 돈, 분류를 줄인 것이면 줄인 돈, 목표면 옮긴 돈 |
 | `highlights[].previous` | 견준 지난달 금액. `category_decrease` 에만 온다 |
 | `highlights[].count` | 안 쓴 날 수. `no_spend_days` 에만 온다 |
-| `flow.transfer` | 그 달에 옮긴 돈. **지출도 수입도 아니라 `delta` 에 안 들어간다** |
+| `flow.transfer` | 그 달 이체 전부. **지출도 수입도 아니라 `delta` 에 안 들어간다.** 뜻을 안 바꿨다(옛 번들이 「옮긴 돈」 으로 읽는다) |
+| `flow.saved` | 모은 돈: 이체 중 `asset_item_key` 가 있고 `asset_side` 가 `sell` 이 아닌 합. `delta` 를 안 바꾼다 |
+| `flow.moved` | 옮긴 돈: `transfer − saved`. 판 돈(`sell`)도 여기다 |
+| `net_worth` | 순자산 장. **그 달에 적은 스냅샷이 있고 앞 달 월말 점이 있을 때만**, 없으면 null. 월말 점은 `/assets/history` 와 같은 함수다. `streak` 은 그 달까지 몇 달 이어 늘었나(늘지 않았으면 0) |
 | `flow.recorded_days` | 그 달에 기록을 남긴 날 수. 이체만 있는 날도 센다. 빠뜨린 날 수는 싣지 않는다 |
 | `change` | 지난달 대비 **가장 많이 늘어난** 분류 하나. 양쪽 달 모두 양수이고 증가액 > 0 일 때만. 없으면 null |
 | `next` | `change` 가 있을 때만. 그 분류의 **지난달 금액을 1,000원 단위로 올린** 한도. **적용 버튼은 없다** |
@@ -998,7 +1039,31 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 | 메서드 | 경로 | 하는 일 |
 | --- | --- | --- |
 | GET | `/assets` | 가장 최근 스냅샷과 그 항목·순자산. 한 번도 안 적었으면 `snapshot: null` |
-| PUT | `/assets` | 항목 목록을 통째로 바꾼다. 응답은 GET 과 같은 모양 |
+| PUT | `/assets` | 항목 목록을 통째로 바꾼다. 같은 항목은 `item_key` 를 이어 받는다. 응답은 GET 과 같은 모양 |
+| GET | `/assets/history?months=6` | 달마다 월말 점(1~24달). 그 달 마지막 날(이번 달은 오늘) 이하의 가장 늦은 스냅샷, 첫 스냅샷 전 달은 점 없음. 응답 `{points: [{month, effective_on, total_assets, total_liabilities, net_worth}]}`, 오래된 달부터 |
+| POST | `/assets/checkin` | `{month: "YYYY-MM"}`, 이번 달만. 최신 목록을 오늘로 복사한다. 오늘 것이 있으면 그대로 200. 응답은 GET 과 같은 모양 |
+| POST | `/assets/capture` | 잔액 화면 캡처 한 장 → 후보 목록(`AssetCaptureOut`). 아무것도 저장하지 않는다. 200 |
+| GET | `/assets/analysis?scope=all` | 「내 자산 분석」(`AssetAnalysisOut`). `scope` 는 `all` \| `stock` \| `cash`. 아무것도 저장하지 않는다 |
+
+**옛 번들(56, 57)을 지키는 두 규칙(ADR-0045).** `groups` 는 옛 넷(`cash`, `investment`, `deposit`, `debt`)만
+싣고 다섯 그룹(연금 포함)은 `all_groups` 에 싣는다. PUT 은 `item_key` 가 오면 그 행, 없으면 같은 (group, label)
+기존 행에 맞추고 **보내지 않은 새 칸은 기존 값을 지킨다.** 어느 줄에도 `item_key` 가 없고(옛 번들) 목록 길이가 기존과 같으면,
+(group, label) 로 안 맞은 줄은 같은 자리의 아직 안 맞춘 같은 그룹 행을 잇는다. 옛 번들에서 이름만 바꿔도 종류, 수량, 넣은 돈과
+장부가 이어진다. 수량 종목은 옛 모양 PUT 의 `amount` 를 무시한다.
+장부가 있는 항목은 값이 바뀐 줄만 `set` 장부 줄을 남긴다. 장부가 있는 항목의 모양(통장, 수량 종목, 금액 종목, 부채)을
+바꾸는 종류·그룹 변경은 422 다.
+
+금액 종목(펀드, 채권, 기타)은 `price_noted_on` 을 안 보내도, 지금 금액(`amount`)이 처음 오거나 바뀌었고 넣은 돈을 알면
+(`cost_basis` 를 보냈거나 기존 값이 있으면) 그 날(사용자 시간대의 오늘)을 `price_noted_on` 에 적는다. 그래서 항목 시트, 캡처,
+체크인 「바뀐 것만 고쳐요」 로 금액을 고쳐도 평가 수익률(`rate_kind: valuation`)이 선다.
+
+**옛 번들 결산의 알려진 차이.** 새 번들에서 모은 돈을 적은 달은 결산 `highlights` 맨 앞에 `saved` 가 들어간다.
+옛 번들 화면은 `saved` 를 몰라 그 줄을 버리므로, 잘한 것 카드에 두 줄까지만 보일 수 있다. 화면이 깨지지는 않는다.
+
+항목 줄의 새 칸: `item_key`, `kind`, `monthly_amount`, `quantity`, `cost_basis`, `unit_price`, `price_noted_on`,
+`realized`(판 기록의 실현 수익 합, 판 적 없으면 null), `rate`(%, 소수 첫째 자리)와 `rate_kind`(`valuation` 지금 가격이나
+지금 금액을 적었을 때 \| `realized`), `value`(= `amount`). `summary.month_saved` 는 이번 달 모은 돈이다
+(이체 중 `asset_item_key` 가 있고 `asset_side` 가 `sell` 이 아닌 합, 사용자 시간대의 달).
 
 ```json
 {
@@ -1014,11 +1079,26 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 }
 ```
 
+#### 자산 캡처 (`POST /assets/capture`)
+
+본문 `{ "image": "data:image/png;base64,…" }` 한 장(32~6,000,000자). 이미지 검사(형식, 4MiB, 매직바이트)는 줄글·캡처 입력과 같고
+하루 상한과 1분 상한도 나눠 쓴다(429 「자산 캡처 분석」). 사용량은 `source: asset_screenshot` 으로 남는다. 검토 단위(`ImportBatch`)를 만들지 않는다.
+
+- 모델 계약은 `AssetExtraction { rows: [{ name, amount, group }] }` 이다. 지시에 기존 항목 이름을 주고, 잔액 숫자만, 계좌번호 금지, 합계 줄 금지다.
+- 응답 `items[]`: `name`(가린 뒤), `amount`, `group`, `item_key`, `current_amount`. 기존 이름과 같으면 그 항목의 `item_key`, 지금 금액, 그 그룹.
+  새 이름이면 `item_key`·`current_amount` 가 null 이고 `group` 은 읽은 추정(모르면 `cash`).
+- **수량 종목(주식, ETF, 코인)에 맞은 줄은 목록에서 뺀다.** 잔액으로 덮으면 수량과 넣은 돈이 어긋난다.
+- 잔액을 못 찾은 그림이면 `items: []` 로 200 이다. 모델 호출이 실패하면 503 `PARSE_UNAVAILABLE` 「지금은 캡처를 읽지 못했어요」.
+- `meta`: `provider`, `is_stub`, `notes`(스텁이면 `stub_image`). 스텁은 그림을 안 읽고 늘 세 줄(청년도약계좌, 카카오뱅크, 연금저축펀드)을 낸다.
+  못 읽은 그림은 pytest 가 모델을 갈아 끼우고, e2e 는 응답을 바꿔 본다.
+- 저장은 화면이 `PUT /assets` 에 `source: "screenshot"` 을 실어 한다. 값이 바뀐 줄은 `set` 장부 줄이 된다.
+
 **적지 않은 것은 정상 상태다.** 조회는 404 가 아니라 200 에 `snapshot: null`·`items: []` 로
 답하고, 그때 `summary` 와 `groups` 는 모두 0 이다.
 
 **하루에 스냅샷 하나다.** PUT 은 오늘 스냅샷이 있으면 그 항목을 통째로 갈아 끼우고, 없으면
-오늘 날짜로 새로 만든다(`source: manual`). 저장할 때마다 쌓으면 하루에 세 번 고친 사람의
+오늘 날짜로 새로 만든다(`source: manual`). 본문에 `source`(`manual` \| `screenshot`)를 실으면 오늘 스냅샷의 출처가 그 값이 되고,
+안 실으면(옛 번들) 지금처럼 둔다. 저장할 때마다 쌓으면 하루에 세 번 고친 사람의
 순자산 추이가 같은 날에 세 점이 되어 날짜별 값이 정해지지 않는다.
 
 **항목 단위 PATCH·DELETE 는 없다.** 화면이 목록을 들고 있다가 통째로 보낸다. 그래서
@@ -1032,7 +1112,7 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 | `group` | `cash` \| `investment` \| `deposit` \| `debt`. 값 목록의 정본은 `app/domain/assets.py` 의 `AssetGroup` |
 | `label` | 80자까지, 선택. 빈칸만 보내면 `null` 로 본다. **계좌·카드번호 칸은 없다** |
 | `amount` | 원 단위 정수, 0 이상 14자리까지. **부채도 양수로 보낸다** |
-| `items` | 40개까지 |
+| `items` | 40개까지. 계정을 합쳐 지금 항목이 40개를 넘으면 지금 항목 수까지 받는다(줄이는 저장은 통과, 늘리는 저장은 422) |
 
 **부채를 양수로 보내고 순자산에서 뺄지는 `group` 이 정한다.** 음수를 받으면 두 번 빠진다.
 컬럼은 `numeric(16,0)` 이지만 상한은 거래·예산과 같은 14자리다. 그보다 크면 JS 의 안전 정수
@@ -1044,6 +1124,22 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 
 ⚠ **`net_worth` 를 남은 예산·이번 달 차액과 한 숫자로 합치지 않는다.** 답하는 질문이 다르다
 (`docs/DATA_MODEL.md` 의 「세 금액 개념이 왜 따로인가」).
+
+#### 내 자산 분석 (`GET /assets/analysis`)
+
+셈은 `app/domain/asset_analysis.py` 순수 함수다. 비율과 수익률은 % 소수 첫째 자리(ROUND_HALF_UP), 분모가 0 이면 null.
+
+| scope | 채우는 칸 |
+| --- | --- |
+| `all` | `summary`(자산·연금 뺀 자산·부채·순자산), `groups`(부채 뺀 그룹 조각, 금액 있는 것만, `ratio` 와 `ratio_without_pension`), `returns`, `month_change`, `saving`, `bundles` |
+| `stock` | 주식·ETF·펀드·채권 항목만. `items`(큰 것부터, `ratio`), `returns` |
+| `cash` | 현금·예적금 그룹 항목만. `items`(`monthly_amount` 포함), `monthly_total` |
+
+- `returns`: 현재가(금액 종목은 지금 금액)나 판 기록이 있는 종목만. 줄마다 평가(`gain`, `rate`)와 실현(`realized`, `realized_rate`), 합산은 평가 중인 종목의 `cost`·`value`·`rate` 와 판 기록의 `realized`·`realized_rate`. 코인은 `all` 에만 든다
+- `month_change`: 지난달 월말 점(`/assets/history` 와 같은 함수)과 지금 목록. 순자산과 그룹별 증감. 지난달 점이 없으면 null
+- `saving`: 이번 달 `saved`(= `summary.month_saved`) ÷ 번 돈 `income`. 번 돈이 0 이면 `rate` null. `goal` 은 진행 중 목표 한 줄
+- `bundles`: 종류별 입구(`stock`, `cash`), 항목이 있는 묶음만. 묶음마다 `fingerprint`
+- `fingerprint`: item_key 순으로 (group, kind, amount, quantity, cost_basis, unit_price, 판 기록 수·받은 돈·실현 수익)과 항목 목록의 sha256. 날짜, 스냅샷 id, 순서, 이름, `price_noted_on` 은 안 먹어서 체크인 복사만으로는 안 바뀐다. 잠금은 화면이 광고 뒤 `{scope: fingerprint}` 를 기기에 두고 견준다
 
 ### 목표
 
@@ -1222,9 +1318,6 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
   그래서 목표 목록 경로를 두지 않았다.
 - **자산 스냅샷에서 목표 기여를 자동으로 끌어오기.** 모델에 `asset_snapshot` 출처가
   있지만 그 경로를 만들지 않았다. 지금 기여는 전부 직접 적은 것(`manual`)이다.
-- **자산 캡처로 채우기.** `PUT /assets` 는 직접 입력만 받는다(`source: manual`). 모델에는
-  `screenshot` 값이 있지만 그 경로를 만들지 않았다.
-- **순자산 추이.** 스냅샷을 날짜로 쌓아 두지만 조회는 가장 최근 하나뿐이다.
 - 설정은 `budget_auto_carryover` 와 `home_hero` 둘만 열려 있다. 리포트 옵션은 아직 없다.
 - **알림을 실제로 쏘는 경로.** 토스 스마트발송을 서버에서 부르는 API 를 확인하지 못해
   `app/integrations/notifications/` 에 어댑터 자리와 로그 스텁만 뒀다. 누구에게 언제 보낼지

@@ -61,6 +61,9 @@ erDiagram
   transactions |o--o| transactions : "refund_of"
 
   asset_snapshots ||--o{ asset_items : ""
+  users ||--o{ asset_entries : "넣고 판 기록"
+  asset_items |o--o{ asset_entries : "item_key 로 잇는다"
+  transactions |o--o| asset_entries : "저축·투자 거래"
   goals ||--o{ goal_contributions : ""
 ```
 
@@ -141,6 +144,7 @@ erDiagram
 | `merchant_normalized` | `varchar(120)?` | 중복 판정과 자동 분류가 맞춰 보는 정규화 값 |
 | `category_id` | `uuid?` | 분류를 지우면 이 칸만 비고 거래는 남는다. FK 가 `SET NULL` 이지만 실제로는 소프트 삭제라 행이 안 지워지고, 서비스가 분류를 떼어 낸다 |
 | `source` | `keypad` \| `nl` \| `screenshot` \| `receipt` \| `asset_screenshot` \| `no_spend` | 어떤 경로로 들어왔는지 |
+| `asset_item_key` · `asset_side` · `asset_quantity` | null 허용 | 저축·투자. `type=transfer` 에 「어디에」 를 붙인 것이다(ADR-0045). 집계는 이 칸을 안 본다 |
 | `confidence` | `float` = 1.0 | 0~1. 사용자가 직접 넣은 값은 1.0 |
 | `excluded_from_budget` | `bool` = false | **거래목록·리포트에는 남고 예산 계산에서만 빠진다** |
 | `payment_method` | `credit` \| `debit` \| `cash` \| `null` | 신용카드·체크카드·현금. **지출과 환불에만 붙고** 수입·이체로 고치면 서비스가 비운다. `null` 이 「안 고름」이라 '모름' 값을 따로 두지 않는다 |
@@ -283,6 +287,8 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | `transaction_id` | 저장을 마치면 만들어진 거래를 가리킨다 |
 | `book_category_id` | 공유 묶음에서 고른 그 가계부의 분류(`SET NULL`). `category_id` 는 개인 분류 외래키라 여기 따로 둔다 |
 | `book_entry_id` | 공유 묶음을 저장하면 만들어진 공유 기록(`SET NULL`) |
+| `asset_item_key` · `asset_side` · `asset_quantity` | 저축·투자 줄. 저장하면 거래의 같은 이름 칸으로 넘어간다. `with_assets` 로 읽은 묶음에서만 찬다 |
+| `asset_name` | 모델이 읽어 온 항목 이름(80자, 계좌번호 모양은 가린 뒤). 항목에 못 맞춰도 남는다 |
 
 제약은 `amount > 0`, `confidence` 0~1. 배치를 지우면 후보도 지워진다.
 
@@ -325,7 +331,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | asset_snapshots | 설명 |
 |---|---|
 | `effective_on` | 사용자가 확인한 기준일. 순자산 추이를 이 날짜로 정렬한다 |
-| `source` | `manual` \| `screenshot` (지금 쓰는 것은 `manual` 뿐이다) |
+| `source` | `manual` \| `screenshot`. 자산 캡처로 채운 목록을 저장하면 `screenshot` 이다(`PUT /assets` 의 `source`, 안 보내면 그대로 둔다) |
 
 **하루에 스냅샷 하나다.** `PUT /assets` 가 오늘(`ledger.today_for`) 스냅샷을 찾아 항목을
 통째로 갈아 끼우고, 없을 때만 새로 만든다. 저장마다 쌓으면 하루에 세 번 고친 사람의
@@ -338,14 +344,49 @@ pref.budget_auto_carryover = false         → 복사 안 함
 
 | asset_items | 설명 |
 |---|---|
-| `group` | `cash` \| `investment` \| `deposit` \| `debt` (컬럼명은 `asset_group`. `group` 이 SQL 예약어다) |
+| `group` | `cash` \| `investment` \| `pension` \| `deposit` \| `debt` (컬럼명은 `asset_group`. `group` 이 SQL 예약어다). 선언 순서가 화면 구획 순서다 |
 | `label` | 금융사·항목 표시명(80자). 선택이고, 안 적으면 `null`. **계좌·카드번호는 저장하지 않는다** |
 | `amount` | `numeric(16,0)`, `>= 0`. **부채도 양수로 저장한다.** 빼는 것은 `group` 이 결정한다 |
 | `confidence` | 캡처 인식값의 신뢰도. 직접 입력이면 1.0 |
 | `sort_order` | 화면에 놓이는 순서. API 가 받은 순서대로 0 부터 붙인다 |
+| `item_key` | 스냅샷이 바뀌어도 같은 항목을 가리키는 키(uuid). 거래와 장부가 이 키로 항목을 찾는다. 배포 중 옛 리비전이 만든 행만 비어 있을 수 있다. (snapshot_id, item_key) 유일 |
+| `kind` | 투자 그룹만. `stock` \| `etf` \| `coin`(수량 종목) \| `fund` \| `bond` \| `other`(금액 종목) |
+| `monthly_amount` | 매달 넣는 돈. 선택. 0 보다 클 때만 「매달」 항목으로 본다(이름 맞추기, 분석의 매달 넣는 돈 합) |
+| `quantity` · `cost_basis` | 보유 수량(`numeric(20,8)`)과 넣은 돈. **장부를 접은 결과의 사본이다** |
+| `unit_price` · `price_noted_on` | 지금 1주 가격(수량 종목)과 지금 가격·금액을 적은 날. 날이 비어 있으면 평가 수익률을 내지 않는다. 금액 종목은 PUT 으로 지금 금액이 처음 오거나 바뀌면 그 날이 적힌다 |
+
+수량 종목의 `amount` 는 `quantity × unit_price`(원 단위 사사오입), 가격이 없으면 넣은 돈이다. 금액 종목의 `amount` 는 지금 금액이다.
+
+## asset_entries (자산 장부)
+
+**항목 값의 정본은 장부를 들어온 순서(`created_at`)로 접은 결과다**(ADR-0045). 스냅샷 행의 금액·수량·넣은 돈은
+그 결과를 적어 둔 사본이다. 접는 식은 `domain/asset_ledger.py` 의 순수 함수 `fold` 하나다.
+
+| 칸 | 설명 |
+|---|---|
+| `user_id` · `item_key` | 누구의 어느 항목. 인덱스 (user_id, item_key) |
+| `side` | `buy`(넣었어요, 부채는 갚았어요) \| `sell`(팔았어요) \| `set`(여기서부터 이 값: 손 수정, 처음 장부가 생길 때의 시작 값) |
+| `quantity` | 수량 종목만 |
+| `amount` | buy 는 넣은 돈, sell 은 받은 돈, set 은 잔액이나 지금 금액 |
+| `cost_basis` | set 줄만. 종목의 넣은 돈(금액 종목은 넣은 돈과 지금 금액 두 값이다) |
+| `transaction_id` | 거래에서 온 줄. 거래가 지워지면 이 줄도 지운 표시를 받는다 |
+| `occurred_on` | 거래 날짜(사용자 시간대). 순서는 이 날짜가 아니라 `created_at` 이다 |
+
+**거래가 바꾸는 것은 늘 오늘 스냅샷이고 지난 점은 고치지 않는다.** 거래 저장·고치기·지우기·되돌리기는 거래와
+같은 commit 에서 장부 줄을 바꾸고 다시 접어 오늘 스냅샷에 적는다(없으면 최신을 오늘로 복사). 음수 보유가 되면 422.
+실현 수익은 칸에 두지 않고 접을 때 센다. 같은 commit 에서 두 줄이 생겨도 순서가 갈리게 서버가 항목마다 앞 줄보다
+늦은 시각을 찍는다.
 
 컬럼은 16자리인데 **API 상한은 거래·예산과 같은 14자리**다(`app/api/amounts.py` 의 `MAX_AMOUNT`).
 그보다 크면 JS 의 안전 정수 범위(약 9e15)를 넘겨 화면이 자릿수를 잘못 그린다.
+
+**초기화와 계정 합치기.** 앱 데이터 초기화는 장부를 스냅샷과 함께 접는다(`account/service.py`).
+합치기는 스냅샷과 장부의 user_id 만 옮긴다(`assets/merge.py`). item_key 는 uuid 라 두 계정 사이에 안 겹쳐
+거래와 장부가 같은 키로 이어진다. 두 쪽 다 자산을 적었으면 최신 목록 둘(target 먼저)을 target 의 오늘 스냅샷
+하나로 묶고, 오늘 스냅샷이 양쪽에 있으면 source 것을 접는다. 묶은 목록은 40개 상한을 넘을 수 있다.
+
+**「내 자산 분석」 은 서버 표가 없다.** `GET /assets/analysis` 가 매번 새로 세고, 광고 뒤 본 지문은 화면이
+기기에 둔다. 그래서 초기화와 합치기에서 따로 지울 것이 없다.
 
 ## tags
 

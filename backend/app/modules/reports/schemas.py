@@ -23,6 +23,7 @@ __all__ = [
     "BreakdownRowOut",
     "ChangeOut",
     "ClosingFlowOut",
+    "ClosingNetWorthOut",
     "ClosingOut",
     "HighlightOut",
     "LargeExpenseOut",
@@ -238,13 +239,28 @@ class ClosingFlowOut(BaseModel):
 
     income: Decimal
     expense: Decimal
-    # 옮긴 돈. 지출도 수입도 아니라 차액에 들어가지 않는다.
+    # 이체 전부. 지출도 수입도 아니라 차액에 들어가지 않는다. 옛 화면이 「옮긴 돈」 으로 읽는다.
     transfer: Decimal
-    # 수입 - 지출. 순자산도 남은 예산도 아니다.
+    # 수입 - 지출. 순자산도 남은 예산도 아니다. 모은 돈은 빼지 않는다.
     delta: Decimal
     # 그 달에 기록을 남긴 날 수. 이체만 있는 날도 센다.
     recorded_days: int
     total_days: int
+    # 모은 돈: 이체 중 어디에 있고 판 것이 아닌 합.
+    saved: Decimal = Decimal(0)
+    # 옮긴 돈: transfer - saved. 판 돈도 여기다.
+    moved: Decimal = Decimal(0)
+
+
+class ClosingNetWorthOut(BaseModel):
+    """순자산 장. 그 달에 적은 스냅샷과 앞 달 점이 있을 때만 온다."""
+
+    current: Decimal
+    previous: Decimal
+    # 이번 - 지난. 음수면 줄었다.
+    delta: Decimal
+    # 그 달까지 몇 달 이어 늘었나. 늘지 않았으면 0.
+    streak: int
 
 
 class ChangeOut(BaseModel):
@@ -286,6 +302,7 @@ class ClosingOut(BaseModel):
     flow: ClosingFlowOut
     change: ChangeOut | None
     next: NextOut | None
+    net_worth: ClosingNetWorthOut | None = None
 
 
 def to_closing(period: BudgetPeriod, result: Closing) -> ClosingOut:
@@ -312,6 +329,8 @@ def to_closing(period: BudgetPeriod, result: Closing) -> ClosingOut:
             delta=result.flow.delta.amount,
             recorded_days=result.flow.recorded_days,
             total_days=result.flow.total_days,
+            saved=result.flow.saved.amount,
+            moved=result.flow.moved.amount,
         ),
         change=(
             None
@@ -330,6 +349,16 @@ def to_closing(period: BudgetPeriod, result: Closing) -> ClosingOut:
                 kind=result.next_step.kind,
                 category_id=uuid.UUID(result.next_step.category_id),
                 suggested_cap=result.next_step.suggested_cap.amount,
+            )
+        ),
+        net_worth=(
+            None
+            if result.net_worth is None
+            else ClosingNetWorthOut(
+                current=result.net_worth.current.amount,
+                previous=result.net_worth.previous.amount,
+                delta=result.net_worth.delta.amount,
+                streak=result.net_worth.streak,
             )
         ),
     )

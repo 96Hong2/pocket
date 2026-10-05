@@ -292,7 +292,7 @@ test('첫 화면 종류 칩은 하나만 골라지고, 고른 종류가 둘째 �
  *
  * 셋이 **같은 폭, 같은 높이(38px)**로 한 줄에 선다. 누른 칩은 사라지지 않으니 포커스도 그 자리에 남는다.
  */
-test('지출·수입·이체 칩은 같은 크기로 한 줄에 서고, 눌러도 포커스가 그 자리에 남는다', async ({
+test('종류 칩 넷은 같은 높이로 한 줄에 서고, 눌러도 포커스가 그 자리에 남는다', async ({
   home,
   recordSheet,
 }) => {
@@ -301,8 +301,9 @@ test('지출·수입·이체 칩은 같은 크기로 한 줄에 서고, 눌러�
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  // 세 칩을 **같은 순간에** 잰다. 시트가 올라오는 중에 하나씩 재면 그 사이 시트가 움직인다.
-  await expect(recordSheet.kindChip('이체')).toBeVisible();
+  // 네 칩을 **같은 순간에** 잰다. 시트가 올라오는 중에 하나씩 재면 그 사이 시트가 움직인다.
+  // 저축·투자가 붙은 판부터 칩 폭은 글자 폭을 따른다(와이어프레임 kchip 의 flex 1 1 auto).
+  await expect(recordSheet.kindChip('저축·투자')).toBeVisible();
   const boxes = await recordSheet.kindGroup.evaluate((group) =>
     [...group.querySelectorAll('[role="radio"]')].map((chip) => {
       const box = chip.getBoundingClientRect();
@@ -313,9 +314,8 @@ test('지출·수입·이체 칩은 같은 크기로 한 줄에 서고, 눌러�
       };
     }),
   );
-  expect(boxes).toHaveLength(3);
-  expect(new Set(boxes.map((box) => box.width)).size, '칩 폭이 서로 다르다').toBe(1);
-  expect(boxes.map((box) => box.height)).toEqual([38, 38, 38]);
+  expect(boxes).toHaveLength(4);
+  expect(boxes.map((box) => box.height)).toEqual([38, 38, 38, 38]);
   // 가운데 높이가 같아야 한 줄이다. 좁은 폭에서 아래로 떨어지면 여기서 걸린다.
   for (const box of boxes) {
     expect(Math.abs(box.middle - boxes[0].middle)).toBeLessThan(2);

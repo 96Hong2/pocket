@@ -62,6 +62,10 @@ export const TEST_IDS = {
   recordAmount: 'record-amount',
   /** 금액 아래에서 다음에 무엇을 하면 되는지 알려 주는 한 줄 */
   recordHint: 'record-hint',
+  /** 저축·투자를 팔 때 저장 전에 크게 보이는 수익과 수익률 */
+  recordSellPreview: 'record-sell-preview',
+  /** 저축·투자 저장 뒤 화면의 줄 하나. data-row(saved·item·gain·left)로 무슨 줄인지 싣는다. */
+  savedAssetRow: 'saved-asset-row',
   /** 달력 화면 합계 띠의 이번 달 지출 */
   monthTotalExpense: 'month-total-expense',
   /** 합계 띠의 이번 달 수입 */
@@ -171,6 +175,8 @@ export const TEST_IDS = {
 
   /** 줄글 검토 목록의 후보 한 줄 */
   nlCandidateRow: 'nl-candidate-row',
+  /** 검토 줄의 「어디에」 칩(접힌 줄). */
+  nlCandidateDest: 'nl-candidate-dest',
   /** 후보 한 줄의 금액 */
   nlCandidateAmount: 'nl-candidate-amount',
   /** 후보 한 줄의 날짜 */
@@ -185,6 +191,8 @@ export const TEST_IDS = {
   merchantRuleRow: 'merchant-rule-row',
   /** 저장 직후 피드백 한 줄 */
   feedbackHeadline: 'feedback-headline',
+  /** 저장 뒤 화면의 적금 안내. 지출을 저축·투자로 바꾸자고 한 번 권한다. */
+  savingHint: 'saving-hint',
   /** 피드백 둘째 줄. 남은 예산 같은 숫자가 여기 붙는다. */
   feedbackDetail: 'feedback-detail',
   /** 저장 직후 상호를 적는 칸. 라벨 없이 placeholder 만 있어 role 로 못 가른다. */
@@ -193,6 +201,28 @@ export const TEST_IDS = {
   feedbackMemoField: 'feedback-memo-field',
   /** 앱 정보 시트의 값 목록. 판·배포·기기가 이름 없는 값이라 묶어서 잡는다. */
   diagnostics: 'diagnostics',
+
+  // 내 자산 분석 입구와 화면. 입구는 data-state(locked·open·stale)로 상태를 싣는다.
+  analysisEntry: 'analysis-entry',
+  analysisPage: 'analysis-page',
+  analysisDonut: 'analysis-donut',
+  analysisRing: 'analysis-ring',
+  analysisNoPension: 'analysis-no-pension',
+  analysisNetWorth: 'analysis-net-worth',
+  analysisReturns: 'analysis-returns',
+  analysisMonthChange: 'analysis-month-change',
+  analysisSaving: 'analysis-saving',
+  analysisKindRow: 'analysis-kind-row',
+  analysisMonthly: 'analysis-monthly',
+  // 홈 체크인 카드
+  assetCheckinCard: 'asset-checkin-card',
+  // 잔액 캡처 시트. 줄은 data-state(same·changed·new)를 싣는다.
+  captureSheet: 'asset-capture-sheet',
+  captureReading: 'asset-capture-reading',
+  captureRow: 'asset-capture-row',
+  captureFail: 'asset-capture-fail',
+  // 결산 순자산 장
+  closingNetWorth: 'closing-net-worth',
 } as const;
 
 export type TestIdKey = keyof typeof TEST_IDS;

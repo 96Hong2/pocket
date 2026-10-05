@@ -25,9 +25,17 @@ export interface CategoryDonutProps {
   rows: BreakdownRowOut[];
   /** 가운데에 적을 것. 가장 큰 조각의 이름과 비중이다. 없으면 가운데를 비운다. */
   center: { caption: string; name: string; share: string } | null;
+  /** 리포트 밖(자산 분석)에서 쓸 때 바꾼다. */
+  label?: string;
+  testId?: string;
 }
 
-export function CategoryDonut({ rows, center }: CategoryDonutProps) {
+export function CategoryDonut({
+  rows,
+  center,
+  label = '카테고리 비중',
+  testId = TEST_IDS.reportDonut,
+}: CategoryDonutProps) {
   const slices = rows.filter((row) => row.share != null);
   if (slices.length < MIN_SLICES) return null;
 
@@ -39,8 +47,8 @@ export function CategoryDonut({ rows, center }: CategoryDonutProps) {
         className="report__donut"
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         role="img"
-        aria-label="카테고리 비중"
-        data-testid={TEST_IDS.reportDonut}
+        aria-label={label}
+        data-testid={testId}
       >
         {slices.map((row) => {
           const share = parseDecimalOr(row.share, 0);

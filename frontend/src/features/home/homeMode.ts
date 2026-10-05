@@ -170,6 +170,7 @@ export function resolveHeroLayout(hero: HomeHero | undefined, hasBudget: boolean
 export type HomeNotice =
   | 'recovery'
   | 'closing'
+  | 'assetCheckin'
   | 'booksIntro'
   | 'homeAdd'
   | 'remind'

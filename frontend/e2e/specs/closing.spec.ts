@@ -256,3 +256,98 @@ test('홈의 결산 카드는 달 초에만 뜨고, 한 번 열어 보면 사라
   // 한 번 열어 봤으면 사라진다. 같은 카드가 매일 뜨면 알림이 아니라 잔소리가 된다.
   await expect(home.closing.link).toHaveCount(0);
 });
+
+test('돈 흐름은 번 돈, 쓴 돈, 모은 돈, 옮긴 돈, 차액이고 모은 돈은 차액을 안 바꾼다. 판 돈은 옮긴 돈이다', async ({
+  prep,
+  report,
+}) => {
+  test.slow();
+  const now = await prep.putAssets([
+    { group: 'cash', label: '청년도약계좌', amount: 1_000_000 },
+    {
+      group: 'investment',
+      label: '삼성전자',
+      amount: 500_000,
+      kind: 'stock',
+      quantity: '2',
+      cost: 500_000,
+    },
+  ]);
+  const keyOf = (label: string): string => {
+    const key = now.items.find((item) => item.label === label)?.item_key;
+    if (key == null) throw new Error(`${label} 항목 키가 없다`);
+    return key;
+  };
+  const food = await prep.categoryIdByName('식비');
+
+  await prep.addTransaction({ amount: 3_000_000, on: day(LAST_MONTH, '03'), type: 'income' });
+  await prep.addTransaction({ amount: 330_000, on: day(LAST_MONTH, '05'), categoryId: food });
+  await prep.addTransaction({ amount: 100_000, on: day(LAST_MONTH, '06'), type: 'transfer' });
+  await prep.addAssetTransfer({
+    amount: 300_000,
+    itemKey: keyOf('청년도약계좌'),
+    on: day(LAST_MONTH, '07'),
+  });
+  await prep.addAssetTransfer({
+    amount: 250_000,
+    itemKey: keyOf('삼성전자'),
+    side: 'sell',
+    quantity: '1',
+    on: day(LAST_MONTH, '08'),
+  });
+
+  await report.open({ month: LAST_MONTH });
+  await report.waitReady();
+  await report.closing.open();
+
+  // 지난달에 적은 자산 스냅샷이 없으니 자산 장이 없다. 넉 장 그대로다.
+  await expect(report.closing.dots).toHaveCount(4);
+  await expect(report.closing.title).toHaveText('잘한 것');
+  await expect(report.closing.highlights.first()).toHaveText(
+    new RegExp(`${formatCurrency(300_000)} 모았어요`),
+  );
+
+  await report.closing.nextButton.click();
+  await expect(report.closing.title).toHaveText('돈 흐름');
+  await expect(report.closing.flowRows).toHaveCount(5);
+  expect(
+    await report.closing.flowRows.evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute('data-row')),
+    ),
+  ).toEqual(['income', 'expense', 'saved', 'transfer', 'delta']);
+  await expect(report.closing.flowRow('income')).toContainText(`번 돈${formatCurrency(3_000_000)}`);
+  await expect(report.closing.flowRow('expense')).toContainText(`쓴 돈${formatCurrency(330_000)}`);
+  await expect(report.closing.flowRow('saved')).toContainText(`모은 돈${formatCurrency(300_000)}`);
+  // 그냥 옮긴 100,000원과 판 돈 250,000원
+  await expect(report.closing.flowRow('transfer')).toContainText(
+    `옮긴 돈${formatCurrency(350_000)}`,
+  );
+  // 차액은 번 돈 − 쓴 돈. 모은 돈과 옮긴 돈은 안 들어간다.
+  await expect(report.closing.flowRow('delta')).toContainText(`+${formatCurrency(2_670_000)}`);
+});
+
+test('지난달에 적은 자산 스냅샷이 있으면 돈 흐름 다음에 자산 장이 낀다', async ({
+  prep,
+  report,
+}) => {
+  test.slow();
+  await prep.putAssets([{ group: 'cash', label: '카카오뱅크', amount: 1_000_000 }]);
+  await prep.moveLatestAssetSnapshot(day(TWO_MONTHS_AGO, '15'));
+  await prep.putAssets([{ group: 'cash', label: '카카오뱅크', amount: 1_300_000 }]);
+  await prep.moveLatestAssetSnapshot(day(LAST_MONTH, '15'));
+  await prep.addTransaction({ amount: 12_000, on: day(LAST_MONTH, '05') });
+
+  await report.open({ month: LAST_MONTH });
+  await report.waitReady();
+  await report.closing.open();
+
+  await expect(report.closing.dots).toHaveCount(5);
+  await report.closing.nextButton.click();
+  await expect(report.closing.title).toHaveText('돈 흐름');
+  await report.closing.nextButton.click();
+  await expect(report.closing.title).toHaveText('자산');
+  // 1,000,000원 → 1,300,000원
+  await expect(report.closing.netWorth).toContainText(
+    `순자산이 +${formatCurrency(300_000)} 늘었어요`,
+  );
+});

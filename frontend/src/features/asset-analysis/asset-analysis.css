@@ -1,0 +1,284 @@
+/*
+  내 자산 분석 입구와 분석 화면. 색·반경·글자는 index.css 의 토큰에서 읽는다.
+*/
+
+@layer components {
+  /* ── 입구: 잠김·바뀜 카드 ─────────────────────── */
+
+  .analysis-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .analysis-entry__kicker {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-extrabold);
+    color: var(--color-sage-700);
+  }
+
+  .analysis-entry__title {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-extrabold);
+    line-height: 1.45;
+    color: var(--color-ink);
+    word-break: keep-all;
+  }
+
+  .analysis-entry .pk-btn {
+    margin-top: 8px;
+  }
+
+  /* ── 입구: 열린 줄, 종류별 줄 ─────────────────── */
+
+  /* 자산 화면에서는 부모가 간격을 준다. 여기서 바깥 여백을 두지 않는다. */
+  .analysis-row-card {
+    overflow: hidden;
+  }
+
+  .analysis-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px 16px;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+
+  .analysis-row:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  .analysis-row__icon {
+    width: 32px;
+    height: 32px;
+    flex: none;
+  }
+
+  .analysis-row__label {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .analysis-row__chevron {
+    font-size: 20px;
+    color: var(--color-muted);
+  }
+
+  /* ── 분석 화면 ─────────────────────────────── */
+
+  .analysis {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 24px;
+  }
+
+  .analysis-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .analysis-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .analysis-card__kicker {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-extrabold);
+    color: var(--color-sage-700);
+    word-break: keep-all;
+  }
+
+  .analysis-card__big {
+    font-size: 22px;
+    font-weight: var(--font-weight-extrabold);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-ink);
+  }
+
+  .analysis-card__sub {
+    font-size: var(--text-13);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+    word-break: keep-all;
+  }
+
+  .analysis-card__empty {
+    margin: 0;
+    font-size: var(--text-14);
+    line-height: 1.5;
+    color: var(--color-muted);
+    word-break: keep-all;
+  }
+
+  .analysis-card--two {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .analysis-card__half {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .analysis .is-up {
+    color: var(--color-sage-700);
+  }
+
+  .analysis .is-down {
+    color: var(--color-amber-700);
+  }
+
+  /* 「연금 빼고 보기」. 눌렸으면 채운다. */
+  .analysis-chip {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    font: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .analysis-chip[aria-pressed='true'] {
+    border-color: var(--color-sage-700);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+  }
+
+  .analysis-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .analysis-legend__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: var(--text-14);
+  }
+
+  .analysis-legend__swatch {
+    width: 10px;
+    height: 10px;
+    flex: none;
+    border-radius: var(--radius-xs);
+  }
+
+  /* 긴 종목 이름은 자르지 않고 두 줄로 접는다. */
+  .analysis-legend__name {
+    flex: 1;
+    min-width: 0;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    color: var(--color-ink);
+  }
+
+  .analysis-legend__share {
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+
+  .analysis-legend__amount {
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  /* 부채와 순자산 한 줄 */
+  .analysis-net {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-divider);
+    font-size: var(--text-14);
+    color: var(--color-muted);
+  }
+
+  .analysis-net b {
+    margin-right: 8px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-ink);
+  }
+
+  .analysis-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .analysis-lines__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: var(--text-14);
+    color: var(--color-ink);
+  }
+
+  .analysis-lines__row > span {
+    min-width: 0;
+    word-break: keep-all;
+  }
+
+  .analysis-lines__row > b {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--font-weight-bold);
+  }
+
+  .analysis-tag {
+    margin-left: 4px;
+    font-size: var(--text-12);
+    font-style: normal;
+    color: var(--color-muted);
+  }
+
+  .analysis-more {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .analysis-more__title {
+    margin: 12px 0 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-extrabold);
+    color: var(--color-ink);
+  }
+
+  .analysis-more .analysis-row-card {
+    margin-top: 8px;
+  }
+}

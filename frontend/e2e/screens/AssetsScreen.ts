@@ -4,7 +4,10 @@ import { ROUTES } from '../../src/app/router/routes';
 import { TEST_IDS } from '../../src/shared/testIds';
 
 /** 화면에 적힌 그룹 이름 그대로다. 구획과 시트의 갈래가 같은 이름을 쓴다. */
-export type AssetGroupLabel = '예적금·현금' | '투자' | '보증금·기타' | '부채';
+export type AssetGroupLabel = '예적금·현금' | '투자' | '연금' | '보증금·기타' | '부채';
+
+/** 투자 그룹의 종류 칩. 화면에 적힌 그대로다. */
+export type InvestKindLabel = '주식' | 'ETF' | '펀드' | '코인' | '채권' | '기타';
 
 /**
  * 자산 화면.
@@ -19,10 +22,16 @@ export class AssetsScreen {
 
   /** 더하기와 고치기가 같은 시트다. 제목만 다르다. */
   readonly sheet: AssetItemSheet;
+  /** 「캡처로 채우기」 시트. */
+  readonly capture: CaptureArea;
+  /** 홈 체크인의 「바뀐 게 있어요」 가 여는 시트. */
+  readonly checkin: CheckinSheet;
 
   constructor(page: Page) {
     this.page = page;
     this.sheet = new AssetItemSheet(page);
+    this.capture = new CaptureArea(page);
+    this.checkin = new CheckinSheet(page);
   }
 
   async open(): Promise<void> {
@@ -46,12 +55,90 @@ export class AssetsScreen {
 
   /** 순자산 위 한 줄. 언제 적은 것인지 기준일이 여기 적힌다. */
   get basisLabel(): Locator {
-    return this.netWorthCard.getByText(/^내 순자산( · \d{1,2}월 \d{1,2}일 기준)?$/);
+    return this.netWorthCard.getByText(/^내 순자산( · \d{1,2}월 \d{1,2}일 기준)? ?›$/);
   }
 
-  /** 순자산이 어디서 나왔는지 적은 줄. `자산 X − 부채 Y`. */
+  /** 예전 카드의 `자산 X − 부채 Y` 줄. 이제는 없어야 하는 자리다. */
   get breakdown(): Locator {
-    return this.netWorthCard.getByText(/^자산 .* − 부채 .*$/);
+    return this.netWorthCard.getByText(/자산 .* − 부채/);
+  }
+
+  /** 순자산 카드 전체(누르는 자리). */
+  get netWorthButton(): Locator {
+    return this.netWorthCard.getByRole('button');
+  }
+
+  /** 카드 안 글자 전부. 무엇이 있고 없는지 볼 때 쓴다. */
+  get netWorthText(): Locator {
+    return this.netWorthCard;
+  }
+
+  /** 카드의 작은 추이 그래프. */
+  get sparkline(): Locator {
+    return this.netWorthCard.locator('svg');
+  }
+
+  /** 순자산 상세 시트. */
+  get detailSheet(): Locator {
+    return this.page.getByRole('dialog', { name: '순자산', exact: true });
+  }
+
+  /** 상세 시트의 한 줄(자산, 부채, 순자산). */
+  detailRow(label: '자산' | '부채' | '순자산'): Locator {
+    return this.detailSheet
+      .getByText(label, { exact: true })
+      .locator('..')
+      .filter({ hasText: /\d원$/ });
+  }
+
+  /** 상세 시트 한 줄의 금액만. 줄 전체에 부분 일치를 걸면 「5,000,000원」 끝의 「0원」 에도 걸린다. */
+  detailValue(label: '자산' | '부채' | '순자산'): Locator {
+    return this.detailRow(label).locator('b');
+  }
+
+  /** 「내 자산 분석」 입구. `data-state` 가 locked, open, stale 중 하나다. */
+  get analysisEntry(): Locator {
+    return this.page.getByTestId(TEST_IDS.analysisEntry);
+  }
+
+  /** 입구 안의 「내 자산 분석」 버튼(잠김, 바뀜 카드). 열림 줄이면 줄 자체가 버튼이다. */
+  get analysisButton(): Locator {
+    return this.page.getByRole('button', { name: /^내 자산 분석/ });
+  }
+
+  /** 자산 화면의 캡처 입구 버튼. */
+  get captureEntry(): Locator {
+    return this.page.getByRole('button', { name: '은행·증권 앱 화면 캡처로 채우기', exact: true });
+  }
+
+  /** 그룹 목록 위 배너. */
+  get topAdSlot(): Locator {
+    return this.page.locator(`[data-testid="${TEST_IDS.adSlot}"][data-placement="assets_top"]`);
+  }
+
+  /** 첫 그룹 구획 머리. 차례를 잴 때 쓴다. */
+  get firstGroup(): Locator {
+    return this.page.getByRole('region', { name: '예적금·현금', exact: true });
+  }
+
+  /** 상세 시트의 큰 선 그래프. */
+  get detailChart(): Locator {
+    return this.detailSheet.locator('svg').first();
+  }
+
+  /** 화면에 그 글자가 보이는 자리. 없어야 하는 문구를 셀 때 쓴다. */
+  anyText(text: string | RegExp): Locator {
+    return this.page.getByText(text, { exact: typeof text === 'string' });
+  }
+
+  /** 광고 확인 창. 자산 화면에 들어올 때는 없어야 한다. */
+  get adConsent(): Locator {
+    return this.page.getByRole('alertdialog');
+  }
+
+  /** 맨 위 제목 아래 설명 줄(page__lead). 자산 화면에는 없어야 한다. */
+  get leadText(): Locator {
+    return this.page.getByText(/모든 항목은 건너뛸 수 있어요/);
   }
 
   /** 한 줄도 없을 때의 제목. */
@@ -61,7 +148,7 @@ export class AssetsScreen {
 
   /** 빈 상태에서 처음 적기 시작하는 버튼. */
   get startButton(): Locator {
-    return this.page.getByRole('button', { name: '자산 적기', exact: true });
+    return this.page.getByRole('button', { name: '직접 적기', exact: true });
   }
 
   /** 못 불러왔을 때. 이 자리에는 더하기 입구를 두지 않는다. */
@@ -87,13 +174,13 @@ export class AssetsScreen {
   }
 
   /**
-   * 시트를 여는 입구 전부. 빈 상태의 「자산 적기」와 구획마다의 「... 항목 추가」다.
+   * 시트를 여는 입구 전부. 빈 상태의 「직접 적기」와 구획마다의 「... 항목 추가」다.
    *
    * 저장이 목록을 통째로 보내는 PUT 하나라, 목록을 못 받은 채로 한 줄을 더하면 있던 줄이
    * 함께 사라진다. 그래서 못 받았을 때 여기가 0 인지를 세는 자리가 필요하다.
    */
   get addEntries(): Locator {
-    return this.page.getByRole('button', { name: /^자산 적기$|항목 추가$/ });
+    return this.page.getByRole('button', { name: /^직접 적기$|항목 추가$/ });
   }
 
   /**
@@ -138,6 +225,37 @@ export class AssetsScreen {
     return this.page.getByRole('button', { name: `${label} 항목 추가`, exact: true });
   }
 
+  /** 그 줄의 칩 하나(종류, 매달, 수익률, 현재가 없음). */
+  rowChip(name: string, text: string | RegExp): Locator {
+    return this.row(name).locator('i').filter({ hasText: text });
+  }
+
+  /**
+   * 그 그룹 ＋ 의 누르는 자리가 가로세로 몇 px 까지 닿나.
+   *
+   * 보이는 동그라미는 30px 이고 누르는 자리는 가상 요소로 넓혔다. 상자 크기로는 못 재서,
+   * 가운데에서 바깥으로 1px 씩 나가며 그 점을 누르면 ＋ 가 받는지 본다.
+   */
+  async plusHitSize(label: AssetGroupLabel): Promise<{ width: number; height: number }> {
+    // 화면 밖이나 아래 탭바 뒤의 점은 다른 요소를 준다. 가운데로 올린 뒤 잰다.
+    return this.addButton(label).evaluate((button) => {
+      button.scrollIntoView({ block: 'center' });
+      const rect = button.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const hits = (x: number, y: number) => {
+        const at = document.elementFromPoint(x, y);
+        return at != null && (at === button || button.contains(at));
+      };
+      const reach = (dx: number, dy: number) => {
+        let step = 0;
+        while (step < 60 && hits(cx + dx * (step + 1), cy + dy * (step + 1))) step += 1;
+        return step;
+      };
+      return { width: reach(-1, 0) + reach(1, 0) + 1, height: reach(0, -1) + reach(0, 1) + 1 };
+    });
+  }
+
   /** 그 항목을 고치려고 누르는 줄. */
   editButton(name: string): Locator {
     return this.page.getByRole('button', { name: `${name} 고치기`, exact: true });
@@ -178,6 +296,16 @@ export class AssetsScreen {
     await this.sheet.save();
   }
 
+  /** 이미 적어 둔 줄에서 「매달 넣는 돈이에요」 를 켜고 매달 얼마를 적는다. 금액을 적기 전에는 저장이 꺼져 있다. */
+  async setMonthly(name: string, amount: number): Promise<void> {
+    await this.openEdit(name);
+    await this.sheet.monthlyToggle.click();
+    await expect(this.sheet.monthlyToggle).toHaveAttribute('aria-checked', 'true');
+    await expect(this.sheet.saveButton).toBeDisabled();
+    await this.sheet.field('매달 얼마').fill(String(amount));
+    await this.sheet.save();
+  }
+
   /** 이미 적어 둔 줄을 지운다. */
   async remove(name: string): Promise<void> {
     await this.openEdit(name);
@@ -210,7 +338,7 @@ class AssetItemSheet {
 
   constructor(page: Page) {
     this.page = page;
-    this.root = page.getByRole('dialog', { name: /^자산 항목 (추가|고치기)$/ });
+    this.root = page.getByRole('dialog', { name: /^(.+ 항목 추가|자산 항목 고치기)$/ });
   }
 
   /** 시트 자체. 저장이 막혔을 때 닫히지 않고 남아 있는지 볼 때 쓴다. */
@@ -218,8 +346,9 @@ class AssetItemSheet {
     return this.root;
   }
 
+  /** 더하는 시트. 제목이 「<그룹> 항목 추가」 다. */
   get addDialog(): Locator {
-    return this.page.getByRole('dialog', { name: '자산 항목 추가', exact: true });
+    return this.page.getByRole('dialog', { name: /^.+ 항목 추가$/ });
   }
 
   get editDialog(): Locator {
@@ -227,7 +356,7 @@ class AssetItemSheet {
   }
 
   get nameField(): Locator {
-    return this.root.getByLabel('이름 (선택)', { exact: true });
+    return this.root.getByLabel('이름', { exact: true });
   }
 
   /**
@@ -237,7 +366,29 @@ class AssetItemSheet {
    * 이름을 못 박으면 잡히지 않는다. 예산 시트도 같은 이유로 부분일치로 집는다.
    */
   get amountField(): Locator {
-    return this.root.getByLabel('금액');
+    return this.root.getByLabel(/^금액/);
+  }
+
+  /** 이름이 그 말로 시작하는 입력칸(「갖고 있는 수량」, 「넣은 돈」, 「지금 1주 가격」, 「지금 금액」). */
+  field(label: string): Locator {
+    return this.root.getByLabel(new RegExp(`^${label}`));
+  }
+
+  /** 「매달 넣는 돈이에요」 토글. 켜면 「매달 얼마」 칸이 열린다. */
+  get monthlyToggle(): Locator {
+    return this.root.getByRole('switch', { name: '매달 넣는 돈이에요' });
+  }
+
+  /** 투자 종류 칩 하나. */
+  kindChoice(label: InvestKindLabel): Locator {
+    return this.root
+      .getByRole('radiogroup', { name: '투자 종류' })
+      .getByRole('radio', { name: label, exact: true });
+  }
+
+  /** 맨 위 ‹ . */
+  get backButton(): Locator {
+    return this.root.getByRole('button', { name: /뒤로/ });
   }
 
   get saveButton(): Locator {
@@ -305,5 +456,88 @@ class AssetItemSheet {
   async remove(): Promise<void> {
     await this.deleteButton.click();
     await this.waitClosed();
+  }
+}
+
+/** 「캡처로 채우기」 시트. 입구, 읽는 중, 검토, 못 읽음이 한 시트 안에서 바뀐다. */
+class CaptureArea {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  /** 시트 본문. `data-step` 이 intro, reading, review, fail 중 하나다. */
+  get body(): Locator {
+    return this.page.getByTestId(TEST_IDS.captureSheet);
+  }
+
+  /** 입구 한 줄. */
+  get lead(): Locator {
+    return this.body.getByText(/^은행이나 증권 앱의 잔액 화면을 올리면 읽어요/);
+  }
+
+  get pickButton(): Locator {
+    return this.body.getByRole('button', { name: '사진 고르기', exact: true });
+  }
+
+  /** 시트 본문 안 버튼 전부. 입구에는 「사진 고르기」 하나뿐이어야 한다. */
+  get buttons(): Locator {
+    return this.body.getByRole('button');
+  }
+
+  get reading(): Locator {
+    return this.page.getByTestId(TEST_IDS.captureReading);
+  }
+
+  /** 검토 줄 전부. `data-state` 가 same, changed, new 중 하나다. */
+  get rows(): Locator {
+    return this.page.getByTestId(TEST_IDS.captureRow);
+  }
+
+  row(name: string): Locator {
+    return this.rows.filter({ hasText: name });
+  }
+
+  get saveButton(): Locator {
+    return this.body.getByRole('button', { name: /줄 저장$/ });
+  }
+
+  get fail(): Locator {
+    return this.page.getByTestId(TEST_IDS.captureFail);
+  }
+
+  get retryButton(): Locator {
+    return this.fail.getByRole('button', { name: '다른 사진 고르기', exact: true });
+  }
+
+  get manualButton(): Locator {
+    return this.fail.getByRole('button', { name: '직접 적기', exact: true });
+  }
+
+  async waitStep(step: 'intro' | 'reading' | 'review' | 'fail'): Promise<void> {
+    await expect(this.body).toHaveAttribute('data-step', step);
+  }
+}
+
+/** 「바뀐 것만 고쳐요」. 항목마다 지금 금액 칸 하나와 「저장」. */
+class CheckinSheet {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('dialog', { name: '바뀐 것만 고쳐요', exact: true });
+  }
+
+  get dialog(): Locator {
+    return this.root;
+  }
+
+  /** 그 항목의 금액 칸. */
+  amount(name: string): Locator {
+    return this.root.getByLabel(`${name} 금액`, { exact: true });
+  }
+
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: '저장', exact: true });
   }
 }

@@ -10,6 +10,7 @@ import { AddToHomeCard } from '../features/home-add';
 import { RemindCard, useRemindNudge } from '../features/notifications';
 import { RecurringDueCard } from '../features/recurring';
 import {
+  AssetCheckinCard,
   BooksIntroCard,
   BudgetSuggestCard,
   ClosingEntryCard,
@@ -25,6 +26,7 @@ import {
   resolveHeroLayout,
   resolveHomeView,
   toHomeViewInput,
+  useAssetCheckin,
   useCardDismiss,
   useClosingEntry,
   useNudgeQuiet,
@@ -150,6 +152,7 @@ function HomeContent({
   const booksEnabled = useSharedBooksEnabled();
   const books = useBooks();
   const closingEntry = useClosingEntry();
+  const assetCheckin = useAssetCheckin();
   const closingMonth = closingEntry.month;
   const me = useMe();
   // 오늘 권유를 하나 닫았으면 다른 권유는 내일로 미룬다.
@@ -245,6 +248,7 @@ function HomeContent({
           state: slot(view?.mode === 'recovery' && budget.data != null && !recovery.hidden),
         },
         { key: 'closing', state: slot(closingMonth != null, closingEntry.unknown) },
+        { key: 'assetCheckin', state: slot(assetCheckin.show, assetCheckin.unknown) },
         {
           key: 'booksIntro',
           state: slot(
@@ -362,6 +366,9 @@ function HomeContent({
       */}
       {showClosing && closingMonth != null ? (
         <ClosingEntryCard month={closingMonth} onDismiss={closeNudge(closingEntry.dismiss)} />
+      ) : null}
+      {notice === 'assetCheckin' ? (
+        <AssetCheckinCard month={assetCheckin.month} onDismiss={closeNudge(assetCheckin.dismiss)} />
       ) : null}
 
       {showBudgetSuggestion ? (

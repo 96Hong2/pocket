@@ -21,6 +21,7 @@ from app.api.errors import ApiError, ErrorCode
 from app.core.config import Settings
 from app.integrations.email.port import EmailMessage, EmailSender
 from app.models import (
+    AssetEntry,
     AssetSnapshot,
     Budget,
     Category,
@@ -39,6 +40,7 @@ from app.models import (
     UserPreference,
 )
 from app.modules.account.schemas import EmailVerifyOut, MeOut
+from app.modules.assets.merge import absorb_assets
 from app.modules.books import service as books
 
 __all__ = ["me_view", "peek_code", "start_email_login", "update_profile", "verify_email_login"]
@@ -202,7 +204,7 @@ def verify_email_login(
 
 
 def _has_data(session: Session, user: User) -> bool:
-    for model in (Transaction, Budget, Goal, AssetSnapshot):
+    for model in (Transaction, Budget, Goal, AssetSnapshot, AssetEntry):
         if session.scalar(select(model.id).where(model.user_id == user.id).limit(1)) is not None:
             return True
     return False
@@ -309,7 +311,9 @@ def _absorb(session: Session, *, source: User, target: User) -> None:
         goal.user_id = target.id
     session.flush()
 
-    for model in (Transaction, AssetSnapshot, ImportBatch, ParseUsage):
+    # 자산은 스냅샷과 장부를 옮기고, 두 쪽 최신 목록을 오늘 스냅샷 하나로 묶는다.
+    absorb_assets(session, source=source, target=target)
+    for model in (Transaction, ImportBatch, ParseUsage):
         session.execute(update(model).where(model.user_id == source.id).values(user_id=target.id))
     # 설정과 알림은 target 것을 쓴다. source 것은 익명키 원문이 들어 있어 남기지 않는다.
     session.execute(delete(NotificationSetting).where(NotificationSetting.user_id == source.id))

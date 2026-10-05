@@ -1,19 +1,39 @@
 /*
   자산 화면 스펙. 색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
-  카드·시트·세그먼트·금액은 shared/ui 가 그리고, 여기에는 이 화면의 배치만 둔다.
+  카드·시트·금액은 shared/ui 가 그리고, 여기에는 이 화면의 배치만 둔다.
 */
 
 @layer components {
+  /* 안내 두 줄을 걷은 자리. 제목 아래를 낮게 두어 390x844 첫 화면 안에 배너까지 든다. */
+  .assets-page .page__title {
+    margin-bottom: 12px;
+  }
+
   .assets {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 12px;
     margin-bottom: 24px;
+  }
+
+  .assets-empty__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .assets__full {
+    margin: 0;
+    padding: 4px 0 0;
+    text-align: center;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
   }
 
   /* ── 관리 탭의 자산 입구 ─────────────────────────── */
 
-  /* 숫자를 그 자리에 보여 주는 줄. 이름만 있는 줄이면 눌러 보기 전에는 안이 안 보인다. */
   .assets-entry {
     display: flex;
     align-items: center;
@@ -39,14 +59,17 @@
     color: var(--color-ink);
   }
 
-  /*
-    불러오는 동안에는 빈 글자라 높이가 0 이다. 숫자가 들어오는 순간 카드가 자라고
-    아래가 통째로 내려가지 않게 한 줄 자리를 늘 잡아 둔다.
-  */
+  /* 불러오는 동안에도 한 줄 자리를 잡아 둔다. 숫자가 들어올 때 아래가 밀리지 않는다. */
   .assets-entry__sub {
     min-height: 1lh;
     font-size: var(--text-12);
     color: var(--color-muted);
+    overflow-wrap: anywhere;
+  }
+
+  .assets-entry__spark {
+    flex: none;
+    color: var(--color-sage-700);
   }
 
   /* 화살표는 글자에 섞지 않는다. 스크린리더가 함께 읽는다. */
@@ -65,10 +88,32 @@
   .net-worth {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 18px;
+    gap: 12px;
+    width: 100%;
+    padding: 16px 18px;
+    border: 0;
     background: var(--color-sage-50);
     border-radius: var(--radius-card);
+    font-family: inherit;
+    text-align: left;
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+
+  /* 금액이 길어 추이와 한 줄에 못 들면 추이가 아래 줄 오른쪽으로 내려간다. 겹치지 않는다. */
+  .net-worth__top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .net-worth__main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
   }
 
   .net-worth__label {
@@ -77,18 +122,154 @@
     color: var(--color-sage-700);
   }
 
-  .net-worth__amount {
-    color: var(--color-ink);
+  .net-worth__chev {
+    margin-left: 4px;
+    font-style: normal;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-extrabold);
   }
 
-  /* 순자산이 어디서 나왔는지. 자릿수가 흔들리지 않게 숫자 폭을 고정한다. */
-  .net-worth__breakdown {
-    font-size: var(--text-13);
+  .net-worth__amount {
+    color: var(--color-ink);
+    letter-spacing: -0.5px;
+    overflow-wrap: anywhere;
+  }
+
+  .net-worth .trend-spark {
+    flex: none;
+    margin-left: auto;
+    color: var(--color-sage-700);
+  }
+
+  .net-worth__row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 10px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--color-sage-700) 14%, transparent);
+    font-size: var(--text-12);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
     font-variant-numeric: tabular-nums;
-    /* 긴 금액 둘이 한 줄에 안 들어가면 줄을 바꾼다. 가로로 밀면 탭바가 화면 밖으로 나간다. */
+  }
+
+  .net-worth__row b {
+    font-weight: var(--font-weight-extrabold);
+    color: var(--color-ink);
+  }
+
+  .net-worth__row b.net-worth__up {
+    color: var(--color-sage-700);
+  }
+
+  .net-worth__row b.net-worth__down {
+    color: var(--color-expense);
+  }
+
+  /* ── 창 머리(‹ 와 제목) ──────────────────────────── */
+
+  .asset-sheet-head {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+    margin: 0 0 8px;
+  }
+
+  /* 높은 시트는 본문 자식마다 남은 높이를 나눠 준다. 머리가 그 몫을 받으면 위아래로 빈자리가 생긴다. */
+  .pk-sheet--tall > .pk-sheet__body > .asset-sheet-head {
+    flex: none;
+  }
+
+  .asset-sheet-head__back {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin-left: -12px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-ink);
+  }
+
+  .asset-sheet-head__back:active {
+    background: var(--color-bg);
+  }
+
+  .asset-sheet-head__title {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 18px;
+    font-weight: var(--font-weight-extrabold);
+    color: var(--color-ink);
+  }
+
+  /* ── 순자산 상세 ────────────────────────────────── */
+
+  .nw-sheet__lead {
+    margin: 0 0 4px;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .nw-chart {
+    width: 100%;
+    min-height: 170px;
+    margin-top: 6px;
+    color: var(--color-sage-700);
+  }
+
+  .nw-chart__svg {
+    display: block;
+  }
+
+  .nw-chart__label {
+    fill: var(--color-muted);
+  }
+
+  .nw-chart__label--now,
+  .nw-chart__value {
+    fill: var(--color-sage-700);
+  }
+
+  .nw-sheet__rows {
+    margin-top: 10px;
+  }
+
+  .nw-sheet__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-divider);
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .nw-sheet__row b {
+    font-weight: var(--font-weight-extrabold);
     overflow-wrap: anywhere;
+    text-align: right;
+  }
+
+  .nw-sheet__row--total {
+    border-bottom: 0;
+    font-size: 17px;
+  }
+
+  .nw-sheet__row--total b {
+    color: var(--color-sage-700);
+  }
+
+  .nw-sheet__close {
+    margin-top: 16px;
   }
 
   /* ── 그룹 구획 ──────────────────────────────────── */
@@ -97,40 +278,62 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin-top: 8px;
   }
 
   .asset-group__head {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     padding: 0 2px;
   }
 
-  .asset-group__title {
+  .asset-group__name {
     flex: 1;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .asset-group__name {
     margin: 0;
-    font-size: var(--text-14);
-    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-extrabold);
     color: var(--color-ink);
   }
 
-  .asset-group__hint {
-    font-size: var(--text-11);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-muted);
+  .asset-group__sum {
+    white-space: nowrap;
+  }
+
+  /* 보이는 원은 30px, 누르는 자리는 44px. */
+  .asset-group__plus {
+    position: relative;
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    margin: 7px 0 7px -4px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: var(--font-weight-extrabold);
+    line-height: 1;
+  }
+
+  .asset-group__plus::after {
+    content: '';
+    position: absolute;
+    inset: -7px;
+  }
+
+  .asset-group__plus:disabled {
+    opacity: 0.4;
   }
 
   .asset-list {
     display: flex;
     flex-direction: column;
-    gap: 0;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -145,66 +348,84 @@
     align-items: center;
     gap: 10px;
     width: 100%;
-    min-height: 52px;
+    min-height: 56px;
     padding: 8px 2px;
     border: 0;
     background: transparent;
     font-family: inherit;
     text-align: left;
+    color: var(--color-ink);
+  }
+
+  .asset-row__main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .asset-row__line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
   }
 
   .asset-row__name {
-    flex: 1;
     min-width: 0;
-    font-size: var(--text-14);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-ink);
-    /* 아주 긴 이름이 화면을 가로로 밀지 않게 줄 안에서 끊는다. */
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    /* 아주 긴 이름이 화면을 가로로 밀거나 카드를 세로로 부풀리지 않게 두 줄에서 끊는다. */
     overflow-wrap: anywhere;
-    /* 아주 긴 이름이 카드를 세로로 부풀리지 않게 두 줄에서 끊는다.
-       80자를 다 적으면 여섯 줄이 되어 금액과 버튼이 이름에 밀렸다. */
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
   }
 
-  /* 상한에 닿았을 때 더하기 버튼 자리에 서는 한 줄. 버튼과 높이를 맞춘다. */
-  .asset-group__full {
-    margin: 0;
-    padding: 12px 0;
-    text-align: center;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-muted);
-  }
-
-  .asset-row__go {
-    flex: none;
+  .asset-row__meta {
     font-size: var(--text-12);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
   }
 
-  .asset-group__add {
-    min-height: 44px;
-    border: 1px dashed var(--color-dashed);
-    border-radius: var(--radius-inset);
-    background: transparent;
-    font-family: inherit;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-bold);
+  .asset-row__side {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    white-space: nowrap;
+  }
+
+  .asset-chip {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-extrabold);
+    font-style: normal;
+    white-space: nowrap;
+  }
+
+  .asset-chip--soft {
+    background: var(--color-surface-sunken);
+    color: var(--color-muted);
+  }
+
+  .asset-chip--up {
+    background: var(--color-sage-100);
     color: var(--color-sage-700);
   }
 
-  /* 목록 끝에 한 줄. 어느 칸도 비워 둘 수 있다는 것을 적는 자리다. */
-  .assets__skip-note {
-    margin: 0;
-    padding: 12px 0;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-muted);
-    text-align: center;
+  .asset-chip--down {
+    background: color-mix(in srgb, var(--color-expense) 10%, var(--color-surface));
+    color: var(--color-expense);
   }
 
   /* ── 항목 시트 ──────────────────────────────────── */
@@ -219,12 +440,74 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 0;
   }
 
   .asset-sheet__label {
     font-size: var(--text-12);
     font-weight: var(--font-weight-bold);
     color: var(--color-muted);
+  }
+
+  /* 그룹 다섯은 세 칸씩 두 줄. 한 줄에 다섯을 넣으면 344px 에서 이름이 잘린다. */
+  .asset-sheet__groups {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .asset-sheet__group {
+    min-height: 44px;
+    padding: 0 4px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+    word-break: keep-all;
+  }
+
+  .asset-sheet__group[aria-checked='true'] {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-extrabold);
+  }
+
+  .asset-sheet__kinds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* 보이는 알약은 34px, 누르는 자리는 위아래로 넓혀 44px. */
+  .asset-sheet__kind {
+    position: relative;
+    height: 34px;
+    margin: 5px 0;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .asset-sheet__kind::after {
+    content: '';
+    position: absolute;
+    inset: -6px 0;
+  }
+
+  .asset-sheet__kind[aria-checked='true'] {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-extrabold);
   }
 
   .asset-sheet__input {
@@ -245,12 +528,31 @@
     font-weight: var(--font-weight-medium);
   }
 
-  .asset-sheet__hint {
-    margin: 0;
-    font-size: var(--text-12);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-muted);
-    line-height: 1.5;
+  .asset-sheet__two {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  /* 반 칸에 「모르면 비워 둬요」 가 다 보이게 자리표시 글자만 줄인다. */
+  .asset-sheet .pk-amount-field__input::placeholder {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .asset-sheet__toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 52px;
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .asset-sheet__toggle-label {
+    flex: 1;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
   }
 
   .asset-sheet__notice {
@@ -269,7 +571,68 @@
     flex: 1;
   }
 
-  .asset-sheet__done {
-    flex: 2;
+  .asset-sheet__actions > .asset-sheet__done {
+    flex: 1.6;
+  }
+
+  /* 「바뀐 것만 고쳐요」 */
+  .checkin-sheet__rows {
+    margin: 4px 0 16px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .checkin-sheet__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 60px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .checkin-sheet__name {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    overflow-wrap: anywhere;
+  }
+
+  .checkin-sheet__name small {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .checkin-sheet__input {
+    width: 132px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .checkin-sheet__value {
+    font-size: var(--text-15);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-ink);
+  }
+
+  .checkin-sheet__error {
+    margin: 0 0 12px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
   }
 }

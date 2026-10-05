@@ -22,8 +22,11 @@ import anyio.from_thread
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.api.amounts import MAX_QUANTITY
 from app.api.errors import ApiError, ErrorCode
 from app.core.config import get_settings
+from app.domain.asset_ledger import EntrySide
+from app.domain.asset_names import NamedItem, match_item
 from app.domain.extraction_review import ReviewVerdict, review_extraction
 from app.domain.fingerprint import Fingerprint, build_fingerprint, normalize_merchant
 from app.domain.money import Money
@@ -44,8 +47,10 @@ from app.integrations.llm import (
     receipt_prompt,
     retry_prompt,
     screenshot_prompt,
+    with_assets,
 )
 from app.models import (
+    AssetItem,
     Book,
     BookEntry,
     BookMember,
@@ -60,6 +65,7 @@ from app.models import (
     User,
 )
 from app.modules import ledger
+from app.modules.assets import entries as asset_entries, names as asset_names
 from app.modules.books import service as books
 from app.modules.books.schemas import BookMonthStateOut
 from app.modules.categories import service as categories
@@ -75,6 +81,8 @@ __all__ = [
     "parse_image",
     "parse_images",
     "parse_text",
+    "record_usage",
+    "require_quota",
     "update_candidate",
 ]
 
@@ -184,6 +192,25 @@ class _SpendKey(NamedTuple):
         return not self.merchant or not other.merchant or self.merchant == other.merchant
 
 
+class _AssetScope(NamedTuple):
+    """새 번들이 저축·투자를 그릴 수 있다고 알렸을 때만 만든다. 공유 가계부 묶음에는 없다."""
+
+    rows: list[AssetItem]
+    items: list[NamedItem]
+    quantity_keys: set[uuid.UUID]
+
+
+def _asset_scope(
+    session: Session, user: User, with_assets: bool, scope: _BookScope | None
+) -> _AssetScope | None:
+    if not with_assets or scope is not None:
+        return None
+    rows = asset_names.current_rows(session, user)
+    return _AssetScope(
+        rows=rows, items=asset_names.named(rows), quantity_keys=asset_names.quantity_keys(rows)
+    )
+
+
 def _book_scope(session: Session, user: User, book_id: uuid.UUID | None) -> _BookScope | None:
     """공유 가계부에 적는 길이면 그 가계부를 연다. 멤버가 아니면 404, 끝났으면 BOOK_ENDED."""
     if book_id is None:
@@ -211,10 +238,12 @@ def parse_text(
     today: date | None = None,
     base_day: date | None = None,
     book_id: uuid.UUID | None = None,
+    with_assets: bool = False,
 ) -> ImportBatch:
     """줄글에서 거래 후보를 뽑아 검토 단위를 만든다."""
     # 상한을 쓰기 전에 본다. 들어갈 수 없는 가계부로 모델을 부르지 않는다.
     scope = _book_scope(session, user, book_id)
+    assets = _asset_scope(session, user, with_assets, scope)
     day = today or ledger.today_for(user)
     base = _base_day(base_day, day)
     _require_quota(session, user, day, label="줄글 분석")
@@ -232,7 +261,7 @@ def parse_text(
         read = _read_twice_if_odd(
             client,
             escalation,
-            prompt=_prompt(natural_language_prompt, session, user, day, scope),
+            prompt=_prompt(natural_language_prompt, session, user, day, scope, assets),
             today=day,
             subject="문장을",
             text=cleaned.text,
@@ -248,6 +277,7 @@ def parse_text(
         input_length=len(text),
         redacted_count=cleaned.count,
         scope=scope,
+        assets=assets,
     )
 
 
@@ -262,6 +292,7 @@ def parse_image(
     today: date | None = None,
     base_day: date | None = None,
     book_id: uuid.UUID | None = None,
+    with_assets: bool = False,
 ) -> ImportBatch:
     """이미지 한 장에서 거래 후보를 뽑아 검토 단위를 만든다. 아래 여러 장짜리의 한 장 갈래다."""
     return parse_images(
@@ -274,6 +305,7 @@ def parse_image(
         today=today,
         base_day=base_day,
         book_id=book_id,
+        with_assets=with_assets,
     )
 
 
@@ -288,6 +320,7 @@ def parse_images(
     today: date | None = None,
     base_day: date | None = None,
     book_id: uuid.UUID | None = None,
+    with_assets: bool = False,
 ) -> ImportBatch:
     """사진 여러 장에서 거래 후보를 뽑아 **검토 단위 하나**를 만든다.
 
@@ -310,6 +343,7 @@ def parse_images(
 
     kind = _IMAGE_KINDS[source]
     scope = _book_scope(session, user, book_id)
+    assets = _asset_scope(session, user, with_assets, scope)
     day = today or ledger.today_for(user)
     base = _base_day(base_day, day)
     _require_quota(session, user, day, label=kind.quota_label, count=len(images))
@@ -317,7 +351,7 @@ def parse_images(
     # 돌리고 · 여백을 잘라내고 · 줄인 뒤에 보낸다. 위치 정보도 여기서 끊긴다.
     sent = [prepare_image(image) for image in images]
     total_bytes = sum(len(one.data) for one in sent)
-    prompt = _prompt(kind.prompt, session, user, day, scope)
+    prompt = _prompt(kind.prompt, session, user, day, scope, assets)
 
     with _counted(
         session,
@@ -350,6 +384,7 @@ def parse_images(
         # 0 이 그 사실을 표에 남긴 것이다.
         redacted_count=0,
         scope=scope,
+        assets=assets,
     )
 
 
@@ -359,10 +394,17 @@ def _prompt(
     user: User,
     day: date,
     scope: _BookScope | None,
+    assets: _AssetScope | None = None,
 ) -> str:
-    """공유 가계부에 적을 때는 그 가계부 분류 이름을 주고 공유 가계부라고 알린다."""
+    """공유 가계부에 적을 때는 그 가계부 분류 이름을 주고 공유 가계부라고 알린다.
+
+    새 번들이 저축·투자를 그릴 수 있으면 자산 항목 이름도 분류 이름처럼 준다.
+    """
     if scope is None:
-        return build(day, _category_names(session, user))
+        prompt = build(day, _category_names(session, user))
+        if assets is None:
+            return prompt
+        return with_assets(prompt, asset_names.hints(assets.rows))
     return for_shared_book(build(day, scope.names))
 
 
@@ -379,6 +421,7 @@ def _build_batch(
     redacted_count: int,
     attempts: int | None = None,
     scope: _BookScope | None = None,
+    assets: _AssetScope | None = None,
 ) -> ImportBatch:
     """추출 결과를 검토 단위로 옮긴다. 줄글·캡처·영수증이 이 뒤로는 같은 길을 지난다.
 
@@ -426,6 +469,7 @@ def _build_batch(
                 needs_eyes=needs_eyes,
                 scope=scope,
                 spends=spends,
+                assets=assets,
             )
         )
 
@@ -479,6 +523,13 @@ def update_candidate(
 
     scope = _book_scope(session, user, batch.book_id)
     data = dict(data)
+    sent_asset = any(data.get(name) is not None for name in _ASSET_FIELDS)
+    if scope is not None and sent_asset:
+        raise ApiError(ErrorCode.INVALID_REQUEST, _EXPENSE_ONLY, status_code=422)
+    if data.get("asset_item_key") is not None and not any(
+        item.item_key == data["asset_item_key"] for item in asset_names.current_rows(session, user)
+    ):
+        raise ApiError(ErrorCode.NOT_FOUND, "그 자산 항목을 찾지 못했어요.", status_code=404)
     if scope is not None:
         next_type = data.get("type", row.type)
         if next_type != TransactionType.EXPENSE and (
@@ -496,10 +547,12 @@ def update_candidate(
     # 재판정에 쓸 고치기 전 상태. setattr 로 값이 바뀌기 전에 떠 둔다.
     was_duplicate = row.is_duplicate
     was_refund = row.type == TransactionType.REFUND
+    was_missing = _missing_quantity(session, user, row)
     # 서버가 스스로 꺼 둔 줄인지. 셋 중 아무 이유도 없이 꺼져 있으면 사람이 손으로 끈 것이다.
     was_blocked = (
         was_duplicate
         or was_refund
+        or was_missing
         or row.confidence < LOW_CONFIDENCE_THRESHOLD
         or _outside_book(row, scope)
     )
@@ -507,7 +560,10 @@ def update_candidate(
     for field, value in data.items():
         if field == "occurred_at" and isinstance(value, datetime):
             value = value.astimezone(UTC)
+        if field == "asset_side" and value is not None:
+            value = EntrySide(str(value))
         setattr(row, field, value)
+    _settle_saving(row, sent_asset)
 
     if "merchant" in data:
         row.merchant_normalized = normalize_merchant(row.merchant) or None
@@ -529,7 +585,12 @@ def update_candidate(
             )
         if "is_selected" not in data:
             now_refund = row.type == TransactionType.REFUND
-            now_blocked = row.is_duplicate or now_refund or _outside_book(row, scope)
+            now_blocked = (
+                row.is_duplicate
+                or now_refund
+                or _outside_book(row, scope)
+                or _missing_quantity(session, user, row)
+            )
             if now_blocked and not (was_duplicate or was_refund):
                 # 고쳐서 이제야 이미 있는 것과 같아졌거나 환불이 된 줄만 끈다.
                 # 안 끄면 켜진 채 남아 같은 거래가 두 번 저장된다.
@@ -542,6 +603,44 @@ def update_candidate(
     session.commit()
     session.refresh(batch)
     return batch
+
+
+_ASSET_FIELDS = ("asset_item_key", "asset_side", "asset_quantity")
+
+
+def _settle_saving(row: ImportCandidate, sent_asset: bool) -> None:
+    """저축·투자는 이체에만 붙는다. 어디에가 비면 쪽과 수량도 비운다. 읽은 이름은 남긴다."""
+    if row.type != TransactionType.TRANSFER:
+        if sent_asset:
+            raise ApiError(
+                ErrorCode.INVALID_REQUEST, "저축·투자는 이체로만 적을 수 있어요.", status_code=422
+            )
+        row.asset_item_key = None
+        row.asset_side = None
+        row.asset_quantity = None
+        return
+    if row.asset_item_key is None:
+        row.asset_side = None
+        row.asset_quantity = None
+        return
+    if row.asset_side is None:
+        row.asset_side = EntrySide.BUY
+    row.category_id = None
+
+
+def _missing_quantity(session: Session, user: User, row: ImportCandidate) -> bool:
+    """수량으로 적는 종목을 골랐는데 수량이 비었나. 그대로 저장하면 422 라 선택을 꺼 둔다."""
+    if row.asset_item_key is None or row.asset_quantity is not None:
+        return False
+    rows = asset_names.current_rows(session, user)
+    return row.asset_item_key in asset_names.quantity_keys(rows)
+
+
+def _link_candidate(row: ImportCandidate) -> Callable[[Transaction], None]:
+    def link(tx: Transaction) -> None:
+        row.transaction_id = tx.id
+
+    return link
 
 
 def commit_batch(
@@ -576,6 +675,23 @@ def commit_batch(
                 status_code=422,
             )
         categories.require_owned(session, user, row.category_id)
+    # 줄마다 commit 하므로 중간 줄이 장부 검사에 걸리면 앞 줄만 저장된 채 끝난다. 미리 접어 본다.
+    asset_entries.check_planned(
+        session,
+        user,
+        [
+            asset_entries.PlannedLine(
+                item_key=row.asset_item_key,
+                side=row.asset_side or EntrySide.BUY,
+                amount=row.amount,
+                quantity=row.asset_quantity,
+            )
+            for row in chosen
+            if row.transaction_id is None
+            and row.type == TransactionType.TRANSFER
+            and row.asset_item_key is not None
+        ],
+    )
 
     total = Decimal(0)
     outcome: transactions.SaveOutcome | None = None
@@ -586,7 +702,7 @@ def commit_batch(
             # 앞선 시도에서 이미 저장한 건이다. 다시 저장하면 두 번 들어간다.
             total += spent
             continue
-        tx, outcome = transactions.create_transaction(
+        _, outcome = transactions.create_transaction(
             session,
             user,
             {
@@ -601,11 +717,16 @@ def commit_batch(
                 "payment_method": row.payment_method,
                 # 원본은 안 남으므로 이 거래가 어느 분석에서 나왔는지는 이 값이 유일한 실마리다.
                 "import_batch_id": batch.id,
+                # 저축·투자면 거래 저장과 같은 commit 에서 장부 줄이 생긴다.
+                "asset_item_key": row.asset_item_key,
+                "asset_side": row.asset_side,
+                "asset_quantity": row.asset_quantity,
             },
             today=day,
+            # 거래와 같은 commit 에 실어야 다음 줄이 실패해도 다시 저장할 때 건너뛴다.
+            link=_link_candidate(row),
         )
         outcomes.append(outcome)
-        row.transaction_id = tx.id
         total += spent
         if row.id not in skip_rule_ids:
             _learn_rule(session, user, row)
@@ -922,6 +1043,7 @@ def _to_row(
     needs_eyes: bool = False,
     scope: _BookScope | None = None,
     spends: list[_SpendKey] | None = None,
+    assets: _AssetScope | None = None,
 ) -> ImportCandidate:
     occurred_at = _occurred_at(candidate.occurred_at, user, today, base_day)
     # 돌아온 값도 가린다. 캡처는 입력을 가릴 수단이 없어(이미지다) 여기가 유일한 그물이고,
@@ -962,6 +1084,15 @@ def _to_row(
     needs_target = candidate.type == TransactionType.REFUND
     # 공유 가계부는 같이 쓴 돈만 받는다. 수입과 이체는 내 가계부에만 적는다.
     not_shared = scope is not None and candidate.type != TransactionType.EXPENSE
+    saving = _saving_fields(candidate, assets)
+    # 수량으로 적는 종목에 맞췄는데 수량을 못 읽었으면 사람이 채워야 저장된다.
+    no_quantity = (
+        assets is not None
+        and saving.asset_item_key in assets.quantity_keys
+        and saving.asset_quantity is None
+    )
+    if saving.asset_item_key is not None:
+        category_id = None
     return ImportCandidate(
         import_batch_id=batch.id,
         occurred_at=occurred_at,
@@ -978,10 +1109,59 @@ def _to_row(
         # 확신이 낮거나 · 이미 있거나 · 서버 검증에 걸린 것은 스스로 켜지지 않는다.
         # 사람이 켜야 저장된다.
         is_selected=(
-            not low and not is_duplicate and not needs_target and not needs_eyes and not not_shared
+            not low
+            and not is_duplicate
+            and not needs_target
+            and not needs_eyes
+            and not not_shared
+            and not no_quantity
         ),
         sort_order=order,
+        asset_item_key=saving.asset_item_key,
+        asset_side=saving.asset_side,
+        asset_quantity=saving.asset_quantity,
+        asset_name=saving.asset_name,
     )
+
+
+class _Saving(NamedTuple):
+    asset_item_key: uuid.UUID | None = None
+    asset_side: EntrySide | None = None
+    asset_quantity: Decimal | None = None
+    asset_name: str | None = None
+
+
+_QUANTITY_PLACES = Decimal("0.00000001")
+
+
+def _saving_fields(candidate: TransactionCandidate, assets: _AssetScope | None) -> _Saving:
+    """저축·투자 줄의 「어디에」. 새 번들 표시가 있고 이체일 때만 맞추고, 확신이 없으면 비운다."""
+    if assets is None or candidate.type != TransactionType.TRANSFER:
+        return _Saving()
+    name = redact(candidate.asset_name).text.strip()[:80] if candidate.asset_name else None
+    key = match_item(name, assets.items, partial=True)
+    quantity = _read_quantity(candidate.asset_quantity)
+    if key is not None and key not in assets.quantity_keys:
+        # 금액으로 적는 항목에 수량을 붙이면 저장이 막힌다.
+        quantity = None
+    return _Saving(
+        asset_item_key=key,
+        asset_side=EntrySide.BUY if key is not None else None,
+        asset_quantity=quantity,
+        asset_name=name or None,
+    )
+
+
+def _read_quantity(value: float | None) -> Decimal | None:
+    """모델이 읽은 수량. 0 이하, 너무 큰 값, 소수 8자리를 넘는 값은 버린다."""
+    if value is None:
+        return None
+    quantity = Decimal(str(value))
+    if not quantity.is_finite() or quantity <= 0 or quantity > MAX_QUANTITY:
+        return None
+    if quantity != quantity.quantize(_QUANTITY_PLACES):
+        return None
+    return quantity.quantize(_QUANTITY_PLACES)
 
 
 def _base_day(chosen: date | None, today: date) -> date:
@@ -1334,3 +1514,8 @@ def _used_since(session: Session, user: User, since: datetime) -> int:
         .where(ParseUsage.user_id == user.id, ParseUsage.created_at >= since)
     )
     return used or 0
+
+
+# 자산 캡처가 같은 하루 상한과 사용량 표를 나눠 쓴다.
+require_quota = _require_quota
+record_usage = _record_usage

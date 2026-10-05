@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from datetime import date
+from typing import NamedTuple
 
 from app.integrations.llm.contracts import DEFAULT_CATEGORY_HINTS
 
@@ -114,6 +115,87 @@ def listed_categories(prompt: str) -> tuple[str, ...]:
     if found is None:
         return ()
     return tuple(name for name in found.group(1).split(", ") if name)
+
+
+class AssetHint(NamedTuple):
+    """모델에게 보여 줄 자산 항목 이름. monthly 면 다달이 넣는 항목이다."""
+
+    name: str
+    monthly: bool = False
+
+
+# 자산 항목 목록을 줬는지(저축·투자를 읽으라고 했는지) 스텁이 가르는 표지. 문구를 고쳐도 남긴다.
+ASSET_TASK_MARKER = "자산 항목:"
+# 자산 캡처 지시라는 표지.
+ASSET_CAPTURE_MARKER = "잔액 화면"
+
+MAX_ASSET_HINTS = 40
+_NO_ASSETS = "(아직 없음)"
+_MONTHLY = "(매달)"
+_ASSET_LINE = re.compile(rf"{ASSET_TASK_MARKER} (.+)")
+
+_ASSET_TASK = f"""\
+- 저축·투자(적금·예금·청약·IRP·연금에 넣은 돈, 주식·ETF·코인을 산 돈)는 type 을 transfer 로
+  두고 asset_name 에 어디에 넣었는지 적는다. category 는 null 로 둔다.
+- asset_name 은 아래 자산 항목 중 맞는 것이 있으면 그 이름을 그대로 쓴다. 「{_MONTHLY}」 는 다달이
+  넣는 항목이라는 표시이고 이름에 넣지 않는다. 맞는 것이 없으면 입력에 적힌 이름을 옮긴다.
+  {ASSET_TASK_MARKER} {{names}}
+- 주식·ETF·코인을 몇 주(개) 샀는지 적혀 있으면 asset_quantity 에 그 수를 옮긴다. 없으면 null.
+- 계좌번호는 asset_name 에 적지 않는다.
+- 저축·투자가 아닌 줄은 asset_name, asset_quantity 를 null 로 둔다.
+"""
+
+_ASSET_CAPTURE_TASK = f"""\
+너는 은행·증권 앱의 {ASSET_CAPTURE_MARKER} 캡처를 읽는 파서다. 아래 규칙을 지킨다.
+
+- 주어진 스키마에 맞는 JSON 만 낸다. 설명 문장을 덧붙이지 않는다.
+- 화면에 보이는 통장·상품·종목마다 rows 에 한 줄씩 넣는다. name 은 이름, amount 는 그 줄의 잔액
+  (평가금액) 숫자다. 부호 없는 정수(원)로 옮긴다. 대출 잔액도 양수로 적는다.
+- 잔액 숫자만 옮긴다. 합계·수익·이자·수익률을 계산하지 않는다.
+- 「총 자산」 같은 합계 줄은 넣지 않는다.
+- 계좌번호와 카드번호는 어디에도 적지 않는다. 이름에 붙어 있으면 떼고 이름만 적는다.
+- group 은 cash(입출금·예금·적금·청약·CMA) / investment(주식·ETF·펀드·코인)
+  / pension(연금저축·IRP·퇴직연금) / deposit(보증금·기타) / debt(대출) 중 하나다. 모르면 null.
+- 아래 기존 항목과 같은 것이면 그 이름을 그대로 쓴다. 「{_MONTHLY}」 는 이름에 넣지 않는다.
+  {ASSET_TASK_MARKER} {{names}}
+- 잔액이 보이지 않는 그림이면 rows 를 빈 목록으로 둔다. 지어내지 않는다.
+"""
+
+
+def _asset_names_line(hints: Sequence[AssetHint]) -> str:
+    seen: dict[str, bool] = {}
+    for hint in hints:
+        # 목록을 쉼표로 끊으므로 이름 안의 쉼표와 줄바꿈은 빈칸으로 바꾼다.
+        cleaned = " ".join(re.sub(r"[,\n\r]+", " ", hint.name).split())
+        if cleaned:
+            seen[cleaned] = seen.get(cleaned, False) or hint.monthly
+    names = [f"{name}{_MONTHLY if monthly else ''}" for name, monthly in seen.items()][
+        :MAX_ASSET_HINTS
+    ]
+    return ", ".join(names) or _NO_ASSETS
+
+
+def with_assets(prompt: str, hints: Sequence[AssetHint]) -> str:
+    """저축·투자를 읽으라고 덧붙인다. 공유 가계부 묶음에는 붙이지 않는다(부르는 쪽이 거른다)."""
+    return f"{prompt}\n{_ASSET_TASK.format(names=_asset_names_line(hints))}"
+
+
+def asset_capture_prompt(hints: Sequence[AssetHint]) -> str:
+    return _ASSET_CAPTURE_TASK.format(names=_asset_names_line(hints))
+
+
+def listed_asset_names(prompt: str) -> tuple[AssetHint, ...]:
+    """프롬프트에 적어 보낸 자산 항목. 스텁이 모델 흉내를 낼 때만 쓴다."""
+    found = _ASSET_LINE.search(prompt)
+    if found is None or found.group(1) == _NO_ASSETS:
+        return ()
+    hints = []
+    for part in found.group(1).split(", "):
+        monthly = part.endswith(_MONTHLY)
+        name = part.removesuffix(_MONTHLY)
+        if name:
+            hints.append(AssetHint(name, monthly))
+    return tuple(hints)
 
 
 # 다시 읽어 달라고 할 때 앞에 붙인다. 무엇이 이상했는지 구체적으로 말해 줘야

@@ -4,6 +4,7 @@ import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
 
 import {
+  type AssetItemOut,
   type CategoryOut,
   type ImportCandidateOut,
   type ImportCandidatePatch,
@@ -36,8 +37,21 @@ import {
   type SegmentedOption,
 } from '../../shared/ui';
 
+import {
+  AssetDestField,
+  AssetDestPage,
+  destFromItem,
+  destHoldingOf,
+  destNameOf,
+  parseQuantity,
+  quantityValue,
+  type AssetItemDest,
+} from '../asset-dest';
+import { ASSET_GROUP_VIEWS, formatQuantity, sanitizeQuantityInput, unitOf } from '../assets';
 import { CategoryComposeOverlay } from '../categories';
 import { DAY_MAX, DAY_MIN, isDayInRange } from '../../shared/lib/limits';
+
+import { isSavingRow, isUnpickedSaving } from './savingRow';
 
 /**
  * 고를 수 있는 종류.
@@ -45,14 +59,61 @@ import { DAY_MAX, DAY_MIN, isDayInRange } from '../../shared/lib/limits';
  * 환불은 없다. 되돌릴 지출을 함께 골라야 하는데 그 자리가 아직 없다.
  * 대상 없는 환불을 저장하면 쓴 적 없는 돈이 남은 예산으로 돌아온다.
  */
-const TYPES: SegmentedOption<TransactionType>[] = [
+const TYPES: SegmentedOption<RowKind>[] = [
   { value: 'expense', label: '지출' },
   { value: 'income', label: '수입' },
   { value: 'transfer', label: '이체' },
+  { value: 'save', label: '저축·투자' },
 ];
 
-/** 줄 머리 아래 날짜·분류 칩을 눌러 여는 칸. 한 번에 하나만 열린다. */
-type Editor = 'date' | 'category';
+const NO_DESTINATIONS: readonly AssetItemOut[] = [];
+
+/** 줄의 종류. 저축·투자는 서버에서 「어디에」 가 붙은 이체다. */
+type RowKind = TransactionType | 'save';
+
+type Side = 'buy' | 'sell';
+
+const SIDES: SegmentedOption<Side>[] = [
+  { value: 'buy', label: '넣었어요' },
+  { value: 'sell', label: '팔았어요' },
+];
+
+/** 줄 머리 아래 날짜·분류·어디에 칩을 눌러 여는 칸. 한 번에 하나만 열린다. */
+type Editor = 'date' | 'category' | 'dest';
+
+function rowKindOf(candidate: ImportCandidateOut): RowKind {
+  return isSavingRow(candidate) ? 'save' : candidate.type;
+}
+
+function destOf(
+  key: string | null | undefined,
+  destinations: readonly AssetItemOut[],
+): AssetItemDest | null {
+  if (key == null) return null;
+  const item = destinations.find((entry) => entry.item_key === key);
+  return item == null ? null : destFromItem(item);
+}
+
+/** 수량으로 적는 종목인데 수량이 비었나. 서버가 고르기를 꺼 두고 commit 은 422 다. */
+function missingQuantity(
+  candidate: ImportCandidateOut,
+  destinations: readonly AssetItemOut[],
+): boolean {
+  const dest = destOf(candidate.asset_item_key, destinations);
+  return dest != null && destHoldingOf(dest) === 'quantity' && candidate.asset_quantity == null;
+}
+
+/** 접힌 줄의 「어디에」 칩 글씨. 수량 종목은 수량을 붙인다(「삼성전자 2주」). */
+function destChipLabel(
+  candidate: ImportCandidateOut,
+  dest: AssetItemDest | null,
+): string {
+  if (candidate.asset_item_key == null) return '어디에 고르기';
+  if (dest == null) return candidate.asset_name ?? '어디에';
+  const quantity = quantityValue(candidate.asset_quantity);
+  if (destHoldingOf(dest) !== 'quantity' || quantity == null) return destNameOf(dest);
+  return `${destNameOf(dest)} ${formatQuantity(quantity)}${unitOf(dest.item.kind)}`;
+}
 
 /**
  * 펼친 폼에 지금 적혀 있는 분류·금액·종류.
@@ -111,6 +172,8 @@ export interface CandidateRowProps {
    * 환불 안내와 「수입으로 바꾸기」, 폼의 지출/수입/이체와 결제 수단이 빠진다.
    */
   expenseOnly?: boolean;
+  /** 저축·투자의 「어디에」. 공유 가계부 묶음에는 넘기지 않는다. */
+  destinations?: readonly AssetItemOut[];
   /**
    * 「새 분류」 를 눌렀을 때 뜨는 만들기 창.
    *
@@ -153,6 +216,7 @@ export function CandidateRow({
   preview,
   onPreviewChange,
   expenseOnly = false,
+  destinations = NO_DESTINATIONS,
   renderCompose,
   askRule = false,
   ruleAnswer = null,
@@ -160,6 +224,10 @@ export function CandidateRow({
   onRuleClear,
 }: CandidateRowProps) {
   const category = categories.find((item) => item.id === candidate.category_id);
+  const rowKind = rowKindOf(candidate);
+  const dest = rowKind === 'save' ? destOf(candidate.asset_item_key, destinations) : null;
+  const noQuantity = rowKind === 'save' && missingQuantity(candidate, destinations);
+  const unpicked = isUnpickedSaving(candidate);
   // 펼친 동안 머리는 폼에 적힌 것을 그린다. 접으면 서버 값으로 돌아간다.
   const shown = editing && preview?.id === candidate.id ? preview : null;
   const headCategory =
@@ -169,7 +237,9 @@ export function CandidateRow({
     빠뜨린 것처럼 들리는데 실제로는 영수증에 총액만 있던 것이다. 저장하고 나면
     같은 줄이 원장에서 분류 이름으로 불리므로, 여기서도 같은 이름을 쓴다.
   */
-  const name = candidate.merchant ?? headCategory?.name ?? '기록';
+  const destName = dest != null ? destNameOf(dest) : (candidate.asset_name ?? null);
+  const name =
+    candidate.merchant ?? (rowKind === 'save' ? destName : null) ?? headCategory?.name ?? '기록';
   const amount = shown?.amount ?? parseDecimalOr(candidate.amount, 0);
   const day = toLedgerDate(new Date(candidate.occurred_at));
   // 이체는 여기서 못 바꾼다. 분류가 없는 종류라 한 번 누르는 것으로 오갈 수 없다.
@@ -253,7 +323,13 @@ export function CandidateRow({
             // 이름을 그대로 읽는다. 화면에서 이 칸이 가리키는 것이 그 줄이다.
             aria-label={name}
             // 환불은 켜 봐야 저장에서 통째로 막힌다. 켤 수 있게 두면 여덟 건이 다 안 들어간다.
-            disabled={rowDisabled || candidate.type === 'refund'}
+            // 수량 종목인데 수량이 비면 저장에서 막힌다. 수량을 채우면 서버가 다시 켠다.
+            // 「어디에」 를 안 고른 저축·투자도 같다. 고르면 켤 수 있다.
+            disabled={
+              rowDisabled ||
+              candidate.type === 'refund' ||
+              ((noQuantity || unpicked) && !candidate.is_selected)
+            }
             onChange={(event) => onToggle(event.target.checked)}
           />
         </label>
@@ -265,7 +341,11 @@ export function CandidateRow({
           aria-expanded={editing}
           onClick={editing ? onEditClose : () => open(null)}
         >
-          <CategoryAvatar {...iconOf(headCategory)} size={52} />
+          {dest != null ? (
+            <CategoryAvatar icon={ASSET_GROUP_VIEWS[dest.item.group].icon} size={52} />
+          ) : (
+            <CategoryAvatar {...iconOf(headCategory)} size={52} />
+          )}
           <span className="nl-item__name">{name}</span>
           {/*
             종류를 숫자로 드러낸다. 수입은 앞에 + 가 붙고 색이 갈린다.
@@ -292,6 +372,7 @@ export function CandidateRow({
           flowId={flowId}
           disabled={disabled}
           expenseOnly={expenseOnly}
+          destinations={destinations}
           initialEditor={opening}
           renderCompose={renderCompose}
           onKindChange={onKindChange}
@@ -304,15 +385,24 @@ export function CandidateRow({
         <>
           <div className="nl-item__meta">
             <DayChip day={day} open={false} disabled={rowDisabled} onClick={() => open('date')} />
-            <CategorySlot
-              type={candidate.type}
-              category={category}
-              // 상호가 없으면 제목이 이미 분류 이름이다. 누를 칩이 아니면 「식비 · 식비」 로 두 번 읽힌다.
-              plainHidden={candidate.merchant == null && category != null}
-              open={false}
-              disabled={rowDisabled}
-              onClick={() => open('category')}
-            />
+            {rowKind === 'save' ? (
+              <DestChip
+                label={destChipLabel(candidate, dest)}
+                unpicked={unpicked}
+                disabled={rowDisabled}
+                onClick={() => open(null)}
+              />
+            ) : (
+              <CategorySlot
+                type={candidate.type}
+                category={category}
+                // 상호가 없으면 제목이 이미 분류 이름이다. 누를 칩이 아니면 「식비 · 식비」 로 두 번 읽힌다.
+                plainHidden={candidate.merchant == null && category != null}
+                open={false}
+                disabled={rowDisabled}
+                onClick={() => open('category')}
+              />
+            )}
             {/*
               읽어 온 종류를 겉으로 드러내고 한 번에 바꾼다. 예전에는 '고치기' 를 펴야 보였는데,
               사진과 문장에서 가장 자주 틀리는 값이 이것이라 그 자리가 너무 멀었다.
@@ -330,11 +420,9 @@ export function CandidateRow({
                 <span aria-hidden="true">⇄</span>
               </button>
             ) : expenseOnly && candidate.type === 'expense' ? null : (
-              <span className="nl-item__kind nl-item__kind--fixed">
-                {KIND_LABEL[candidate.type]}
-              </span>
+              <span className="nl-item__kind nl-item__kind--fixed">{KIND_LABEL[rowKind]}</span>
             )}
-            <RowFlags candidate={candidate} future={isFutureDay(day)} />
+            <RowFlags candidate={candidate} future={isFutureDay(day)} noQuantity={noQuantity} />
           </div>
           <RowNotices
             candidate={candidate}
@@ -565,9 +653,46 @@ function CategorySlot({
   );
 }
 
-function RowFlags({ candidate, future }: { candidate: ImportCandidateOut; future: boolean }) {
+/** 저축·투자 줄의 「어디에」 칩. 누르면 줄이 펼쳐지고 그 안에서 고른다. */
+function DestChip({
+  label,
+  unpicked = false,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  /** 아직 안 골랐으면 칩 글씨가 곧 할 일(「어디에 고르기」)이다. */
+  unpicked?: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="nl-item__chip"
+      aria-label={unpicked ? label : `어디에 ${label}, 바꾸기`}
+      data-testid={TEST_IDS.nlCandidateDest}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <span className="nl-item__chip-text">{label}</span>
+      <ChipCaret />
+    </button>
+  );
+}
+
+function RowFlags({
+  candidate,
+  future,
+  noQuantity = false,
+}: {
+  candidate: ImportCandidateOut;
+  future: boolean;
+  noQuantity?: boolean;
+}) {
   return (
     <>
+      {noQuantity ? <Chip variant="caution">수량 없음</Chip> : null}
       {candidate.is_duplicate ? <Chip variant="caution">이미 있어요</Chip> : null}
       {candidate.is_low_confidence && candidate.type !== 'refund' ? (
         <Chip variant="caution">확인 필요</Chip>
@@ -642,11 +767,12 @@ function RowNotices({
 }
 
 /** 화면에 보이는 말. 종류 값을 문자열로 바로 쓰면 화면마다 다른 말이 생긴다. */
-const KIND_LABEL: Record<TransactionType, string> = {
+const KIND_LABEL: Record<RowKind, string> = {
   expense: '지출',
   income: '수입',
   transfer: '이체',
   refund: '환불',
+  save: '저축·투자',
 };
 
 /**
@@ -670,6 +796,7 @@ interface CandidateFormProps {
   flowId: FlowId;
   disabled: boolean;
   expenseOnly: boolean;
+  destinations: readonly AssetItemOut[];
   /** 처음 설 때 바로 열어 둘 칸. 접힌 줄의 칩을 눌러 펼쳤을 때 쓴다. */
   initialEditor: Editor | null;
   renderCompose: CandidateRowProps['renderCompose'];
@@ -690,7 +817,7 @@ interface CandidateFormProps {
 }
 
 /** 그 종류로 고를 수 있는 분류. 이체는 집계에서 빠지므로 분류를 두지 않는다. */
-function pickableFor(type: TransactionType, categories: CategoryOut[]): CategoryOut[] {
+function pickableFor(type: RowKind, categories: CategoryOut[]): CategoryOut[] {
   if (type === 'expense' || type === 'income') {
     return categories.filter((item) => item.kind === type);
   }
@@ -703,6 +830,7 @@ function CandidateForm({
   flowId,
   disabled,
   expenseOnly,
+  destinations,
   initialEditor,
   renderCompose,
   onKindChange,
@@ -715,7 +843,7 @@ function CandidateForm({
   const [merchant, setMerchant] = useState(candidate.merchant ?? '');
   const [digits, setDigits] = useState(String(parseDecimalOr(candidate.amount, 0)));
   const [day, setDay] = useState(toLedgerDate(new Date(candidate.occurred_at)));
-  const [type, setType] = useState<TransactionType>(candidate.type);
+  const [type, setType] = useState<RowKind>(rowKindOf(candidate));
   const [categoryId, setCategoryId] = useState<string | null>(candidate.category_id ?? null);
   // 영수증에 「신용」 이 찍혀 있으면 이미 채워져 있다. 못 읽었으면 여기서 고른다.
   const [method, setMethod] = useState<PaymentMethod | null>(candidate.payment_method);
@@ -728,12 +856,21 @@ function CandidateForm({
     폼 밖에서 종류가 바뀌었다(환불 줄의 「수입으로 바꾸기」 는 바로 보낸다). 옛 종류를 들고
     있으면 다음에 나갈 때 그것을 도로 보내, 줄이 환불로 돌아가며 꺼진다.
   */
-  const [seenType, setSeenType] = useState(candidate.type);
-  if (seenType !== candidate.type) {
-    setSeenType(candidate.type);
-    setType(candidate.type);
+  // 저축·투자의 어디에, 쪽, 수량. 수량은 소수 8자리 문자열로 둔다.
+  const [destKey, setDestKey] = useState<string | null>(candidate.asset_item_key ?? null);
+  const [side, setSide] = useState<Side>(candidate.asset_side ?? 'buy');
+  const [qty, setQty] = useState(quantityValue(candidate.asset_quantity) ?? '');
+  const [destOpen, setDestOpen] = useState(false);
+  const candidateKind = rowKindOf(candidate);
+  const [seenType, setSeenType] = useState(candidateKind);
+  if (seenType !== candidateKind) {
+    setSeenType(candidateKind);
+    setType(candidateKind);
     setCategoryId(candidate.category_id ?? null);
+    setDestKey(candidate.asset_item_key ?? null);
   }
+  const pickedDest = type === 'save' ? destOf(destKey, destinations) : null;
+  const byQuantity = pickedDest != null && destHoldingOf(pickedDest) === 'quantity';
   /*
     분류 만들기 창이 떴나.
 
@@ -757,15 +894,16 @@ function CandidateForm({
   const shownAmount = amount > 0 ? amount : parseDecimalOr(candidate.amount, 0);
   const candidateId = candidate.id;
   const shownMerchant = merchant.trim() === '' ? null : merchant.trim();
+  const shownType: TransactionType = type === 'save' ? 'transfer' : type;
   useEffect(() => {
     onPreviewChange(() => ({
       id: candidateId,
       categoryId,
       amount: shownAmount,
-      type,
+      type: shownType,
       merchant: shownMerchant,
     }));
-  }, [onPreviewChange, candidateId, categoryId, shownAmount, type, shownMerchant]);
+  }, [onPreviewChange, candidateId, categoryId, shownAmount, shownType, shownMerchant]);
   useEffect(
     () => () => onPreviewChange((current) => (current?.id === candidateId ? null : current)),
     [onPreviewChange, candidateId],
@@ -782,12 +920,42 @@ function CandidateForm({
     if (day !== '' && day !== toLedgerDate(new Date(candidate.occurred_at))) {
       body.occurred_at = toLedgerNoonIso(day);
     }
-    if (type !== candidate.type) body.type = type;
+    if (shownType !== candidate.type) body.type = shownType;
     if (categoryId !== (candidate.category_id ?? null)) body.category_id = categoryId;
+    Object.assign(body, assetDraft());
     // 지출이 아닌 종류에는 뜻이 없다. 서버도 버리는 값이라 여기서도 안 보낸다.
     const nextMethod = type === 'expense' ? method : null;
     if (nextMethod !== candidate.payment_method) body.payment_method = nextMethod;
 
+    return body;
+  }
+
+  /**
+   * 저축·투자 칸. 어디에가 바뀌면 쪽과 수량도 함께 보낸다(앞 항목의 수량이 남으면 저장에서 막힌다).
+   * 저축·투자를 그냥 이체로 돌리면 어디에를 비운다. 지출과 수입으로 가면 서버가 비운다.
+   */
+  function assetDraft(): ImportCandidatePatch {
+    const savedKey = candidate.asset_item_key ?? null;
+    if (type !== 'save') {
+      return type === 'transfer' && savedKey != null ? { asset_item_key: null } : {};
+    }
+    if (destKey == null) return savedKey == null ? {} : { asset_item_key: null };
+    const body: ImportCandidatePatch = {};
+    const moved = destKey !== savedKey;
+    if (moved) body.asset_item_key = destKey;
+    // 어디에를 못 정해 꺼 둔 줄은 고르면 켠다. 수량이 비면 저장에서 막혀 켜지 않는다.
+    const turnOn = isUnpickedSaving(candidate) && !candidate.is_selected;
+    // 목록을 아직 못 받았으면 적혀 있던 쪽과 수량을 그대로 둔다.
+    if (pickedDest == null) return body;
+    // 수량 종목만 쪽을 고른다. 나머지는 어디에가 그대로면 적혀 있던 쪽을 둔다.
+    const savedSide: Side = candidate.asset_side ?? 'buy';
+    const nextSide: Side = byQuantity ? side : moved ? 'buy' : savedSide;
+    if (moved || nextSide !== savedSide) body.asset_side = nextSide;
+    const nextQty = byQuantity ? quantityValue(qty) : null;
+    if (moved || parseQuantity(nextQty) !== parseQuantity(candidate.asset_quantity)) {
+      body.asset_quantity = nextQty;
+    }
+    if (turnOn && (!byQuantity || nextQty != null)) body.is_selected = true;
     return body;
   }
 
@@ -824,15 +992,31 @@ function CandidateForm({
           disabled={disabled}
           onClick={() => toggleEditor('date')}
         />
-        <CategorySlot
-          type={type}
-          category={picked}
-          open={editor === 'category'}
-          disabled={disabled}
-          onClick={() => toggleEditor('category')}
-        />
+        {type === 'save' ? null : (
+          <CategorySlot
+            type={shownType}
+            category={picked}
+            open={editor === 'category'}
+            disabled={disabled}
+            onClick={() => toggleEditor('category')}
+          />
+        )}
         <RowFlags candidate={candidate} future={future} />
       </div>
+
+      {/* 저축·투자는 분류 자리에 「어디에」. 고르면 한 줄로 접히고 누르면 다시 펼쳐진다. */}
+      {type === 'save' ? (
+        <div className="nl-item__editor">
+          <AssetDestField
+            destinations={destinations}
+            value={pickedDest}
+            onPick={({ dest: next }) => {
+              if (next.type === 'item') setDestKey(next.itemKey);
+            }}
+            onOther={() => setDestOpen(true)}
+          />
+        </div>
+      ) : null}
 
       {editor === 'date' ? (
         <DayEditor
@@ -904,7 +1088,7 @@ function CandidateForm({
             className="nl-form__types"
             options={TYPES}
             value={type}
-            onChange={(next) => {
+            onChange={(next: RowKind) => {
               setType(next);
               // 종류가 바뀌면 고른 분류가 그 종류의 것이 아닐 수 있다. 남겨 두면 수입이
               // '식비' 로 저장된다. 이체는 집계 밖이라 분류를 아예 두지 않는다.
@@ -912,13 +1096,37 @@ function CandidateForm({
                 pickableFor(next, categories).some((item) => item.id === current) ? current : null,
               );
               // 열어 둔 격자는 새 종류의 분류로 바뀐다. 이체는 고를 분류가 없어 닫는다.
-              if (next === 'transfer') {
+              if (next === 'transfer' || next === 'save') {
                 setEditor((current) => (current === 'category' ? null : current));
               }
             }}
             ariaLabel="종류"
           />
         )}
+
+        {/* 주식, ETF, 코인은 넣었나 팔았나와 수량을 받는다. 수량이 없으면 저장에서 막힌다. */}
+        {byQuantity ? (
+          <>
+            <SegmentedControl
+              className="nl-form__types"
+              options={SIDES}
+              value={side}
+              onChange={setSide}
+              ariaLabel="넣었나 팔았나"
+            />
+            <label className="nl-form__field">
+              <span className="nl-form__label">수량</span>
+              <input
+                className="nl-form__input"
+                inputMode="decimal"
+                autoComplete="off"
+                value={qty}
+                placeholder={`0${unitOf(pickedDest.item.kind)}`}
+                onChange={(event) => setQty(sanitizeQuantityInput(event.target.value))}
+              />
+            </label>
+          </>
+        ) : null}
 
         {/* 지출에만 선다. 수입·이체에는 결제 수단이라는 것이 없다. */}
         {type === 'expense' && !expenseOnly ? (
@@ -968,6 +1176,19 @@ function CandidateForm({
       ) : renderCompose === null ? null : (
         renderCompose(composeSlot)
       )}
+
+      {/* 「다른 곳」. 후보 고치기는 새 항목을 못 받아 「새 종목이나 통장」 은 두지 않는다. */}
+      <AssetDestPage
+        open={destOpen}
+        allowNew={false}
+        destinations={destinations}
+        value={pickedDest}
+        onPick={({ dest: next }) => {
+          if (next.type === 'item') setDestKey(next.itemKey);
+          setDestOpen(false);
+        }}
+        onBack={() => setDestOpen(false)}
+      />
     </>
   );
 }

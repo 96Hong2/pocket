@@ -1,7 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState, type MutableRefObject } from 'react';
 
-import { useOverlayBackClose } from '../../app/providers';
-import { EVENTS, useAnalytics, type ItemAction } from '../../shared/analytics';
+import { useOverlayBackClose, useToast } from '../../app/providers';
+import {
+  EVENTS,
+  useAnalytics,
+  type AssetChangeField,
+  type AssetKindLog,
+  type ItemAction,
+} from '../../shared/analytics';
 import {
   ApiError,
   parseDecimalOr,
@@ -9,10 +15,22 @@ import {
   type AssetGroup,
   type AssetItemIn,
   type AssetItemOut,
+  type InvestKind,
 } from '../../shared/api';
-import { AmountField, BottomSheet, Button, SegmentedControl } from '../../shared/ui';
+import { toLedgerDate } from '../../shared/lib/format';
+import { AmountField, BottomSheet, Button, LeaveConfirm, Toggle } from '../../shared/ui';
 
-import { ASSET_GROUP_VIEWS } from './assetGroups';
+import { ASSET_GROUP_VIEWS, assetGroupLabel } from './assetGroups';
+import {
+  holdingOf,
+  INVEST_KIND_LABEL,
+  INVEST_KINDS,
+  isMonthly,
+  sanitizeQuantityInput,
+  unitOf,
+  type Holding,
+} from './assetView';
+import { SheetBackHead } from './SheetBackHead';
 
 /** 열려 있으면 대상이 있다. `sortOrder` 가 null 이면 새로 더하는 중이다. */
 export interface AssetItemTarget {
@@ -25,175 +43,516 @@ export interface AssetItemSheetProps {
   target: AssetItemTarget | null;
   /**
    * 지금 저장돼 있는 목록 전체.
-   *
-   * 저장은 목록을 통째로 보내는 PUT 하나뿐이라, 고친 줄만 보낼 수 없다.
-   * 이 목록에 한 줄을 얹거나 갈거나 빼서 보낸다.
+   * 저장은 목록을 통째로 보내는 PUT 하나뿐이라, 이 목록에 한 줄을 얹거나 갈거나 빼서 보낸다.
    */
   items: AssetItemOut[];
   onClose: () => void;
+  /** 「팔았어요」. 이 시트를 닫은 뒤 기록 시트를 그 종목의 팔기 화면으로 연다. */
+  onSell?: (item: AssetItemOut) => void;
 }
 
 /** 자산 항목 시트. 더하기와 고치기가 같은 시트다. */
-export function AssetItemSheet({ target, items, onClose }: AssetItemSheetProps) {
-  // 저장 응답을 기다리는 동안에는 닫히지 않는다.
-  // 닫히면 폼이 사라져 실패를 그릴 자리가 없어진다. 적어 둔 금액도 함께 사라진다.
+export function AssetItemSheet({ target, items, onClose, onSell }: AssetItemSheetProps) {
+  const toast = useToast();
+  // 저장 응답을 기다리는 동안에는 닫히지 않는다. 닫히면 실패를 그릴 자리가 없어진다.
   const [saving, setSaving] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const dirtyRef = useRef(false);
 
-  // 시스템 뒤로가기를 시트가 먼저 가져간다. 안 그러면 시트가 열린 채 화면만 뒤로 빠진다.
-  useOverlayBackClose(target != null, onClose, saving);
+  function close(): void {
+    dirtyRef.current = false;
+    setAsking(false);
+    onClose();
+  }
+
+  function requestClose(): void {
+    if (saving || asking) return;
+    if (dirtyRef.current) {
+      setAsking(true);
+      return;
+    }
+    close();
+  }
+
+  useOverlayBackClose(target != null, requestClose, saving);
 
   const editing = target?.sortOrder ?? null;
 
   return (
     <BottomSheet
       open={target != null}
-      onClose={onClose}
+      onClose={requestClose}
       dismissible={!saving}
-      title={editing == null ? '자산 항목 추가' : '자산 항목 고치기'}
+      ariaLabel={
+        editing == null && target != null
+          ? `${assetGroupLabel(target.group)} 항목 추가`
+          : '자산 항목 고치기'
+      }
+      size="tall"
       className="asset-sheet"
     >
       {target != null ? (
         <AssetItemForm
-          // 대상이 바뀌면 새로 마운트한다. 앞 항목의 이름과 금액이 남지 않는다.
+          // 대상이 바뀌면 새로 마운트한다. 앞 항목의 값이 남지 않는다.
           key={editing ?? `new-${target.group}`}
           target={target}
           items={items}
+          dirtyRef={dirtyRef}
           onSavingChange={setSaving}
-          onClose={onClose}
+          onBack={requestClose}
+          onSell={
+            onSell == null
+              ? undefined
+              : (item) => {
+                  close();
+                  onSell(item);
+                }
+          }
+          onDone={(text) => {
+            close();
+            toast.show({ text });
+          }}
+        />
+      ) : null}
+      {asking ? (
+        <LeaveConfirm
+          text="고친 것이 사라져요. 그만둘까요?"
+          stayLabel="계속 고치기"
+          onStay={() => setAsking(false)}
+          onLeave={close}
         />
       ) : null}
     </BottomSheet>
   );
 }
 
+interface FormState {
+  group: AssetGroup;
+  kind: InvestKind | null;
+  label: string;
+  /** 수량 종목의 보유 수량. 소수점이 든 글자 그대로. */
+  qty: string;
+  /** 넣은 돈(수량 종목, 금액 종목). */
+  cost: string;
+  /** 금액 종목의 지금 금액. 비우면 넣은 돈과 같다. */
+  now: string;
+  /** 통장, 연금, 보증금, 부채의 금액. */
+  amount: string;
+  /** 수량 종목의 지금 1주 가격. */
+  price: string;
+  monthly: boolean;
+  /** 매달 넣는 돈. 「매달 넣는 돈이에요」 를 켰을 때만 쓴다. */
+  monthlyAmount: string;
+}
+
+const GROUPS = Object.keys(ASSET_GROUP_VIEWS) as AssetGroup[];
+const DEFAULT_KIND: InvestKind = 'stock';
+
+const num = (digits: string): number => (digits === '' ? 0 : Number(digits));
+
+function wonDigits(value: string | null | undefined): string {
+  if (value == null || value === '') return '';
+  return String(Math.round(parseDecimalOr(value, 0)));
+}
+
+function initialState(saved: AssetItemOut | null, group: AssetGroup): FormState {
+  if (saved == null) {
+    return {
+      group,
+      kind: group === 'investment' ? DEFAULT_KIND : null,
+      label: '',
+      qty: '',
+      cost: '',
+      now: '',
+      amount: '',
+      price: '',
+      monthly: false,
+      monthlyAmount: '',
+    };
+  }
+  const holding = holdingOf(saved.group, saved.kind);
+  const cost = wonDigits(saved.cost_basis);
+  const amount = wonDigits(saved.amount);
+  return {
+    group: saved.group,
+    kind: saved.group === 'investment' ? (saved.kind ?? null) : null,
+    label: saved.label ?? '',
+    qty: holding === 'quantity' ? (saved.quantity ?? '') : '',
+    cost: holding === 'quantity' || holding === 'amount' ? cost : '',
+    // 지금 금액을 따로 적은 적이 있을 때만 채운다. 안 적었으면 넣은 돈과 같은 값이 와 있다.
+    now: holding === 'amount' && (saved.rate_kind === 'valuation' || amount !== cost) ? amount : '',
+    amount: holding === 'balance' || holding === 'debt' ? amount : '',
+    price: holding === 'quantity' ? wonDigits(saved.unit_price) : '',
+    monthly: isMonthly(saved),
+    monthlyAmount: isMonthly(saved) ? wonDigits(saved.monthly_amount) : '',
+  };
+}
+
+function holdingOfState(state: FormState): Holding {
+  return holdingOf(state.group, state.group === 'investment' ? state.kind : null);
+}
+
+/** 부채와 보증금은 매달 넣는 돈을 받지 않는다. */
+function takesMonthly(group: AssetGroup): boolean {
+  return group !== 'debt' && group !== 'deposit';
+}
+
+function canSaveState(state: FormState): boolean {
+  if (takesMonthly(state.group) && state.monthly && num(state.monthlyAmount) <= 0) return false;
+  switch (holdingOfState(state)) {
+    case 'quantity':
+      return state.qty !== '' && state.qty !== '.';
+    case 'amount':
+      return state.cost !== '' || state.now !== '';
+    default:
+      return state.amount !== '';
+  }
+}
+
+/**
+ * 금액 종목의 지금 금액을 언제 적었나. 서버는 이 날짜가 있어야 평가 수익률을 센다.
+ * 지금 금액을 그대로 두면 앞서 적은 날을 지키고, 비우면 지운다.
+ */
+function notedOn(state: FormState, initial: FormState, saved: AssetItemOut | null): string | null {
+  if (state.now === '') return null;
+  if (state.now === initial.now && saved?.price_noted_on != null) return saved.price_noted_on;
+  return toLedgerDate(new Date());
+}
+
+/** 폼을 PUT 한 줄로. 보낸 칸만 서버가 바꾸고 안 보낸 칸은 지킨다. */
+function toPutItem(state: FormState, initial: FormState, saved: AssetItemOut | null): AssetItemIn {
+  const holding = holdingOfState(state);
+  const label = state.label.trim();
+  const item: AssetItemIn = {
+    group: state.group,
+    label: label === '' ? null : label,
+    amount: 0,
+    kind: state.group === 'investment' ? state.kind : null,
+    monthly_amount: takesMonthly(state.group) && state.monthly ? num(state.monthlyAmount) : null,
+  };
+  if (saved?.item_key != null) item.item_key = saved.item_key;
+
+  if (holding === 'quantity') {
+    item.amount = num(state.cost);
+    item.quantity = state.qty === '' ? 0 : state.qty.replace(/\.$/, '');
+    item.cost_basis = num(state.cost);
+    item.unit_price = state.price === '' ? null : num(state.price);
+  } else if (holding === 'amount') {
+    item.amount = state.now !== '' ? num(state.now) : num(state.cost);
+    item.cost_basis = state.cost !== '' ? num(state.cost) : num(state.now);
+    item.price_noted_on = notedOn(state, initial, saved);
+  } else {
+    item.amount = num(state.amount);
+  }
+  return item;
+}
+
+/** 무엇을 고쳤나. 값은 싣지 않고 칸 이름만. */
+function changedFields(state: FormState, initial: FormState): AssetChangeField[] {
+  const fields: AssetChangeField[] = [];
+  if (state.amount !== initial.amount || state.cost !== initial.cost || state.now !== initial.now) {
+    fields.push('amount');
+  }
+  if (state.price !== initial.price) fields.push('price');
+  if (state.qty !== initial.qty) fields.push('qty');
+  return fields;
+}
+
+/** 저장돼 있는 줄을 그대로 다시 보낼 형태로. 새 칸은 안 보내서 서버가 그대로 지킨다. */
+function toItemIn(item: AssetItemOut): AssetItemIn {
+  const next: AssetItemIn = { group: item.group, label: item.label, amount: item.amount };
+  if (item.item_key != null) next.item_key = item.item_key;
+  return next;
+}
+
+function sameState(a: FormState, b: FormState): boolean {
+  return (Object.keys(a) as (keyof FormState)[]).every((key) => a[key] === b[key]);
+}
+
 interface AssetItemFormProps {
   target: AssetItemTarget;
   items: AssetItemOut[];
+  dirtyRef: MutableRefObject<boolean>;
   onSavingChange: (saving: boolean) => void;
-  onClose: () => void;
+  onBack: () => void;
+  onDone: (toastText: string) => void;
+  onSell?: (item: AssetItemOut) => void;
 }
 
-const GROUP_OPTIONS = (Object.keys(ASSET_GROUP_VIEWS) as AssetGroup[]).map((group) => ({
-  value: group,
-  label: ASSET_GROUP_VIEWS[group].label,
-}));
+/** 팔 보유가 있나. 수량 종목은 수량, 금액 종목은 지금 금액이 0 보다 커야 한다. */
+function sellableOf(item: AssetItemOut | null): boolean {
+  if (item?.item_key == null) return false;
+  const holding = holdingOf(item.group, item.kind);
+  if (holding === 'quantity') return /[1-9]/.test(item.quantity ?? '');
+  if (holding === 'amount') return /[1-9]/.test(item.amount);
+  return false;
+}
 
-function AssetItemForm({ target, items, onSavingChange, onClose }: AssetItemFormProps) {
+function AssetItemForm({
+  target,
+  items,
+  dirtyRef,
+  onSavingChange,
+  onBack,
+  onDone,
+  onSell,
+}: AssetItemFormProps) {
   const analytics = useAnalytics();
   const save = useSaveAssets();
+  const monthlyId = useId();
 
   const saved = items.find((item) => item.sort_order === target.sortOrder) ?? null;
-  const [group, setGroup] = useState<AssetGroup>(saved?.group ?? target.group);
-  const [label, setLabel] = useState(saved?.label ?? '');
-  const [digits, setDigits] = useState(
-    saved == null ? '' : String(parseDecimalOr(saved.amount, 0)),
-  );
+  const [initial] = useState(() => initialState(saved, target.group));
+  const [state, setState] = useState(initial);
+  const dirty = !sameState(state, initial);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty, dirtyRef]);
 
-  const canSave = digits !== '' && !save.isPending;
+  const holding = holdingOfState(state);
+  const unit = unitOf(state.kind);
+  const canSave = canSaveState(state) && !save.isPending;
   const message = save.error instanceof ApiError ? save.error.message : null;
 
+  function patch(next: Partial<FormState>): void {
+    setState((prev) => ({ ...prev, ...next }));
+  }
+
+  function pickGroup(group: AssetGroup): void {
+    setState((prev) => ({
+      ...prev,
+      group,
+      kind: group === 'investment' ? (prev.kind ?? DEFAULT_KIND) : null,
+    }));
+  }
+
   function send(next: AssetItemIn[], action: ItemAction): void {
-    // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
+    const logGroup = action === 'deleted' ? (saved?.group ?? state.group) : state.group;
+    const logKindSource = action === 'deleted' ? saved?.kind : state.kind;
+    const kind: AssetKindLog = logGroup === 'investment' ? (logKindSource ?? 'none') : 'none';
+    const fields = action === 'deleted' ? [] : changedFields(state, initial);
+
     onSavingChange(true);
     save.mutate(
       { items: next },
       {
         onSettled: () => onSavingChange(false),
         onSuccess: () => {
-          // 이름도 금액도 안 싣는다. 어느 그룹인지와 남은 줄 수까지다.
+          // 이름, 금액, 수량 값, 가격은 싣지 않는다.
           analytics.log(
             EVENTS.assetChanged,
             {
               action,
-              // 지울 때는 저장돼 있던 줄의 그룹이다. 폼에서 칩만 바꾸고 지우면
-              // 지워진 줄과 로그의 그룹이 어긋난다.
-              group: action === 'deleted' ? (saved?.group ?? group) : group,
+              group: logGroup,
               items: next.length,
+              kind,
+              from: 'assets',
+              ...(fields.length > 0 ? { fields: fields.join('+') } : {}),
             },
             { kind: 'click' },
           );
-          onClose();
+          onDone(action === 'deleted' ? '항목을 지웠어요' : '자산 항목을 저장했어요');
         },
       },
     );
   }
 
+  function submit(): void {
+    const next = toPutItem(state, initial, saved);
+    if (target.sortOrder == null) {
+      send([...items.map(toItemIn), next], 'created');
+      return;
+    }
+    send(
+      items.map((item) => (item.sort_order === target.sortOrder ? next : toItemIn(item))),
+      'updated',
+    );
+  }
+
+  const title =
+    target.sortOrder != null ? '자산 항목 고치기' : `${assetGroupLabel(state.group)} 항목 추가`;
+
   return (
-    <div className="asset-sheet__body">
-      <div className="asset-sheet__field">
-        <span className="asset-sheet__label">어디에 있는 돈인가요</span>
-        <SegmentedControl
-          options={GROUP_OPTIONS}
-          value={group}
-          onChange={setGroup}
-          ariaLabel="자산 그룹"
-        />
-        <span className="asset-sheet__hint">{ASSET_GROUP_VIEWS[group].hint}</span>
-      </div>
+    <>
+      <SheetBackHead title={title} onBack={onBack} />
+      <div className="asset-sheet__body">
+        <div className="asset-sheet__field">
+          <span className="asset-sheet__label">어디에 있는 돈인가요</span>
+          <div className="asset-sheet__groups" role="radiogroup" aria-label="자산 그룹">
+            {GROUPS.map((group) => (
+              <button
+                key={group}
+                type="button"
+                role="radio"
+                aria-checked={state.group === group}
+                className="asset-sheet__group"
+                onClick={() => pickGroup(group)}
+              >
+                {ASSET_GROUP_VIEWS[group].label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-      <label className="asset-sheet__field">
-        <span className="asset-sheet__label">이름 (선택)</span>
-        <input
-          className="asset-sheet__input"
-          value={label}
-          onChange={(event) => setLabel(event.target.value)}
-          placeholder="예: 토스뱅크 통장"
-          maxLength={80}
-        />
-      </label>
+        {state.group === 'investment' ? (
+          <div className="asset-sheet__field">
+            <span className="asset-sheet__label">종류</span>
+            <div className="asset-sheet__kinds" role="radiogroup" aria-label="투자 종류">
+              {INVEST_KINDS.map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  role="radio"
+                  aria-checked={state.kind === kind}
+                  className="asset-sheet__kind"
+                  onClick={() => patch({ kind })}
+                >
+                  {INVEST_KIND_LABEL[kind]}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
-      <AmountField label="금액" value={digits} onChange={setDigits} />
-      {/* 부채도 양수로 적는다. 빼는 것은 그룹이 정하므로 마이너스를 적을 이유가 없다. */}
-      <p className="asset-sheet__hint">대략이면 충분해요. 부채도 그냥 남은 금액을 적어요</p>
-
-      {message ? (
-        <p className="asset-sheet__notice" role="alert">
-          {message}
-        </p>
-      ) : null}
-
-      <div className="asset-sheet__actions">
-        {target.sortOrder != null ? (
-          <Button
-            variant="outline"
-            disabled={save.isPending}
-            onClick={() =>
-              send(
-                items.filter((item) => item.sort_order !== target.sortOrder).map(toItemIn),
-                'deleted',
-              )
+        <label className="asset-sheet__field">
+          <span className="asset-sheet__label">이름</span>
+          <input
+            className="asset-sheet__input"
+            value={state.label}
+            onChange={(event) => patch({ label: event.target.value })}
+            placeholder={
+              state.group === 'investment' ? '예: 삼성전자, S&P500 ETF' : '예: 토스뱅크 통장'
             }
+            maxLength={80}
+          />
+        </label>
+
+        {holding === 'quantity' ? (
+          <>
+            <div className="asset-sheet__two">
+              <QuantityField
+                label="갖고 있는 수량"
+                value={state.qty}
+                unit={unit}
+                onChange={(qty) => patch({ qty })}
+              />
+              <AmountField
+                label="넣은 돈"
+                value={state.cost}
+                onChange={(cost) => patch({ cost })}
+              />
+            </div>
+            <AmountField
+              label={`지금 1${unit} 가격`}
+              value={state.price}
+              placeholder="모르면 비워 둬요"
+              onChange={(price) => patch({ price })}
+            />
+          </>
+        ) : holding === 'amount' ? (
+          <div className="asset-sheet__two">
+            <AmountField label="넣은 돈" value={state.cost} onChange={(cost) => patch({ cost })} />
+            <AmountField
+              label="지금 금액"
+              value={state.now}
+              placeholder="모르면 비워 둬요"
+              onChange={(now) => patch({ now })}
+            />
+          </div>
+        ) : (
+          <AmountField label="금액" value={state.amount} onChange={(amount) => patch({ amount })} />
+        )}
+
+        {takesMonthly(state.group) ? (
+          <div className="asset-sheet__toggle-row">
+            <span id={monthlyId} className="asset-sheet__toggle-label">
+              매달 넣는 돈이에요
+            </span>
+            <Toggle
+              checked={state.monthly}
+              onChange={(monthly) => patch({ monthly })}
+              ariaLabelledBy={monthlyId}
+            />
+          </div>
+        ) : null}
+        {takesMonthly(state.group) && state.monthly ? (
+          <AmountField
+            label="매달 얼마"
+            value={state.monthlyAmount}
+            onChange={(monthlyAmount) => patch({ monthlyAmount })}
+          />
+        ) : null}
+
+        {onSell != null && saved != null && sellableOf(saved) ? (
+          <Button
+            className="asset-sheet__sell"
+            variant="outline"
+            fullWidth
+            disabled={save.isPending}
+            onClick={() => onSell(saved)}
           >
-            지우기
+            팔았어요
           </Button>
         ) : null}
-        <Button
-          className="asset-sheet__done"
-          disabled={!canSave}
-          onClick={() => {
-            const next: AssetItemIn = {
-              group,
-              label: label.trim() === '' ? null : label.trim(),
-              amount: Number(digits),
-            };
-            if (target.sortOrder == null) {
-              send([...items.map(toItemIn), next], 'created');
-              return;
-            }
-            send(
-              items.map((item) => (item.sort_order === target.sortOrder ? next : toItemIn(item))),
-              'updated',
-            );
-          }}
-        >
-          저장
-        </Button>
+
+        {message ? (
+          <p className="asset-sheet__notice" role="alert">
+            {message}
+          </p>
+        ) : null}
+
+        <div className="asset-sheet__actions">
+          {target.sortOrder != null ? (
+            <Button
+              variant="outline"
+              disabled={save.isPending}
+              onClick={() =>
+                send(
+                  items.filter((item) => item.sort_order !== target.sortOrder).map(toItemIn),
+                  'deleted',
+                )
+              }
+            >
+              지우기
+            </Button>
+          ) : null}
+          <Button className="asset-sheet__done" disabled={!canSave} onClick={submit}>
+            저장
+          </Button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
-/** 저장돼 있는 줄을 그대로 다시 보낼 형태로 옮긴다. 금액은 서버가 준 문자열을 건드리지 않는다. */
-function toItemIn(item: AssetItemOut): AssetItemIn {
-  return { group: item.group, label: item.label, amount: item.amount };
+/** 수량 칸. 소수점을 받는다. 생김새는 금액 칸과 같다. */
+function QuantityField({
+  label,
+  value,
+  unit,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="pk-amount-field">
+      <span className="pk-amount-field__label">{label}</span>
+      <span className="pk-amount-field__box">
+        <input
+          className="pk-amount-field__input"
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          placeholder="0"
+          size={Math.max(4, value.length)}
+          value={value}
+          onChange={(event) => onChange(sanitizeQuantityInput(event.target.value))}
+        />
+        <span className="pk-amount-field__unit">{unit}</span>
+      </span>
+    </label>
+  );
 }

@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 
 import { RATING_AFTER_RECORDS } from '../../src/features/home/homeMode';
 import { logsNamed, reviewsOpened } from '../support/aitMock';
+import { lastMonth } from '../support/api';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -178,4 +179,71 @@ test('고른 색은 뗄 수 있다. 한 번 고르면 묶이지 않는다', asyn
   // 뗄 색이 없으니 「기본색으로」 는 잠기고, 고른 칸도 없다.
   await expect(categories.sheet.clearColorButton).toBeDisabled();
   await expect(categories.sheet.colorCell('하늘')).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('체크인 뒤와 자산 화면에 들어갈 때는 광고도 확인 창도 없다', async ({
+  appShell,
+  assets,
+  home,
+  manage,
+  page,
+  prep,
+}) => {
+  test.slow();
+  await prep.putAssets([{ group: 'cash', label: '카카오뱅크', amount: 1_000_000 }]);
+  await prep.moveLatestAssetSnapshot(`${lastMonth()}-15`);
+
+  await home.open();
+  await home.waitReady();
+  await home.assetCheckin.sameButton.click();
+  await expect(home.assetCheckin.card).toHaveCount(0);
+  await expect(assets.adConsent).toHaveCount(0);
+
+  // 앱 안에서 옮겨 다녀야 로그가 한 문서에 쌓인다.
+  await appShell.goToTab('관리');
+  await manage.waitReady();
+  await manage.openAssets();
+  await assets.waitReady();
+  await expect(assets.netWorth).toBeVisible();
+  await expect(assets.adConsent).toHaveCount(0);
+
+  expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
+  expect(await logsNamed(page, 'asset_analysis_opened')).toEqual([]);
+});
+
+test('기록 두 화면 사이와 저축·투자 저장 직후에는 광고도 확인 창도 없다', async ({
+  assets,
+  home,
+  page,
+  prep,
+  recordSheet,
+}) => {
+  await prep.putAssets([
+    { group: 'cash', label: '청년도약계좌', amount: 1_000_000, monthly: 300_000 },
+  ]);
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  // 첫 화면과 둘째 화면을 한 번 오간다.
+  await recordSheet.chooseKind('저축·투자');
+  await recordSheet.back();
+  await expect(recordSheet.wayGroup).toBeVisible();
+  await recordSheet.next();
+  await expect(recordSheet.amountTitle).toHaveText('얼마를 어디에 넣었어요?');
+
+  await recordSheet.pickDest('청년도약계좌');
+  await recordSheet.input.enterAmount(300_000);
+  await recordSheet.input.saveButton.click();
+  await expect(recordSheet.feedback.headline).toHaveText('청년도약계좌에 300,000원 넣었어요');
+  await expect(assets.adConsent).toHaveCount(0);
+
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+  await expect(home.today.row('저축·투자')).toBeVisible();
+
+  expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
+  expect(await logsNamed(page, 'asset_analysis_asked')).toEqual([]);
 });

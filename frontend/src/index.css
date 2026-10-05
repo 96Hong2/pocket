@@ -10,6 +10,7 @@
 @import './features/home/home.css';
 @import './features/home-add/home-add.css';
 @import './features/quick-record/quick-record.css';
+@import './features/quick-record/saving-hint.css';
 @import './features/ads/ads.css';
 @import './features/transactions/transactions.css';
 @import './features/budgets/budgets.css';
@@ -21,6 +22,9 @@
 @import './features/settings/settings.css';
 @import './features/account/account.css';
 @import './features/assets/assets.css';
+@import './features/asset-dest/asset-dest.css';
+@import './features/asset-analysis/asset-analysis.css';
+@import './features/asset-capture/asset-capture.css';
 @import './features/goals/goals.css';
 @import './features/notifications/notifications.css';
 @import './features/onboarding/onboarding.css';

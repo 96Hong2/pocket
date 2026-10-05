@@ -45,6 +45,7 @@ def test_그룹_소계는_항목이_없는_그룹도_0_으로_채운다():
     assert totals == {
         AssetGroup.CASH: won(1_500_000),
         AssetGroup.INVESTMENT: Money.zero(),
+        AssetGroup.PENSION: Money.zero(),
         AssetGroup.DEPOSIT: Money.zero(),
         AssetGroup.DEBT: won(300_000),
     }

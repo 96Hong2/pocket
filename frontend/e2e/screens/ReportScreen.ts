@@ -396,8 +396,18 @@ export class ClosingArea {
    * 어느 이름표 옆에 붙은 숫자인지까지 본다.
    * 한 번도 안 옮긴 달에는 `transfer` 줄이 아예 없다.
    */
-  flowRow(row: 'income' | 'expense' | 'delta' | 'transfer'): Locator {
+  flowRow(row: 'income' | 'expense' | 'delta' | 'transfer' | 'saved'): Locator {
     return this.page.locator(`[data-testid="${TEST_IDS.closingFlowRow}"][data-row="${row}"]`);
+  }
+
+  /** 돈 흐름 줄 전부. 차례를 볼 때 `data-row` 를 읽는다. */
+  get flowRows(): Locator {
+    return this.overlay.getByTestId(TEST_IDS.closingFlowRow);
+  }
+
+  /** 순자산 장. 그 달 스냅샷이 없으면 없다. */
+  get netWorth(): Locator {
+    return this.overlay.getByTestId(TEST_IDS.closingNetWorth);
   }
 
   get change(): Locator {

@@ -134,7 +134,8 @@
 
   .record-kinds__item {
     display: flex;
-    flex: 1 1 0;
+    /* 「저축·투자」 가 다른 칩보다 길다. 글자 폭만큼 나눠 가진다. */
+    flex: 1 1 auto;
     align-items: center;
     justify-content: center;
     gap: 4px;
@@ -650,5 +651,227 @@
   */
   .pk-sheet.record-sheet:not(.pk-sheet--tall) {
     max-height: 92dvh;
+  }
+}
+
+/* 기록의 저축·투자: 넣었어요와 팔았어요, 수량 칸, 팔 때 수익, 저장 뒤 화면. */
+@layer components {
+  /* 금액 숫자를 눌러 다시 금액을 친다. 수량 칸이 있을 때만 버튼이다. */
+  .keypad__head--press {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    border: 0;
+    background: none;
+    font-family: inherit;
+  }
+
+  .record__panel > .keypad__head--press {
+    padding: 4px 0 10px;
+  }
+
+  .record-lot {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .record-lot__side {
+    flex: 1.15 1 0;
+    min-width: 0;
+  }
+
+  .record-lot__side .pk-segmented__item {
+    padding: 0 4px;
+  }
+
+  .record-lot__qty {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-muted);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .record-lot__qty--on {
+    border-color: var(--color-sage-700);
+    box-shadow: 0 0 0 3px var(--color-sage-50);
+  }
+
+  .record-lot__qty-value {
+    overflow: hidden;
+    color: var(--color-ink);
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-extrabold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .record-lot__caret {
+    display: inline-block;
+    width: 2px;
+    height: 17px;
+    margin: 0 1px 0 2px;
+    background: var(--color-sage-700);
+    vertical-align: -2px;
+    animation: record-caret 1s steps(1) infinite;
+  }
+
+  @keyframes record-caret {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .record-lot__caret {
+      animation: none;
+    }
+  }
+
+  .record-lot__all {
+    flex: none;
+    min-width: 52px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-extrabold);
+  }
+
+  /* 팔 때 저장 전에 크게 보이는 수익. */
+  .record-profit {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 12px 14px;
+    border-radius: var(--radius-inset);
+    background: var(--color-sage-50);
+  }
+
+  .record-profit__basis {
+    min-width: 0;
+    color: var(--color-muted);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .record-profit__gain {
+    display: flex;
+    flex: none;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--color-sage-700);
+    font-size: 20px;
+    font-weight: var(--font-weight-extrabold);
+    white-space: nowrap;
+  }
+
+  .record-profit__rate {
+    font-size: var(--text-14);
+    font-style: normal;
+  }
+
+  .record-profit--down {
+    background: color-mix(in srgb, var(--color-expense) 10%, var(--color-surface));
+  }
+
+  .record-profit--down .record-profit__gain {
+    color: var(--color-expense);
+  }
+
+  /* 저축·투자 저장 뒤 화면. */
+  .saved-asset__sub {
+    margin: -8px 0 0;
+    color: var(--color-muted);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    text-align: center;
+  }
+
+  .saved-asset__rows {
+    margin: 14px 0 0;
+    padding: 6px 16px;
+    border-radius: var(--radius-card);
+    background: var(--color-sage-50);
+  }
+
+  .saved-asset__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 0;
+  }
+
+  .saved-asset__row + .saved-asset__row {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .saved-asset__row dt {
+    min-width: 0;
+    color: var(--color-muted);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    word-break: keep-all;
+  }
+
+  .saved-asset__value {
+    margin: 0;
+    color: var(--color-ink);
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-extrabold);
+    text-align: right;
+  }
+
+  .saved-asset__value--up {
+    color: var(--color-sage-700);
+  }
+
+  .saved-asset__value--down {
+    color: var(--color-expense);
+  }
+
+  .saved-asset__actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .saved-asset__actions > .pk-btn {
+    flex: 1 1 0;
+  }
+
+  .saved-asset__actions > .saved-asset__confirm {
+    flex-grow: 1.4;
+  }
+
+  /* 종류 칩이 넷이라 좁은 폰에서는 칩 안쪽을 줄여 한 줄에 든다. */
+  @media (max-width: 360px) {
+    .record-kinds {
+      gap: 4px;
+    }
+
+    .record-kinds__item {
+      gap: 2px;
+      padding: 0 5px;
+    }
   }
 }

@@ -30,9 +30,12 @@ import {
   TransactionRow,
 } from '../../shared/ui';
 
+import type { AssetDest } from '../asset-dest';
+
 import { toAmount } from './digits';
 import { buildFeedbackMessage } from './feedbackMessage';
 import { AmountDisplay, Keypad } from './Keypad';
+import { useSavingHint } from './SavingHint';
 
 interface FeedbackPanelProps {
   /** 이 기록 흐름을 가리키는 값. 저장 뒤 손질까지 한 줄로 잇는다. */
@@ -51,8 +54,12 @@ interface FeedbackPanelProps {
   onConfirm: () => void;
   /** 시트가 받은 Esc 를 이 화면의 ‹ 와 같은 길로 보내려고 건다. */
   backRef?: { current: () => void };
+  /** 시트를 끌어내리거나 바깥을 눌러 닫을 때 부를 것. 적금 안내에 답 없이 닫혔다고 남긴다. */
+  dismissRef?: { current: () => void };
   /** 맨 위 큰 한 줄. 어디에 적혔는지 말한다. */
   label?: string;
+  /** 적금 안내로 저축·투자로 바꾼 뒤. 안 주면 onUpdated 로 간다. */
+  onSavingConverted?: (updated: TransactionUpdated, dest: AssetDest) => void;
 }
 
 /**
@@ -86,7 +93,9 @@ export function FeedbackPanel({
   onMethodPicked,
   onConfirm,
   backRef,
+  dismissRef,
   label = '내 가계부에 적었어요',
+  onSavingConverted,
 }: FeedbackPanelProps) {
   const analytics = useAnalytics();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -106,6 +115,13 @@ export function FeedbackPanel({
   const [memoOpen, setMemoOpen] = useState(Boolean(transaction.memo));
 
   const category = categories.find((item) => item.id === transaction.category_id);
+  const savingHint = useSavingHint({
+    flowId,
+    transaction,
+    categoryName: category?.name,
+    onUpdated,
+    onConverted: onSavingConverted,
+  });
   const overName = categories.find((item) => item.id === feedback.over_category_id)?.name;
 
   const savedAmount = parseDecimalOr(transaction.amount, 0);
@@ -232,7 +248,10 @@ export function FeedbackPanel({
   }
 
   function confirm(): void {
+    // 적금 안내의 「다른 곳」 단계가 열려 있으면 그 단계만 물린다.
+    if (savingHint.back()) return;
     analytics.log(EVENTS.feedbackAction, { action: 'confirm' }, { flowId, kind: 'click' });
+    savingHint.dismiss();
     // 두 칸 다 고쳤으면 상호를 먼저 보내고 닫기는 그쪽에 맡긴다. 메모는 그 뒤에 따라간다.
     const merchantSent = flushMerchant(true);
     const memoSent = flushMemo(!merchantSent);
@@ -244,13 +263,24 @@ export function FeedbackPanel({
   useOverlayBackClose(true, confirm);
   useEffect(() => {
     if (backRef != null) backRef.current = confirm;
+    if (dismissRef != null) dismissRef.current = savingHint.dismiss;
   });
+  useEffect(
+    () => () => {
+      if (dismissRef != null) dismissRef.current = () => {};
+    },
+    [dismissRef],
+  );
 
   /** 안 적어도 되는 칸을 펼친다. 펼친 칸이 무엇이었는지만 남긴다. */
   function openField(field: 'merchant' | 'memo'): void {
     analytics.log(EVENTS.feedbackAction, { action: 'more', field }, { flowId, kind: 'click' });
     if (field === 'merchant') setMerchantOpen(true);
     else setMemoOpen(true);
+  }
+
+  if (savingHint.takeover != null) {
+    return <div className="feedback">{savingHint.takeover}</div>;
   }
 
   return (
@@ -426,6 +456,8 @@ export function FeedbackPanel({
           {updateError.message}
         </p>
       ) : null}
+
+      {savingHint.card}
 
       <Button className="feedback__confirm" variant="primarySmall" fullWidth onClick={confirm}>
         확인

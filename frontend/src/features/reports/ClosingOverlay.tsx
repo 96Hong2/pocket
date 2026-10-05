@@ -15,14 +15,16 @@ import { closingLine, ShareButton } from '../share';
 
 import {
   CHANGE_NOTE,
-  CLOSING_CARDS,
   NO_CHANGE_LINE,
   NO_NEXT_LINE,
   changeLine,
   changeWindow,
+  closingCards,
   deltaLabel,
   enoughLine,
   highlightLine,
+  netWorthLine,
+  netWorthStreakLine,
   nextLine,
   recordedDaysLine,
   type ClosingCardKey,
@@ -58,6 +60,8 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
   const categories = useCategories();
   const dialogRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
+  const cards = closingCards(closing);
+  const cardCount = cards.length;
 
   /*
     닫을 때 몇 장까지 봤는지 남기려면 그 순간의 번호가 필요하다. 닫는 길이 넷이고
@@ -77,13 +81,13 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
       EVENTS.closingClosed,
       {
         page: page.current + 1,
-        total: CLOSING_CARDS.length,
-        finished: page.current === CLOSING_CARDS.length - 1,
+        total: cardCount,
+        finished: page.current === cardCount - 1,
       },
       { kind: 'click' },
     );
     onClose();
-  }, [analytics, onClose]);
+  }, [analytics, cardCount, onClose]);
 
   useOverlayBackClose(true, leave);
 
@@ -97,8 +101,8 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
     void markClosingSeen(bridge.storage, month);
     if (opened.current) return;
     opened.current = true;
-    analytics.log(EVENTS.closingOpened, { cards: CLOSING_CARDS.length }, { kind: 'impression' });
-  }, [analytics, month, bridge]);
+    analytics.log(EVENTS.closingOpened, { cards: cardCount }, { kind: 'impression' });
+  }, [analytics, cardCount, month, bridge]);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -126,7 +130,7 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
   }, [leave]);
 
   const label = `${formatMonthLabel(month)} 결산`;
-  const last = index === CLOSING_CARDS.length - 1;
+  const last = index === cardCount - 1;
   /*
     예산 안에서 마친 달인가. 결산에서 가장 자랑할 만한 사실이라 문구가 이것부터 말한다.
     서버가 준 「잘한 것」에 그 항목이 있을 때만이다. 여기서 예산과 지출을 다시 견주지 않는다.
@@ -145,7 +149,7 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
     >
       {/* 몇 장 중 몇 번째인지. 넘길 것이 남았다는 것을 맨 위 띠로 먼저 알린다. */}
       <div className="closing__dots" aria-hidden="true">
-        {CLOSING_CARDS.map((card, position) => (
+        {cards.map((card, position) => (
           <span
             key={card.key}
             className="closing__dot"
@@ -174,11 +178,11 @@ function ClosingDialog({ month, closing, onClose }: Omit<ClosingOverlayProps, 'o
         <CategoryAvatar
           className="closing__icon"
           size={84}
-          {...cardIcon(CLOSING_CARDS[index].key, closing, byId)}
+          {...cardIcon(cards[index].key, closing, byId)}
         />
-        <h2 className="closing__title">{CLOSING_CARDS[index].title}</h2>
+        <h2 className="closing__title">{cards[index].title}</h2>
         <ClosingCardBody
-          card={CLOSING_CARDS[index].key}
+          card={cards[index].key}
           month={month}
           closing={closing}
           byId={byId}
@@ -237,6 +241,8 @@ function cardIcon(
       return { icon: '26_sparkles', custom: null };
     case 'flow':
       return { icon: '28_cash', custom: null };
+    case 'net_worth':
+      return { icon: '60_plant', custom: null };
     case 'change':
       return iconOf(byId.get(closing.change?.category_id ?? ''));
     case 'next':
@@ -263,6 +269,8 @@ function ClosingCardBody({
       return <HighlightsCard month={month} closing={closing} byId={byId} />;
     case 'flow':
       return <FlowCard month={month} closing={closing} />;
+    case 'net_worth':
+      return <NetWorthCard month={month} closing={closing} onLeave={onLeave} />;
     case 'change':
       return <ChangeCard closing={closing} byId={byId} />;
     case 'next':
@@ -299,10 +307,15 @@ function HighlightsCard({
   );
 }
 
-/** 돈 흐름. 남은 예산도 순자산도 아니고, 그 달에 들고 난 돈이다. */
+/**
+ * 돈 흐름. 남은 예산도 순자산도 아니고, 그 달에 들고 난 돈이다.
+ *
+ * 모은 돈(저축·투자)과 옮긴 돈은 지출도 수입도 아니라 차액을 안 바꾼다. 판 돈은 옮긴 돈이다.
+ */
 function FlowCard({ month, closing }: { month: string; closing: ClosingOut }) {
   const flow = closing.flow;
-  const transfer = parseDecimalOr(flow.transfer, 0);
+  const saved = parseDecimalOr(flow.saved, 0);
+  const moved = parseDecimalOr(flow.moved, 0);
 
   return (
     <>
@@ -317,28 +330,58 @@ function FlowCard({ month, closing }: { month: string; closing: ClosingOut }) {
           <dt>쓴 돈</dt>
           <dd className="closing__flow-value">{formatCurrency(parseDecimalOr(flow.expense, 0))}</dd>
         </div>
-        <div className="closing__flow-row" data-testid={TEST_IDS.closingFlowRow} data-row="delta">
-          <dt>{deltaLabel(month)}</dt>
-          <dd className="closing__flow-value">
-            {formatSignedCurrency(parseDecimalOr(flow.delta, 0))}
-          </dd>
-        </div>
-        {/* 옮기기만 한 돈은 지출도 수입도 아니다. 한 번도 안 옮겼으면 줄을 아예 빼서
-            무슨 말인지 모를 0원을 두지 않는다. */}
-        {transfer !== 0 ? (
+        {/* 없는 달은 줄을 빼서 무슨 말인지 모를 0원을 두지 않는다. */}
+        {saved !== 0 ? (
+          <div className="closing__flow-row" data-testid={TEST_IDS.closingFlowRow} data-row="saved">
+            <dt>모은 돈</dt>
+            <dd className="closing__flow-value is-saved">{formatCurrency(saved)}</dd>
+          </div>
+        ) : null}
+        {moved !== 0 ? (
           <div
             className="closing__flow-row"
             data-testid={TEST_IDS.closingFlowRow}
             data-row="transfer"
           >
             <dt>옮긴 돈</dt>
-            <dd className="closing__flow-value is-muted">{formatCurrency(transfer)}</dd>
+            <dd className="closing__flow-value is-muted">{formatCurrency(moved)}</dd>
           </div>
         ) : null}
+        <div className="closing__flow-row" data-testid={TEST_IDS.closingFlowRow} data-row="delta">
+          <dt>{deltaLabel(month)}</dt>
+          <dd className="closing__flow-value">
+            {formatSignedCurrency(parseDecimalOr(flow.delta, 0))}
+          </dd>
+        </div>
       </dl>
       {/* 며칠 빠뜨렸는지는 세지 않는다. 적은 날만 센다. */}
       <p className="closing__foot">{recordedDaysLine(flow.recorded_days, flow.total_days)}</p>
     </>
+  );
+}
+
+/** 순자산 장. 스냅샷이 없는 달에는 이 장 자체가 없다. */
+function NetWorthCard({
+  month,
+  closing,
+  onLeave,
+}: {
+  month: string;
+  closing: ClosingOut;
+  onLeave: () => void;
+}) {
+  const netWorth = closing.net_worth;
+  if (netWorth == null) return null;
+  const streak = netWorthStreakLine(month, netWorth.streak);
+
+  return (
+    <div data-testid={TEST_IDS.closingNetWorth}>
+      <p className="closing__lead">{netWorthLine(netWorth)}</p>
+      {streak != null ? <p className="closing__foot">{streak}</p> : null}
+      <Link className="closing__link" to={ROUTES.assets} onClick={onLeave}>
+        자산 화면에서 추이를 봐요
+      </Link>
+    </div>
   );
 }
 

@@ -11,9 +11,12 @@ import {
   NO_NEXT_LINE,
   changeLine,
   changeWindow,
+  closingCards,
   deltaLabel,
   enoughLine,
   highlightLine,
+  netWorthLine,
+  netWorthStreakLine,
   nextLine,
   recordedDaysLine,
 } from './closingText';
@@ -92,5 +95,35 @@ describe('결산 문장', () => {
     // 이름 없이 "그 분류를 줄였어요" 는 무엇을 줄였다는 말인지 알 수 없다.
     expect(highlightLine(highlight({ kind: 'category_decrease', amount: '100000' }))).toBeNull();
     expect(highlightLine(highlight({ kind: 'no_spend_days' }))).toBeNull();
+  });
+});
+
+describe('순자산 장', () => {
+  const NET = { current: '12300000', previous: '12000000', delta: '300000', streak: 5 };
+
+  it('스냅샷이 있을 때만 돈 흐름 다음에 낀다', () => {
+    expect(closingCards({ net_worth: null }).map((card) => card.key)).toEqual([
+      'highlights',
+      'flow',
+      'change',
+      'next',
+    ]);
+    expect(closingCards({ net_worth: NET }).map((card) => card.key)).toEqual([
+      'highlights',
+      'flow',
+      'net_worth',
+      'change',
+      'next',
+    ]);
+  });
+
+  it('늘었는지 줄었는지와 몇 달째인지를 적는다', () => {
+    expect(netWorthLine(NET)).toBe('순자산이 +300,000원 늘었어요');
+    expect(netWorthLine({ ...NET, delta: '-50000' })).toBe('순자산이 50,000원 줄었어요');
+    expect(netWorthLine({ ...NET, delta: '0' })).toBe('순자산이 지난달과 같아요');
+    expect(netWorthStreakLine('2026-09', 5)).toBe('5월부터 다섯 달 연속 늘고 있어요');
+    expect(netWorthStreakLine('2026-02', 3)).toBe('12월부터 세 달 연속 늘고 있어요');
+    expect(netWorthStreakLine('2026-09', 1)).toBeNull();
+    expect(findForbiddenWords(netWorthLine({ ...NET, delta: '-50000' }))).toEqual([]);
   });
 });

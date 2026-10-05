@@ -1,25 +1,55 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 
-import { useAssets, type AssetGroup, type AssetItemOut } from '../../shared/api';
-import { Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui';
+import { ASSET_CHECKIN_QUERY } from '../../app/router/routes';
+import { AdSlot } from '../ads';
+import { AnalysisEntry } from '../asset-analysis';
+import { CaptureEntry } from '../asset-capture';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
+import { useAssetHistory, useAssets, type AssetGroup, type AssetItemOut } from '../../shared/api';
+import { ASSET_ITEM_MAX_COUNT } from '../../shared/lib/limits';
+import { Button, Card, EmptyState, ErrorState, LoadingState } from '../../shared/ui';
 
 import { AssetGroupSection } from './AssetGroupSection';
 import { AssetItemSheet, type AssetItemTarget } from './AssetItemSheet';
+import { CheckinSheet } from './CheckinSheet';
 import { NetWorthCard } from './NetWorthCard';
+import { NetWorthDetailSheet } from './NetWorthDetailSheet';
 
-/** 처음 적을 때 미리 골라 두는 그룹. 대부분 통장 잔액부터 적는다. */
+/** 「직접 적기」 로 열 때 미리 골라 두는 그룹. 대부분 통장 잔액부터 적는다. */
 const FIRST_GROUP: AssetGroup = 'cash';
 
 /**
- * 자산 화면 본문.
+ * 자산 화면 본문. 차례: 순자산 카드, 「내 자산 분석」, 캡처로 채우기, 배너, 그룹 다섯.
  *
- * 순자산과 그룹 소계는 서버가 센 값을 그대로 그린다. 저장은 목록을 통째로 보내는
- * PUT 하나뿐이라, 목록을 받지 못한 상태에서는 더하기 입구도 열지 않는다.
- * 그때 새 줄 하나만 보내면 나머지 줄이 통째로 사라진다.
+ * 저장은 목록을 통째로 보내는 PUT 하나뿐이라, 목록을 받지 못한 상태에서는 더하기 입구도
+ * 열지 않는다. 그때 새 줄 하나만 보내면 나머지 줄이 통째로 사라진다.
  */
-export function AssetsBoard() {
+export function AssetsBoard({
+  onSell,
+}: {
+  /** 항목 시트의 「팔았어요」. 기록 시트를 여는 것은 화면이 한다. */
+  onSell?: (item: AssetItemOut) => void;
+} = {}) {
+  const analytics = useAnalytics();
   const assets = useAssets();
+  const history = useAssetHistory();
   const [target, setTarget] = useState<AssetItemTarget | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [params, setParams] = useSearchParams();
+  // 홈 체크인 카드에서 왔으면 목록을 받은 뒤 「바뀐 것만 고쳐요」 를 연다. 닫으면 쿼리를 걷는다.
+  const checkinOpen =
+    params.get(ASSET_CHECKIN_QUERY) === '1' && (assets.data?.items.length ?? 0) > 0;
+
+  function closeCheckin(): void {
+    setParams(
+      (current) => {
+        current.delete(ASSET_CHECKIN_QUERY);
+        return current;
+      },
+      { replace: true },
+    );
+  }
 
   if (assets.isError) {
     return (
@@ -45,6 +75,10 @@ export function AssetsBoard() {
   }
 
   const items = data.items;
+  // 옛 `groups` 는 연금이 없는 넷이다. 다섯 그룹은 `all_groups` 에 온다.
+  const groups = data.all_groups ?? data.groups;
+  const points = history.data?.points ?? [];
+  const full = items.length >= ASSET_ITEM_MAX_COUNT;
 
   function pick(item: AssetItemOut): void {
     setTarget({ sortOrder: item.sort_order, group: item.group });
@@ -54,39 +88,74 @@ export function AssetsBoard() {
     setTarget({ sortOrder: null, group });
   }
 
+  function openDetail(): void {
+    analytics.log(EVENTS.assetNetworthOpened, {}, { kind: 'click' });
+    setDetailOpen(true);
+  }
+
   return (
     <div className="assets">
       {items.length === 0 ? (
-        // 한 줄도 없을 때 구획 넷과 0원 순자산을 함께 펼치지 않는다. 다음 한 걸음만 보여준다.
-        <Card padding="md">
-          <EmptyState
-            icon="32_piggybank"
-            title="아직 자산을 적지 않았어요"
-            description="대략이면 충분해요"
-            actionLabel="자산 적기"
-            onAction={() => add(FIRST_GROUP)}
-          />
-        </Card>
+        <>
+          <Card padding="md">
+            <EmptyState
+              icon="32_piggybank"
+              title="아직 자산을 적지 않았어요"
+              action={
+                <div className="assets-empty__actions">
+                  <CaptureEntry onManual={() => add(FIRST_GROUP)} />
+                  <Button variant="outline" fullWidth onClick={() => add(FIRST_GROUP)}>
+                    직접 적기
+                  </Button>
+                </div>
+              }
+            />
+          </Card>
+          <AdSlot placement="assets_top" />
+        </>
       ) : (
         <>
-          <NetWorthCard summary={data.summary} snapshot={data.snapshot} />
-          {/* 구획 순서는 서버가 준 순서 그대로다. 화면이 다시 정렬하지 않는다. */}
-          {data.groups.map((row) => (
+          <NetWorthCard
+            summary={data.summary}
+            snapshot={data.snapshot}
+            points={points}
+            onOpen={openDetail}
+          />
+          <AnalysisEntry />
+          <CaptureEntry onManual={() => add(FIRST_GROUP)} />
+          <AdSlot placement="assets_top" />
+          {/* 구획 순서는 서버가 준 순서 그대로다. */}
+          {groups.map((row) => (
             <AssetGroupSection
               key={row.group}
               group={row.group}
               total={row.total}
               items={items.filter((item) => item.group === row.group)}
-              totalCount={items.length}
+              full={full}
               onPick={pick}
               onAdd={add}
             />
           ))}
-          <p className="assets__skip-note">모든 항목은 건너뛸 수 있어요</p>
+          {full ? (
+            <p className="assets__full">자산은 {ASSET_ITEM_MAX_COUNT}개까지 적을 수 있어요</p>
+          ) : null}
         </>
       )}
 
-      <AssetItemSheet target={target} items={items} onClose={() => setTarget(null)} />
+      <NetWorthDetailSheet
+        open={detailOpen}
+        summary={data.summary}
+        snapshot={data.snapshot}
+        points={points}
+        onClose={() => setDetailOpen(false)}
+      />
+      <AssetItemSheet
+        target={target}
+        items={items}
+        onClose={() => setTarget(null)}
+        onSell={onSell}
+      />
+      <CheckinSheet open={checkinOpen} items={items} onClose={closeCheckin} />
     </div>
   );
 }

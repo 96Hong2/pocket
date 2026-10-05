@@ -30,10 +30,8 @@ test('관리 탭에서 자산으로 들어가면 빈 상태가 있다', async ({
   ]);
 
   await manage.openAssets();
-  await appShell.expectScreen(
-    '자산',
-    '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요. 계좌 연결이나 정확한 숫자는 필요 없어요.',
-  );
+  // 설명 줄은 걷었다. 제목만 남는다.
+  await appShell.expectScreen('자산');
   await assets.waitReady();
 
   await expect(assets.emptyTitle).toBeVisible();
@@ -69,9 +67,11 @@ test('부채를 더하면 순자산이 줄어든다', async ({ assets, prep }) =
   // 부채는 양수로 적지만 순자산에서는 빠진다. 더했는데 늘어나면 방향이 뒤집힌 것이다.
   await expect(assets.netWorth).toHaveText(formatCurrency(CASH - DEBT));
   await expect(assets.groupTotal('부채')).toHaveText(formatCurrency(DEBT));
-  await expect(assets.breakdown).toHaveText(
-    `자산 ${formatCurrency(CASH)} − 부채 ${formatCurrency(DEBT)}`,
-  );
+  // 「자산 − 부채」 줄은 카드에서 걷었다. 두 숫자는 카드를 누른 상세에 있다.
+  await expect(assets.breakdown).toHaveCount(0);
+  await assets.netWorthButton.click();
+  await expect(assets.detailValue('자산')).toHaveText(formatCurrency(CASH));
+  await expect(assets.detailValue('부채')).toHaveText(`− ${formatCurrency(DEBT)}`);
 });
 
 test('항목을 지우면 그 자리에서 순자산이 맞는다', async ({ assets, prep }) => {
@@ -127,7 +127,7 @@ test('다시 들어와도 남아 있고 기준일이 보인다', async ({ appShe
   await expect(assets.netWorth).toHaveText(formatCurrency(50_000_000));
   await expect(assets.row('전월세 보증금')).toHaveCount(1);
   // 언제 적은 것인지 함께 적는다. 날짜가 없으면 오래된 숫자를 지금 값으로 읽는다.
-  await expect(assets.basisLabel).toHaveText(/^내 순자산 · \d{1,2}월 \d{1,2}일 기준$/);
+  await expect(assets.basisLabel).toHaveText(/^내 순자산 · \d{1,2}월 \d{1,2}일 기준 ?›$/);
 });
 
 test('이름을 안 적으면 그룹 이름으로 부른다', async ({ assets }) => {
@@ -168,10 +168,8 @@ test('시트가 열려 있으면 뒤로가기가 시트를 먼저 닫는다', as
 
   // 시트가 열린 채 화면만 뒤로 빠지면 자산 화면 밖에 시트가 떠 있게 된다.
   await assets.sheet.waitClosed();
-  await appShell.expectScreen(
-    '자산',
-    '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요. 계좌 연결이나 정확한 숫자는 필요 없어요.',
-  );
+  // 설명 줄은 걷었다. 제목만 남는다.
+  await appShell.expectScreen('자산');
 });
 
 test('긴 이름과 큰 금액에도 화면이 가로로 넘치지 않는다', async ({ assets, prep }) => {

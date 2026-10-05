@@ -3,6 +3,8 @@
 from app.integrations.llm.contracts import (
     DEFAULT_CATEGORY_HINTS,
     LOW_CONFIDENCE_THRESHOLD,
+    AssetExtraction,
+    ExtractedAsset,
     ExtractedTransaction,
     ParseMeta,
     ParseResult,
@@ -33,18 +35,26 @@ from app.integrations.llm.port import (
     build_meta,
 )
 from app.integrations.llm.prompts import (
+    ASSET_CAPTURE_MARKER,
+    ASSET_TASK_MARKER,
     RECEIPT_TASK_MARKER,
     SHARED_BOOK_MARKER,
+    AssetHint,
+    asset_capture_prompt,
     for_shared_book,
+    listed_asset_names,
     listed_categories,
     natural_language_prompt,
     receipt_prompt,
     retry_prompt,
     screenshot_prompt,
+    with_assets,
 )
 from app.integrations.llm.stub import StubLlmStructuredClient
 
 __all__ = [
+    "ASSET_CAPTURE_MARKER",
+    "ASSET_TASK_MARKER",
     "DEFAULT_CATEGORY_HINTS",
     "GEMINI_DEFAULT_MODEL",
     "GEMINI_ESCALATION_MODEL",
@@ -53,6 +63,9 @@ __all__ = [
     "OPENAI_ESCALATION_MODEL",
     "RECEIPT_TASK_MARKER",
     "SHARED_BOOK_MARKER",
+    "AssetExtraction",
+    "AssetHint",
+    "ExtractedAsset",
     "ExtractedTransaction",
     "GeminiStructuredClient",
     "LlmError",
@@ -69,14 +82,17 @@ __all__ = [
     "TransactionExtraction",
     "TransactionSource",
     "TransactionType",
+    "asset_capture_prompt",
     "attach_source",
     "build_meta",
     "for_shared_book",
     "get_escalation_client",
     "get_llm_client",
+    "listed_asset_names",
     "listed_categories",
     "natural_language_prompt",
     "receipt_prompt",
     "retry_prompt",
     "screenshot_prompt",
+    "with_assets",
 ]

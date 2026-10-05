@@ -53,10 +53,11 @@ export class AppShell {
   }
 
   /** 어느 화면에 있는지를 제목과 리드 문구로 확인한다. 주소가 아니라 화면으로 본다. */
-  async expectScreen(title: string, lead: string): Promise<void> {
+  async expectScreen(title: string, lead?: string): Promise<void> {
     const heading = this.page.getByRole('heading', { level: 1, name: title, exact: true });
     await expect(heading).toBeVisible();
-    await expect(this.page.getByText(lead, { exact: true })).toBeVisible();
+    // 설명 줄을 걷은 화면(자산)은 제목만 본다.
+    if (lead != null) await expect(this.page.getByText(lead, { exact: true })).toBeVisible();
   }
 
   /**

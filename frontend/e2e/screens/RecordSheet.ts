@@ -23,7 +23,13 @@ const WAY_NAMES = {
 } as const;
 
 export type WayLabel = keyof typeof WAY_NAMES;
-export type KindLabel = '지출' | '수입' | '이체';
+export type KindLabel = '지출' | '수입' | '이체' | '저축·투자';
+
+/** 「새 종목이나 통장」 의 그룹 칩. 부채는 「어디에」 에 없다. */
+export type DestGroupLabel = '예적금·현금' | '투자' | '연금' | '보증금·기타';
+
+/** 투자 종류 칩. */
+export type DestKindLabel = '주식' | 'ETF' | '펀드' | '코인' | '채권' | '기타';
 
 /** 첫 화면에서 가까운 사흘은 한 번 눌러 고른다. 그 밖의 날은 기기 달력 칸에 넣는다. */
 const NEAR_DAY_WORDS = [
@@ -296,9 +302,14 @@ export class RecordSheet {
     return this.root.getByRole('button', { name: '뒤로', exact: true });
   }
 
-  /** 둘째 화면(금액) 제목. 종류에 따라 「얼마 썼어요?」, 「얼마 벌었어요?」, 「얼마 옮겼어요?」. */
+  /**
+   * 둘째 화면(금액) 제목. 종류에 따라 「얼마 썼어요?」, 「얼마 벌었어요?」, 「얼마 옮겼어요?」,
+   * 저축·투자는 「얼마를 어디에 넣었어요?」, 팔 때는 「얼마 받았어요?」.
+   */
   get amountTitle(): Locator {
-    return this.root.getByText(/^얼마 (썼|벌었|옮겼)어요\?$/).filter({ visible: true });
+    return this.root
+      .getByText(/^얼마(를 어디에 넣었| 썼| 벌었| 옮겼| 받았)어요\?$/)
+      .filter({ visible: true });
   }
 
   /** 둘째 화면 오른쪽 위 태그 칩. 안 골랐으면 「＃ 태그」, 골랐으면 「＃ 회식」. */
@@ -351,6 +362,15 @@ export class RecordSheet {
     await expect(this.wayGroup.or(this.backButton).first()).toBeVisible();
     if (await this.wayGroup.isVisible()) return;
     if (await this.tagGroup.or(this.newTagForm).first().isVisible()) {
+      await this.back();
+      await expect(this.amountTitle).toBeVisible();
+    }
+    // 「새 종목이나 통장」 → 「다른 곳」 → 둘째 화면 차례로 물러난다.
+    if (await this.newDestForm.isVisible()) {
+      await this.back();
+      await expect(this.destList).toBeVisible();
+    }
+    if (await this.destList.isVisible()) {
       await this.back();
       await expect(this.amountTitle).toBeVisible();
     }
@@ -434,6 +454,156 @@ export class RecordSheet {
     await this.tagChip.click();
     await this.tagOption(name).click();
     await expect(this.amountTitle).toBeVisible();
+  }
+
+  // ── 저축·투자 ─────────────────────────────
+
+  /** 「어디에」 두 칸 격자. 고르기 전에만 보인다. */
+  get destGrid(): Locator {
+    return this.root.getByRole('group', { name: '어디에', exact: true });
+  }
+
+  /** 격자 칸 하나. 이름만 적혀 있다. */
+  destCell(name: string): Locator {
+    return this.destGrid.getByRole('button', { name, exact: true });
+  }
+
+  /** 고른 뒤 한 줄로 접힌 「어디에」. 누르면 격자가 다시 펼쳐진다. */
+  get destPicked(): Locator {
+    return this.root.locator('.asset-dest__picked');
+  }
+
+  /** 격자 끝 「다른 곳」. */
+  get otherDestButton(): Locator {
+    return this.destGrid.getByRole('button', { name: '다른 곳', exact: true });
+  }
+
+  /** 「다른 곳」 단계. 그룹별 전체 목록과 맨 아래 「새 종목이나 통장」. */
+  get destList(): Locator {
+    return this.root.locator('.asset-dest-list');
+  }
+
+  /** 「다른 곳」 목록의 줄 하나. 이름 뒤에 금액이나 보유 수량이 붙어 읽힌다. */
+  destListRow(name: string): Locator {
+    return this.destList.getByRole('button', { name: new RegExp(`^${escapeRegExp(name)}`) });
+  }
+
+  /** 「새 종목이나 통장」 폼. */
+  get newDestForm(): Locator {
+    return this.root.locator('.asset-dest-new');
+  }
+
+  /** 「넣었어요 | 팔았어요」. 팔 수 있는 종목에만 선다. */
+  sideOption(label: '넣었어요' | '팔았어요'): Locator {
+    return this.root
+      .getByRole('radiogroup', { name: '넣었나 팔았나' })
+      .getByRole('radio', { name: label, exact: true });
+  }
+
+  /** 수량 칸. `수량 2주` 처럼 읽힌다. 골라져 있으면 aria-pressed 가 참이다. */
+  get quantityBox(): Locator {
+    return this.root.locator('.record-lot__qty');
+  }
+
+  /** 팔 때 「전부」. */
+  get sellAllButton(): Locator {
+    return this.root.locator('.record-lot').getByRole('button', { name: '전부', exact: true });
+  }
+
+  /** 팔 때 저장 전에 보이는 수익과 수익률. */
+  get sellPreview(): Locator {
+    return this.root.getByTestId(TEST_IDS.recordSellPreview);
+  }
+
+  /** 금액 숫자. 수량 칸이 있으면 버튼이라 누르면 키패드가 다시 금액을 친다. */
+  get amountHead(): Locator {
+    return this.root.locator('.record__amount .keypad__head--press');
+  }
+
+  /** 저축·투자 저장 뒤 화면의 줄. `saved` 이번 달 모은 돈, `item` 그 항목, `gain` 수익, `left` 남은 것. */
+  savedAssetRow(row: 'saved' | 'item' | 'gain' | 'left'): Locator {
+    return this.root.getByTestId(TEST_IDS.savedAssetRow).and(this.root.locator(`[data-row="${row}"]`));
+  }
+
+  /** 저장 뒤 「자산 보기」. */
+  get assetsButton(): Locator {
+    return this.root.getByRole('button', { name: '자산 보기', exact: true });
+  }
+
+  /**
+   * 「어디에」 에서 항목을 고른다. 접혀 있으면 펼치고, 격자에 없으면 「다른 곳」 목록에서 고른다.
+   * 끝나면 둘째 화면이다.
+   */
+  async pickDest(name: string): Promise<void> {
+    await expect(this.destGrid.or(this.destPicked).first()).toBeVisible();
+    if (await this.destPicked.isVisible()) await this.destPicked.click();
+    if ((await this.destCell(name).count()) > 0) {
+      await this.destCell(name).click();
+    } else {
+      await this.openOtherDest();
+      await this.destListRow(name).click();
+    }
+    await expect(this.amountTitle).toBeVisible();
+  }
+
+  /** 「다른 곳」 단계를 연다. 접혀 있으면 격자부터 펼친다. */
+  async openOtherDest(): Promise<void> {
+    if (await this.destList.isVisible()) return;
+    if (await this.destPicked.isVisible()) await this.destPicked.click();
+    await this.otherDestButton.click();
+    await expect(this.destList).toBeVisible();
+  }
+
+  /** 「다른 곳」 → 「새 종목이나 통장」 에서 그룹, 종류, 이름을 적고 「저장」. 둘째 화면으로 돌아온다. */
+  async addNewDest({
+    group,
+    kind,
+    name,
+  }: {
+    group: DestGroupLabel;
+    kind?: DestKindLabel;
+    name: string;
+  }): Promise<void> {
+    await this.openOtherDest();
+    await this.destList.getByRole('button', { name: '새 종목이나 통장', exact: true }).click();
+    await expect(this.newDestForm).toBeVisible();
+    await this.newDestForm
+      .getByRole('radiogroup', { name: '자산 그룹' })
+      .getByRole('radio', { name: group, exact: true })
+      .click();
+    if (kind != null) {
+      await this.newDestForm
+        .getByRole('radiogroup', { name: '투자 종류' })
+        .getByRole('radio', { name: kind, exact: true })
+        .click();
+    }
+    await this.newDestForm.getByRole('textbox', { name: '이름' }).fill(name);
+    await this.newDestForm.getByRole('button', { name: '저장', exact: true }).click();
+    await expect(this.amountTitle).toBeVisible();
+  }
+
+  /** 수량 칸을 골라 키패드로 친다. 적혀 있던 수량은 먼저 지운다. 끝나도 수량 칸이 골라져 있다. */
+  async setQuantity(text: string): Promise<void> {
+    await this.quantityBox.click();
+    const label = (await this.quantityBox.getAttribute('aria-label')) ?? '';
+    const current = /^수량 ([\d.]+)/.exec(label)?.[1] ?? '';
+    for (let index = 0; index < current.length; index += 1) {
+      await this.root.getByRole('button', { name: '한 자리 지우기' }).click();
+    }
+    for (const key of text) {
+      await this.root.locator('.keypad__keys').getByRole('button', { name: key, exact: true }).click();
+    }
+  }
+
+  /** 「넣었어요 | 팔았어요」 를 바꾼다. 수량은 비워진다. */
+  async toggleSide(label: '넣었어요' | '팔았어요'): Promise<void> {
+    await this.sideOption(label).click();
+    await expect(this.sideOption(label)).toHaveAttribute('aria-checked', 'true');
+  }
+
+  /** 팔 때 「전부」. 보유 수량이 그대로 들어가고 키패드는 금액으로 돌아간다. */
+  async sellAll(): Promise<void> {
+    await this.sellAllButton.click();
   }
 
   /**

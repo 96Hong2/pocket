@@ -13,18 +13,18 @@
 | 알고 싶은 것 | 이벤트 | 남기는 값 |
 | --- | --- | --- |
 | 들어와서 어디로 가나 | `app_open` · `screen_view` | 진입 화면, 화면 이름, 토스 앱 버전, **첫 실행인지 · 처음 연 지 며칠째 · 직전 실행 이후 며칠 · 실행 횟수 구간**, **들어온 길**(`referrer` 토스 입구 · `src` 우리 채널 표시 · `first_src` 이 기기에서 처음 들어온 길), **같이 쓰기 시작한 지 며칠째**(`shared_days`, 2026-09-28~. 이 기기에서 공유 가계부 멤버인 것을 처음 본 날부터 센다. 본 적 없으면 싣지 않는다) |
-| 어떤 방식을 고르나, 어디서 여나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향, 연 자리(`home`·`home_day`·`calendar_day`·`deeplink`)와 지난 날에 적는 것인지. 2026-10-05~ 시트가 늘 첫 화면으로 열려 `record_started.method` 는 홈 복구 카드로 열면 `screenshot`, 그 밖에는 `keypad` 다. 고른 방법은 `record_setup_done.way` 로 본다 |
-| 첫 화면에서 무엇을 고르고 얼마나 머무나 | **`record_setup_done`** | 2026-10-05~(ADR-0044). 첫 화면 「다음」(사진 방법이면 「카메라 열기」, 「사진 고르기」)을 누른 순간. 방법(`way`: `keypad`·`nl`·`screenshot`·`receipt`, `record_started.method` 와 같은 말), 종류(`kind`: `expense`·`income`·`transfer`, 종류 칩이 서는 직접 입력일 때만 싣는다), 적을 곳(`book`: `mine`·`shared`), 날짜(`day`: `today`·`past`), 열린 값에서 바꾼 칸(`changed`: `day`·`book`·`way`·`kind` 를 이 순서대로 `+` 로 이은 값, 없으면 `none`), 첫 화면에 머문 시간(`setup_ms`), ‹ 로 돌아와 다시 눌렀나(`again`). 판정은 `again=false` 만 센다 |
-| 어느 단계에서 되돌아가나 | **`record_back`** | 2026-10-05~. 시트 안에서 한 단계 뒤로 간 자리(`from`: `amount`·`nl`·`photo`·`day`·`tag`)와 길(`how`: `sheet` 시트 안 ‹, `back` 토스 위 ‹ 와 폰 뒤로가기) |
+| 어떤 방식을 고르나, 어디서 여나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향, 연 자리(`home`·`home_day`·`calendar_day`·`deeplink`, 자산관리 판부터 `asset_item` 자산 화면 항목 시트의 「팔았어요」)와 지난 날에 적는 것인지. 2026-10-05~ 시트가 늘 첫 화면으로 열려 `record_started.method` 는 홈 복구 카드로 열면 `screenshot`, 그 밖에는 `keypad` 다. 고른 방법은 `record_setup_done.way` 로 본다 |
+| 첫 화면에서 무엇을 고르고 얼마나 머무나 | **`record_setup_done`** | 2026-10-05~(ADR-0044). 첫 화면 「다음」(사진 방법이면 「카메라 열기」, 「사진 고르기」)을 누른 순간. 방법(`way`: `keypad`·`nl`·`screenshot`·`receipt`, `record_started.method` 와 같은 말), 종류(`kind`: `expense`·`income`·`transfer`, 자산관리 판부터 `save` 저축·투자, 종류 칩이 서는 직접 입력일 때만 싣는다), 적을 곳(`book`: `mine`·`shared`), 날짜(`day`: `today`·`past`), 열린 값에서 바꾼 칸(`changed`: `day`·`book`·`way`·`kind` 를 이 순서대로 `+` 로 이은 값, 없으면 `none`), 첫 화면에 머문 시간(`setup_ms`), ‹ 로 돌아와 다시 눌렀나(`again`). 판정은 `again=false` 만 센다 |
+| 어느 단계에서 되돌아가나 | **`record_back`** | 2026-10-05~. 시트 안에서 한 단계 뒤로 간 자리(`from`: `amount`·`nl`·`photo`·`day`·`tag`, 자산관리 판부터 `dest` 「다른 곳」 목록·`item` 「새 종목이나 통장」)와 길(`how`: `sheet` 시트 안 ‹, `back` 토스 위 ‹ 와 폰 뒤로가기) |
 | 저장하지 않고 어디서 닫나 | **`record_closed`** | 2026-10-05~. 닫힐 때의 단계(`step`: `setup`·`amount`·`nl`·`photo`), 적어 둔 것(`drafted`: `none`·`typed` 금액을 넣음·`parsed` 읽어 온 결과가 있음), 닫은 길(`how`: `back`·`dim`·`drag`·`handle`·`esc`·`manage`·`cancel`, `cancel` 은 검토 화면 「취소」 로 닫힘). 저장한 뒤 닫힌 것은 안 남는다 |
 | 사진 고르기에서 막히나 | `image_pick_result` | 성공·취소·권한 거절·미지원, 장수 |
 | 인식이 얼마나 걸리고 왜 실패하나 | `parse_started` · `parse_finished` | 방식, 성공·부분·0건·실패, 소요 시간, 후보 수, 오류 코드 |
 | 결과를 얼마나 고치나 | `review_shown` · `review_finished` | 후보 수, 고른 수, 손댄 건수, **칸별 고친 횟수** |
 | 모르는 상호의 분류를 기억하길 바라나 | `merchant_rule_asked` · `review_finished` | 분류 없이 읽힌 상호에 분류를 골라 넣자 다음부터 그렇게 저장할지 물었을 때 무엇을 골랐나(`answer`: `remember`·`skip`)와 방식. 2026-10-04~. 답하지 않고 저장하면 이 로그는 없고 기억도 안 한다. 분모는 `review_finished` 의 `rule_asked`(물은 줄 수)와 `rule_remembered`(「기억하기」 수)로 센다. **상호와 분류 이름은 싣지 않는다** |
 | 읽어 온 것을 잃나 | `record_leave_asked` · `review_cancelled` | 물었나·머물렀나·나갔나와 그때 몇 건, 스스로 버린 건수. 2026-10-05~ 검토 화면에서 ‹ 로 첫 화면에 가려다 「읽어 온 N건이 사라져요」 를 물은 것도 같은 값으로 남고, 「나가기」 면 `review_cancelled` 도 남는다 |
-| 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드, 키패드로 적은 종류(`type`: `expense`·`income`·**`transfer`**, 2026-09-27~. 「이체」 글씨가 쓰이는지 센다), **어느 가계부에 적었나**(`book`: `mine`·`shared`, 2026-09-28~. 공유 가계부가 없는 사람은 늘 `mine`). 2026-10-05~ `save_result` 에 종류(`kind`, 직접 입력만), 첫 화면에 머문 시간(`setup_ms`), 직접 입력 둘째 화면에 머문 시간(`amount_ms`, 줄글과 사진은 안 싣는다), 시트를 연 때부터 저장을 누른 때까지(`flow_ms`), 첫 화면 값을 그대로 썼나(`defaults`) |
+| 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드, 키패드로 적은 종류(`type`: `expense`·`income`·**`transfer`**, 2026-09-27~. 「이체」 글씨가 쓰이는지 센다), **어느 가계부에 적었나**(`book`: `mine`·`shared`, 2026-09-28~. 공유 가계부가 없는 사람은 늘 `mine`). 2026-10-05~ `save_result` 에 종류(`kind`, 직접 입력만), 첫 화면에 머문 시간(`setup_ms`), 직접 입력 둘째 화면에 머문 시간(`amount_ms`, 줄글과 사진은 안 싣는다), 시트를 연 때부터 저장을 누른 때까지(`flow_ms`), 첫 화면 값을 그대로 썼나(`defaults`). 자산관리 판부터 저축·투자는 `type`·`kind` 가 `save` 이고(서버에는 이체로 적힌다) 넣었나 팔았나(`side`: `buy`·`sell`), 수량의 꼴(`qty`: `none` 수량 칸 없음·`int`·`decimal`), 팔 때 「전부」 그대로였나(`qty_all`), 「어디에」 를 고른 길(`dest_from`: `grid`·`other`·`new`, 자산 화면 「팔았어요」 로 열었으면 없음), 격자에서 고른 자리(`position`, 0부터, 격자에서 골랐을 때만)를 싣는다. **수량 값, 받은 돈, 항목 이름은 싣지 않는다** |
 | 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움과 **지우려다 그만둠**(`delete_asked`·`delete_cancelled`·`delete`), 고친 칸 이름, 그 기록의 입력 방식. 2026-09-28~ **옮김**(`move`, `to`: `mine`·`shared`)과 **되돌림**(`restore`, 지운 공유 기록을 알림에서 되살림), 2026-09-29~ **옮기기 되돌림**(`undo_move`, `to` 는 돌아간 쪽. 원본을 되살리는 것이라 `move` 로 세지 않는다), 공유 기록을 고치거나 지웠으면 `book: 'shared'` |
-| 저장 뒤 화면을 보고 무엇을 하나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것(`confirm`, 2026-10-05~ `more` 어디서와 메모 칸을 펼침, 펼친 칸 `field`: `merchant`·`memo`). 2026-10-05~ 공유 가계부 저장 뒤 화면에서도 남고 `book`(`mine`·`shared`)을 싣는다 |
+| 저장 뒤 화면을 보고 무엇을 하나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것(`confirm`, 2026-10-05~ `more` 어디서와 메모 칸을 펼침, 펼친 칸 `field`: `merchant`·`memo`, 자산관리 판부터 `assets` 저축·투자 저장 뒤 「자산 보기」). 2026-10-05~ 공유 가계부 저장 뒤 화면에서도 남고 `book`(`mine`·`shared`)을 싣는다 |
 | 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(`home_card`·`settings`)와 결과(`opened`·`guide_done`·`dismissed`), 동의·거절·미지원과 **켠 자리**(`where`: `home_card`·`settings`). 2026-09-30~ **`remind_card_dismissed`**: 홈 알림 카드를 몇 번째로 닫았나(`closes`). 닫을수록 다시 묻는 간격이 3, 7, 14, 30일로 길어진다 |
 | 새 기능 안내가 사람을 데려가나 | `books_intro_result` | 홈의 같이 쓰는 가계부 안내에서 만들기로 갔나(`opened`)·닫았나(`dismissed`). 2026-09-30~, 한 번뿐인 카드 |
 | 이메일 연결에서 어디서 빠지나 | `account_link_result` · `profile_result` | 권했나(`prompt_shown`)·열었나(`prompt_opened`)·닫았나(`prompt_dismissed`)와 그 자리(`manage`·`streak`), 코드를 보냈나(`sent`)·붙었나(`linked`·`switched`·`merged`)·어디서 막혔나(`send_failed`·`verify_failed` 와 오류 코드), 연령대·성별을 답했나 건너뛰었나와 그 갈래. **이메일 주소와 코드는 싣지 않는다** |
@@ -40,11 +40,17 @@
 | 미리 적어 둔 돈을 실제로 적나 | `recurring_result` | 적었나(`recorded`)·미뤘나(`dismissed`), 전날인가 당일인가(`eve`·`today`). **항목 이름과 금액은 싣지 않는다** |
 | 미리 적어 둘 돈을 걸어는 두나 | `recurring_changed` | 만듦·고침·지움과 잠시 끔·다시 켬(`created`·`updated`·`deleted`·`paused`·`resumed`), 앱 알림이 켜져 있나(`enabled`), 이 예고만 다른 시각을 골랐나(`at`: `default`·`custom`), 며칠 전인가(`lead`: `today`·`eve`), 태그를 달았나, 지울 때 켜져 있었나. **항목 이름과 금액은 싣지 않는다** |
 | 태그를 만들기만 하나 실제로 다나 | `tag_changed` · `tag_applied` | 만듦·고침·지움과 갈래(`expense`·`income`), 지울 때 몇 건이 표시를 잃나(`used`), 붙었나·떨어졌나와 어느 자리(`record`·`edit`)와 갈래. 2026-10-05~ `record` 는 둘째 화면에서 골라 저장과 함께 붙은 것이다. **태그 이름은 싣지 않는다** |
-| 자산을 한 번 적고 마나 | `asset_changed` | 더함·고침·지움과 어느 그룹, 그 뒤 남은 줄 수. **이름과 금액은 싣지 않는다** |
+| 자산을 한 번 적고 마나 | `asset_changed` | 더함·고침·지움과 어느 그룹, 그 뒤 남은 줄 수. 자산관리 판부터 투자 종류(`kind`: `stock`·`etf`·`fund`·`coin`·`bond`·`other`·`none`), 어디서 고쳤나(`from`: `assets`·`record`), 고친 칸(`fields`: `amount`·`price`·`qty` 를 `+` 로 이은 값). `from=record` 는 저축·투자 저장이 성공한 순간이고 새 항목이면 `created`, 있던 항목이면 `updated`, `fields` 는 `amount` 또는 `amount+qty` 다(`items` 는 안 싣는다). 기록하기 저장, 줄글과 사진 검토 저장(저축·투자 줄마다 하나), 저장 뒤 적금 안내로 바꾼 것, 기록 고치기에서 어디에를 붙인 것이 모두 남는다. 고치기에서 어디에를 그대로 두고 금액만 고친 것은 안 남는다. **이름과 금액, 수량 값, 현재가는 싣지 않는다** |
+| 자산 체크인에 답하나 | `asset_checkin_result` | 홈 체크인 카드의 답(`answer`: `same` 「그대로예요」·`changed` 「바뀐 게 있어요」·`dismissed` 닫음) |
+| 적금 지출이 저축·투자로 옮겨 가나 | `saving_hint_result` | 이름에 적금, 저축, 투자, 연금, 청약, IRP 가 든 지출 분류로 저장한 직후 저장 뒤 화면의 안내(기기마다 한 번)에 한 답(`answer`: `converted` 저축·투자로 바꿈·`kept` 「그냥 둘게요」·`dismissed` 답 없이 확인이나 ‹ 로 닫거나, 시트를 끌어내리거나 바깥을 눌러 닫음). 공유 가계부 저장 뒤에는 안 선다. **분류 이름과 금액, 고른 항목 이름은 싣지 않는다** |
+| 순자산 상세를 여나 | `asset_networth_opened` | 값 없음. 순자산 카드를 연 사람 중 5% 아래면 상세 시트를 걷는다 |
+| 분석 확인 창에서 고르나 | `asset_analysis_asked` | 범위(`scope`: `all`·`stock`·`cash`), 창이 선 까닭(`state`: `locked` 처음·`stale` 자산이 바뀌어 다시), 답(`answer`: `ok`·`close`) |
+| 분석을 어떻게 열었나 | `asset_analysis_opened` | 범위(`scope`), 광고(`ad`: `earned` 끝까지 봄·`watched` 중간에 닫음·`skipped` 광고 없이·`free` 자산이 그대로라 광고 없이), 광고 없이 열린 이유(`reason`: `no_group`·`unsupported`·`failed`·`stalled`). `earned` 와 `watched` 는 합치지 않는다 |
+| 캡처가 자산을 채우나 | `asset_capture` | 단계(`step`: `picked`·`read`·`failed`·`saved`·`cancelled`), 광고(`ad`: `watched`·`skipped`·`free_after_fail` 실패 다음 한 번 광고 없이), 읽은 줄 수(`rows`), 새 항목 수(`new_items`). **항목 이름과 금액은 싣지 않는다** |
 | 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나와 몇 장짜리인가(`cards`), 몇 장째에서 닫았나(`page`·`total`)와 끝까지 봤나(`finished`) |
 | 지난달 리포트를 보러 가나 | **`report_month_changed`** | 옮긴 쪽(`step`: `back`·`forward`), 도착한 달이 이번 달인가(`to`: `this`·`past`), 몇 달 전인가(`months_back`). 2026-09-27~. 지난달 리포트에 광고를 붙이기 전의 기준선이다. **그 달의 날짜와 금액은 싣지 않는다** |
-| 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`·**`book_home`** 우리 집 홈 맨 아래, 2026-09-28~)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
-| 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(2026-09-26~ `closing`·**`photo`** 둘뿐, 아래 「판마다 바뀐 값」)와 결과(`watched`·`skipped`·**`declined`** 확인 창에서 돌아섬, 2026-09-27~), 지나간 이유(`no_group`·`unsupported`·`failed`·`capped`·**`stalled`**) |
+| 광고·오류가 방해하나 | `ad_result` · `client_error` | 배너 자리(`home`·`report`·**`report_bottom`**·`manage`·`settings`·`assets`·`goal`·**`book_home`** 우리 집 홈 맨 아래, 2026-09-28~·**`assets_top`** 자산 화면 그룹 목록 위, 자산관리 판부터)와 결과(뜸·채울 것 없음·실패·간격·그룹 없음·**이 기기에서 끔**), 오류 이름, 화면 |
+| 전면 광고가 어느 자리에서 걸리나 | `interstitial_result` | 자리(2026-09-26~ `closing`·**`photo`**, 자산관리 판부터 **`asset_capture`**, 아래 「판마다 바뀐 값」)와 결과(`watched`·`skipped`·**`declined`** 확인 창에서 돌아섬, 2026-09-27~), 지나간 이유(`no_group`·`unsupported`·`failed`·`capped`·**`stalled`**) |
 | 광고가 뜬 채로 갇히나 | **`ad_stuck_exit`** | 어느 자리의 광고였나(`where`). **앱을 열 때 한 번** 센다. 광고가 뜨는 순간 적어 둔 표가 남아 있으면 지난번이 갇힌 판이다(ADR-0036). ⚠ **갇힌 판의 `interstitial_result` 는 `stalled` 가 아니라 `watched` 다.** 광고는 실제로 떴고 콘솔도 노출로 센다. 2026-09-28 부터 판정은 화면을 푸는 그 시각(전면 15초, 리워드 35초)에 내린다(ADR-0041, 그 전에는 90초). 갇혔다는 사실은 **다음 광고의 `skipped{stalled}`** 와 이 이벤트로 드러난다. 함께 싣는 `deaths` 는 광고가 덮인 채로 **연달아** 죽은 횟수다. **한 번이면 그 기기에서 전면 광고를 끈다**(ADR-0041, 2026-09-27 까지는 두 번). 15초(리워드 35초)에도 덮고 있는 것을 직접 본 판은 이 수와 무관하게 그 한 번으로 끈다. 끄고 나면 `interstitial_result` 가 계속 `skipped{stalled}` 로만 남는다. 광고를 눌러 나간 판은 갇힘에서 뺀다 |
 | 사진을 읽으려고 광고를 보나 | `photo_credit` | 봤나 마다했나 헛돌았나 썼나(`action`: `watched`·**`declined`**·**`wasted`**·`spent`), 어떤 광고였나(`plan`: `interstitial`·`rewarded`), 몇 장짜리였나(`image_count`), 쓰고 나서 무료분이 몇 장 남았나(`left`), 광고가 어떻게 끝났나(`ad`: `earned`·`watched`·`skipped`)와 지나간 이유(`reason`: `no_group`·`unsupported`·`failed`) |
 | 분류를 제 말로 바꿔 쓰나 | `category_changed` | 만듦·고침·지움, 기본 분류인가 내가 만든 것인가(`scope`: `default`·`mine`, 2026-09-29~ 공유 가계부 분류를 만들면 `shared`), 갈래, 무엇을 건드렸나(`fields`: `name`·`icon`·`color` 를 `+` 로 이은 값). **이름은 싣지 않는다** |
@@ -150,6 +156,7 @@
 | 2026-09-22~09-25 (ADR-0029) | `closing` · `assets` · `goal` · `categories` · `tags` · `recurring` |
 | 2026-09-26~ (ADR-0039) | `closing` · `photo`. 관리 탭 하위 화면과 자산 앞의 광고를 걷었다 |
 | 2026-09-27~ | 자리는 위와 같다. `result` 에 **`declined`** 가 더해졌다: 결산 광고 앞 확인 창에서 「닫기」 나 뒤로가기로 돌아선 것. 그 전에는 아무 줄도 안 남아 돌아선 사람을 못 셌다 |
+| 자산관리 판~ | `closing` · `photo` · **`asset_capture`**(잔액 캡처를 읽는 동안, 상한 밖이라 `capped` 가 안 남는다) |
 
 가운데 하루는 자리를 **결산 하나로 줄였던** 때다. 그때 뺀 이유는 자산·리포트 둘 다 사람이
 광고를 부른 적이 없는 자리로 봤기 때문인데, 자산은 실제로 **관리 탭의 카드를 눌러** 들어가고
@@ -175,6 +182,18 @@
 | `feedback_shown` | 공유 가계부 저장 뒤 화면에서도 나기 시작한다(`book: 'shared'`). 개수가 그만큼 뛴다. `has_budget` 은 「그 달 예산이 있었나」 일 뿐, 화면이 예산 문장을 말했는지와 상관없다(예산 초과 한 줄만 남았다) |
 | `record_back.how` | `sheet`·`back` 둘뿐이다. 토스 위 ‹ 와 폰 뒤로가기는 브릿지가 같은 `backEvent` 로 줘서 코드로 가를 수 없다 |
 | 10초 기록률 | `save_result.flow_ms ≤ 10000` 인 흐름의 비율로 다시 정한다. 앞 판의 `save_result.elapsed_ms` 는 저장 버튼부터 재서 기준선이 못 된다. 판정선은 절대값(직접 입력 흐름의 `flow_ms` 중앙값 10초 이하)이다 |
+
+### 판마다 바뀐 값: 자산관리 판 (기록의 저축·투자)
+
+| 값 | 이 판부터 |
+|---|---|
+| `save_result.type`·`kind`, `record_setup_done.kind` | `save` 가 더해졌다. 서버에는 이체로 적히지만 로그는 고른 칩 그대로 `save` 다. 앞 판의 `transfer` 와 합쳐 세면 「이체」 글씨가 쓰이는지를 못 가른다 |
+| `save_result` 의 `side`·`qty`·`qty_all`·`dest_from`·`position` | 저축·투자에만 붙는다. `position` 은 격자에서 고른 자리(0부터)이고, 「다른 곳」 목록이나 새 항목으로 고르면 없다 |
+| `record_back.from` | `dest`(「다른 곳」 목록에서 ‹)·`item`(「새 종목이나 통장」 에서 ‹)이 더해졌다 |
+| `record_started.from` | `asset_item` 이 더해졌다. 이 길로 연 흐름은 첫 화면이 없어 `record_setup_done` 이 안 남는다. 방식별 완료율 분모에서 빠지니 따로 센다 |
+| `feedback_action.action` | `assets`(「자산 보기」)가 더해졌다. 저축·투자 저장 뒤 화면에는 결제 수단과 「어디서 썼나요」 가 없어 `more` 는 `memo` 뿐이다 |
+| `asset_changed.from` | `record` 가 실제로 나기 시작한다. 앞 판에는 `assets` 뿐이다 |
+| `saving_hint_result.answer` | `dismissed` 에 시트를 끌어내리거나 바깥을 눌러 닫은 것도 든다 |
 
 **`blocked` 와 `earned` 는 더 이상 안 나간다.** 장수가 없으면 막던 장치를 ADR-0031 이
 없앴다. 지금은 아무도 막히지 않고 읽는 동안 광고가 함께 돌 뿐이다. 09-22 이전 자료를 지금
@@ -267,6 +286,8 @@ SDK 가 알려 주지 않는다. 그래서 우리가 볼 수 있는 것은 누�
 - 영수증·캡처 원본과 OCR·LLM 원문
 - 줄글로 적은 문장, 상호, 메모
 - 금액과 날짜의 실제 값
+- 자산의 수량 값, 현재가, 판 종목에서 받은 돈, 수익 금액
+- 자산 항목 이름과 종목 이름
 - 계좌·카드번호, 인증 헤더, API 요청·응답 본문
 - 예외 메시지 본문과 스택 (`client_error` 는 오류 **이름**과 화면만 남긴다)
 - 수량, 현재가, 받은 돈, 수익 금액의 실제 값, 항목과 종목 이름
@@ -274,7 +295,7 @@ SDK 가 알려 주지 않는다. 그래서 우리가 볼 수 있는 것은 누�
 **키 이름으로도 막는다.** `amount`·`quantity`·`price`·`name`·`label`·`memo`·`merchant` 키는
 `events.ts` 의 타입이 막아, 이 키를 실은 `log` 호출은 컴파일되지 않는다. 키와 값을 못 박은
 이벤트(`EventParamMap`: `record_setup_done`·`record_back`·`record_closed`·`save_result`·
-`feedback_shown`·`feedback_action`)는 그 모양으로만 남는다.
+`feedback_shown`·`feedback_action`·`asset_changed`·`saving_hint_result`)는 그 모양으로만 남는다.
 
 화면이 죽는 자리는 대개 방금 넣은 값을 다루던 자리라, 예외 메시지에 그 값이 실려 있다.
 `e2e/specs/ads-and-logs.spec.ts` 가 실제로 적은 문장과 금액이 로그에 없는지 확인한다.

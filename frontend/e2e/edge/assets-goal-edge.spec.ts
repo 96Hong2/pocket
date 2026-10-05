@@ -18,9 +18,12 @@ test('부채만 적으면 순자산이 음수로 나온다', async ({ assets, pr
 
   // 0 으로 자르면 빚만 있는 사람에게 「순자산 0원」이라는 거짓말을 한다.
   await expect(assets.netWorth).toHaveText(formatCurrency(-5_000_000));
-  await expect(assets.breakdown).toHaveText(
-    `자산 ${formatCurrency(0)} − 부채 ${formatCurrency(5_000_000)}`,
-  );
+  // 「자산 − 부채」 줄은 카드에서 걷고 상세 시트의 세 줄로 옮겼다.
+  await assets.netWorthButton.click();
+  await expect(assets.detailSheet).toBeVisible();
+  await expect(assets.detailValue('자산')).toHaveText(formatCurrency(0));
+  await expect(assets.detailValue('부채')).toHaveText(`− ${formatCurrency(5_000_000)}`);
+  await expect(assets.detailValue('순자산')).toHaveText(formatCurrency(-5_000_000));
 });
 
 test('0원짜리 항목도 줄로 남고 소계를 흔들지 않는다', async ({ assets, prep }) => {

@@ -190,8 +190,32 @@ export const EVENTS = {
    *
    * **이름과 금액은 싣지 않는다.** 어느 그룹인지와 지금 몇 줄인지까지다. 순자산은 이 앱에서
    * 가장 사적인 숫자라, 갯수 말고는 아무것도 내보내지 않는다.
+   *
+   * 투자 종류(`kind`), 어디서 고쳤나(`from`), 무슨 칸을 고쳤나(`fields`: `amount`·`price`·`qty`
+   * 를 `+` 로)까지 싣는다. 수량 값과 현재가는 싣지 않는다.
    */
   assetChanged: 'asset_changed',
+  /** 홈 체크인 카드에 답했다(`answer`). */
+  assetCheckinResult: 'asset_checkin_result',
+  /** 순자산 상세 시트를 열었다. 값 없음. */
+  assetNetworthOpened: 'asset_networth_opened',
+  /** 분석 확인 창에서 골랐다(`scope`, `state`, `answer`). */
+  assetAnalysisAsked: 'asset_analysis_asked',
+  /**
+   * 분석 화면이 열렸다. 어떻게 열었나(`ad`)와 광고 없이 열린 이유(`reason`).
+   * `earned` 와 `watched` 는 합치지 않는다(ADR-0024).
+   */
+  assetAnalysisOpened: 'asset_analysis_opened',
+  /**
+   * 잔액 캡처의 단계마다(`step`). 광고(`ad`), 읽은 줄 수(`rows`), 새 항목 수(`new_items`).
+   * **이름과 금액은 싣지 않는다.**
+   */
+  assetCapture: 'asset_capture',
+  /**
+   * 저축 이름 분류로 지출을 적은 뒤 저장 뒤 화면의 적금 안내에 답했다(`answer`).
+   * `converted` 는 저축·투자로 바꿈, `kept` 는 「그냥 둘게요」, `dismissed` 는 답 없이 닫음.
+   */
+  savingHintResult: 'saving_hint_result',
 
   /**
    * 반복 지출을 만들거나 고치거나 지웠다. 잠시 끄고 켠 것도 여기서 센다.
@@ -456,6 +480,42 @@ export type ItemAction = 'created' | 'updated' | 'deleted';
  */
 export type RecurringAction = ItemAction | 'paused' | 'resumed';
 
+/** 자산 항목의 투자 종류. 투자 그룹이 아니면 `none`. `asset_changed` 의 `kind`. */
+export type AssetKindLog = 'stock' | 'etf' | 'fund' | 'coin' | 'bond' | 'other' | 'none';
+
+/** 자산을 어디서 고쳤나. `asset_changed` 의 `from`. */
+export type AssetChangeFrom = 'assets' | 'record';
+
+/** 고친 칸. `+` 로 이어 `asset_changed` 의 `fields` 에 싣는다. 값은 싣지 않는다. */
+export type AssetChangeField = 'amount' | 'price' | 'qty';
+
+/** 적금 안내 답. 바꿈, 「그냥 둘게요」, 답 없이 닫음. */
+export type SavingHintAnswer = 'converted' | 'kept' | 'dismissed';
+
+/** 체크인 카드 답. 「그대로예요」·「바뀐 게 있어요」·닫음. */
+export type AssetCheckinAnswer = 'same' | 'changed' | 'dismissed';
+
+/** 분석 범위. 코인 분석은 없다. */
+export type AssetAnalysisScopeLog = 'all' | 'stock' | 'cash';
+
+/** 확인 창이 선 까닭. 처음 잠김(`locked`)과 자산이 바뀌어 다시 잠김(`stale`). */
+export type AssetAnalysisState = 'locked' | 'stale';
+
+/** 확인 창 답. */
+export type AssetAnalysisAnswer = 'ok' | 'close';
+
+/** 분석을 어떻게 열었나. `free` 는 지문이 같아 광고 없이 연 것이다. */
+export type AssetAnalysisAd = 'earned' | 'watched' | 'skipped' | 'free';
+
+/** 광고 없이 열린 이유. `ad` 가 `skipped` 일 때만. */
+export type AssetAnalysisSkipReason = 'no_group' | 'unsupported' | 'failed' | 'stalled';
+
+/** 캡처 단계. */
+export type AssetCaptureStep = 'picked' | 'read' | 'failed' | 'saved' | 'cancelled';
+
+/** 캡처 광고. `free_after_fail` 은 실패 다음 한 번 광고 없이 읽은 것이다. */
+export type AssetCaptureAd = 'watched' | 'skipped' | 'free_after_fail';
+
 /** 공유 가계부에 한 일. `book_changed` 의 `action`. */
 export type BookChangeAction =
   'created' | 'renamed' | 'ended' | 'reopened' | 'deleted' | 'restored';
@@ -482,8 +542,17 @@ export type BookSide = 'mine' | 'shared';
 /** 기록 방법. `record_started.method` 와 같은 말이다(서버가 기억하는 이름). */
 export type RecordWay = 'keypad' | 'nl' | 'screenshot' | 'receipt';
 
-/** 첫 화면에서 고른 종류. */
-export type RecordKind = 'expense' | 'income' | 'transfer';
+/** 첫 화면에서 고른 종류. `save` 는 저축·투자(서버에는 이체로 적힌다). */
+export type RecordKind = 'expense' | 'income' | 'transfer' | 'save';
+
+/** 저축·투자의 쪽. 「넣었어요」 와 「팔았어요」. */
+export type AssetSideLog = 'buy' | 'sell';
+
+/** 저축·투자 수량의 꼴. 값은 싣지 않는다. 수량 칸이 없으면 `none`. */
+export type QuantityShape = 'none' | 'int' | 'decimal';
+
+/** 「어디에」 를 어디서 골랐나. 격자, 「다른 곳」 목록, 새 종목이나 통장. */
+export type AssetDestFromLog = 'grid' | 'other' | 'new';
 
 /**
  * 첫 화면에서 열린 값과 달라진 칸. 화면 순서(날짜, 적을 곳, 방법, 종류)대로 `+` 로 잇는다.
@@ -508,7 +577,7 @@ export type SetupChanged =
   | 'day+book+way+kind';
 
 /** 한 단계 뒤로 간 자리. */
-export type RecordBackFrom = 'amount' | 'nl' | 'photo' | 'day' | 'tag';
+export type RecordBackFrom = 'amount' | 'nl' | 'photo' | 'day' | 'tag' | 'dest' | 'item';
 
 /** 저장 없이 닫힐 때 있던 단계. */
 export type RecordStep = 'setup' | 'amount' | 'nl' | 'photo';
@@ -583,6 +652,16 @@ export type EventParamMap = CheckedMap<{
     flow_ms?: number;
     /** 첫 화면의 열린 값을 하나도 안 바꾸고 저장했나. */
     defaults?: boolean;
+    /** 저축·투자만. 넣었나 팔았나. */
+    side?: AssetSideLog;
+    /** 저축·투자만. 수량의 꼴(값 아님). */
+    qty?: QuantityShape;
+    /** 팔 때 「전부」 로 보유 수량을 그대로 넣었나. */
+    qty_all?: boolean;
+    /** 저축·투자만. 「어디에」 를 고른 길. */
+    dest_from?: AssetDestFromLog;
+    /** 격자에서 고른 자리(0부터). 격자 밖에서 골랐으면 싣지 않는다. */
+    position?: number;
   };
   feedback_shown: FlowParam & {
     feedback_kind?: string;
@@ -590,9 +669,23 @@ export type EventParamMap = CheckedMap<{
     book: BookSide;
   };
   feedback_action: FlowParam & {
-    action: 'confirm' | 'more';
+    /** `assets` 는 저축·투자 저장 뒤 「자산 보기」. */
+    action: 'confirm' | 'more' | 'assets';
     /** `more` 일 때 펼친 칸. */
     field?: 'merchant' | 'memo';
+  };
+  saving_hint_result: FlowParam & {
+    answer: SavingHintAnswer;
+  };
+  asset_changed: FlowParam & {
+    action: ItemAction;
+    group: string;
+    /** 자산 화면에서만. 저장 뒤 남은 줄 수. */
+    items?: number;
+    kind: AssetKindLog;
+    from: AssetChangeFrom;
+    /** 고친 칸을 `+` 로 이은 값. 값은 싣지 않는다. */
+    fields?: string;
   };
 }>;
 

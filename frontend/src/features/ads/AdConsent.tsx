@@ -37,13 +37,24 @@ export interface AdConsentProps {
    * 광고가 채우는 것뿐이라, 그 사실을 말해 두면 같은 광고가 다르게 읽힌다.
    */
   meanwhile?: string;
+  /** 둘째 줄을 통째로 바꾼다. 자리마다 정해진 문구가 있을 때만 쓴다. */
+  text?: string;
+  /** 확인 버튼 글자를 바꾼다. 첫 줄이 광고를 이미 말할 때만 쓴다. */
+  confirmLabel?: string;
   /** 「광고 보고 열기」. 부르는 쪽이 광고를 띄우고 하던 일을 이어서 한다. */
   onConfirm: () => void;
   /** 「닫기」. 아무 일도 일어나지 않는다. */
   onCancel: () => void;
 }
 
-export function AdConsent({ what, meanwhile, onConfirm, onCancel }: AdConsentProps) {
+export function AdConsent({
+  what,
+  meanwhile,
+  text,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: AdConsentProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   // 뒤로가기를 이 창의 닫기로 가져간다. 등록하지 않으면 스택이 비어 미니앱이 닫힌다.
   useOverlayBackClose(true, onCancel);
@@ -73,7 +84,9 @@ export function AdConsent({ what, meanwhile, onConfirm, onCancel }: AdConsentPro
     <div className="ad-consent" role="alertdialog" aria-modal="true" aria-label="광고가 한 번 나와요">
       <div className="ad-consent__box" ref={boxRef} tabIndex={-1}>
         <p className="ad-consent__title">{what}</p>
-        {meanwhile ? (
+        {text != null ? (
+          <p className="ad-consent__text">{text}</p>
+        ) : meanwhile ? (
           /*
             **읽는 동안 본다는 것을 앞세운다.** 「광고를 보면 읽어 드려요」 는 광고를
             치르고 기능을 사는 거래로 읽히는데, 실제로는 어차피 기다리는 시간이다.
@@ -90,7 +103,9 @@ export function AdConsent({ what, meanwhile, onConfirm, onCancel }: AdConsentPro
             닫기
           </Button>
           {/* 이 버튼이 곧 예고다. 「확인」 이라고만 적으면 무엇에 동의했는지 안 남는다. */}
-          <Button onClick={onConfirm}>{meanwhile ? '광고 보고 읽기' : '광고 보고 열기'}</Button>
+          <Button onClick={onConfirm}>
+            {confirmLabel ?? (meanwhile ? '광고 보고 읽기' : '광고 보고 열기')}
+          </Button>
         </div>
       </div>
     </div>

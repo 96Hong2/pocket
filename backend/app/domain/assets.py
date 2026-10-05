@@ -8,14 +8,34 @@ from enum import StrEnum
 
 from app.domain.money import Money
 
-__all__ = ["AssetGroup", "AssetItem", "AssetSummary", "summarize_assets", "total_by_group"]
+__all__ = [
+    "LEGACY_GROUPS",
+    "AssetGroup",
+    "AssetItem",
+    "AssetSummary",
+    "summarize_assets",
+    "total_by_group",
+]
 
 
 class AssetGroup(StrEnum):
+    """선언 순서가 화면 구획 순서다(현금·예적금, 투자, 연금, 보증금·기타, 부채)."""
+
     CASH = "cash"
     INVESTMENT = "investment"
+    PENSION = "pension"
     DEPOSIT = "deposit"
     DEBT = "debt"
+
+
+# 공개 번들(56, 57)이 아는 그룹. 옛 응답 `groups` 는 이 넷만 싣는다.
+# 모르는 그룹을 받으면 옛 화면이 그룹 이름을 못 찾아 죽는다.
+LEGACY_GROUPS: tuple[AssetGroup, ...] = (
+    AssetGroup.CASH,
+    AssetGroup.INVESTMENT,
+    AssetGroup.DEPOSIT,
+    AssetGroup.DEBT,
+)
 
 
 @dataclass(frozen=True)

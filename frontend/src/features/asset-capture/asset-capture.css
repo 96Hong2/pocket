@@ -1,0 +1,178 @@
+/*
+  잔액 캡처 입구와 읽기 흐름. 색·반경·글자는 index.css 의 토큰에서 읽는다.
+*/
+
+@layer components {
+  .capture-entry {
+    gap: 8px;
+  }
+
+  .capture-entry__icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .capture-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .capture-sheet__lead {
+    margin: 0;
+    font-size: var(--text-14);
+    line-height: 1.5;
+    color: var(--color-ink);
+    word-break: keep-all;
+  }
+
+  .capture-sheet__reading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 28px 0 20px;
+    text-align: center;
+  }
+
+  .capture-sheet__state {
+    font-size: var(--text-16);
+    font-weight: var(--font-weight-extrabold);
+    color: var(--color-ink);
+    word-break: keep-all;
+  }
+
+  .capture-sheet__art {
+    width: 64px;
+    height: 64px;
+  }
+
+  /* 서버가 얼마나 걸릴지 모른다. 천천히 차오르다 끝 무렵에서 기다린다. */
+  .capture-sheet__gauge {
+    width: 200px;
+  }
+
+  .capture-sheet__gauge .pk-gauge__fill {
+    animation: capture-fill 12s ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .capture-sheet__gauge .pk-gauge__fill {
+      animation: none;
+    }
+  }
+
+  .capture-sheet__actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .capture-sheet__actions > .pk-btn {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .capture-sheet__actions > .capture-sheet__main {
+    flex: 1.6;
+  }
+
+  .capture-sheet__error {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
+  }
+
+  .capture-rows {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .capture-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px 0;
+    border: 0;
+    border-bottom: 1px solid var(--color-divider);
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+
+  .capture-row__check {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    flex: none;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-700);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-surface);
+  }
+
+  .capture-row[aria-checked='false'] .capture-row__check {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: transparent;
+  }
+
+  .capture-row__name {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    min-width: 0;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    word-break: keep-all;
+  }
+
+  .capture-row__chip {
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+    font-size: var(--text-12);
+    font-style: normal;
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+    white-space: nowrap;
+  }
+
+  .capture-row__chip.is-changed {
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+  }
+
+  .capture-row__chip.is-new {
+    background: var(--color-amber-50);
+    color: var(--color-amber-700);
+  }
+
+  .capture-row__amount {
+    flex: none;
+    font-size: var(--text-15);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .capture-row[aria-checked='false'] .capture-row__name,
+  .capture-row[aria-checked='false'] .capture-row__amount {
+    color: var(--color-muted);
+  }
+}
+
+@keyframes capture-fill {
+  from {
+    width: 0;
+  }
+}

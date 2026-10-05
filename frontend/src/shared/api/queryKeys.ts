@@ -13,6 +13,7 @@ import type {
   SettlementPeriod,
   TransactionListParams,
 } from './client';
+import type { AnalysisScope } from './types';
 
 const ROOT = 'pocket';
 
@@ -71,6 +72,11 @@ export const queryKeys = {
    * 자산을 고쳐도 남은 예산은 달라지지 않는다. 순자산은 그 둘과 다른 개념이다.
    */
   assets: () => [ROOT, 'assets'] as const,
+  /** 월말 순자산 점. `assets()` 아래라 자산을 무효화하면 함께 낡는다. */
+  assetHistories: () => [ROOT, 'assets', 'history'] as const,
+  assetHistory: (months?: number) => [ROOT, 'assets', 'history', months ?? 'default'] as const,
+  assetAnalyses: () => [ROOT, 'assets', 'analysis'] as const,
+  assetAnalysis: (scope: AnalysisScope) => [ROOT, 'assets', 'analysis', scope] as const,
 
   /**
    * 진행 중인 목표 하나. 달과 무관하다.

@@ -12,9 +12,10 @@ from decimal import Decimal
 
 from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
 
-from app.api.amounts import MAX_AMOUNT, integral_won
+from app.api.amounts import MAX_AMOUNT, QuantityOut, integral_won, quantity_in, quantity_out
 from app.api.months import MAX_YEAR, MIN_YEAR
 from app.domain.aggregation import PaymentMethod, TransactionSource, TransactionType
+from app.domain.asset_ledger import AssetSide
 from app.integrations.llm import LOW_CONFIDENCE_THRESHOLD, LlmStructuredClient
 from app.models.import_batch import ImportBatch, ImportBatchStatus, ImportCandidate
 from app.modules import ledger
@@ -67,6 +68,10 @@ class BaseDayIn(BaseModel):
     base_day: date | None = None
     # 공유 가계부에 적으려고 읽는 것이면 그 가계부. 분류를 그 가계부 것으로 고르고 지출만 켠다.
     book_id: uuid.UUID | None = None
+    # 저축·투자 줄을 그릴 수 있는 번들만 보낸다. 안 보내면 자산 항목에 맞추지 않는다.
+    with_assets: bool = Field(
+        default=False, description="true 면 저축·투자 줄을 자산 항목(어디에)에 맞춘다"
+    )
 
     @field_validator("base_day")
     @classmethod
@@ -164,6 +169,13 @@ class ImportCandidateOut(BaseModel):
     is_low_confidence: bool
     is_duplicate: bool
     is_selected: bool
+    # 저축·투자 줄. with_assets 로 읽은 묶음에만 채워진다. asset_name 은 읽어 온 이름이다.
+    asset_item_key: uuid.UUID | None = None
+    asset_side: AssetSide | None = None
+    asset_quantity: QuantityOut | None = None
+    asset_name: str | None = None
+
+    _trim_quantity = field_validator("asset_quantity", mode="after")(quantity_out)
 
 
 class ImportBatchOut(BaseModel):
@@ -200,8 +212,13 @@ class ImportCandidatePatch(BaseModel):
     # 분류처럼 null 이 「비운다」 다.
     payment_method: PaymentMethod | None = None
     is_selected: bool | None = None
+    # 저축·투자. 이체 줄에만 붙는다. asset_item_key 에 null 을 보내면 그냥 이체가 된다.
+    asset_item_key: uuid.UUID | None = None
+    asset_side: AssetSide | None = None
+    asset_quantity: Decimal | None = Field(default=None, gt=0)
 
     _check_amount = field_validator("amount")(integral_won)
+    _check_quantity = field_validator("asset_quantity")(quantity_in)
 
     @field_validator("occurred_at")
     @classmethod
@@ -268,6 +285,10 @@ def to_candidate(row: ImportCandidate, *, shared: bool = False) -> ImportCandida
         is_low_confidence=row.confidence < LOW_CONFIDENCE_THRESHOLD,
         is_duplicate=row.is_duplicate,
         is_selected=row.is_selected,
+        asset_item_key=row.asset_item_key,
+        asset_side=AssetSide(row.asset_side) if row.asset_side is not None else None,
+        asset_quantity=row.asset_quantity,
+        asset_name=row.asset_name,
     )
 
 

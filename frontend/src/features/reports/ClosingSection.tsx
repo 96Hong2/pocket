@@ -6,7 +6,7 @@ import { Card, iconUrl } from '../../shared/ui';
 import { AdAheadNote, useAdConsent } from '../ads';
 
 import { ClosingOverlay } from './ClosingOverlay';
-import { CLOSING_CARDS } from './closingText';
+import { closingCards } from './closingText';
 
 export interface ClosingSectionProps {
   /** 지금 보고 있는 달. `2026-08` */
@@ -75,7 +75,7 @@ export function ClosingSection({ month, autoOpen = false, onAutoOpened }: Closin
           <span className="closing-entry__text">
             <span className="closing-entry__title">{formatMonthLabel(month)} 결산</span>
             <span className="closing-entry__hint">
-              카드 {CLOSING_CARDS.length}장 · 잘한 것부터 열어봐요
+              카드 {closingCards(data).length}장 · 잘한 것부터 열어봐요
             </span>
             {/* 받는 것(카드 넉 장) 바로 아래다. 무엇을 얻고 무엇을 치르는지 한눈에 붙어 있다. */}
             {/* 상한을 다 쓴 사람에게는 글자를 지운다. 안 뜰 광고를 적어 두면 그건 예고가 아니다. */}

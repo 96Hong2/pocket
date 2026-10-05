@@ -21,7 +21,6 @@ import {
 import {
   CategoryPicker,
   FutureDayConfirm,
-  KindToggle,
   PaymentMethodPicker,
   categoriesOfKind,
   kindOf,
@@ -34,6 +33,7 @@ import {
   toLedgerDate,
   toLedgerNoonIso,
 } from '../../shared/lib/format';
+import { cx } from '../../shared/lib/cx';
 import { DAY_MAX } from '../../shared/lib/limits';
 import {
   AmountField,
@@ -41,10 +41,26 @@ import {
   Button,
   CategoryAvatar,
   LeaveConfirm,
+  SegmentedControl,
   Toggle,
   iconOf,
+  type SegmentedOption,
 } from '../../shared/ui';
 
+import {
+  AssetDestField,
+  AssetDestPage,
+  destBodyOf,
+  destFromItem,
+  destGroupOf,
+  destHoldingOf,
+  destKindOf,
+  parseQuantity,
+  quantityValue,
+  useAssetDestinations,
+  type AssetDest,
+} from '../asset-dest';
+import { ASSET_GROUP_VIEWS, sanitizeQuantityInput, unitOf } from '../assets';
 import { BookDestinationRow, asPickable, movedInToast, sameNameCategoryId } from '../books';
 import { CategoryComposeOverlay } from '../categories';
 import { TagPicker } from '../tags';
@@ -228,6 +244,36 @@ function canSwitchKind(type: TransactionOut['type']): boolean {
   return type === 'expense' || type === 'income';
 }
 
+/** 고치기에서 고르는 종류. 저축·투자는 서버에서 「어디에」 가 붙은 이체다. */
+type EditKind = TransactionOut['type'] | 'save';
+
+const EDIT_KIND_LABEL: Record<EditKind, string> = {
+  expense: '지출',
+  income: '수입',
+  transfer: '이체',
+  refund: '환불',
+  save: '저축·투자',
+};
+
+/**
+ * 고를 수 있는 종류. 지출과 수입은 서로, 그리고 저축·투자로 간다. 그냥 이체는 저축·투자로만,
+ * 저축·투자는 넷 다로 돌아갈 수 있다(잘못 바꾼 적금 지출을 되돌리는 길). 안 바꾸는 종류는 null.
+ */
+function editKindsOf(transaction: TransactionOut, savedSave: boolean): EditKind[] | null {
+  if (transaction.source === 'no_spend') return null;
+  if (savedSave) return ['expense', 'income', 'transfer', 'save'];
+  if (transaction.type === 'transfer') return ['transfer', 'save'];
+  if (canSwitchKind(transaction.type)) return ['expense', 'income', 'save'];
+  return null;
+}
+
+type Side = 'buy' | 'sell';
+
+const SIDES: SegmentedOption<Side>[] = [
+  { value: 'buy', label: '넣었어요' },
+  { value: 'sell', label: '팔았어요' },
+];
+
 function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn }: EditFormProps) {
   const analytics = useAnalytics();
   const update = useUpdateTransaction(month);
@@ -235,6 +281,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
   const moveIn = useMoveEntryIn();
   const tags = useTags();
   const books = useBooks();
+  const { destinations } = useAssetDestinations();
 
   const savedAmount = parseDecimalOr(transaction.amount, 0);
   const dayId = useId();
@@ -255,6 +302,23 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
   const [kind, setKind] = useState<LedgerKind>(kindOf(transaction.type));
   const [method, setMethod] = useState<PaymentMethod | null>(transaction.payment_method);
   const [tagId, setTagId] = useState<string | null>(transaction.tag_id ?? null);
+  const savedSave = transaction.type === 'transfer' && transaction.asset_item_key != null;
+  const [choice, setChoice] = useState<EditKind>(savedSave ? 'save' : transaction.type);
+  const saving = choice === 'save';
+  const finalType: TransactionOut['type'] = saving ? 'transfer' : choice;
+  const kindChoices = editKindsOf(transaction, savedSave);
+  // 고른 어디에. 안 골랐으면 저장된 항목(목록이 늦게 와서 상태로 못 둔다).
+  const [pickedDest, setPickedDest] = useState<AssetDest | null>(null);
+  const savedItem = savedSave
+    ? destinations.find((item) => item.item_key === transaction.asset_item_key)
+    : undefined;
+  const dest = pickedDest ?? (savedItem == null ? null : destFromItem(savedItem));
+  // 저장된 곳이 목록에 없으면(지운 항목, 부채, 목록 실패) 어디에를 안 바꾼 것으로 본다.
+  const savedUnlisted = saving && savedSave && pickedDest == null && savedItem == null;
+  const byQuantity = saving && dest != null && destHoldingOf(dest) === 'quantity';
+  const [side, setSide] = useState<Side>(transaction.asset_side ?? 'buy');
+  const [qty, setQty] = useState(quantityValue(transaction.asset_quantity) ?? '');
+  const [destOpen, setDestOpen] = useState(false);
   /*
     무엇에 실패했나. 고치기와 지우기가 서로 다른 말을 해야 한다.
     지우기에 실패했는데 「고친 것을 저장하지 못했어요」 라고 하면, 지워졌는지 아닌지를
@@ -300,7 +364,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
     고른 값은 서버가 버린다. 「새 분류」 도 지출 분류를 만들어 이체에 붙인다.
     이체에서는 둘 다 세우지 않는다.
   */
-  const isTransfer = transaction.type === 'transfer';
+  const isTransfer = finalType === 'transfer';
   /*
     같이 쓰는 가계부로 옮길 수 있나. 지출만 옮긴다.
 
@@ -312,7 +376,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
     activeBooks.length > 0 &&
     transaction.type === 'expense' &&
     transaction.source !== 'no_spend' &&
-    kind === 'expense';
+    choice === 'expense';
   const [moveTo, setMoveTo] = useState<string | null>(null);
   const target = movable ? moveTo : null;
   const targetBook = activeBooks.find((book) => book.id === target) ?? null;
@@ -330,9 +394,10 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
           targetCategories,
           categories.find((item) => item.id === categoryId)?.name,
         ));
-  const pickable = switchable
-    ? categoriesOfKind(kind, categories)
-    : categories.filter((item) => item.kind === CATEGORY_KIND[transaction.type]);
+  const pickable =
+    switchable || choice === 'expense' || choice === 'income'
+      ? categoriesOfKind(kind, categories)
+      : categories.filter((item) => item.kind === CATEGORY_KIND[transaction.type]);
   // 머리의 아이콘은 지금 고른 카테고리를 따라간다. 저장한 값만 보면 바꾼 뒤에도 옛 그림이 남는다.
   const headCategory =
     targetBook != null
@@ -342,6 +407,51 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
   const nextAmount = Number(amount);
   // 저장할 수 없는 금액이면 완료를 잠근다. 열어 두면 금액만 조용히 빠지고 나머지가 저장된다.
   const amountOk = amount !== '' && Number.isFinite(nextAmount) && nextAmount > 0;
+  // 저축·투자는 어디에가 있어야 하고, 주식, ETF, 코인은 수량도 있어야 한다(서버 422).
+  const destOk =
+    !saving || savedUnlisted || (dest != null && (!byQuantity || quantityValue(qty) != null));
+
+  /** 저축·투자 칸. 어디에가 바뀌면 쪽과 수량도 함께 보낸다(앞 항목의 수량이 남지 않게). */
+  function assetChanges(): TransactionUpdate {
+    if (!saving) {
+      return savedSave && finalType === 'transfer' ? { asset_item_key: null } : {};
+    }
+    if (dest == null) return {};
+    const savedKey = savedSave ? (transaction.asset_item_key ?? null) : null;
+    const moved = dest.type === 'new' || dest.itemKey !== savedKey;
+    const next: TransactionUpdate = moved ? { ...destBodyOf(dest) } : {};
+    // 수량 종목만 쪽을 고른다. 나머지는 어디에가 그대로면 적혀 있던 쪽을 둔다.
+    const savedSide: Side = transaction.asset_side ?? 'buy';
+    const nextSide: Side = byQuantity ? side : moved ? 'buy' : savedSide;
+    if (moved || nextSide !== savedSide) next.asset_side = nextSide;
+    const nextQty = byQuantity ? quantityValue(qty) : null;
+    if (moved || parseQuantity(nextQty) !== parseQuantity(transaction.asset_quantity)) {
+      next.asset_quantity = nextQty;
+    }
+    return next;
+  }
+
+  /** 종류를 바꾼다. 지출과 수입은 예전 토글과 같고, 이체 쪽으로 가면 분류, 결제 수단, 태그를 뗀다. */
+  function changeKind(next: EditKind): void {
+    if (next === choice) return;
+    setChoice(next);
+    if (next === 'expense' || next === 'income') {
+      setKind(next);
+      // 종류를 바꾸면 고른 분류가 그 종류의 것이 아닐 수 있다. 원래 종류로 돌아오면 처음 값을 되찾는다.
+      const back = next === transaction.type;
+      setCategoryId(back ? (transaction.category_id ?? null) : null);
+      // 수입에는 결제 수단이 없다. 지출로 되돌아오면 저장돼 있던 값을 되찾는다.
+      setMethod(next === 'expense' ? transaction.payment_method : null);
+      // 지출 태그를 수입에 달 수 없다. 분류와 같은 규칙으로 비우고, 되돌아오면 되찾는다.
+      setTagId(back ? (transaction.tag_id ?? null) : null);
+      return;
+    }
+    setCategoryId(next === 'transfer' && transaction.type === 'transfer'
+      ? (transaction.category_id ?? null)
+      : null);
+    setMethod(null);
+    setTagId(null);
+  }
 
   function changes(): TransactionUpdate {
     const next: TransactionUpdate = {};
@@ -353,16 +463,17 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
     if (trimmedMemo !== (transaction.memo ?? ''))
       next.memo = trimmedMemo === '' ? null : trimmedMemo;
     if (nextAmount !== savedAmount) next.amount = String(nextAmount);
-    if (switchable && kind !== transaction.type) next.type = kind;
-    if (categoryId !== (transaction.category_id ?? null)) next.category_id = categoryId;
+    if (finalType !== transaction.type) next.type = finalType;
+    // 저축·투자는 분류를 안 붙인다. 서버가 비우니 여기서는 안 보낸다.
+    if (!saving && categoryId !== (transaction.category_id ?? null)) next.category_id = categoryId;
     if (excluded !== transaction.excluded_from_budget) next.excluded_from_budget = excluded;
     // 수입·이체로 가면 서버가 어차피 비운다. 여기서도 안 보내 두 곳이 같은 말을 하게 한다.
-    const nextMethod = kind === 'expense' && !isTransfer ? method : null;
+    const nextMethod = kind === 'expense' && !isTransfer && choice !== 'income' ? method : null;
     if (nextMethod !== transaction.payment_method) next.payment_method = nextMethod;
     // 이체에는 태그가 안 붙는다. 종류를 바꾸면 안 맞는 태그는 서버가 떼 준다.
     const nextTag = isTransfer ? null : tagId;
     if (nextTag !== (transaction.tag_id ?? null)) next.tag_id = nextTag;
-    return next;
+    return { ...next, ...assetChanges() };
   }
 
   /*
@@ -414,6 +525,17 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
         fields: Object.keys(body).sort().join(','),
         source: transaction.source,
       });
+      // 새 종목이나 통장을 만들었거나 있던 항목에 붙였다. 이름과 금액은 싣지 않는다.
+      if (dest != null && (body.new_asset != null || body.asset_item_key != null)) {
+        const group = destGroupOf(dest);
+        analytics.log(EVENTS.assetChanged, {
+          action: body.new_asset != null ? 'created' : 'updated',
+          group,
+          kind: group === 'investment' ? (destKindOf(dest) ?? 'none') : 'none',
+          from: 'record',
+          fields: byQuantity ? 'amount+qty' : 'amount',
+        });
+      }
       /*
         태그는 따로 한 번 더 센다. 「어느 칸을 고쳤나」 와 「태그가 쓰이나」 는 다른 물음이다.
         누른 순간이 아니라 여기서 세는 이유는, 칩을 눌렀다가 그냥 닫은 것까지 「달았다」
@@ -479,7 +601,11 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
     <div className="tx-edit__body">
       <div className="tx-edit__scroll">
         <div className="tx-edit__head">
-          <CategoryAvatar {...iconOf(headCategory)} size={58} />
+          {saving && dest != null ? (
+            <CategoryAvatar icon={ASSET_GROUP_VIEWS[destGroupOf(dest)].icon} size={58} />
+          ) : (
+            <CategoryAvatar {...iconOf(headCategory)} size={58} />
+          )}
           {/* 머리의 날짜도 고른 값을 따라간다. 저장한 값만 보면 옮긴 뒤에도 옛 날이 남는다. */}
           <p className="tx-edit__title">
             {nameOf(transaction, categories)} · {formatDayLabel(day)}
@@ -561,26 +687,29 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
           공유 가계부로 옮길 곳을 골랐으면 내 가계부에만 있는 칸(종류, 태그, 결제 수단, 분류,
           예산 제외)을 걷는다. 옮기면 쓰이지 않는 칸이라, 남겨 두면 무엇을 골라야 하나 헤맨다.
         */}
-        {switchable && target == null ? (
-          <KindToggle
-            className="tx-edit__kind"
-            value={kind}
-            disabled={busy}
-            ariaLabel="지출인지 수입인지"
-            onChange={(next) => {
-              if (next === kind) return;
-              setKind(next);
-              // 종류를 바꾸면 고른 분류가 그 종류의 것이 아닐 수 있다. 남겨 두면 수입이
-              // '식비' 로 저장된다. 원래 종류로 되돌아오면 처음 값을 그대로 되찾는다.
-              setCategoryId(
-                next === kindOf(transaction.type) ? (transaction.category_id ?? null) : null,
-              );
-              // 수입에는 결제 수단이 없다. 지출로 되돌아오면 저장돼 있던 값을 되찾는다.
-              setMethod(next === 'expense' ? transaction.payment_method : null);
-              // 지출 태그를 수입에 달 수 없다. 분류와 같은 규칙으로 비우고, 되돌아오면 되찾는다.
-              setTagId(next === kindOf(transaction.type) ? (transaction.tag_id ?? null) : null);
-            }}
-          />
+        {kindChoices != null && target == null ? (
+          <div
+            className={cx(
+              'pk-kind tx-edit__kind',
+              kindChoices.length > 3 && 'tx-edit__kind--four',
+            )}
+            role="group"
+            // 화면 테스트가 이 이름으로 찾는다. 이체에서 열면 지출과 수입이 없어 「종류」 로 부른다.
+            aria-label={kindChoices.includes('expense') ? '지출인지 수입인지' : '종류'}
+          >
+            {kindChoices.map((value) => (
+              <button
+                key={value}
+                type="button"
+                className="pk-kind__item"
+                aria-pressed={value === choice}
+                disabled={busy}
+                onClick={() => changeKind(value)}
+              >
+                {EDIT_KIND_LABEL[value]}
+              </button>
+            ))}
+          </div>
         ) : null}
 
         {/* 이체에는 뜻이 없다. 리포트의 어느 조각에도 안 들어가서 달아도 안 보인다. */}
@@ -609,7 +738,41 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
           기록 시트와 같은 것을 쓴다. 앞자리 열한 개만 보이고 나머지는 「더 보기」 뒤다.
           한 화면에서 배운 것이 다음 화면에서도 통해야 한다.
         */}
-        {targetBook != null ? (
+        {saving ? (
+          <div className="tx-edit__asset">
+            {/* 저축·투자는 분류 자리에 「어디에」. 고르면 한 줄로 접히고 누르면 다시 펼쳐진다. */}
+            <AssetDestField
+              destinations={destinations}
+              value={dest}
+              // 서버가 이름을 못 주면 그 항목이 지금 목록에 없는 것이다(지운 항목).
+              savedName={savedUnlisted ? (transaction.asset_label ?? '지운 항목') : null}
+              onPick={({ dest: next }) => setPickedDest(next)}
+              onOther={() => setDestOpen(true)}
+            />
+            {byQuantity ? (
+              <>
+                <SegmentedControl
+                  className="tx-edit__side"
+                  options={SIDES}
+                  value={side}
+                  onChange={setSide}
+                  ariaLabel="넣었나 팔았나"
+                />
+                <label className="tx-edit__field">
+                  <span className="tx-edit__label">수량</span>
+                  <input
+                    className="tx-edit__input"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={qty}
+                    placeholder={`0${unitOf(destKindOf(dest))}`}
+                    onChange={(event) => setQty(sanitizeQuantityInput(event.target.value))}
+                  />
+                </label>
+              </>
+            ) : null}
+          </div>
+        ) : targetBook != null ? (
           /*
             옮길 가계부의 분류를 그대로 세운다. 한 줄로 「같은 이름이 없으면 기타」 라고만 적으면
             어느 분류로 들어갈지 옮긴 뒤에야 안다. 새 분류는 그 가계부 분류가 되어 멤버 모두에게 보인다.
@@ -666,7 +829,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
 
         {failed != null ? (
           <p className="tx-edit__notice" role="alert">
-            {failedText(failed, moveIn.error)}
+            {failedText(failed, moveIn.error, saving ? update.error : null)}
           </p>
         ) : null}
       </div>
@@ -709,7 +872,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
               variant="primarySmall"
               className="tx-edit__done"
               onClick={requestSubmit}
-              disabled={busy || creating || !amountOk}
+              disabled={busy || creating || !amountOk || !destOk}
             >
               완료
             </Button>
@@ -724,6 +887,18 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
         아이콘 격자를 펴면 화면 밖으로 밀렸다. 기록 시트의 키패드 탭과 같은 화면을 쓴다.
         고치던 금액과 날짜는 뒤에 그대로 살아 있다.
       */}
+      {/* 「다른 곳」 과 「새 종목이나 통장」. 새 항목은 저장과 함께 서버가 만든다. */}
+      <AssetDestPage
+        open={destOpen}
+        destinations={destinations}
+        value={dest}
+        onPick={({ dest: next }) => {
+          setPickedDest(next);
+          setDestOpen(false);
+        }}
+        onBack={() => setDestOpen(false)}
+      />
+
       <CategoryComposeOverlay
         open={creating}
         // 종류는 위 토글이 이미 정했다. 여기서 다시 묻지 않는다.
@@ -747,8 +922,14 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
 }
 
 /** 무엇에 실패했나에 따라 말이 다르다. 옮기기는 서버가 준 이유(환불된 지출 등)를 그대로 쓴다. */
-function failedText(failed: 'edit' | 'delete' | 'move', moveError: unknown): string {
+function failedText(
+  failed: 'edit' | 'delete' | 'move',
+  moveError: unknown,
+  saveError: unknown = null,
+): string {
   if (failed === 'delete') return '지우지 못했어요. 기록은 그대로 있어요.';
+  // 저축·투자는 보유보다 많이 팔기 같은 까닭을 서버가 말해 준다.
+  if (failed === 'edit' && saveError instanceof ApiError) return saveError.message;
   if (failed === 'move') {
     return moveError instanceof ApiError
       ? moveError.message
@@ -760,5 +941,10 @@ function failedText(failed: 'edit' | 'delete' | 'move', moveError: unknown): str
 function nameOf(transaction: TransactionOut, categories: CategoryOut[]): string {
   if (transaction.merchant) return transaction.merchant;
   const category = categories.find((item) => item.id === transaction.category_id);
-  return category?.name ?? '기록';
+  if (category != null) return category.name;
+  // 이체는 분류가 없다. 「기록」 대신 종류 이름으로 부른다.
+  if (transaction.type === 'transfer') {
+    return transaction.asset_item_key != null ? '저축·투자' : '이체';
+  }
+  return '기록';
 }

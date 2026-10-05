@@ -193,19 +193,29 @@ const runRewarded = (ads: AdsBridge, group: string, hooks: FullScreenAdHooks) =>
   ads.showRewarded(group, hooks);
 
 /**
+ * 전면 광고 그룹. `shared` 는 결산과 사진이 함께 쓰는 그룹이다.
+ *
+ * `asset_capture` 는 전용 그룹만 쓴다. 비어 있으면 광고 없이 지나간다.
+ */
+export type FullScreenGroup = 'shared' | 'asset_capture';
+
+function fullScreenGroupId(group: FullScreenGroup): unknown {
+  return group === 'asset_capture'
+    ? import.meta.env.VITE_AD_ASSET_CAPTURE_GROUP_ID
+    : import.meta.env.VITE_AD_FULLSCREEN_GROUP_ID;
+}
+
+/**
  * 부가기능 앞에 세우는 전면 광고 한 편.
  *
  * 화면이 직접 부르지 않는다. 총량을 세는 `useInterstitial()` 만 이걸 쓴다.
  */
-export function useFullScreenAd(): {
+export function useFullScreenAd(group: FullScreenGroup = 'shared'): {
   busy: boolean;
   available: boolean;
   show: (where: string) => Promise<FullScreenAdOutcome>;
 } {
-  const { busy, available, show } = useAdShow(
-    import.meta.env.VITE_AD_FULLSCREEN_GROUP_ID,
-    runFullScreen,
-  );
+  const { busy, available, show } = useAdShow(fullScreenGroupId(group), runFullScreen);
 
   const showInterstitial = useCallback(
     async (where: string): Promise<FullScreenAdOutcome> => {
@@ -267,6 +277,23 @@ export function useReportRewardedAd(): {
   show: (where: string) => Promise<RewardedAdOutcome>;
 } {
   const dedicated = import.meta.env.VITE_AD_REPORT_GROUP_ID;
+  const configured =
+    typeof dedicated === 'string' && dedicated.trim() !== '' ? dedicated : undefined;
+  return useAdShow(configured, runRewarded);
+}
+
+/**
+ * 「내 자산 분석」 을 열려고 스스로 보는 광고.
+ *
+ * **전용 그룹만 쓴다.** 비어 있으면 광고를 안 세우고(`available` 거짓) 분석을 그냥 연다.
+ * 상한은 세지 않는다. 사람이 확인 창에서 스스로 누른 자리다(ADR-0024).
+ */
+export function useAssetAnalysisRewardedAd(): {
+  busy: boolean;
+  available: boolean;
+  show: (where: string) => Promise<RewardedAdOutcome>;
+} {
+  const dedicated = import.meta.env.VITE_AD_ASSET_ANALYSIS_GROUP_ID;
   const configured =
     typeof dedicated === 'string' && dedicated.trim() !== '' ? dedicated : undefined;
   return useAdShow(configured, runRewarded);

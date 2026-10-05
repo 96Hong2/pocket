@@ -11,7 +11,12 @@ import { expect, test } from '../support/fixtures';
  * 로그는 개발·샌드박스에서만 창에 사본이 남는다. 실기기 운영 판에서는 토스 수집기로만 간다.
  */
 
-test('배너가 네 화면에 서고, 자리마다 결과를 남긴다', async ({ appShell, home, page, settings }) => {
+test('배너가 네 화면에 서고, 자리마다 결과를 남긴다', async ({
+  appShell,
+  home,
+  page,
+  settings,
+}) => {
   await home.open();
   await home.waitReady();
   await expect(home.ads.slot).toHaveCount(1);
@@ -54,7 +59,10 @@ test('배너가 네 화면에 서고, 자리마다 결과를 남긴다', async (
     // 앱 설정으로 옮기며 화면이 새로 뜨므로 그 화면 것만 확실히 있다.
     expect(results.map((log) => log.params.placement)).toContain('settings');
     for (const log of results) {
-      expect(log.params.result, `광고 결과가 비어 있다: ${JSON.stringify(log.params)}`).toBeTruthy();
+      expect(
+        log.params.result,
+        `광고 결과가 비어 있다: ${JSON.stringify(log.params)}`,
+      ).toBeTruthy();
     }
   });
 });
@@ -169,7 +177,8 @@ test('이 기기에서 광고를 끄면 빈 자리만 남고 그 이유가 남�
 
 test('배너 자리는 화면마다 흐름을 끊지 않는 끝자리에 선다', async ({ page }) => {
   for (const [path, placement] of [
-    ['/assets', 'assets'],
+    // 자산은 그룹 목록 위 한 자리다(위치는 assets-v2.spec.ts 가 잰다).
+    ['/assets', 'assets_top'],
     ['/goal', 'goal'],
   ] as const) {
     await page.goto(path);
@@ -198,4 +207,67 @@ test('관리 탭 배너는 예산 바로 아래, 하위 화면 목록 위에 선
   if (budget == null || ad == null || list == null) return;
   expect(ad.y).toBeGreaterThanOrEqual(budget.y + budget.height);
   expect(ad.y + ad.height).toBeLessThanOrEqual(list.y);
+});
+
+test('저축·투자 기록의 로그에 종목 이름, 수량, 금액이 없고 한 흐름으로 이어진다', async ({
+  home,
+  page,
+  prep,
+  recordSheet,
+}) => {
+  await prep.putAssets([{ group: 'cash', label: '비상금 통장', amount: 500_000 }]);
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.chooseKind('저축·투자');
+  await recordSheet.addNewDest({ group: '투자', kind: '주식', name: '테스트전자' });
+  await recordSheet.setQuantity('0.01234567');
+  await recordSheet.amountHead.click();
+  await recordSheet.input.enterAmount(73_519);
+  await recordSheet.input.saveButton.click();
+  await expect(recordSheet.feedback.headline).toHaveText('테스트전자에 73,519원 넣었어요');
+  await recordSheet.assetsButton.click();
+  await recordSheet.waitClosed();
+
+  const logs = await readLogs(page);
+
+  await test.step('저장과 자산 바뀜이 남는다', async () => {
+    const saved = (await logsNamed(page, 'save_result')).at(-1);
+    expect(saved?.params.result).toBe('ok');
+    expect(saved?.params.kind).toBe('save');
+    expect(saved?.params.qty).toBe('decimal');
+    expect(saved?.params.dest_from).toBe('new');
+    const changed = await logsNamed(page, 'asset_changed');
+    expect(changed.map((log) => log.params.from)).toContain('record');
+  });
+
+  await test.step('기록 한 번의 로그가 같은 flow_id 로 이어진다', async () => {
+    const flow = logs.filter((log) =>
+      ['record_started', 'record_setup_done', 'save_requested', 'save_result', 'asset_changed'].includes(
+        log.name,
+      ),
+    );
+    // 다섯 이름이 다 있고, 모두 비지 않은 flow_id 를 실었다. 다 빠져도 크기가 1 이 되는 구멍을 막는다.
+    expect(new Set(flow.map((log) => log.name)).size).toBe(5);
+    for (const log of flow) {
+      expect(typeof log.params.flow_id, log.name).toBe('string');
+      expect(log.params.flow_id, log.name).not.toBe('');
+    }
+    expect(new Set(flow.map((log) => log.params.flow_id)).size).toBe(1);
+  });
+
+  await test.step('id 키를 뺀 모든 로그 값에 이름, 수량, 금액이 없다', async () => {
+    const values = logs.map((log) => ({
+      name: log.name,
+      params: Object.fromEntries(
+        Object.entries(log.params).filter(([key]) => !/(^|_)id$/.test(key)),
+      ),
+    }));
+    const dump = JSON.stringify(values);
+    for (const secret of ['테스트전자', '0.01234567', '1234567', '73519', '73,519']) {
+      expect(dump, `로그에 적은 값이 새어 나갔다: ${secret}`).not.toContain(secret);
+    }
+  });
 });

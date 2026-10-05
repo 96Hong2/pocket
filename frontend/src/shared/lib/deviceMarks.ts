@@ -24,6 +24,9 @@ const MARKS = [
   'onboarding-seen',
   'card-dismissed-recovery',
   'card-dismissed-budget-suggest',
+  'card-dismissed-asset-checkin',
+  'card-dismissed-saving-hint',
+  'asset-analysis-lock',
 ] as const;
 
 /** 결산은 달마다 키가 따로다. 지금 달과 지난 열두 달을 훑는다. */

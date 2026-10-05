@@ -148,6 +148,11 @@ export class SettingsScreen {
     return this.page.getByText(/^캡처 원본은 /);
   }
 
+  /** 개인정보 처리방침 화면의 항목 제목. */
+  privacySection(title: string): Locator {
+    return this.page.getByRole('heading', { level: 2, name: title, exact: true });
+  }
+
   get privacyLink(): Locator {
     return this.page.getByRole('link', { name: '개인정보처리방침', exact: true });
   }

@@ -675,6 +675,11 @@
     color: var(--color-income);
   }
 
+  /* 모은 돈은 자산으로 간 내 돈이다. 지출 색을 쓰지 않는다. */
+  .closing__flow-value.is-saved {
+    color: var(--color-sage-700);
+  }
+
   /* 옮긴 돈은 지출도 수입도 아니다. 어느 쪽 색도 쓰지 않는다. */
   .closing__flow-value.is-muted {
     color: var(--color-muted);
