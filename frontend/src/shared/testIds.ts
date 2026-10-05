@@ -214,6 +214,7 @@ export const TEST_IDS = {
   analysisSaving: 'analysis-saving',
   analysisKindRow: 'analysis-kind-row',
   analysisMonthly: 'analysis-monthly',
+  analysisMonthlyTotal: 'analysis-monthly-total',
   analysisNetWorthTrend: 'analysis-net-worth-trend',
   analysisSignedRow: 'analysis-signed-row',
   analysisSavedItems: 'analysis-saved-items',

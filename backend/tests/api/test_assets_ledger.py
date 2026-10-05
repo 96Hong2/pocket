@@ -560,9 +560,23 @@ def test_넣은_돈을_비우고_팔면_받은_돈만_적히고_수익률은_어
     assert sold["asset"]["rate"] is None
     assert sold["asset"]["item_amount"] == "0"
     item = _item(_assets(client), "아마존")
-    assert (item["realized"], item["rate"], item["cost_basis"]) == (None, None, None)
+    # 다 팔아 남은 것이 없으니 남은 넣은 돈은 0 으로 안다. 수익률은 여전히 없다.
+    assert (item["realized"], item["rate"], item["cost_basis"]) == (None, None, "0")
+    # 전체 분석의 수익률 칸은 늘 있다. 넣은 돈을 아는 판 기록도 평가할 종목도 없어 줄이 없다.
     returns = client.get("/api/v1/assets/analysis", headers=AUTH).json()["returns"]
-    assert returns is None or returns["rows"] == []
+    assert returns["rows"] == []
+
+
+def test_넣은_돈_모르는_항목을_다_판_뒤_넣었어요는_넣은_돈을_안다(client: TestClient) -> None:
+    key = _captured(client)
+    _save(client, "1200000", asset_item_key=key, asset_side="sell", asset_remaining="0")
+
+    _save(client, "500000", asset_item_key=key)
+
+    item = _item(_assets(client), "아마존")
+    assert (item["amount"], item["cost_basis"]) == ("500000", "500000")
+    sold = _save(client, "600000", asset_item_key=key, asset_side="sell", asset_remaining="0")
+    assert (sold["asset"]["realized"], sold["asset"]["rate"]) == ("100000", "20.0")
 
 
 def test_일부를_팔면_남은_금액이_항목_금액이고_평가_수익률도_선다(client: TestClient) -> None:
@@ -578,6 +592,61 @@ def test_일부를_팔면_남은_금액이_항목_금액이고_평가_수익률�
     item = _item(_assets(client), "아마존")
     assert (item["amount"], item["cost_basis"]) == ("900000", "600000")
     assert (item["rate"], item["rate_kind"]) == ("50.0", "valuation")
+
+
+def _example3(client: TestClient, *extra: dict) -> tuple[dict, dict]:
+    """예3: 아마존 1,000,000원, 넣은 돈 800,000원에서 300,000원을 받고 남은 금액 900,000원."""
+    amazon = {"group": "investment", "label": "아마존", "amount": "1000000", "cost_basis": "800000"}
+    body = _put(client, [amazon, *extra])
+    key = _item(body, "아마존")["item_key"]
+    sold = _save(client, "300000", asset_item_key=key, asset_side="sell", asset_remaining="900000")
+    assert (sold["asset"]["realized"], sold["asset"]["rate"]) == ("100000", "50.0")
+    return body, sold
+
+
+def test_남은_금액을_적은_팔기의_받은_돈만_고치면_남은_금액은_두고_판_몫을_다시_센다(
+    client: TestClient,
+) -> None:
+    _, sold = _example3(client)
+
+    res = client.patch(f"{TX}/{sold['transaction']['id']}", json={"amount": "100000"}, headers=AUTH)
+
+    assert res.status_code == 200, res.text
+    # 판 몫 = 100,000 ÷ (100,000 + 900,000) = 10%. 넣은 돈 80,000, 수익 20,000, +25%.
+    assert (res.json()["asset"]["realized"], res.json()["asset"]["rate"]) == ("20000", "25.0")
+    item = _item(_assets(client), "아마존")
+    assert (item["amount"], item["cost_basis"], item["realized"]) == ("900000", "720000", "20000")
+
+
+def test_남은_금액을_적은_팔기를_지우면_금액과_넣은_돈이_돌아온다(client: TestClient) -> None:
+    _, sold = _example3(client)
+
+    assert client.delete(f"{TX}/{sold['transaction']['id']}", headers=AUTH).status_code == 204
+
+    item = _item(_assets(client), "아마존")
+    assert (item["amount"], item["cost_basis"], item["realized"]) == ("1000000", "800000", None)
+
+
+def test_남은_금액을_적은_팔기를_다른_항목으로_옮기면_남은_금액이_비고_옛_규칙으로_접힌다(
+    client: TestClient,
+) -> None:
+    apple = {"group": "investment", "label": "애플", "amount": "500000", "cost_basis": "400000"}
+    body, sold = _example3(client, apple)
+    apple_key = _item(body, "애플")["item_key"]
+
+    res = client.patch(
+        f"{TX}/{sold['transaction']['id']}", json={"asset_item_key": apple_key}, headers=AUTH
+    )
+
+    assert res.status_code == 200, res.text
+    # 애플은 받은 돈 ÷ 지금 금액: 300,000 ÷ 500,000 = 60%. 넣은 돈 240,000, 수익 60,000, +25%.
+    assert (res.json()["asset"]["realized"], res.json()["asset"]["rate"]) == ("60000", "25.0")
+    after = _assets(client)
+    moved = _item(after, "애플")
+    assert (moved["amount"], moved["cost_basis"]) == ("200000", "160000")
+    assert moved["realized"] == "60000"
+    left = _item(after, "아마존")
+    assert (left["amount"], left["cost_basis"], left["realized"]) == ("1000000", "800000", None)
 
 
 def test_넣은_돈을_모르면_넣었어요를_더해도_계속_모른다(client: TestClient) -> None:

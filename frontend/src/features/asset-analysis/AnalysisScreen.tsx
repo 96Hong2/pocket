@@ -53,24 +53,35 @@ export function AnalysisScreen({
   onEditRecord,
 }: {
   scope: AssetAnalysisScope;
-  /** 「큰 저축·투자 Top 5」 줄을 눌렀다. 고치기 시트는 페이지가 띄운다. */
-  onEditRecord: (transaction: TransactionOut) => void;
+  /**
+   * 「큰 저축·투자 Top 5」 줄을 눌렀다. 고치기 시트는 페이지가 띄운다.
+   * 시트가 저장하거나 지우면 `onSaved` 를 부른다.
+   */
+  onEditRecord: (transaction: TransactionOut, onSaved: () => void) => void;
 }) {
   const analysis = useAssetAnalysis(scope);
   const unlock = useAssetAnalysisUnlock();
   const fingerprint = analysis.data?.fingerprint ?? null;
   const seen = unlock.stateOf(scope, fingerprint);
-  // 열린 분석 안에서 기록을 고쳐 숫자가 바뀐 것은 다시 광고를 묻지 않는다. 고치기를 연 때의 지문이다.
-  const [editedFrom, setEditedFrom] = useState<string | null>(null);
-  const carried = seen === 'stale' && editedFrom != null && editedFrom !== fingerprint;
+  /*
+    열린 분석 안에서 기록을 고쳐 숫자가 바뀐 것은 다시 광고를 묻지 않는다.
+    `edited` 는 고치기를 연 때의 지문과 저장한 시각이다. 저장 뒤 처음 새로 받은 분석에서 지문이 바뀌었으면
+    그 지문 하나만 `carry` 로 남기고 `edited` 는 지운다. 그 뒤 다른 데서 자산이 바뀌면 다시 광고를 묻는다.
+  */
+  const [edited, setEdited] = useState<{ from: string | null; at: number } | null>(null);
+  const [carry, setCarry] = useState<string | null>(null);
+  if (edited != null && analysis.dataUpdatedAt > edited.at) {
+    setEdited(null);
+    setCarry(fingerprint !== edited.from ? fingerprint : null);
+  }
+  const carried = seen === 'stale' && carry != null && carry === fingerprint;
   const state = carried ? 'open' : seen;
   const { request, grant } = unlock;
   // 들어오자마자 한 번만 묻는다. 닫으면 카드가 남아 다시 누를 수 있다.
   const asked = useRef(false);
 
   useEffect(() => {
-    if (!carried) return;
-    grant([{ scope, fingerprint }]);
+    if (carried) grant([{ scope, fingerprint }]);
   }, [carried, fingerprint, grant, scope]);
 
   useEffect(() => {
@@ -106,8 +117,8 @@ export function AnalysisScreen({
           data={analysis.data}
           unlock={unlock}
           onEdit={(transaction) => {
-            setEditedFrom(fingerprint);
-            onEditRecord(transaction);
+            const from = fingerprint;
+            onEditRecord(transaction, () => setEdited({ from, at: Date.now() }));
           }}
         />
       ) : (
@@ -411,7 +422,7 @@ function KindAnalysis({
       ) : (
         <Card className="analysis-card" data-testid={TEST_IDS.analysisMonthly}>
           <span className="analysis-card__kicker">매달 넣는 돈</span>
-          <b className="analysis-card__big">
+          <b className="analysis-card__big" data-testid={TEST_IDS.analysisMonthlyTotal}>
             {formatCurrency(parseDecimalOr(data.monthly_total, 0))}
           </b>
           <ul className="analysis-lines">

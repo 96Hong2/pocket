@@ -249,6 +249,8 @@ describe('금액으로 파는 기록', () => {
     expect(preview.gain).toBeNull();
     expect(preview.rate).toBeNull();
     expect(preview.remainingAmount).toBe(0);
+    // 다 팔았으니 남은 넣은 돈은 0 으로 안다. 다음 넣었어요부터 수익률을 셀 수 있다.
+    expect(preview.remainingCost).toBe(0);
   });
 
   it('예3 1,000,000원 넣은 돈 800,000원에서 300,000원을 받고 남은 금액 900,000원이면 판 몫 25%', () => {
@@ -296,6 +298,7 @@ describe('금액으로 파는 기록', () => {
     expect(check.ok).toBe(true);
   });
 
+  // 넣은 돈(평가금액 − 평가손익)과 1주 가격은 서버만 정한다(asset_capture.py). 화면은 받은 값으로 평가만 한다.
   it('캡처 예 엔비디아 2주, 넣은 돈 2,000,000원, 1주 1,400,915원이면 2,801,830원, +40.1%', () => {
     const valuation = previewValuation({
       holding: 'quantity',

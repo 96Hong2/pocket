@@ -2,7 +2,12 @@
 
 from decimal import Decimal
 
-from app.domain.asset_capture import captured_cost, captured_holding, unit_price_of
+from app.domain.asset_capture import (
+    captured_cost,
+    captured_holding,
+    fair_unit_price,
+    unit_price_of,
+)
 from app.domain.asset_ledger import InvestKind
 from app.domain.money import won
 
@@ -35,8 +40,14 @@ def test_둘_다_못_읽으면_넣은_돈을_모르고_금액만_남는다():
     assert held.rate(won(47_446)) is None
 
 
-def test_넣은_돈이_0_아래로_나오면_못_읽은_것이다():
+def test_넣은_돈이_0_이하로_나오면_못_읽은_것이다():
     assert captured_cost(won(100_000), purchase=None, profit=150_000) is None
+    assert captured_cost(won(100_000), purchase=None, profit=100_000) is None
+
+
+def test_매입금액_0_은_못_읽은_것이라_평가손익으로_넘어간다():
+    assert captured_cost(won(100_000), purchase=0, profit=20_000) == won(80_000)
+    assert captured_cost(won(100_000), purchase=0, profit=None) is None
 
 
 def test_수량을_못_읽은_주식은_넣은_돈만_있는_금액_항목이다():
@@ -55,3 +66,30 @@ def test_펀드는_수량이_있어도_금액_종목이다():
 def test_1주_가격은_원_단위로_반올림한다():
     assert unit_price_of(won(1_000), Decimal(3)) == won(333)
     assert unit_price_of(won(1_001), Decimal(2)) == won(501)
+
+
+def test_1주_가격이_1원_아래인_코인은_넣은_돈과_지금_금액만_있는_항목이다():
+    # 6,000원 ÷ 12,000개 = 0.5원 → 1원으로 반올림하면 12,000원이 된다.
+    value = won(6_000)
+    held = captured_holding(value, InvestKind.COIN, Decimal(12_000), won(5_000))
+
+    assert (held.kind, held.quantity, held.unit_price) == (None, None, None)
+    assert held.cost_basis == won(5_000)
+    assert held.rate(value) == Decimal("20.0")
+
+
+def test_1주_가격이_0원으로_반올림되면_수량_종목이_아니다():
+    # 3,000원 ÷ 10,000개 = 0.3원 → 0원.
+    assert fair_unit_price(won(3_000), Decimal(10_000)) is None
+    held = captured_holding(won(3_000), InvestKind.COIN, Decimal(10_000), won(2_000))
+    assert (held.quantity, held.cost_basis) == (None, won(2_000))
+
+
+def test_수량_곱하기_1주_가격이_평가금액에서_0점5퍼센트_넘게_벗어나면_수량_종목이_아니다():
+    # 199원 ÷ 2 = 99.5원 → 100원, 200원은 199원보다 0.50% 넘게 크다.
+    assert fair_unit_price(won(199), Decimal(2)) is None
+    # 201원 ÷ 2 = 100.5원 → 101원, 202원은 201원보다 0.50% 안이다.
+    assert fair_unit_price(won(201), Decimal(2)) == won(101)
+    # 1,000원 ÷ 3 = 333원, 999원은 0.1% 차이라 수량 종목이다.
+    held = captured_holding(won(1_000), InvestKind.STOCK, Decimal(3), won(900))
+    assert (held.quantity, held.unit_price) == (Decimal(3), won(333))

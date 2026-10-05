@@ -19,6 +19,8 @@ e2e/
                  공유 시트 자리를 대신 받는 `installShareSheetStub` 과 그 결과를 읽는
                  `readShares`(브릿지가 들고 나간 것)·`readShareSheet`(시트까지 간 글)도 여기 있다
                  기기에 내려놓은 파일을 읽는 `readSavedFiles` 와 그 CSV 를 줄로 푸는 `csvLines` 도 여기 있다
+                 목 SDK 가 받은 광고 표시 요청 수를 세는 `adsShown` 도 여기 있다
+    shots.ts     `POCKET_SHOT_DIR` 을 줄 때만 바뀐 화면을 390, 344 폭으로 찍는 `shotBothWidths`
     servers.ts   playwright.config 가 띄우는 dev 서버 정의
     fixtures.ts  test·expect 의 유일한 출처. 자동 가드가 여기 붙어 있다. spec 은 여기서 시작한다
   fixtures/    테스트가 쓰는 파일. 지금은 사진용 PNG 한 장(capture.png). 캡처와 영수증이 함께 쓴다

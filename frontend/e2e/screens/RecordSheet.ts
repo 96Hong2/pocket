@@ -510,6 +510,14 @@ export class RecordSheet {
     return this.root.locator('.record-lot').getByRole('button', { name: '전부', exact: true });
   }
 
+  /**
+   * 금액으로 팔 때 한 줄 칸. `남은 금액 900,000원` 처럼 이름 뒤에 값(비었으면 자리표시)이 붙어 읽힌다.
+   * 「넣은 돈」 은 넣은 돈을 모르는 항목을 팔 때만 선다.
+   */
+  sellBox(label: '남은 금액' | '넣은 돈'): Locator {
+    return this.root.getByRole('button', { name: new RegExp(`^${label} `) });
+  }
+
   /** 팔 때 저장 전에 보이는 수익과 수익률. */
   get sellPreview(): Locator {
     return this.root.getByTestId(TEST_IDS.recordSellPreview);

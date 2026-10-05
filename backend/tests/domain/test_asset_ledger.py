@@ -201,7 +201,8 @@ def test_예2_같은_항목을_전부_팔고_넣은_돈을_비우면_수익률�
     assert outcome.realized is None
     assert outcome.rate is None
     assert result.state.amount == won(0)
-    assert result.state.cost_basis is None
+    # 다 팔아 남은 것이 없으니 남은 넣은 돈은 0 으로 안다.
+    assert result.state.cost_basis == won(0)
     # 실현 합계와 판 기록 수에 안 든다.
     assert result.state.sell_count == 0
     assert result.state.realized == won(0)
@@ -253,6 +254,45 @@ def test_넣은_돈을_모르면_넣었어요를_더해도_계속_모르고_금�
 
     assert result.state.amount == won(1_200_000)
     assert result.state.cost_basis is None
+
+
+def test_넣은_돈_모르는_항목을_다_팔면_다음_넣었어요부터_넣은_돈을_안다():
+    lines = [
+        start(1_000_000, None),
+        sell_amount("s1", 1_200_000, remaining=0),
+        buy("b1", 500_000),
+        sell_amount("s2", 600_000, remaining=0),
+    ]
+    result = fold(Holding.AMOUNT, lines)
+
+    assert result.sells["s1"].rate is None
+    outcome = result.sells["s2"]
+    assert (outcome.sold_cost, outcome.realized, outcome.rate) == (
+        won(500_000),
+        won(100_000),
+        Decimal("20.0"),
+    )
+    assert (result.state.amount, result.state.cost_basis) == (won(0), won(0))
+
+
+def test_남은_금액_없는_옛_팔기_줄도_다_팔면_넣은_돈이_0_이다():
+    lines = [start(1_000_000, None), sell_amount("s1", 1_000_000, remaining=None)]
+    result = fold(Holding.AMOUNT, lines)
+
+    assert result.sells["s1"].sold_cost is None
+    assert result.state.cost_basis == won(0)
+
+
+def test_일부만_팔면_모르던_넣은_돈은_계속_모른다():
+    lines = [start(1_000_000, None), sell_amount("s1", 300_000, remaining=900_000)]
+
+    assert fold(Holding.AMOUNT, lines).state.cost_basis is None
+
+
+def test_금액이_0_인데_넣은_돈을_모르는_항목에_넣으면_넣은_돈이_그만큼이다():
+    result = fold(Holding.AMOUNT, [start(0, None), buy("b1", 300_000)])
+
+    assert (result.state.amount, result.state.cost_basis) == (won(300_000), won(300_000))
 
 
 def test_넣은_돈을_아는_항목은_팔_때_적은_넣은_돈_전체를_쓰지_않는다():

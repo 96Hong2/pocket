@@ -154,9 +154,7 @@ test('전체 분석을 연 뒤 주식 분석과 예/적금 분석은 확인 창 
   await expect(assetAnalysis.legendRow('카카오뱅크')).toContainText('62.5%');
   await expect(assetAnalysis.legendRow('청년도약계좌')).toContainText('37.5%');
   // 300,000원 + 700,000원 = 1,000,000원
-  await expect(assetAnalysis.monthly.locator('.analysis-card__big')).toHaveText(
-    formatCurrency(1_000_000),
-  );
+  await expect(assetAnalysis.monthlyTotal).toHaveText(formatCurrency(1_000_000));
   await expect(assetAnalysis.monthly).toContainText(`매달 ${formatCurrency(300_000)}`);
   await expect(assetAnalysis.monthly).toContainText(`매달 ${formatCurrency(700_000)}`);
   await expect(assetAnalysis.monthly).not.toContainText('한 번 넣은 돈');

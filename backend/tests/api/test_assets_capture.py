@@ -356,3 +356,37 @@ def test_기록이_있는_금액만_있던_항목은_갈래를_안_바꾸고_넣
 
     assert (row["kind"], row["quantity"], row["unit_price"]) == (None, None, None)
     assert (row["cost_basis"], row["rate"]) == ("2000000", "40.1")
+
+
+def test_1주_가격이_1원_아래인_코인은_금액_항목으로_읽고_기존_코인은_덮지_않는다(
+    client: TestClient,
+) -> None:
+    # 6,000원 ÷ 12,000개 = 0.5원. 1원으로 적으면 12,000원이 되어 값이 두 배로 틀어진다.
+    coin = ExtractedAsset(
+        name="도지코인",
+        amount=6_000,
+        group=AssetGroup.INVESTMENT,
+        kind=InvestKind.COIN,
+        quantity=12_000,
+        profit=1_000,
+    )
+    with _using(client, _reads(coin)):
+        row = _row(_capture(client), "도지코인")
+    assert (row["kind"], row["quantity"], row["unit_price"]) == (None, None, None)
+    assert (row["cost_basis"], row["rate"]) == ("5000", "20.0")
+
+    _put(
+        client,
+        [
+            {
+                "group": "investment",
+                "label": "도지코인",
+                "amount": "5000",
+                "kind": "coin",
+                "quantity": "12000",
+                "cost_basis": "5000",
+            }
+        ],
+    )
+    with _using(client, _reads(coin)):
+        assert _capture(client)["items"] == []

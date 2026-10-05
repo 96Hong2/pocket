@@ -419,6 +419,13 @@
     cursor: pointer;
   }
 
+  /* 누르면 더 들어가는 줄 끝의 ›. */
+  .report__chevron {
+    font-size: var(--text-16);
+    line-height: 1;
+    color: var(--color-muted);
+  }
+
   .report__large-rank {
     width: 16px;
     font-size: var(--text-13);

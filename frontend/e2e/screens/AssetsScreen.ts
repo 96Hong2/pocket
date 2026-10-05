@@ -395,6 +395,11 @@ class AssetItemSheet {
     return this.root.getByRole('button', { name: '저장', exact: true });
   }
 
+  /** 투자 항목 고치는 시트의 「팔았어요」. 누르면 기록 시트의 팔기 화면이 열린다. */
+  get sellButton(): Locator {
+    return this.root.getByRole('button', { name: '팔았어요', exact: true });
+  }
+
   /** 고치는 시트에만 있다. */
   get deleteButton(): Locator {
     return this.root.getByRole('button', { name: '지우기', exact: true });

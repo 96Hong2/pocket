@@ -23,7 +23,7 @@ from app.domain.asset_capture import (
     CapturedHolding,
     captured_cost,
     captured_holding,
-    unit_price_of,
+    fair_unit_price,
 )
 from app.domain.asset_ledger import (
     AMOUNT_KINDS,
@@ -211,14 +211,15 @@ def _fit(
         quantity = current.quantity
         if read_quantity is None or quantity is None or quantity <= 0:
             return None
+        # 1주 가격을 원 단위로 못 적는 종목(아주 싼 코인)은 덮으면 값이 틀어진다. 뺀다.
+        price = fair_unit_price(value, read_quantity)
+        if price is None:
+            return None
         if read_quantity == quantity:
             # 장부의 넣은 돈은 건드리지 않는다. 1주 가격만 새로 적는다.
             cost = Money(current.cost_basis) if current.cost_basis is not None else None
             return CapturedHolding(
-                kind=current.kind,
-                quantity=quantity,
-                cost_basis=cost,
-                unit_price=unit_price_of(value, quantity),
+                kind=current.kind, quantity=quantity, cost_basis=cost, unit_price=price
             )
         if held.cost_basis is None:
             # 수량이 달라졌는데 넣은 돈을 못 읽었다. 옛 넣은 돈으로 기준을 지어내지 않는다.
@@ -228,7 +229,7 @@ def _fit(
             kind=current.kind,
             quantity=read_quantity,
             cost_basis=held.cost_basis,
-            unit_price=unit_price_of(value, read_quantity),
+            unit_price=price,
         )
     if holding is not Holding.AMOUNT:
         return AMOUNT_ONLY

@@ -21,7 +21,10 @@ export default function AssetAnalysisPage() {
   const effectiveOn = assets.data?.snapshot?.effective_on;
   const categories = useCategories();
   // 「큰 저축·투자 Top 5」 에서 누른 기록. 고치고 나면 분석이 새 숫자로 다시 그려진다.
-  const [editing, setEditing] = useState<TransactionOut | null>(null);
+  const [editing, setEditing] = useState<{
+    transaction: TransactionOut;
+    onSaved: () => void;
+  } | null>(null);
 
   return (
     <div className="page" data-scope={scope} data-testid={TEST_IDS.analysisPage}>
@@ -31,12 +34,17 @@ export default function AssetAnalysisPage() {
       ) : null}
 
       {/* 범위를 바꾸면 잠금 판정과 펼친 상태를 처음부터 다시 한다. */}
-      <AnalysisScreen key={scope} scope={scope} onEditRecord={setEditing} />
+      <AnalysisScreen
+        key={scope}
+        scope={scope}
+        onEditRecord={(transaction, onSaved) => setEditing({ transaction, onSaved })}
+      />
 
       <EditSheet
-        transaction={editing}
+        transaction={editing?.transaction ?? null}
         categories={categories.data?.items ?? []}
         onClose={() => setEditing(null)}
+        onSaved={editing?.onSaved}
       />
 
       <IdentityNotice />

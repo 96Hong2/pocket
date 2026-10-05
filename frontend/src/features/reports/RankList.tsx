@@ -10,7 +10,7 @@ export interface RankRow {
   /** 순위와 이름 사이 그림. */
   icon?: ReactNode;
   amount: number;
-  /** 있으면 줄 전체가 버튼이다. */
+  /** 있으면 줄 전체가 버튼이고 끝에 › 가 선다. */
   onSelect?: () => void;
 }
 
@@ -63,6 +63,9 @@ export function RankList({
               onClick={row.onSelect}
             >
               {body}
+              <span className="report__chevron" aria-hidden="true">
+                ›
+              </span>
             </button>
           </li>
         );

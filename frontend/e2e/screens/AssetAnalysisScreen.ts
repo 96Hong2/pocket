@@ -11,9 +11,12 @@ import { TEST_IDS } from '../../src/shared/testIds';
  */
 export class AssetAnalysisScreen {
   private readonly page: Page;
+  /** 리포트 같은 그림 카드들(순자산 흐름, 지난달 대비 막대, 어디에 모았나, 달마다, Top 5, 종목별 수익률). */
+  readonly charts: AnalysisChartsArea;
 
   constructor(page: Page) {
     this.page = page;
+    this.charts = new AnalysisChartsArea(page);
   }
 
   async open(scope: AssetAnalysisScope = 'all'): Promise<void> {
@@ -69,6 +72,11 @@ export class AssetAnalysisScreen {
     return this.page.getByTestId(TEST_IDS.analysisMonthly);
   }
 
+  /** 「매달 넣는 돈」 카드의 큰 합계. */
+  get monthlyTotal(): Locator {
+    return this.monthly.getByTestId(TEST_IDS.analysisMonthlyTotal);
+  }
+
   /** 「종류별로 더 보기」 아래 줄 하나. `data-state` 가 locked, open, stale 중 하나다. */
   kindRow(scope: 'stock' | 'cash'): Locator {
     return this.page.locator(`[data-testid="${TEST_IDS.analysisKindRow}"][data-scope="${scope}"]`);
@@ -111,5 +119,81 @@ export class AssetAnalysisScreen {
    */
   get donutText(): Locator {
     return this.donutCard;
+  }
+}
+
+/** 분석 화면의 그림 카드. 카드가 없으면(기록이 모자라면) 각 카드 locator 의 개수가 0 이다. */
+class AnalysisChartsArea {
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  /** 「순자산 흐름」 카드. */
+  get netWorthTrend(): Locator {
+    return this.page.getByTestId(TEST_IDS.analysisNetWorthTrend);
+  }
+
+  /** 순자산 흐름 막대. 기록이 없는 앞 달은 막대 없이 달 이름만 선다. */
+  get netWorthBars(): Locator {
+    return this.netWorthTrend.getByTestId(TEST_IDS.analysisTrendBar);
+  }
+
+  /** 순자산 흐름의 달 자리 여섯. */
+  get netWorthMonths(): Locator {
+    return this.netWorthTrend.getByRole('listitem');
+  }
+
+  /** 「지난달 대비」 그룹 줄 하나. `data-sign` 이 up, down, same 중 하나다. */
+  monthChangeRow(group: string): Locator {
+    return this.page
+      .getByTestId(TEST_IDS.analysisMonthChange)
+      .getByTestId(TEST_IDS.analysisSignedRow)
+      .filter({ hasText: group });
+  }
+
+  /** 「어디에 모았나」 카드. */
+  get savedItems(): Locator {
+    return this.page.getByTestId(TEST_IDS.analysisSavedItems);
+  }
+
+  /** 어디에 모았나 줄(이름, 막대, 금액, 비율). 큰 것부터. */
+  get savedItemRows(): Locator {
+    return this.savedItems.getByRole('listitem');
+  }
+
+  /** 「달마다 모은 돈」 카드. */
+  get savedTrend(): Locator {
+    return this.page.getByTestId(TEST_IDS.analysisSavedTrend);
+  }
+
+  /** 달마다 모은 돈 막대 여섯. 높이는 `style` 의 퍼센트다. */
+  get savedTrendBars(): Locator {
+    return this.savedTrend.getByTestId(TEST_IDS.analysisTrendBar);
+  }
+
+  /** 「큰 저축·투자 Top 5」 카드. */
+  get topSaves(): Locator {
+    return this.page.getByTestId(TEST_IDS.analysisTopSaves);
+  }
+
+  /** Top 5 줄. 누르면 그 기록의 고치기 시트가 열린다. */
+  get topSaveRows(): Locator {
+    return this.topSaves.getByTestId(TEST_IDS.analysisTopSaveRow);
+  }
+
+  get topSaveAmounts(): Locator {
+    return this.topSaves.getByTestId(TEST_IDS.analysisTopSaveAmount);
+  }
+
+  /** 주식 분석 수익률 카드의 종목별 막대. */
+  get stockRates(): Locator {
+    return this.page.getByTestId(TEST_IDS.analysisStockRates);
+  }
+
+  /** 종목별 수익률 줄 하나. `data-sign` 이 up, down 중 하나다. */
+  stockRateRow(name: string): Locator {
+    return this.stockRates.getByTestId(TEST_IDS.analysisSignedRow).filter({ hasText: name });
   }
 }

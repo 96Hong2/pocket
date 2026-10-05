@@ -1416,12 +1416,6 @@ function RecordBody({
     setKeyTarget('amount');
   }
 
-  /** 「남은 금액」 칸을 누르면 새로 친다. 비어 있는 동안은 처음 값을 쓴다. */
-  function focusRest(): void {
-    if (keyTarget !== 'rest') setRestDigits('');
-    setKeyTarget('rest');
-  }
-
   /** 저장 뒤 「자산 보기」. 다른 방법에 읽어 둔 것이 남았으면 그리로 먼저 간다. */
   function openAssets(): void {
     const waiting = PANEL_TABS.some((key) => key !== tab && (reviewCounts[key] ?? 0) > 0);
@@ -1823,7 +1817,8 @@ function RecordBody({
                     unit: '원',
                     placeholder: formatCurrency(restAuto),
                     focused: typingRest,
-                    onFocus: focusRest,
+                    // 다시 눌러도 적어 둔 값은 그대로다. 비어 있는 동안은 처음 값을 쓴다.
+                    onFocus: () => setKeyTarget('rest'),
                   }}
                 />
               ) : null}

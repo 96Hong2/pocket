@@ -102,7 +102,7 @@ export interface SellPreview {
   all: boolean;
   /** 판 뒤 보유 수량. 금액 종목은 null. */
   remainingQuantity: string | null;
-  /** 판 뒤 넣은 돈(원). 넣은 돈을 모르면 null. */
+  /** 판 뒤 넣은 돈(원). 넣은 돈을 모르면 null, 다 팔았으면 0. */
   remainingCost: number | null;
   /** 금액 종목의 판 뒤 지금 금액(원). 수량 종목은 null. */
   remainingAmount: number | null;
@@ -163,7 +163,8 @@ export function previewSell(input: SellInput): SellCheck {
       rate: soldCost == null ? null : ratePercent(received - soldCost, soldCost),
       all,
       remainingQuantity: null,
-      remainingCost: cost == null || soldCost == null ? null : Number(cost - soldCost),
+      // 다 팔았으면 남은 넣은 돈은 0 이다. 넣은 돈을 몰랐어도 그렇다(서버 장부 접기와 같다).
+      remainingCost: all ? 0 : cost == null || soldCost == null ? null : Number(cost - soldCost),
       remainingAmount: Number(left),
     },
   };

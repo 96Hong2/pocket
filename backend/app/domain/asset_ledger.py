@@ -216,8 +216,10 @@ def _buy(holding: Holding, state: LedgerState, line: LedgerLine) -> LedgerState:
         cost = state.cost_basis + line.amount
         return replace(state, amount=cost, quantity=state.quantity + line.quantity, cost_basis=cost)
     if holding is Holding.AMOUNT:
-        # 넣은 돈을 모르면 넣었어요를 더해도 계속 모른다.
+        # 넣은 돈을 모르면 넣었어요를 더해도 계속 모른다. 금액이 0 이면 남은 것이 없어 0 부터 센다.
         known = state.cost_basis
+        if known is None and not state.amount.is_positive:
+            known = Money.zero()
         added = known + line.amount if known is not None else None
         return replace(state, amount=state.amount + line.amount, cost_basis=added)
     return replace(state, amount=state.amount + line.amount)
@@ -250,6 +252,9 @@ def _sell(
             whole, left = received.amount + line.remaining.amount, line.remaining
         sold_cost = _portion(basis, received.amount, whole) if basis is not None else None
         rest_cost = basis - sold_cost if basis is not None and sold_cost is not None else None
+        if not left.is_positive:
+            # 다 팔았으면 남은 넣은 돈은 0 이다. 모르던 넣은 돈도 끝나고 다음 넣었어요부터 센다.
+            rest_cost = Money.zero()
         state = replace(state, amount=left, cost_basis=rest_cost)
     else:
         raise LedgerError("sell_not_allowed", line.ref)
