@@ -1126,6 +1126,28 @@
     font-size: var(--text-13);
   }
 
+  /* ── 기간 알약(PeriodRange) ─────────────────────────── */
+  .pk-period {
+    margin: 0;
+    padding: 4px 12px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+
+  .pk-period--button {
+    cursor: pointer;
+  }
+
+  .pk-period--button:active {
+    background: var(--color-sage-50);
+  }
+
   /* ── 그만둘까요 ─────────────────────────── */
 
   /*

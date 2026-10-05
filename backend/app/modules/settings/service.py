@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from app.domain.aggregation import TransactionSource
 from app.models import User, UserPreference
 from app.models.preference import RecordMethod
+from app.modules import ledger
+from app.modules.budgets import service as budgets
 
 __all__ = ["get_preferences", "remember_record_method", "update_preferences"]
 
@@ -56,12 +58,19 @@ def update_preferences(session: Session, user: User, data: dict) -> UserPreferen
 
     전부 기본값이 있는 컬럼이라 '값 없음' 을 저장할 자리가 없다. null 을 그대로 넣으면
     제약 위반이 나서, 화면은 형식 오류 대신 '다시 시도해 주세요' 를 보게 된다.
+
+    한 달 시작일은 설정 행이 아니라 사용자 행에 있다. 바꾸면 예산 줄도 함께 옮긴다.
     """
     row = get_preferences(session, user)
+    start_day = data.pop("month_start_day", None)
     for field, value in data.items():
         if value is None:
             continue
         setattr(row, field, value)
+    if start_day is not None and start_day != ledger.start_day_for(user):
+        # 시작일과 예산 줄은 같은 커밋으로 바꾼다. 반쪽만 바뀌면 예산이 아무 기간에도 안 걸린다.
+        budgets.move_to_start_day(session, user, start_day)
+        user.month_start_day = start_day
     session.commit()
     session.refresh(row)
     return row

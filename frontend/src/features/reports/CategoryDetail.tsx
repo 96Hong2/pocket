@@ -85,7 +85,7 @@ export function CategoryDetail({ month, tab, rowKey, onPick }: CategoryDetailPro
             <h2 className="report-cat__name" data-testid={TEST_IDS.reportCategoryName}>
               {name}
             </h2>
-            <p className="report-cat__period">
+            <p className="report-cat__period" data-testid={TEST_IDS.reportCategoryPeriod}>
               {formatDayLabel(data.period_start)}~{formatDayLabel(data.period_end)}
             </p>
           </div>

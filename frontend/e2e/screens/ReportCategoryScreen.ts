@@ -30,6 +30,11 @@ export class ReportCategoryScreen {
     return this.page.getByTestId(TEST_IDS.reportCategoryTotal);
   }
 
+  /** 이름 아래 `9월 25일~10월 24일`. */
+  get period(): Locator {
+    return this.page.getByTestId(TEST_IDS.reportCategoryPeriod);
+  }
+
   get count(): Locator {
     return this.page.getByTestId(TEST_IDS.reportCategoryCount);
   }

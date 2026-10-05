@@ -42,7 +42,8 @@ export function TrendBars({
     <ul className="report__trend">
       {points.map((point, index) => {
         const value = values[index];
-        const month = point.period_start.slice(0, 7);
+        // 이름 달. 시작일이 25 면 첫날의 달과 하나 어긋난다.
+        const month = point.period_key;
         const label = formatMonthLabel(month);
         return (
           <li

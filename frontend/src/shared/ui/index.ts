@@ -21,6 +21,7 @@ export {
   type MonthStepperProps,
   type MonthStepperVariant,
 } from './MonthStepper';
+export { PeriodRange, type PeriodRangeProps } from './PeriodRange';
 export { SageCard } from './SageCard';
 export {
   SegmentedControl,

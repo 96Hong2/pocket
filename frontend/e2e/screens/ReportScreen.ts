@@ -4,6 +4,7 @@ import { ROUTES } from '../../src/app/router/routes';
 import { TEST_IDS } from '../../src/shared/testIds';
 
 import { EditSheetArea } from './CalendarScreen';
+import { MonthStartArea } from './MonthStartArea';
 
 /**
  * 리포트 탭. 그 달의 총액·조각·6개월 흐름을 한 화면에서 본다.
@@ -22,6 +23,8 @@ export class ReportScreen {
   readonly book: ReportBookArea;
   /** 공유 가계부 리포트의 「자세히 보기」 카드. */
   readonly insight: ReportInsightArea;
+  /** 기간 줄이 여는 한 달 시작일 시트. */
+  readonly monthStart: MonthStartArea;
   /** 큰 지출 줄을 눌러 뜨는 「기록 수정」 시트. 달력과 같은 시트다. */
   readonly edit: EditSheetArea;
 
@@ -31,6 +34,7 @@ export class ReportScreen {
     this.closing = new ClosingArea(page);
     this.book = new ReportBookArea(page);
     this.insight = new ReportInsightArea(page);
+    this.monthStart = new MonthStartArea(page);
     this.edit = new EditSheetArea(page);
   }
 
@@ -65,6 +69,11 @@ export class ReportScreen {
 
   monthLabel(): Locator {
     return this.root.getByText(/^\d{4}년 \d{1,2}월$/);
+  }
+
+  /** 달 이름 아래 `9.25 ~ 10.24`. 한 달 시작일이 1 이면 없다. */
+  get periodLine(): Locator {
+    return this.root.getByTestId(TEST_IDS.reportPeriod);
   }
 
   /** 달은 주소에 들어 있어 눌러도 한 박자 뒤에 그려진다. 이름이 바뀔 때까지 기다린다. */
@@ -103,7 +112,7 @@ export class ReportScreen {
    * 자리가 여기다. **보던 달을 들고 간다.**
    */
   get calendarLink(): Locator {
-    return this.page.getByRole('link', { name: '이 달을 달력으로 보기', exact: true });
+    return this.page.getByRole('link', { name: '달력으로 보기', exact: true });
   }
 
   get thisMonthJump(): Locator {
@@ -273,6 +282,13 @@ export class ReportScreen {
   /** 6개월 막대. 기록이 없는 달도 남으므로 늘 여섯이다. */
   get trendBars(): Locator {
     return this.root.getByTestId(TEST_IDS.reportTrendBar);
+  }
+
+  /** 흐름 막대마다 아래 적힌 달 이름(`10월`). 막대와 같은 차례다. */
+  get trendLabels(): Locator {
+    return this.root
+      .getByRole('listitem')
+      .filter({ has: this.page.getByTestId(TEST_IDS.reportTrendBar) });
   }
 
   trendBar(month: string): Locator {

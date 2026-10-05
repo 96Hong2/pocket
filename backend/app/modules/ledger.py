@@ -29,7 +29,13 @@ from app.domain.feedback import (
     NO_SPEND_STREAK_WINDOW_DAYS,
 )
 from app.domain.money import Money
-from app.domain.period import BudgetPeriod, week_to_date
+from app.domain.period import (
+    DEFAULT_START_DAY,
+    MAX_START_DAY,
+    MIN_START_DAY,
+    BudgetPeriod,
+    week_to_date,
+)
 from app.models import Transaction, User
 
 logger = logging.getLogger(__name__)
@@ -55,7 +61,9 @@ __all__ = [
     "noon_at",
     "period_bounds",
     "period_for",
+    "period_of_month",
     "period_transactions",
+    "start_day_for",
     "today_for",
     "user_tz",
 ]
@@ -87,9 +95,25 @@ def today_for(user: User) -> date:
     return datetime.now(user_tz(user)).date()
 
 
+def start_day_for(user: User) -> int:
+    """사용자의 한 달 시작일. 값이 비었거나 범위 밖이면 1 로 본다(달력 월)."""
+    value = user.month_start_day
+    if value is None or not MIN_START_DAY <= value <= MAX_START_DAY:
+        return DEFAULT_START_DAY
+    return value
+
+
 def period_for(user: User, day: date) -> BudgetPeriod:
-    del user  # 기간은 달력 월 고정이다. 사용자별 시작일은 없다(ADR-0007 전제).
-    return BudgetPeriod.containing(day)
+    """그 날이 든 사용자의 한 달. 예산·리포트·결산이 이 기간을 본다(ADR-0046).
+
+    달력 화면과 공유 가계부는 이 함수를 쓰지 않는다. 그쪽은 달력 월 그대로다.
+    """
+    return BudgetPeriod.containing(day, start_day_for(user))
+
+
+def period_of_month(user: User, year: int, month: int) -> BudgetPeriod:
+    """이름이 `year`년 `month`월인 사용자의 한 달. `?year&month` 질의가 이걸로 기간이 된다."""
+    return BudgetPeriod.of_month(year, month, start_day_for(user))
 
 
 def period_bounds(period: BudgetPeriod, tz: ZoneInfo) -> tuple[datetime, datetime]:

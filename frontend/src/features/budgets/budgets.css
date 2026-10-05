@@ -27,6 +27,22 @@
     color: var(--color-ink);
   }
 
+  /* 달 이름 아래 기간 알약이 서면 머리가 두 줄이다. 「예산」 은 달 이름 줄 높이에 맞춘다. */
+  .budget__head--ranged {
+    align-items: flex-start;
+  }
+
+  .budget__head--ranged .budget__title {
+    line-height: 32px;
+  }
+
+  .budget__month {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
   /* 끝난 달 안내와 지우기 실패 안내. 둘 다 한 줄이라 같은 모양을 쓴다. */
   .budget__closed,
   .budget__notice {
@@ -348,6 +364,80 @@
     flex: 1;
     min-width: 0;
     font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
+
+  /* 시트를 여는 줄. 이어쓰기 줄과 같은 판에 값과 꺾쇠만 더한다. */
+  button.budget-setting--link {
+    width: 100%;
+    border: 0;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .budget-setting--link::after {
+    content: '';
+    flex: none;
+    width: 7px;
+    height: 7px;
+    margin-left: -4px;
+    border-top: 2px solid var(--color-placeholder);
+    border-right: 2px solid var(--color-placeholder);
+    transform: rotate(45deg);
+  }
+
+  .budget-setting__value {
+    flex: none;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  /* ── 한 달 시작일 시트 ─────────────────────────────── */
+
+  .month-start__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .month-start__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .month-start__day {
+    height: 40px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+
+  .month-start__day[aria-pressed='true'] {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .month-start__day:disabled {
+    cursor: default;
+  }
+
+  .month-start__preview {
+    margin: 0;
+    text-align: center;
+    font-size: var(--text-14);
     font-weight: var(--font-weight-semibold);
     color: var(--color-ink);
   }

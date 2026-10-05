@@ -12,8 +12,7 @@ import {
 } from '../app/router/routes';
 import { CategoryDetail } from '../features/reports';
 import { EditSheet } from '../features/transactions';
-import { useCategories, type TransactionOut } from '../shared/api';
-import { toLedgerDate } from '../shared/lib/format';
+import { useCategories, useCurrentPeriod, type TransactionOut } from '../shared/api';
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -24,11 +23,16 @@ const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
  * 주소에서 같은 자리를 읽어 간다.
  */
 export default function ReportCategoryPage() {
-  const thisMonth = toLedgerDate(new Date()).slice(0, 7);
+  // 리포트와 같은 이름 달이다. 시작일을 받기 전에는 주소의 달을 믿는다. 1 로 세어 자르면
+  // 시작일 25 사용자가 26일에 다음 이름 달을 열었을 때 한 달 앞으로 끌려간다.
+  const current = useCurrentPeriod();
+  const thisMonth = current.period.key;
   const [params] = useSearchParams();
   const asked = params.get(REPORT_MONTH_QUERY);
   const month =
-    asked != null && MONTH_PATTERN.test(asked) && asked <= thisMonth ? asked : thisMonth;
+    asked != null && MONTH_PATTERN.test(asked) && (!current.known || asked <= thisMonth)
+      ? asked
+      : thisMonth;
   const tab = parseReportTab(params.get(REPORT_TAB_QUERY));
   const rowKey = params.get(REPORT_KEY_QUERY) ?? 'uncategorized';
 

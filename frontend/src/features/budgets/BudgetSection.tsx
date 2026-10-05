@@ -6,11 +6,15 @@ import {
   parseDecimal,
   useBudget,
   useCategories,
+  useCurrentPeriod,
   useDeleteBudget,
   type CategoryBudgetOut,
 } from '../../shared/api';
-import { shiftMonth, toLedgerDate } from '../../shared/lib/format';
-import { Card, ErrorState, MonthStepper, RetryButton } from '../../shared/ui';
+import { cx } from '../../shared/lib/cx';
+import { shiftMonth } from '../../shared/lib/format';
+import { formatPeriodRange, periodOfMonth } from '../../shared/lib/monthPeriod';
+import { TEST_IDS } from '../../shared/testIds';
+import { Card, ErrorState, MonthStepper, PeriodRange, RetryButton } from '../../shared/ui';
 import { useRewardedAd } from '../ads';
 
 import { BudgetAmountSheet } from './BudgetAmountSheet';
@@ -19,6 +23,8 @@ import { BudgetTotalCard } from './BudgetTotalCard';
 import { CarryoverSetting } from './CarryoverSetting';
 import { CategoryBudgetList } from './CategoryBudgetList';
 import { CategoryBudgetSheet, type CategoryBudgetTarget } from './CategoryBudgetSheet';
+import { MonthStartSetting } from './MonthStartSetting';
+import { MonthStartSheet } from './MonthStartSheet';
 
 /** 달력 화면과 같게 3년 전까지 본다. */
 const MONTHS_BACK = 36;
@@ -37,11 +43,16 @@ const MONTHS_BACK = 36;
  * 위아래로 뛰었다. 화면을 녹화해 보고 고쳤다.
  */
 export function BudgetSection() {
-  const thisMonth = toLedgerDate(new Date()).slice(0, 7);
-  const [month, setMonth] = useState(thisMonth);
+  // 이번 달은 한 달 시작일로 정한 이름 달이다. 시작일이 25 면 10월 26일의 이번 달은 11월이다.
+  const current = useCurrentPeriod();
+  const thisMonth = current.period.key;
+  // 고른 달이 없으면 이번 달을 본다. 시작일을 바꿔 이번 달이 앞당겨지면 그 뒤 달은 접는다.
+  const [picked, setMonth] = useState<string | null>(null);
+  const month = picked != null && picked <= thisMonth ? picked : thisMonth;
   const [amountOpen, setAmountOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [categoryTarget, setCategoryTarget] = useState<CategoryBudgetTarget | null>(null);
+  const [periodOpen, setPeriodOpen] = useState(false);
   const analytics = useAnalytics();
   const rewarded = useRewardedAd();
 
@@ -50,7 +61,8 @@ export function BudgetSection() {
     return { year, month: monthNumber };
   }, [month]);
 
-  const budget = useBudget(monthParams);
+  // 시작일을 모르면 이번 달이 어느 달인지도 모른다. 받고 나서 묻는다.
+  const budget = useBudget(monthParams, { enabled: current.known });
   const categories = useCategories();
   const removeBudget = useDeleteBudget(monthParams);
 
@@ -107,17 +119,34 @@ export function BudgetSection() {
     removeBudget.reset();
   }
 
+  const stepper = (
+    <MonthStepper
+      variant="compact"
+      value={month}
+      onChange={moveMonth}
+      maxMonth={thisMonth}
+      minMonth={shiftMonth(thisMonth, -MONTHS_BACK)}
+    />
+  );
+  // 한 달 시작일이 1 이 아니면 달 이름만으로는 며칠부터인지 모른다. 리포트처럼 바로 아래에 기간을 둔다.
+  const ranged = current.startDay !== 1;
+
   return (
     <section className="budget" aria-label="예산">
-      <div className="budget__head">
+      <div className={cx('budget__head', ranged && 'budget__head--ranged')}>
         <h2 className="budget__title">예산</h2>
-        <MonthStepper
-          variant="compact"
-          value={month}
-          onChange={moveMonth}
-          maxMonth={thisMonth}
-          minMonth={shiftMonth(thisMonth, -MONTHS_BACK)}
-        />
+        {ranged ? (
+          <div className="budget__month">
+            {stepper}
+            <PeriodRange
+              range={formatPeriodRange(periodOfMonth(month, current.startDay))}
+              onClick={() => setPeriodOpen(true)}
+              testId={TEST_IDS.budgetPeriod}
+            />
+          </div>
+        ) : (
+          stepper
+        )}
       </div>
 
       {/*
@@ -194,6 +223,9 @@ export function BudgetSection() {
           ) : null}
         </>
       )}
+
+      <MonthStartSetting />
+      <MonthStartSheet open={periodOpen} onClose={() => setPeriodOpen(false)} where="manage" />
 
       <CarryoverSetting />
 

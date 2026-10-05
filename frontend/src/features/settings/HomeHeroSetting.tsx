@@ -5,11 +5,11 @@ import {
   ApiError,
   parseDecimal,
   useBudget,
+  useCurrentPeriod,
   usePreferences,
   useSavePreferences,
   type HomeHero,
 } from '../../shared/api';
-import { toLedgerDate } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, RetryButton, SegmentedControl, type SegmentedOption } from '../../shared/ui';
 
@@ -112,10 +112,12 @@ export function HomeHeroSetting() {
   }
 
   // 예산은 달마다 따로다. 이 화면에서 정하는 것은 언제나 이번 달이다.
+  // 이번 달은 한 달 시작일로 정한 이름 달이다.
+  const currentKey = useCurrentPeriod().period.key;
   const thisMonth = useMemo(() => {
-    const [year, month] = toLedgerDate(new Date()).slice(0, 7).split('-').map(Number);
+    const [year, month] = currentKey.split('-').map(Number);
     return { year, month };
-  }, []);
+  }, [currentKey]);
 
   if (preferences.isError) {
     return (

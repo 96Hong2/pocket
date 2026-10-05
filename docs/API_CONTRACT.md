@@ -72,6 +72,30 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 저장한 것이 하루 전으로 보인다. PostgreSQL 은 시간대를 붙여 돌려주지만 SQLite 는 잃어버리므로
 (검증 하네스가 SQLite 다) 응답을 만드는 자리에서 한 번 더 붙인다.
 
+## 한 달 기간 (한 달 시작일)
+
+사용자마다 한 달 시작일(`month_start_day`, 1 ~ 28, 기본 1)이 있다. 바꾸는 곳은 `PATCH /preferences` 다.
+**예산·리포트·결산**의 한 달은 그 날에 시작해 다음 달 그 날 전날에 끝난다. 시작일이 1 이면 달력 월과
+같아서 기본값 사용자와 옛 번들에는 아무것도 안 바뀐다. 정본은 ADR-0046.
+
+기간의 이름 달은 **그 기간에 날이 가장 많이 든 달**이다. 응답의 `period_key`("YYYY-MM")가 그 달이고,
+`?year=&month=` 도 이 이름으로 기간을 고른다.
+
+| 시작일 s | 「M월」 |
+| --- | --- |
+| 1 | M월 1일 ~ M월 말일 |
+| 2 ~ 15 | M월 s일 ~ 다음 달 (s−1)일 |
+| 16 ~ 28 | 지난달 s일 ~ M월 (s−1)일 |
+
+시작일 25 면 10월 5일의 「이번 달」 은 `2026-09-25 ~ 2026-10-24`(`period_key` `2026-10`)이고,
+10월 25일부터 「11월」 이다. **화면은 「N월」 을 `period_start` 의 달로 그리지 않는다.** s ≥ 16 이면 틀린다.
+
+따르는 곳: `/budgets*`(추천 기준 기간과 이어쓰기 포함), `/reports/monthly`(기간, 6개월 흐름, 지난달 같은 날수),
+`/reports/category`, `/reports/closing`, 거래 저장·수정·묶음 저장 응답의 `budget`, 자산 분석의 이번 달 모은 돈과 번 돈, 자산 달마다 점.
+따르지 않는 곳(달력 월 그대로): `/transactions/calendar`, `/transactions?year&month`, 공유 가계부 전부,
+목표의 달 셈, 반복 지출, 알림, 자산 체크인 달, 내보내기. `/transactions/summary` 는 합계가 달력 월이고
+`budget` 블록만 이름이 같은 달의 예산 기간이다(아래).
+
 ## 엔드포인트
 
 모두 `/api/v1` 아래에 있다.
@@ -84,7 +108,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | PATCH | `/transactions/{id}` | 보낸 필드만 수정. 응답 형태는 저장과 같다(되돌리기 값만 없다) |
 | GET | `/transactions` | 목록. 아래 「목록 조회」 참고 |
 | GET | `/transactions/calendar` | 달력 격자용 날짜별 지출·수입. 기록이 있는 날만 온다. 아래 「달력 한 칸」 참고 |
-| GET | `/transactions/summary` | 그 달의 지출·수입·차액 **+ 예산 상태** |
+| GET | `/transactions/summary` | 그 달력 월의 지출·수입·차액 **+ 예산 상태**. `budget` 은 이름이 같은 달의 예산 기간이다(시작일 25 면 10월 요약의 `budget` 은 `09-25 ~ 10-24`) |
 | GET | `/transactions/{id}` | 기록 하나. 내 것이고 안 지운 것만, 아니면 404. 리포트 큰 지출 줄을 눌러 고칠 때 쓴다 |
 | DELETE | `/transactions/{id}` | 삭제(표시만 남긴다) |
 | POST | `/transactions/{id}/undo` | 방금 저장한 것 되돌리기. **앱은 더 이상 안 부른다**(아래) |
@@ -224,7 +248,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
     "pace_ratio": "0.2400"
   },
   "budget": {
-    "period_start": "2026-09-01", "period_end": "2026-09-30",
+    "period_start": "2026-09-01", "period_end": "2026-09-30", "period_key": "2026-09",
     "amount": "500000", "budgeted_spend": "12000",
     "remaining_budget": "488000", "daily_allowance": "17428", "weekly_allowance": "69712",
     "total_days": 30, "elapsed_days": 3, "remaining_days": 28,
@@ -245,6 +269,8 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 묶음 저장·월 리포트가 전부 같은 모양으로 준다.** 앱을 다시 열거나 되돌리기를 눌러 홈을 다시
 그릴 때, 어느 응답에서든 같은 필드로 채울 수 있어야 하기 때문이다.
 
+- `period_key` 는 기간의 이름 달("YYYY-MM")이다. 화면의 「N월」 과 캐시 열쇠는 이 칸으로 정한다.
+  한 달 시작일이 16 이상이면 `period_start` 의 다음 달이다(위 「한 달 기간」).
 - `amount` 가 `null` 이면 예산을 정하지 않은 것이다. 그때 `remaining_budget`·`daily_allowance`·
   `weekly_allowance`·`spend_progress`·`pace_ratio` 도 전부 `null` 이다. 진행도(`elapsed_days` 등)와
   `projected_month_end`, 주 경계(`week_start`·`week_end`·`week_days_left`)는 예산이 없어도 나온다.
@@ -481,13 +507,14 @@ ADR-0006 이다.
 
 | 메서드 | 경로 | 하는 일 |
 | --- | --- | --- |
-| GET | `/budgets?year=&month=` | 그 달의 예산 상태와 카테고리 예산. 기본은 사용자 시간대 이번 달 |
+| GET | `/budgets?year=&month=` | 그 달의 예산 상태와 카테고리 예산. 기본은 사용자 시간대 오늘이 든 한 달 |
 | GET | `/budgets/suggestion?year=&month=&take_home=&fixed_costs=` | 목표에서 거꾸로 낸 생활비 제안. 저장하지 않는다 |
 | PUT | `/budgets?year=&month=` | 전체 예산 저장. 바디는 `{"amount": "600000"}` |
 | DELETE | `/budgets?year=&month=` | 예산 삭제. 딸린 카테고리 예산도 함께 지운다 |
 | PUT | `/budgets/categories/{category_id}?year=&month=` | 카테고리 한도 저장. 바디는 `{"amount": "300000"}` |
 | DELETE | `/budgets/categories/{category_id}?year=&month=` | 카테고리 한도 삭제 |
 
+- `year`·`month` 는 이름 달이다. 한 달 시작일로 기간을 만든다(위 「한 달 기간」).
 - **예산을 정하지 않은 것은 정상 상태다.** 조회는 200 이고 `budget.amount` 가 `null` 이다.
   404 가 아니다.
 - **PUT 은 멱등이다.** 같은 기간에 몇 번을 보내도 409 가 나지 않는다. `(user_id, period_start)`
@@ -845,11 +872,20 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 | POST | `/account/reset` | 넣어 둔 것을 전부 지운다. 바디는 `{"confirm": true}`. 204 |
 
 ```json
-{ "budget_auto_carryover": true, "home_hero": "remaining_budget", "last_record_method": "nl" }
+{
+  "budget_auto_carryover": true, "home_hero": "remaining_budget", "last_record_method": "nl",
+  "month_start_day": 1
+}
 ```
 
-**지금 여는 값은 셋이다.** `budget_auto_carryover` 는 예산 화면의 이어쓰기 토글이 읽고 쓴다.
+**지금 여는 값은 넷이다.** `budget_auto_carryover` 는 예산 화면의 이어쓰기 토글이 읽고 쓴다.
 `home_hero` 는 앱 설정 화면이 쓰고 홈 히어로가 읽는다. 알림은 성격이 달라 아래 별도 경로에 있다.
+
+`month_start_day` 는 한 달 시작일이다(1 ~ 28, 밖이면 422, 빼거나 `null` 이면 그대로). **바꾸면 같은
+요청 안에서 그 사용자의 예산 줄을 전부 옮긴다.** 줄마다 지금 이름 달을 그대로 두고 새 시작일의
+그 달 기간으로 간다. 지난 달과 지운 줄(이어쓰기를 막는 표시)도 옮기고, 카테고리 예산은 따라온다.
+그래서 「10월」 예산은 시작일을 몇으로 바꿔도 「10월」 예산이다. 바꾼 뒤에는 예산과 리포트 캐시를
+전부 다시 받아야 한다.
 
 `last_record_method` 는 **읽기만 열려 있다.** `PATCH` 로 보내면 무시한다. 사용자가 고르는 값이
 아니라 거래를 저장할 때 서버가 그 거래의 `source` 로 남기는 흔적이라, 화면이 쓸 수 있으면
@@ -927,7 +963,7 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 
 | 메서드 | 경로 | 하는 일 |
 | --- | --- | --- |
-| GET | `/reports/monthly` | 그 달 리포트 화면이 그리는 것 전부. `?year=&month=` 없으면 이번 달 |
+| GET | `/reports/monthly` | 그 달 리포트 화면이 그리는 것 전부. `?year=&month=` 는 이름 달이고 없으면 오늘이 든 한 달 |
 
 **조회 하나가 그 화면을 다 채운다.** 총액·조각·6개월 추이·비교·예산이 한 응답에 들어 있다.
 여러 번 물으면 그 사이에 저장이 끼어 도넛과 헤드라인이 서로 다른 말을 한다.
@@ -956,8 +992,11 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 세우면 '모르는 것' 이 화면의 결론이 된다. 접는 줄은 없다(칸이 넷뿐이다). 화면은 `none`
 한 줄뿐이면 카드째 그리지 않는다. 한 번도 안 고른 사람에게 「안 고름 100%」 는 말이 아니다.
 
-`comparison` 은 **지난달 같은 날짜까지**다. 달 전체와 견주면 이번 달은 아직 다 안 지나서 늘
-줄어든 것처럼 보인다. 같은 날짜가 그 달에 없으면 말일로 붙인다(3월 31일 → 2월 28일).
+`period_start`·`period_end`·`period_key` 는 한 달 시작일로 자른 기간과 그 이름 달이다(위 「한 달 기간」).
+
+`comparison` 은 **지난 기간에서 같은 날수까지**다. 달 전체와 견주면 이번 달은 아직 다 안 지나서 늘
+줄어든 것처럼 보인다. 지난 기간이 더 짧으면 그 끝으로 붙인다(3월 31일 → 2월 28일). 시작일이 1 이면
+「지난달 같은 날짜까지」 와 같고, 시작일 25 의 10월 5일이면 이번 `09-25 ~ 10-05` 와 지난 `08-25 ~ 09-04` 다.
 지난 달을 조회하면 이미 끝난 달끼리라 통째로 견준다.
 **아직 오지 않은 달은 `null` 이다.** 그 달의 지난달은 아직 안 끝난 이번 달이라 견줄 수 없다.
 `comparison`·`weeks` 모두 **양쪽 창이 다 0 원이면 `null`** 이다. 한 번도 안 써 본 사람에게
@@ -968,7 +1007,7 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 수요일에 보면 이번 주는 월~수 사흘이고 지난주도 월~수 사흘이다. 지난주를 이레 통째로 잡으면
 늘 줄어든 것처럼 보인다. 조회한 달이 오늘이 속한 달이 아니면 `null` 이다.
 
-`trend` 는 **항상 여섯 개**이고 오래된 것부터다. 기록이 없는 달도 0 으로 들어온다.
+`trend` 는 **항상 여섯 개**이고 오래된 것부터다. 점마다 `period_key` 가 있다. 막대 아래 「N월」 은 이 칸으로 쓴다. 기록이 없는 달도 0 으로 들어온다.
 빼면 막대가 밀려 다른 달로 읽힌다. 달력(`/transactions/calendar`)이 값 0 인 날을 빼는 것과 반대다.
 
 `has_any_transaction` 은 **그 달에** 기록이 있는지다. 합계가 0 인 것과 다르다(지출과 환불이
@@ -980,7 +1019,7 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 | --- | --- | --- |
 | GET | `/reports/category` | 리포트 분류 줄 하나의 기록과 합계. `?year=&month=&tab=expense\|income&key=` |
 
-기간은 `/reports/monthly` 와 같은 의존성(`MonthQuery`)으로 정한다. 두 화면이 늘 같은 기간을 본다.
+기간은 `/reports/monthly` 와 같은 의존성(`UserMonthQuery`)으로 정한다. `?year=&month=` 는 이름 달이고 한 달 시작일을 따른다. 두 화면이 늘 같은 기간을 본다. 응답의 `period_key` 도 리포트와 같다.
 `key` 는 리포트 줄의 키 그대로다(카테고리 uuid, `uncategorized`, `rolled_up`). 알아볼 수 없는 키는 422.
 
 - `total` 은 그 줄 금액과 **같은 셈**이다. 소비는 지출에서 환불을 뺀 값이라 환불 줄도
@@ -993,7 +1032,7 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 
 | 메서드 | 경로 | 하는 일 |
 | --- | --- | --- |
-| GET | `/reports/closing` | 그 달 결산 카드 넉 장이 그리는 것 전부. `?year=&month=` 없으면 이번 달 |
+| GET | `/reports/closing` | 그 달 결산 카드 넉 장이 그리는 것 전부. `?year=&month=` 는 이름 달이고 없으면 오늘이 든 한 달. `is_closed` 는 `period_end` 가 오늘보다 앞일 때 |
 
 **아무것도 저장하지 않는다.** 결산을 열어 봤다는 표시는 기기에만 남는다
 (`bridge.storage` 의 `closing-seen-YYYY-MM`).
@@ -1002,6 +1041,7 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 {
   "period_start": "2026-08-01",
   "period_end": "2026-08-31",
+  "period_key": "2026-08",
   "is_closed": true,
   "has_any_transaction": true,
   "highlights": [

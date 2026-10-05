@@ -62,6 +62,8 @@ class CategoryReportOut(BaseModel):
 
     period_start: date
     period_end: date
+    # 리포트와 같은 이름 달.
+    period_key: str
     # 'expense' · 'income'.
     tab: str
     # 리포트 줄의 키 그대로. 'uncategorized' · 'rolled_up' · 카테고리 uuid.
@@ -107,6 +109,8 @@ class TrendPointOut(BaseModel):
 
     period_start: date
     period_end: date
+    # 막대 아래 「N월」. 한 달 시작일이 16 이상이면 `period_start` 의 다음 달이다.
+    period_key: str
     expense: Decimal
     income: Decimal
 
@@ -144,6 +148,8 @@ class LargeExpenseOut(BaseModel):
 class MonthlyReportOut(BaseModel):
     period_start: date
     period_end: date
+    # 기간의 이름 달 "YYYY-MM". 화면의 「N월」 은 이 칸으로 그린다.
+    period_key: str
     # 이 달에 거래가 한 건이라도 있나. **이체도 센다.** 합계가 0 인 것과 기록이 없는 것은
     # 다르다는 뜻이라, 집계에서 빠지는 이체만 있어도 빈 달 안내를 띄우지 않는다.
     has_any_transaction: bool
@@ -314,6 +320,8 @@ class ClosingOut(BaseModel):
 
     period_start: date
     period_end: date
+    # 기간의 이름 달 "YYYY-MM".
+    period_key: str
     is_closed: bool
     has_any_transaction: bool
     # 근거가 있는 것만 최대 셋. 하나도 없으면 빈 배열이고 그때 화면은 억지 칭찬을 하지 않는다.
@@ -329,6 +337,7 @@ def to_closing(period: BudgetPeriod, result: Closing) -> ClosingOut:
     return ClosingOut(
         period_start=period.start,
         period_end=period.end,
+        period_key=period.key,
         is_closed=result.is_closed,
         has_any_transaction=result.has_any_transaction,
         highlights=[

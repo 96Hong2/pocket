@@ -3,6 +3,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { ROUTES } from '../../src/app/router/routes';
 import { TEST_IDS } from '../../src/shared/testIds';
 
+import { MonthStartArea } from './MonthStartArea';
+
 /**
  * 관리 탭. 예산을 여기서 바로 정하고 고친다.
  *
@@ -25,6 +27,8 @@ export class ManageScreen {
   readonly banner: CarryoverBannerArea;
   /** 예산 섹션 아래 설정 한 줄. */
   readonly settings: BudgetSettingArea;
+  /** 「한 달 시작」 줄이 여는 시트. */
+  readonly monthStart: MonthStartArea;
 
   constructor(page: Page) {
     this.page = page;
@@ -35,6 +39,7 @@ export class ManageScreen {
     this.categories = new CategoryBudgetArea(page);
     this.banner = new CarryoverBannerArea(page);
     this.settings = new BudgetSettingArea(page);
+    this.monthStart = new MonthStartArea(page);
   }
 
   async open(): Promise<void> {
@@ -133,6 +138,16 @@ export class ManageScreen {
   /** 지금 보고 있는 달. `2026년 9월`. */
   get monthLabel(): Locator {
     return this.section.getByText(/^\d{4}년 \d{1,2}월$/);
+  }
+
+  /** 달 이름 아래 `9.25 ~ 10.24`. 한 달 시작일이 1 이면 없다. 누르면 같은 시트가 열린다. */
+  get periodLine(): Locator {
+    return this.section.getByTestId(TEST_IDS.budgetPeriod);
+  }
+
+  /** 예산 아래 「한 달 시작 매달 25일」 줄. 누르면 한 달 시작일 시트가 열린다. */
+  get monthStartRow(): Locator {
+    return this.section.getByRole('button', { name: /^한 달 시작 매달 \d+일$/ });
   }
 
   /** 끝난 달에 뜨는 안내. 이 달은 보기만 한다는 말이다. */

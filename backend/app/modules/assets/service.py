@@ -18,7 +18,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -36,8 +36,6 @@ from app.modules import ledger
 from app.modules.assets import entries
 from app.modules.assets.entries import latest_snapshot, live_rows
 from app.modules.assets.schemas import MAX_ITEMS, AssetItemIn, ItemOutValues
-
-_ONE_DAY = timedelta(days=1)
 
 __all__ = [
     "MonthPoint",
@@ -320,13 +318,15 @@ class MonthPoint:
 def month_end_points(session: Session, user: User, today: date, months: int) -> list[MonthPoint]:
     """오래된 달부터 달마다 월말 점. 그 달 마지막 날(이번 달은 오늘) 이하의 가장 늦은 스냅샷.
 
+    달은 사용자의 한 달 시작일로 자른 기간이다. 결산 순자산 카드가 결산 기간과 같은 점을 찾는다.
+
     첫 스냅샷보다 앞 달은 점이 없다. 분석의 지난달 대비와 결산 연속 판정이 같은 함수를 쓴다.
     """
     periods: list[BudgetPeriod] = []
     period = ledger.period_for(user, today)
     for _ in range(months):
         periods.append(period)
-        period = ledger.period_for(user, period.start.replace(day=1) - _ONE_DAY)
+        period = period.previous_period()
     periods.reverse()
 
     heads = session.execute(
