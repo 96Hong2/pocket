@@ -1150,7 +1150,7 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 
 | scope | 채우는 칸 |
 | --- | --- |
-| `all` | `summary`(자산·연금 뺀 자산·부채·순자산), `groups`(부채 뺀 그룹 조각, 금액 있는 것만, `ratio` 와 `ratio_without_pension`), `returns`, `month_change`, `saving`, `bundles` |
+| `all` | `summary`(자산·연금 뺀 자산·부채·순자산), `groups`(부채 뺀 그룹 조각, 금액 있는 것만, `ratio` 와 `ratio_without_pension`), `returns`, `month_change`, `saving`, `bundles`, `saved_items`, `saved_trend`, `large_saves` |
 | `stock` | 주식·ETF·펀드·채권 항목만. `items`(큰 것부터, `ratio`), `returns` |
 | `cash` | 현금·예적금 그룹 항목만. `items`(`monthly_amount` 포함), `monthly_total` |
 
@@ -1158,7 +1158,10 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 - `month_change`: 지난달 월말 점(`/assets/history` 와 같은 함수)과 지금 목록. 순자산과 그룹별 증감. 지난달 점이 없으면 null
 - `saving`: 이번 달 `saved`(= `summary.month_saved`) ÷ 번 돈 `income`. 번 돈이 0 이면 `rate` null. `goal` 은 진행 중 목표 한 줄
 - `bundles`: 종류별 입구(`stock`, `cash`), 항목이 있는 묶음만. 묶음마다 `fingerprint`
-- `fingerprint`: item_key 순으로 (group, kind, amount, quantity, cost_basis, unit_price, 판 기록 수·받은 돈·실현 수익)과 항목 목록의 sha256. 날짜, 스냅샷 id, 순서, 이름, `price_noted_on` 은 안 먹어서 체크인 복사만으로는 안 바뀐다. 잠금은 화면이 광고 뒤 `{scope: fingerprint}` 를 기기에 두고 견준다
+- `saved_items`: 이번 기간 모은 돈(`saving.saved` 와 같은 조건, 판 기록 빼고)을 「어디에」 항목마다. 큰 것부터 `amount`, `ratio`(모은 돈 합 대비 %), 이름과 그룹, 종류는 그 키의 가장 최근 항목 줄. 같은 날 목록에서 지운 항목은 줄이 안 남아 `group`, `kind`, `label` 이 null 이다(화면은 「지운 항목」)
+- `saved_trend`: 이번 기간으로 끝나는 여섯 기간, 오래된 것부터 `month`(기간이 시작하는 달), `period_start`, `period_end`, `amount`. 모은 것이 없는 기간도 0 으로 온다. 앞 기간은 `BudgetPeriod.previous_period()` 로 건다
+- `large_saves`: 이번 기간 모은 기록 중 큰 것 다섯(같으면 최근 것부터). 거래 목록과 같은 `TransactionOut` 이라 고치기 시트가 바로 연다
+- `fingerprint`: item_key 순으로 (group, kind, amount, quantity, cost_basis, unit_price, 판 기록 수·받은 돈·실현 수익)과 항목 목록의 sha256. 날짜, 스냅샷 id, 순서, 이름, `price_noted_on` 은 안 먹어서 체크인 복사만으로는 안 바뀐다. 잠금은 화면이 광고 뒤 `{scope: fingerprint}` 를 기기에 두고 견준다. 전체 분석이 열려 있는 동안 화면은 `bundles` 의 지문도 함께 적어 둬서 주식, 예/적금 분석은 광고 없이 열린다. 열린 전체 분석의 「큰 저축·투자 Top 5」 에서 기록을 고쳐 바뀐 지문도 광고 없이 적는다
 
 ### 목표
 

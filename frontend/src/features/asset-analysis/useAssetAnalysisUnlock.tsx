@@ -42,6 +42,8 @@ export interface AssetAnalysisUnlock {
   request: (target: AnalysisTarget, go: () => void) => void;
   /** 확인 창. 화면이 그대로 그린다. 물을 것이 없으면 null 이다. */
   prompt: ReactNode;
+  /** 광고 없이 연 것으로 적는다. 열린 전체 분석 안의 종류별 분석과, 그 안에서 고친 기록 뒤 새 숫자. */
+  grant: (targets: AnalysisTarget[]) => void;
 }
 
 interface Asking {
@@ -86,9 +88,14 @@ export function useAssetAnalysisUnlock(): AssetAnalysisUnlock {
   );
 
   const remember = useCallback(
-    (target: AnalysisTarget) => {
-      if (target.fingerprint == null) return;
-      const next = withFingerprint(knownLock ?? {}, target.scope, target.fingerprint);
+    (targets: AnalysisTarget[]) => {
+      const base = knownLock ?? {};
+      let next = base;
+      for (const target of targets) {
+        if (target.fingerprint == null || next[target.scope] === target.fingerprint) continue;
+        next = withFingerprint(next, target.scope, target.fingerprint);
+      }
+      if (next === base) return;
       knownLock = next;
       setLock(next);
       void writeAnalysisLock(bridge.storage, next);
@@ -102,7 +109,7 @@ export function useAssetAnalysisUnlock(): AssetAnalysisUnlock {
       pending.current = true;
       try {
         const outcome = await ad.show('asset_analysis');
-        remember(target);
+        remember([target]);
         analytics.log(
           EVENTS.assetAnalysisOpened,
           outcome.result === 'skipped'
@@ -167,5 +174,5 @@ export function useAssetAnalysisUnlock(): AssetAnalysisUnlock {
       />
     );
 
-  return { stateOf, busy: ad.busy, request, prompt };
+  return { stateOf, busy: ad.busy, request, prompt, grant: remember };
 }

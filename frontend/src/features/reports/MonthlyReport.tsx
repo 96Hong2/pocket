@@ -36,6 +36,8 @@ import { donutCenter, toPercent } from './reportLabels';
 import { BreakdownItem, BudgetLine, EmptyIcon } from './reportParts';
 import { TagBreakdown } from '../tags';
 
+import { RankList } from './RankList';
+import { ShareBars } from './ShareBars';
 import { TrendBars } from './TrendBars';
 
 type Mode = 'expense' | 'income';
@@ -291,38 +293,20 @@ function PaymentMethods({ rows }: { rows: MethodRowOut[] }) {
   // 아무것도 알려 주지 않으면서 자리만 먹는다.
   if (rows.length === 1 && rows[0].key === 'none') return null;
 
-  const top = parseDecimal(rows[0]?.share ?? null) ?? 0;
   return (
     <Card>
       <h2 className="report__section">무엇으로 냈나</h2>
-      <ul className="report__methods" data-testid={TEST_IDS.reportMethods}>
-        {rows.map((row) => {
-          const share = parseDecimal(row.share) ?? 0;
-          return (
-            <li key={row.key} className="report__method">
-              <span className="report__method-name">{paymentMethodLabel(row.key)}</span>
-              <span className="report__method-bar" aria-hidden="true">
-                {/* 가장 큰 줄이 꽉 차게 그린다. 비중 그대로 그리면 몇 %짜리 줄이 안 보인다. */}
-                <span
-                  className="report__method-fill"
-                  style={{ width: `${top > 0 ? Math.max((share / top) * 100, 3) : 0}%` }}
-                />
-              </span>
-              <Amount className="report__method-amount" value={parseDecimalOr(row.amount, 0)} />
-              <span className="report__method-share">{formatShare(share)}</span>
-            </li>
-          );
-        })}
-      </ul>
+      <ShareBars
+        testId={TEST_IDS.reportMethods}
+        rows={rows.map((row) => ({
+          key: row.key,
+          name: paymentMethodLabel(row.key),
+          amount: parseDecimalOr(row.amount, 0),
+          share: parseDecimal(row.share) ?? 0,
+        }))}
+      />
     </Card>
   );
-}
-
-/** 비중 한 자리. 0.5% 를 0% 로 적으면 있는 줄이 없는 것처럼 보인다. */
-function formatShare(share: number): string {
-  if (share <= 0) return '0%';
-  const percent = share * 100;
-  return percent < 1 ? '1% 미만' : `${Math.round(percent)}%`;
 }
 
 /**
@@ -346,40 +330,24 @@ function LargeExpenses({
   return (
     <Card>
       <h2 className="report__section">큰 지출 Top 5</h2>
-      <ol className="report__large">
-        {rows.map((row, index) => {
+      <RankList
+        rowTestId={TEST_IDS.reportLargeExpenseRow}
+        amountTestId={TEST_IDS.reportLargeExpenseAmount}
+        rows={rows.map((row) => {
           const category = byId.get(row.category_id ?? '');
           const categoryName =
             row.category_id == null
               ? null
               : (category?.name ?? (namesUnknown ? '이름 확인 중' : '지운 분류'));
-          // 상호를 안 적은 거래가 많다. 그때는 분류로 부르고, 분류도 없으면 그 사실을 적는다.
-          const name = row.merchant ?? categoryName ?? '분류 없음';
-          return (
-            <li
-              key={row.id}
-              className="report__large-row"
-              data-testid={TEST_IDS.reportLargeExpenseRow}
-            >
-              <span className="report__large-rank" aria-hidden="true">
-                {index + 1}
-              </span>
-              <span className="report__large-text">
-                <span className="report__large-name">{name}</span>
-                {row.merchant != null && categoryName != null ? (
-                  <span className="report__large-category">{categoryName}</span>
-                ) : null}
-              </span>
-              <Amount
-                className="report__large-amount"
-                data-testid={TEST_IDS.reportLargeExpenseAmount}
-                value={parseDecimalOr(row.amount, 0)}
-                size={14}
-              />
-            </li>
-          );
+          return {
+            key: row.id,
+            // 상호를 안 적은 거래가 많다. 그때는 분류로 부르고, 분류도 없으면 그 사실을 적는다.
+            name: row.merchant ?? categoryName ?? '분류 없음',
+            sub: row.merchant != null ? categoryName : null,
+            amount: parseDecimalOr(row.amount, 0),
+          };
         })}
-      </ol>
+      />
     </Card>
   );
 }

@@ -214,6 +214,15 @@ export const TEST_IDS = {
   analysisSaving: 'analysis-saving',
   analysisKindRow: 'analysis-kind-row',
   analysisMonthly: 'analysis-monthly',
+  analysisNetWorthTrend: 'analysis-net-worth-trend',
+  analysisSignedRow: 'analysis-signed-row',
+  analysisSavedItems: 'analysis-saved-items',
+  analysisSavedTrend: 'analysis-saved-trend',
+  analysisTrendBar: 'analysis-trend-bar',
+  analysisTopSaves: 'analysis-top-saves',
+  analysisTopSaveRow: 'analysis-top-save-row',
+  analysisTopSaveAmount: 'analysis-top-save-amount',
+  analysisStockRates: 'analysis-stock-rates',
   // 홈 체크인 카드
   assetCheckinCard: 'asset-checkin-card',
   // 잔액 캡처 시트. 줄은 data-state(same·changed·new)를 싣는다.

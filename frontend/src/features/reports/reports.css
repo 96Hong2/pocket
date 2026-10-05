@@ -297,14 +297,15 @@
   .report__trend-item {
     min-width: 0;
     display: grid;
-    grid-template-rows: var(--report-trend-track) auto;
+    /* 리포트 밖(자산 분석)에서 쓸 때도 같은 높이로 선다. */
+    grid-template-rows: var(--report-trend-track, 96px) auto;
     gap: 6px;
     justify-items: center;
   }
 
   .report__trend-track {
     width: 100%;
-    height: var(--report-trend-track);
+    height: var(--report-trend-track, 96px);
     display: flex;
     align-items: flex-end;
   }
@@ -404,6 +405,18 @@
     gap: 12px;
     padding: 10px 0;
     border-bottom: 1px solid var(--color-divider);
+  }
+
+  /* 누르면 고치기 시트가 열리는 줄(자산 분석). 모양은 위 줄과 같다. */
+  .report__large-button {
+    width: 100%;
+    min-height: 44px;
+    border-width: 0 0 1px;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
   }
 
   .report__large-rank {

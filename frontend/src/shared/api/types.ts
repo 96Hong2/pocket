@@ -156,6 +156,8 @@ export type AnalysisGroupChangeOut = Schemas['AnalysisGroupChangeOut'];
 export type AnalysisSavingOut = Schemas['AnalysisSavingOut'];
 export type AnalysisGoalOut = Schemas['AnalysisGoalOut'];
 export type AnalysisBundleOut = Schemas['AnalysisBundleOut'];
+export type AnalysisSavedItemOut = Schemas['AnalysisSavedItemOut'];
+export type AnalysisSavedPointOut = Schemas['AnalysisSavedPointOut'];
 /** 잔액 화면 캡처를 읽은 후보. 아무것도 저장되지 않은 상태다. */
 export type AssetCaptureOut = Schemas['AssetCaptureOut'];
 export type AssetCaptureItemOut = Schemas['AssetCaptureItemOut'];

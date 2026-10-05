@@ -259,6 +259,94 @@
     font-weight: var(--font-weight-bold);
   }
 
+  /* 늘고 줄고 막대. 이름과 숫자가 한 줄, 그 아래 가운데 선에서 양쪽으로 뻗는 막대. */
+  .analysis-signed {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .analysis-signed__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 6px 12px;
+    font-size: var(--text-14);
+    color: var(--color-ink);
+  }
+
+  .analysis-signed__name {
+    min-width: 0;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .analysis-signed__value {
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--font-weight-bold);
+    white-space: nowrap;
+  }
+
+  .analysis-signed__track {
+    position: relative;
+    grid-column: 1 / -1;
+    height: 8px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+  }
+
+  /* 0 자리 */
+  .analysis-signed__track::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    left: 50%;
+    width: 1px;
+    background: var(--color-border);
+  }
+
+  /* 그대로인 줄은 막대 없이 글줄만 */
+  .analysis-signed__row[data-sign='flat'] .analysis-signed__track {
+    display: none;
+  }
+
+  .analysis-signed__fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: var(--radius-pill);
+  }
+
+  .analysis-signed__row[data-sign='up'] .analysis-signed__fill {
+    left: 50%;
+    background: var(--color-sage-300);
+  }
+
+  .analysis-signed__row[data-sign='down'] .analysis-signed__fill {
+    right: 50%;
+    background: var(--color-amber-300);
+  }
+
+  /* 어디에 모았나: 항목 이름이 결제 수단보다 길다. 이름 칸을 넓히고 넘치면 자른다. */
+  .analysis-share .report__method {
+    grid-template-columns: minmax(0, 84px) minmax(24px, 1fr) auto 34px;
+  }
+
+  .analysis-share .report__method-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .analysis-top__icon {
+    width: 28px;
+    height: 28px;
+    flex: none;
+  }
+
   .analysis-tag {
     margin-left: 4px;
     font-size: var(--text-12);

@@ -107,7 +107,7 @@ test('현재가도 판 기록도 없으면 수익률 카드가 빈 말을 하고
   await expect(assetAnalysis.kindRow('stock')).toHaveCount(0);
 });
 
-test('주식 분석과 예/적금 분석은 각각 확인 창과 광고를 따로 지나 열린다', async ({
+test('전체 분석을 연 뒤 주식 분석과 예/적금 분석은 확인 창 없이 그 묶음 숫자로 열린다', async ({
   assets,
   assetAnalysis,
   page,
@@ -126,14 +126,12 @@ test('주식 분석과 예/적금 분석은 각각 확인 창과 광고를 따�
   await assetAnalysis.adConsentConfirm.click();
   await assetAnalysis.waitOpen('all');
   await expect(assetAnalysis.kindRows).toHaveCount(2);
-  await expect(assetAnalysis.kindRow('stock')).toHaveAttribute('data-state', 'locked');
+  // 전체 분석이 열린 동안 그 안의 종류별 분석도 연 것으로 적힌다.
+  await expect(assetAnalysis.kindRow('stock')).toHaveAttribute('data-state', 'open');
 
   await assetAnalysis.kindRow('stock').click();
-  await expect(assetAnalysis.adConsent).toContainText(
-    '30초 광고를 보면 주식 분석 결과를 볼 수 있어요',
-  );
-  await assetAnalysis.adConsentConfirm.click();
   await assetAnalysis.waitOpen('stock');
+  await expect(assetAnalysis.adConsent).toHaveCount(0);
   await expect(assetAnalysis.title).toHaveText('주식 분석');
   // 주식, ETF, 펀드, 채권만. 삼성전자 600,000원과 펀드 400,000원 → 60%, 40%
   await expect(assetAnalysis.legendRow('삼성전자')).toContainText('60%');
@@ -142,14 +140,15 @@ test('주식 분석과 예/적금 분석은 각각 확인 창과 광고를 따�
   await expect(assetAnalysis.returns).toContainText('삼성전자');
   // 로그는 문서마다 새로 쌓인다. 주소로 옮기기 전에 읽는다.
   const before = await logsNamed(page, 'asset_analysis_opened');
-  expect(before.map((log) => log.params.scope)).toEqual(['all', 'stock']);
+  expect(before.map((log) => [log.params.scope, log.params.ad])).toEqual([
+    ['all', expect.stringMatching(/^(earned|watched)$/)],
+    ['stock', 'free'],
+  ]);
 
+  // 주소로 바로 들어와도 적어 둔 지문이 같으면 확인 창 없이 열린다.
   await assetAnalysis.open('cash');
-  await expect(assetAnalysis.adConsent).toContainText(
-    '30초 광고를 보면 예/적금 분석 결과를 볼 수 있어요',
-  );
-  await assetAnalysis.adConsentConfirm.click();
   await assetAnalysis.waitOpen('cash');
+  await expect(assetAnalysis.adConsent).toHaveCount(0);
   await expect(assetAnalysis.title).toHaveText('예/적금 분석');
   // 1,000,000원과 600,000원 → 62.5%, 37.5%
   await expect(assetAnalysis.legendRow('카카오뱅크')).toContainText('62.5%');
@@ -161,9 +160,6 @@ test('주식 분석과 예/적금 분석은 각각 확인 창과 광고를 따�
   await expect(assetAnalysis.monthly).toContainText(`매달 ${formatCurrency(300_000)}`);
   await expect(assetAnalysis.monthly).toContainText(`매달 ${formatCurrency(700_000)}`);
   await expect(assetAnalysis.monthly).not.toContainText('한 번 넣은 돈');
-
-  const opened = await logsNamed(page, 'asset_analysis_opened');
-  expect(opened.map((log) => log.params.scope)).toEqual(['cash']);
 });
 
 test('본 분석은 숫자가 그대로면 줄 하나로 광고 없이 열리고, 금액을 고치면 다시 묻는다', async ({
@@ -180,10 +176,8 @@ test('본 분석은 숫자가 그대로면 줄 하나로 광고 없이 열리고
   await assetAnalysis.adConsentConfirm.click();
   await assetAnalysis.waitOpen('all');
   await assetAnalysis.kindRow('stock').click();
-  await assetAnalysis.adConsentConfirm.click();
   await assetAnalysis.waitOpen('stock');
   await assetAnalysis.open('cash');
-  await assetAnalysis.adConsentConfirm.click();
   await assetAnalysis.waitOpen('cash');
 
   await assets.open();
@@ -207,9 +201,9 @@ test('본 분석은 숫자가 그대로면 줄 하나로 광고 없이 열리고
   await expect(assetAnalysis.adConsent).toBeVisible();
   await assetAnalysis.adConsentConfirm.click();
   await assetAnalysis.waitOpen('all');
-  // 종류별은 그 종류 숫자가 바뀔 때만 다시 묻는다.
+  // 전체를 다시 본 뒤에는 숫자가 바뀐 예/적금 분석도 광고 없이 열린다.
   await expect(assetAnalysis.kindRow('stock')).toHaveAttribute('data-state', 'open');
-  await expect(assetAnalysis.kindRow('cash')).toHaveAttribute('data-state', 'stale');
+  await expect(assetAnalysis.kindRow('cash')).toHaveAttribute('data-state', 'open');
 });
 
 test('체크인으로 목록만 오늘로 옮기면 바뀜이 아니라서 광고 없이 열린다', async ({
