@@ -2,6 +2,9 @@
 
 금액은 원 단위 정수, 수량은 소수 8자리까지다. 판 몫의 넣은 돈만 원 단위로 반올림하고
 (ROUND_HALF_UP), 전부 팔면 남은 넣은 돈을 그대로 뺀다. 수익률은 소수 첫째 자리까지다.
+
+금액 종목의 넣은 돈은 모를 수 있다(None). 캡처로 금액만 들어온 투자 항목이 그렇다.
+모르는 넣은 돈을 지금 금액으로 채우지 않는다. 지어낸 기준으로 수익률을 내지 않으려는 것이다.
 """
 
 from __future__ import annotations
@@ -53,7 +56,7 @@ class InvestKind(StrEnum):
 
 # 수량을 꼭 받는 종목. 수량 없이 넣은 기록이 섞이면 평균 매수가가 틀어진다.
 QUANTITY_KINDS = frozenset({InvestKind.STOCK, InvestKind.ETF, InvestKind.COIN})
-# 금액으로만 적는 종목. 넣은 돈과 지금 금액 두 값을 갖는다.
+# 금액으로만 적는 종목. 넣은 돈과 지금 금액 두 값을 갖는다. 넣은 돈은 모를 수 있다.
 AMOUNT_KINDS = frozenset({InvestKind.FUND, InvestKind.BOND, InvestKind.OTHER})
 
 
@@ -86,10 +89,10 @@ class RateKind(StrEnum):
 
 
 def holding_of(group: AssetGroup, kind: InvestKind | None) -> Holding:
-    """투자 그룹에서 종류가 있는 것만 종목이다. 종류 없는 옛 투자 항목은 통장처럼 접는다."""
+    """투자 그룹은 종목이다. 종류 없는 투자 항목(캡처로 금액만 들어온 것)은 금액 종목으로 접는다."""
     if group is AssetGroup.DEBT:
         return Holding.DEBT
-    if group is AssetGroup.INVESTMENT and kind is not None:
+    if group is AssetGroup.INVESTMENT:
         return Holding.QUANTITY if kind in QUANTITY_KINDS else Holding.AMOUNT
     return Holding.BALANCE
 
@@ -110,8 +113,11 @@ class LedgerLine:
     # buy 는 넣은 돈(부채는 갚은 돈), sell 은 받은 돈, set 은 잔액이나 지금 금액.
     amount: Money
     quantity: Decimal | None = None
-    # set 줄만 쓴다. 금액 종목은 넣은 돈과 지금 금액 두 값이라 금액 칸 하나로 모자란다.
+    # set 줄은 넣은 돈. 금액 종목은 넣은 돈과 지금 금액 두 값이라 금액 칸 하나로 모자란다.
+    # sell 줄은 넣은 돈을 모르는 항목을 팔 때 적은 「이 항목에 넣은 돈 전체」.
     cost_basis: Money | None = None
+    # 금액 종목 sell 줄의 팔고 남은 금액. 0 이면 전부 팔았다. 없으면 옛 규칙(받은 돈 ÷ 지금 금액).
+    remaining: Money | None = None
 
 
 @dataclass(frozen=True)
@@ -119,6 +125,8 @@ class LedgerState:
     """접은 결과.
 
     amount 는 통장·부채면 잔액, 금액 종목이면 지금 금액, 수량 종목이면 넣은 돈과 같다.
+    금액 종목의 cost_basis 가 None 이면 넣은 돈을 모른다. realized, sold_cost, sell_count 는
+    넣은 돈을 아는 판 기록만 센다.
     """
 
     amount: Money
@@ -140,12 +148,16 @@ class LedgerState:
 
 @dataclass(frozen=True)
 class SellOutcome:
+    """판 기록 하나. 넣은 돈을 모르고 팔았으면 sold_cost 와 realized 가 None 이다."""
+
     received: Money
-    sold_cost: Money
-    realized: Money
+    sold_cost: Money | None
+    realized: Money | None
 
     @property
     def rate(self) -> Decimal | None:
+        if self.realized is None or self.sold_cost is None:
+            return None
         return rate_percent(self.realized, self.sold_cost)
 
 
@@ -189,8 +201,7 @@ def _set(holding: Holding, state: LedgerState, line: LedgerLine) -> LedgerState:
         cost = line.cost_basis if line.cost_basis is not None else line.amount
         return replace(state, amount=cost, quantity=line.quantity, cost_basis=cost)
     if holding is Holding.AMOUNT:
-        cost = line.cost_basis if line.cost_basis is not None else line.amount
-        return replace(state, amount=line.amount, cost_basis=cost)
+        return replace(state, amount=line.amount, cost_basis=line.cost_basis)
     return replace(state, amount=line.amount)
 
 
@@ -205,10 +216,10 @@ def _buy(holding: Holding, state: LedgerState, line: LedgerLine) -> LedgerState:
         cost = state.cost_basis + line.amount
         return replace(state, amount=cost, quantity=state.quantity + line.quantity, cost_basis=cost)
     if holding is Holding.AMOUNT:
-        assert state.cost_basis is not None
-        return replace(
-            state, amount=state.amount + line.amount, cost_basis=state.cost_basis + line.amount
-        )
+        # 넣은 돈을 모르면 넣었어요를 더해도 계속 모른다.
+        known = state.cost_basis
+        added = known + line.amount if known is not None else None
+        return replace(state, amount=state.amount + line.amount, cost_basis=added)
     return replace(state, amount=state.amount + line.amount)
 
 
@@ -216,6 +227,7 @@ def _sell(
     holding: Holding, state: LedgerState, line: LedgerLine
 ) -> tuple[LedgerState, SellOutcome]:
     received = line.amount
+    sold_cost: Money | None
     if holding is Holding.QUANTITY:
         assert state.quantity is not None and state.cost_basis is not None
         assert line.quantity is not None
@@ -227,23 +239,30 @@ def _sell(
             state, amount=cost, quantity=state.quantity - line.quantity, cost_basis=cost
         )
     elif holding is Holding.AMOUNT:
-        assert state.cost_basis is not None
-        if received.amount > state.amount.amount:
-            raise LedgerError("over_sell", line.ref)
-        sold_cost = _portion(state.cost_basis, received.amount, state.amount.amount)
-        state = replace(
-            state, amount=state.amount - received, cost_basis=state.cost_basis - sold_cost
-        )
+        # 넣은 돈을 모르면 이 줄에 적은 넣은 돈 전체를 쓴다. 그것도 없으면 모른 채 판다.
+        basis = state.cost_basis if state.cost_basis is not None else line.cost_basis
+        if line.remaining is None:
+            if received.amount > state.amount.amount:
+                raise LedgerError("over_sell", line.ref)
+            whole, left = state.amount.amount, state.amount - received
+        else:
+            # 판 몫 = 받은 돈 ÷ (받은 돈 + 남은 금액). 지금 금액이 오래돼도 받은 돈이 기준이다.
+            whole, left = received.amount + line.remaining.amount, line.remaining
+        sold_cost = _portion(basis, received.amount, whole) if basis is not None else None
+        rest_cost = basis - sold_cost if basis is not None and sold_cost is not None else None
+        state = replace(state, amount=left, cost_basis=rest_cost)
     else:
         raise LedgerError("sell_not_allowed", line.ref)
 
-    outcome = SellOutcome(received=received, sold_cost=sold_cost, realized=received - sold_cost)
-    state = replace(
-        state,
-        realized=state.realized + outcome.realized,
-        sold_cost=state.sold_cost + sold_cost,
-        sell_count=state.sell_count + 1,
-    )
+    realized = received - sold_cost if sold_cost is not None else None
+    outcome = SellOutcome(received=received, sold_cost=sold_cost, realized=realized)
+    if sold_cost is not None and realized is not None:
+        state = replace(
+            state,
+            realized=state.realized + realized,
+            sold_cost=state.sold_cost + sold_cost,
+            sell_count=state.sell_count + 1,
+        )
     return state, outcome
 
 

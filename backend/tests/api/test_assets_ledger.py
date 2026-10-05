@@ -513,3 +513,159 @@ def test_펀드의_지금_금액을_적으면_평가_수익률이_선다(client:
     assert fund["rate_kind"] == "valuation"
     assert fund["rate"] == "20.0"
     assert fund["price_noted_on"] == datetime.now(KST).date().isoformat()
+
+
+# ── 넣은 돈을 모르는 투자 항목(캡처로 금액만 들어온 것) ─────────
+
+
+def _captured(client: TestClient, label: str = "아마존", amount: str = "1000000") -> str:
+    """캡처로 금액만 들어온 투자 항목. 종류도 넣은 돈도 없다."""
+    body = _put(client, [{"group": "investment", "label": label, "amount": amount}])
+    item = _item(body, label)
+    assert item["cost_basis"] is None
+    assert item["rate"] is None
+    return item["item_key"]
+
+
+def test_넣은_돈_모르는_항목을_전부_팔고_넣은_돈을_적으면_그_판_기록부터_수익률이_나온다(
+    client: TestClient,
+) -> None:
+    key = _captured(client)
+
+    sold = _save(
+        client,
+        "1200000",
+        asset_item_key=key,
+        asset_side="sell",
+        asset_remaining="0",
+        asset_cost_basis="800000",
+    )
+
+    assert sold["asset"]["realized"] == "400000"
+    assert sold["asset"]["rate"] == "50.0"
+    assert sold["asset"]["item_amount"] == "0"
+    item = _item(_assets(client), "아마존")
+    assert item["amount"] == "0"
+    assert (item["realized"], item["rate"], item["rate_kind"]) == ("400000", "50.0", "realized")
+
+
+def test_넣은_돈을_비우고_팔면_받은_돈만_적히고_수익률은_어디에도_없다(
+    client: TestClient,
+) -> None:
+    key = _captured(client)
+
+    sold = _save(client, "1200000", asset_item_key=key, asset_side="sell", asset_remaining="0")
+
+    assert sold["asset"]["realized"] is None
+    assert sold["asset"]["rate"] is None
+    assert sold["asset"]["item_amount"] == "0"
+    item = _item(_assets(client), "아마존")
+    assert (item["realized"], item["rate"], item["cost_basis"]) == (None, None, None)
+    returns = client.get("/api/v1/assets/analysis", headers=AUTH).json()["returns"]
+    assert returns is None or returns["rows"] == []
+
+
+def test_일부를_팔면_남은_금액이_항목_금액이고_평가_수익률도_선다(client: TestClient) -> None:
+    body = _put(
+        client,
+        [{"group": "investment", "label": "아마존", "amount": "1000000", "cost_basis": "800000"}],
+    )
+    key = _item(body, "아마존")["item_key"]
+
+    sold = _save(client, "300000", asset_item_key=key, asset_side="sell", asset_remaining="900000")
+
+    assert (sold["asset"]["realized"], sold["asset"]["rate"]) == ("100000", "50.0")
+    item = _item(_assets(client), "아마존")
+    assert (item["amount"], item["cost_basis"]) == ("900000", "600000")
+    assert (item["rate"], item["rate_kind"]) == ("50.0", "valuation")
+
+
+def test_넣은_돈을_모르면_넣었어요를_더해도_계속_모른다(client: TestClient) -> None:
+    key = _captured(client)
+
+    _save(client, "200000", asset_item_key=key)
+
+    item = _item(_assets(client), "아마존")
+    assert (item["amount"], item["cost_basis"], item["rate"]) == ("1200000", None, None)
+
+
+def test_항목_시트에서_넣은_돈만_적으면_칩이_생기고_비우면_계속_모른다(
+    client: TestClient,
+) -> None:
+    key = _captured(client)
+    _put(client, [{"group": "investment", "label": "아마존", "amount": "1000000", "item_key": key}])
+    assert _item(_assets(client), "아마존")["cost_basis"] is None
+
+    _put(
+        client,
+        [
+            {
+                "group": "investment",
+                "label": "아마존",
+                "amount": "1000000",
+                "item_key": key,
+                "cost_basis": "800000",
+            }
+        ],
+    )
+
+    item = _item(_assets(client), "아마존")
+    assert (item["cost_basis"], item["rate"], item["rate_kind"]) == ("800000", "25.0", "valuation")
+
+
+def test_남은_금액_없는_옛_팔기_줄은_다시_접어도_같은_값이다(client: TestClient) -> None:
+    body = _put(
+        client,
+        [
+            {
+                "group": "investment",
+                "label": "펀드",
+                "amount": "1100000",
+                "kind": "fund",
+                "cost_basis": "1000000",
+            }
+        ],
+    )
+    key = _item(body, "펀드")["item_key"]
+    sold = _save(client, "550000", asset_item_key=key, asset_side="sell")
+    assert (sold["asset"]["realized"], sold["asset"]["rate"]) == ("50000", "10.0")
+
+    # 이름만 바꾸는 PUT 이 다시 접게 한다. 옛 줄은 받은 돈 ÷ 지금 금액으로 접힌다.
+    body = _put(
+        client,
+        [
+            {
+                "group": "investment",
+                "label": "펀드 A",
+                "amount": "550000",
+                "kind": "fund",
+                "item_key": key,
+            }
+        ],
+    )
+    item = _item(body, "펀드 A")
+    assert (item["amount"], item["cost_basis"], item["realized"]) == ("550000", "500000", "50000")
+
+
+def test_넣었어요로_바꾸면_남은_금액과_넣은_돈_전체가_비워진다(
+    client: TestClient, db: Session
+) -> None:
+    key = _captured(client)
+    sold = _save(
+        client,
+        "300000",
+        asset_item_key=key,
+        asset_side="sell",
+        asset_remaining="800000",
+        asset_cost_basis="900000",
+    )
+
+    res = client.patch(
+        f"{TX}/{sold['transaction']['id']}", json={"asset_side": "buy"}, headers=AUTH
+    )
+
+    assert res.status_code == 200, res.text
+    entry = db.scalar(select(AssetEntry).where(AssetEntry.transaction_id.is_not(None)))
+    assert entry is not None
+    assert (entry.side, entry.remaining, entry.cost_basis) == ("buy", None, None)
+    assert _item(_assets(client), "아마존")["amount"] == "1300000"

@@ -1517,6 +1517,15 @@ export interface components {
             item_key?: string | null;
             /** Current Amount */
             current_amount?: string | null;
+            kind?: components["schemas"]["InvestKind"] | null;
+            /** Quantity */
+            quantity?: string | null;
+            /** Cost Basis */
+            cost_basis?: string | null;
+            /** Unit Price */
+            unit_price?: string | null;
+            /** Rate */
+            rate?: string | null;
         };
         /** AssetCaptureMetaOut */
         AssetCaptureMetaOut: {
@@ -3696,6 +3705,16 @@ export interface components {
              * @description 주식·ETF·코인만. 소수 8자리까지
              */
             asset_quantity?: number | string | null;
+            /**
+             * Asset Remaining
+             * @description 금액으로 적는 항목을 팔 때 팔고 남은 금액. 0 이면 전부. 안 보내면 옛 규칙
+             */
+            asset_remaining?: number | string | null;
+            /**
+             * Asset Cost Basis
+             * @description 넣은 돈을 모르는 항목을 팔 때 그 항목에 넣은 돈 전체. 모르면 안 보낸다
+             */
+            asset_cost_basis?: number | string | null;
             /** @description 어디에를 새로 만들 때 */
             new_asset?: components["schemas"]["NewAssetIn"] | null;
         };
@@ -3798,6 +3817,10 @@ export interface components {
             asset_side?: components["schemas"]["AssetSide"] | null;
             /** Asset Quantity */
             asset_quantity?: number | string | null;
+            /** Asset Remaining */
+            asset_remaining?: number | string | null;
+            /** Asset Cost Basis */
+            asset_cost_basis?: number | string | null;
             new_asset?: components["schemas"]["NewAssetIn"] | null;
         };
         /**

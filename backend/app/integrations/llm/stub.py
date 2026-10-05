@@ -19,6 +19,7 @@ import logging
 import re
 from datetime import date, timedelta
 
+from app.domain.asset_ledger import InvestKind
 from app.domain.assets import AssetGroup
 from app.domain.nl_text import find_amounts, read_date, split_entries
 from app.integrations.llm.contracts import (
@@ -112,6 +113,19 @@ _ASSET_SAMPLE: tuple[tuple[str, int, AssetGroup], ...] = (
     ("청년도약계좌", 3_300_000, AssetGroup.CASH),
     ("카카오뱅크", 1_250_000, AssetGroup.CASH),
     ("연금저축펀드", 2_100_000, AssetGroup.PENSION),
+)
+# 증권 앱 보유 화면 두 줄. 하나는 수량과 평가손익까지 보이고, 하나는 평가금액만 보인다.
+# 넣은 돈은 서버가 평가금액 − 평가손익으로 정한다(2,801,830 − 801,830 = 2,000,000).
+_HOLDING_SAMPLE = (
+    ExtractedAsset(
+        name="엔비디아",
+        amount=2_801_830,
+        group=AssetGroup.INVESTMENT,
+        kind=InvestKind.STOCK,
+        quantity=2,
+        profit=801_830,
+    ),
+    ExtractedAsset(name="마이크로소프트", amount=47_446, group=AssetGroup.INVESTMENT),
 )
 
 # 자산 항목 목록을 받았을 때 저축·투자로 읽는 말. 「N주」 도 저축·투자다.
@@ -256,11 +270,14 @@ def sample_receipt_extraction(today: date | None = None) -> TransactionExtractio
 
 
 def sample_asset_extraction() -> AssetExtraction:
-    """자산 캡처에 대해 늘 같은 세 줄."""
+    """자산 캡처에 대해 늘 같은 다섯 줄. 잔액 셋과 보유 종목 둘."""
     return AssetExtraction(
         rows=[
-            ExtractedAsset(name=name, amount=amount, group=group)
-            for name, amount, group in _ASSET_SAMPLE
+            *(
+                ExtractedAsset(name=name, amount=amount, group=group)
+                for name, amount, group in _ASSET_SAMPLE
+            ),
+            *_HOLDING_SAMPLE,
         ]
     )
 

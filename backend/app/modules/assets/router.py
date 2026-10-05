@@ -14,7 +14,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Query
 from sqlalchemy.orm import Session
 
-from app.api.amounts import ratio_out
+from app.api.amounts import quantity_out, ratio_out
 from app.api.deps import CurrentUser, DbSession, LlmClient
 from app.api.errors import ERROR_RESPONSES, ApiError, ErrorCode
 from app.api.images import decode_data_url
@@ -276,6 +276,11 @@ def capture(
                 current_amount=(
                     row.current_amount.amount if row.current_amount is not None else None
                 ),
+                kind=row.held.kind,
+                quantity=quantity_out(row.held.quantity),
+                cost_basis=_won(row.held.cost_basis),
+                unit_price=_won(row.held.unit_price),
+                rate=row.rate,
             )
             for row in rows
         ],

@@ -439,6 +439,14 @@ class AssetCaptureItemOut(BaseModel):
     group: AssetGroup
     item_key: uuid.UUID | None = None
     current_amount: Decimal | None = None
+    # 증권 앱 보유 화면에서 읽은 것. 저장하면 이 값으로 채운다. 넣은 돈을 못 읽었으면 다 null.
+    kind: InvestKind | None = None
+    quantity: QuantityOut | None = None
+    cost_basis: Decimal | None = None
+    # 수량 종목의 지금 1주 가격 = 평가금액 ÷ 수량(원 단위 반올림).
+    unit_price: Decimal | None = None
+    # 평가 수익률(%). 자산 화면 줄 칩과 같은 식이다. 넣은 돈을 모르면 null.
+    rate: Decimal | None = None
 
 
 class AssetCaptureMetaOut(BaseModel):

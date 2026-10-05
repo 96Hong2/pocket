@@ -131,7 +131,14 @@ class NewAssetIn(BaseModel):
         return self
 
 
-_ASSET_FIELDS = ("asset_item_key", "asset_side", "asset_quantity", "new_asset")
+_ASSET_FIELDS = (
+    "asset_item_key",
+    "asset_side",
+    "asset_quantity",
+    "asset_remaining",
+    "asset_cost_basis",
+    "new_asset",
+)
 
 
 def _check_asset_fields(
@@ -141,7 +148,15 @@ def _check_asset_fields(
     if model.asset_item_key is not None and model.new_asset is not None:
         raise ValueError("어디에는 기존 항목과 새 항목 중 하나만 보내 주세요.")
     has_target = model.asset_item_key is not None or model.new_asset is not None
-    dangling = model.asset_side is not None or model.asset_quantity is not None
+    dangling = any(
+        value is not None
+        for value in (
+            model.asset_side,
+            model.asset_quantity,
+            model.asset_remaining,
+            model.asset_cost_basis,
+        )
+    )
     if dangling and not has_target and isinstance(model, TransactionCreate):
         raise ValueError("어디에를 함께 보내 주세요.")
 
@@ -171,9 +186,22 @@ class TransactionCreate(BaseModel):
     asset_quantity: Decimal | None = Field(
         default=None, gt=0, description="주식·ETF·코인만. 소수 8자리까지"
     )
+    asset_remaining: Decimal | None = Field(
+        default=None,
+        ge=0,
+        le=MAX_AMOUNT,
+        description="금액으로 적는 항목을 팔 때 팔고 남은 금액. 0 이면 전부. 안 보내면 옛 규칙",
+    )
+    asset_cost_basis: Decimal | None = Field(
+        default=None,
+        ge=0,
+        le=MAX_AMOUNT,
+        description="넣은 돈을 모르는 항목을 팔 때 그 항목에 넣은 돈 전체. 모르면 안 보낸다",
+    )
     new_asset: NewAssetIn | None = Field(default=None, description="어디에를 새로 만들 때")
 
     _check_amount = field_validator("amount")(integral_won)
+    _check_asset_money = field_validator("asset_remaining", "asset_cost_basis")(integral_won)
     _check_occurred_at = field_validator("occurred_at")(_in_range)
     _check_merchant = field_validator("merchant")(_clean_text)
     _check_memo = field_validator("memo")(_clean_memo)
@@ -220,9 +248,12 @@ class TransactionUpdate(BaseModel):
     asset_item_key: uuid.UUID | None = None
     asset_side: AssetSide | None = None
     asset_quantity: Decimal | None = Field(default=None, gt=0)
+    asset_remaining: Decimal | None = Field(default=None, ge=0, le=MAX_AMOUNT)
+    asset_cost_basis: Decimal | None = Field(default=None, ge=0, le=MAX_AMOUNT)
     new_asset: NewAssetIn | None = None
 
     _check_amount = field_validator("amount")(integral_won)
+    _check_asset_money = field_validator("asset_remaining", "asset_cost_basis")(integral_won)
     _check_occurred_at = field_validator("occurred_at")(_in_range)
     _check_merchant = field_validator("merchant")(_clean_text)
     _check_memo = field_validator("memo")(_clean_memo)
