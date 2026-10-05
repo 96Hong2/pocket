@@ -5,6 +5,7 @@ import {
   parseDecimal,
   parseDecimalOr,
   useCategories,
+  useCurrentPeriod,
   useMonthlyReport,
   type CategoryOut,
   type MethodRowOut,
@@ -12,12 +13,8 @@ import {
   type PeriodComparisonOut,
 } from '../../shared/api';
 import { paymentMethodLabel } from '../../shared/ledger';
-import {
-  formatCurrency,
-  formatMonthLabel,
-  formatShortDate,
-  toLedgerDate,
-} from '../../shared/lib/format';
+import { formatCurrency, formatMonthLabel, formatShortDate } from '../../shared/lib/format';
+import { formatPeriodRange, periodOfMonth } from '../../shared/lib/monthPeriod';
 import { TEST_IDS } from '../../shared/testIds';
 import {
   Amount,
@@ -52,9 +49,12 @@ export function MonthlyReport({
   onClosingAutoOpened,
   adSlot,
   bottomAdSlot,
+  onPeriodClick,
 }: {
   month: string;
   onMonthChange: (next: string) => void;
+  /** 달 이름 아래 기간 줄을 눌렀다. 한 달 시작일 시트를 연다. */
+  onPeriodClick?: () => void;
   /** 홈의 결산 카드로 들어왔을 때만 참. 그 달 결산을 열어 둔 채로 시작한다. */
   autoOpenClosing?: boolean;
   /** 그 부탁을 쓴 순간 알린다. 로딩 때문에 결산 자리는 달을 옮길 때마다 다시 마운트된다. */
@@ -65,10 +65,13 @@ export function MonthlyReport({
   bottomAdSlot?: ReactNode;
 }) {
   // 아직 오지 않은 달은 볼 수 없다. 가면 안 끝난 이번 달을 "지난달 전체" 로 견주는 거짓말이 나온다.
-  const thisMonth = toLedgerDate(new Date()).slice(0, 7);
+  // 이번 달은 한 달 시작일로 정한 이름 달이다.
+  const current = useCurrentPeriod();
+  const thisMonth = current.period.key;
   const [year, monthNumber] = month.split('-').map(Number);
   const { state: identity } = useIdentity();
-  const report = useMonthlyReport({ year, month: monthNumber });
+  // 시작일을 모르면 이번 달이 어느 달인지도 모른다. 받고 나서 묻는다.
+  const report = useMonthlyReport({ year, month: monthNumber }, { enabled: current.known });
   const categories = useCategories();
   // 저장하는 취향이 아니라 그 화면에서 한 번 눌러 곁눈질하는 동작이다.
   const [mode, setMode] = useState<Mode>('expense');
@@ -76,8 +79,19 @@ export function MonthlyReport({
   // 월 선택기는 어떤 상태에서도 남긴다. 지우면 오류 난 달에 갇혀 다른 달로 갈 수 없다.
   // 반년 전 리포트를 보고 온 사람이 화살표를 여섯 번 누르지 않게 한 번에 돌아온다.
   // 이번 달을 보고 있을 때는 갈 곳이 없어 알약이 뜨지 않는다.
+  //
+  // 한 달 시작일이 1 이 아니면 달 이름만으로는 며칠부터 며칠인지 모른다. 바로 아래에 기간을 둔다.
+  // 서버와 같은 규칙으로 그 자리에서 세어, 불러오는 동안에도 줄이 서 있다.
   const stepper = (
-    <MonthStepper value={month} onChange={onMonthChange} maxMonth={thisMonth} jumpTo={thisMonth} />
+    <div className="report__month">
+      <MonthStepper value={month} onChange={onMonthChange} maxMonth={thisMonth} jumpTo={thisMonth} />
+      {current.startDay !== 1 ? (
+        <PeriodLine
+          range={formatPeriodRange(periodOfMonth(month, current.startDay))}
+          onClick={onPeriodClick}
+        />
+      ) : null}
+    </div>
   );
 
   // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다. 그때 "불러오는 중" 을
@@ -381,6 +395,28 @@ function LargeExpenses({
         })}
       </ol>
     </Card>
+  );
+}
+
+/** 달 이름 아래 기간 줄. 누르면 한 달 시작일을 바꾸는 시트가 열린다. */
+function PeriodLine({ range, onClick }: { range: string; onClick?: () => void }) {
+  if (onClick == null) {
+    return (
+      <p className="report__period" data-testid={TEST_IDS.reportPeriod}>
+        {range}
+      </p>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="report__period report__period--button"
+      data-testid={TEST_IDS.reportPeriod}
+      aria-label={`기간 ${range}, 한 달 시작일 바꾸기`}
+      onClick={onClick}
+    >
+      {range}
+    </button>
   );
 }
 

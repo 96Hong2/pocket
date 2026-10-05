@@ -101,6 +101,10 @@ export const EVENTS = {
 
   /** 예산을 저장했다. 처음인지 아닌지. */
   budgetSaved: 'budget_saved',
+  /** 한 달 시작일 시트를 열었다. 어디서 열었나(`manage`·`settings`·`report`). */
+  monthStartOpened: 'month_start_opened',
+  /** 한 달 시작일을 바꿨다. 고른 날과 그 전 날. 날짜가 아니라 1 ~ 28 의 숫자다. */
+  monthStartSaved: 'month_start_saved',
   /**
    * 생활비 계산기를 열었다. 리워드 광고를 끝까지 봤나, 중간에 닫았나, 광고 없이 지나갔나.
    *
@@ -673,6 +677,14 @@ export type EventParamMap = CheckedMap<{
     action: 'confirm' | 'more' | 'assets';
     /** `more` 일 때 펼친 칸. */
     field?: 'merchant' | 'memo';
+  };
+  month_start_opened: {
+    where: 'manage' | 'settings' | 'report';
+  };
+  month_start_saved: {
+    where: 'manage' | 'settings' | 'report';
+    day: number;
+    from_day: number;
   };
   saving_hint_result: FlowParam & {
     answer: SavingHintAnswer;

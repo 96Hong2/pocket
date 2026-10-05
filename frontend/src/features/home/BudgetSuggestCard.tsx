@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { EVENTS, useAnalytics } from '../../shared/analytics';
-import { ApiError, useSaveBudget } from '../../shared/api';
-import { toLedgerDate } from '../../shared/lib/format';
+import { ApiError, useCurrentPeriod, useSaveBudget } from '../../shared/api';
 import {
   AmountField,
   BottomSheet,
@@ -40,10 +39,12 @@ export function BudgetSuggestCard({ onDismiss }: { onDismiss: () => void }) {
   const message = saveBudget.error instanceof ApiError ? saveBudget.error.message : null;
 
   // 홈에서 정하는 예산은 언제나 이번 달 것이다. 계산기도 같은 달을 받아야 한다.
+  // 이번 달은 한 달 시작일로 정한 이름 달이다.
+  const currentKey = useCurrentPeriod().period.key;
   const thisMonth = useMemo(() => {
-    const [year, month] = toLedgerDate(new Date()).slice(0, 7).split('-').map(Number);
+    const [year, month] = currentKey.split('-').map(Number);
     return { year, month };
-  }, []);
+  }, [currentKey]);
 
   /** 광고가 안 떠도 계산기는 연다. 광고 서버 사정으로 예산을 못 정하게 두지 않는다. */
   async function openCalc(): Promise<void> {

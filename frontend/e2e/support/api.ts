@@ -471,6 +471,14 @@ export class PrepApi {
   }
 
   /** 홈 맨 위에 무엇을 보여줄지. 설정 화면을 거치지 않고 그 상태를 만든다. */
+  /** 예산과 리포트의 한 달 시작일(1 ~ 28). 바꾸면 서버가 예산 줄을 같은 이름 달로 옮긴다. */
+  async setMonthStartDay(day: number): Promise<void> {
+    const response = await this.context.patch('/api/v1/preferences', {
+      data: { month_start_day: day },
+    });
+    expectOk(response.status(), await response.text(), '한 달 시작일을 바꾸지 못했다');
+  }
+
   async setHomeHero(
     hero: 'remaining_budget' | 'income_expense' | 'income_and_budget',
   ): Promise<void> {

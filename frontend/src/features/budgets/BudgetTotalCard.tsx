@@ -24,9 +24,9 @@ export interface BudgetTotalCardProps {
   categoryCount: number;
 }
 
-/** `2026-09-01` → `9` */
-function monthNumber(periodStart: string): number {
-  return Number(periodStart.slice(5, 7));
+/** 이름 달 `2026-10` → `10`. 시작일이 25 면 첫날(9월 25일)의 달과 다르다. */
+function monthNumber(periodKey: string): number {
+  return Number(periodKey.slice(5, 7));
 }
 
 /**
@@ -40,7 +40,7 @@ function shareOf(
   state: BudgetStateOut,
   editable: boolean,
 ): Pick<ShareButtonProps, 'kind' | 'where' | 'label' | 'message'> | null {
-  const month = state.period_start.slice(0, 7);
+  const month = state.period_key;
 
   if (editable) {
     return {
@@ -74,7 +74,7 @@ export function BudgetTotalCard({
   categoryCount,
 }: BudgetTotalCardProps) {
   const amount = parseDecimal(state.amount);
-  const month = monthNumber(state.period_start);
+  const month = monthNumber(state.period_key);
   /*
     지우기 전에 한 번 묻는다.
 

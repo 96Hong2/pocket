@@ -33,6 +33,8 @@ export const TEST_IDS = {
   recoveryGauge: 'recovery-gauge',
   /** 앱 설정에서 고른 것이 홈을 어떻게 바꾸는지 되짚는 한 줄. */
   homeHeroPreview: 'home-hero-preview',
+  /** 한 달 시작일 시트에서 고른 날로 오늘이 든 기간을 말하는 줄. */
+  monthStartPreview: 'month-start-preview',
   /** 예산을 안 정한 채 예산 갈래를 고른 사람에게만 뜨는 버튼. */
   homeHeroBudget: 'home-hero-budget',
   /**
@@ -130,6 +132,8 @@ export const TEST_IDS = {
 
   /** 리포트 헤드라인 라벨. 어느 달을 보고 있는지 여기에 적힌다. */
   reportHeadlineLabel: 'report-headline-label',
+  /** 달 이름 아래 기간 줄. 한 달 시작일이 1 이 아닐 때만 선다. */
+  reportPeriod: 'report-period',
   /** 리포트의 그 달 총액 */
   reportTotal: 'report-total',
   /** 리포트 도넛. 조각 수를 세고 비어 있는지 본다. */

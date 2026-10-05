@@ -6,9 +6,10 @@ import { useBookView } from '../app/providers';
 import { ROUTES } from '../app/router/routes';
 import { AdSlot } from '../features/ads';
 import { BookChip } from '../features/books';
+import { MonthStartSheet } from '../features/budgets';
 import { BookReport, MonthlyReport } from '../features/reports';
 import { EVENTS, useAnalytics } from '../shared/analytics';
-import { useBooks } from '../shared/api';
+import { useBooks, useCurrentPeriod } from '../shared/api';
 import { toLedgerDate } from '../shared/lib/format';
 import { CalendarGlyph } from '../shared/ui';
 
@@ -33,15 +34,20 @@ function monthsBetween(from: string, to: string): number {
  * 아래의 배너는 그대로다.
  */
 export default function ReportPage() {
-  const thisMonth = toLedgerDate(new Date()).slice(0, 7);
+  // 내 리포트의 이번 달은 한 달 시작일로 정한 이름 달이다. 공유 가계부는 달력 월 그대로다.
+  const thisMonth = useCurrentPeriod().period.key;
+  const calendarMonth = toLedgerDate(new Date()).slice(0, 7);
   const analytics = useAnalytics();
   // 홈의 결산 카드가 `?month=2026-08&closing=1` 로 데려온다. 그때는 그 달로 열고
   // 결산까지 펼친다. 주소를 손으로 친 경우에도 어긋난 값이면 그냥 이번 달을 연다.
   const [params, setParams] = useSearchParams();
   const asked = params.get('month');
-  const [month, setMonth] = useState(
-    asked != null && MONTH_PATTERN.test(asked) && asked <= thisMonth ? asked : thisMonth,
+  const [picked, setMonth] = useState<string | null>(
+    asked != null && MONTH_PATTERN.test(asked) ? asked : null,
   );
+  // 고른 달이 없거나 이번 달보다 뒤면 이번 달을 본다. 시작일을 바꿔 이번 달이 당겨질 때도 같다.
+  const month = picked != null && picked <= thisMonth ? picked : thisMonth;
+  const [periodOpen, setPeriodOpen] = useState(false);
   // 열어 달라는 부탁은 한 번만 쓴다. 주소를 계속 보고 열면, 달을 옮겨 본문을 다시 그릴 때마다
   // 사용자가 누르지도 않은 전체화면 결산이 다시 뜬다.
   const [openClosing, setOpenClosing] = useState(() => params.get('closing') === '1');
@@ -130,7 +136,12 @@ export default function ReportPage() {
       <IdentityNotice />
 
       {bookId != null ? (
-        <BookReport bookId={bookId} month={month} onMonthChange={changeMonth} />
+        // 공유 가계부는 달력 월이라, 이름 달이 달력보다 앞서 있으면 이번 달력 월로 본다.
+        <BookReport
+          bookId={bookId}
+          month={month > calendarMonth ? calendarMonth : month}
+          onMonthChange={changeMonth}
+        />
       ) : (
         <MonthlyReport
           month={month}
@@ -139,8 +150,11 @@ export default function ReportPage() {
           onClosingAutoOpened={consumeClosing}
           adSlot={<AdSlot placement="report" />}
           bottomAdSlot={<AdSlot placement="report_bottom" />}
+          onPeriodClick={() => setPeriodOpen(true)}
         />
       )}
+
+      <MonthStartSheet open={periodOpen} onClose={() => setPeriodOpen(false)} where="report" />
     </div>
   );
 }

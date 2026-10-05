@@ -3,6 +3,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { ROUTES } from '../../src/app/router/routes';
 import { TEST_IDS } from '../../src/shared/testIds';
 
+import { MonthStartArea } from './MonthStartArea';
+
 /**
  * 리포트 탭. 그 달의 총액·조각·6개월 흐름을 한 화면에서 본다.
  *
@@ -20,6 +22,8 @@ export class ReportScreen {
   readonly book: ReportBookArea;
   /** 공유 가계부 리포트의 「자세히 보기」 카드. */
   readonly insight: ReportInsightArea;
+  /** 기간 줄이 여는 한 달 시작일 시트. */
+  readonly monthStart: MonthStartArea;
 
   constructor(page: Page) {
     this.page = page;
@@ -27,6 +31,7 @@ export class ReportScreen {
     this.closing = new ClosingArea(page);
     this.book = new ReportBookArea(page);
     this.insight = new ReportInsightArea(page);
+    this.monthStart = new MonthStartArea(page);
   }
 
   /**
@@ -55,6 +60,11 @@ export class ReportScreen {
 
   monthLabel(): Locator {
     return this.root.getByText(/^\d{4}년 \d{1,2}월$/);
+  }
+
+  /** 달 이름 아래 `9.25 ~ 10.24`. 한 달 시작일이 1 이면 없다. */
+  get periodLine(): Locator {
+    return this.root.getByTestId(TEST_IDS.reportPeriod);
   }
 
   async goPreviousMonth(): Promise<void> {
