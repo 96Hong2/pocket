@@ -43,7 +43,7 @@ test('42 영수증을 찍으면 총액 한 건이 나오고 상호는 비어 있
 
   await demo.step('기록 방법에서 영수증으로 옮긴다');
   await recordSheet.methodTab('영수증').click();
-  await expect(recordSheet.receipt.guide).toBeVisible();
+  await expect(recordSheet.receipt.pickButton).toBeVisible();
   await demo.beat(2);
 
   await demo.step('영수증 찍기를 누르면 카메라가 열리고 한 장을 읽는다');

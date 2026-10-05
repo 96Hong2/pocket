@@ -238,7 +238,7 @@ test.describe('응답이 아주 늦을 때', () => {
     expect(await mockImagesSeeded(page)).toBe(true);
 
     await home.recordButton.click();
-    await recordSheet.methodTab('캡처').click();
+    await recordSheet.chooseWay('캡처');
     await recordSheet.capture.pickButton.click();
     await expect(recordSheet.capture.analyzing).toBeVisible();
 
@@ -267,7 +267,7 @@ test('캡처로 들어온 환불도 그 자리에서 수입으로 바꾼다', as
   expect(await mockImagesSeeded(page)).toBe(true);
 
   await home.recordButton.click();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pickButton.click();
   await expect(recordSheet.capture.readLine).toBeVisible();
 
@@ -331,7 +331,7 @@ test.describe('가장 좁은 화면', () => {
     await home.addToHome.doneButton.click();
 
     await home.recordButton.click();
-    await recordSheet.methodTab('줄글').click();
+    await recordSheet.chooseWay('줄글');
     await recordSheet.nl.analyze('점심 12000');
     await recordSheet.nl.openEdit('점심');
     // 날짜 칸은 날짜 칩을 눌러야 열린다.
@@ -395,7 +395,7 @@ test.describe('저장이 막혔을 때', () => {
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
-    await recordSheet.methodTab('줄글').click();
+    await recordSheet.chooseWay('줄글');
     await recordSheet.nl.analyze('점심 12000');
 
     // 검토까지 마친 뒤 저장만 막는다. 버튼을 누른 것과 저장된 것은 다르다.
@@ -414,7 +414,7 @@ test.describe('저장이 막혔을 때', () => {
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
-    await recordSheet.methodTab('줄글').click();
+    await recordSheet.chooseWay('줄글');
     await recordSheet.nl.analyze('스타벅스 라떼 4500');
 
     await page.route(`${E2E_API_URL}/api/v1/imports/*/commit`, (route) =>

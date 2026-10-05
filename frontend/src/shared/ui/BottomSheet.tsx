@@ -6,9 +6,13 @@ import { cx } from '../lib/cx';
 import { trapTab } from './focusTrap';
 import { useDragToDismiss } from './useDragToDismiss';
 
+/** 시트가 어떻게 닫혔나. 딤 누름, 끌어내리기, 손잡이 누름, Esc. */
+export type SheetCloseReason = 'dim' | 'drag' | 'handle' | 'esc';
+
 export interface BottomSheetProps {
   open: boolean;
-  onClose: () => void;
+  /** 닫는 길을 알려 준다. 안 쓰는 쪽은 인자를 무시하면 된다. */
+  onClose: (reason?: SheetCloseReason) => void;
   title?: ReactNode;
   children: ReactNode;
   /** 딤·Esc·손잡이로 닫을 수 있는지. 저장 중처럼 닫히면 안 될 때만 false. */
@@ -77,7 +81,7 @@ export function BottomSheet({
     boxRef: sheetRef,
     active: open,
     enabled: open && dismissible,
-    onDismiss: () => closeRef.current(),
+    onDismiss: () => closeRef.current('drag'),
   });
 
   useEffect(() => {
@@ -92,7 +96,7 @@ export function BottomSheet({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape' && dismissibleRef.current) {
         event.preventDefault();
-        closeRef.current();
+        closeRef.current('esc');
         return;
       }
       if (event.key !== 'Tab' || !sheetRef.current) return;
@@ -113,12 +117,12 @@ export function BottomSheet({
   function handleClick(): void {
     // 끌고 난 뒤에 따라온 클릭이면 삼킨다. 되돌아온 시트를 그것으로 닫지 않는다.
     if (dismiss.takeSwallowedClick()) return;
-    onClose();
+    onClose('handle');
   }
 
   return createPortal(
     <div className="pk-sheet-root" onClickCapture={dismiss.onClickCapture}>
-      <div className="pk-sheet-dim" onClick={dismissible ? onClose : undefined} />
+      <div className="pk-sheet-dim" onClick={dismissible ? () => onClose('dim') : undefined} />
       <div
         ref={sheetRef}
         className={cx(

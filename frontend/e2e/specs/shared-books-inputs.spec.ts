@@ -54,15 +54,17 @@ test('공유 가계부에서 줄글로 적으면 검토한 지출만 그 가계�
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  await test.step('방법 탭 넷이 서고, 내 가계부에만 있는 칸은 없다', async () => {
+  await test.step('방법 카드 넷이 서고, 종류는 지출만 켜진다', async () => {
     await expect(recordSheet.destination.pill(BOOK)).toHaveAttribute('aria-pressed', 'true');
     await expect(recordSheet.methodTabs).toHaveCount(4);
-    await expect(recordSheet.input.kindToggle).toHaveCount(0);
-    await expect(recordSheet.input.transferButton).toHaveCount(0);
+    // 공유 가계부는 지출만 받는다. 칩은 셋 다 서되 지출만 켜지고 나머지는 흐리다.
+    await expect(recordSheet.kindChip('지출')).toHaveAttribute('aria-checked', 'true');
+    await expect(recordSheet.kindChip('수입')).toBeDisabled();
+    await expect(recordSheet.kindChip('이체')).toBeDisabled();
   });
 
   await test.step('읽으면 그 가계부 분류가 붙고, 수입 줄은 꺼진 채 흐리다', async () => {
-    await recordSheet.methodTab('줄글').click();
+    await recordSheet.chooseWay('줄글');
     await recordSheet.nl.analyze(FIVE_ITEMS);
     await expect(recordSheet.nl.rows).toHaveCount(5);
 
@@ -83,9 +85,13 @@ test('공유 가계부에서 줄글로 적으면 검토한 지출만 그 가계�
     await expect(recordSheet.nl.saveButton).toHaveText(`4건 저장 · ${formatCurrency(104_000)}`);
   });
 
-  await test.step('검토하는 동안 적을 곳은 잠긴다', async () => {
-    await expect(recordSheet.destination.pill('내 가계부')).toBeDisabled();
-    await expect(recordSheet.destination.pill(BOOK)).toHaveAttribute('aria-pressed', 'true');
+  await test.step('검토하는 동안 적을 곳을 바꾸려면 읽어 온 것을 먼저 버려야 한다', async () => {
+    // 적을 곳은 첫 화면에 있다. 읽어 둔 것은 읽을 때 고른 가계부에 묶여 있어 ‹ 가 먼저 묻는다.
+    await recordSheet.back();
+    await expect(recordSheet.panelLeave.text).toHaveText('읽어 온 5건이 사라져요');
+    await recordSheet.panelLeave.stayButton.click();
+    await expect(recordSheet.destination.group).toBeHidden();
+    await expect(recordSheet.nl.rows).toHaveCount(5);
   });
 
   await test.step('줄을 펴면 종류·결제 수단 없이 고치고, 새 분류는 그 가계부 분류가 된다', async () => {
@@ -176,7 +182,7 @@ test('공유 가계부에서 캡처로 읽으면 준호가 먼저 적은 것은 
   await home.book.switchTo(BOOK);
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pick();
   await expect(recordSheet.capture.rows).toHaveCount(6);
 
@@ -244,8 +250,8 @@ test('공유 가계부 키패드에서 만든 새 분류가 바로 골라지고 
     await expect(page.getByRole('radiogroup', { name: '아이콘 고르는 방법' })).toHaveCount(0);
     await form.create('반려동물', 'paw');
     await expect(form.title).toHaveCount(0);
-    // 분류 관리 안내는 공유 가계부에 없다.
-    await expect(recordSheet.input.categorySettingsNote).toHaveCount(0);
+    // 카테고리 관리 칩은 공유 가계부에 없다. 공유 분류는 관리 화면이 없다.
+    await expect(recordSheet.input.categoryManageLink).toHaveCount(0);
     await expect(recordSheet.input.pickedCategory).toContainText('반려동물');
   });
 
@@ -278,6 +284,7 @@ test('공유 가계부 키패드에서 만든 새 분류가 바로 골라지고 
     await expect(partner.home.book.recent.row('반려동물')).toContainText('15,000원');
     await partner.home.recordButton.click();
     await partner.recordSheet.waitOpen();
+    await partner.recordSheet.openKeypad();
     await expect(partner.recordSheet.input.categoryChip('반려동물')).toBeVisible();
   });
 });

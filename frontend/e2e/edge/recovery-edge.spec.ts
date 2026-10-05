@@ -83,7 +83,7 @@ test('복구 카드에서 캡처로 정리하면 카드가 사라진다', async 
   await expect(recordSheet.methodTab('캡처')).toHaveAttribute('aria-checked', 'true');
 
   // 캡처 대신 키패드로 한 건만 적어도 '오늘 기록한 사람' 이 된다.
-  await recordSheet.methodTab('키패드').click();
+  await recordSheet.chooseWay('키패드');
   await recordSheet.input.enterAmount(9_000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();

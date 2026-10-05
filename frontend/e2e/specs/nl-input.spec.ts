@@ -41,7 +41,7 @@ test('줄글 탭이 열려 있고, 한 줄에 적은 세 건을 따로 읽는다
   await recordSheet.waitOpen();
 
   await expect(recordSheet.methodTab('줄글')).toBeEnabled();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await expect(recordSheet.nl.textarea).toBeVisible();
 
   await recordSheet.nl.analyze(THREE_ITEMS);
@@ -56,7 +56,7 @@ test('날짜를 적은 것만 그 날로 가고 나머지는 오늘로 간다', 
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
 
   await expect(recordSheet.nl.day('점심')).toHaveText(today());
@@ -69,7 +69,7 @@ test('상호를 보고 분류를 붙인다', async ({ home, recordSheet }) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
 
   await expect(recordSheet.nl.row('점심')).toContainText('식비');
@@ -81,7 +81,7 @@ test('확신이 낮으면 확인 필요로 표시하고 스스로 켜지지 않�
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('9000');
 
   await expect(recordSheet.nl.chip('기록', '확인 필요')).toBeVisible();
@@ -94,7 +94,7 @@ test('금액을 못 읽으면 이유를 말하고 저장 버튼을 내놓지 않
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('오늘은 아무것도 안 썼다');
 
   await expect(recordSheet.nl.emptyNotice).toBeVisible();
@@ -117,7 +117,7 @@ test('후보 줄을 누르면 고치기가 펼쳐지고, 저장 대상 선택은
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
 
   await expect(recordSheet.nl.checkbox('점심')).toBeChecked();
@@ -139,7 +139,7 @@ test('저장 버튼 하나에 건수와 합계가 적히고, 선택을 바꾸면
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
 
   await expect(recordSheet.nl.saveButton).toHaveText(`3건 저장 · ${formatCurrency(25500)}`);
@@ -156,7 +156,7 @@ test('한 건을 고치면 목록과 저장 버튼이 그 자리에서 따라온
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
 
   await recordSheet.nl.openEdit('점심');
@@ -174,7 +174,7 @@ test('고치면 확인 필요 표시가 사라지고 저장 대상에 들어온�
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('9000');
 
   await recordSheet.nl.openEdit('기록');
@@ -191,7 +191,7 @@ test('저장하면 고른 것만 목록과 홈 합계에 들어간다', async ({
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
 
   await recordSheet.nl.toggle('스벅', false);
@@ -219,14 +219,14 @@ test('이미 저장한 것을 다시 적으면 이미 있어요로 표시하고 
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
   await recordSheet.nl.save();
   await recordSheet.nl.confirmButton.click();
   await recordSheet.waitClosed();
 
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
 
   await expect(recordSheet.nl.chip('점심', '이미 있어요')).toBeVisible();
@@ -239,7 +239,7 @@ test('분류를 바꿔 저장하면 다음번에 그 분류가 먼저 잡힌다'
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('올리브영 23000');
   await expect(recordSheet.nl.row('올리브영')).toContainText('건강·미용');
 
@@ -251,7 +251,7 @@ test('분류를 바꿔 저장하면 다음번에 그 분류가 먼저 잡힌다'
   await recordSheet.waitClosed();
 
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('올리브영 5000');
   await expect(recordSheet.nl.row('올리브영')).toContainText('생활');
 });
@@ -264,7 +264,7 @@ test('기억한 분류를 카테고리 관리에서 보고 지우면 원래 분�
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('올리브영 23000');
   await recordSheet.nl.openEdit('올리브영');
   await recordSheet.nl.form.pickCategory('생활');
@@ -283,7 +283,7 @@ test('기억한 분류를 카테고리 관리에서 보고 지우면 원래 분�
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('올리브영 5000');
   await expect(recordSheet.nl.row('올리브영')).toContainText('건강·미용');
 });
@@ -294,7 +294,7 @@ test('만과 천을 이어 쓴 금액을 한 건으로 읽는다', async ({ home
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('커피 3만5천원');
 
   // 두 건으로 갈리면 뒤 조각이 저신뢰라 기본 선택에서 빠져 5,000원이 조용히 사라진다.
@@ -307,7 +307,7 @@ test('날짜를 고치면 목록의 날짜가 그대로 따라온다', async ({ 
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
   await expect(recordSheet.nl.day('점심')).toHaveText(today());
 
@@ -318,28 +318,40 @@ test('날짜를 고치면 목록의 날짜가 그대로 따라온다', async ({ 
   await expect(recordSheet.nl.day('점심')).toHaveText(formatDayLabel(twoDaysAgoIso()));
 });
 
-test('검토하다 키패드에 다녀와도 후보 목록이 남는다', async ({ home, recordSheet }) => {
+test('검토하다 ‹ 를 누르면 읽어 온 건수를 말하며 묻고, 머물면 후보 목록이 그대로 남는다', async ({
+  home,
+  recordSheet,
+}) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
   await expect(recordSheet.nl.rows).toHaveCount(3);
 
-  await recordSheet.methodTab('키패드').click();
-  await expect(recordSheet.input.amountText).toBeVisible();
+  // 읽어 온 것을 두고 첫 화면으로 가면 그 목록을 버리게 된다. 말없이 버리지 않고 한 번 묻는다.
+  await recordSheet.back();
+  await expect(recordSheet.panelLeave.text).toHaveText('읽어 온 3건이 사라져요');
+  await recordSheet.panelLeave.stayButton.click();
 
-  await recordSheet.methodTab('줄글').click();
-  // 언마운트하면 적어 둔 줄글과 검토 목록이 통째로 사라진다.
+  // 머물렀으면 목록이 통째로 남는다.
   await expect(recordSheet.nl.rows).toHaveCount(3);
   await expect(recordSheet.nl.saveButton).toHaveText(`3건 저장 · ${formatCurrency(25500)}`);
+
+  // 「나가기」 를 고르면 그 패널만 비우고 첫 화면으로 간다. 시트는 남는다.
+  await recordSheet.back();
+  await recordSheet.panelLeave.leaveButton.click();
+  await expect(recordSheet.wayGroup).toBeVisible();
+  await recordSheet.chooseWay('줄글');
+  await expect(recordSheet.nl.rows).toHaveCount(0);
+  await expect(recordSheet.nl.textarea).toHaveValue('');
 });
 
 test('수입이 섞이면 저장 버튼이 지출만 센다', async ({ home, recordSheet }) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000 월급 2000000 입금');
 
   // 수입을 지출과 한 덩어리로 더하면 버튼이 실제로 쓴 돈과 다른 값을 말한다.
@@ -356,7 +368,7 @@ test('읽어 온 종류를 줄에서 한 번 눌러 바꾼다', async ({ home, r
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000 월급 2000000 입금');
 
   await expect(recordSheet.nl.kindButton('점심')).toHaveText(/지출/);
@@ -375,7 +387,7 @@ test('환불로 읽힌 것은 스스로 켜지지 않는다', async ({ home, rec
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('스벅 환불 40000');
 
   // 되돌릴 지출을 고를 자리가 없다. 대상 없이 저장하면 쓴 적 없는 돈이 예산으로 돌아온다.
@@ -387,14 +399,14 @@ test('이미 저장한 것의 분류만 바꿔도 저장 대상이 되지 않는
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
   await recordSheet.nl.save();
   await recordSheet.nl.confirmButton.click();
   await recordSheet.waitClosed();
 
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
   await recordSheet.nl.openEdit('점심');
   await recordSheet.nl.form.pickCategory('생활');
@@ -415,7 +427,7 @@ test('상호를 고치고 바로 저장해도 고친 이름으로 들어간다',
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
 
   await recordSheet.nl.openEdit('점심');
@@ -434,7 +446,7 @@ test('줄을 접기만 해도 적어 둔 상호가 남는다', async ({ home, re
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
 
   await recordSheet.nl.openEdit('점심');
@@ -455,7 +467,7 @@ test('분류 칩을 눌러 고르면 격자가 닫히고 그 분류로 저장된
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
 
   await recordSheet.nl.openEdit('점심');
@@ -488,7 +500,7 @@ test('날짜 칩을 눌러 바꾸면 그 날로 저장된다', async ({ home, re
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
 
   // 접힌 줄의 날짜 칩을 누르면 줄이 펴지며 날짜 칸이 바로 열린다.
@@ -515,7 +527,7 @@ test('분류만 바꾸고 다른 줄을 펴도 바꾼 분류가 남는다', asyn
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
   await expect(recordSheet.nl.rows).toHaveCount(3);
 
@@ -541,7 +553,7 @@ test('펼친 줄이 좁은 화면에서도 스크롤 없이 「완료」 까지 
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
   await expect(recordSheet.nl.rows).toHaveCount(3);
 
@@ -580,7 +592,7 @@ test('펼친 줄을 맨 위로 올려도 윗변이 시트 손잡이 밑에 들�
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000 커피 4500 택시 9000 약국 7000 빵집 3000 문구 2000');
   await expect(recordSheet.nl.rows).toHaveCount(6);
 
@@ -621,7 +633,7 @@ test('검토 화면에는 다시 쓰기가 아니라 창을 닫는 취소가 선
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
   await expect(recordSheet.nl.rows).toHaveCount(3);
 
@@ -637,7 +649,7 @@ test('손잡이를 잘못 눌러도 읽어 온 것이 날아가지 않는다', a
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
   await expect(recordSheet.nl.rows).toHaveCount(3);
 
@@ -667,7 +679,7 @@ test('밀어서 닫아도 같은 확인을 지나고, 그만두기를 골라야 
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
 
   // 손잡이·딤·Esc·미는 손짓이 모두 같은 규칙을 지나야 한다. 하나만 새면 그리로 잃는다.
@@ -683,7 +695,7 @@ test('저장을 마친 뒤에는 묻지 않고 그냥 닫힌다', async ({ home,
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
   await recordSheet.nl.save();
 
@@ -697,7 +709,7 @@ test('취소를 누르면 시트가 닫히고 한 건도 저장되지 않는다'
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
 
   await recordSheet.nl.cancelButton.click();
@@ -739,7 +751,7 @@ test('한참 뒤 날짜는 스스로 켜지지 않고, 날짜를 확인하라고
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
 
   // 연·월·일을 다 적으면 그대로 읽는다. 지난해로 돌려 주지 않는다.
   await recordSheet.nl.analyze(`${isoInDays(30)} 커피 4500`);
@@ -761,7 +773,7 @@ test('내일 날짜는 켜져 있어도 확인하라고 알려 준다', async ({
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(`${isoInDays(1)} 커피 4500`);
 
   await expect(recordSheet.nl.rows).toHaveCount(1);
@@ -782,7 +794,7 @@ test('앞날로 읽힌 줄을 칩으로 지난 날로 고치고 바로 저장하
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(`${isoInDays(1)} 커피 4500`);
   await expect(recordSheet.nl.futureNotices).toHaveCount(1);
 
@@ -808,7 +820,7 @@ test('지난 날 줄을 칩으로 앞날로 고치고 바로 저장하면 그 �
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
 
   await recordSheet.nl.openEdit('점심');
@@ -832,7 +844,7 @@ test('오늘과 지난 날에는 그 안내가 없다', async ({ home, recordShe
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(THREE_ITEMS);
 
   await expect(recordSheet.nl.rows).toHaveCount(3);
@@ -848,7 +860,7 @@ test('연도 없이 적은 9/16 은 앞날이 아니라 지난해로 읽는다',
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(`${slash} 커피 4500`);
 
   await expect(recordSheet.nl.rows).toHaveCount(1);

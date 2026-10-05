@@ -33,7 +33,8 @@ export interface TagFormProps {
   tag?: TagOut;
   /** 새로 만들 때의 종류. 고칠 때는 그 태그의 종류를 그대로 쓴다. */
   kind: TagKind;
-  onDone: () => void;
+  /** 저장이 끝났을 때. 새로 만들었으면 만든 태그를 함께 준다. */
+  onDone: (saved?: TagOut) => void;
   onCancel: () => void;
 }
 
@@ -56,9 +57,9 @@ export function TagForm({ tag, kind, onDone, onCancel }: TagFormProps) {
         : null;
 
   /** 서버가 받아 준 뒤에만 센다. 이름은 안 싣는다. */
-  function done(action: ItemAction): void {
+  function done(action: ItemAction, saved?: TagOut): void {
     analytics.log(EVENTS.tagChanged, { action, kind }, { kind: 'click' });
-    onDone();
+    onDone(saved);
   }
 
   function save(): void {
@@ -70,7 +71,17 @@ export function TagForm({ tag, kind, onDone, onCancel }: TagFormProps) {
       );
       return;
     }
-    create.mutate({ name: trimmed, color, kind }, { onSuccess: () => done('created') });
+    create.mutate(
+      { name: trimmed, color, kind },
+      {
+        // 응답은 목록 전체라 방금 만든 것을 이름과 종류로 찾는다.
+        onSuccess: (list) =>
+          done(
+            'created',
+            list.items.find((item) => item.kind === kind && item.name === trimmed),
+          ),
+      },
+    );
   }
 
   return (

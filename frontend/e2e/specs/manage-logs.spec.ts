@@ -53,22 +53,25 @@ test('태그는 만든 것과 실제로 단 것이 따로 남는다', async ({ h
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(12_000);
+
+  // 둘째 화면에서 골랐다 떼고 다시 고른다. 고르고 떼는 것은 아직 붙인 것이 아니다.
+  await recordSheet.pickTag('출장');
+  await recordSheet.tagChip.click();
+  await recordSheet.tagOption('출장').click();
+  await expect(recordSheet.tagChip).toHaveText('＃ 태그');
+  expect(await logsNamed(page, 'tag_applied'), '저장 전에 붙었다고 남았다').toHaveLength(0);
+  await recordSheet.pickTag('출장');
+
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
 
-  await recordSheet.feedback.tagChip('출장').click();
-  await expect(recordSheet.feedback.tagChip('출장')).toHaveAttribute('aria-pressed', 'true');
-  // 눌린 것을 다시 누르면 뗀다. 붙인 것과 뗀 것이 갈려야 「달아 놓고 되무른다」 를 본다.
-  await recordSheet.feedback.tagChip('출장').click();
-  await expect(recordSheet.feedback.tagChip('출장')).toHaveAttribute('aria-pressed', 'false');
-
   /*
-    붙이고 뗐으니 정확히 두 줄이다. 칩을 누른 순간이 아니라 서버가 받아 준 뒤에
-    한 번씩 나간다. 순서까지 본다. 집합만 보면 순서가 뒤집혀도 통과한다.
+    저장과 함께 붙었으니 정확히 한 줄이다. 칩을 누른 순간이 아니라 서버가 태그를 실어
+    저장해 준 뒤에 나간다.
   */
   const applied = await logsNamed(page, 'tag_applied');
-  expect(applied.map((log) => log.params.result)).toEqual(['attached', 'detached']);
-  // 적고 난 직후에 다는 것과 나중에 고치면서 다는 것은 다른 행동이라 자리를 남긴다.
+  expect(applied.map((log) => log.params.result)).toEqual(['attached']);
+  // 적으면서 다는 것과 나중에 고치면서 다는 것은 다른 행동이라 자리를 남긴다.
   expect(valuesOf(applied, 'where')).toEqual(new Set(['record']));
   expect(valuesOf(applied, 'kind')).toEqual(new Set(['expense']));
 });
@@ -88,11 +91,11 @@ test('태그를 지우면 몇 건이 표시를 잃는지까지 남는다', async
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(8_000);
+  await recordSheet.pickTag('출장');
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
-  await recordSheet.feedback.tagChip('출장').click();
-  await expect(recordSheet.feedback.tagChip('출장')).toHaveAttribute('aria-pressed', 'true');
-  await recordSheet.closeByEsc();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
 
   await tags.open();
   await tags.waitReady();

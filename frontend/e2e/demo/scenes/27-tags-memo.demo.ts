@@ -54,8 +54,7 @@ test('56 태그와 메모로 기록을 묶는다', async ({
   await demo.beat(2);
 
   await demo.step('태그는 하나만 단다. 여럿 달면 비율이 거짓이 된다');
-  await recordSheet.feedback.tagChip('출장').click();
-  await expect(recordSheet.feedback.tagChip('출장')).toHaveAttribute('aria-pressed', 'true');
+  await expect(recordSheet.feedback.savedLabel).toBeVisible();
   await demo.beat(3);
 
   await recordSheet.closeByEsc();

@@ -21,7 +21,7 @@ import { expect, test } from '../support/fixtures';
 
 // ── 홈에서 날을 들고 연 시트 ──────────────────────────────
 
-test('줄글을 마지막에 썼어도 어제 기록하기는 키패드로 열리고, 방식은 잠기지 않는다', async ({
+test('줄글을 마지막에 썼어도 기록하기는 직접 입력이 골라진 첫 화면으로 열리고, 방식은 잠기지 않는다', async ({
   home,
   recordSheet,
 }) => {
@@ -30,22 +30,26 @@ test('줄글을 마지막에 썼어도 어제 기록하기는 키패드로 열�
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('편의점 3000원');
   await recordSheet.nl.save();
   await recordSheet.nl.confirmButton.click();
   await recordSheet.waitClosed();
 
-  // 큰 버튼은 그 방식을 기억한다. 여기까지는 그대로다.
+  /*
+    큰 버튼도 마지막 방식을 따라가지 않는다. 늘 첫 화면이고 직접 입력이 골라져 있다.
+    「다음」 한 번이면 둘째 화면이라 방식을 기억해 건너뛸 이유가 없다.
+  */
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.nl.textarea).toBeVisible();
+  await expect(recordSheet.methodTab('직접 입력')).toHaveAttribute('aria-checked', 'true');
+  await expect(recordSheet.nl.textarea).toBeHidden();
   await recordSheet.closeByEsc();
   await recordSheet.waitClosed();
 
   /*
-    날 이름이 붙은 버튼은 키패드로 열린다. 그 날에 적는 가장 짧은 길이라 그대로 둔다.
-    다만 **잠기지는 않는다.** 고른 날이 세 탭에 함께 내려가므로 옮겨도 잃을 것이 없다.
+    날 이름이 붙은 버튼도 같은 첫 화면이다. 다만 **잠기지는 않는다.** 고른 날이 네 방법에
+    함께 내려가므로 옮겨도 잃을 것이 없다.
   */
   const yesterday = shiftDay(toLedgerDate(new Date()), -1);
   await home.today.prevDayButton.click();
@@ -53,20 +57,23 @@ test('줄글을 마지막에 썼어도 어제 기록하기는 키패드로 열�
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
 
-  await expect(recordSheet.input.dayChip).toHaveText(formatDayLabel(yesterday));
+  await expect(recordSheet.dayButton).toContainText(`어제 ${formatDayLabel(yesterday)} (`);
+  await expect(recordSheet.methodTab('직접 입력')).toHaveAttribute('aria-checked', 'true');
   await expect(recordSheet.methodTab('줄글')).toBeEnabled();
   await expect(recordSheet.methodTab('캡처')).toBeEnabled();
   await expect(recordSheet.methodTab('영수증')).toBeEnabled();
 
-  // 옮기면 어디로 떨어지는지 그 자리에서 말한다. 「무조건 이 날」 이 아니라 날짜가 없는 것만이다.
-  await recordSheet.methodTab('줄글').click();
-  await expect(recordSheet.input.dayBaseNotice(formatDayLabel(yesterday))).toBeVisible();
+  // 줄글로 갔다가 돌아와도 고른 날은 그대로다. 날짜는 첫 화면 맨 위에서만 바꾼다.
+  await recordSheet.chooseWay('줄글');
+  await expect(recordSheet.nl.textarea).toBeVisible();
+  await recordSheet.back();
+  await expect(recordSheet.dayButton).toContainText(`어제 ${formatDayLabel(yesterday)} (`);
 
-  // 날짜 칸은 키패드 안에 있다. 돌아와서 오늘로 되돌리면 그 줄이 걷힌다.
-  await recordSheet.methodTab('키패드').click();
-  await recordSheet.input.dayField.fill(toLedgerDate(new Date()));
-  await recordSheet.methodTab('줄글').click();
-  await expect(recordSheet.input.dayBaseNotice(formatDayLabel(yesterday))).toHaveCount(0);
+  // 오늘로 되돌리는 길도 같은 자리다.
+  await recordSheet.chooseDay(toLedgerDate(new Date()));
+  await expect(recordSheet.dayButton).toContainText(
+    `오늘 ${formatDayLabel(toLedgerDate(new Date()))} (`,
+  );
 });
 
 test('달력에서 고른 날도 그 날 키패드로 열리고, 방식은 잠기지 않는다', async ({
@@ -85,7 +92,8 @@ test('달력에서 고른 날도 그 날 키패드로 열리고, 방식은 잠�
   await calendar.list.recordButton.click();
   await recordSheet.waitOpen();
 
-  await expect(recordSheet.input.dayChip).not.toHaveText(formatDayLabel(toLedgerDate(new Date())));
+  await expect(recordSheet.dayButton).toContainText(`${formatDayLabel(first)} (`);
+  await expect(recordSheet.dayButton).not.toContainText('오늘');
   // 키패드로 열리지만 잠기지는 않는다. 그 날 영수증을 사진으로 적는 길이 살아 있어야 한다.
   await expect(recordSheet.methodTab('줄글')).toBeEnabled();
 });
@@ -176,14 +184,13 @@ test('어제를 골라 줄글로 적으면, 날짜를 안 써도 어제에 저�
   await expect(home.today.title).toHaveText('어제');
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayChip).toHaveText(formatDayLabel(yesterday));
+  await expect(recordSheet.dayButton).toContainText(`어제 ${formatDayLabel(yesterday)} (`);
 
   /*
     **날짜를 안 적는다.** 적으면 그 날짜가 이겨서 고른 날이 쓰였는지 알 수 없다.
     빈 자리를 무엇으로 채우는지가 여기서 보는 것 전부다.
   */
-  await recordSheet.methodTab('줄글').click();
-  await expect(recordSheet.input.dayBaseNotice(formatDayLabel(yesterday))).toBeVisible();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('편의점 3000원');
   await recordSheet.nl.save();
   await recordSheet.nl.confirmButton.click();

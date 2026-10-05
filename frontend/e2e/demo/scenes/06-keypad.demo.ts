@@ -320,13 +320,13 @@ test('59 이체한 돈은 지출에 안 들어간다', async ({ demo, home, prep
   await demo.beat(2);
 
   await demo.step('「지출」, 「수입」 옆 셋째 알약 「이체」 를 누른다');
-  await recordSheet.input.transferButton.click();
-  await expect(recordSheet.input.transferPanel).toBeVisible();
+  await recordSheet.chooseKind('이체');
+  await expect(recordSheet.amountTitle).toHaveText('얼마 옮겼어요?');
   await demo.beat(2);
 
   await demo.step('이체에는 분류가 없다. 분류 칩이 걷히고 지출·수입 알약도 꺼진다');
   await expect(recordSheet.input.newCategoryButton).toHaveCount(0);
-  await expect(recordSheet.input.kindButton('지출')).toHaveAttribute('aria-pressed', 'false');
+  await expect(recordSheet.kindChip('지출')).toHaveCount(0);
   await demo.beat(3);
 
   await demo.step('고를 것이 없으니 저장 버튼으로 바로 적는다');

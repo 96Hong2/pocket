@@ -135,7 +135,7 @@ test('줄글을 상한까지 채워도 서버가 받는다', async ({ home, reco
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
 
   // 상한에 닿으면 안내가 바뀐다. 예전에는 말없이 잘렸다.
   const filler = '점심 12000 스벅 4500 어제 택시 9000 ';

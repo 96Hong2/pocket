@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useImperativeHandle, useState, type ReactNode, type Ref } from 'react';
 
 import { useBridge } from '../../app/providers';
 import { EVENTS, useAnalytics, type FlowId, type PickOutcome } from '../../shared/analytics';
@@ -47,10 +47,8 @@ interface ImageImportMode {
   permission: PermissionResource;
   /** 앱 버전이 낮아 못 쓸 때 무엇이 안 되는지. */
   feature: string;
-  /** 무엇을 고르면 되는지 한 줄. 가운뎃점으로 이은 낱말이 줄 끝에서 갈리지 않게 묶어 둔다. */
-  guide: ReactNode;
-  /** 안내를 감싸는 카드. 그림과 안내 한 줄이 함께 선다. */
-  intro?: { icon: IconName };
+  /** 고르기 버튼 위에 서는 그림. */
+  icon: IconName;
   pickLabel: string;
   /** 앨범·카메라를 아예 열지 못했을 때의 한 줄. */
   pickAlert: string;
@@ -76,15 +74,7 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
     capability: 'albumPick',
     permission: 'photos',
     feature: '캡처 불러오기',
-    // PRD 원문. 어떤 화면을 골라도 되는지가 이 한 줄에 다 들어 있어 줄이지 않는다.
-    // 가운뎃점에서 줄이 갈리면 다음 줄이 '·은행' 으로 시작해 글머리표처럼 읽힌다.
-    guide: (
-      <>
-        거래내역 캡처를 골라주세요. <span className="capture__unit">토스·카드·은행</span> 화면도
-        괜찮아요.
-      </>
-    ),
-    intro: { icon: '23_document' },
+    icon: '23_document',
     pickLabel: '캡처 고르기',
     pickAlert: '앨범을 열지 못했어요',
     // 실제 단계와 순서를 맞춘다. 지어낸 단계를 보여 주면 그 시간이 더 길게 느껴진다.
@@ -109,13 +99,7 @@ const MODES: Record<ImageImportKind, ImageImportMode> = {
     capability: 'camera',
     permission: 'camera',
     feature: '영수증 촬영',
-    // 한 줄에 안 들어가면 문장 사이에서 갈려야 한다. 그냥 두면 '총액이 / 나오면 돼요' 로 갈렸다.
-    guide: (
-      <>
-        영수증이 잘 보이게 찍어주세요. <span className="capture__unit">총액이 나오면 돼요.</span>
-      </>
-    ),
-    intro: { icon: '43_camera' },
+    icon: '43_camera',
     pickLabel: '영수증 찍기',
     pickAlert: '카메라를 열지 못했어요',
     progressSteps: [
@@ -174,6 +158,13 @@ export interface ImageImportTabProps {
    * 사진 무료분과 광고는 사람 단위라 공유라서 달라지지 않는다.
    */
   bookId?: string | null;
+  /** 바깥 버튼이 고르기를 곧바로 부를 때 쓴다. */
+  ref?: Ref<ImageImportHandle>;
+}
+
+export interface ImageImportHandle {
+  /** 고를 수 있는 상태면 앨범이나 카메라를 연다. 막혀 있으면 이 패널 화면만 선다. */
+  start: () => void;
 }
 
 /**
@@ -194,6 +185,7 @@ export function ImageImportTab({
   credits,
   baseDay = null,
   bookId = null,
+  ref,
 }: ImageImportTabProps) {
   const mode = MODES[kind];
   const bridge = useBridge();
@@ -213,6 +205,19 @@ export function ImageImportTab({
     count: number;
     resolve: (allowed: boolean) => void;
   } | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    start: () => {
+      const blocked =
+        batch != null ||
+        pickFailure === 'PERMISSION_DENIED' ||
+        !bridge.supports(mode.capability) ||
+        analyze.isPending ||
+        credits.busy ||
+        credits.trial == null;
+      if (!blocked) void pick();
+    },
+  }));
 
   if (batch != null) {
     return (
@@ -286,14 +291,9 @@ export function ImageImportTab({
 
   return (
     <div className="capture" data-testid={mode.panelTestId}>
-      {mode.intro ? (
-        <div className="capture__intro">
-          <img className="capture__icon" src={iconUrl(mode.intro.icon)} alt="" aria-hidden="true" />
-          <p className="capture__guide">{mode.guide}</p>
-        </div>
-      ) : (
-        <p className="capture__guide">{mode.guide}</p>
-      )}
+      <div className="capture__intro">
+        <img className="capture__icon" src={iconUrl(mode.icon)} alt="" aria-hidden="true" />
+      </div>
 
       {pickFailure != null ? (
         <p className="capture__alert" role="alert">

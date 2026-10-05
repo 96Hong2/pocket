@@ -76,7 +76,7 @@ test('금액 앞에 +를 붙이면 수입으로 읽고 수입 분류까지 고�
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
 
   await recordSheet.nl.analyze('알바비 +150000 점심 9000');
 
@@ -111,7 +111,7 @@ test('검토 화면에서 수입으로 바꾸면 수입 분류를 고를 수 있
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
 
   await recordSheet.nl.analyze('용돈 30000');
   // 말버릇으로는 수입이 되지만, 종류를 손으로 바꿔도 분류가 따라와야 한다.
@@ -150,7 +150,7 @@ test('날짜 칸이 제 자리를 넘지 않는다', async ({ goal, home, page, 
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
-    await recordSheet.methodTab('줄글').click();
+    await recordSheet.chooseWay('줄글');
     await recordSheet.nl.analyze('점심 12000');
     await recordSheet.nl.openEdit('점심');
     // 날짜 칸은 날짜 칩을 눌러야 열린다.
@@ -279,7 +279,7 @@ test('접힌 줄을 누르면 목록이 다시 펴져 분류를 바꿀 수 있�
 
 // ── 저장 카드는 한 줄 ───────────────────────────────────
 
-test('저장 직후 카드가 남은 날 수를 세지 않는다', async ({ home, prep, recordSheet }) => {
+test('저장 뒤 화면은 남은 예산도 남은 날 수도 말하지 않는다', async ({ home, prep, recordSheet }) => {
   await prep.setBudget(BUDGET);
 
   await home.open();
@@ -291,7 +291,11 @@ test('저장 직후 카드가 남은 날 수를 세지 않는다', async ({ home
   await recordSheet.input.pickCategory(CATEGORY);
   await expect(recordSheet.feedback.savedLabel).toBeVisible();
 
-  // 적을 때마다 남은 날을 세어 보여 주면 시간에 쫓기는 화면이 된다.
-  await expect(recordSheet.feedback.card).not.toContainText(/남은 \d+일/);
-  await expect(recordSheet.feedback.headline).toContainText('남은 예산');
+  // 적을 때마다 남은 날이나 남은 예산을 세어 보여 주면 시간에 쫓기는 화면이 된다.
+  // 남은 돈은 홈이 늘 들고 있다. 예산 안이면 판정 카드 자체가 없다.
+  await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
+  await expect(recordSheet.feedback.card).toHaveCount(0);
+  await expect(recordSheet.feedback.detail).toHaveCount(0);
+  await expect(recordSheet.feedback.savedAmount).toBeVisible();
+  await expect(recordSheet.sheet).not.toContainText(/남은 예산|남은 \d+일/);
 });

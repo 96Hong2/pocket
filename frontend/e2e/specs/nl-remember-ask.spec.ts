@@ -26,7 +26,7 @@ async function analyzeUnknownMerchant({
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('하나슈퍼 8000');
   await expect(recordSheet.nl.row('하나슈퍼')).toContainText('분류 없음');
   // 분류를 고르기 전에는 기억할 것이 없어 묻지 않는다.
@@ -85,7 +85,7 @@ test('분류 없이 읽힌 상호에 분류를 골라 넣으면 묻고, 「기�
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
-    await recordSheet.methodTab('줄글').click();
+    await recordSheet.chooseWay('줄글');
     await recordSheet.nl.analyze('하나슈퍼 5000');
     await expect(recordSheet.nl.row('하나슈퍼')).toContainText('생활');
     // 이번에는 모델 대신 기억한 규칙이 분류를 붙였다. 다시 묻지 않는다.
@@ -168,7 +168,7 @@ test('모델이 분류를 붙여 준 줄은 묻지 않고, 바꿔 저장하면 �
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('올리브영 23000');
   await expect(recordSheet.nl.row('올리브영')).toContainText('건강·미용');
 

@@ -100,14 +100,11 @@ export function NaturalLanguageTab({
   }
 
   const message = analyze.error instanceof ApiError ? analyze.error.message : null;
+  const atLimit = text.length >= NL_TEXT_MAX_LENGTH;
 
   return (
     <div className="nl" data-testid={TEST_IDS.nlPanel}>
-      {/*
-        안내 한 줄은 상자 안에 두고 label 로는 감싸지 않는다. label 안에 넣으면 그 문구가
-        입력칸의 접근성 이름에 딸려 붙어 「무엇을 썼나요」가 길어진다. 대신 htmlFor 로
-        이름을 걸고 aria-describedby 로 설명을 따로 붙인다.
-      */}
+      {/* 상한 안내는 label 밖에 둔다. 안에 넣으면 입력칸의 접근성 이름이 길어진다. */}
       <div className="nl__field">
         <label className="nl__label" htmlFor={FIELD_ID}>
           무엇을 썼나요
@@ -116,7 +113,7 @@ export function NaturalLanguageTab({
           <textarea
             id={FIELD_ID}
             className="nl__input"
-            aria-describedby={HINT_ID}
+            aria-describedby={atLimit ? HINT_ID : undefined}
             value={text}
             rows={4}
             maxLength={NL_TEXT_MAX_LENGTH}
@@ -124,16 +121,15 @@ export function NaturalLanguageTab({
             disabled={analyze.isPending}
             onChange={(event) => setText(event.target.value)}
           />
-          <p id={HINT_ID} className="nl__hint">
-            {/*
-              상한에 닿으면 브라우저가 말없이 자른다. 붙여넣은 사람은 뒤쪽이 사라진 것을
-              알 길이 없다. 20건 상한은 몇 건이 남았는지 적어 주면서 길이만 조용히 자르면
-              같은 상황을 다르게 다루는 셈이라, 여기서도 닿았다는 것을 말한다.
-            */}
-            {text.length >= NL_TEXT_MAX_LENGTH
-              ? `${NL_TEXT_MAX_LENGTH}자까지 읽어요. 뒷부분은 나눠서 적어 주세요`
-              : '한 번에 여러 건을 적어도 돼요. 날짜를 적으면 그 날로 넣어요'}
-          </p>
+          {/*
+            상한에 닿으면 브라우저가 말없이 자른다. 붙여넣은 사람은 뒤쪽이 사라진 것을
+            알 길이 없어 그때만 한 줄 적는다.
+          */}
+          {atLimit ? (
+            <p id={HINT_ID} className="nl__hint">
+              {`${NL_TEXT_MAX_LENGTH}자까지 읽어요. 뒷부분은 나눠서 적어 주세요`}
+            </p>
+          ) : null}
         </div>
       </div>
 

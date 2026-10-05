@@ -2,8 +2,35 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 import { CategoryComposeArea } from './CategoryComposeArea';
 
+import { shiftDay, toLedgerDate } from '../../src/shared/lib/format';
 import { TEST_IDS } from '../../src/shared/testIds';
 import { horizontalScrollersIn } from '../support/overflow';
+
+/**
+ * 기록 방법 이름. 왼쪽은 예전 탭 이름이고 오른쪽이 지금 첫 화면 카드 이름이다.
+ *
+ * spec 이 예전 이름을 그대로 써도 같은 카드를 고르게 짝지어 둔다.
+ */
+const WAY_NAMES = {
+  키패드: '직접 입력',
+  줄글: '글로 쓰기',
+  캡처: '캡처로 정리',
+  영수증: '영수증 찍기',
+  '직접 입력': '직접 입력',
+  '글로 쓰기': '글로 쓰기',
+  '캡처로 정리': '캡처로 정리',
+  '영수증 찍기': '영수증 찍기',
+} as const;
+
+export type WayLabel = keyof typeof WAY_NAMES;
+export type KindLabel = '지출' | '수입' | '이체';
+
+/** 첫 화면에서 가까운 사흘은 한 번 눌러 고른다. 그 밖의 날은 기기 달력 칸에 넣는다. */
+const NEAR_DAY_WORDS = [
+  { delta: 0, word: '오늘' },
+  { delta: -1, word: '어제' },
+  { delta: -2, word: '그저께' },
+] as const;
 
 /**
  * 적던 것을 두고 나가려 할 때의 확인.
@@ -53,6 +80,37 @@ export class LeaveConfirmArea {
 
   get leaveButton(): Locator {
     return this.root.getByRole('button', { name: '그만두기' });
+  }
+}
+
+/**
+ * 줄글이나 사진에서 읽어 온 것이 남은 채 ‹ 를 눌렀을 때의 확인.
+ *
+ * 시트를 닫는 확인(「그만둘까요」)과 다른 창이다. 시트는 남고, 「나가기」 를 고르면 그 패널만
+ * 비우고 첫 화면으로 간다.
+ */
+export class PanelLeaveArea {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('alertdialog', { name: '나갈까요' });
+  }
+
+  get dialog(): Locator {
+    return this.root;
+  }
+
+  /** `읽어 온 3건이 사라져요` 몇 건인지가 문구에 그대로 있다. */
+  get text(): Locator {
+    return this.root.getByText(/읽어 온 \d+건이 사라져요/);
+  }
+
+  get stayButton(): Locator {
+    return this.root.getByRole('button', { name: '계속 쓰기', exact: true });
+  }
+
+  get leaveButton(): Locator {
+    return this.root.getByRole('button', { name: '나가기', exact: true });
   }
 }
 
@@ -115,12 +173,13 @@ export class RecordSheet {
   constructor(page: Page) {
     this.page = page;
     this.root = page.getByRole('dialog', { name: '10초 기록' });
-    this.input = new RecordInput(this.root);
+    this.input = new RecordInput(this.root, () => this.openKeypad());
     this.feedback = new RecordFeedback(this.root);
     this.nl = new RecordNaturalLanguage(this.root);
     this.capture = new RecordImageImport(this.root, CAPTURE_LABELS);
     this.receipt = new RecordImageImport(this.root, RECEIPT_LABELS);
     this.leave = new LeaveConfirmArea(page);
+    this.panelLeave = new PanelLeaveArea(page);
     this.futureDayConfirm = new FutureDayConfirmArea(page);
     this.destination = new RecordDestination(page, this.root);
     this.bookFeedback = new RecordBookFeedback(this.root);
@@ -132,6 +191,11 @@ export class RecordSheet {
 
   async waitOpen(): Promise<void> {
     await expect(this.root).toBeVisible();
+  }
+
+  /** 시트 전체. 시트 어디에도 없어야 하는 글을 확인할 때 쓴다. */
+  get sheet(): Locator {
+    return this.root;
   }
 
   async waitClosed(): Promise<void> {
@@ -156,6 +220,9 @@ export class RecordSheet {
    */
   readonly leave: LeaveConfirmArea;
 
+  /** 읽어 온 것이 남은 패널에서 ‹ 를 눌렀을 때 그 패널을 비울지 묻는 창. */
+  readonly panelLeave: PanelLeaveArea;
+
   /** 손잡이를 잡고 아래로 민다. 실기기에서 시트를 닫는 가장 흔한 손짓이다. */
   async dragDown(distance = 160): Promise<void> {
     const box = await this.closeButton.boundingBox();
@@ -172,18 +239,201 @@ export class RecordSheet {
     await this.page.mouse.up();
   }
 
-  /**
-   * 기록 방법 탭. 넷 다 열려 있다.
-   *
-   * SegmentedControl 이 `role="radio"` 를 붙인다. button 으로 잡으면 하나도 안 걸린다.
-   */
-  methodTab(label: '키패드' | '줄글' | '캡처' | '영수증'): Locator {
-    return this.root.getByRole('radio', { name: label, exact: true });
+  /** 첫 화면의 방법 카드 넷. 이 묶음이 보이면 첫 화면이다. */
+  get wayGroup(): Locator {
+    return this.root.getByRole('radiogroup', { name: '기록 방법' });
   }
 
-  /** 기록 방법 탭 전체. 몇 개가 놓여 있는지 셀 때 쓴다. */
+  /**
+   * 첫 화면의 방법 카드 하나. 예전 탭 이름(키패드, 줄글, 캡처, 영수증)도 받는다.
+   *
+   * 카드는 `role="radio"` 다. 고른 카드는 aria-checked 가 참이다.
+   */
+  methodTab(label: WayLabel): Locator {
+    return this.wayGroup.getByRole('radio', { name: WAY_NAMES[label], exact: true });
+  }
+
+  /** 방법 카드 전체. 몇 개가 놓여 있는지 셀 때 쓴다. */
   get methodTabs(): Locator {
-    return this.root.getByRole('radiogroup', { name: '기록 방법' }).getByRole('radio');
+    return this.wayGroup.getByRole('radio');
+  }
+
+  /** 첫 화면의 종류 칩(지출, 수입, 이체). 직접 입력일 때만 선다. */
+  get kindGroup(): Locator {
+    return this.root.getByRole('radiogroup', { name: '종류', exact: true });
+  }
+
+  kindChip(label: KindLabel): Locator {
+    return this.kindGroup.getByRole('radio', { name: label, exact: true });
+  }
+
+  /** 첫 화면 아래 버튼. 방법에 따라 「다음」, 「카메라 열기」, 「사진 고르기」 다. */
+  get nextButton(): Locator {
+    return this.root
+      .locator('.record-setup')
+      .getByRole('button', { name: /^(다음|카메라 열기|사진 고르기)$/ });
+  }
+
+  /** 첫 화면 머리의 날짜. `오늘 10월 5일 (일)` 처럼 읽힌다. 누르면 「언제예요?」 로 간다. */
+  get dayButton(): Locator {
+    return this.root.locator('.record-setup__date');
+  }
+
+  /** 「언제예요?」 단계의 줄 하나. 오늘, 어제, 그저께. */
+  dayRow(word: '오늘' | '어제' | '그저께'): Locator {
+    return this.root
+      .locator('.record-day')
+      .getByRole('button', { name: new RegExp(`^${word} `) });
+  }
+
+  /** 「다른 날 고르기」 줄 위에 투명하게 겹친 날짜 칸. */
+  get otherDayField(): Locator {
+    return this.root.getByLabel('다른 날 고르기');
+  }
+
+  /** 지금 보이는 화면 머리의 ‹. 한 단계 뒤로 간다. 첫 화면에서는 시트를 닫으려 든다. */
+  get backButton(): Locator {
+    return this.root.getByRole('button', { name: '뒤로', exact: true });
+  }
+
+  /** 둘째 화면(금액) 제목. 종류에 따라 「얼마 썼어요?」, 「얼마 벌었어요?」, 「얼마 옮겼어요?」. */
+  get amountTitle(): Locator {
+    return this.root.getByText(/^얼마 (썼|벌었|옮겼)어요\?$/).filter({ visible: true });
+  }
+
+  /** 둘째 화면 오른쪽 위 태그 칩. 안 골랐으면 「＃ 태그」, 골랐으면 「＃ 회식」. */
+  get tagChip(): Locator {
+    return this.root.locator('.record__amount').getByRole('button', { name: /^＃ / });
+  }
+
+  /** 태그 단계의 칩 묶음. */
+  get tagGroup(): Locator {
+    return this.root.getByRole('group', { name: '태그', exact: true });
+  }
+
+  tagOption(name: string): Locator {
+    return this.tagGroup.getByRole('button', { name, exact: true });
+  }
+
+  /** 태그 단계 맨 끝 점선 칩. 같은 단계 안쪽이 새 태그 폼으로 바뀐다. */
+  get newTagButton(): Locator {
+    return this.root.getByRole('button', { name: '＋ 새 태그', exact: true });
+  }
+
+  /** 첫 화면이 보이나. */
+  async isOnSetup(): Promise<boolean> {
+    return this.wayGroup.isVisible();
+  }
+
+  /** 시트 안 ‹ 를 누른다. */
+  async back(): Promise<void> {
+    await this.backButton.click();
+  }
+
+  /** 읽어 온 것이 남은 패널을 ‹ 로 나가며 비운다. 확인 창에서 「나가기」 를 고른다. */
+  async leavePanel(): Promise<void> {
+    await this.back();
+    await this.panelLeave.leaveButton.click();
+    await expect(this.wayGroup).toBeVisible();
+  }
+
+  /** 첫 화면 아래 버튼을 누른다. */
+  async next(): Promise<void> {
+    await this.nextButton.click();
+  }
+
+  /**
+   * 첫 화면까지 ‹ 로 물러난다. 이미 첫 화면이면 아무것도 안 누른다.
+   *
+   * 첫 화면에서 ‹ 를 누르면 시트가 닫히므로, 한 번 누를 때마다 어디에 닿았는지 확인한다.
+   */
+  async toSetup(): Promise<void> {
+    await expect(this.wayGroup.or(this.backButton).first()).toBeVisible();
+    if (await this.wayGroup.isVisible()) return;
+    if (await this.tagGroup.or(this.newTagForm).first().isVisible()) {
+      await this.back();
+      await expect(this.amountTitle).toBeVisible();
+    }
+    await this.back();
+    await expect(this.wayGroup).toBeVisible();
+  }
+
+  /** 태그 단계의 새 태그 폼 이름 칸. 이 칸이 보이면 폼이다. */
+  get newTagNameField(): Locator {
+    return this.root.locator('.record-tags').getByRole('textbox');
+  }
+
+  /** 새 태그 폼의 「만들기」. 누르면 만든 태그가 골라진 채 둘째 화면으로 간다. */
+  get newTagCreateButton(): Locator {
+    return this.root.locator('.record-tags').getByRole('button', { name: '만들기', exact: true });
+  }
+
+  private get newTagForm(): Locator {
+    return this.newTagNameField;
+  }
+
+  /**
+   * 방법을 고른다. 첫 화면이 아니면 먼저 물러난다.
+   *
+   * 직접 입력과 글로 쓰기는 「다음」 까지 눌러 그 화면으로 간다. 사진 둘은 카드만 고르고 첫
+   * 화면에 남는다. 아래 버튼이 곧 고르기라 `capture.pick()` 이 그 버튼을 누른다.
+   */
+  async chooseWay(label: WayLabel): Promise<void> {
+    await this.toSetup();
+    // 이미 골라진 카드는 누르지 않는다. 탭 수를 세는 spec 이 헛누름까지 세게 된다.
+    if ((await this.methodTab(label).getAttribute('aria-checked')) !== 'true') {
+      await this.methodTab(label).click();
+    }
+    const name = WAY_NAMES[label];
+    if (name === '직접 입력' || name === '글로 쓰기') await this.next();
+  }
+
+  /**
+   * 종류를 바꾼다. 둘째 화면이면 ‹ 로 물러나 칩을 누르고 「다음」 으로 돌아온다.
+   * 끝나면 늘 둘째 화면이다.
+   */
+  async chooseKind(label: KindLabel): Promise<void> {
+    await this.toSetup();
+    if ((await this.methodTab('직접 입력').getAttribute('aria-checked')) !== 'true') {
+      await this.methodTab('직접 입력').click();
+    }
+    await this.kindChip(label).click();
+    await this.next();
+    await expect(this.amountTitle).toBeVisible();
+  }
+
+  /**
+   * 적을 날을 고른다. 첫 화면 날짜를 눌러 「언제예요?」 에서 고르고 첫 화면으로 돌아온다.
+   *
+   * 오늘, 어제, 그저께는 그 줄을 누르고, 그 밖의 날은 기기 달력 칸에 넣는다.
+   */
+  async chooseDay(iso: string): Promise<void> {
+    await this.toSetup();
+    await this.dayButton.click();
+    const today = toLedgerDate(new Date());
+    const near = NEAR_DAY_WORDS.find((item) => shiftDay(today, item.delta) === iso);
+    if (near != null) await this.dayRow(near.word).click();
+    else await this.otherDayField.fill(iso);
+    await expect(this.wayGroup).toBeVisible();
+  }
+
+  /** 직접 입력 둘째 화면을 연다. 이미 거기면 아무것도 안 누른다. */
+  async openKeypad(): Promise<void> {
+    await expect(this.wayGroup.or(this.amountTitle).first()).toBeVisible();
+    if (await this.amountTitle.isVisible()) return;
+    await this.chooseWay('직접 입력');
+    await expect(this.amountTitle).toBeVisible();
+  }
+
+  /**
+   * 태그를 고른다. 둘째 화면 「＃ 태그」 를 눌러 태그 단계에서 고르면 둘째 화면으로 돌아온다.
+   * 태그가 하나도 없으면 칩을 누르는 즉시 새 태그 폼이 선다.
+   */
+  async pickTag(name: string): Promise<void> {
+    await this.openKeypad();
+    await this.tagChip.click();
+    await this.tagOption(name).click();
+    await expect(this.amountTitle).toBeVisible();
   }
 
   /**
@@ -225,9 +475,12 @@ export class RecordSheet {
 /** 저장 전 얼굴. */
 class RecordInput {
   private readonly root: Locator;
+  /** 둘째 화면(금액)이 아니면 첫 화면에서 「다음」 을 눌러 그리로 간다. */
+  private readonly ready: () => Promise<void>;
 
-  constructor(root: Locator) {
+  constructor(root: Locator, ready: () => Promise<void>) {
     this.root = root;
+    this.ready = ready;
   }
 
   /** 지금 눌러 둔 금액. `12,000원` 처럼 포맷된 문자열이다. */
@@ -241,35 +494,6 @@ class RecordInput {
    */
   get hint(): Locator {
     return this.root.getByTestId(TEST_IDS.recordHint);
-  }
-
-  /**
-   * 적을 날이 적힌 작은 알약. `오늘`·`어제`·`9월 5일`.
-   *
-   * **늘 서 있다.** 예전에는 오늘일 때 아무 말도 안 하고 지난 날일 때만 한 줄이 섰는데,
-   * 그러면 날짜를 바꿀 수 있다는 것을 지난 날에 들어온 사람만 알게 된다.
-   */
-  get dayChip(): Locator {
-    return this.root.locator('.record__day-chip');
-  }
-
-  /**
-   * 적을 날을 고르는 칸. 지난 날 것을 찾아가지 않고 여기서 바로 바꾼다.
-   *
-   * 알약 위에 투명하게 겹쳐 둔 날짜 칸이다. 눈에는 알약만 보이고 누르는 것은 이쪽이다.
-   */
-  get dayField(): Locator {
-    return this.root.getByLabel('날짜');
-  }
-
-  /**
-   * 지난 날에 줄글·캡처·영수증으로 적을 때 어디로 떨어지는지 말하는 한 줄.
-   *
-   * 알약 **바로 아래**에 선다. 적힌 날짜가 있으면 그쪽이 이기므로 「무조건 이 날」 이라고
-   * 적지 않는다. 그 사실이 화면에 남아 있는지를 이 로케이터가 지킨다.
-   */
-  dayBaseNotice(label: string): Locator {
-    return this.root.getByText(`날짜가 없는 건 ${label}로 적어요`, { exact: true });
   }
 
   /** 저장이 실패했을 때 뜨는 안내. */
@@ -307,24 +531,6 @@ class RecordInput {
   /** 카테고리를 다시 불러오는 버튼. 오류 안내 안에만 있다. */
   get categoriesRetryButton(): Locator {
     return this.root.getByRole('button', { name: '다시 시도' });
-  }
-
-  /**
-   * 지출·수입·이체 알약 셋. 셋이 같은 모양, 같은 크기다.
-   *
-   * 방법 탭과 달리 `role="radio"` 가 아니라 aria-pressed 를 쓰는 버튼이다.
-   * 탭과 같은 모양으로 그리면 탭이 두 줄인 것처럼 읽혀 일부러 다르게 뒀다.
-   */
-  get kindToggle(): Locator {
-    return this.root.getByRole('group', { name: '지출, 수입, 이체' });
-  }
-
-  kindButton(label: '지출' | '수입' | '이체'): Locator {
-    return this.kindToggle.getByRole('button', { name: label, exact: true });
-  }
-
-  async pickKind(label: '지출' | '수입'): Promise<void> {
-    await this.kindButton(label).click();
   }
 
   /**
@@ -366,14 +572,12 @@ class RecordInput {
     return this.root.getByRole('button', { name: '접기', exact: true });
   }
 
-  /** 카테고리 관리가 있다는 것을 알려 주는 한 줄. 「더 보기」 안에만 있다. */
-  get categorySettingsNote(): Locator {
-    return this.root.getByText(/카테고리 관리에서 순서를 바꾸고/);
-  }
-
-  /** 그 줄 앞머리. 누르면 카테고리 관리로 간다. 잃을 것이 있으면 먼저 묻는다. */
+  /**
+   * 「더 보기」 를 다 펼쳤을 때 끝에 서는 작은 칩. 누르면 카테고리 관리로 간다.
+   * 잃을 것이 있으면 먼저 묻는다. 예전의 안내 문단은 걷었다.
+   */
   get categoryManageLink(): Locator {
-    return this.root.getByRole('button', { name: '관리 › 카테고리 관리' });
+    return this.root.getByRole('button', { name: '카테고리 관리', exact: true });
   }
 
   /**
@@ -387,6 +591,7 @@ class RecordInput {
 
   /** 「더 보기」를 펴고 만들기를 연다. 두 번 누르는 것이 한 동작이다. */
   async openNewCategory(): Promise<void> {
+    await this.ready();
     if ((await this.newCategoryButton.count()) === 0) {
       await this.moreCategoriesButton.click();
     }
@@ -425,6 +630,7 @@ class RecordInput {
    * 몇 번을 눌렀는지는 `keyStrokesFor` 가 알려 준다.
    */
   async enterAmount(amount: number): Promise<void> {
+    await this.ready();
     for (const key of keyStrokesFor(amount)) {
       await this.numberKey(key).click();
     }
@@ -436,6 +642,7 @@ class RecordInput {
    * 앞자리는 열한 개까지라, 찾는 분류가 안 보이면 「더 보기」를 한 번 편다.
    */
   async pickCategory(name: string): Promise<void> {
+    await this.ready();
     if ((await this.categoryChip(name).count()) === 0) {
       await this.moreCategoriesButton.click();
     }
@@ -443,16 +650,6 @@ class RecordInput {
   }
 
   /** 금액보다 먼저 고른 뒤 접혀 있는 한 줄. 누르면 목록이 다시 펴진다. */
-  /** 지출·수입 옆 셋째 알약 「이체」. 지출이나 수입 알약을 누르면 꺼진다. */
-  get transferButton(): Locator {
-    return this.root.getByRole('button', { name: '이체', exact: true });
-  }
-
-  /** 이체로 켠 뒤 분류 자리를 대신 채우는 설명. 켜졌다는 것이 화면에 보여야 한다. */
-  get transferPanel(): Locator {
-    return this.root.getByText('이체: 내 계좌끼리 옮긴 돈', { exact: true });
-  }
-
   get pickedCategory(): Locator {
     return this.root.getByRole('button', { name: /다시 고르기$/ });
   }
@@ -483,13 +680,19 @@ class RecordFeedback {
     this.root = root;
   }
 
+  /** 저장 뒤 화면 맨 위 큰 제목. 공유 가계부가 있든 없든 같은 말이다. */
   get savedLabel(): Locator {
-    return this.root.getByText('저장했어요', { exact: true });
+    return this.root.getByText('내 가계부에 적었어요', { exact: true });
   }
 
   /** 공유 가계부가 있는 사람의 머리 한 줄. 어디에 적혔는지를 먼저 말한다. */
   get savedToMineLabel(): Locator {
     return this.root.getByText('내 가계부에 적었어요', { exact: true });
+  }
+
+  /** 저장 뒤 화면의 ‹. 「확인」 과 같은 길이다(적어 둔 상호와 메모를 보내고 닫는다). */
+  get backButton(): Locator {
+    return this.root.getByRole('button', { name: '뒤로', exact: true });
   }
 
   get headline(): Locator {
@@ -564,17 +767,43 @@ class RecordFeedback {
     return this.root.getByRole('button', { name: '이 금액으로 고치기' });
   }
 
-  /** 내용을 적는 칸. 버튼 뒤에 숨지 않고 저장 직후부터 늘 떠 있다. */
+  /**
+   * 상호 칸. **처음에는 접혀 있다.** 아이콘 줄의 「어디서 썼나요」(수입은 「어디서 받았나요」)를
+   * 눌러야 그 자리에 펼쳐진다. 이미 상호가 있는 기록도 같다.
+   */
   get merchantField(): Locator {
     return this.root.getByTestId(TEST_IDS.feedbackMerchantField);
   }
 
+  /** 상호 칸을 펴는 아이콘 버튼. 이체에는 없다. */
+  get merchantOpener(): Locator {
+    return this.root.getByRole('button', { name: /^어디서 (썼|받았)나요$/ });
+  }
+
+  /** 메모 칸을 펴는 아이콘 버튼. */
+  get memoOpener(): Locator {
+    return this.root.getByRole('button', { name: '메모 남기기', exact: true });
+  }
+
+  /** 상호 칸을 편다. 이미 펴져 있으면 그대로 둔다. */
+  async openMerchant(): Promise<void> {
+    if (!(await this.merchantField.isVisible())) await this.merchantOpener.click();
+    await expect(this.merchantField).toBeVisible();
+  }
+
+  /** 메모 칸을 편다. 이미 펴져 있으면 그대로 둔다. */
+  async openMemo(): Promise<void> {
+    if (!(await this.memoField.isVisible())) await this.memoOpener.click();
+    await expect(this.memoField).toBeVisible();
+  }
+
   /**
-   * 내용을 적고 칸에서 빠져나온다.
+   * 상호를 적고 칸에서 빠져나온다. 접혀 있으면 먼저 편다.
    *
    * 저장 버튼이 따로 없다. 칸을 벗어날 때 보내므로 blur 까지 해야 실제로 저장된다.
    */
   async writeMerchant(name: string): Promise<void> {
+    await this.openMerchant();
     await this.merchantField.fill(name);
     await this.merchantField.blur();
   }
@@ -584,25 +813,11 @@ class RecordFeedback {
     return this.root.getByTestId(TEST_IDS.feedbackMemoField);
   }
 
-  /** 상호와 같은 규칙이다. 칸을 벗어날 때 보낸다. */
+  /** 상호와 같은 규칙이다. 접혀 있으면 펴고, 칸을 벗어날 때 보낸다. */
   async writeMemo(text: string): Promise<void> {
+    await this.openMemo();
     await this.memoField.fill(text);
     await this.memoField.blur();
-  }
-
-  /** 태그 칩 하나. 눌린 것을 다시 누르면 떨어진다. */
-  tagChip(name: string): Locator {
-    return this.root.getByRole('button', { name, exact: true });
-  }
-
-  /**
-   * 태그 라벨 옆의 작은 글씨. **태그가 있든 없든 늘 보인다.**
-   *
-   * 예전에는 하나도 없을 때만 보여 줬는데, 하나라도 만든 사람은 두 번째를 만들러 갈
-   * 자리를 못 찾았다.
-   */
-  get tagManageLink(): Locator {
-    return this.root.getByRole('link', { name: '관리 › 태그에서 설정', exact: true });
   }
 
   get backspaceKey(): Locator {
@@ -1180,8 +1395,9 @@ export function keyStrokesFor(amount: number): string[] {
 /** 캡처와 영수증이 서로 다르게 가진 문구. 나머지는 같은 검토 화면이라 셀렉터가 하나다. */
 interface ImageImportLabels {
   panelTestId: string;
-  guide: string;
-  /** 사진을 가져오는 버튼. 실패한 뒤에는 `다시 시도` 로 바뀐다. */
+  /** 첫 화면에서 이 방법을 골랐을 때 아래 버튼. 누르면 패널로 가면서 곧바로 고르기를 연다. */
+  setupCta: string;
+  /** 패널 안에서 사진을 가져오는 버튼. 실패한 뒤에는 `다시 시도` 로 바뀐다. */
   pickButton: RegExp;
   /** 진행 표시의 첫 문구. 1~2초 뒤 다음 단계로 넘어간다. */
   analyzingLabel: string;
@@ -1192,7 +1408,7 @@ interface ImageImportLabels {
 
 const CAPTURE_LABELS: ImageImportLabels = {
   panelTestId: TEST_IDS.capturePanel,
-  guide: '거래내역 캡처를 골라주세요',
+  setupCta: '사진 고르기',
   pickButton: /^(캡처 고르기|다시 시도)$/,
   analyzingLabel: '캡처를 준비하고 있어요',
   emptyNotice: '캡처에서 거래를 찾지 못했어요',
@@ -1202,7 +1418,7 @@ const CAPTURE_LABELS: ImageImportLabels = {
 
 const RECEIPT_LABELS: ImageImportLabels = {
   panelTestId: TEST_IDS.receiptPanel,
-  guide: '영수증이 잘 보이게 찍어주세요',
+  setupCta: '카메라 열기',
   pickButton: /^(영수증 찍기|다시 시도)$/,
   analyzingLabel: '영수증을 준비하고 있어요',
   emptyNotice: '영수증을 읽지 못했어요',
@@ -1219,19 +1435,34 @@ const RECEIPT_LABELS: ImageImportLabels = {
  */
 class RecordImageImport {
   private readonly root: Locator;
+  private readonly sheet: Locator;
   private readonly labels: ImageImportLabels;
 
-  constructor(root: Locator, labels: ImageImportLabels) {
-    this.root = root.getByTestId(labels.panelTestId);
+  constructor(sheet: Locator, labels: ImageImportLabels) {
+    this.sheet = sheet;
+    this.root = sheet.getByTestId(labels.panelTestId);
     this.labels = labels;
   }
 
-  get guide(): Locator {
-    return this.root.getByText(this.labels.guide, { exact: false });
+  /** 첫 화면에서 이 방법을 골랐을 때 서는 아래 버튼. 패널로 가면서 고르기를 곧바로 연다. */
+  get setupCta(): Locator {
+    return this.sheet
+      .locator('.record-setup')
+      .getByRole('button', { name: this.labels.setupCta, exact: true });
   }
 
-  get pickButton(): Locator {
+  /** 패널 안의 고르기 버튼. 첫 화면 버튼이 고르기를 못 열었을 때(권한, 실패) 여기서 다시 고른다. */
+  get panelPickButton(): Locator {
     return this.root.getByRole('button', { name: this.labels.pickButton });
+  }
+
+  /**
+   * 사진을 가져오는 버튼. 첫 화면이면 아래 버튼, 패널이면 패널 안 버튼이다.
+   *
+   * 둘이 한꺼번에 보이는 일은 없다. 첫 화면에 있는 동안 패널은 감춰져 있다.
+   */
+  get pickButton(): Locator {
+    return this.setupCta.or(this.panelPickButton);
   }
 
   /**
@@ -1241,7 +1472,10 @@ class RecordImageImport {
    * 온 사람 앞에 광고라는 개념을 먼저 세울 이유가 없다.
    */
   get creditLine(): Locator {
-    return this.root.getByText('읽는 동안 광고가 한 번 지나가요', { exact: true });
+    // 첫 화면 아래 버튼 밑과 패널 버튼 밑에 같은 줄이 있다. 지금 보이는 쪽만 센다.
+    return this.sheet
+      .getByText('읽는 동안 광고가 한 번 지나가요', { exact: true })
+      .filter({ visible: true });
   }
 
   /**
@@ -1331,7 +1565,7 @@ class RecordImageImport {
 
   /** 사진으로 안 될 때 손으로 적으러 가는 버튼. */
   get keypadFallbackButton(): Locator {
-    return this.root.getByRole('button', { name: '키패드로 입력' });
+    return this.root.getByRole('button', { name: '직접 입력', exact: true });
   }
 
   /** 검토 단계에 들어섰다는 표시. 후보가 없어도 이 줄은 있다. */

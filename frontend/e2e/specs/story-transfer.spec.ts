@@ -35,7 +35,7 @@ const SPENT = 4_500;
 async function saveAsTransfer(home: HomeScreen, recordSheet: RecordSheet): Promise<void> {
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(TRANSFER_TEXT);
 
   await recordSheet.nl.openEdit(TRANSFER_NAME);
@@ -57,7 +57,7 @@ test('읽어 온 지출을 이체로 바꾸면 분류 칸이 사라지고 저장
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(TRANSFER_TEXT);
 
   // 읽은 그대로는 지출이다. 이대로 두면 800,000원이 이번 달 쓴 돈으로 들어간다.
@@ -230,9 +230,12 @@ test('키패드에서 이체로 적으면 분류 없이 저장되고 그 달 지
   await recordSheet.input.enterAmount(TRANSFER_AMOUNT);
   await expect(recordSheet.input.saveButton).toHaveCount(0);
 
-  await recordSheet.input.transferButton.click();
-  // 켜졌다는 것이 화면에 보여야 한다. 분류 자리를 비우기만 하면 이체인 줄 모르고 저장한다.
-  await expect(recordSheet.input.transferPanel).toBeVisible();
+  // 종류는 첫 화면에서 고른다. ‹ 로 물러나 「이체」 를 고르고 「다음」 으로 돌아온다.
+  await recordSheet.chooseKind('이체');
+  // 켜졌다는 것이 화면에 보여야 한다. 제목이 무엇을 적는 중인지 말한다.
+  await expect(recordSheet.amountTitle).toHaveText('얼마 옮겼어요?');
+  // 눌러 둔 금액은 첫 화면을 다녀와도 남는다.
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(TRANSFER_AMOUNT));
   // 이체에는 분류가 없다. 목록이 자리째 사라진다.
   await expect(recordSheet.input.newCategoryButton).toHaveCount(0);
   // 고를 것이 없으니 금액만으로 저장할 수 있다.
@@ -250,13 +253,13 @@ test('키패드에서 이체로 적으면 분류 없이 저장되고 그 달 지
 });
 
 /**
- * 화면의 세 컨트롤이 서로 다른 말을 하지 않게.
+ * 종류 칩 셋 가운데 늘 하나만 골라져 있다.
  *
- * 저장은 `type: isTransfer ? 'transfer' : kind` 라 이체가 켜져 있으면 지출·수입은 버려진다.
- * 알약이 눌린 채로 남으면 「수입」 으로 보이는데 이체로 저장되고, 이체는 집계 밖이라
- * (ADR-0005) 이번 달 번 돈이 안 오른 것을 한참 뒤에야 알게 된다. 셋 중 늘 하나만 눌려 있다.
+ * 저장은 `type: isTransfer ? 'transfer' : kind` 라 이체를 고르면 지출·수입은 버려진다.
+ * 칩이 둘 골라진 채로 남으면 「수입」 으로 보이는데 이체로 저장되고, 이체는 집계 밖이라
+ * (ADR-0005) 이번 달 번 돈이 안 오른 것을 한참 뒤에야 알게 된다.
  */
-test('이체를 켜면 지출·수입 알약이 꺼지고, 알약을 누르면 이체에서 나온다', async ({
+test('첫 화면 종류 칩은 하나만 골라지고, 고른 종류가 둘째 화면 제목이 된다', async ({
   home,
   recordSheet,
 }) => {
@@ -265,30 +268,31 @@ test('이체를 켜면 지출·수입 알약이 꺼지고, 알약을 누르면 �
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
+  await expect(recordSheet.kindChip('지출')).toHaveAttribute('aria-checked', 'true');
+  await expect(recordSheet.kindChip('이체')).toHaveAttribute('aria-checked', 'false');
+
+  await recordSheet.kindChip('이체').click();
+  await expect(recordSheet.kindChip('이체')).toHaveAttribute('aria-checked', 'true');
+  await expect(recordSheet.kindChip('지출')).toHaveAttribute('aria-checked', 'false');
+  await expect(recordSheet.kindChip('수입')).toHaveAttribute('aria-checked', 'false');
+  await recordSheet.next();
+  await expect(recordSheet.amountTitle).toHaveText('얼마 옮겼어요?');
   await recordSheet.input.enterAmount(TRANSFER_AMOUNT);
-  await expect(recordSheet.input.kindButton('지출')).toHaveAttribute('aria-pressed', 'true');
-  await expect(recordSheet.input.transferButton).toHaveAttribute('aria-pressed', 'false');
 
-  await recordSheet.input.transferButton.click();
-  await expect(recordSheet.input.transferPanel).toBeVisible();
-  await expect(recordSheet.input.transferButton).toHaveAttribute('aria-pressed', 'true');
-  await expect(recordSheet.input.kindButton('지출')).toHaveAttribute('aria-pressed', 'false');
-  await expect(recordSheet.input.kindButton('수입')).toHaveAttribute('aria-pressed', 'false');
-
-  // 알약이 되돌아가는 길이다. 누른 쪽 종류로 바로 적을 수 있어야 한다.
-  await recordSheet.input.kindButton('수입').click();
-  await expect(recordSheet.input.transferPanel).toHaveCount(0);
-  await expect(recordSheet.input.transferButton).toHaveAttribute('aria-pressed', 'false');
-  await expect(recordSheet.input.kindButton('수입')).toHaveAttribute('aria-pressed', 'true');
+  // 돌아가서 다른 칩을 누르면 이체에서 나온다. 누른 쪽 종류로 바로 적을 수 있어야 한다.
+  await recordSheet.chooseKind('수입');
+  await expect(recordSheet.amountTitle).toHaveText('얼마 벌었어요?');
+  await recordSheet.back();
+  await expect(recordSheet.kindChip('이체')).toHaveAttribute('aria-checked', 'false');
+  await expect(recordSheet.kindChip('수입')).toHaveAttribute('aria-checked', 'true');
 });
 
 /**
- * 지출·수입·이체 알약의 모양.
+ * 종류 칩의 모양.
  *
- * 이체만 밑줄 글씨로 두었더니 한 묶음으로 안 읽혔다. 셋이 **같은 폭, 같은 높이**로 한 줄에 서고,
- * 날짜 칩도 같은 줄 오른쪽 끝에 남는다. 누른 알약은 사라지지 않으니 포커스도 그 자리에 남는다.
+ * 셋이 **같은 폭, 같은 높이(38px)**로 한 줄에 선다. 누른 칩은 사라지지 않으니 포커스도 그 자리에 남는다.
  */
-test('지출·수입·이체는 같은 크기의 알약으로 한 줄에 서고, 눌러도 포커스가 그 자리에 남는다', async ({
+test('지출·수입·이체 칩은 같은 크기로 한 줄에 서고, 눌러도 포커스가 그 자리에 남는다', async ({
   home,
   recordSheet,
 }) => {
@@ -297,54 +301,48 @@ test('지출·수입·이체는 같은 크기의 알약으로 한 줄에 서고,
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  /*
-    세 알약과 날짜 칩을 **같은 순간에** 잰다. 시트가 올라오는 중에 하나씩 재면 그 사이 시트가
-    움직여 한 줄인데도 높이가 어긋나 보인다.
-  */
-  await expect(recordSheet.input.transferButton).toBeVisible();
-  const boxes = await recordSheet.input.kindToggle.evaluate((group) => {
-    const pills = [...group.querySelectorAll('button')].map((pill) => pill.getBoundingClientRect());
-    const chip = group.parentElement?.querySelector('.record__day-chip')?.getBoundingClientRect();
-    return {
-      pills: pills.map((box) => ({
+  // 세 칩을 **같은 순간에** 잰다. 시트가 올라오는 중에 하나씩 재면 그 사이 시트가 움직인다.
+  await expect(recordSheet.kindChip('이체')).toBeVisible();
+  const boxes = await recordSheet.kindGroup.evaluate((group) =>
+    [...group.querySelectorAll('[role="radio"]')].map((chip) => {
+      const box = chip.getBoundingClientRect();
+      return {
         width: Math.round(box.width),
         height: Math.round(box.height),
         middle: box.top + box.height / 2,
-      })),
-      chipMiddle: chip == null ? null : chip.top + chip.height / 2,
-    };
-  });
-  expect(boxes.pills).toHaveLength(3);
-  expect(new Set(boxes.pills.map((box) => box.width)).size, '알약 폭이 서로 다르다').toBe(1);
-  expect(new Set(boxes.pills.map((box) => box.height)).size, '알약 높이가 서로 다르다').toBe(1);
+      };
+    }),
+  );
+  expect(boxes).toHaveLength(3);
+  expect(new Set(boxes.map((box) => box.width)).size, '칩 폭이 서로 다르다').toBe(1);
+  expect(boxes.map((box) => box.height)).toEqual([38, 38, 38]);
   // 가운데 높이가 같아야 한 줄이다. 좁은 폭에서 아래로 떨어지면 여기서 걸린다.
-  for (const box of boxes.pills) {
-    expect(Math.abs(box.middle - (boxes.chipMiddle ?? 0))).toBeLessThan(2);
+  for (const box of boxes) {
+    expect(Math.abs(box.middle - boxes[0].middle)).toBeLessThan(2);
   }
 
-  await recordSheet.input.transferButton.click();
-  await expect(recordSheet.input.transferPanel).toBeVisible();
+  await recordSheet.kindChip('이체').click();
   expect(await recordSheet.focusInside).toBe(true);
-  await expect(recordSheet.input.transferButton).toBeFocused();
+  await expect(recordSheet.kindChip('이체')).toBeFocused();
 
-  // 이미 켠 알약을 한 번 더 눌러도 그대로다. 나오는 길은 지출·수입 알약이다.
-  await recordSheet.input.transferButton.click();
-  await expect(recordSheet.input.transferPanel).toBeVisible();
-  await expect(recordSheet.input.transferButton).toBeFocused();
+  // 이미 고른 칩을 한 번 더 눌러도 그대로다.
+  await recordSheet.kindChip('이체').click();
+  await expect(recordSheet.kindChip('이체')).toHaveAttribute('aria-checked', 'true');
+  await expect(recordSheet.kindChip('이체')).toBeFocused();
 });
 
-test('이체를 켰다가 끄면 분류 목록이 그대로 돌아온다', async ({ home, recordSheet }) => {
+test('이체를 골랐다가 지출로 돌아오면 분류 목록이 그대로 돌아온다', async ({ home, recordSheet }) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  await recordSheet.input.transferButton.click();
-  await expect(recordSheet.input.transferPanel).toBeVisible();
+  await recordSheet.chooseKind('이체');
+  await expect(recordSheet.amountTitle).toHaveText('얼마 옮겼어요?');
+  await expect(recordSheet.input.newCategoryButton).toHaveCount(0);
 
-  await recordSheet.input.kindButton('지출').click();
-  await expect(recordSheet.input.transferPanel).toHaveCount(0);
+  await recordSheet.chooseKind('지출');
+  await expect(recordSheet.amountTitle).toHaveText('얼마 썼어요?');
   // 되돌아왔으면 분류를 다시 고를 수 있어야 한다. 입구가 한 방향이면 갇힌다.
-  await expect(recordSheet.input.transferButton).toBeVisible();
   await expect(recordSheet.input.newCategoryButton).toBeVisible();
 });

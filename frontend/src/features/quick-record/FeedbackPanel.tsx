@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useOverlayBackClose } from '../../app/providers';
 import {
   ApiError,
   parseDecimalOr,
-  useTags,
   useUpdateTransaction,
   type CategoryOut,
   type FeedbackOut,
@@ -14,10 +14,21 @@ import {
 } from '../../shared/api';
 import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
 import { CategoryPicker, KIND_WORDS, PaymentMethodPicker, kindOf } from '../../shared/ledger';
-import { formatCurrency } from '../../shared/lib/format';
+import {
+  formatCurrency,
+  formatDayLabel,
+  formatWeekday,
+  toLedgerDate,
+} from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
-import { Button, iconOf, TransactionRow } from '../../shared/ui';
-import { TagPicker } from '../tags';
+import {
+  Button,
+  iconOf,
+  IconTextButton,
+  SavedHero,
+  SheetHeader,
+  TransactionRow,
+} from '../../shared/ui';
 
 import { toAmount } from './digits';
 import { buildFeedbackMessage } from './feedbackMessage';
@@ -38,7 +49,9 @@ interface FeedbackPanelProps {
    */
   onMethodPicked: (method: PaymentMethod | null) => void;
   onConfirm: () => void;
-  /** 머리 한 줄. 공유 가계부가 있는 사람에게는 「내 가계부에 적었어요」 로 어디에 적혔는지 말한다. */
+  /** 시트가 받은 Esc 를 이 화면의 ‹ 와 같은 길로 보내려고 건다. */
+  backRef?: { current: () => void };
+  /** 맨 위 큰 한 줄. 어디에 적혔는지 말한다. */
   label?: string;
 }
 
@@ -50,7 +63,7 @@ interface FeedbackPanelProps {
 type Editing = 'amount' | 'category' | null;
 
 /** 마지막으로 보낸 고치기가 어느 칸이었나. 오류를 그 칸 아래에 붙이려면 알아야 한다. */
-type UpdateTarget = 'amount' | 'category' | 'merchant' | 'memo' | 'payment_method' | 'tag';
+type UpdateTarget = 'amount' | 'category' | 'merchant' | 'memo' | 'payment_method';
 
 /** 상호는 서버가 120자까지 받는다. 화면에서 먼저 막아 422 를 왕복하지 않는다. */
 const MERCHANT_MAX = 120;
@@ -58,7 +71,12 @@ const MERCHANT_MAX = 120;
 /** 메모는 200자까지다. 상호와 같은 이유로 여기서 먼저 막는다. */
 const MEMO_MAX = 200;
 
-/** 저장 결과와 그에 대한 한마디. 금액·분류 고치기가 그 줄에 그대로 붙는다. */
+/**
+ * 저장 뒤 화면. 어디에 적었나, 무엇을 적었나, 예산을 넘었으면 그 한 줄.
+ *
+ * 줄을 누르면 분류를, 금액을 누르면 금액을 고친다. 어디서와 메모는 안 적어도 되는 칸이라
+ * 아이콘 줄을 눌러야 펼쳐진다. ‹ 와 뒤로가기는 확인과 같은 길을 탄다(적어 둔 칸을 보내고 닫는다).
+ */
 export function FeedbackPanel({
   flowId,
   transaction,
@@ -67,7 +85,8 @@ export function FeedbackPanel({
   onUpdated,
   onMethodPicked,
   onConfirm,
-  label = '저장했어요',
+  backRef,
+  label = '내 가계부에 적었어요',
 }: FeedbackPanelProps) {
   const analytics = useAnalytics();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -82,13 +101,18 @@ export function FeedbackPanel({
   // 확인을 눌러 만든 요청인지. 성공하면 그때 닫고, 실패하면 닫지 않는다.
   const closeAfterUpdate = useRef(false);
   const update = useUpdateTransaction();
-  const tags = useTags();
+  // 이미 값이 있는 칸은 펼친 채로 연다. 적힌 것이 숨어 있으면 안 적힌 줄로 안다.
+  const [merchantOpen, setMerchantOpen] = useState(Boolean(transaction.merchant));
+  const [memoOpen, setMemoOpen] = useState(Boolean(transaction.memo));
 
   const category = categories.find((item) => item.id === transaction.category_id);
   const overName = categories.find((item) => item.id === feedback.over_category_id)?.name;
 
   const savedAmount = parseDecimalOr(transaction.amount, 0);
   const kind = kindOf(transaction.type);
+  const isTransfer = transaction.type === 'transfer';
+  const savedDay = toLedgerDate(new Date(transaction.occurred_at));
+  const dayLabel = `${formatDayLabel(savedDay)} (${formatWeekday(savedDay)})`;
   const message = buildFeedbackMessage(feedback, {
     overCategoryName: overName,
     savedIncome: kind === 'income' ? savedAmount : undefined,
@@ -99,10 +123,6 @@ export function FeedbackPanel({
 
   const updateError = update.error instanceof ApiError ? update.error : null;
 
-  let amountHint = '금액은 1원부터 넣을 수 있어요';
-  if (update.isPending) amountHint = '고치는 중이에요';
-  else if (amountOk) amountHint = '고치면 홈 숫자도 함께 바뀌어요';
-
   // 저장하면 방금 누른 칩이 사라지면서 포커스가 시트 밖으로 떨어진다. 여기서 다시 잡는다.
   useEffect(() => {
     panelRef.current?.focus();
@@ -112,7 +132,11 @@ export function FeedbackPanel({
   useEffect(() => {
     analytics.log(
       EVENTS.feedbackShown,
-      { feedback_kind: feedback.kind, has_budget: feedback.remaining_budget != null },
+      {
+        feedback_kind: feedback.kind,
+        has_budget: feedback.remaining_budget != null,
+        book: 'mine',
+      },
       { flowId, kind: 'impression' },
     );
     // 저장 한 건에 한 번이다. 금액을 고쳐 피드백이 다시 와도 같은 저장이다.
@@ -137,23 +161,6 @@ export function FeedbackPanel({
       { id: transaction.id, body },
       {
         onSuccess: (updated) => {
-          /*
-            **붙은 것만 센다.** 칩을 누른 순간이 아니라 서버가 받아 준 뒤다.
-            누르자마자 세면 요청이 실패한 것까지 「태그를 쓴다」 에 들어가는데,
-            이 값은 태그가 실제로 쓰이는지 재는 유일한 자리라 그러면 뜻을 잃는다.
-          */
-          if (next === 'tag') {
-            analytics.log(
-              EVENTS.tagApplied,
-              {
-                where: 'record',
-                kind,
-                // 응답은 기록·피드백·예산을 함께 담은 봉투다. 태그는 그 안에 있다.
-                result: updated.transaction.tag_id == null ? 'detached' : 'attached',
-              },
-              { flowId, kind: 'click' },
-            );
-          }
           onUpdated(updated);
           setEditing(null);
           if (closeAfterUpdate.current) {
@@ -230,12 +237,6 @@ export function FeedbackPanel({
     return true;
   }
 
-  /** 태그를 달거나 뗀다. 누르는 즉시 보낸다. 되돌릴 것이 한 칸뿐이다. */
-  function changeTag(next: string | null): void {
-    if (next === (transaction.tag_id ?? null)) return;
-    apply('tag', { tag_id: next });
-  }
-
   /** 무엇으로 냈는지 고친다. 상호와 달리 누르는 즉시 보낸다. 되돌릴 것이 한 칸뿐이다. */
   function changeMethod(next: PaymentMethod | null): void {
     if (next === transaction.payment_method) return;
@@ -252,32 +253,35 @@ export function FeedbackPanel({
     onConfirm();
   }
 
+  // 폰 뒤로가기와 토스 위 ‹ 도 확인과 같다. 적어 둔 상호와 메모를 버리지 않는다.
+  useOverlayBackClose(true, confirm);
+  useEffect(() => {
+    if (backRef != null) backRef.current = confirm;
+  });
+
+  /** 안 적어도 되는 칸을 펼친다. 펼친 칸이 무엇이었는지만 남긴다. */
+  function openField(field: 'merchant' | 'memo'): void {
+    analytics.log(EVENTS.feedbackAction, { action: 'more', field }, { flowId, kind: 'click' });
+    if (field === 'merchant') setMerchantOpen(true);
+    else setMemoOpen(true);
+  }
+
   return (
     <div className="feedback" ref={panelRef} tabIndex={-1}>
+      <SheetHeader onBack={confirm} />
+      <SavedHero title={label} testId={TEST_IDS.feedbackHeadline} />
+
       {/*
         **되돌리기는 없앴다.** 서버에서 하는 일이 삭제와 똑같은데(둘 다 `deleted_at` 만
-        찍는다) 이름이 달라, 무엇을 되돌린다는 것인지 읽어 낼 수가 없었다. 8초 카운트다운도
-        단위 없는 숫자 하나라 몇 초인지 몇 건인지 알 수 없었다.
-        잘못 적었으면 아래에서 금액·분류를 고치고, 통째로 지울 일은 기록을 눌러서 지운다.
+        찍는다) 이름이 달라, 무엇을 되돌린다는 것인지 읽어 낼 수가 없었다.
+        잘못 적었으면 줄을 눌러 금액과 분류를 고치고, 통째로 지울 일은 기록을 눌러서 지운다.
 
-        비운 오른쪽 자리에는 줄을 눌러 고칠 수 있다는 것만 적는다. 줄만 놓아 두면
-        누를 수 있다는 신호가 :active 밖에 없어 아무도 안 누른다.
-      */}
-      <div className="feedback__head">
-        <span className="feedback__label">{label}</span>
-        <span className="feedback__hint">눌러서 고칠 수 있어요</span>
-      </div>
-
-      {/*
-        직접 건 이모지·사진까지 그린다. 예전에는 `icon_key` 만 넘겨서, 사진이나 이모지를
-        걸어 둔 분류로 저장하면 이 줄만 기본 그림으로 나왔다. 목록·칩은 맞고 여기만 틀려서
-        「저장은 됐는데 확인 화면이 안 바뀐다」 로 보였다.
-        분류의 그림을 그리는 자리는 전부 `iconOf` 를 편다. 두 값을 손으로 옮기지 않는다.
+        분류의 그림을 그리는 자리는 전부 `iconOf` 를 편다. 직접 건 이모지와 사진까지 그린다.
       */}
       <TransactionRow
         {...iconOf(category)}
         title={transaction.merchant ?? category?.name ?? '기록'}
-        subtitle={transaction.merchant ? category?.name : undefined}
+        subtitle={transaction.merchant ? `${category?.name ?? '기록'}, ${dayLabel}` : dayLabel}
         amount={savedAmount}
         tone={transaction.type}
         avatarSize={50}
@@ -288,27 +292,20 @@ export function FeedbackPanel({
         amountClickLabel={`${formatCurrency(savedAmount)} · 금액 바꾸기`}
       />
 
-      <div
-        className={
-          message.tone === 'caution' ? 'feedback__card feedback__card--caution' : 'feedback__card'
-        }
-        role="status"
-      >
-        {message.badge ? <span className="feedback__badge">{message.badge}</span> : null}
-        <p data-testid={TEST_IDS.feedbackHeadline} className="feedback__headline" data-numeric="">
-          {message.headline}
-        </p>
-        {message.detail ? (
-          <p data-testid={TEST_IDS.feedbackDetail} className="feedback__detail" data-numeric="">
-            {message.detail}
+      {/* 예산을 넘었을 때만 선다. 남은 예산은 말하지 않는다(홈이 늘 들고 있다). */}
+      {message != null ? (
+        <div className="feedback__card feedback__card--caution" role="status">
+          <span className="feedback__badge">{message.badge}</span>
+          <p data-testid={TEST_IDS.feedbackDetail} className="feedback__headline" data-numeric="">
+            {message.headline}
           </p>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {editing === 'amount' ? (
         <div className="feedback__change">
           <p className="feedback__change-title">얼마로 고칠까요?</p>
-          <AmountDisplay digits={digits} hint={amountHint} />
+          <AmountDisplay digits={digits} />
           <Keypad digits={digits} onChange={setDigits} />
           <Button
             className="feedback__apply"
@@ -340,99 +337,12 @@ export function FeedbackPanel({
         </div>
       ) : null}
 
-      {/* 안 적어도 되는 칸이다. 버튼 뒤에 숨기면 적을 수 있다는 것을 모른다. */}
-      <label className="feedback__merchant-field">
-        <span className="feedback__merchant-label">{KIND_WORDS[kind].where}</span>
-        <input
-          className="feedback__merchant"
-          data-testid={TEST_IDS.feedbackMerchantField}
-          type="text"
-          value={merchant}
-          maxLength={MERCHANT_MAX}
-          placeholder={KIND_WORDS[kind].wherePlaceholder}
-          autoComplete="off"
-          disabled={update.isPending}
-          onChange={(event) => setMerchant(event.target.value)}
-          onBlur={() => flushMerchant()}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') event.currentTarget.blur();
-          }}
-        />
-      </label>
-
-      {/* 상호 저장이 실패한 것은 이 칸 아래에 붙인다. 아래 오류 줄은 펼쳐 둔 칸 것만 말한다. */}
-      {target === 'merchant' && updateError ? (
-        <p className="feedback__notice" role="alert">
-          {updateError.message}
-        </p>
-      ) : null}
-
       {/*
-        상호와 **다른 칸**이다. 상호는 「어디서」 고 메모는 「무엇을·왜」 다.
-        같은 스타벅스라도 "팀 커피 쐈다" 는 상호에 적을 말이 아니고, 상호에 적으면
-        다음에 같은 가게에서 쓴 것과 묶이지 않는다.
-
-        안 적어도 되는 칸이라 저장이 끝난 다음에 묻는다. 적는 화면에 칸이 하나 더 서면
-        10초 약속이 깨진다.
+        무엇으로 냈나. **저장이 끝난 다음에 묻는다.** 적는 화면에 칸이 하나 더 서면 10초
+        약속이 깨진다. 지난번 값으로 조용히 저장해 두고 여기서 보여 준다. 수입과 이체에는
+        뜻이 없어 안 세운다.
       */}
-      <label className="feedback__merchant-field">
-        <span className="feedback__merchant-label">메모</span>
-        <input
-          className="feedback__merchant"
-          data-testid={TEST_IDS.feedbackMemoField}
-          type="text"
-          value={memo}
-          maxLength={MEMO_MAX}
-          placeholder="남겨 두고 싶은 한마디"
-          autoComplete="off"
-          disabled={update.isPending}
-          onChange={(event) => setMemo(event.target.value)}
-          onBlur={() => flushMemo()}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') event.currentTarget.blur();
-          }}
-        />
-      </label>
-
-      {target === 'memo' && updateError ? (
-        <p className="feedback__notice" role="alert">
-          {updateError.message}
-        </p>
-      ) : null}
-
-      {/*
-        어느 묶음인가. 이체에는 뜻이 없어 아예 안 세운다(리포트의 어느 조각에도 안 들어간다).
-        태그를 하나도 안 만든 사람에게는 만들러 가는 길 한 줄만 보인다.
-      */}
-      {transaction.type === 'transfer' ? null : (
-        <TagPicker
-          className="feedback__tags"
-          // `kindOf` 가 환불을 지출로 눕혀 준다. 환불은 나갔던 묶음에서 빠지는 돈이다.
-          kind={kind}
-          tags={tags.data?.items ?? []}
-          selectedId={transaction.tag_id ?? null}
-          disabled={update.isPending}
-          onChange={changeTag}
-        />
-      )}
-
-      {target === 'tag' && updateError ? (
-        <p className="feedback__notice" role="alert">
-          {updateError.message}
-        </p>
-      ) : null}
-
-      {/*
-        무엇으로 냈나. **저장이 끝난 다음에 묻는다.**
-
-        적는 화면에 칸이 하나 더 서면 10초 약속이 깨진다. 그래서 지난번 값으로 조용히
-        저장해 두고, 무엇으로 적혔는지를 여기서 보여 준다. 눌린 것을 다시 누르면 지워진다.
-        「안 골라도 돼요」 같은 말은 붙이지 않는다. 이미 저장이 끝난 화면이라 아무것도 막고
-        있지 않고, 한 줄을 더 읽히는 것이 그 자체로 부담이다.
-
-        수입·이체에는 뜻이 없어 아예 안 세운다.
-      */}
-      {kind === 'expense' ? (
+      {kind === 'expense' && !isTransfer ? (
         <PaymentMethodPicker
           className="feedback__pay"
           value={transaction.payment_method}
@@ -446,6 +356,83 @@ export function FeedbackPanel({
           {updateError.message}
         </p>
       ) : null}
+
+      {/*
+        상호와 메모는 **다른 칸**이다. 상호는 「어디서」 고 메모는 「무엇을, 왜」 다.
+        안 적어도 되는 칸이라 누른 사람에게만 그 자리에서 펼친다. 이체에는 상호가 없다.
+      */}
+      {merchantOpen && !isTransfer ? (
+        <label className="feedback__merchant-field">
+          <span className="feedback__merchant-label">{KIND_WORDS[kind].where}</span>
+          <input
+            className="feedback__merchant"
+            data-testid={TEST_IDS.feedbackMerchantField}
+            type="text"
+            value={merchant}
+            maxLength={MERCHANT_MAX}
+            placeholder={KIND_WORDS[kind].wherePlaceholder}
+            autoComplete="off"
+            // 누른 사람만 펼친다. 펼치자마자 적을 수 있게 칸을 잡는다.
+            autoFocus={!transaction.merchant}
+            disabled={update.isPending}
+            onChange={(event) => setMerchant(event.target.value)}
+            onBlur={() => flushMerchant()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.currentTarget.blur();
+            }}
+          />
+        </label>
+      ) : null}
+
+      {/* 상호 저장이 실패한 것은 이 칸 아래에 붙인다. 아래 오류 줄은 펼쳐 둔 칸 것만 말한다. */}
+      {target === 'merchant' && updateError ? (
+        <p className="feedback__notice" role="alert">
+          {updateError.message}
+        </p>
+      ) : null}
+
+      {memoOpen ? (
+        <label className="feedback__merchant-field">
+          <span className="feedback__merchant-label">메모</span>
+          <input
+            className="feedback__merchant"
+            data-testid={TEST_IDS.feedbackMemoField}
+            type="text"
+            value={memo}
+            maxLength={MEMO_MAX}
+            placeholder="남겨 두고 싶은 한마디"
+            autoComplete="off"
+            autoFocus={!transaction.memo}
+            disabled={update.isPending}
+            onChange={(event) => setMemo(event.target.value)}
+            onBlur={() => flushMemo()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.currentTarget.blur();
+            }}
+          />
+        </label>
+      ) : null}
+
+      {target === 'memo' && updateError ? (
+        <p className="feedback__notice" role="alert">
+          {updateError.message}
+        </p>
+      ) : null}
+
+      {(merchantOpen || isTransfer) && memoOpen ? null : (
+        <div className="pk-icon-text-row">
+          {merchantOpen || isTransfer ? null : (
+            <IconTextButton icon="place" onClick={() => openField('merchant')}>
+              {kind === 'income' ? '어디서 받았나요' : '어디서 썼나요'}
+            </IconTextButton>
+          )}
+          {memoOpen ? null : (
+            <IconTextButton icon="memo" onClick={() => openField('memo')}>
+              메모 남기기
+            </IconTextButton>
+          )}
+        </div>
+      )}
 
       {editing !== null && target !== 'merchant' && updateError ? (
         <p className="feedback__notice" role="alert">

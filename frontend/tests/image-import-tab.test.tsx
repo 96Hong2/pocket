@@ -67,7 +67,6 @@ const MODES = [
     scenarioKey: 'album' as const,
     capability: 'albumPick' as const,
     button: '캡처 고르기',
-    guide: /거래내역 캡처를 골라주세요/,
     deniedTitle: '사진 접근이 꺼져 있어요',
   },
   {
@@ -75,7 +74,6 @@ const MODES = [
     scenarioKey: 'camera' as const,
     capability: 'camera' as const,
     button: '영수증 찍기',
-    guide: /영수증이 잘 보이게 찍어주세요/,
     deniedTitle: '카메라 접근이 꺼져 있어요',
   },
 ];
@@ -88,7 +86,8 @@ describe.each(MODES)('$kind 탭에서 사진을 가져오지 못할 때', (mode)
 
     // 사용자가 스스로 그만둔 것이다. 오류로 말하면 잘못한 것처럼 읽힌다.
     expect(screen.queryAllByRole('alert')).toHaveLength(0);
-    expect(screen.getByText(mode.guide)).toBeInTheDocument();
+    // 처음 화면 그대로다. 실패했으면 버튼이 「다시 시도」 로 바뀐다.
+    expect(screen.getByRole('button', { name: mode.button })).toBeEnabled();
   });
 
   it('접근이 꺼져 있으면 무엇이 꺼졌는지 말한다', async () => {

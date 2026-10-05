@@ -74,8 +74,8 @@ test('영수증 한 장을 찍어 상호 없는 한 건을 저장한다', async 
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await expect(recordSheet.methodTab('영수증')).toBeEnabled();
-  await recordSheet.methodTab('영수증').click();
-  await expect(recordSheet.receipt.guide).toBeVisible();
+  await recordSheet.chooseWay('영수증');
+  await expect(recordSheet.receipt.setupCta).toBeVisible();
 
   await recordSheet.receipt.pick();
 
@@ -120,7 +120,7 @@ test('사진 접근이 꺼져 있어도 영수증은 그대로 돈다', async ({
   expect(await photoPermissionDenied(page)).toBe(true);
 
   await home.recordButton.click();
-  await recordSheet.methodTab('영수증').click();
+  await recordSheet.chooseWay('영수증');
   await recordSheet.receipt.pick();
 
   await expect(recordSheet.receipt.rows).toHaveCount(1);
@@ -139,16 +139,16 @@ test('촬영을 취소하면 아무 말도 하지 않고 첫 화면 그대로다
   expect(await mockImagesSeeded(page)).toBe(true);
 
   await home.recordButton.click();
-  await recordSheet.methodTab('영수증').click();
+  await recordSheet.chooseWay('영수증');
   await recordSheet.receipt.pickButton.click();
 
   // 사용자가 스스로 그만둔 것이다. 오류로 말하면 잘못한 것처럼 읽힌다.
   await expect(recordSheet.receipt.pickAlert).toHaveCount(0);
-  await expect(recordSheet.receipt.guide).toBeVisible();
+  await expect(recordSheet.receipt.panelPickButton).toBeVisible();
   await expect(recordSheet.receipt.readLine).toHaveCount(0);
   // 잠금이 풀려야 다시 찍거나 다른 탭으로 갈 수 있다.
   await expect(recordSheet.closeButton).toBeVisible();
-  await expect(recordSheet.methodTab('키패드')).toBeEnabled();
+  await expect(recordSheet.backButton).toBeEnabled();
 });
 
 test('카메라 접근이 꺼져 있으면 사진이 아니라 카메라라고 말한다', async ({
@@ -164,7 +164,7 @@ test('카메라 접근이 꺼져 있으면 사진이 아니라 카메라라고 �
   expect(await cameraPermissionDenied(page)).toBe(true);
 
   await home.recordButton.click();
-  await recordSheet.methodTab('영수증').click();
+  await recordSheet.chooseWay('영수증');
   await recordSheet.receipt.pickButton.click();
 
   await expect(recordSheet.receipt.permissionDenied).toBeVisible();
@@ -188,12 +188,12 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
   await home.waitReady();
 
   await home.recordButton.click();
-  await recordSheet.methodTab('영수증').click();
+  await recordSheet.chooseWay('영수증');
   await recordSheet.receipt.pickButton.click();
 
   await expect(recordSheet.receipt.analyzing).toBeVisible();
   // 결과가 돌아올 자리를 없애면 하루 상한만 깎고 얻은 것이 사라진다.
-  await expect(recordSheet.methodTab('키패드')).toBeDisabled();
+  await expect(recordSheet.backButton).toBeDisabled();
   await expect(recordSheet.closeButton).toHaveCount(0);
   await recordSheet.closeByEsc();
   await recordSheet.waitOpen();
@@ -206,7 +206,7 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
   release();
 
   await expect(recordSheet.receipt.readLine).toBeVisible();
-  await expect(recordSheet.methodTab('키패드')).toBeEnabled();
+  await expect(recordSheet.backButton).toBeEnabled();
   await expect(recordSheet.closeButton).toBeVisible();
 });
 
@@ -214,8 +214,8 @@ test('영수증 탭을 열어도 Tab 키가 시트 밖으로 새지 않는다', 
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('영수증').click();
-  await expect(recordSheet.receipt.guide).toBeVisible();
+  await recordSheet.chooseWay('영수증');
+  await expect(recordSheet.receipt.setupCta).toBeVisible();
 
   // 감춘 패널이 하나 더 늘었다. 그것들의 버튼까지 포커스 대상으로 세면 마지막 자리가
   // 안 보이는 요소가 되어 되감기가 안 걸리고 포커스가 시트 밖으로 나간다.
@@ -240,7 +240,7 @@ test('한 건도 못 읽으면 왜인지 짚어 주고 그 자리에서 키패�
   await home.waitReady();
 
   await home.recordButton.click();
-  await recordSheet.methodTab('영수증').click();
+  await recordSheet.chooseWay('영수증');
   await recordSheet.receipt.pick();
 
   await expect(recordSheet.receipt.emptyNotice).toBeVisible();

@@ -142,8 +142,9 @@ export function monthWord(periodStart: string, today: string): string {
 }
 
 /**
- * 「이번 달 남은 예산 215,200원」 또는 「이번 달 같이 쓴 돈 32,000원」.
+ * 「이번 달 같이 쓴 돈 32,000원」, 예산을 넘었으면 「이번 달 예산보다 8,000원 더 썼어요」.
  *
+ * 남은 예산은 말하지 않는다. 저장 뒤 화면에서 남은 돈 문장을 걷었고, 넘은 것만 사실로 알린다.
  * 여행 가계부는 달이 아니라 여행 전체로 정산한다. 서버도 여행 전체를 세어 보낸다(`month`).
  * 그래서 「이번 여행에 같이 쓴 돈」 이다.
  */
@@ -151,9 +152,8 @@ export function monthLine(book: BookOut, month: BookMonthStateOut): string {
   const trip = book.kind === 'trip';
   const when = trip ? '이번 여행' : monthWord(month.period_start, toLedgerDate(new Date()));
   const remaining = parseDecimal(month.remaining);
-  if (month.budget != null && remaining != null) {
-    if (remaining < 0) return `${when} 예산보다 ${formatCurrency(-remaining)} 더 썼어요`;
-    return `${when} 남은 예산 ${formatCurrency(remaining)}`;
+  if (month.budget != null && remaining != null && remaining < 0) {
+    return `${when} 예산보다 ${formatCurrency(-remaining)} 더 썼어요`;
   }
   const spent = formatCurrency(parseDecimalOr(month.spent, 0));
   return trip ? `${when}에 같이 쓴 돈 ${spent}` : `${when} 같이 쓴 돈 ${spent}`;

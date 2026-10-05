@@ -96,7 +96,9 @@ test('예산을 넘기면 게이지는 100에서 멈추고 퍼센트와 남은 �
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
 
-  await expect(recordSheet.feedback.headline).toHaveText(
+  // 넘은 것은 사실 경고라 저장 뒤 화면에 한 줄로 남는다. 맨 위 제목은 어디에 적었는지다.
+  await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
+  await expect(recordSheet.feedback.detail).toHaveText(
     `이번 달 예산을 ${formatCurrency(30_000)} 넘었어요.`,
   );
   await recordSheet.feedback.confirmButton.click();
@@ -208,7 +210,7 @@ test('카테고리 한도를 딱 채우면 초과가 아니고, 1원을 더 쓰�
   await recordSheet.feedback.waitSaved();
 
   // 넘긴 금액을 어디서 빼는지가 여기서 드러난다. 1원이 아니면 기준이 틀린 것이다.
-  await expect(recordSheet.feedback.headline).toHaveText(
+  await expect(recordSheet.feedback.detail).toHaveText(
     `식비에서 예산을 ${formatCurrency(1)} 넘었어요.`,
   );
   await recordSheet.feedback.confirmButton.click();

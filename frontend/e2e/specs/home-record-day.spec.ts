@@ -6,12 +6,12 @@ import {
 } from '../../src/shared/lib/format';
 import { expect, test } from '../support/fixtures';
 
-/** 알약에 적히는 오늘. 「오늘」 이 아니라 날짜 그대로다. */
+/** 첫 화면 맨 위 날짜에 적히는 오늘의 날짜 부분. 앞에 「오늘」 이 붙는다. */
 function todayLabel(): string {
   return formatDayLabel(toLedgerDate(new Date()));
 }
 
-/** 알약에 적히는 어제. 가계부 시간대로 센다. */
+/** 첫 화면 맨 위 날짜에 적히는 어제의 날짜 부분. 가계부 시간대로 센다. */
 function yesterdayLabel(): string {
   return formatDayLabel(shiftDay(toLedgerDate(new Date()), -1));
 }
@@ -22,8 +22,8 @@ function yesterdayLabel(): string {
  * 실기기 신고에서 나왔다. 「어제 기록하기」 를 눌러 적었는데 오늘에 들어갔다.
  * 시트가 날짜를 아예 못 받고 늘 `new Date()` 로 저장하고 있었다.
  *
- * 규칙은 버튼 이름과 같다. **이름에 날이 붙은 버튼만 그 날에 적는다.**
- * 위의 큰 「기록하기」 는 날 이름이 없으니 어느 날을 보고 있든 오늘이다.
+ * 시트는 **보고 있던 날이 골라진 채** 열린다. 이름에 날이 붙은 버튼도, 위의 큰 「기록하기」 도
+ * 같다. 날짜는 첫 화면 맨 위에서 바꾼다.
  */
 
 test('어제 기록하기로 적으면 어제에 남는다', async ({ home, recordSheet }) => {
@@ -34,7 +34,7 @@ test('어제 기록하기로 적으면 어제에 남는다', async ({ home, reco
 
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayChip).toHaveText(yesterdayLabel());
+  await expect(recordSheet.dayButton).toContainText(`어제 ${yesterdayLabel()} (`);
   await recordSheet.input.enterAmount(7000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
@@ -64,8 +64,8 @@ test('어제보다 더 전인 날도 그 날에 남는다', async ({ home, recor
   await expect(home.today.emptyButton).toHaveText(`${label} 기록하기`);
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
-  // 알약에도 그 날 이름이 그대로 적힌다. 「어제」 로 뭉뚱그리지 않는다.
-  await expect(recordSheet.input.dayChip).toHaveText(label);
+  // 첫 화면 맨 위에도 그 날 이름이 그대로 적힌다. 「어제」 로 뭉뚱그리지 않는다.
+  await expect(recordSheet.dayButton).toContainText(`${label} (`);
 
   await recordSheet.input.enterAmount(9000);
   await recordSheet.input.pickCategory('식비');
@@ -89,7 +89,7 @@ test('오늘 기록하기는 오늘에 남고 날짜 안내가 없다', async ({
 
   await home.today.emptyButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayChip).toHaveText(todayLabel());
+  await expect(recordSheet.dayButton).toContainText(`오늘 ${todayLabel()} (`);
   await recordSheet.input.enterAmount(5000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
@@ -100,7 +100,7 @@ test('오늘 기록하기는 오늘에 남고 날짜 안내가 없다', async ({
   await expect(home.today.emptyButton).toHaveCount(0);
 });
 
-test('지난 날을 보는 중에 큰 기록하기를 누르면 어느 날에 적을지 먼저 묻는다', async ({
+test('지난 날을 보는 중에 큰 기록하기를 누르면 그 날이 골라진 채 첫 화면이 열린다', async ({
   home,
   recordSheet,
 }) => {
@@ -109,22 +109,14 @@ test('지난 날을 보는 중에 큰 기록하기를 누르면 어느 날에 �
   await home.today.prevDayButton.click();
   await expect(home.today.title).toHaveText('어제');
 
-  // 바로 열리지 않는다. 이 버튼은 늘 오늘에 적는데, 며칠 전을 훑다 누른 사람은
-  // 보고 있던 날에 적힐 것이라고 여긴다.
+  /*
+    따로 묻지 않는다. 날짜가 첫 화면 맨 위에 있어 거기서 묻고 바꾼다. 앞에서 한 번 더 물으면
+    같은 것을 두 번 묻게 된다. 며칠 전을 훑다 누른 사람은 보던 날에 적힐 것이라고 여긴다.
+  */
   await home.recordButton.click();
-  await expect(home.recordDayAsk).toBeVisible();
-  await expect(recordSheet.isVisible).resolves.toBe(false);
-
-  // 그만두면 아무 일도 없다.
-  await home.recordDayClose.click();
   await expect(home.recordDayAsk).toHaveCount(0);
-  await expect(recordSheet.isVisible).resolves.toBe(false);
-
-  // 어제를 고르면 어제에 적는다. 시트가 어느 날인지 적어 준다.
-  await home.recordButton.click();
-  await home.recordDayChoice('어제').click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayChip).toHaveText(yesterdayLabel());
+  await expect(recordSheet.dayButton).toContainText(`어제 ${yesterdayLabel()} (`);
   await recordSheet.input.enterAmount(4500);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
@@ -135,7 +127,7 @@ test('지난 날을 보는 중에 큰 기록하기를 누르면 어느 날에 �
   await expect(home.today.row('식비')).toBeVisible();
 });
 
-test('물음에서 오늘을 고르면 오늘에 적히고 방식도 고를 수 있다', async ({
+test('지난 날을 보다 연 시트에서 오늘로 바꾸면 오늘에 적히고 방식도 고를 수 있다', async ({
   home,
   recordSheet,
 }) => {
@@ -145,10 +137,10 @@ test('물음에서 오늘을 고르면 오늘에 적히고 방식도 고를 수 
   await expect(home.today.title).toHaveText('어제');
 
   await home.recordButton.click();
-  await home.recordDayChoice('오늘').click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayChip).toHaveText(todayLabel());
-  // 오늘로 갔으면 날이 붙은 버튼으로 들어온 것이 아니라 방식 알약이 그대로 있다.
+  await recordSheet.chooseDay(toLedgerDate(new Date()));
+  await expect(recordSheet.dayButton).toContainText(`오늘 ${todayLabel()} (`);
+  // 날을 바꿔도 방법 카드는 그대로 다 고를 수 있다.
   await expect(recordSheet.methodTab('줄글')).toBeEnabled();
 
   await recordSheet.input.enterAmount(3000);
@@ -164,7 +156,7 @@ test('물음에서 오늘을 고르면 오늘에 적히고 방식도 고를 수 
   await expect(home.today.title).toHaveText('오늘');
   await expect(home.today.emptyButton).toHaveCount(0);
 
-  // 보고 있던 어제에 잘못 적히지 않았다. 큰 버튼은 늘 오늘에 적는다.
+  // 보고 있던 어제에 잘못 적히지 않았다.
   await home.today.prevDayButton.click();
   await expect(home.today.title).toHaveText('어제');
   await expect(home.today.emptyButton).toBeVisible();
@@ -201,7 +193,7 @@ test('기록이 있는 지난 날에도 목록 아래에서 하나 더 적는다
   await home.today.addMoreButton.click();
   await recordSheet.waitOpen();
   // 보고 있던 날 그대로 열린다. 오늘로 새지 않는다.
-  await expect(recordSheet.input.dayChip).toHaveText(yesterdayLabel());
+  await expect(recordSheet.dayButton).toContainText(`어제 ${yesterdayLabel()} (`);
   await recordSheet.input.enterAmount(1200);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();

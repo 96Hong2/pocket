@@ -35,6 +35,7 @@ test('화살표로 올린 분류가 기록 화면에서도 앞에 선다', async
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   const chips = await recordSheet.input.categoryChipNames();
   expect(chips.slice(0, 2)).toEqual(['카페·간식', '식비']);
@@ -78,6 +79,7 @@ test('아래로 밀어 열한 자리 밖으로 보내면 「더 보기」 뒤로
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   // 열한 개는 그대로 서고, 밀려난 하나만 뒤로 간다. 없어지는 것이 아니다.
   const chips = await recordSheet.input.categoryChipNames();

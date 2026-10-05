@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics, type FlowId } from '../../shared/analytics';
 import {
   ApiError,
@@ -11,7 +12,9 @@ import {
   type BookMonthStateOut,
   type BookOut,
 } from '../../shared/api';
-import { Button, TransactionRow, iconOf } from '../../shared/ui';
+import { formatDayLabel, formatWeekday } from '../../shared/lib/format';
+import { TEST_IDS } from '../../shared/testIds';
+import { Button, SavedHero, SheetHeader, TransactionRow, iconOf } from '../../shared/ui';
 
 import { entryCategory, entryTitle, monthLine, othersSeeLine } from './bookEntryText';
 import { BookPayerRow } from './BookPayerRow';
@@ -24,13 +27,16 @@ export interface BookFeedbackPanelProps {
   month: BookMonthStateOut;
   onEntryChange: (entry: BookEntryOut) => void;
   onConfirm: () => void;
+  /** 시트가 받은 Esc 를 이 화면의 ‹ 와 같은 길로 보내려고 건다. */
+  backRef?: { current: () => void };
 }
 
 /**
  * 공유 가계부에 적은 뒤의 한 화면.
  *
- * 개인 저장 뒤 화면(`FeedbackPanel`)보다 짧다. 어디에 적혔나, 그 달 우리 돈이 어떤가,
- * 누가 볼 수 있나, 누가 냈나까지다. 상호·메모·태그·결제 수단 칸은 없다.
+ * 개인 저장 뒤 화면(`FeedbackPanel`)과 머리가 같다. ‹, 체크 그림, 「(가계부 이름)에 적었어요」.
+ * 그 아래는 그 달 우리 돈, 누가 볼 수 있나, 누가 냈나까지다. 상호, 메모, 태그, 결제 수단 칸은 없다.
+ * ‹ 와 뒤로가기는 확인과 같은 길을 탄다.
  * 잘못 골랐으면 「내 가계부로 옮기기」 한 번으로 되돌린다. 옮긴 것도 「되돌리기」 로 제자리에 돌아온다.
  */
 export function BookFeedbackPanel({
@@ -40,6 +46,7 @@ export function BookFeedbackPanel({
   month,
   onEntryChange,
   onConfirm,
+  backRef,
 }: BookFeedbackPanelProps) {
   const analytics = useAnalytics();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -53,6 +60,17 @@ export function BookFeedbackPanel({
     panelRef.current?.focus();
   }, []);
 
+  // 저장 뒤 화면을 보여 줬다. 공유 가계부에는 내 예산이 없어 그 가계부의 예산 여부를 싣는다.
+  useEffect(() => {
+    analytics.log(
+      EVENTS.feedbackShown,
+      { has_budget: month.budget != null, book: 'shared' },
+      { flowId, kind: 'impression' },
+    );
+    // 저장 한 건에 한 번이다. 낸 사람을 고쳐 다시 그려져도 같은 저장이다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const busy = update.isPending || moveOut.isPending || undoMove.isPending;
   const error = [update.error, moveOut.error].find((item) => item instanceof ApiError);
   // 되돌리기가 막힌 이유는 서버 문구로. 없으면 한 줄로 끝낸다.
@@ -63,6 +81,7 @@ export function BookFeedbackPanel({
         ? (undoMove.error.serverMessage ?? '되돌리지 못했어요')
         : '되돌리지 못했어요';
   const category = entryCategory(book, entry);
+  const dayLabel = `${formatDayLabel(entry.occurred_on)} (${formatWeekday(entry.occurred_on)})`;
 
   function changePayer(memberId: string): void {
     if (memberId === entry.paid_by_member_id) return;
@@ -110,18 +129,24 @@ export function BookFeedbackPanel({
     onConfirm();
   }
 
+  // 폰 뒤로가기와 토스 위 ‹ 도 확인과 같다. 옮기는 중에는 삼킨다.
+  useOverlayBackClose(true, confirm, busy);
+  useEffect(() => {
+    if (backRef != null) backRef.current = () => (busy ? undefined : confirm());
+  });
+
   return (
     <div className="feedback book-feedback" ref={panelRef} tabIndex={-1}>
-      <div className="feedback__head">
-        <span className="feedback__label book-feedback__label">
-          {moved ? '내 가계부로 옮겼어요' : `${book.name}에 적었어요`}
-        </span>
-      </div>
+      <SheetHeader onBack={() => (busy ? undefined : confirm())} />
+      <SavedHero
+        title={moved ? '내 가계부로 옮겼어요' : `${book.name}에 적었어요`}
+        testId={TEST_IDS.feedbackHeadline}
+      />
 
       <TransactionRow
         {...iconOf(category)}
         title={entryTitle(book, entry)}
-        subtitle={entry.title != null ? category?.name : undefined}
+        subtitle={entry.title != null ? `${category?.name ?? '기록'}, ${dayLabel}` : dayLabel}
         amount={parseDecimalOr(entry.amount, 0)}
         tone="expense"
         avatarSize={50}

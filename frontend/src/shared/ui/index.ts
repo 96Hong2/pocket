@@ -4,7 +4,7 @@ export {
   type AmountFieldProps,
   type AmountFieldVariant,
 } from './AmountField';
-export { BottomSheet, type BottomSheetProps } from './BottomSheet';
+export { BottomSheet, type BottomSheetProps, type SheetCloseReason } from './BottomSheet';
 export { Button, type ButtonProps, type ButtonVariant } from './Button';
 export { CalendarGlyph } from './CalendarGlyph';
 export { CardClose } from './CardClose';
@@ -27,6 +27,8 @@ export {
   type SegmentedControlProps,
   type SegmentedOption,
 } from './SegmentedControl';
+export { IconTextButton, SavedHero, type IconTextButtonIcon } from './SavedHero';
+export { SheetHeader, type SheetHeaderProps } from './SheetHeader';
 export { TagMark } from './TagMark';
 export { Toast, type ToastProps } from './Toast';
 export { Toggle, type ToggleProps } from './Toggle';

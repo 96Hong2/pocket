@@ -90,10 +90,9 @@ test('예산이 없으면 관리 탭이 정하기를 권하고, 홈은 쓴 돈�
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
 
-  // 예산이 없을 때의 한마디는 사실만 말한다.
-  await expect(recordSheet.feedback.headline).toHaveText(
-    `이번 달 ${formatCurrency(12_000)} 썼어요.`,
-  );
+  // 저장 뒤 맨 위는 어디에 적었는지 한 줄이다. 예산이 없으니 판정 카드도 없다.
+  await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
+  await expect(recordSheet.feedback.detail).toHaveCount(0);
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
 
@@ -289,8 +288,9 @@ test('카테고리 예산을 넘겨 지출하면 저장 직후 그 카테고리�
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
 
-  // 전체 예산은 아직 남았다. 넘긴 것은 이 카테고리라고 짚어 말해야 한다.
-  await expect(recordSheet.feedback.headline).toHaveText(
+  // 전체 예산은 아직 남았다. 넘긴 것은 이 카테고리라고 짚어 말해야 한다(넘은 것만 한 줄로 남는다).
+  await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
+  await expect(recordSheet.feedback.detail).toHaveText(
     `식비에서 예산을 ${formatCurrency(20_000)} 넘었어요.`,
   );
   await recordSheet.feedback.confirmButton.click();

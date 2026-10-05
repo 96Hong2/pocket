@@ -741,11 +741,7 @@ function SavedPanel({
       <BookSavedPanel result={result} book={book} onDone={onDone} testId={testId} notice={notice} />
     );
   }
-  const budget = result.budget;
-  // 지난달 날짜만 저장하면 서버가 그 달의 예산 상태를 준다. '이번 달' 이라고 적으면 거짓말이라
-  // 감추는 대신 어느 달인지 적는다. 감추면 예산을 정해 둔 사람이 이유 없이 한 줄을 잃는다.
-  const remaining = budget?.remaining_budget ?? null;
-  const monthLabel = budget == null ? null : periodLabel(budget.period_start);
+  // 남은 예산은 말하지 않는다. 저장 뒤 화면은 몇 건을 적었는지까지다. 남은 돈은 홈이 들고 있다.
   const total = parseDecimalOr(result.expense_total, 0);
 
   return (
@@ -753,11 +749,6 @@ function SavedPanel({
       <p className="nl__saved-title">
         {result.created_count}건 저장했어요{total > 0 ? ` · ${formatCurrency(total)}` : ''}
       </p>
-      {remaining != null && monthLabel != null ? (
-        <p className="nl__saved-detail">
-          {monthLabel} 남은 예산 {formatCurrency(parseDecimalOr(remaining, 0))}
-        </p>
-      ) : null}
       {notice}
       <Button fullWidth onClick={onDone}>
         확인
@@ -802,16 +793,6 @@ function BookSavedPanel({
       </Button>
     </div>
   );
-}
-
-function thisMonth(): string {
-  return toLedgerDate(new Date()).slice(0, 7);
-}
-
-/** `이번 달` 또는 `8월`. 어느 달의 예산을 말하는지 한 눈에 보이게 한다. */
-function periodLabel(periodStart: string): string {
-  if (periodStart.slice(0, 7) === thisMonth()) return '이번 달';
-  return `${Number(periodStart.slice(5, 7))}월`;
 }
 
 /**

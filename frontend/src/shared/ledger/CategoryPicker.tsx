@@ -14,10 +14,10 @@ export interface CategoryPickerProps {
   disabled?: boolean;
   onPick: (category: CategoryOut) => void;
   /**
-   * 「관리 › 카테고리 관리」 를 눌렀을 때. **안 넘기면 밑줄도 없는 그냥 글이다.**
+   * 「카테고리 관리」 칩을 눌렀을 때. 안 넘기면 그 칩이 없다.
    *
-   * 화면을 옮기면 이 자리를 감싼 시트가 통째로 사라진다. 적던 금액이나 읽어 온 목록을
-   * 잃어도 되는지, 묻고 나서 옮겨야 하는지는 부르는 쪽만 안다. 그래서 길도 부르는 쪽이 낸다.
+   * 화면을 옮기면 이 자리를 감싼 시트가 통째로 사라진다. 잃을 것이 있는지 묻고 나서
+   * 옮겨야 하는지는 부르는 쪽만 알아서 길도 부르는 쪽이 낸다.
    */
   onManage?: () => void;
   /**
@@ -45,12 +45,7 @@ export interface CategoryPickerProps {
    * 실제로 기록 시트에서 키패드도 저장 버튼도 없는 막다른 화면이 됐다.
    */
   onOpenChange?: (open: boolean) => void;
-  /**
-   * 펼쳤을 때 「관리 › 카테고리 관리에서…」 안내를 세울지. 기본은 세운다.
-   *
-   * 검토 줄처럼 격자를 잠깐 열어 하나 고르고 닫는 자리, 관리 화면이 없는 공유 가계부 분류는
-   * 이 줄이 할 일을 하나 더 얹을 뿐이라 뺀다.
-   */
+  /** 다 펼쳤을 때 끝에 「카테고리 관리」 칩을 세울지. `onManage` 가 있어야 선다. */
   manageNote?: boolean;
   /** 작은 자리(수정 시트·검토 목록)에서는 칩을 낮게 그린다. */
   size?: 'lg' | 'sm';
@@ -66,7 +61,7 @@ export interface CategoryPickerProps {
  *
  * **접혀 있을 때는 앞자리 열한 개뿐이다.** 나머지는 「더 보기」 뒤로 간다. 분류를 만들수록
  * 목록이 길어져 고르기가 느려지는 것을 이 한 줄이 막는다.
- * 펼치면 전부 보이고, 거기서 새로 만들 수도 있고, 순서를 어디서 바꾸는지도 적어 둔다.
+ * 펼치면 전부 보이고, 거기서 새로 만들 수도 있고, 카테고리 관리로 갈 수도 있다.
  *
  * **숨긴 것이 없으면 「더 보기」를 세우지 않는다.** 열어도 분류가 한 개도 안 나오는 버튼이라,
  * 누른 사람은 뭘 더 볼 수 있다고 믿고 눌렀다가 「새 분류」만 본다. 그 자리에 「새 분류」를
@@ -173,26 +168,15 @@ export function CategoryPicker({
 
       {open ? (
         <>
-          {/*
-            분류가 많아 펼친 사람에게만 한다. 숨긴 것이 없으면 이 줄도 없다.
-
-            **앞자리는 부르는 쪽이 길을 줄 때만 누를 수 있다.** 자리 이름을 읽고 그 자리를
-            찾아가는 일이 「관리 탭을 열고 목록에서 카테고리 관리를 찾는」 왕복이라 밑줄을
-            그어 바로 데려간다. 다만 이 컴포넌트는 읽어 온 목록을 든 검토 화면에도 서는데,
-            거기서 화면을 옮기면 그 목록이 말없이 사라진다. **여기서 직접 링크를 걸지 않고**
-            잃을 것이 있는지 아는 쪽이 `onManage` 로 길을 내준다.
-          */}
-          {manageNote ? (
-            <p className="cat-chips__note">
-              {onManage == null ? (
-                '관리 › 카테고리 관리'
-              ) : (
-                <button type="button" className="cat-chips__note-link" onClick={onManage}>
-                  관리 › 카테고리 관리
-                </button>
-              )}
-              에서 순서를 바꾸고, 앞에 보일 분류를 고를 수 있어요
-            </p>
+          {manageNote && onManage != null ? (
+            <button
+              type="button"
+              className="cat-chips__item cat-chips__item--more cat-chips__item--manage"
+              disabled={disabled}
+              onClick={onManage}
+            >
+              <span className="cat-chips__name">카테고리 관리</span>
+            </button>
           ) : null}
 
           {pickedIsHidden ? null : (
