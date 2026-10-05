@@ -7,6 +7,7 @@ import {
   toLedgerDate,
 } from '../../src/shared/lib/format';
 import { expect, test } from '../support/fixtures';
+import { shotBothWidths as shot } from '../support/shots';
 
 /**
  * 리포트에서 한 칸 더 들어가기.
@@ -63,6 +64,8 @@ test('저축·투자 기록은 홈, 달력 목록, 검색, 고치기 시트에�
 
   await calendar.open();
   await calendar.waitReady();
+  // 저축·투자 줄 제목은 어디에 넣었는지다. 메모는 아랫줄에 선다.
+  await expect(calendar.list.rowSubtitle('연금저축')).toHaveText('연금 납입');
   await expect(calendar.list.rowAvatar('도약 납입').locator('img')).toHaveAttribute(
     'src',
     CASH_ICON,
@@ -422,4 +425,77 @@ test('리포트 탭을 다시 눌러도 보던 달과 수입 탭 그대로고, �
   await expect(report.monthLabel()).toHaveText(
     formatMonthLabel(toLedgerDate(new Date()).slice(0, 7)),
   );
+});
+
+test('분류 화면에 다녀오거나 고치기 시트를 닫아도 리포트는 보던 자리 그대로다', async ({
+  page,
+  prep,
+  report,
+  reportCategory,
+  appShell,
+}) => {
+  const month = lastMonth();
+  const spends: [string, number][] = [
+    ['식비', 90_000],
+    ['카페·간식', 70_000],
+    ['편의점', 50_000],
+    ['교통', 40_000],
+    ['쇼핑', 30_000],
+  ];
+  for (const [index, [name, amount]] of spends.entries()) {
+    await prep.addTransaction({
+      amount,
+      categoryId: await prep.categoryIdByName(name),
+      merchant: `${name} 가게`,
+      on: `${month}-${String(index + 1).padStart(2, '0')}`,
+    });
+  }
+  const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
+
+  await report.open({ month });
+  await report.waitReady();
+  await shot(page, '고친_리포트_분류가기전', report.row('쇼핑'));
+  await report.row('쇼핑').evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  const before = await scrollY();
+  expect(before).toBeGreaterThan(0);
+
+  // 토스 ‹ 로 돌아온다.
+  await report.row('쇼핑').click();
+  await reportCategory.waitReady();
+  await appShell.pressBack();
+  await expect.poll(() => new URL(page.url()).pathname).toBe(ROUTES.report);
+  await expect.poll(scrollY).toBeGreaterThan(0);
+  expect(Math.abs((await scrollY()) - before)).toBeLessThan(40);
+  await shot(page, '고친_리포트_분류다녀온뒤');
+
+  // 브라우저 뒤로도 같다.
+  await report.row('쇼핑').evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  const again = await scrollY();
+  await report.row('쇼핑').click();
+  await reportCategory.waitReady();
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).pathname).toBe(ROUTES.report);
+  await expect.poll(scrollY).toBeGreaterThan(0);
+  expect(Math.abs((await scrollY()) - again)).toBeLessThan(40);
+
+  // 큰 지출 줄의 고치기 시트를 닫아도 자리가 그대로다.
+  await report
+    .largeExpenseRow('교통 가게')
+    .evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  const atLarge = await scrollY();
+  expect(atLarge).toBeGreaterThan(0);
+  await report.largeExpenseRow('교통 가게').click();
+  await report.edit.waitOpen();
+  await appShell.pressBack();
+  await report.edit.waitClosed();
+  expect(Math.abs((await scrollY()) - atLarge)).toBeLessThan(40);
+
+  // 고쳐서 닫아 리포트를 다시 읽어도 같다.
+  await report.largeExpenseRow('교통 가게').click();
+  await report.edit.waitOpen();
+  await report.edit.amount.fill('45000');
+  await report.edit.doneButton.click();
+  await report.edit.waitClosed();
+  await expect(report.largeExpenseAmount('교통 가게')).toHaveText(onlyAmount(45_000));
+  expect(Math.abs((await scrollY()) - atLarge)).toBeLessThan(40);
 });

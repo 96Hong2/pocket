@@ -4,6 +4,7 @@ import { formatCurrency } from '../../src/shared/lib/format';
 import { logsNamed } from '../support/aitMock';
 import type { AssetSeed } from '../support/api';
 import { expect, test } from '../support/fixtures';
+import { shotBothWidths as shot } from '../support/shots';
 import type { HomeScreen } from '../screens/HomeScreen';
 import type { RecordSheet } from '../screens/RecordSheet';
 
@@ -93,7 +94,9 @@ test('저축·투자를 저장하면 어디에 얼마 넣었는지 말하고 홈
   await home.waitReady();
   await expect(home.hero.remainingBudget).toHaveText(formatCurrency(900_000));
   await expect(home.today.spentTotal).toHaveText('100,000원 씀');
-  await expect(home.today.row('저축·투자')).toBeVisible();
+  // 저축·투자 줄은 어디에 넣었는지가 이름이고, 아랫줄이 「저축·투자」 다.
+  await expect(home.today.rowSubtitle('청년도약계좌')).toHaveText('저축·투자');
+  await shot(page, '고친_홈_오늘목록_저축투자줄', home.today.rowSubtitle('청년도약계좌'));
 });
 
 test('「다른 곳」 → 「새 종목이나 통장」 으로 종류와 이름만 적으면 그 종목이 골라져 돌아오고 수량 없이는 저장이 꺼진다', async ({
@@ -360,6 +363,11 @@ test('기록 시트에서 팔면 제목이 「얼마 받았어요?」 이고 저
   const saved = (await logsNamed(page, 'save_result')).at(-1);
   expect(saved?.params.side).toBe('sell');
   expect(saved?.params.qty_all).toBe(false);
+
+  // 홈 오늘 목록의 판 줄은 종목 이름 아래 「팔았어요」.
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+  await expect(home.today.rowSubtitle('삼성전자')).toHaveText('팔았어요');
 });
 
 test('항목 시트 「팔았어요」 로 연 기록을 저장하면 보유와 넣은 돈이 판 몫만큼 줄고 실현 수익이 남는다', async ({
@@ -386,6 +394,9 @@ test('항목 시트 「팔았어요」 로 연 기록을 저장하면 보유와 
   await expect(recordSheet.sellPreview).toContainText('+50,000원');
   await recordSheet.input.saveButton.click();
   await expect(recordSheet.feedback.headline).toHaveText('삼성전자 1주 팔았어요');
+  // 이미 자산 화면이라 「자산 보기」 를 세우지 않는다.
+  await expect(recordSheet.feedback.confirmButton).toBeVisible();
+  await expect(recordSheet.assetsButton).toHaveCount(0);
 
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();

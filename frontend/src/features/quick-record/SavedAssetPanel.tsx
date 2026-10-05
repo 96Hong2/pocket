@@ -41,8 +41,8 @@ export interface SavedAssetPanelProps {
   asset: SavedAssetInfo;
   onUpdated: (updated: TransactionUpdated) => void;
   onConfirm: () => void;
-  /** 「자산 보기」. 시트를 닫고 자산 화면으로 간다. */
-  onAssets: () => void;
+  /** 「자산 보기」. 시트를 닫고 자산 화면으로 간다. 이미 자산 화면에서 열었으면 안 넘겨 단추가 없다. */
+  onAssets?: () => void;
   backRef?: { current: () => void };
 }
 
@@ -131,7 +131,7 @@ export function SavedAssetPanel({
     analytics.log(EVENTS.feedbackAction, { action: 'assets' }, { flowId, kind: 'click' });
     // 적어 둔 메모는 보내 두고 간다. 응답은 기다리지 않는다.
     flushMemo();
-    onAssets();
+    onAssets?.();
   }
 
   function openMemo(): void {
@@ -242,9 +242,11 @@ export function SavedAssetPanel({
       ) : null}
 
       <div className="saved-asset__actions">
-        <Button variant="outline" onClick={openAssets}>
-          자산 보기
-        </Button>
+        {onAssets == null ? null : (
+          <Button variant="outline" onClick={openAssets}>
+            자산 보기
+          </Button>
+        )}
         <Button className="saved-asset__confirm" onClick={confirm}>
           확인
         </Button>

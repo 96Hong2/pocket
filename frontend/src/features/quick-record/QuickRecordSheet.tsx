@@ -1654,7 +1654,8 @@ function RecordBody({
               )
             }
             onConfirm={finish}
-            onAssets={openAssets}
+            // 자산 화면 항목 시트에서 열었으면 이미 자산 화면이다.
+            onAssets={from === 'asset_item' ? undefined : openAssets}
             backRef={savedBackRef}
           />
         </div>

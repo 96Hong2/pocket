@@ -57,8 +57,9 @@ export function LedgerRow({
   const sold = saving && transaction.asset_side === 'sell';
   const kind = saving ? undefined : KIND_LABEL[transaction.type];
   const excluded = transaction.excluded_from_budget;
-  const savingTitle = sold ? `${transaction.asset_label ?? '저축·투자'} 팔았어요` : '저축·투자';
-  const savingSub = sold ? '받은 돈' : (transaction.asset_label ?? undefined);
+  // 저축·투자 줄은 어디에 넣었는지가 이름이고, 아랫줄이 넣었는지 팔았는지를 말한다.
+  const savingTitle = transaction.asset_label ?? transaction.merchant ?? '저축·투자';
+  const savingSub = sold ? '팔았어요' : savingTitle === '저축·투자' ? undefined : '저축·투자';
   const tag = transaction.tag_id
     ? tags.find((item) => item.id === transaction.tag_id)
     : undefined;
@@ -74,7 +75,7 @@ export function LedgerRow({
   return (
     <TransactionRow
       {...icon}
-      title={transaction.merchant ?? (saving ? savingTitle : (category?.name ?? '기록'))}
+      title={saving ? savingTitle : (transaction.merchant ?? category?.name ?? '기록')}
       /*
         메모가 있으면 분류 이름 대신 메모를 보여 준다.
 

@@ -68,6 +68,16 @@ export class AssetAnalysisScreen {
     return this.page.getByTestId(TEST_IDS.analysisSaving);
   }
 
+  /** 저축률 카드 이름 옆 기간. 한 달 시작일이 1 이 아닐 때만 선다. */
+  get savingPeriod(): Locator {
+    return this.page.getByTestId(TEST_IDS.analysisSavingPeriod);
+  }
+
+  /** 투자 수익률 카드의 「판 것」 줄. */
+  realizedRow(name: string): Locator {
+    return this.returns.locator('[data-kind="realized"]').filter({ hasText: name });
+  }
+
   get monthly(): Locator {
     return this.page.getByTestId(TEST_IDS.analysisMonthly);
   }

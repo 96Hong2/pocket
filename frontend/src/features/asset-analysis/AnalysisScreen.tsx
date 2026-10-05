@@ -8,6 +8,7 @@ import {
   parseDecimalOr,
   useAssetAnalysis,
   useAssetHistory,
+  useCurrentPeriod,
   type AnalysisReturnRowOut,
   type AnalysisReturnsOut,
   type AnalysisSavedItemOut,
@@ -20,8 +21,9 @@ import {
   formatSignedCurrency,
   toLedgerDate,
 } from '../../shared/lib/format';
+import { formatPeriodRange } from '../../shared/lib/monthPeriod';
 import { TEST_IDS } from '../../shared/testIds';
-import { Card, ErrorState, LoadingState, iconUrl } from '../../shared/ui';
+import { Card, ErrorState, LoadingState, PeriodRange, iconUrl } from '../../shared/ui';
 import { ASSET_GROUP_VIEWS, assetItemName } from '../assets';
 import { CategoryDonut, MonthBars, RankList, ShareBars, donutColors } from '../reports';
 
@@ -157,6 +159,7 @@ function AllAnalysis({
       ratio: noPension ? group.ratio_without_pension : group.ratio,
     }));
   const summary = data.summary;
+  const debt = parseDecimalOr(summary?.total_liabilities, 0);
   const total = parseDecimalOr(
     noPension ? summary?.total_assets_without_pension : summary?.total_assets,
     0,
@@ -196,7 +199,10 @@ function AllAnalysis({
         {summary != null ? (
           <div className="analysis-net" data-testid={TEST_IDS.analysisNetWorth}>
             <span>부채</span>
-            <b>-{formatCurrency(parseDecimalOr(summary.total_liabilities, 0))}</b>
+            <b>
+              {debt > 0 ? '-' : ''}
+              {formatCurrency(debt)}
+            </b>
             <span>순자산</span>
             <b>{formatCurrency(parseDecimalOr(summary.net_worth, 0))}</b>
           </div>
@@ -587,12 +593,23 @@ function SavingCard({ saving }: { saving: NonNullable<AssetAnalysisOut['saving']
   const rate = parseDecimal(saving.rate);
   const saved = parseDecimalOr(saving.saved, 0);
   const goal = saving.goal;
+  // 서버도 오늘이 든 기간으로 센다. 한 달 시작일이 1 이 아니면 「이번 달」 이 며칠부터인지 적는다.
+  const current = useCurrentPeriod();
 
   return (
     <Card className="analysis-card analysis-card--two" data-testid={TEST_IDS.analysisSaving}>
       <div className="analysis-card__half">
-        <span className="analysis-card__kicker">
-          {rate != null ? '이번 달 저축률' : '이번 달 모은 돈'}
+        <span className="analysis-card__titled">
+          <span className="analysis-card__kicker">
+            {rate != null ? '이번 달 저축률' : '이번 달 모은 돈'}
+          </span>
+          {current.startDay !== 1 ? (
+            <PeriodRange
+              className="analysis-card__period"
+              range={formatPeriodRange(current.period)}
+              testId={TEST_IDS.analysisSavingPeriod}
+            />
+          ) : null}
         </span>
         <b className="analysis-card__big">
           {rate != null ? formatRatio(saving.rate) : formatCurrency(saved)}

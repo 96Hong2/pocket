@@ -451,7 +451,8 @@ def build_analysis(
         summary=summary,
         total_without_pension=summary.total_assets - _group_totals(scoped)[AssetGroup.PENSION],
         groups=group_slices(scoped),
-        returns=investment_returns(item for item in scoped if item.kind is not None),
+        # 종류 없는 투자 항목(캡처로 금액만 들어온 것)도 판 기록과 평가를 센다. 항목 줄 칩과 같다.
+        returns=investment_returns(item for item in scoped if item.group is AssetGroup.INVESTMENT),
         month_change=(
             None
             if previous_groups is None

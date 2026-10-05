@@ -98,8 +98,16 @@ describe('항목 줄 한 줄', () => {
   });
 
   it('금액 종목은 넣은 돈만, 통장은 줄이 없다', () => {
-    expect(itemMetaOf(item({ kind: 'fund', cost_basis: '300000' }))).toBe('넣은 돈 300,000원');
+    expect(itemMetaOf(item({ kind: 'fund', cost_basis: '300000', amount: '320000' }))).toBe(
+      '넣은 돈 300,000원',
+    );
     expect(itemMetaOf(item({ group: 'cash' }))).toBeNull();
+  });
+
+  it('다 판 금액 종목은 넣은 돈 0원 대신 보유 없음', () => {
+    const soldOut = item({ kind: null, cost_basis: '0', amount: '0', rate: '41.7' });
+    expect(itemMetaOf(soldOut)).toBe('보유 없음');
+    expect(itemMetaOf(item({ kind: 'fund', cost_basis: null, amount: '0' }))).toBe('보유 없음');
   });
 
   it('넣은 돈을 모르는 투자 항목은 넣은 돈을 적지 않고 칩도 없다', () => {

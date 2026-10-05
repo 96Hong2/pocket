@@ -549,6 +549,30 @@ def test_넣은_돈_모르는_항목을_전부_팔고_넣은_돈을_적으면_�
     assert (item["realized"], item["rate"], item["rate_kind"]) == ("400000", "50.0", "realized")
 
 
+def test_종류_없는_항목을_넣은_돈_적고_다_팔면_전체_분석_수익률에_판_것으로_든다(
+    client: TestClient,
+) -> None:
+    key = _captured(client, amount="1577696")
+    _save(
+        client,
+        "1700000",
+        asset_item_key=key,
+        asset_side="sell",
+        asset_remaining="0",
+        asset_cost_basis="1200000",
+    )
+
+    returns = client.get("/api/v1/assets/analysis", headers=AUTH).json()["returns"]
+
+    row = next(row for row in returns["rows"] if row["item_key"] == key)
+    assert (row["realized"], row["realized_rate"]) == ("500000", "41.7")
+    assert (row["rate"], row["gain"]) == (None, None)
+    assert (returns["realized"], returns["realized_rate"]) == ("500000", "41.7")
+    # 항목 줄 칩과 같은 숫자다.
+    item = _item(_assets(client), "아마존")
+    assert (item["rate"], item["rate_kind"]) == ("41.7", "realized")
+
+
 def test_넣은_돈을_비우고_팔면_받은_돈만_적히고_수익률은_어디에도_없다(
     client: TestClient,
 ) -> None:
