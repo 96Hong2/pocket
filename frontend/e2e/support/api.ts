@@ -96,6 +96,8 @@ export interface AssetTransferSeed {
   quantity?: string;
   on?: string;
   daysAgo?: number;
+  /** 줄 부제 자리에 서고 달력 검색에 걸린다. */
+  memo?: string;
 }
 
 /** 심을 공유 가계부 하나. 안 준 값은 연인·부부 「둘이 쓰는 돈」 반반, 내 이름 「은홍」 이다. */
@@ -430,6 +432,7 @@ export class PrepApi {
         asset_item_key: seed.itemKey,
         asset_side: seed.side ?? 'buy',
         ...(seed.quantity != null ? { asset_quantity: seed.quantity } : {}),
+        ...(seed.memo != null ? { memo: seed.memo } : {}),
       },
     });
     expectOk(response.status(), await response.text(), '저축·투자 거래를 심지 못했다');
@@ -471,6 +474,14 @@ export class PrepApi {
   }
 
   /** 홈 맨 위에 무엇을 보여줄지. 설정 화면을 거치지 않고 그 상태를 만든다. */
+  /** 예산과 리포트의 한 달 시작일(1 ~ 28). 바꾸면 서버가 예산 줄을 같은 이름 달로 옮긴다. */
+  async setMonthStartDay(day: number): Promise<void> {
+    const response = await this.context.patch('/api/v1/preferences', {
+      data: { month_start_day: day },
+    });
+    expectOk(response.status(), await response.text(), '한 달 시작일을 바꾸지 못했다');
+  }
+
   async setHomeHero(
     hero: 'remaining_budget' | 'income_expense' | 'income_and_budget',
   ): Promise<void> {

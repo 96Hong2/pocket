@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
 from app.core.config import Settings
+from app.domain.period import BudgetPeriod
 from app.integrations.email.port import EmailMessage, EmailSender
 from app.models import (
     AssetEntry,
@@ -39,9 +40,11 @@ from app.models import (
     UserDevice,
     UserPreference,
 )
+from app.modules import ledger
 from app.modules.account.schemas import EmailVerifyOut, MeOut
 from app.modules.assets.merge import absorb_assets
 from app.modules.books import service as books
+from app.modules.budgets import service as budgets
 
 __all__ = ["me_view", "peek_code", "start_email_login", "update_profile", "verify_email_login"]
 
@@ -273,12 +276,22 @@ def _absorb(session: Session, *, source: User, target: User) -> None:
             rule.user_id = target.id
     session.flush()
 
-    # 예산. 같은 달은 target 것을 남긴다.
-    target_periods = set(
-        session.scalars(select(Budget.period_start).where(Budget.user_id == target.id))
+    # 예산. 두 쪽 한 달 시작일이 다를 수 있어 이름 달(10월)로 견주고, source 줄은 target 의
+    # 시작일 기간으로 옮긴다. 옛 기간 그대로 두면 아무도 안 보는 자리에 앉았다가, 나중에
+    # 시작일을 바꿀 때 target 의 같은 달 줄과 한데 묶인다. 같은 이름 달은 target 것을 남긴다.
+    target_rows = list(session.scalars(select(Budget).where(Budget.user_id == target.id)))
+    taken = {BudgetPeriod(row.period_start, row.period_end).key for row in target_rows}
+    seated = {row.period_start for row in target_rows}
+    source_rows = sorted(
+        session.scalars(select(Budget).where(Budget.user_id == source.id)),
+        key=budgets.keep_order,
+        reverse=True,
     )
-    for budget in session.scalars(select(Budget).where(Budget.user_id == source.id)):
-        if budget.period_start in target_periods:
+    for budget in source_rows:
+        key = BudgetPeriod(budget.period_start, budget.period_end).key
+        year, month = (int(part) for part in key.split("-"))
+        period = ledger.period_of_month(target, year, month)
+        if key in taken or period.start in seated:
             # **지우지 않고 접는다.** 겹치는 달은 target 것을 쓰지만, 이쪽이 정해 둔 금액과
             # 카테고리 한도가 통째로 사라지면 합치기 한 번에 몇 달치가 없던 일이 된다.
             # 옮기지도 않는다. 같은 달 자리를 둘이 잡으면 unique 가 막는다.
@@ -291,6 +304,9 @@ def _absorb(session: Session, *, source: User, target: User) -> None:
             budget.deleted_at = now
         else:
             budget.user_id = target.id
+            budget.period_start, budget.period_end = period.start, period.end
+            taken.add(key)
+            seated.add(period.start)
     session.flush()
 
     # 목표. 진행 중인 것은 하나뿐이라 target 에 있으면 source 것은 접는다.

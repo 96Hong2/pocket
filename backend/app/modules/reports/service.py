@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
+from enum import StrEnum
 
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ from app.domain.report import (
     BreakdownRow,
     MethodRow,
     TagRanking,
+    breakdown_keys,
     rank_breakdown,
     rank_methods,
     rank_tags,
@@ -28,7 +30,14 @@ from app.modules.assets import entries as asset_entries, service as assets
 from app.modules.budgets import service as budgets
 from app.modules.goals import service as goals
 
-__all__ = ["MonthlyReport", "build_closing", "build_monthly"]
+__all__ = [
+    "CategoryDetail",
+    "CategoryTab",
+    "MonthlyReport",
+    "build_category",
+    "build_closing",
+    "build_monthly",
+]
 
 # 결산 순자산 장이 연속 달을 세는 가장 긴 기간. 자산 추이 상한과 같다.
 _NET_WORTH_MONTHS = 24
@@ -263,3 +272,56 @@ def _has_any(session: Session, user: User, period: BudgetPeriod) -> bool:
         .first()
         is not None
     )
+
+
+class CategoryTab(StrEnum):
+    """리포트의 소비·수입 탭. 분류 화면이 어느 쪽 줄을 눌렀는지."""
+
+    EXPENSE = "expense"
+    INCOME = "income"
+
+
+# 탭마다 목록에 오르는 종류. 소비 줄은 환불을 빼고 센 값이라 환불 줄도 함께 보여야 합이 맞는다.
+_TAB_TYPES = {
+    CategoryTab.EXPENSE: (agg.TransactionType.EXPENSE, agg.TransactionType.REFUND),
+    CategoryTab.INCOME: (agg.TransactionType.INCOME,),
+}
+
+
+@dataclass(frozen=True)
+class CategoryDetail:
+    period: BudgetPeriod
+    total: Money
+    # 최근 것부터. 무지출 표시는 금액이 0 인 표식이라 싣지 않는다.
+    transactions: list[Transaction]
+
+
+def build_category(
+    session: Session, user: User, period: BudgetPeriod, tab: CategoryTab, key: str
+) -> CategoryDetail:
+    """리포트 분류 줄 하나를 펼친 것. 합계는 그 줄 금액과 같은 셈이다.
+
+    리포트와 같은 행을 한 번 읽어 합계와 목록을 함께 낸다. 따로 읽으면 그 사이 저장이 끼어
+    줄 금액과 목록 합이 어긋난다.
+    """
+    rows = ledger.period_transactions(session, user, period)
+    totals = agg.aggregate_period(ledger.as_inputs(user, rows), period)
+    spend = totals.category_spend if tab is CategoryTab.EXPENSE else totals.category_income
+    keys = breakdown_keys(spend, key)
+
+    total = Money.zero()
+    for category_key in keys:
+        total = total + spend.get(category_key, Money.zero())
+
+    wanted = set(keys)
+    types = _TAB_TYPES[tab]
+    picked = [
+        row
+        for row in rows
+        if row.type in types
+        and row.source != agg.TransactionSource.NO_SPEND
+        and (str(row.category_id) if row.category_id else None) in wanted
+    ]
+    # 같은 시각이면 id 로 가른다. 목록 화면과 같은 순서라 같은 달을 다시 열어도 줄이 안 바뀐다.
+    picked.sort(key=lambda row: (ledger.as_utc(row.occurred_at), row.id), reverse=True)
+    return CategoryDetail(period=period, total=total, transactions=picked)

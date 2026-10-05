@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES
 from app.api.months import MonthQuery
+from app.domain.period import BudgetPeriod
 from app.models import Transaction, User
 from app.modules import ledger
 from app.modules.assets import entries as asset_entries
@@ -132,8 +133,11 @@ def calendar(
     user: CurrentUser,
     period: MonthQuery,
 ) -> CalendarMonthOut:
-    """달력 격자용 날짜별 합계. 기본 기간은 사용자 시간대의 이번 달이다."""
-    month = period or ledger.period_for(user, ledger.today_for(user))
+    """달력 격자용 날짜별 합계. 기본 기간은 사용자 시간대의 이번 달이다.
+
+    달력은 한 달 시작일과 상관없이 늘 달력 월이다(ADR-0046).
+    """
+    month = period or BudgetPeriod.containing(ledger.today_for(user))
     return CalendarMonthOut(
         period_start=month.start,
         period_end=month.end,
@@ -155,11 +159,20 @@ def summary(
     user: CurrentUser,
     period: MonthQuery,
 ) -> PeriodSummaryOut:
+    """달력 화면 위 합계. 합계는 달력 월이고, 예산 블록은 이름이 같은 달의 예산 기간이다.
+
+    시작일이 25 면 10월 달력의 예산 블록은 9월 25일 ~ 10월 24일 예산이다. 예산을 달력 월로
+    다시 세면 홈과 같은 달 예산이 두 숫자가 되고, 그 달력 월에 예산 줄을 이어쓰게 된다.
+    """
     # 기본 기간은 사용자 시간대의 오늘이 속한 달이다. 서버가 UTC 로 돌아도 마찬가지다.
     today = ledger.today_for(user)
-    month = period or ledger.period_for(user, today)
+    month = period or BudgetPeriod.containing(today)
     totals = ledger.load_period_totals(session, user, month)
-    budget_status = budgets.budget_status(session, user, month, totals, today)
+    budget_period = ledger.period_of_month(user, month.start.year, month.start.month)
+    budget_totals = totals
+    if budget_period != month:
+        budget_totals = ledger.load_period_totals(session, user, budget_period)
+    budget_status = budgets.budget_status(session, user, budget_period, budget_totals, today)
     return PeriodSummaryOut(
         period_start=month.start,
         period_end=month.end,
@@ -167,12 +180,21 @@ def summary(
         month_income=totals.month_income.amount,
         monthly_delta=totals.monthly_delta.amount,
         budget=to_budget_state(
-            month,
+            budget_period,
             budget_status,
-            is_auto_carried=budgets.is_carried(session, user, month),
+            is_auto_carried=budgets.is_carried(session, user, budget_period),
             today=today,
         ),
     )
+
+
+@router.get("/{tx_id}", response_model=TransactionOut)
+def show(tx_id: uuid.UUID, session: DbSession, user: CurrentUser) -> TransactionOut:
+    """기록 하나. 내 것이고 안 지운 것만. 리포트 큰 지출 줄을 눌러 고칠 때 쓴다.
+
+    `/calendar`·`/summary` 뒤에 둔다. 앞에 두면 그 경로가 이 자리에 잡혀 422 가 난다.
+    """
+    return _outs(session, user, [service.get_owned(session, user, tx_id)])[0]
 
 
 @router.delete("/{tx_id}", status_code=status.HTTP_204_NO_CONTENT)

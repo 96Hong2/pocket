@@ -129,7 +129,7 @@ def build(session: Session, user: User, scope: AnalysisScope) -> AnalysisView:
             income=ledger.load_period_totals(session, user, period).month_income,
         ),
         goal=goals.evaluate(goal, today) if goal is not None else None,
-        previous_month=previous.month.start.strftime("%Y-%m") if previous is not None else None,
+        previous_month=previous.month.key if previous is not None else None,
         previous_effective_on=previous.effective_on if previous is not None else None,
         saved_items=tuple(
             SavedItem(slice=row, row=heads.get(uuid.UUID(row.key)))

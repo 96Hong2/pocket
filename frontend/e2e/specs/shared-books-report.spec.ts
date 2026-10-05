@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 
 import {
   formatCurrency,
+  formatMonthLabel,
   shiftDay,
   shiftMonth,
   toLedgerDate,
@@ -285,6 +286,39 @@ test('같이 쓰는 가계부가 없으면 리포트는 예전 그대로다. 칩
   await expect(report.adSlot).toHaveCount(1);
   await expect(report.insight.card).toHaveCount(0);
   expect(await adsShown(page)).toBe(0);
+});
+
+test('가계부는 달력 월을 세고, 가계부를 바꾸면 보던 달을 버리고 그쪽의 이번 달로 연다', async ({
+  page,
+  prep,
+  report,
+}) => {
+  await seedBook(prep);
+  const today = ledgerToday();
+  const day = Number(today.slice(8, 10));
+  const calendarMonth = today.slice(0, 7);
+  // 내 리포트의 이름 달이 달력 월과 어긋나는 시작일. 15일에만 어긋나는 시작일이 없다.
+  // 14일 이전에 다음 날을 시작일로 두면 이름 달은 지난달, 16일 이후에 16일이면 다음 달이다.
+  const startDay = day < 15 ? day + 1 : 16;
+  const namedMonth = shiftMonth(calendarMonth, day < 15 ? -1 : day > 15 ? 1 : 0);
+  await prep.setMonthStartDay(startDay);
+
+  await openBookReport(report);
+  await expect(report.monthLabel()).toHaveText(formatMonthLabel(calendarMonth));
+  await report.goPreviousMonth();
+  await report.goPreviousMonth();
+  await expect(report.monthLabel()).toHaveText(formatMonthLabel(shiftMonth(calendarMonth, -2)));
+  // 가계부에서 옮긴 거리는 달력 월로 센다.
+  const moves = await logsNamed(page, 'report_month_changed');
+  expect(moves.map((log) => [log.params.step, log.params.to, log.params.months_back])).toEqual([
+    ['back', 'past', 1],
+    ['back', 'past', 2],
+  ]);
+
+  await report.book.pick('내 가계부');
+  await expect(report.monthLabel()).toHaveText(formatMonthLabel(namedMonth));
+  await report.book.pick('우리 집');
+  await expect(report.monthLabel()).toHaveText(formatMonthLabel(calendarMonth));
 });
 
 test.describe('좁은 화면', () => {

@@ -3,6 +3,9 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { ROUTES } from '../../src/app/router/routes';
 import { TEST_IDS } from '../../src/shared/testIds';
 
+import { EditSheetArea } from './CalendarScreen';
+import { MonthStartArea } from './MonthStartArea';
+
 /**
  * 리포트 탭. 그 달의 총액·조각·6개월 흐름을 한 화면에서 본다.
  *
@@ -20,6 +23,10 @@ export class ReportScreen {
   readonly book: ReportBookArea;
   /** 공유 가계부 리포트의 「자세히 보기」 카드. */
   readonly insight: ReportInsightArea;
+  /** 기간 줄이 여는 한 달 시작일 시트. */
+  readonly monthStart: MonthStartArea;
+  /** 큰 지출 줄을 눌러 뜨는 「기록 수정」 시트. 달력과 같은 시트다. */
+  readonly edit: EditSheetArea;
 
   constructor(page: Page) {
     this.page = page;
@@ -27,6 +34,8 @@ export class ReportScreen {
     this.closing = new ClosingArea(page);
     this.book = new ReportBookArea(page);
     this.insight = new ReportInsightArea(page);
+    this.monthStart = new MonthStartArea(page);
+    this.edit = new EditSheetArea(page);
   }
 
   /**
@@ -48,6 +57,11 @@ export class ReportScreen {
     await expect(this.total).toBeVisible();
   }
 
+  /** 탭 줄 오른쪽 「저축·투자 ›」. 자산 화면으로 간다. 공유 가계부 리포트에는 없다. */
+  get assetsLink(): Locator {
+    return this.root.getByRole('button', { name: /^저축·투자/ });
+  }
+
   /** 소비/수입 전환. 기본은 소비다. */
   modeTab(label: '소비' | '수입'): Locator {
     return this.root.getByRole('radio', { name: label, exact: true });
@@ -57,12 +71,24 @@ export class ReportScreen {
     return this.root.getByText(/^\d{4}년 \d{1,2}월$/);
   }
 
+  /** 달 이름 아래 `9.25 ~ 10.24`. 한 달 시작일이 1 이면 없다. */
+  get periodLine(): Locator {
+    return this.root.getByTestId(TEST_IDS.reportPeriod);
+  }
+
+  /** 달은 주소에 들어 있어 눌러도 한 박자 뒤에 그려진다. 이름이 바뀔 때까지 기다린다. */
   async goPreviousMonth(): Promise<void> {
-    await this.monthButton('previous').click();
+    await this.stepMonth('previous');
   }
 
   async goNextMonth(): Promise<void> {
-    await this.monthButton('next').click();
+    await this.stepMonth('next');
+  }
+
+  private async stepMonth(direction: 'previous' | 'next'): Promise<void> {
+    const before = await this.monthLabel().innerText();
+    await this.monthButton(direction).click();
+    await expect(this.monthLabel()).not.toHaveText(before);
   }
 
   /** 지금 열려 있는 주소. 결산처럼 한 번만 쓰는 파라미터가 남았는지 여기로 본다. */
@@ -86,7 +112,7 @@ export class ReportScreen {
    * 자리가 여기다. **보던 달을 들고 간다.**
    */
   get calendarLink(): Locator {
-    return this.page.getByRole('link', { name: '이 달을 달력으로 보기', exact: true });
+    return this.page.getByRole('link', { name: '달력으로 보기', exact: true });
   }
 
   get thisMonthJump(): Locator {
@@ -118,6 +144,41 @@ export class ReportScreen {
     return this.donut.locator('circle');
   }
 
+  /** 조각 하나. 목록 줄과 같은 차례다(0 이 가장 큰 조각). */
+  donutSlice(index: number): Locator {
+    return this.donutSlices.nth(index);
+  }
+
+  /**
+   * 조각 하나를 손가락으로 누른다.
+   *
+   * 조각은 링 위의 호라서 상자 가운데를 누르면 링 구멍에 빠진다. 그 조각 호의 가운데 각도에
+   * 있는 링 위 점을 계산해 누르고, 그 점에 실제로 그 조각이 있는지 먼저 확인한다.
+   */
+  async tapDonutSlice(index: number): Promise<void> {
+    await this.donut.scrollIntoViewIfNeeded();
+    const point = await this.donutSlice(index).evaluate((node) => {
+      const circle = node as unknown as SVGCircleElement;
+      const svg = circle.ownerSVGElement;
+      if (svg == null) throw new Error('도넛 svg 가 없다');
+      const radius = Number(circle.getAttribute('r'));
+      const cx = Number(circle.getAttribute('cx'));
+      const cy = Number(circle.getAttribute('cy'));
+      const round = 2 * Math.PI * radius;
+      const length = Number((circle.getAttribute('stroke-dasharray') ?? '0').split(' ')[0]);
+      const start = -Number(circle.getAttribute('stroke-dashoffset') ?? '0');
+      // 12시에서 시계 방향으로 돈다.
+      const angle = (2 * Math.PI * (start + length / 2)) / round;
+      const box = svg.getBoundingClientRect();
+      const scale = box.width / svg.viewBox.baseVal.width;
+      const x = box.left + (cx + radius * Math.sin(angle)) * scale;
+      const y = box.top + (cy - radius * Math.cos(angle)) * scale;
+      if (document.elementFromPoint(x, y) !== circle) throw new Error('누를 점에 그 조각이 없다');
+      return { x, y };
+    });
+    await this.page.mouse.click(point.x, point.y);
+  }
+
   /**
    * 조각과 목록 줄에 실제로 칠해진 색.
    *
@@ -146,6 +207,15 @@ export class ReportScreen {
 
   amount(name: string | RegExp): Locator {
     return this.row(name).getByTestId(TEST_IDS.reportRowAmount);
+  }
+
+  /** 차례로 본 줄의 이름 칸. 조각과 같은 차례다. */
+  rowNameAt(index: number): Locator {
+    return this.rows.nth(index).locator('.report__row-name');
+  }
+
+  rowAmountAt(index: number): Locator {
+    return this.rows.nth(index).getByTestId(TEST_IDS.reportRowAmount);
   }
 
   share(name: string | RegExp): Locator {
@@ -212,6 +282,13 @@ export class ReportScreen {
   /** 6개월 막대. 기록이 없는 달도 남으므로 늘 여섯이다. */
   get trendBars(): Locator {
     return this.root.getByTestId(TEST_IDS.reportTrendBar);
+  }
+
+  /** 흐름 막대마다 아래 적힌 달 이름(`10월`). 막대와 같은 차례다. */
+  get trendLabels(): Locator {
+    return this.root
+      .getByRole('listitem')
+      .filter({ has: this.page.getByTestId(TEST_IDS.reportTrendBar) });
   }
 
   trendBar(month: string): Locator {

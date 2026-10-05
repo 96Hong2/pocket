@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, SmallInteger, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Entity, SoftDeleteMixin, str_enum_type
@@ -37,6 +37,11 @@ class Gender(StrEnum):
 
 class User(Entity, SoftDeleteMixin):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint(
+            "month_start_day >= 1 AND month_start_day <= 28", name="month_start_day_range"
+        ),
+    )
 
     # Apps in Toss 익명 식별키 해시. 이름·이메일·전화 같은 개인정보는 저장하지 않는다.
     # (이메일은 예외다. 사용자가 스스로 연결한 것만 아래 email 에 남는다.)
@@ -44,6 +49,13 @@ class User(Entity, SoftDeleteMixin):
 
     # 월 경계·하루 가용액 계산 기준 시간대.
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, server_default="Asia/Seoul")
+
+    # 한 달 시작일(1 ~ 28). 예산·리포트·결산의 기간이 이 날에 시작한다. 1 이면 달력 월이다.
+    # 설정 행이 아니라 여기 두는 이유는 기간을 정하는 `ledger.period_for` 가 세션 없이
+    # 읽어야 해서다. 시간대와 같은 자리다.
+    month_start_day: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=1, server_default=text("1")
+    )
 
     # 복구 UX 가 며칠 쉬었는지 판단할 때 쓴다.
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -14,8 +14,6 @@
 
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
-import { toLedgerDate } from '../lib/format';
-
 import { markBookActivity } from './bookActivity';
 import type { MonthParams, SettlementPeriod } from './client';
 import { useApiClient } from './context';
@@ -78,32 +76,21 @@ function writeBudgetState(
 ): void {
   if (next == null) return;
   /*
-    **응답이 말하는 달과 보고 있는 달이 다르면 쓰지 않는다.**
+    **응답이 말하는 기간과 캐시에 든 기간이 다르면 쓰지 않는다.**
 
-    수정 시트에서 날짜를 다른 달로 옮기면 서버는 **옮겨 간 달**의 예산으로 답한다.
-    그것을 보고 있던 달 자리에 그대로 넣으면, 홈 히어로에 지난달 남은 돈과 남은 날이
+    수정 시트에서 날짜를 다른 달로 옮기면 서버는 **옮겨 간 기간**의 예산으로 답한다.
+    그것을 보고 있던 자리에 그대로 넣으면, 홈 히어로에 지난달 남은 돈과 남은 날이
     박힌 채로 재조회가 올 때까지 서 있는다. 무효화는 이미 뒤따라 돈다.
+    기간은 이름 달(`period_key`)로 견준다. 시작일이 1 이 아니면 첫날의 달과 이름이 다르다.
   */
-  if (!sameMonth(next, params)) return;
-
   queryClient.setQueryData<BudgetOut>(queryKeys.budget(params), (prev) =>
-    prev == null ? prev : { ...prev, budget: next },
+    prev == null || prev.budget.period_key !== next.period_key ? prev : { ...prev, budget: next },
   );
   queryClient.setQueryData<PeriodSummaryOut>(queryKeys.summary(params), (prev) =>
-    prev == null ? prev : { ...prev, budget: next },
+    prev?.budget == null || prev.budget.period_key !== next.period_key
+      ? prev
+      : { ...prev, budget: next },
   );
-}
-
-/**
- * 서버가 답한 예산이 지금 보고 있는 달의 것인가.
- *
- * `params` 가 없으면 보고 있는 것은 이번 달이다. 응답의 `period_start` 는 그 달 1일이라
- * 앞 일곱 글자(`2026-09`)만 견준다. 기간이 달이 아닌 판이 오면 그때 이 함수를 고친다.
- */
-function sameMonth(next: BudgetStateOut, params?: MonthParams): boolean {
-  const answered = next.period_start.slice(0, 7);
-  if (params == null) return answered === toLedgerDate(new Date()).slice(0, 7);
-  return answered === `${params.year}-${String(params.month).padStart(2, '0')}`;
 }
 
 /** 돈에 얽힌 캐시를 전부 낡은 것으로 표시한다. 화면에 떠 있는 것은 바로 다시 받는다. */
@@ -401,6 +388,7 @@ export function useSaveProfile() {
  *
  * 이어쓰기를 끄고 켜는 것이 다음 기간에 예산이 생기는지를 바꾼다. 그래서 그 값을 보냈을 때만
  * 예산 캐시를 함께 무효화한다. 홈 표시 방식만 바꿨는데 예산을 다시 받을 이유가 없다.
+ * 한 달 시작일을 보냈으면 기간이 걸린 캐시를 모두 다시 받는다.
  */
 export function useSavePreferences() {
   const client = useApiClient();
@@ -410,6 +398,17 @@ export function useSavePreferences() {
     mutationFn: (body: PreferencesPatch) => client.savePreferences(body),
     onSuccess: (preferences, body) => {
       queryClient.setQueryData<PreferencesOut>(queryKeys.preferences(), preferences);
+      // 한 달 시작일을 바꾸면 기간이 걸린 것이 모두 달라진다. 결산은 리포트 아래에 있다.
+      if (body.month_start_day != null) {
+        return Promise.all(
+          [
+            queryKeys.budgets(),
+            queryKeys.reports(),
+            queryKeys.summaries(),
+            queryKeys.assetAnalyses(),
+          ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+        ).then(() => undefined);
+      }
       if (body.budget_auto_carryover == null) return;
       return queryClient.invalidateQueries({ queryKey: queryKeys.budgets() });
     },

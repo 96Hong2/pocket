@@ -15,7 +15,7 @@ from fastapi import APIRouter, Query, Response, status
 from app.api.amounts import MAX_AMOUNT
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES
-from app.api.months import MonthQuery
+from app.api.months import UserMonthQuery
 from app.domain.money import Money, won
 from app.domain.period import BudgetPeriod
 from app.modules import ledger
@@ -81,7 +81,7 @@ def _view(session: DbSession, user: CurrentUser, period: BudgetPeriod) -> Budget
 
 
 def _period(user: CurrentUser, period: BudgetPeriod | None) -> BudgetPeriod:
-    # 기본 기간은 사용자 시간대의 오늘이 속한 달이다. 서버가 UTC 로 돌아도 마찬가지다.
+    # 기본 기간은 사용자 시간대의 오늘이 든 한 달이다(한 달 시작일 기준). 서버가 UTC 로 돌아도 같다.
     return period or ledger.period_for(user, ledger.today_for(user))
 
 
@@ -102,7 +102,7 @@ def _writable(session: DbSession, user: CurrentUser, period: BudgetPeriod | None
 
 
 @router.get("", response_model=BudgetOut)
-def show(session: DbSession, user: CurrentUser, period: MonthQuery) -> BudgetOut:
+def show(session: DbSession, user: CurrentUser, period: UserMonthQuery) -> BudgetOut:
     return _view(session, user, _period(user, period))
 
 
@@ -110,7 +110,7 @@ def show(session: DbSession, user: CurrentUser, period: MonthQuery) -> BudgetOut
 def suggestion(
     session: DbSession,
     user: CurrentUser,
-    period: MonthQuery,
+    period: UserMonthQuery,
     take_home: SuggestionAmountQuery = None,
     fixed_costs: SuggestionAmountQuery = None,
     saving: SuggestionAmountQuery = None,
@@ -144,7 +144,7 @@ def suggestion(
 
 @router.put("", response_model=BudgetOut)
 def upsert(
-    body: BudgetUpsert, session: DbSession, user: CurrentUser, period: MonthQuery
+    body: BudgetUpsert, session: DbSession, user: CurrentUser, period: UserMonthQuery
 ) -> BudgetOut:
     month = _writable(session, user, period)
     service.upsert_budget(session, user, month, body.amount)
@@ -152,7 +152,7 @@ def upsert(
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
-def destroy(session: DbSession, user: CurrentUser, period: MonthQuery) -> Response:
+def destroy(session: DbSession, user: CurrentUser, period: UserMonthQuery) -> Response:
     """예산이 없어도 204 다. 화면이 두 번 눌러도 같은 결과여야 한다."""
     month = _writable(session, user, period)
     service.delete_budget(session, user, month)
@@ -165,7 +165,7 @@ def upsert_category(
     body: BudgetUpsert,
     session: DbSession,
     user: CurrentUser,
-    period: MonthQuery,
+    period: UserMonthQuery,
 ) -> BudgetOut:
     """조회와 같은 모양으로 답한다. 화면이 응답을 그대로 캐시에 넣어 다시 그린다."""
     month = _writable(session, user, period)
@@ -175,7 +175,7 @@ def upsert_category(
 
 @router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 def destroy_category(
-    category_id: uuid.UUID, session: DbSession, user: CurrentUser, period: MonthQuery
+    category_id: uuid.UUID, session: DbSession, user: CurrentUser, period: UserMonthQuery
 ) -> Response:
     month = _writable(session, user, period)
     service.delete_category_budget(session, user, month, category_id)

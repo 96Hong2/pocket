@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
 
 import { useBridge } from '../../app/providers';
-import { useClosing } from '../../shared/api';
+import { useClosing, useCurrentPeriod } from '../../shared/api';
 import {
   CLOSING_ENTRY_WINDOW_DAYS,
   markClosingSeen,
   readClosingSeen,
 } from '../../shared/lib/closingSeen';
 import { shiftMonth, toLedgerDate } from '../../shared/lib/format';
+import { dayOfPeriod } from '../../shared/lib/monthPeriod';
 
 /**
  * 홈에 결산 진입 카드를 세울 달.
  *
- * 세 조건이 다 맞을 때만 달을 돌려준다: 달이 바뀐 지 며칠 안이고, 지난달에 기록이 있고, 아직 안 봤다.
+ * 세 조건이 다 맞을 때만 달을 돌려준다: 기간이 바뀐 지 며칠 안이고, 지난달에 기록이 있고, 아직 안 봤다.
  * 한 번 열어 보거나 닫으면 사라진다. 같은 카드가 매일 뜨면 알림이 아니라 잔소리가 된다.
  *
  * 카드와 판정을 가른 것은 홈이 **안내를 한 번에 하나만** 세우기 때문이다. 이 카드가 서는지
@@ -32,8 +33,12 @@ export function useClosingEntry(): {
   dismiss: () => void;
 } {
   const bridge = useBridge();
-  const month = shiftMonth(toLedgerDate(new Date()).slice(0, 7), -1);
-  const withinWindow = Number(toLedgerDate(new Date()).slice(8, 10)) <= CLOSING_ENTRY_WINDOW_DAYS;
+  // 달은 한 달 시작일로 센다. 시작일이 25 면 9월 25일부터 이레 동안 앞 기간(9월) 카드가 선다.
+  const current = useCurrentPeriod();
+  const month = shiftMonth(current.period.key, -1);
+  const withinWindow =
+    current.known &&
+    dayOfPeriod(toLedgerDate(new Date()), current.startDay) <= CLOSING_ENTRY_WINDOW_DAYS;
 
   // 아직 모르는 동안(null)은 묻지 않는다. 이미 본 달이면 조회 자체를 안 한다.
   const [seen, setSeen] = useState<boolean | null>(null);
@@ -59,6 +64,7 @@ export function useClosingEntry(): {
     void markClosingSeen(bridge.storage, month);
   };
 
+  if (!current.known) return { month: null, unknown: true, dismiss };
   if (!withinWindow) return { month: null, unknown: false, dismiss };
   if (seen === null) return { month: null, unknown: true, dismiss };
   if (seen) return { month: null, unknown: false, dismiss };

@@ -30,9 +30,9 @@ const LAYOUT_LABEL: Record<HeroLayout, string> = {
   incomeAndBudget: '번 돈과 남은 예산',
 };
 
-/** `2026-09-01` → `9월` */
-function monthLabel(periodStart: string): string {
-  const month = Number(periodStart.slice(5, 7));
+/** 이름 달 `2026-10` → `10월`. 시작일이 25 면 첫날(9월 25일)의 달과 다르다. */
+function monthLabel(periodKey: string): string {
+  const month = Number(periodKey.slice(5, 7));
   return Number.isFinite(month) && month > 0 ? `${month}월` : '이번 달';
 }
 
@@ -50,7 +50,7 @@ export function HomeHero({
   onRetryPreferences,
 }: HomeHeroProps) {
   const state = budget.budget;
-  const label = `${monthLabel(state.period_start)} · ${LAYOUT_LABEL[layout]}`;
+  const label = `${monthLabel(state.period_key)} · ${LAYOUT_LABEL[layout]}`;
   const progress = parseDecimal(state.spend_progress);
   const daily = parseDecimal(state.daily_allowance);
   const weekly = parseDecimal(state.weekly_allowance);

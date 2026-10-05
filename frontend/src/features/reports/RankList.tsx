@@ -47,26 +47,22 @@ export function RankList({
             />
           </>
         );
-        if (row.onSelect == null) {
-          return (
-            <li key={row.key} className="report__large-row" data-testid={rowTestId}>
-              {body}
-            </li>
-          );
-        }
         return (
-          <li key={row.key} className="report__large-item">
-            <button
-              type="button"
-              className="report__large-row report__large-button"
-              data-testid={rowTestId}
-              onClick={row.onSelect}
-            >
-              {body}
-              <span className="report__chevron" aria-hidden="true">
-                ›
-              </span>
-            </button>
+          <li key={row.key} data-testid={rowTestId}>
+            {row.onSelect != null ? (
+              <button
+                type="button"
+                className="report__large-row report__large-row--link"
+                onClick={row.onSelect}
+              >
+                {body}
+                <span className="report__chevron" aria-hidden="true">
+                  ›
+                </span>
+              </button>
+            ) : (
+              <div className="report__large-row">{body}</div>
+            )}
           </li>
         );
       })}

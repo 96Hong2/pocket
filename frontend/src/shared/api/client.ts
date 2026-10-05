@@ -61,6 +61,7 @@ import type {
   MerchantRuleCreate,
   MerchantRuleListOut,
   MerchantRuleOut,
+  CategoryReportOut,
   MonthlyReportOut,
   NotificationSettingsOut,
   NotificationSettingsPatch,
@@ -77,6 +78,7 @@ import type {
   TransactionCreate,
   TransactionCreated,
   TransactionListOut,
+  TransactionOut,
   TransactionUpdate,
   TransactionUpdated,
 } from './types';
@@ -101,6 +103,12 @@ export interface BudgetSuggestionParams extends Partial<MonthParams> {
   fixedCosts?: number;
   /** 매달 모을 돈을 직접 준다. 주면 목표 대신 이 값을 뺀다. */
   saving?: number;
+}
+
+/** 리포트 분류 줄 하나. `key` 는 리포트 줄의 키 그대로다(uuid, `uncategorized`, `rolled_up`). */
+export interface CategoryReportParams extends MonthParams {
+  tab: 'expense' | 'income';
+  key: string;
 }
 
 export interface TransactionListParams extends Partial<MonthParams> {
@@ -191,6 +199,7 @@ const PATHS = {
   transactions: '/api/v1/transactions',
   summary: '/api/v1/transactions/summary',
   monthlyReport: '/api/v1/reports/monthly',
+  categoryReport: '/api/v1/reports/category',
   closing: '/api/v1/reports/closing',
   calendar: '/api/v1/transactions/calendar',
   categories: '/api/v1/categories',
@@ -295,10 +304,17 @@ export interface ApiClient extends Transport {
     options?: CallOptions,
   ): Promise<TransactionUpdated>;
   deleteTransaction(id: string, options?: CallOptions): Promise<void>;
+  /** 기록 하나. 내 것이고 안 지운 것만, 아니면 404. */
+  getTransaction(id: string, options?: CallOptions): Promise<TransactionOut>;
   getSummary(params?: MonthParams, options?: CallOptions): Promise<PeriodSummaryOut>;
 
   /** 리포트 화면이 그리는 것 전부. 조회 하나로 끝낸다. */
   getMonthlyReport(params?: MonthParams, options?: CallOptions): Promise<MonthlyReportOut>;
+  /** 리포트 분류 줄 하나의 기록과 합계. 기간은 월 리포트와 같은 규칙이다. */
+  getCategoryReport(
+    params: CategoryReportParams,
+    options?: CallOptions,
+  ): Promise<CategoryReportOut>;
   /**
    * 그 달의 결산. **부르는 것만으로는 아무것도 저장되지 않는다.**
    *
@@ -659,6 +675,23 @@ export function createApiClient(options: TransportOptions): ApiClient {
         method: 'GET',
         path: PATHS.summary,
         query: monthQuery(params),
+        signal: call?.signal,
+      });
+    },
+
+    getTransaction(id, call) {
+      return transport.request<TransactionOut>({
+        method: 'GET',
+        path: transactionPath(id),
+        signal: call?.signal,
+      });
+    },
+
+    getCategoryReport(params, call) {
+      return transport.request<CategoryReportOut>({
+        method: 'GET',
+        path: PATHS.categoryReport,
+        query: { ...monthQuery(params), tab: params.tab, key: params.key },
         signal: call?.signal,
       });
     },

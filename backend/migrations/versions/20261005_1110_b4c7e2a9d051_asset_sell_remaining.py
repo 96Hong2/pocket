@@ -7,8 +7,8 @@
 거래(`transactions`)에도 같은 두 칸을 null 허용으로 더한다. 옛 번들은 안 보내므로 지금처럼 저장된다.
 
 Revision ID: b4c7e2a9d051
-Revises: a9d3e5f7c182
-Create Date: 2026-10-05 11:00:00.000000+09:00
+Revises: b4c7e2d9f310
+Create Date: 2026-10-05 11:10:00.000000+09:00
 
 """
 
@@ -19,7 +19,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "b4c7e2a9d051"
-down_revision: Union[str, Sequence[str], None] = "a9d3e5f7c182"
+down_revision: Union[str, Sequence[str], None] = "b4c7e2d9f310"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

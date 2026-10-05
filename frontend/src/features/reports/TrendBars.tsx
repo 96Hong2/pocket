@@ -92,7 +92,8 @@ export function TrendBars({
   return (
     <MonthBars
       bars={points.map((point) => ({
-        month: point.period_start.slice(0, 7),
+        // 이름 달. 시작일이 25 면 첫날의 달과 하나 어긋난다.
+        month: point.period_key,
         value: parseDecimalOr(mode === 'income' ? point.income : point.expense, 0),
       }))}
       currentMonth={currentMonth}

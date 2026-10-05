@@ -101,6 +101,10 @@ export const EVENTS = {
 
   /** 예산을 저장했다. 처음인지 아닌지. */
   budgetSaved: 'budget_saved',
+  /** 한 달 시작일 시트를 열었다. 어디서 열었나(`manage`·`settings`·`report`). */
+  monthStartOpened: 'month_start_opened',
+  /** 한 달 시작일을 바꿨다. 고른 날과 그 전 날. 날짜가 아니라 1 ~ 28 의 숫자다. */
+  monthStartSaved: 'month_start_saved',
   /**
    * 생활비 계산기를 열었다. 리워드 광고를 끝까지 봤나, 중간에 닫았나, 광고 없이 지나갔나.
    *
@@ -364,6 +368,12 @@ export const EVENTS = {
    * 광고가 사람을 돌려세우는 값이다. **그 달의 날짜 문자열과 금액은 싣지 않는다.**
    */
   reportMonthChanged: 'report_month_changed',
+  /**
+   * 리포트에서 눌러 더 들어갔다. 무엇을(`what`: `category` 분류 줄·`large` 큰 지출 줄·`assets`
+   * 「저축·투자」), 어느 탭에서(`tab`), 분류면 줄인지 도넛 조각인지(`from`).
+   * 숫자만 보던 화면에서 기록까지 내려가 보는지 본다. **분류 이름과 금액은 싣지 않는다.**
+   */
+  reportItemOpened: 'report_item_opened',
 
   /** 배너 자리의 결과. 떴는지·채울 게 없었는지·실패했는지. */
   adResult: 'ad_result',
@@ -676,6 +686,14 @@ export type EventParamMap = CheckedMap<{
     /** `more` 일 때 펼친 칸. */
     field?: 'merchant' | 'memo';
   };
+  month_start_opened: {
+    where: 'manage' | 'settings' | 'report';
+  };
+  month_start_saved: {
+    where: 'manage' | 'settings' | 'report';
+    day: number;
+    from_day: number;
+  };
   saving_hint_result: FlowParam & {
     answer: SavingHintAnswer;
   };
@@ -688,6 +706,12 @@ export type EventParamMap = CheckedMap<{
     from: AssetChangeFrom;
     /** 고친 칸을 `+` 로 이은 값. 값은 싣지 않는다. */
     fields?: string;
+  };
+  report_item_opened: {
+    what: 'category' | 'large' | 'assets';
+    tab: 'expense' | 'income';
+    /** 분류일 때만. 목록 줄인가 도넛 조각인가. */
+    from?: 'row' | 'donut';
   };
 }>;
 

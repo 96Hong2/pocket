@@ -9,6 +9,7 @@
 
 import type {
   BudgetSuggestionParams,
+  CategoryReportParams,
   MonthParams,
   SettlementPeriod,
   TransactionListParams,
@@ -130,10 +131,16 @@ export const queryKeys = {
    */
   closing: (params?: MonthParams) => [ROOT, 'report', 'closing', monthPart(params)] as const,
 
+  /** 리포트 분류 줄 하나. 리포트 아래라 기록을 고치거나 지우면 함께 낡는다. */
+  categoryReport: (params: CategoryReportParams) =>
+    [ROOT, 'report', 'category', monthPart(params), params.tab, params.key] as const,
+
   calendars: () => [ROOT, 'calendar'] as const,
   calendar: (params?: MonthParams) => [ROOT, 'calendar', monthPart(params)] as const,
 
   transactionLists: () => [ROOT, 'transactions'] as const,
+  /** 기록 하나. 목록 아래라 고치거나 지우면 함께 낡는다. */
+  transaction: (id: string) => [ROOT, 'transactions', 'one', id] as const,
   transactions: (params?: TransactionListParams) =>
     [
       ROOT,

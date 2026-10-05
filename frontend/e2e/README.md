@@ -57,6 +57,9 @@ e2e/
                      둘 다 이름으로 잡고, 안쪽의 점·줄만 testid 를 쓴다
                      **배너가 둘이다.** `adSlot`(도넛 위)·`bottomAdSlot`(큰 지출 Top 5 위).
                      testid 가 같아 자리 이름(`data-placement`)으로 가른다
+    ReportCategoryScreen 리포트 분류 줄을 눌러 들어오는 화면. 이름·합계·건수와 날짜별 기록 줄.
+                     줄을 누르면 뜨는 「기록 수정」 시트는 달력의 `EditSheetArea` 를 그대로 `edit` 로 든다.
+                     리포트 큰 지출 줄의 시트도 같은 것을 `ReportScreen.edit` 로 든다
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
     ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·suggest·categories·banner·settings 로 나눠 들고 있다
                      suggest 는 목표 기반 생활비 제안 카드다. 예산이 없는 달에, 기한이 있는 목표가
@@ -68,6 +71,8 @@ e2e/
                      `ledgerExport` 는 가계부를 파일로 내려받는 줄과 그 시트다. 저장은 페이지 바깥에서
                      일어나 화면에 흔적이 없으니, 무엇이 나갔는지는 `support/aitMock.ts` 의
                      `readSavedFiles` 로 본다
+    MonthStartArea   한 달 시작일 시트. 관리 탭 「한 달 시작」 줄, 앱 설정 줄, 리포트 기간 줄이 같은 시트를 열어
+                     세 화면 객체가 `monthStart` 로 함께 든다
     NotificationsScreen 알림 설정 화면. 켜기와 시각 둘뿐이라 안을 더 쪼개지 않았다
     TagsScreen       태그 관리. 지출·수입 두 묶음과 만들기·고치기·지우기 시트
     RecurringScreen  반복 지출. 목록·켜기끄기와 만들기·고치기 시트.
@@ -105,6 +110,7 @@ e2e/
 | `setCategoryBudget(카테고리, 금액, 달?)` · `deleteCategoryBudget(카테고리, 달?)` | 카테고리 예산                                                   |
 | `setAutoCarryover(켬)`                                                           | 다음 달로 예산을 이어 쓸지                                      |
 | `setHomeHero(방식)`                                                              | 홈 맨 위에 무엇을 크게 보여줄지                                 |
+| `setMonthStartDay(날)`                                                           | 예산과 리포트의 한 달 시작일(1 ~ 28)                            |
 | `addCategory(이름, 아이콘?)`                                                     | 카테고리 하나. 만들어진 id 를 돌려준다                          |
 | `saveNoSpend(날?)`                                                               | 안 쓴 날 표시. 성공을 단언하지 않고 결과를 돌려준다             |
 | `putAssets(항목들)`                                                              | 자산 목록. 서버 저장이 PUT 하나라 통째로 보낸다                 |

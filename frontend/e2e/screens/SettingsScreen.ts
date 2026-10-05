@@ -3,6 +3,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { ROUTES } from '../../src/app/router/routes';
 import { TEST_IDS } from '../../src/shared/testIds';
 
+import { MonthStartArea } from './MonthStartArea';
+
 /** 홈 맨 위에 무엇을 보여줄지 고르는 세 갈래. 화면에 적힌 라벨 그대로다. */
 export type HeroChoiceLabel = '남은 예산' | '수입·지출' | '수입·예산';
 
@@ -20,10 +22,13 @@ export class SettingsScreen {
 
   /** 여기서 고른 것이 홈 맨 위에 어떻게 나타나는지. */
   readonly heroResult: HeroResultArea;
+  /** 「한 달 시작일」 줄이 여는 시트. */
+  readonly monthStart: MonthStartArea;
 
   constructor(page: Page) {
     this.page = page;
     this.heroResult = new HeroResultArea(page);
+    this.monthStart = new MonthStartArea(page);
     this.dataReset = new DataResetArea(page);
     this.ledgerExport = new ExportArea(page);
   }
@@ -158,6 +163,11 @@ export class SettingsScreen {
   }
 
   /** 홈 화면에 추가하는 법을 여는 줄. 홈 카드를 놓친 사람이 나중에 찾아오는 자리다. */
+  /** 「한 달 시작일 매달 25일」 줄. 관리 탭과 같은 시트를 연다. */
+  get monthStartRow(): Locator {
+    return this.page.getByRole('button', { name: /^한 달 시작일 매달 \d+일$/ });
+  }
+
   get addToHomeRow(): Locator {
     return this.page.getByRole('button', { name: /휴대폰 홈 화면에 추가/ });
   }

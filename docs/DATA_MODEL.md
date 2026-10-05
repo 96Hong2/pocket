@@ -34,6 +34,7 @@ PostgreSQL 네이티브 enum 타입을 만들지 않는다. 값 하나 추가하
 `occurred_at` 같은 `timestamptz` 는 **UTC 로 저장**한다.
 **월 경계와 '오늘'은 `users.timezone`(기본 `Asia/Seoul`) 기준**으로 다시 계산한다.
 헬퍼는 `modules/ledger.py` 의 `today_for`·`period_for`·`period_bounds` 다.
+예산·리포트·결산의 한 달은 `users.month_start_day` 에 시작한다(ADR-0046). 달력 화면과 공유 가계부는 달력 월 그대로다.
 UTC 로 날짜를 뽑으면 한국에서 자정부터 아침 9시까지의 거래가 전달로 집계된다.
 
 ## ER 다이어그램
@@ -91,6 +92,7 @@ erDiagram
 |---|---|---|
 | `anon_key_hash` | `varchar(128)` unique | `User.getAnonymousKey()` 가 준 해시. 사용자를 찾는 유일한 키 |
 | `timezone` | `varchar(64)` = `Asia/Seoul` | 월 경계와 하루 가용액 계산 기준 |
+| `month_start_day` | `smallint` = 1, 1 ~ 28 | 예산·리포트·결산의 한 달이 시작하는 날. 1 이면 달력 월. 기간 이름 규칙은 ADR-0046 |
 | `last_seen_at` | `timestamptz?` | 며칠 쉬었는지 판단해 복구 화면을 고르는 데 쓴다 |
 
 **이름·이메일·전화번호 컬럼이 없다.** 없어서 못 쓰는 것이 아니라 안 갖기로 한 것이다.
@@ -145,7 +147,7 @@ erDiagram
 | `category_id` | `uuid?` | 분류를 지우면 이 칸만 비고 거래는 남는다. FK 가 `SET NULL` 이지만 실제로는 소프트 삭제라 행이 안 지워지고, 서비스가 분류를 떼어 낸다 |
 | `source` | `keypad` \| `nl` \| `screenshot` \| `receipt` \| `asset_screenshot` \| `no_spend` | 어떤 경로로 들어왔는지 |
 | `asset_item_key` · `asset_side` · `asset_quantity` | null 허용 | 저축·투자. `type=transfer` 에 「어디에」 를 붙인 것이다(ADR-0045). 집계는 이 칸을 안 본다 |
-| `asset_remaining` · `asset_cost_basis` | null 허용 | 금액 종목을 팔 때만. 팔고 남은 금액(0 이면 전부)과, 넣은 돈을 모를 때 적은 넣은 돈 전체(ADR-0046). 장부 sell 줄의 `remaining` · `cost_basis` 로 넘어간다 |
+| `asset_remaining` · `asset_cost_basis` | null 허용 | 금액 종목을 팔 때만. 팔고 남은 금액(0 이면 전부)과, 넣은 돈을 모를 때 적은 넣은 돈 전체(ADR-0047). 장부 sell 줄의 `remaining` · `cost_basis` 로 넘어간다 |
 | `confidence` | `float` = 1.0 | 0~1. 사용자가 직접 넣은 값은 1.0 |
 | `excluded_from_budget` | `bool` = false | **거래목록·리포트에는 남고 예산 계산에서만 빠진다** |
 | `payment_method` | `credit` \| `debit` \| `cash` \| `null` | 신용카드·체크카드·현금. **지출과 환불에만 붙고** 수입·이체로 고치면 서비스가 비운다. `null` 이 「안 고름」이라 '모름' 값을 따로 두지 않는다 |
@@ -184,7 +186,7 @@ M4 이전에 저장한 거래에는 지문이 없어 중복 판정에 걸리지 
 | budgets | 타입 | 설명 |
 |---|---|---|
 | `user_id` | `uuid` | |
-| `period_start`, `period_end` | `date` | |
+| `period_start`, `period_end` | `date` | 그 사용자의 한 달 기간. 시작일이 25 면 `2026-09-25 ~ 2026-10-24`(「10월」) |
 | `amount` | `numeric(14,0)` | `>= 0` |
 | `is_auto_carried` | `bool` = false | 직전 기간에서 자동 복사된 예산. 비차단 안내 배너의 근거 |
 
@@ -197,6 +199,13 @@ tombstone 은 자동 복사를 막으려던 것이지 직접 정하는 것까지
 
 `category_budgets` 는 `(budget_id, category_id)` 가 유일하고 `amount >= 0` 이다. 예산을 지우면 같이 지워진다.
 
+**한 달 시작일을 바꾸면** 그 사용자의 예산 줄(지운 줄과 지난 달 포함)을 각 줄의 이름 달 그대로
+새 시작일의 기간으로 옮긴다. 「10월」 예산은 시작일 25 에서 5 로 바꾸면 `10-05 ~ 11-04` 로 간다.
+카테고리 예산은 `budget_id` 로 딸려 있어 함께 따라온다. 같은 요청, 같은 커밋 안에서 끝난다.
+이름 달이 같은 줄이 둘이면 살아 있는 줄, 사람이 정한 줄(`is_auto_carried = false`), 나중에 고친 줄 순으로
+하나만 남기고, 지우는 줄의 카테고리 예산 가운데 남는 줄에 없는 분류는 남는 줄로 옮긴다.
+계정을 합칠 때도 source 의 예산 줄을 이름 달로 읽어 target 의 시작일 기간으로 옮긴다. 이름 달이 겹치면 target 것을 남긴다.
+
 ### 자동 이어쓰기
 
 첫 조회 시점에 lazy 하게 판단한다. 쓰기 요청도 같은 판단을 먼저 지나서, 그 달을 아직
@@ -204,7 +213,7 @@ tombstone 은 자동 복사를 막으려던 것이지 직접 정하는 것까지
 
 ```
 그 기간이 오늘을 품지 않음                  → 아무것도 안 함 (넘겨보는 것만으로 유령 예산 금지)
-그 기간이 월 전체가 아님                    → 아무것도 안 함 (직전 기간을 정의할 수 없다)
+그 기간이 사용자의 한 달 기간이 아님          → 아무것도 안 함 (달력 월을 넘겨도 줄을 만들지 않는다)
 현재 기간에 Budget 있음                    → 아무것도 안 함
 pref.budget_auto_carryover = false         → 복사 안 함
 현재 기간에 소프트 삭제된 Budget 있음        → 복사 안 함 (사용자가 지운 자리, tombstone)
@@ -351,7 +360,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | `confidence` | 캡처 인식값의 신뢰도. 직접 입력이면 1.0 |
 | `sort_order` | 화면에 놓이는 순서. API 가 받은 순서대로 0 부터 붙인다 |
 | `item_key` | 스냅샷이 바뀌어도 같은 항목을 가리키는 키(uuid). 거래와 장부가 이 키로 항목을 찾는다. 배포 중 옛 리비전이 만든 행만 비어 있을 수 있다. (snapshot_id, item_key) 유일 |
-| `kind` | 투자 그룹만. `stock` \| `etf` \| `coin`(수량 종목) \| `fund` \| `bond` \| `other`(금액 종목). 비어 있는 투자 항목도 금액 종목이다(ADR-0046) |
+| `kind` | 투자 그룹만. `stock` \| `etf` \| `coin`(수량 종목) \| `fund` \| `bond` \| `other`(금액 종목). 비어 있는 투자 항목도 금액 종목이다(ADR-0047) |
 | `monthly_amount` | 매달 넣는 돈. 선택. 0 보다 클 때만 「매달」 항목으로 본다(이름 맞추기, 분석의 매달 넣는 돈 합) |
 | `quantity` · `cost_basis` | 보유 수량(`numeric(20,8)`)과 넣은 돈. **장부를 접은 결과의 사본이다.** 금액 종목의 `cost_basis` 가 null 이면 넣은 돈을 모르는 것이고 지금 금액으로 채우지 않는다 |
 | `unit_price` · `price_noted_on` | 지금 1주 가격(수량 종목)과 지금 가격·금액을 적은 날. 날이 비어 있으면 평가 수익률을 내지 않는다. 금액 종목은 PUT 으로 지금 금액이 처음 오거나 바뀌면 그 날이 적힌다 |
@@ -370,7 +379,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | `quantity` | 수량 종목만 |
 | `amount` | buy 는 넣은 돈, sell 은 받은 돈, set 은 잔액이나 지금 금액 |
 | `cost_basis` | set 줄은 종목의 넣은 돈(금액 종목은 넣은 돈과 지금 금액 두 값이다, null 이면 모름). sell 줄은 넣은 돈을 모르는 항목을 팔 때 적은 넣은 돈 전체 |
-| `remaining` | 금액 종목 sell 줄만. 팔고 남은 금액, 0 이면 전부. 판 몫 = 받은 돈 ÷ (받은 돈 + 남은 금액). null 인 옛 줄은 받은 돈 ÷ 지금 금액으로 접는다(ADR-0046) |
+| `remaining` | 금액 종목 sell 줄만. 팔고 남은 금액, 0 이면 전부. 판 몫 = 받은 돈 ÷ (받은 돈 + 남은 금액). null 인 옛 줄은 받은 돈 ÷ 지금 금액으로 접는다(ADR-0047) |
 | `transaction_id` | 거래에서 온 줄. 거래가 지워지면 이 줄도 지운 표시를 받는다 |
 | `occurred_on` | 거래 날짜(사용자 시간대). 순서는 이 날짜가 아니라 `created_at` 이다 |
 

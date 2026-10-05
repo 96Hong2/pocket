@@ -14,18 +14,22 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+
+import { toLedgerDate } from '../lib/format';
+import { DEFAULT_START_DAY, periodContaining, type MonthPeriod } from '../lib/monthPeriod';
 
 import { markBookActivity } from './bookActivity';
 import type {
   BudgetSuggestionParams,
+  CategoryReportParams,
   MonthParams,
   SettlementPeriod,
   TransactionListParams,
 } from './client';
 import { useApiClient, useApiReady } from './context';
 import { queryKeys } from './queryKeys';
-import type { AnalysisScope, BookListOut, BookOut } from './types';
+import type { AnalysisScope, BookListOut, BookOut, TransactionOut } from './types';
 
 /** 카테고리 목록. 기본 11개 + 내가 만든 것. */
 export function useCategories() {
@@ -60,6 +64,26 @@ export function usePreferences() {
     // 기록을 저장할 때뿐이고, 둘 다 그 자리에서 캐시를 맞춰 둔다.
     staleTime: 30 * 60_000,
   });
+}
+
+/**
+ * 예산과 리포트의 한 달 시작일.
+ *
+ * 설정을 받기 전에는 `known` 이 false 이고 그동안은 1 로 그린다. 못 받으면 1 로 본다.
+ * 이름 달(`?year&month`)을 보낸 조회는 서버가 자기 시작일로 기간을 만드니 그대로 맞다.
+ */
+export function useMonthStartDay(): { startDay: number; known: boolean } {
+  const preferences = usePreferences();
+  if (preferences.data != null) {
+    return { startDay: preferences.data.month_start_day ?? DEFAULT_START_DAY, known: true };
+  }
+  return { startDay: DEFAULT_START_DAY, known: preferences.isError };
+}
+
+/** 오늘이 든 한 달. 이름 달(`key`)이 화면의 「이번 달」 이다. */
+export function useCurrentPeriod(): { period: MonthPeriod; startDay: number; known: boolean } {
+  const { startDay, known } = useMonthStartDay();
+  return { period: periodContaining(toLedgerDate(new Date()), startDay), startDay, known };
 }
 
 /** 내 계정. 연결 전에는 email 이 null 이고 그것이 정상이다. */
@@ -164,20 +188,53 @@ export function useSummary(params?: MonthParams) {
   });
 }
 
+/** 리포트 분류 줄 하나의 기록과 합계. */
+export function useCategoryReport(params: CategoryReportParams) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.categoryReport(params),
+    queryFn: ({ signal }) => client.getCategoryReport(params, { signal }),
+    enabled: isReady,
+  });
+}
+
+/**
+ * 기록 하나를 한 번 받아 온다. 리포트 큰 지출 줄을 눌러 고치기 시트를 열 때 쓴다.
+ *
+ * 화면이 계속 지켜보는 조회로 두지 않는다. 그러면 시트에서 지운 뒤 목록 무효화에 걸려
+ * 같은 id 를 다시 묻고 404 를 받는다.
+ */
+export function useFetchTransaction(): (id: string) => Promise<TransactionOut> {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (id: string) =>
+      queryClient.fetchQuery({
+        queryKey: queryKeys.transaction(id),
+        queryFn: ({ signal }) => client.getTransaction(id, { signal }),
+        staleTime: 0,
+      }),
+    [client, queryClient],
+  );
+}
+
 /**
  * 월 리포트. 그 화면이 그리는 것을 한 응답으로 받는다.
  *
  * 총액을 `useSummary` 에서, 조각을 여기서 가져오면 둘 사이에 저장이 끼는 순간
  * 도넛과 헤드라인이 서로 다른 말을 한다. 리포트 화면은 이 훅 하나만 쓴다.
  */
-export function useMonthlyReport(params?: MonthParams) {
+export function useMonthlyReport(params?: MonthParams, options?: { enabled?: boolean }) {
   const client = useApiClient();
   const isReady = useApiReady();
 
   return useQuery({
     queryKey: queryKeys.report(params),
     queryFn: ({ signal }) => client.getMonthlyReport(params, { signal }),
-    enabled: isReady,
+    enabled: isReady && (options?.enabled ?? true),
   });
 }
 

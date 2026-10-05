@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIdentity } from '../../app/providers';
 import {
   parseDecimal,
   parseDecimalOr,
   useCategories,
+  useCurrentPeriod,
   useMonthlyReport,
   type CategoryOut,
   type MethodRowOut,
@@ -12,12 +13,8 @@ import {
   type PeriodComparisonOut,
 } from '../../shared/api';
 import { paymentMethodLabel } from '../../shared/ledger';
-import {
-  formatCurrency,
-  formatMonthLabel,
-  formatShortDate,
-  toLedgerDate,
-} from '../../shared/lib/format';
+import { formatCurrency, formatMonthLabel, formatShortDate } from '../../shared/lib/format';
+import { formatPeriodRange, periodOfMonth } from '../../shared/lib/monthPeriod';
 import { TEST_IDS } from '../../shared/testIds';
 import {
   Amount,
@@ -25,6 +22,7 @@ import {
   ErrorState,
   LoadingState,
   MonthStepper,
+  PeriodRange,
   SegmentedControl,
   type SegmentedOption,
 } from '../../shared/ui';
@@ -50,13 +48,30 @@ const MODES: SegmentedOption<Mode>[] = [
 export function MonthlyReport({
   month,
   onMonthChange,
+  mode,
+  onModeChange,
+  onOpenAssets,
+  onOpenCategory,
+  onOpenLarge,
   autoOpenClosing = false,
   onClosingAutoOpened,
   adSlot,
   bottomAdSlot,
+  onPeriodClick,
 }: {
   month: string;
   onMonthChange: (next: string) => void;
+  /** 달 이름 아래 기간 줄을 눌렀다. 한 달 시작일 시트를 연다. */
+  onPeriodClick?: () => void;
+  /** 소비·수입 탭. 페이지가 주소에 들고 있어 다른 화면에 다녀와도 그대로다. */
+  mode: Mode;
+  onModeChange: (next: Mode) => void;
+  /** 탭 줄 오른쪽 「저축·투자」. 리포트에는 이체가 안 잡혀 자산 화면으로 보낸다. */
+  onOpenAssets?: () => void;
+  /** 분류 줄이나 도넛 조각을 눌렀다. 키는 리포트 줄의 키 그대로다. */
+  onOpenCategory?: (key: string, from: 'row' | 'donut') => void;
+  /** 큰 지출 줄을 눌렀다. */
+  onOpenLarge?: (transactionId: string) => void;
   /** 홈의 결산 카드로 들어왔을 때만 참. 그 달 결산을 열어 둔 채로 시작한다. */
   autoOpenClosing?: boolean;
   /** 그 부탁을 쓴 순간 알린다. 로딩 때문에 결산 자리는 달을 옮길 때마다 다시 마운트된다. */
@@ -67,19 +82,38 @@ export function MonthlyReport({
   bottomAdSlot?: ReactNode;
 }) {
   // 아직 오지 않은 달은 볼 수 없다. 가면 안 끝난 이번 달을 "지난달 전체" 로 견주는 거짓말이 나온다.
-  const thisMonth = toLedgerDate(new Date()).slice(0, 7);
+  // 이번 달은 한 달 시작일로 정한 이름 달이다.
+  const current = useCurrentPeriod();
+  const thisMonth = current.period.key;
   const [year, monthNumber] = month.split('-').map(Number);
   const { state: identity } = useIdentity();
-  const report = useMonthlyReport({ year, month: monthNumber });
+  // 시작일을 모르면 이번 달이 어느 달인지도 모른다. 받고 나서 묻는다.
+  const report = useMonthlyReport({ year, month: monthNumber }, { enabled: current.known });
   const categories = useCategories();
-  // 저장하는 취향이 아니라 그 화면에서 한 번 눌러 곁눈질하는 동작이다.
-  const [mode, setMode] = useState<Mode>('expense');
 
   // 월 선택기는 어떤 상태에서도 남긴다. 지우면 오류 난 달에 갇혀 다른 달로 갈 수 없다.
   // 반년 전 리포트를 보고 온 사람이 화살표를 여섯 번 누르지 않게 한 번에 돌아온다.
   // 이번 달을 보고 있을 때는 갈 곳이 없어 알약이 뜨지 않는다.
+  //
+  // 한 달 시작일이 1 이 아니면 달 이름만으로는 며칠부터 며칠인지 모른다. 바로 아래에 기간을 둔다.
+  // 서버와 같은 규칙으로 그 자리에서 세어, 불러오는 동안에도 줄이 서 있다.
   const stepper = (
-    <MonthStepper value={month} onChange={onMonthChange} maxMonth={thisMonth} jumpTo={thisMonth} />
+    <div className="report__month">
+      <MonthStepper
+        value={month}
+        onChange={onMonthChange}
+        maxMonth={thisMonth}
+        jumpTo={thisMonth}
+      />
+      {current.startDay !== 1 ? (
+        <PeriodRange
+          className="report__period"
+          range={formatPeriodRange(periodOfMonth(month, current.startDay))}
+          onClick={onPeriodClick}
+          testId={TEST_IDS.reportPeriod}
+        />
+      ) : null}
+    </div>
   );
 
   // 식별키가 없으면 조회가 시작되지 않아 pending 이 끝나지 않는다. 그때 "불러오는 중" 을
@@ -139,13 +173,24 @@ export function MonthlyReport({
     <div className="report">
       {stepper}
 
-      <SegmentedControl
-        className="report__modes"
-        options={MODES}
-        value={mode}
-        onChange={setMode}
-        ariaLabel="보는 것"
-      />
+      <div className="report__modes-row">
+        <SegmentedControl
+          className="report__modes"
+          options={MODES}
+          value={mode}
+          onChange={onModeChange}
+          ariaLabel="보는 것"
+        />
+        {/* 탭이 아니라 다른 화면으로 가는 길이라 트랙 밖에 글자 버튼으로 둔다. */}
+        {onOpenAssets != null ? (
+          <button type="button" className="report__assets-link" onClick={onOpenAssets}>
+            저축·투자
+            <span className="report__chevron" aria-hidden="true">
+              ›
+            </span>
+          </button>
+        ) : null}
+      </div>
 
       <Card className="report__headline">
         <p className="report__headline-label" data-testid={TEST_IDS.reportHeadlineLabel}>
@@ -227,7 +272,11 @@ export function MonthlyReport({
               분류 이름을 불러오지 못해 이름 대신 '이름 확인 중' 으로 적었어요
             </p>
           ) : null}
-          <CategoryDonut rows={rows} center={donutCenter(rows, byId, namesUnknown, income)} />
+          <CategoryDonut
+            rows={rows}
+            center={donutCenter(rows, byId, namesUnknown, income)}
+            onSlice={onOpenCategory != null ? (row) => onOpenCategory(row.key, 'donut') : undefined}
+          />
           <ul className="report__list">
             {rows.map((row) => (
               <BreakdownItem
@@ -238,6 +287,7 @@ export function MonthlyReport({
                 income={income}
                 color={colors.get(row.key)}
                 topShare={parseDecimal(rows[0]?.share ?? null) ?? 0}
+                onOpen={onOpenCategory != null ? () => onOpenCategory(row.key, 'row') : undefined}
               />
             ))}
           </ul>
@@ -271,7 +321,12 @@ export function MonthlyReport({
       {!income ? bottomAdSlot : null}
 
       {!income ? (
-        <LargeExpenses rows={data.large_expenses} byId={byId} namesUnknown={namesUnknown} />
+        <LargeExpenses
+          rows={data.large_expenses}
+          byId={byId}
+          namesUnknown={namesUnknown}
+          onOpen={onOpenLarge}
+        />
       ) : null}
     </div>
   );
@@ -319,10 +374,13 @@ function LargeExpenses({
   rows,
   byId,
   namesUnknown,
+  onOpen,
 }: {
   rows: MonthlyReportOut['large_expenses'];
   byId: Map<string, CategoryOut>;
   namesUnknown: boolean;
+  /** 줄을 누르면 그 기록의 고치기 시트를 연다. */
+  onOpen?: (transactionId: string) => void;
 }) {
   // 한 건도 없으면 카드째 그리지 않는다. 빈 카드는 아무것도 알려 주지 않는다.
   if (rows.length === 0) return null;
@@ -345,6 +403,7 @@ function LargeExpenses({
             name: row.merchant ?? categoryName ?? '분류 없음',
             sub: row.merchant != null ? categoryName : null,
             amount: parseDecimalOr(row.amount, 0),
+            onSelect: onOpen != null ? () => onOpen(row.id) : undefined,
           };
         })}
       />

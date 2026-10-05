@@ -96,12 +96,15 @@ def history(
     user: CurrentUser,
     months: int = Query(default=6, ge=1, le=MAX_HISTORY_MONTHS),
 ) -> AssetHistoryOut:
-    """달마다 월말 순자산 점. 이번 달 점은 오늘까지의 가장 늦은 스냅샷이다."""
+    """달마다 월말 순자산 점. 이번 달 점은 오늘까지의 가장 늦은 스냅샷이다.
+
+    달은 한 달 시작일로 자른 기간이고 `month` 는 그 이름 달이다. 시작일 1 이면 달력 월이다.
+    """
     points = service.month_end_points(session, user, ledger.today_for(user), months)
     return AssetHistoryOut(
         points=[
             AssetHistoryPointOut(
-                month=point.month.start.strftime("%Y-%m"),
+                month=point.month.key,
                 effective_on=point.effective_on,
                 total_assets=point.summary.total_assets.amount,
                 total_liabilities=point.summary.total_liabilities.amount,

@@ -7,6 +7,21 @@
     --report-trend-track: 96px;
   }
 
+  /* 달 이름과 그 아래 기간 줄. 본문 간격(16px)을 둘 사이에 두지 않는다. */
+  .report__month {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .report__month > .pk-month {
+    align-self: stretch;
+  }
+
+  .report__period {
+    margin-top: -4px;
+  }
+
   /*
     불러오는 동안·실패했을 때 본문 자리.
 
@@ -405,25 +420,6 @@
     gap: 12px;
     padding: 10px 0;
     border-bottom: 1px solid var(--color-divider);
-  }
-
-  /* 누르면 고치기 시트가 열리는 줄(자산 분석). 모양은 위 줄과 같다. */
-  .report__large-button {
-    width: 100%;
-    min-height: 44px;
-    border-width: 0 0 1px;
-    background: transparent;
-    font: inherit;
-    text-align: left;
-    color: inherit;
-    cursor: pointer;
-  }
-
-  /* 누르면 더 들어가는 줄 끝의 ›. */
-  .report__chevron {
-    font-size: var(--text-16);
-    line-height: 1;
-    color: var(--color-muted);
   }
 
   .report__large-rank {
@@ -901,5 +897,151 @@
     color: var(--color-ink);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+
+  /* ── 눌러서 들어가는 자리 ─────────────────────────── */
+
+  /* 탭 트랙과 같은 높이에 글자 버튼 하나. 트랙이 남은 폭을 다 쓴다. */
+  .report__modes-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .report__modes-row .report__modes {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .report__assets-link {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 40px;
+    padding: 0 2px 0 6px;
+    border: 0;
+    background: transparent;
+    color: var(--color-sage-700);
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .report__chevron {
+    font-size: var(--text-16);
+    line-height: 1;
+    color: var(--color-muted);
+  }
+
+  .report__row--link {
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    /*
+      › 칸이 하나 늘어 칸 사이를 좁힌다. 값 칸은 폭을 못 박아 줄마다 막대 끝이 같은 자리에
+      서게 하고, 막대는 최소 폭을 둬 좁은 화면에서도 사라지지 않게 한다.
+      값 칸 폭은 「484,000원 71%」 가 한 줄에 드는 만큼이다. 더 길면 비중이 금액 아래로 내려간다.
+    */
+    grid-template-columns: auto auto minmax(0, 70px) minmax(36px, 1fr) 106px auto;
+    column-gap: 7px;
+  }
+
+  .report__row--link .report__chevron {
+    margin-left: -2px;
+  }
+
+  /* 좁은 폭에서는 비중을 늘 금액 아래에 두고 이름 칸과 값 칸을 줄여 막대 자리를 남긴다. */
+  @media (max-width: 360px) {
+    .report__row--link {
+      grid-template-columns: auto auto minmax(0, 56px) minmax(36px, 1fr) 80px auto;
+      column-gap: 6px;
+    }
+
+    .report__row--link .report__row-share {
+      display: block;
+    }
+  }
+
+  .report__large-row--link {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--color-divider);
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .report__donut-slice {
+    cursor: pointer;
+  }
+
+  /* 링 가운데 글자가 조각 누르기를 가로막지 않게. */
+  .report__donut-center {
+    pointer-events: none;
+  }
+
+  /* ── 분류 화면 ───────────────────────────────────── */
+
+  .report-cat {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .report-cat__head {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .report-cat__title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .report-cat__title-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .report-cat__name {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: 18px;
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink);
+  }
+
+  .report-cat__period {
+    margin: 0;
+    font-size: var(--text-13);
+    color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .report-cat__sum {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
+
+  .report-cat__count {
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
   }
 }
