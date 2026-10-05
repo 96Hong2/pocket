@@ -67,12 +67,19 @@ export class ReportScreen {
     return this.root.getByText(/^\d{4}년 \d{1,2}월$/);
   }
 
+  /** 달은 주소에 들어 있어 눌러도 한 박자 뒤에 그려진다. 이름이 바뀔 때까지 기다린다. */
   async goPreviousMonth(): Promise<void> {
-    await this.monthButton('previous').click();
+    await this.stepMonth('previous');
   }
 
   async goNextMonth(): Promise<void> {
-    await this.monthButton('next').click();
+    await this.stepMonth('next');
+  }
+
+  private async stepMonth(direction: 'previous' | 'next'): Promise<void> {
+    const before = await this.monthLabel().innerText();
+    await this.monthButton(direction).click();
+    await expect(this.monthLabel()).not.toHaveText(before);
   }
 
   /** 지금 열려 있는 주소. 결산처럼 한 번만 쓰는 파라미터가 남았는지 여기로 본다. */
