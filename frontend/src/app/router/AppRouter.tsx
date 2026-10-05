@@ -11,6 +11,7 @@ import { DEMO_PATH, RECORD_QUERY, ROUTES } from './routes';
 
 // 홈은 첫 화면이라 쪼개지 않는다. 나머지는 진입할 때 받는다.
 const ReportPage = lazy(() => import('../../pages/ReportPage'));
+const ReportCategoryPage = lazy(() => import('../../pages/ReportCategoryPage'));
 const ManagePage = lazy(() => import('../../pages/ManagePage'));
 const CalendarPage = lazy(() => import('../../pages/CalendarPage'));
 const GoalPage = lazy(() => import('../../pages/GoalPage'));
@@ -42,6 +43,7 @@ export function AppRouter() {
             element={<Navigate to={`${ROUTES.home}?${RECORD_QUERY}=1`} replace />}
           />
           <Route path={ROUTES.report} element={<ReportPage />} />
+          <Route path={ROUTES.reportCategory} element={<ReportCategoryPage />} />
           <Route path={ROUTES.manage} element={<ManagePage />} />
           <Route path={ROUTES.categories} element={<CategoriesPage />} />
           <Route path={ROUTES.tags} element={<TagsPage />} />

@@ -6,16 +6,20 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+import uuid
+
+from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUser, DbSession
-from app.api.errors import ERROR_RESPONSES
+from app.api.errors import ERROR_RESPONSES, ApiError, ErrorCode
 from app.api.months import MonthQuery
+from app.domain.report import ROLLED_UP, UNCATEGORIZED
 from app.modules import ledger
 from app.modules.budgets import service as budgets
 from app.modules.budgets.schemas import to_budget_state
 from app.modules.reports import service
 from app.modules.reports.schemas import (
+    CategoryReportOut,
     ClosingOut,
     LargeExpenseOut,
     MonthlyReportOut,
@@ -27,6 +31,7 @@ from app.modules.reports.schemas import (
     to_methods,
     to_tags,
 )
+from app.modules.transactions.schemas import TransactionOut
 
 router = APIRouter(prefix="/reports", tags=["reports"], responses=ERROR_RESPONSES)
 
@@ -82,6 +87,47 @@ def monthly(session: DbSession, user: CurrentUser, period: MonthQuery) -> Monthl
         comparison=_comparison(report.comparison),
         weeks=_comparison(report.weeks),
     )
+
+
+@router.get("/category", response_model=CategoryReportOut)
+def category(
+    session: DbSession,
+    user: CurrentUser,
+    period: MonthQuery,
+    tab: service.CategoryTab = Query(description="리포트의 소비·수입 탭"),
+    key: str = Query(
+        max_length=64, description="리포트 줄의 키. 카테고리 uuid, uncategorized, rolled_up"
+    ),
+) -> CategoryReportOut:
+    """리포트 분류 줄 하나의 기록. 기간은 `/monthly` 와 같은 규칙으로 정한다."""
+    today = ledger.today_for(user)
+    month = period or ledger.period_for(user, today)
+    category_id = _category_key(key)
+    # 대소문자만 다른 uuid 도 같은 분류로 본다. 집계 쪽 키는 소문자다.
+    key = key if category_id is None else str(category_id)
+    detail = service.build_category(session, user, month, tab, key)
+    return CategoryReportOut(
+        period_start=month.start,
+        period_end=month.end,
+        tab=tab.value,
+        key=key,
+        category_id=category_id,
+        total=detail.total.amount,
+        count=len(detail.transactions),
+        # 지출, 환불, 수입만 오른다. 「어디에」 이름을 붙일 저축·투자 줄이 없다.
+        transactions=[TransactionOut.model_validate(row) for row in detail.transactions],
+    )
+
+
+def _category_key(key: str) -> uuid.UUID | None:
+    if key in (UNCATEGORIZED, ROLLED_UP):
+        return None
+    try:
+        return uuid.UUID(key)
+    except ValueError:
+        raise ApiError(
+            ErrorCode.INVALID_REQUEST, "분류를 알아보지 못했어요.", status_code=422
+        ) from None
 
 
 @router.get("/closing", response_model=ClosingOut)

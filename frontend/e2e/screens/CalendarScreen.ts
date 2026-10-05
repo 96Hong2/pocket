@@ -315,6 +315,11 @@ export class EditSheetArea {
     await expect(this.root).toHaveCount(0);
   }
 
+  /** 맨 위 그림. 저축·투자 기록은 분류 대신 「어디에」 항목 그룹 그림이다. */
+  get headIcon(): Locator {
+    return this.root.locator('.tx-edit__head .pk-avatar img');
+  }
+
   /** 맨 위 한 줄. `스타벅스 · 9월 10일`. */
   get title(): Locator {
     return this.root.getByText(/ · \d{1,2}월 \d{1,2}일$/);

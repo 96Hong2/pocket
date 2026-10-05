@@ -55,6 +55,9 @@ e2e/
                      둘 다 이름으로 잡고, 안쪽의 점·줄만 testid 를 쓴다
                      **배너가 둘이다.** `adSlot`(도넛 위)·`bottomAdSlot`(큰 지출 Top 5 위).
                      testid 가 같아 자리 이름(`data-placement`)으로 가른다
+    ReportCategoryScreen 리포트 분류 줄을 눌러 들어오는 화면. 이름·합계·건수와 날짜별 기록 줄.
+                     줄을 누르면 뜨는 「기록 수정」 시트는 달력의 `EditSheetArea` 를 그대로 `edit` 로 든다.
+                     리포트 큰 지출 줄의 시트도 같은 것을 `ReportScreen.edit` 로 든다
     CalendarScreen   월간 달력. 안쪽을 totals·grid·list·search·edit 로 나눠 들고 있다
     ManageScreen     관리 탭의 예산 섹션. 안쪽을 total·suggest·categories·banner·settings 로 나눠 들고 있다
                      suggest 는 목표 기반 생활비 제안 카드다. 예산이 없는 달에, 기한이 있는 목표가

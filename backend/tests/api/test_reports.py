@@ -318,3 +318,123 @@ def test_지출_태그와_수입_태그는_다른_목록이다(client: TestClien
 
     assert report["expense_tag_breakdown"]["rows"] == []
     assert [row["tag_id"] for row in report["income_tag_breakdown"]["rows"]] == [bonus]
+
+
+# ── 분류 줄을 펼친 화면 ─────────────────────────────────
+
+
+def _category_report(
+    client: TestClient,
+    key: str,
+    *,
+    tab: str = "expense",
+    period: BudgetPeriod = THIS_MONTH,
+    headers: dict[str, str] = AUTH,
+) -> dict:
+    query = f"year={period.start.year}&month={period.start.month}&tab={tab}&key={key}"
+    response = client.get(f"/api/v1/reports/category?{query}", headers=headers)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def _row_amount(body: dict, key: str, *, tab: str = "expense") -> str:
+    rows = body["expense_breakdown" if tab == "expense" else "income_breakdown"]
+    return next(row["amount"] for row in rows if row["key"] == key)
+
+
+def test_분류_화면_합계는_리포트_줄_금액과_같고_환불_줄도_보인다(
+    client: TestClient, default_categories
+) -> None:
+    food = _category(client, "식비")
+    _add(client, amount="12000", when=_at(2, THIS_MONTH), category_id=food, merchant="김밥")
+    _add(client, amount="30000", when=_at(3, THIS_MONTH), category_id=food, merchant="고기")
+    _add(client, amount="5000", when=_at(4, THIS_MONTH), category_id=food, kind="refund")
+    # 다른 분류와 지난달은 안 섞인다.
+    _add(client, amount="7000", when=_at(3, THIS_MONTH), category_id=_category(client, "교통"))
+    _add(client, amount="9000", when=_at(3, LAST_MONTH), category_id=food)
+
+    body = _category_report(client, food)
+
+    assert body["total"] == "37000"
+    assert body["total"] == _row_amount(_report(client, THIS_MONTH), food)
+    assert body["count"] == 3
+    assert body["category_id"] == food
+    assert [row["type"] for row in body["transactions"]] == ["refund", "expense", "expense"]
+    assert body["period_start"] == THIS_MONTH.start.isoformat()
+    assert body["period_end"] == THIS_MONTH.end.isoformat()
+
+
+def test_분류_없음_줄은_분류를_안_고른_기록만_모은다(
+    client: TestClient, default_categories
+) -> None:
+    _add(client, amount="4000", when=_at(2, THIS_MONTH), merchant="어딘가")
+    _add(client, amount="6000", when=_at(3, THIS_MONTH), category_id=_category(client, "식비"))
+
+    body = _category_report(client, "uncategorized")
+
+    assert body["total"] == "4000"
+    assert body["total"] == _row_amount(_report(client, THIS_MONTH), "uncategorized")
+    assert [row["merchant"] for row in body["transactions"]] == ["어딘가"]
+    assert body["category_id"] is None
+
+
+def test_접은_줄은_리포트가_접은_분류들의_기록을_모은다(
+    client: TestClient, default_categories
+) -> None:
+    names = ["식비", "카페·간식", "교통", "쇼핑", "생활", "주거·고정비", "여가·취미"]
+    names += ["건강·미용", "편의점", "구독"]
+    # 큰 것부터 10만, 9만 ... 1만. 아래 두 분류(2만, 1만)가 접힌다.
+    for index, name in enumerate(names):
+        amount = str((len(names) - index) * 10000)
+        _add(client, amount=amount, when=_at(5, THIS_MONTH), category_id=_category(client, name))
+
+    report = _report(client, THIS_MONTH)
+    body = _category_report(client, "rolled_up")
+
+    assert body["total"] == _row_amount(report, "rolled_up") == "30000"
+    folded = {_category(client, "편의점"), _category(client, "구독")}
+    assert {row["category_id"] for row in body["transactions"]} == folded
+    assert body["count"] == 2
+
+
+def test_수입_탭은_수입만_모은다(client: TestClient, default_categories) -> None:
+    salary = _category(client, "월급")
+    _add(client, amount="2500000", when=_at(1, THIS_MONTH), category_id=salary, kind="income")
+    _add(client, amount="1000", when=_at(2, THIS_MONTH), category_id=salary)
+
+    body = _category_report(client, salary, tab="income")
+
+    assert body["total"] == _row_amount(_report(client, THIS_MONTH), salary, tab="income")
+    assert body["total"] == "2500000"
+    assert [row["type"] for row in body["transactions"]] == ["income"]
+
+
+def test_분류_화면에_남의_기록은_안_보인다(two_devices: TestClient, default_categories) -> None:
+    mine, theirs = {"X-Anon-Key": "device-a"}, {"X-Anon-Key": "device-b"}
+    food = next(
+        item["id"]
+        for item in two_devices.get("/api/v1/categories", headers=mine).json()["items"]
+        if item["name"] == "식비"
+    )
+    response = two_devices.post(
+        "/api/v1/transactions",
+        json={
+            "occurred_at": _at(3, THIS_MONTH),
+            "amount": "8000",
+            "type": "expense",
+            "source": "keypad",
+            "category_id": food,
+        },
+        headers=mine,
+    )
+    assert response.status_code == 201, response.text
+
+    body = _category_report(two_devices, food, headers=theirs)
+
+    assert body["transactions"] == []
+    assert body["total"] == "0"
+
+
+def test_알아볼_수_없는_분류_키는_422(client: TestClient, default_categories) -> None:
+    response = client.get("/api/v1/reports/category?tab=expense&key=not-a-category", headers=AUTH)
+    assert response.status_code == 422

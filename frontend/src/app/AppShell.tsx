@@ -26,11 +26,22 @@ const TABS: TabItem[] = [
 ];
 
 function TabBar() {
+  const { pathname } = useLocation();
   return (
     <nav className="tabbar" aria-label="주요 화면">
       <div className="tabbar__inner">
         {TABS.map((tab) => (
-          <NavLink key={tab.to} to={tab.to} end className="tabbar__item">
+          <NavLink
+            key={tab.to}
+            to={tab.to}
+            end
+            className="tabbar__item"
+            // 지금 탭을 다시 누르면 그대로 둔다. 주소로 옮기면 리포트가 보던 달과 탭(?month, ?tab)을 잃는다.
+            // 다른 탭에서 오면 예전처럼 맨 처음(이번 달, 소비)으로 연다.
+            onClick={(event) => {
+              if (pathname === tab.to) event.preventDefault();
+            }}
+          >
             <img
               className="tabbar__icon"
               src={iconUrl(tab.icon)}

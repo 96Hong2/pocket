@@ -28,6 +28,8 @@ export interface CategoryDonutProps {
   /** 리포트 밖(자산 분석)에서 쓸 때 바꾼다. */
   label?: string;
   testId?: string;
+  /** 조각을 눌렀다. 아래 목록 줄과 같은 곳으로 간다. 읽어 주는 길은 목록이 맡는다. */
+  onSlice?: (row: BreakdownRowOut) => void;
 }
 
 export function CategoryDonut({
@@ -35,6 +37,7 @@ export function CategoryDonut({
   center,
   label = '카테고리 비중',
   testId = TEST_IDS.reportDonut,
+  onSlice,
 }: CategoryDonutProps) {
   const slices = rows.filter((row) => row.share != null);
   if (slices.length < MIN_SLICES) return null;
@@ -70,6 +73,8 @@ export function CategoryDonut({
               strokeDashoffset={start}
               // 12시에서 시작해 시계 방향으로 돈다.
               transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
+              className={onSlice != null ? 'report__donut-slice' : undefined}
+              onClick={onSlice != null ? () => onSlice(row) : undefined}
             />
           );
         })}

@@ -175,6 +175,15 @@ def summary(
     )
 
 
+@router.get("/{tx_id}", response_model=TransactionOut)
+def show(tx_id: uuid.UUID, session: DbSession, user: CurrentUser) -> TransactionOut:
+    """기록 하나. 내 것이고 안 지운 것만. 리포트 큰 지출 줄을 눌러 고칠 때 쓴다.
+
+    `/calendar`·`/summary` 뒤에 둔다. 앞에 두면 그 경로가 이 자리에 잡혀 422 가 난다.
+    """
+    return _outs(session, user, [service.get_owned(session, user, tx_id)])[0]
+
+
 @router.delete("/{tx_id}", status_code=status.HTTP_204_NO_CONTENT)
 def destroy(tx_id: uuid.UUID, session: DbSession, user: CurrentUser) -> Response:
     service.delete_transaction(session, user, tx_id)

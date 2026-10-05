@@ -85,6 +85,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 | GET | `/transactions` | 목록. 아래 「목록 조회」 참고 |
 | GET | `/transactions/calendar` | 달력 격자용 날짜별 지출·수입. 기록이 있는 날만 온다. 아래 「달력 한 칸」 참고 |
 | GET | `/transactions/summary` | 그 달의 지출·수입·차액 **+ 예산 상태** |
+| GET | `/transactions/{id}` | 기록 하나. 내 것이고 안 지운 것만, 아니면 404. 리포트 큰 지출 줄을 눌러 고칠 때 쓴다 |
 | DELETE | `/transactions/{id}` | 삭제(표시만 남긴다) |
 | POST | `/transactions/{id}/undo` | 방금 저장한 것 되돌리기. **앱은 더 이상 안 부른다**(아래) |
 
@@ -972,6 +973,21 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 
 `has_any_transaction` 은 **그 달에** 기록이 있는지다. 합계가 0 인 것과 다르다(지출과 환불이
 맞물려 0 이 될 수 있다). 예산이 있는지와도 다르다.
+
+### 분류 하나 펼치기
+
+| 메서드 | 경로 | 하는 일 |
+| --- | --- | --- |
+| GET | `/reports/category` | 리포트 분류 줄 하나의 기록과 합계. `?year=&month=&tab=expense\|income&key=` |
+
+기간은 `/reports/monthly` 와 같은 의존성(`MonthQuery`)으로 정한다. 두 화면이 늘 같은 기간을 본다.
+`key` 는 리포트 줄의 키 그대로다(카테고리 uuid, `uncategorized`, `rolled_up`). 알아볼 수 없는 키는 422.
+
+- `total` 은 그 줄 금액과 **같은 셈**이다. 소비는 지출에서 환불을 뺀 값이라 환불 줄도
+  `transactions` 에 함께 온다. 환불이 더 큰 분류면 음수다.
+- `rolled_up` 은 리포트가 접은 분류들(같은 순서 함수로 자른 꼬리)의 기록을 모은다.
+- `transactions` 는 `TransactionOut` 이고 최근 것부터다. 무지출 표시는 싣지 않는다. 남의 기록은 없다.
+- `count` 는 `transactions` 의 길이다.
 
 ### 월간 결산
 

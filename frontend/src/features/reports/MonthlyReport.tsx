@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIdentity } from '../../app/providers';
 import {
@@ -48,6 +48,11 @@ const MODES: SegmentedOption<Mode>[] = [
 export function MonthlyReport({
   month,
   onMonthChange,
+  mode,
+  onModeChange,
+  onOpenAssets,
+  onOpenCategory,
+  onOpenLarge,
   autoOpenClosing = false,
   onClosingAutoOpened,
   adSlot,
@@ -55,6 +60,15 @@ export function MonthlyReport({
 }: {
   month: string;
   onMonthChange: (next: string) => void;
+  /** 소비·수입 탭. 페이지가 주소에 들고 있어 다른 화면에 다녀와도 그대로다. */
+  mode: Mode;
+  onModeChange: (next: Mode) => void;
+  /** 탭 줄 오른쪽 「저축·투자」. 리포트에는 이체가 안 잡혀 자산 화면으로 보낸다. */
+  onOpenAssets?: () => void;
+  /** 분류 줄이나 도넛 조각을 눌렀다. 키는 리포트 줄의 키 그대로다. */
+  onOpenCategory?: (key: string, from: 'row' | 'donut') => void;
+  /** 큰 지출 줄을 눌렀다. */
+  onOpenLarge?: (transactionId: string) => void;
   /** 홈의 결산 카드로 들어왔을 때만 참. 그 달 결산을 열어 둔 채로 시작한다. */
   autoOpenClosing?: boolean;
   /** 그 부탁을 쓴 순간 알린다. 로딩 때문에 결산 자리는 달을 옮길 때마다 다시 마운트된다. */
@@ -70,8 +84,6 @@ export function MonthlyReport({
   const { state: identity } = useIdentity();
   const report = useMonthlyReport({ year, month: monthNumber });
   const categories = useCategories();
-  // 저장하는 취향이 아니라 그 화면에서 한 번 눌러 곁눈질하는 동작이다.
-  const [mode, setMode] = useState<Mode>('expense');
 
   // 월 선택기는 어떤 상태에서도 남긴다. 지우면 오류 난 달에 갇혀 다른 달로 갈 수 없다.
   // 반년 전 리포트를 보고 온 사람이 화살표를 여섯 번 누르지 않게 한 번에 돌아온다.
@@ -137,13 +149,24 @@ export function MonthlyReport({
     <div className="report">
       {stepper}
 
-      <SegmentedControl
-        className="report__modes"
-        options={MODES}
-        value={mode}
-        onChange={setMode}
-        ariaLabel="보는 것"
-      />
+      <div className="report__modes-row">
+        <SegmentedControl
+          className="report__modes"
+          options={MODES}
+          value={mode}
+          onChange={onModeChange}
+          ariaLabel="보는 것"
+        />
+        {/* 탭이 아니라 다른 화면으로 가는 길이라 트랙 밖에 글자 버튼으로 둔다. */}
+        {onOpenAssets != null ? (
+          <button type="button" className="report__assets-link" onClick={onOpenAssets}>
+            저축·투자
+            <span className="report__chevron" aria-hidden="true">
+              ›
+            </span>
+          </button>
+        ) : null}
+      </div>
 
       <Card className="report__headline">
         <p className="report__headline-label" data-testid={TEST_IDS.reportHeadlineLabel}>
@@ -225,7 +248,11 @@ export function MonthlyReport({
               분류 이름을 불러오지 못해 이름 대신 '이름 확인 중' 으로 적었어요
             </p>
           ) : null}
-          <CategoryDonut rows={rows} center={donutCenter(rows, byId, namesUnknown, income)} />
+          <CategoryDonut
+            rows={rows}
+            center={donutCenter(rows, byId, namesUnknown, income)}
+            onSlice={onOpenCategory != null ? (row) => onOpenCategory(row.key, 'donut') : undefined}
+          />
           <ul className="report__list">
             {rows.map((row) => (
               <BreakdownItem
@@ -236,6 +263,7 @@ export function MonthlyReport({
                 income={income}
                 color={colors.get(row.key)}
                 topShare={parseDecimal(rows[0]?.share ?? null) ?? 0}
+                onOpen={onOpenCategory != null ? () => onOpenCategory(row.key, 'row') : undefined}
               />
             ))}
           </ul>
@@ -269,7 +297,12 @@ export function MonthlyReport({
       {!income ? bottomAdSlot : null}
 
       {!income ? (
-        <LargeExpenses rows={data.large_expenses} byId={byId} namesUnknown={namesUnknown} />
+        <LargeExpenses
+          rows={data.large_expenses}
+          byId={byId}
+          namesUnknown={namesUnknown}
+          onOpen={onOpenLarge}
+        />
       ) : null}
     </div>
   );
@@ -335,10 +368,13 @@ function LargeExpenses({
   rows,
   byId,
   namesUnknown,
+  onOpen,
 }: {
   rows: MonthlyReportOut['large_expenses'];
   byId: Map<string, CategoryOut>;
   namesUnknown: boolean;
+  /** 줄을 누르면 그 기록의 고치기 시트를 연다. */
+  onOpen?: (transactionId: string) => void;
 }) {
   // 한 건도 없으면 카드째 그리지 않는다. 빈 카드는 아무것도 알려 주지 않는다.
   if (rows.length === 0) return null;
@@ -355,12 +391,8 @@ function LargeExpenses({
               : (category?.name ?? (namesUnknown ? '이름 확인 중' : '지운 분류'));
           // 상호를 안 적은 거래가 많다. 그때는 분류로 부르고, 분류도 없으면 그 사실을 적는다.
           const name = row.merchant ?? categoryName ?? '분류 없음';
-          return (
-            <li
-              key={row.id}
-              className="report__large-row"
-              data-testid={TEST_IDS.reportLargeExpenseRow}
-            >
+          const body = (
+            <>
               <span className="report__large-rank" aria-hidden="true">
                 {index + 1}
               </span>
@@ -376,6 +408,24 @@ function LargeExpenses({
                 value={parseDecimalOr(row.amount, 0)}
                 size={14}
               />
+            </>
+          );
+          return (
+            <li key={row.id} data-testid={TEST_IDS.reportLargeExpenseRow}>
+              {onOpen != null ? (
+                <button
+                  type="button"
+                  className="report__large-row report__large-row--link"
+                  onClick={() => onOpen(row.id)}
+                >
+                  {body}
+                  <span className="report__chevron" aria-hidden="true">
+                    ›
+                  </span>
+                </button>
+              ) : (
+                <div className="report__large-row">{body}</div>
+              )}
             </li>
           );
         })}

@@ -18,9 +18,11 @@ from app.domain.money import Money
 from app.domain.period import BudgetPeriod
 from app.domain.report import BreakdownRow, MethodRow, TagRanking
 from app.modules.budgets.schemas import BudgetStateOut
+from app.modules.transactions.schemas import TransactionOut
 
 __all__ = [
     "BreakdownRowOut",
+    "CategoryReportOut",
     "ChangeOut",
     "ClosingFlowOut",
     "ClosingNetWorthOut",
@@ -53,6 +55,23 @@ class BreakdownRowOut(BaseModel):
     share: Decimal | None
     # 접은 줄이 몇 개를 대신하는지. 접은 줄이 아니면 0.
     rolled_count: int
+
+
+class CategoryReportOut(BaseModel):
+    """리포트 분류 줄 하나를 펼친 것. 합계는 그 줄 금액과 같은 셈이다."""
+
+    period_start: date
+    period_end: date
+    # 'expense' · 'income'.
+    tab: str
+    # 리포트 줄의 키 그대로. 'uncategorized' · 'rolled_up' · 카테고리 uuid.
+    key: str
+    category_id: uuid.UUID | None
+    # 소비는 지출에서 환불을 뺀 값. 환불이 더 큰 분류면 음수다.
+    total: Decimal
+    count: int
+    # 최근 것부터. 소비 탭에는 환불 줄도 함께 온다.
+    transactions: list[TransactionOut]
 
 
 class MethodRowOut(BaseModel):

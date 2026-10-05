@@ -1,6 +1,10 @@
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
-import { assetAnalysisPath, type AssetAnalysisScope } from '../../app/router/routes';
+import {
+  assetAnalysisPath,
+  type AssetAnalysisScope,
+  type ParentState,
+} from '../../app/router/routes';
 import { useAssetAnalysis } from '../../shared/api';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, Card, iconUrl } from '../../shared/ui';
@@ -20,6 +24,7 @@ export interface AnalysisEntryProps {
  */
 export function AnalysisEntry({ scope = 'all' }: AnalysisEntryProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const analysis = useAssetAnalysis(scope);
   const unlock = useAssetAnalysisUnlock();
   const kind = ANALYSIS_KINDS[scope];
@@ -27,7 +32,9 @@ export function AnalysisEntry({ scope = 'all' }: AnalysisEntryProps) {
   const state = unlock.stateOf(scope, fingerprint);
 
   const open = () => {
-    const go = () => void navigate(assetAnalysisPath(scope));
+    // 자산 화면이 들고 온 이동 상태를 맡겨 둔다. 분석에서 뒤로 오면 자산 화면이 그걸 다시 받는다.
+    const back: ParentState = { parentState: location.state };
+    const go = () => void navigate(assetAnalysisPath(scope), { state: back });
     // 지문을 못 받았으면 분석 화면이 잠금을 대신 판정한다. 여기서 광고를 띄우면 두 번 본다.
     if (fingerprint == null) {
       go();

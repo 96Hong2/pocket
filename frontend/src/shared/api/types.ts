@@ -32,6 +32,8 @@ export type TransactionListOut = Schemas['TransactionListOut'];
 export type PeriodSummaryOut = Schemas['PeriodSummaryOut'];
 export type MonthlyReportOut = Schemas['MonthlyReportOut'];
 export type BreakdownRowOut = Schemas['BreakdownRowOut'];
+/** 리포트 분류 줄 하나를 펼친 것. 합계는 그 줄 금액과 같은 셈이다. */
+export type CategoryReportOut = Schemas['CategoryReportOut'];
 export type MethodRowOut = Schemas['MethodRowOut'];
 /** 태그 조각 하나. 이름과 색은 화면이 태그 목록에서 찾아 붙인다. */
 export type TagRowOut = Schemas['TagRowOut'];
