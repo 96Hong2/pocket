@@ -32,7 +32,8 @@ export type DismissibleCard =
   | 'remind-again'
   | 'rating-ask'
   | 'books-intro'
-  | 'asset-checkin';
+  | 'asset-checkin'
+  | 'saving-hint';
 
 function keyFor(card: DismissibleCard): string {
   return `card-dismissed-${card}`;

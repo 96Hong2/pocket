@@ -210,3 +210,40 @@ test('체크인 뒤와 자산 화면에 들어갈 때는 광고도 확인 창도
   expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
   expect(await logsNamed(page, 'asset_analysis_opened')).toEqual([]);
 });
+
+test('기록 두 화면 사이와 저축·투자 저장 직후에는 광고도 확인 창도 없다', async ({
+  assets,
+  home,
+  page,
+  prep,
+  recordSheet,
+}) => {
+  await prep.putAssets([
+    { group: 'cash', label: '청년도약계좌', amount: 1_000_000, monthly: 300_000 },
+  ]);
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+
+  // 첫 화면과 둘째 화면을 한 번 오간다.
+  await recordSheet.chooseKind('저축·투자');
+  await recordSheet.back();
+  await expect(recordSheet.wayGroup).toBeVisible();
+  await recordSheet.next();
+  await expect(recordSheet.amountTitle).toHaveText('얼마를 어디에 넣었어요?');
+
+  await recordSheet.pickDest('청년도약계좌');
+  await recordSheet.input.enterAmount(300_000);
+  await recordSheet.input.saveButton.click();
+  await expect(recordSheet.feedback.headline).toHaveText('청년도약계좌에 300,000원 넣었어요');
+  await expect(assets.adConsent).toHaveCount(0);
+
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+  await expect(home.today.row('저축·투자')).toBeVisible();
+
+  expect(await logsNamed(page, 'interstitial_result')).toEqual([]);
+  expect(await logsNamed(page, 'asset_analysis_asked')).toEqual([]);
+});

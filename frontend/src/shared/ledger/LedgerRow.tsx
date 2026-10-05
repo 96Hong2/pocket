@@ -46,8 +46,13 @@ export function LedgerRow({
   const category = transaction.category_id
     ? categories.find((item) => item.id === transaction.category_id)
     : undefined;
-  const kind = KIND_LABEL[transaction.type];
+  // 저축·투자는 서버에 이체로 적힌다. 「어디에」 가 붙은 이체는 그 이름으로 말한다.
+  const saving = transaction.type === 'transfer' && transaction.asset_item_key != null;
+  const sold = saving && transaction.asset_side === 'sell';
+  const kind = saving ? undefined : KIND_LABEL[transaction.type];
   const excluded = transaction.excluded_from_budget;
+  const savingTitle = sold ? `${transaction.asset_label ?? '저축·투자'} 팔았어요` : '저축·투자';
+  const savingSub = sold ? '받은 돈' : (transaction.asset_label ?? undefined);
   const tag = transaction.tag_id
     ? tags.find((item) => item.id === transaction.tag_id)
     : undefined;
@@ -55,14 +60,17 @@ export function LedgerRow({
   return (
     <TransactionRow
       {...iconOf(category)}
-      title={transaction.merchant ?? category?.name ?? '기록'}
+      title={transaction.merchant ?? (saving ? savingTitle : (category?.name ?? '기록'))}
       /*
         메모가 있으면 분류 이름 대신 메모를 보여 준다.
 
         분류는 왼쪽 그림이 이미 말하고 있다. 같은 자리에 분류 이름을 또 적느니, 그 사람이
         일부러 남긴 한 줄을 보여 주는 쪽이 목록을 훑을 때 쓸모가 있다.
       */
-      subtitle={transaction.memo ?? (transaction.merchant ? category?.name : undefined)}
+      subtitle={
+        transaction.memo ??
+        (saving ? savingSub : transaction.merchant ? category?.name : undefined)
+      }
       amount={parseDecimalOr(transaction.amount, 0)}
       tone={transaction.type}
       excluded={excluded}

@@ -4,8 +4,11 @@ import { Button, SheetHeader, iconUrl, type IconName } from '../../shared/ui';
 
 import type { RecordTab } from './recordTab';
 
-/** 기록의 종류. 지출과 수입은 분류가 있고, 이체는 분류 없이 금액만 적는다. */
-export type RecordKind = 'expense' | 'income' | 'transfer';
+/**
+ * 기록의 종류. 지출과 수입은 분류가 있고, 이체는 분류 없이 금액만 적는다.
+ * 저축·투자는 분류 자리에 「어디에」 를 고르고 서버에는 이체로 적힌다.
+ */
+export type RecordKind = 'expense' | 'income' | 'transfer' | 'save';
 
 const WAYS: { value: RecordTab; label: string; icon: IconName; cta: string }[] = [
   { value: 'keypad', label: '직접 입력', icon: '01_coins', cta: '다음' },
@@ -18,6 +21,7 @@ const KINDS: { value: RecordKind; label: string; icon: IconName }[] = [
   { value: 'expense', label: '지출', icon: '34_shopping_cart' },
   { value: 'income', label: '수입', icon: '28_cash' },
   { value: 'transfer', label: '이체', icon: '05_choice_arrows' },
+  { value: 'save', label: '저축·투자', icon: '32_piggybank' },
 ];
 
 /** 이 방법을 고른 첫 화면의 아래 버튼 글자. */

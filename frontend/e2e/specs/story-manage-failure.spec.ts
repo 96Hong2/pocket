@@ -105,16 +105,19 @@ test('자산을 저장하지 못하면 시트가 열린 채 적은 값과 이유
     await route.continue();
   });
 
+  // 투자 그룹은 종류를 고르고 금액 대신 넣은 돈을 적는다. 펀드는 수량 없이 넣은 돈만으로 저장된다.
   await assets.addButton('투자').click();
   await assets.sheet.waitOpen();
-  await assets.sheet.fill({ name: STOCK, amount: INVEST });
+  await assets.sheet.kindChoice('펀드').click();
+  await assets.sheet.fill({ name: STOCK });
+  await assets.sheet.field('넣은 돈').fill(String(INVEST));
   await assets.sheet.saveButton.click();
 
   // 닫히면 실패를 그릴 자리도, 방금 적은 금액도 함께 사라져 처음부터 다시 적어야 한다.
   await expect(assets.sheet.addDialog).toBeVisible();
   await expect(assets.sheet.errorText).toHaveText(SERVER_DOWN);
   await expect(assets.sheet.nameField).toHaveValue(STOCK);
-  await expect(assets.sheet.amountField).toHaveValue(formatNumber(INVEST));
+  await expect(assets.sheet.field('넣은 돈')).toHaveValue(formatNumber(INVEST));
 
   await page.unroute(ASSETS);
   await assets.sheet.save();

@@ -1,14 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import { ROUTES } from '../../app/router/routes';
 
 import { useBridge, useOverlayBackClose } from '../../app/providers';
 import { writeBookLast } from '../../shared/lib/bookLast';
 import { bumpRecordCount } from '../../shared/lib/homeAddSeen';
-import { EVENTS, useAnalytics, type FlowId, type SetupChanged } from '../../shared/analytics';
+import {
+  EVENTS,
+  useAnalytics,
+  type AssetSideLog,
+  type EventParamMap,
+  type FlowId,
+  type SetupChanged,
+} from '../../shared/analytics';
 import {
   isFutureDay,
   shiftMonth,
@@ -24,6 +31,7 @@ import {
   useCreateBookEntry,
   useCreateTransaction,
   useTags,
+  type AssetItemOut,
   type BookEntryOut,
   type BookMonthStateOut,
   type BookOut,
@@ -53,6 +61,23 @@ import {
   type SheetCloseReason,
 } from '../../shared/ui';
 
+import {
+  AssetDestField,
+  AssetDestList,
+  NewAssetForm,
+  destBodyOf,
+  destFromItem,
+  destGroupOf,
+  destHoldingOf,
+  destKindOf,
+  destNameOf,
+  quantityValue,
+  sellPreviewOf,
+  type AssetDest,
+  type AssetDestFrom,
+  type AssetDestPick,
+} from '../asset-dest';
+import { unitOf } from '../assets';
 import { BookDestinationRow, BookFeedbackPanel, asPickable } from '../books';
 import { CategoryEditForm } from '../categories';
 import {
@@ -72,6 +97,9 @@ import { RecordDayStep } from './RecordDayStep';
 import { dayWithWeekday, nearDayWord, tagStyle } from './recordLabels';
 import { RecordSetup, type RecordKind } from './RecordSetup';
 import { RecordTagStep } from './RecordTagStep';
+import { AssetDestSource, SaveLotRow, SellPreviewCard } from './SaveFields';
+import { SavedAssetPanel, type SavedAssetInfo } from './SavedAssetPanel';
+import { quantityShapeOf, sameQuantity } from './saveInvest';
 import { DEFAULT_RECORD_TAB, recordMethodOf, type RecordTab } from './recordTab';
 
 export type { RecordTab };
@@ -84,14 +112,23 @@ export type { RecordTab };
  * - `home_day`     홈 목록의 빈 날 버튼
  * - `calendar_day` 월간 달력에서 고른 날
  * - `deeplink`     바깥에서 `/record` 로 곧장 들어왔다. 미니앱 상세의 주요 기능 「지출 기록하기」 가 여기로 온다
+ * - `asset_item`   자산 화면 항목 시트의 「팔았어요」
  */
-export type RecordFrom = 'home' | 'home_day' | 'calendar_day' | 'deeplink';
+export type RecordFrom = 'home' | 'home_day' | 'calendar_day' | 'deeplink' | 'asset_item';
 
 /**
  * 시트 안 단계. 늘 첫 화면(`setup`)으로 연다.
- * 날짜(`day`)는 첫 화면에서, 태그(`tag`)는 금액 화면(`amount`)에서 들어간다.
+ * 날짜(`day`)는 첫 화면에서, 태그(`tag`)와 「다른 곳」(`dest`)은 금액 화면(`amount`)에서 들어간다.
+ * 새 종목이나 통장(`item`)은 「다른 곳」 에서 들어간다.
  */
-type RecordStep = 'setup' | 'amount' | 'nl' | 'photo' | 'day' | 'tag';
+type RecordStep = 'setup' | 'amount' | 'nl' | 'photo' | 'day' | 'tag' | 'dest' | 'item';
+
+/** 저장 없이 닫힐 때 로그에 싣는 단계. 안쪽 단계는 그 단계를 연 화면으로 센다. */
+function closedStepOf(step: RecordStep): 'setup' | 'amount' | 'nl' | 'photo' {
+  if (step === 'day') return 'setup';
+  if (step === 'tag' || step === 'dest' || step === 'item') return 'amount';
+  return step;
+}
 
 /** 읽어 온 것을 들고 있을 수 있는 탭. */
 type PanelTab = Exclude<RecordTab, 'keypad'>;
@@ -104,11 +141,14 @@ const AMOUNT_TITLES: Record<RecordKind, string> = {
   expense: '얼마 썼어요?',
   income: '얼마 벌었어요?',
   transfer: '얼마 옮겼어요?',
+  save: '얼마를 어디에 넣었어요?',
 };
 
 interface SavedState {
   transaction: TransactionOut;
   feedback: FeedbackOut;
+  /** 저축·투자로 저장했으면 그 항목. 저장 뒤 화면이 이것으로 말한다. */
+  asset?: SavedAssetInfo | null;
 }
 
 /** 공유 가계부에 적은 한 건. 저장 뒤 화면이 그 가계부 이름과 그 달 돈으로 말한다. */
@@ -156,6 +196,7 @@ export function QuickRecordSheet({
   day,
   from = 'home',
   bookId = null,
+  sell = null,
   onClose,
   onRecorded,
 }: {
@@ -171,6 +212,11 @@ export function QuickRecordSheet({
    * 공유 가계부가 하나도 없는 사람에게는 「적을 곳」 줄 자체가 없다.
    */
   bookId?: string | null;
+  /**
+   * 자산 화면 「팔았어요」 로 열 때 그 종목. 첫 화면을 건너뛰고 그 종목이 골라진 팔기 둘째 화면으로
+   * 열고, 둘째 화면의 ‹ 는 시트를 닫는다.
+   */
+  sell?: AssetItemOut | null;
   onClose: () => void;
   /**
    * 어느 날에 적혔는지. 저장이 실제로 끝난 뒤에 부른다.
@@ -223,7 +269,7 @@ export function QuickRecordSheet({
       analytics.log(
         EVENTS.recordClosed,
         {
-          step: step === 'day' ? 'setup' : step === 'tag' ? 'amount' : step,
+          step: closedStepOf(step),
           drafted: pending > 0 ? 'parsed' : draftedRef.current() ? 'typed' : 'none',
           how,
         },
@@ -298,6 +344,7 @@ export function QuickRecordSheet({
         day={day}
         from={from}
         bookId={bookId}
+        sell={sell}
         onDone={onClose}
         onRecorded={onRecorded}
         onLeave={() => requestLeave('close', 'back')}
@@ -357,6 +404,7 @@ function RecordBody({
   day,
   from,
   bookId,
+  sell,
   onDone,
   onRecorded,
   onLeave,
@@ -378,6 +426,8 @@ function RecordBody({
   from: RecordFrom;
   /** 처음에 골라 둘 공유 가계부. 없으면 내 가계부. */
   bookId: string | null;
+  /** 팔기로 곧장 열 종목. */
+  sell: AssetItemOut | null;
   onDone: () => void;
   /** 저장이 끝난 날. 부르는 쪽이 그 날로 옮겨 간다. 오늘을 넘지 않는다. */
   onRecorded?: (day: string) => void;
@@ -409,6 +459,8 @@ function RecordBody({
   const tags = useTags();
   const create = useCreateTransaction();
   const createEntry = useCreateBookEntry();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   /*
     어디에 적나(「적을 곳」). `null` 이면 내 가계부다.
@@ -447,7 +499,9 @@ function RecordBody({
   const startTab: RecordTab = initialTab ?? DEFAULT_RECORD_TAB;
   /** 첫 화면에서 고른 방법. */
   const [tab, setTab] = useState<RecordTab>(startTab);
-  const [step, setStep] = useState<RecordStep>('setup');
+  /** 자산 화면 「팔았어요」 로 열었으면 그 종목. 첫 화면 없이 팔기 둘째 화면으로 연다. */
+  const [sellStart] = useState<AssetDest | null>(() => (sell == null ? null : destFromItem(sell)));
+  const [step, setStep] = useState<RecordStep>(sellStart != null ? 'amount' : 'setup');
   stepRef.current = step;
 
   /*
@@ -464,7 +518,9 @@ function RecordBody({
   function settleTime(now: number): void {
     const spent = now - timing.enteredAt;
     if (step === 'setup' || step === 'day') timing.setupMs += spent;
-    if (step === 'amount' || step === 'tag') timing.amountMs += spent;
+    if (step === 'amount' || step === 'tag' || step === 'dest' || step === 'item') {
+      timing.amountMs += spent;
+    }
     timing.enteredAt = now;
   }
 
@@ -503,12 +559,34 @@ function RecordBody({
     지출, 수입, 이체. 이 값이 고를 수 있는 분류와 저장할 종류를 함께 정한다.
     이체는 집계 어디에도 안 들어가서(ADR-0005) 분류도 태그도 없다.
   */
-  const [recordKind, setRecordKind] = useState<RecordKind>('expense');
+  const [recordKind, setRecordKind] = useState<RecordKind>(
+    sellStart != null ? 'save' : 'expense',
+  );
   const isTransfer = recordKind === 'transfer';
+  const isSave = recordKind === 'save';
   const kind: LedgerKind = recordKind === 'income' ? 'income' : 'expense';
   // 무언가 도는 중에는 단계를 옮기지 못한다. 옮기면 응답이 돌아올 자리가 사라진다.
   const [busy, setBusy] = useState(false);
   const [digits, setDigits] = useState('');
+
+  /*
+    저축·투자. 「어디에」 와 넣었나 팔았나, 수량. 고른 길과 격자 자리는 로그에만 쓴다.
+    종류나 적을 곳을 바꾸면 비운다.
+  */
+  const [assetDest, setAssetDest] = useState<AssetDest | null>(sellStart);
+  const [destFrom, setDestFrom] = useState<{ from: AssetDestFrom; position: number } | null>(
+    null,
+  );
+  const [assetSide, setAssetSide] = useState<AssetSideLog>(sellStart != null ? 'sell' : 'buy');
+  /** 수량 종목의 수량. 소수점이 든 글자 그대로. */
+  const [qtyDigits, setQtyDigits] = useState('');
+  /** 「전부」 로 넣은 수량인가. 그 뒤에 수량을 고치면 풀린다. */
+  const [qtyAll, setQtyAll] = useState(false);
+  /** 키패드가 무엇을 치나. 수량 종목을 고르면 수량부터 친다. */
+  const [keyTarget, setKeyTarget] = useState<'amount' | 'qty'>(
+    sellStart != null && destHoldingOf(sellStart) === 'quantity' ? 'qty' : 'amount',
+  );
+
   const [saved, setSaved] = useState<SavedState | null>(null);
   const [savedEntry, setSavedEntry] = useState<SavedEntryState | null>(null);
   /*
@@ -532,7 +610,7 @@ function RecordBody({
   */
   const [tagId, setTagId] = useState<string | null>(null);
   const [tagComposing, setTagComposing] = useState(false);
-  const tagShown = !isTransfer && !shared;
+  const tagShown = !isTransfer && !isSave && !shared;
   const kindTags =
     tags.data == null ? null : byTagUsage(tags.data.items.filter((tag) => tag.kind === kind));
   const pickedTag = kindTags?.find((tag) => tag.id === tagId) ?? null;
@@ -679,6 +757,11 @@ function RecordBody({
       setFutureAsk(null);
       return;
     }
+    // 자산 화면 「팔았어요」 로 열었으면 첫 화면이 없다. 둘째 화면의 ‹ 는 시트를 닫는다.
+    if (step === 'amount' && sellStart != null) {
+      onLeave();
+      return;
+    }
     if (step === 'tag' && tagFormOpen && (kindTags?.length ?? 0) > 0) {
       setTagComposing(false);
       return;
@@ -697,6 +780,14 @@ function RecordBody({
     analytics.log(EVENTS.recordBack, { from: step, how }, { flowId, kind: 'click' });
     if (step === 'tag') {
       setTagComposing(false);
+      go('amount');
+      return;
+    }
+    if (step === 'item') {
+      go('dest');
+      return;
+    }
+    if (step === 'dest') {
       go('amount');
       return;
     }
@@ -861,7 +952,7 @@ function RecordBody({
       analytics.log(
         EVENTS.recordClosed,
         {
-          step: step === 'day' ? 'setup' : step === 'tag' ? 'amount' : step,
+          step: closedStepOf(step),
           drafted: draftedRef.current() ? 'typed' : 'none',
           how: 'cancel',
         },
@@ -944,6 +1035,44 @@ function RecordBody({
     setListOpen(true);
     setListExpanded(false);
     setTagId(null);
+    clearAsset();
+  }
+
+  /** 「어디에」 와 수량을 비운다. 종류나 적을 곳을 바꿨을 때. */
+  function clearAsset(): void {
+    setAssetDest(null);
+    setDestFrom(null);
+    setAssetSide('buy');
+    setQtyDigits('');
+    setQtyAll(false);
+    setKeyTarget('amount');
+  }
+
+  /** 「어디에」 를 골랐을 때. 「넣었어요」 로 두고 수량을 비운다. 수량 종목이면 수량 칸부터 친다. */
+  function pickDest(pick: AssetDestPick): void {
+    setAssetDest(pick.dest);
+    setDestFrom({ from: pick.from, position: pick.position });
+    setAssetSide('buy');
+    setQtyDigits('');
+    setQtyAll(false);
+    setKeyTarget(destHoldingOf(pick.dest) === 'quantity' ? 'qty' : 'amount');
+    create.reset();
+    if (step !== 'amount') go('amount');
+  }
+
+  /** 「넣었어요 | 팔았어요」. 수량은 비우고, 수량 종목이면 수량 칸부터 친다. */
+  function chooseSide(next: AssetSideLog): void {
+    if (next === assetSide) return;
+    setAssetSide(next);
+    setQtyDigits('');
+    setQtyAll(false);
+    setKeyTarget(assetDest != null && destHoldingOf(assetDest) === 'quantity' ? 'qty' : 'amount');
+    create.reset();
+  }
+
+  function typeQuantity(next: string): void {
+    setQtyDigits(next);
+    setQtyAll(false);
   }
 
   function requestSave(category: CategoryOut | null, amount: number): void {
@@ -987,6 +1116,25 @@ function RecordBody({
     analytics.log(EVENTS.saveRequested, { method: 'keypad', count: 1 }, { flowId, kind: 'click' });
     const startedAt = Date.now();
     const savingTagId = tagShown ? (pickedTag?.id ?? null) : null;
+    // 저축·투자. 서버에는 분류 없는 이체로 적히고 「어디에」 와 수량이 장부에 붙는다.
+    const savingDest = isSave ? assetDest : null;
+    const savingSide: AssetSideLog = sideShown ? assetSide : 'buy';
+    const savingQty = savingDest != null && destHoldingOf(savingDest) === 'quantity' ? qtyValue : null;
+    const assetLog: Pick<
+      EventParamMap['save_result'],
+      'side' | 'qty' | 'qty_all' | 'dest_from' | 'position'
+    > =
+      savingDest == null
+        ? {}
+        : {
+            side: savingSide,
+            qty: quantityShapeOf(savingQty),
+            ...(savingSide === 'sell' && savingQty != null
+              ? { qty_all: qtyAll && sameQuantity(savingQty, sellItem?.quantity) }
+              : {}),
+            ...(destFrom == null ? {} : { dest_from: destFrom.from }),
+            ...(destFrom?.from === 'grid' ? { position: destFrom.position - 1 } : {}),
+          };
     create.mutate(
       {
         /*
@@ -995,9 +1143,9 @@ function RecordBody({
         */
         occurred_at: isBackfill ? toLedgerNoonIso(recordDay) : new Date().toISOString(),
         amount,
-        type: recordKind,
+        type: isSave ? 'transfer' : recordKind,
         // 이체에는 분류가 없다. 집계 어디에도 안 들어가서 골라도 보일 자리가 없다(ADR-0005).
-        category_id: category?.id ?? null,
+        category_id: isSave ? null : (category?.id ?? null),
         tag_id: savingTagId,
         source: 'keypad',
         // 손으로 직접 누른 값이라 분류를 의심할 이유가 없다.
@@ -1005,6 +1153,13 @@ function RecordBody({
         excluded_from_budget: false,
         // 수입에는 뜻이 없다. 보내도 서버가 버리지만 여기서도 안 보낸다.
         payment_method: recordKind === 'expense' ? method : null,
+        ...(savingDest == null
+          ? {}
+          : {
+              ...destBodyOf(savingDest),
+              asset_side: savingSide,
+              asset_quantity: savingQty,
+            }),
       },
       {
         onSettled: () => markBusy(false),
@@ -1019,6 +1174,7 @@ function RecordBody({
               book: 'mine',
               kind: recordKind,
               ...times,
+              ...assetLog,
             },
             { flowId },
           );
@@ -1038,9 +1194,25 @@ function RecordBody({
               kind: recordKind,
               book: 'mine',
               ...times,
+              ...assetLog,
             },
             { flowId },
           );
+          // 장부에 붙은 것만 센다. 이름, 금액, 수량 값은 싣지 않는다.
+          if (savingDest != null && created.asset != null) {
+            const group = destGroupOf(savingDest);
+            analytics.log(
+              EVENTS.assetChanged,
+              {
+                action: savingDest.type === 'new' ? 'created' : 'updated',
+                group,
+                kind: group === 'investment' ? (destKindOf(savingDest) ?? 'none') : 'none',
+                from: 'record',
+                fields: savingQty == null ? 'amount' : 'amount+qty',
+              },
+              { flowId, kind: 'click' },
+            );
+          }
           // 태그는 저장과 함께 붙었다. 서버가 받아 준 것만 센다.
           if (savingTagId != null && created.transaction.tag_id != null) {
             analytics.log(
@@ -1062,7 +1234,19 @@ function RecordBody({
           rememberMethod();
           markRecorded();
           tellRecorded(toLedgerDate(new Date(created.transaction.occurred_at)));
-          setSaved({ transaction: created.transaction, feedback: created.feedback });
+          setSaved({
+            transaction: created.transaction,
+            feedback: created.feedback,
+            asset:
+              savingDest == null || created.asset == null
+                ? null
+                : {
+                    result: created.asset,
+                    name: destNameOf(savingDest),
+                    holding: destHoldingOf(savingDest),
+                    unit: unitOf(destKindOf(savingDest)),
+                  },
+          });
         },
       },
     );
@@ -1149,12 +1333,45 @@ function RecordBody({
     저장이 끝났으면 눌러 둔 숫자는 안 센다. 방금 저장한 그 금액이다.
   */
   draftedRef.current = () =>
-    (!done && digits !== '') || nlDraftRef.current || composeDirtyRef.current;
+    (!done && (digits !== '' || qtyDigits !== '')) ||
+    nlDraftRef.current ||
+    composeDirtyRef.current;
   composingRef.current = creating;
   leaveComposeRef.current = requestLeaveCompose;
 
   const amount = toAmount(digits);
   const savingNow = create.isPending || createEntry.isPending;
+
+  const destHolding = isSave && assetDest != null ? destHoldingOf(assetDest) : null;
+  const lot = destHolding === 'quantity';
+  /** 「넣었어요 | 팔았어요」 는 팔 수 있는 종목에만 선다. 저장 전 새 항목은 팔 보유가 없다. */
+  const sideShown =
+    assetDest?.type === 'item' && (destHolding === 'quantity' || destHolding === 'amount');
+  const selling = sideShown && assetSide === 'sell';
+  const sellItem = selling && assetDest?.type === 'item' ? assetDest.item : null;
+  const sellCheck = sellItem == null ? null : sellPreviewOf(sellItem, qtyDigits, amount);
+  const qtyValue = lot ? quantityValue(qtyDigits) : null;
+  const typingQty = lot && keyTarget === 'qty';
+  // 수량 종목은 수량이 있어야, 팔 때는 보유를 넘지 않아야 저장이 켜진다.
+  const assetReady =
+    assetDest != null &&
+    (!lot || qtyValue != null) &&
+    (!selling || sellCheck?.ok === true);
+
+  /** 팔 때 「전부」. 보유 수량을 그대로 넣고 금액을 치러 간다. */
+  function sellAll(): void {
+    if (sellItem == null) return;
+    setQtyDigits(quantityValue(sellItem.quantity) ?? '');
+    setQtyAll(true);
+    setKeyTarget('amount');
+  }
+
+  /** 저장 뒤 「자산 보기」. 다른 방법에 읽어 둔 것이 남았으면 그리로 먼저 간다. */
+  function openAssets(): void {
+    const waiting = PANEL_TABS.some((key) => key !== tab && (reviewCounts[key] ?? 0) > 0);
+    finish();
+    if (!waiting && location.pathname !== ROUTES.assets) void navigate(ROUTES.assets);
+  }
   const failedSave = shared ? createEntry.error : create.error;
   const saveError = failedSave instanceof ApiError ? failedSave : null;
 
@@ -1173,6 +1390,7 @@ function RecordBody({
     setListExpanded(false);
     setFutureAsk(null);
     setTagId(null);
+    clearAsset();
     if (next != null) setRecordKind('expense');
     create.reset();
     createEntry.reset();
@@ -1194,7 +1412,7 @@ function RecordBody({
   // 저장 버튼은 카테고리를 골라 목록을 접었을 때만 나온다. 목록을 펴면 칩이 곧 저장이다.
   // 이체는 고를 분류가 없어 금액만 있으면 바로 저장한다.
   const saveTarget = listOpen ? null : picked;
-  const canSave = isTransfer || saveTarget != null;
+  const canSave = isTransfer || isSave || saveTarget != null;
 
   const photoNote = <PhotoCreditLine credits={photoCredits} />;
 
@@ -1264,6 +1482,34 @@ function RecordBody({
             go('amount');
           }}
         />
+      ) : null}
+
+      {/* 「다른 곳」. 고르면 둘째 화면으로 돌아가 그 항목이 골라져 있다. */}
+      {!done && step === 'dest' ? (
+        <AssetDestSource>
+          {({ destinations }) => (
+            <AssetDestList
+              destinations={destinations}
+              value={assetDest}
+              onPick={pickDest}
+              onNew={() => go('item')}
+              onBack={() => back('sheet')}
+            />
+          )}
+        </AssetDestSource>
+      ) : null}
+
+      {/* 새 종목이나 통장. 서버에는 저장할 때 함께 만든다. */}
+      {!done && step === 'item' ? (
+        <AssetDestSource>
+          {({ destinations }) => (
+            <NewAssetForm
+              destinations={destinations}
+              onDone={pickDest}
+              onBack={() => back('sheet')}
+            />
+          )}
+        </AssetDestSource>
       ) : null}
 
       {/*
@@ -1340,7 +1586,29 @@ function RecordBody({
         저장 뒤 확인 화면. 다른 패널과 나란히 서서, 여기 떠 있는 동안에도 그쪽이 들고 있는
         것을 잃지 않는다. 「확인」 을 누르면 finish() 가 남은 검토 목록으로 데려간다.
       */}
-      {saved != null ? (
+      {saved?.asset != null ? (
+        <div className="record__panel">
+          <SavedAssetPanel
+            flowId={flowId}
+            transaction={saved.transaction}
+            asset={saved.asset}
+            onUpdated={(updated) =>
+              setSaved((prev) =>
+                prev?.asset == null
+                  ? prev
+                  : {
+                      transaction: updated.transaction,
+                      feedback: updated.feedback,
+                      asset: { ...prev.asset, result: updated.asset ?? prev.asset.result },
+                    },
+              )
+            }
+            onConfirm={finish}
+            onAssets={openAssets}
+            backRef={savedBackRef}
+          />
+        </div>
+      ) : saved != null ? (
         <div className="record__panel">
           <FeedbackPanel
             flowId={flowId}
@@ -1351,6 +1619,22 @@ function RecordBody({
             categories={categoriesOfKind(kindOf(saved.transaction.type), allCategories)}
             onUpdated={(updated) => {
               setSaved({ transaction: updated.transaction, feedback: updated.feedback });
+            }}
+            // 적금 안내로 저축·투자로 바꾸면 저축·투자 저장 뒤 화면으로 갈아 끼운다.
+            onSavingConverted={(updated, dest) => {
+              setSaved({
+                transaction: updated.transaction,
+                feedback: updated.feedback,
+                asset:
+                  updated.asset == null
+                    ? null
+                    : {
+                        result: updated.asset,
+                        name: destNameOf(dest),
+                        holding: destHoldingOf(dest),
+                        unit: unitOf(destKindOf(dest)),
+                      },
+              });
             }}
             // 여기서 고른 것이 다음 기록에 조용히 채워질 값이다.
             onMethodPicked={(next) => void writeLastMethod(bridge.storage, next)}
@@ -1390,7 +1674,7 @@ function RecordBody({
         >
           <SheetHeader
             onBack={() => back('sheet')}
-            title={AMOUNT_TITLES[recordKind]}
+            title={selling ? '얼마 받았어요?' : AMOUNT_TITLES[recordKind]}
             right={
               tagShown ? (
                 <button
@@ -1409,7 +1693,12 @@ function RecordBody({
             }
           />
 
-          <AmountDisplay digits={digits} />
+          <AmountDisplay
+            digits={digits}
+            // 수량 칸이 있으면 금액 숫자를 눌러 다시 금액을 친다.
+            onPress={lot ? () => setKeyTarget('amount') : undefined}
+            dimmed={typingQty}
+          />
 
           {saveError ? (
             <p className="record__notice" role="alert">
@@ -1428,7 +1717,48 @@ function RecordBody({
             />
           ) : null}
 
-          {isTransfer ? null : listOpen || picked == null ? (
+          {isSave ? (
+            <>
+              <AssetDestSource>
+                {({ destinations, loading }) => (
+                  <AssetDestField
+                    destinations={destinations}
+                    value={assetDest}
+                    onPick={pickDest}
+                    onOther={() => go('dest')}
+                    loading={loading}
+                  />
+                )}
+              </AssetDestSource>
+              <SaveLotRow
+                showSide={sideShown}
+                side={assetSide}
+                onSide={chooseSide}
+                quantity={
+                  lot && assetDest != null
+                    ? {
+                        text: qtyDigits,
+                        unit: unitOf(destKindOf(assetDest)),
+                        focused: typingQty,
+                        onFocus: () => setKeyTarget('qty'),
+                      }
+                    : null
+                }
+                onAll={
+                  lot && sellItem != null && quantityValue(sellItem.quantity) != null
+                    ? sellAll
+                    : undefined
+                }
+              />
+              {sellItem != null && sellCheck?.ok === true ? (
+                <SellPreviewCard
+                  item={sellItem}
+                  preview={sellCheck.preview}
+                  soldQuantity={lot ? qtyValue : null}
+                />
+              ) : null}
+            </>
+          ) : isTransfer ? null : listOpen || picked == null ? (
             <CategoryPicker
               // 적을 곳마다 새로 세운다. 펼친 상태가 다른 가계부로 따라가지 않게.
               key={destination ?? 'mine'}
@@ -1465,9 +1795,9 @@ function RecordBody({
           {canSave ? (
             <Button
               className="record__save"
-              disabled={amount <= 0 || savingNow}
+              disabled={amount <= 0 || savingNow || (isSave && !assetReady)}
               aria-busy={savingNow}
-              onClick={() => requestSave(isTransfer ? null : saveTarget, amount)}
+              onClick={() => requestSave(isTransfer || isSave ? null : saveTarget, amount)}
             >
               {/* 저장 중인지는 이 버튼이 말한다. 칩으로 저장할 때는 칩이 모두 잠긴다. */}
               {savingNow ? '저장하는 중' : '저장'}
@@ -1475,7 +1805,11 @@ function RecordBody({
           ) : null}
 
           {/* 목록을 끝까지 펼친 동안에는 접는다. 고를 것이 화면을 채운 자리에 숫자판까지 서면 혼선만 는다. */}
-          {listExpanded ? null : <Keypad digits={digits} onChange={setDigits} />}
+          {listExpanded ? null : typingQty ? (
+            <Keypad digits={qtyDigits} onChange={typeQuantity} decimal />
+          ) : (
+            <Keypad digits={digits} onChange={setDigits} />
+          )}
 
           {/* 앞날에 적으려 할 때만 선다. 막는 것이 아니라 한 번 확인하는 자리다. */}
           {futureAsk != null ? (

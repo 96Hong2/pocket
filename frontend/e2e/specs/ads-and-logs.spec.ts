@@ -208,3 +208,60 @@ test('관리 탭 배너는 예산 바로 아래, 하위 화면 목록 위에 선
   expect(ad.y).toBeGreaterThanOrEqual(budget.y + budget.height);
   expect(ad.y + ad.height).toBeLessThanOrEqual(list.y);
 });
+
+test('저축·투자 기록의 로그에 종목 이름, 수량, 금액이 없고 한 흐름으로 이어진다', async ({
+  home,
+  page,
+  prep,
+  recordSheet,
+}) => {
+  await prep.putAssets([{ group: 'cash', label: '비상금 통장', amount: 500_000 }]);
+
+  await home.open();
+  await home.waitReady();
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.chooseKind('저축·투자');
+  await recordSheet.addNewDest({ group: '투자', kind: '주식', name: '테스트전자' });
+  await recordSheet.setQuantity('0.01234567');
+  await recordSheet.amountHead.click();
+  await recordSheet.input.enterAmount(73_519);
+  await recordSheet.input.saveButton.click();
+  await expect(recordSheet.feedback.headline).toHaveText('테스트전자에 73,519원 넣었어요');
+  await recordSheet.assetsButton.click();
+  await recordSheet.waitClosed();
+
+  const logs = await readLogs(page);
+
+  await test.step('저장과 자산 바뀜이 남는다', async () => {
+    const saved = (await logsNamed(page, 'save_result')).at(-1);
+    expect(saved?.params.result).toBe('ok');
+    expect(saved?.params.kind).toBe('save');
+    expect(saved?.params.qty).toBe('decimal');
+    expect(saved?.params.dest_from).toBe('new');
+    const changed = await logsNamed(page, 'asset_changed');
+    expect(changed.map((log) => log.params.from)).toContain('record');
+  });
+
+  await test.step('기록 한 번의 로그가 같은 flow_id 로 이어진다', async () => {
+    const flow = logs.filter((log) =>
+      ['record_started', 'record_setup_done', 'save_requested', 'save_result', 'asset_changed'].includes(
+        log.name,
+      ),
+    );
+    expect(new Set(flow.map((log) => log.params.flow_id)).size).toBe(1);
+  });
+
+  await test.step('id 키를 뺀 모든 로그 값에 이름, 수량, 금액이 없다', async () => {
+    const values = logs.map((log) => ({
+      name: log.name,
+      params: Object.fromEntries(
+        Object.entries(log.params).filter(([key]) => !/(^|_)id$/.test(key)),
+      ),
+    }));
+    const dump = JSON.stringify(values);
+    for (const secret of ['테스트전자', '0.01234567', '1234567', '73519', '73,519']) {
+      expect(dump, `로그에 적은 값이 새어 나갔다: ${secret}`).not.toContain(secret);
+    }
+  });
+});

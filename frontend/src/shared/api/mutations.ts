@@ -114,6 +114,30 @@ function invalidateMoney(queryClient: QueryClient): Promise<void> {
 }
 
 /**
+ * 자산 장부가 움직였을 수 있으면 자산 목록, 추이, 분석을 낡게 한다. 셋 다 `assets()` 아래다.
+ * 기다리지 않는다. 저장 뒤 화면이 이 왕복을 기다리지 않게.
+ */
+function invalidateAssets(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.assets() });
+}
+
+const ASSET_BODY_FIELDS = ['asset_item_key', 'asset_side', 'asset_quantity', 'new_asset'] as const;
+
+/**
+ * 저축·투자 저장이나 고치기였나. 응답에 자산 블록이나 어디에 키가 있거나, 본문에 자산 칸이 있으면 그렇다.
+ * 고치기에서 종류를 바꾸면 응답에 자산이 없어도 장부 줄이 빠지므로 `type` 이 실린 고치기도 넣는다.
+ */
+function touchesAssets(
+  body: TransactionCreate | TransactionUpdate,
+  answer: { transaction: { asset_item_key?: string | null }; asset?: unknown },
+  isUpdate: boolean,
+): boolean {
+  if (answer.asset != null || answer.transaction.asset_item_key != null) return true;
+  if (ASSET_BODY_FIELDS.some((field) => field in body)) return true;
+  return isUpdate && 'type' in body;
+}
+
+/**
  * 거래 저장.
  *
  * 응답에 되돌리기 창(`undo_window_seconds`)이 함께 온다. 카운트다운은 **응답을 받은 시각**부터
@@ -125,8 +149,9 @@ export function useCreateTransaction(params?: MonthParams) {
 
   return useMutation({
     mutationFn: (body: TransactionCreate) => client.createTransaction(body),
-    onSuccess: (created) => {
+    onSuccess: (created, body) => {
       writeBudgetState(queryClient, created.budget, params);
+      if (touchesAssets(body, created, false)) invalidateAssets(queryClient);
       // 무효화를 기다리지 않는다. 여기서 return 하면 mutation 이 pending 인 채로 남아
       // 피드백 패널이 '저장 응답' 이 아니라 '홈 다시 받기' 가 끝날 때까지 안 뜬다.
       // 10초 안에 끝나야 하는 흐름에서 그 왕복만큼이 그대로 체감된다.
@@ -148,8 +173,9 @@ export function useUpdateTransaction(params?: MonthParams) {
   return useMutation({
     mutationFn: (input: { id: string; body: TransactionUpdate }) =>
       client.updateTransaction(input.id, input.body),
-    onSuccess: (updated) => {
+    onSuccess: (updated, input) => {
       writeBudgetState(queryClient, updated.budget, params);
+      if (touchesAssets(input.body, updated, true)) invalidateAssets(queryClient);
       // 저장 경로와 같다. 무효화를 기다리면 그동안 버튼이 잠기고 옛 금액이 남아,
       // 그 왕복이 8초 되돌리기 창을 그대로 갉아먹는다.
       // 패널이 보여주는 금액·판정·예산은 수정 응답과 바로 위 캐시 쓰기에서 온다.
@@ -169,7 +195,11 @@ export function useDeleteTransaction() {
 
   return useMutation({
     mutationFn: (transactionId: string) => client.deleteTransaction(transactionId),
-    onSuccess: () => invalidateMoney(queryClient),
+    onSuccess: () => {
+      // id 만으로는 저축·투자였는지 모른다. 지우기는 드물어 자산도 늘 다시 받는다.
+      invalidateAssets(queryClient);
+      return invalidateMoney(queryClient);
+    },
   });
 }
 
@@ -495,6 +525,8 @@ export function useCommitImport() {
         return;
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.merchantRules() });
+      // 검토 줄에 어디에가 붙었으면 장부 줄도 같은 commit 에서 생긴다.
+      invalidateAssets(queryClient);
       return invalidateMoney(queryClient);
     },
   });

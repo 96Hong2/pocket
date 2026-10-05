@@ -164,10 +164,12 @@ export interface AnalyzeTarget {
 function analyzeTargetBody(target: AnalyzeTarget | undefined): {
   base_day?: string;
   book_id?: string;
+  with_assets?: boolean;
 } {
   return {
     ...baseDayBody(target?.baseDay),
-    ...(target?.bookId ? { book_id: target.bookId } : {}),
+    // 저축·투자 줄을 그릴 수 있는 번들이라는 표시. 공유 가계부 묶음에는 자산을 넘기지 않는다.
+    ...(target?.bookId ? { book_id: target.bookId } : { with_assets: true }),
   };
 }
 

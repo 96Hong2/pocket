@@ -1,0 +1,226 @@
+/*
+  기록의 「어디에」 고르기. 색·반경·글자는 전부 index.css 의 토큰에서 읽는다.
+  새 항목 폼의 칸은 자산 항목 시트(.asset-sheet__*)와 같은 생김새를 쓴다.
+*/
+
+@layer components {
+  /* ── 두 칸 격자 ─────────────────────────────── */
+  .asset-dest__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .asset-dest__cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    height: 46px;
+    padding: 0 12px;
+    border: 1.5px solid transparent;
+    border-radius: var(--radius-inset);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    text-align: left;
+  }
+
+  .asset-dest__cell:active {
+    background: var(--color-sage-50);
+  }
+
+  .asset-dest__cell[aria-pressed='true'] {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+  }
+
+  .asset-dest__cell-icon {
+    flex: none;
+    width: 24px;
+    height: 24px;
+  }
+
+  /* 이름은 자르지 않고 두 줄까지 접는다(「청년도약계좌」 「카카오페이증권」). */
+  .asset-dest__cell-name {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-height: 1.2;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .asset-dest__cell--other {
+    justify-content: center;
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    color: var(--color-sage-700);
+  }
+
+  .asset-dest__cell--ghost {
+    background: var(--color-surface-sunken);
+  }
+
+  .asset-dest__cell:disabled {
+    opacity: 0.5;
+  }
+
+  /* ── 고른 뒤 한 줄 ──────────────────────────── */
+  .asset-dest__picked {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 54px;
+    margin-top: 4px;
+    padding: 0 14px 0 10px;
+    border: 0;
+    border-radius: var(--radius-inset);
+    background: var(--color-sage-50);
+    color: var(--color-ink);
+    font-family: inherit;
+    text-align: left;
+  }
+
+  .asset-dest__picked-icon {
+    flex: none;
+    width: 28px;
+    height: 28px;
+  }
+
+  .asset-dest__picked-name {
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-extrabold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .asset-dest__picked-sub {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .asset-dest__picked-caret {
+    flex: none;
+    font-size: var(--text-15);
+    color: var(--color-muted);
+  }
+
+  /* ── 「다른 곳」 목록 ───────────────────────── */
+  .asset-dest-list__section + .asset-dest-list__section {
+    margin-top: 4px;
+  }
+
+  .asset-dest-list__group {
+    margin: 12px 0 4px;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .asset-dest-list__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 56px;
+    padding: 12px 4px;
+    border: 0;
+    border-bottom: 1px solid var(--color-divider);
+    background: none;
+    color: var(--color-ink);
+    font-family: inherit;
+    text-align: left;
+  }
+
+  .asset-dest-list__row[aria-pressed='true'] {
+    padding-left: 12px;
+    border-radius: var(--radius-md);
+    background: var(--color-sage-50);
+  }
+
+  .asset-dest-list__row[aria-pressed='true'] .asset-dest-list__name {
+    color: var(--color-sage-700);
+  }
+
+  .asset-dest-list__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .asset-dest-list__name {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    overflow-wrap: anywhere;
+  }
+
+  .asset-dest-list__sub {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .asset-dest-list__row--add {
+    border-bottom: 0;
+    color: var(--color-sage-700);
+  }
+
+  .asset-dest-list__plus {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg);
+    font-size: 20px;
+    font-weight: var(--font-weight-bold);
+  }
+
+  /* ── 「새 종목이나 통장」 ───────────────────── */
+  .asset-dest-new__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .asset-dest-new__done {
+    width: 100%;
+    margin-top: 20px;
+  }
+
+  /* ── 화면을 덮는 「다른 곳」(검토 줄, 고치기) ─────────────── */
+  .asset-dest-page {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    overflow-y: auto;
+    padding: calc(12px + var(--safe-top)) calc(20px + var(--safe-right))
+      calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left));
+    background: var(--color-surface);
+    animation: var(--animate-sheet-up);
+  }
+
+  @media (min-width: 600px) {
+    .asset-dest-page {
+      padding-inline: max(calc((100% - var(--app-column)) / 2), 20px);
+    }
+  }
+}

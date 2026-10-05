@@ -28,6 +28,7 @@ import { CategoryPicker, FutureDayConfirm } from '../../shared/ledger';
 import { Button, ErrorState, LoadingState } from '../../shared/ui';
 
 import { asPickable, monthLine, othersSeeLine } from '../books';
+import { useAssetDestinations } from '../asset-dest';
 import { CategoryComposeOverlay } from '../categories';
 
 import { CandidateRow, type RowPreview, type RuleAnswer } from './CandidateRow';
@@ -131,6 +132,7 @@ export function ImportReview({
   const shared = bookId != null;
   const bookQuery = useBook(bookId);
   const book = bookQuery.data ?? null;
+  const { destinations } = useAssetDestinations();
   const patch = usePatchImportCandidate();
   const commit = useCommitImport();
   const discard = useDeleteImport();
@@ -379,6 +381,8 @@ export function ImportReview({
               disabled={busy}
               // 공유 가계부는 지출만 받는다. 종류·결제 수단 칸을 세우지 않는다.
               expenseOnly={shared}
+              // 공유 가계부 묶음에는 내 자산 목록을 넘기지 않는다.
+              destinations={shared ? undefined : destinations}
               renderCompose={
                 bookId == null
                   ? undefined

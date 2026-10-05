@@ -211,6 +211,11 @@ export const EVENTS = {
    * **이름과 금액은 싣지 않는다.**
    */
   assetCapture: 'asset_capture',
+  /**
+   * 저축 이름 분류로 지출을 적은 뒤 저장 뒤 화면의 적금 안내에 답했다(`answer`).
+   * `converted` 는 저축·투자로 바꿈, `kept` 는 「그냥 둘게요」, `dismissed` 는 답 없이 닫음.
+   */
+  savingHintResult: 'saving_hint_result',
 
   /**
    * 반복 지출을 만들거나 고치거나 지웠다. 잠시 끄고 켠 것도 여기서 센다.
@@ -484,6 +489,9 @@ export type AssetChangeFrom = 'assets' | 'record';
 /** 고친 칸. `+` 로 이어 `asset_changed` 의 `fields` 에 싣는다. 값은 싣지 않는다. */
 export type AssetChangeField = 'amount' | 'price' | 'qty';
 
+/** 적금 안내 답. 바꿈, 「그냥 둘게요」, 답 없이 닫음. */
+export type SavingHintAnswer = 'converted' | 'kept' | 'dismissed';
+
 /** 체크인 카드 답. 「그대로예요」·「바뀐 게 있어요」·닫음. */
 export type AssetCheckinAnswer = 'same' | 'changed' | 'dismissed';
 
@@ -534,8 +542,17 @@ export type BookSide = 'mine' | 'shared';
 /** 기록 방법. `record_started.method` 와 같은 말이다(서버가 기억하는 이름). */
 export type RecordWay = 'keypad' | 'nl' | 'screenshot' | 'receipt';
 
-/** 첫 화면에서 고른 종류. */
-export type RecordKind = 'expense' | 'income' | 'transfer';
+/** 첫 화면에서 고른 종류. `save` 는 저축·투자(서버에는 이체로 적힌다). */
+export type RecordKind = 'expense' | 'income' | 'transfer' | 'save';
+
+/** 저축·투자의 쪽. 「넣었어요」 와 「팔았어요」. */
+export type AssetSideLog = 'buy' | 'sell';
+
+/** 저축·투자 수량의 꼴. 값은 싣지 않는다. 수량 칸이 없으면 `none`. */
+export type QuantityShape = 'none' | 'int' | 'decimal';
+
+/** 「어디에」 를 어디서 골랐나. 격자, 「다른 곳」 목록, 새 종목이나 통장. */
+export type AssetDestFromLog = 'grid' | 'other' | 'new';
 
 /**
  * 첫 화면에서 열린 값과 달라진 칸. 화면 순서(날짜, 적을 곳, 방법, 종류)대로 `+` 로 잇는다.
@@ -560,7 +577,7 @@ export type SetupChanged =
   | 'day+book+way+kind';
 
 /** 한 단계 뒤로 간 자리. */
-export type RecordBackFrom = 'amount' | 'nl' | 'photo' | 'day' | 'tag';
+export type RecordBackFrom = 'amount' | 'nl' | 'photo' | 'day' | 'tag' | 'dest' | 'item';
 
 /** 저장 없이 닫힐 때 있던 단계. */
 export type RecordStep = 'setup' | 'amount' | 'nl' | 'photo';
@@ -635,6 +652,16 @@ export type EventParamMap = CheckedMap<{
     flow_ms?: number;
     /** 첫 화면의 열린 값을 하나도 안 바꾸고 저장했나. */
     defaults?: boolean;
+    /** 저축·투자만. 넣었나 팔았나. */
+    side?: AssetSideLog;
+    /** 저축·투자만. 수량의 꼴(값 아님). */
+    qty?: QuantityShape;
+    /** 팔 때 「전부」 로 보유 수량을 그대로 넣었나. */
+    qty_all?: boolean;
+    /** 저축·투자만. 「어디에」 를 고른 길. */
+    dest_from?: AssetDestFromLog;
+    /** 격자에서 고른 자리(0부터). 격자 밖에서 골랐으면 싣지 않는다. */
+    position?: number;
   };
   feedback_shown: FlowParam & {
     feedback_kind?: string;
@@ -642,9 +669,23 @@ export type EventParamMap = CheckedMap<{
     book: BookSide;
   };
   feedback_action: FlowParam & {
-    action: 'confirm' | 'more';
+    /** `assets` 는 저축·투자 저장 뒤 「자산 보기」. */
+    action: 'confirm' | 'more' | 'assets';
     /** `more` 일 때 펼친 칸. */
     field?: 'merchant' | 'memo';
+  };
+  saving_hint_result: FlowParam & {
+    answer: SavingHintAnswer;
+  };
+  asset_changed: FlowParam & {
+    action: ItemAction;
+    group: string;
+    /** 자산 화면에서만. 저장 뒤 남은 줄 수. */
+    items?: number;
+    kind: AssetKindLog;
+    from: AssetChangeFrom;
+    /** 고친 칸을 `+` 로 이은 값. 값은 싣지 않는다. */
+    fields?: string;
   };
 }>;
 

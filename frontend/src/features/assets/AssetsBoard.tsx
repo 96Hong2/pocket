@@ -25,7 +25,12 @@ const FIRST_GROUP: AssetGroup = 'cash';
  * 저장은 목록을 통째로 보내는 PUT 하나뿐이라, 목록을 받지 못한 상태에서는 더하기 입구도
  * 열지 않는다. 그때 새 줄 하나만 보내면 나머지 줄이 통째로 사라진다.
  */
-export function AssetsBoard() {
+export function AssetsBoard({
+  onSell,
+}: {
+  /** 항목 시트의 「팔았어요」. 기록 시트를 여는 것은 화면이 한다. */
+  onSell?: (item: AssetItemOut) => void;
+} = {}) {
   const analytics = useAnalytics();
   const assets = useAssets();
   const history = useAssetHistory();
@@ -144,7 +149,12 @@ export function AssetsBoard() {
         points={points}
         onClose={() => setDetailOpen(false)}
       />
-      <AssetItemSheet target={target} items={items} onClose={() => setTarget(null)} />
+      <AssetItemSheet
+        target={target}
+        items={items}
+        onClose={() => setTarget(null)}
+        onSell={onSell}
+      />
       <CheckinSheet open={checkinOpen} items={items} onClose={closeCheckin} />
     </div>
   );

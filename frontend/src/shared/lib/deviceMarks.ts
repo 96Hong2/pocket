@@ -25,6 +25,7 @@ const MARKS = [
   'card-dismissed-recovery',
   'card-dismissed-budget-suggest',
   'card-dismissed-asset-checkin',
+  'card-dismissed-saving-hint',
   'asset-analysis-lock',
 ] as const;
 

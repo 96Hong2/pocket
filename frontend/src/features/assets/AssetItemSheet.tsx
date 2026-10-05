@@ -45,10 +45,12 @@ export interface AssetItemSheetProps {
    */
   items: AssetItemOut[];
   onClose: () => void;
+  /** 「팔았어요」. 이 시트를 닫은 뒤 기록 시트를 그 종목의 팔기 화면으로 연다. */
+  onSell?: (item: AssetItemOut) => void;
 }
 
 /** 자산 항목 시트. 더하기와 고치기가 같은 시트다. */
-export function AssetItemSheet({ target, items, onClose }: AssetItemSheetProps) {
+export function AssetItemSheet({ target, items, onClose, onSell }: AssetItemSheetProps) {
   const toast = useToast();
   // 저장 응답을 기다리는 동안에는 닫히지 않는다. 닫히면 실패를 그릴 자리가 없어진다.
   const [saving, setSaving] = useState(false);
@@ -96,6 +98,14 @@ export function AssetItemSheet({ target, items, onClose }: AssetItemSheetProps) 
           dirtyRef={dirtyRef}
           onSavingChange={setSaving}
           onBack={requestClose}
+          onSell={
+            onSell == null
+              ? undefined
+              : (item) => {
+                  close();
+                  onSell(item);
+                }
+          }
           onDone={(text) => {
             close();
             toast.show({ text });
@@ -246,6 +256,16 @@ interface AssetItemFormProps {
   onSavingChange: (saving: boolean) => void;
   onBack: () => void;
   onDone: (toastText: string) => void;
+  onSell?: (item: AssetItemOut) => void;
+}
+
+/** 팔 보유가 있나. 수량 종목은 수량, 금액 종목은 지금 금액이 0 보다 커야 한다. */
+function sellableOf(item: AssetItemOut | null): boolean {
+  if (item?.item_key == null) return false;
+  const holding = holdingOf(item.group, item.kind);
+  if (holding === 'quantity') return /[1-9]/.test(item.quantity ?? '');
+  if (holding === 'amount') return /[1-9]/.test(item.amount);
+  return false;
 }
 
 function AssetItemForm({
@@ -255,6 +275,7 @@ function AssetItemForm({
   onSavingChange,
   onBack,
   onDone,
+  onSell,
 }: AssetItemFormProps) {
   const analytics = useAnalytics();
   const save = useSaveAssets();
@@ -433,6 +454,18 @@ function AssetItemForm({
               ariaLabelledBy={monthlyId}
             />
           </div>
+        ) : null}
+
+        {onSell != null && saved != null && sellableOf(saved) ? (
+          <Button
+            className="asset-sheet__sell"
+            variant="outline"
+            fullWidth
+            disabled={save.isPending}
+            onClick={() => onSell(saved)}
+          >
+            팔았어요
+          </Button>
         ) : null}
 
         {message ? (
