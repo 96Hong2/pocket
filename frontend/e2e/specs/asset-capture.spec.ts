@@ -9,8 +9,9 @@ import { expect, test } from '../support/fixtures';
  * 입구는 한 줄과 「사진 고르기」 뿐이다. 사진을 고르면 읽는 동안 전면 광고가 늘 한 편 선다
  * (첫 장 무료 없음). 못 읽으면 탓하지 않는 화면이 서고 다음 한 번은 광고 없이 읽는다.
  *
- * 서버 스텁은 그림을 안 읽고 늘 세 줄(청년도약계좌 3,300,000, 카카오뱅크 1,250,000,
- * 연금저축펀드 2,100,000)을 낸다(docs/API_CONTRACT.md). 못 읽은 그림은 응답을 바꿔 만든다.
+ * 서버 스텁은 그림을 안 읽고 늘 다섯 줄(청년도약계좌 3,300,000, 카카오뱅크 1,250,000,
+ * 연금저축펀드 2,100,000, 보유 종목 엔비디아와 마이크로소프트)을 낸다(docs/API_CONTRACT.md).
+ * 못 읽은 그림은 응답을 바꿔 만든다. 보유 종목 줄의 넣은 돈과 칩은 asset-cost.spec.ts 가 본다.
  */
 
 const CAPTURE = '**/api/v1/assets/capture';
@@ -69,10 +70,10 @@ test('입구는 한 줄과 사진 고르기뿐이고, 고르면 광고가 서고
   const ads = await logsNamed(page, 'interstitial_result');
   expect(ads.map((log) => log.params.where)).toEqual(['asset_capture']);
   const read = (await logsNamed(page, 'asset_capture')).find((log) => log.params.step === 'read');
-  expect(read?.params).toMatchObject({ rows: 3, new_items: 1 });
+  expect(read?.params).toMatchObject({ rows: 5, new_items: 3 });
   expect(['watched', 'skipped']).toContain(read?.params.ad);
 
-  await expect(assets.capture.saveButton).toHaveText('3줄 저장');
+  await expect(assets.capture.saveButton).toHaveText('5줄 저장');
   await assets.capture.saveButton.click();
   await expect(assets.capture.body).toHaveCount(0);
   await expect(assets.groupTotal('연금')).toHaveText(formatCurrency(2_100_000));

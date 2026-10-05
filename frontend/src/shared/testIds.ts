@@ -220,6 +220,7 @@ export const TEST_IDS = {
   captureSheet: 'asset-capture-sheet',
   captureReading: 'asset-capture-reading',
   captureRow: 'asset-capture-row',
+  captureRate: 'asset-capture-rate',
   captureFail: 'asset-capture-fail',
   // 결산 순자산 장
   closingNetWorth: 'closing-net-worth',

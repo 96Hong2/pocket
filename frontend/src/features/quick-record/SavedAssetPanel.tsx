@@ -160,20 +160,27 @@ export function SavedAssetPanel({
       <dl className="saved-asset__rows">
         {sold ? (
           <>
-            <div className="saved-asset__row" data-testid={TEST_IDS.savedAssetRow} data-row="gain">
-              <dt>수익</dt>
-              <dd
-                className={
-                  parseDecimalOr(result.realized, 0) >= 0
-                    ? 'saved-asset__value saved-asset__value--up'
-                    : 'saved-asset__value saved-asset__value--down'
-                }
-                data-numeric=""
+            {/* 넣은 돈을 모르고 팔았으면 수익 줄이 없다. 받은 돈만 적힌다. */}
+            {result.realized == null ? null : (
+              <div
+                className="saved-asset__row"
+                data-testid={TEST_IDS.savedAssetRow}
+                data-row="gain"
               >
-                {formatSignedWon(parseDecimalOr(result.realized, 0))}
-                {result.rate == null ? '' : ` (${rateText(result.rate)})`}
-              </dd>
-            </div>
+                <dt>수익</dt>
+                <dd
+                  className={
+                    parseDecimalOr(result.realized, 0) >= 0
+                      ? 'saved-asset__value saved-asset__value--up'
+                      : 'saved-asset__value saved-asset__value--down'
+                  }
+                  data-numeric=""
+                >
+                  {formatSignedWon(parseDecimalOr(result.realized, 0))}
+                  {result.rate == null ? '' : ` (${rateText(result.rate)})`}
+                </dd>
+              </div>
+            )}
             <div className="saved-asset__row" data-testid={TEST_IDS.savedAssetRow} data-row="left">
               <dt>{lot ? '남은 수량' : '남은 금액'}</dt>
               <dd className="saved-asset__value" data-numeric="">

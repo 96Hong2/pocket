@@ -165,6 +165,22 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* 읽은 수량과 넣은 돈. 자산 화면 줄과 같은 말투로 이름 아래 한 줄. */
+  .capture-row__meta {
+    flex-basis: 100%;
+    color: var(--color-muted);
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .capture-row__right {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
   .capture-row[aria-checked='false'] .capture-row__name,
   .capture-row[aria-checked='false'] .capture-row__amount {
     color: var(--color-muted);

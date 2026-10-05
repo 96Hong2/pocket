@@ -17,6 +17,8 @@ import {
   type SetupChanged,
 } from '../../shared/analytics';
 import {
+  formatCurrency,
+  formatNumber,
   isFutureDay,
   shiftMonth,
   toLedgerDate,
@@ -65,6 +67,7 @@ import {
   AssetDestField,
   AssetDestList,
   NewAssetForm,
+  defaultRemaining,
   destBodyOf,
   destFromItem,
   destGroupOf,
@@ -97,7 +100,7 @@ import { RecordDayStep } from './RecordDayStep';
 import { dayWithWeekday, nearDayWord, tagStyle } from './recordLabels';
 import { RecordSetup, type RecordKind } from './RecordSetup';
 import { RecordTagStep } from './RecordTagStep';
-import { AssetDestSource, SaveLotRow, SellPreviewCard } from './SaveFields';
+import { AssetDestSource, SaveBoxRow, SaveLotRow, SellPreviewCard } from './SaveFields';
 import { SavedAssetPanel, type SavedAssetInfo } from './SavedAssetPanel';
 import { quantityShapeOf, sameQuantity } from './saveInvest';
 import { DEFAULT_RECORD_TAB, recordMethodOf, type RecordTab } from './recordTab';
@@ -566,9 +569,7 @@ function RecordBody({
     지출, 수입, 이체. 이 값이 고를 수 있는 분류와 저장할 종류를 함께 정한다.
     이체는 집계 어디에도 안 들어가서(ADR-0005) 분류도 태그도 없다.
   */
-  const [recordKind, setRecordKind] = useState<RecordKind>(
-    sellStart != null ? 'save' : 'expense',
-  );
+  const [recordKind, setRecordKind] = useState<RecordKind>(sellStart != null ? 'save' : 'expense');
   const isTransfer = recordKind === 'transfer';
   const isSave = recordKind === 'save';
   const kind: LedgerKind = recordKind === 'income' ? 'income' : 'expense';
@@ -581,16 +582,20 @@ function RecordBody({
     종류나 적을 곳을 바꾸면 비운다.
   */
   const [assetDest, setAssetDest] = useState<AssetDest | null>(sellStart);
-  const [destFrom, setDestFrom] = useState<{ from: AssetDestFrom; position: number } | null>(
-    null,
-  );
+  const [destFrom, setDestFrom] = useState<{ from: AssetDestFrom; position: number } | null>(null);
   const [assetSide, setAssetSide] = useState<AssetSideLog>(sellStart != null ? 'sell' : 'buy');
   /** 수량 종목의 수량. 소수점이 든 글자 그대로. */
   const [qtyDigits, setQtyDigits] = useState('');
   /** 「전부」 로 넣은 수량인가. 그 뒤에 수량을 고치면 풀린다. */
   const [qtyAll, setQtyAll] = useState(false);
+  /*
+    금액으로 파는 항목의 「남은 금액」 과 「넣은 돈」. 남은 금액은 null 이거나 비었으면 처음 값
+    (지금 금액 − 받은 돈)을 쓴다. 「전부」 는 '0' 이다. 넣은 돈은 그 항목의 넣은 돈을 모를 때만 선다.
+  */
+  const [restDigits, setRestDigits] = useState<string | null>(null);
+  const [costDigits, setCostDigits] = useState('');
   /** 키패드가 무엇을 치나. 수량 종목을 고르면 수량부터 친다. */
-  const [keyTarget, setKeyTarget] = useState<'amount' | 'qty'>(
+  const [keyTarget, setKeyTarget] = useState<'amount' | 'qty' | 'rest' | 'cost'>(
     sellStart != null && destHoldingOf(sellStart) === 'quantity' ? 'qty' : 'amount',
   );
 
@@ -637,9 +642,7 @@ function RecordBody({
     receipt: 0,
   });
   /** 읽어 온 것을 든 채 ‹ 를 눌러 묻는 중. 몇 건인지와 어느 길로 눌렀는지. */
-  const [panelAsk, setPanelAsk] = useState<{ count: number; how: 'sheet' | 'back' } | null>(
-    null,
-  );
+  const [panelAsk, setPanelAsk] = useState<{ count: number; how: 'sheet' | 'back' } | null>(null);
   /** 저장까지 마쳐 결과 화면을 든 패널. 이 패널의 ‹ 는 「확인」 과 같다. */
   const importSavedRef = useRef<Partial<Record<RecordTab, boolean>>>({});
   /** 패널마다 검토 묶음을 버리는 길. 검토 화면이 서 있을 때만 걸린다. */
@@ -970,7 +973,11 @@ function RecordBody({
   }
 
   /** 줄글·사진으로 읽은 것을 저장한 뒤. 공유 가계부에 적었으면 날로 옮겨 가지 않는다. */
-  function afterImportSaved(key: PanelTab, savedDay: string | null, savedBook: string | null): void {
+  function afterImportSaved(
+    key: PanelTab,
+    savedDay: string | null,
+    savedBook: string | null,
+  ): void {
     importSavedRef.current[key] = true;
     markRecorded();
     if (savedBook != null) return;
@@ -1052,6 +1059,8 @@ function RecordBody({
     setAssetSide('buy');
     setQtyDigits('');
     setQtyAll(false);
+    setRestDigits(null);
+    setCostDigits('');
     setKeyTarget('amount');
   }
 
@@ -1062,6 +1071,8 @@ function RecordBody({
     setAssetSide('buy');
     setQtyDigits('');
     setQtyAll(false);
+    setRestDigits(null);
+    setCostDigits('');
     setKeyTarget(destHoldingOf(pick.dest) === 'quantity' ? 'qty' : 'amount');
     create.reset();
     if (step !== 'amount') go('amount');
@@ -1073,6 +1084,8 @@ function RecordBody({
     setAssetSide(next);
     setQtyDigits('');
     setQtyAll(false);
+    setRestDigits(null);
+    setCostDigits('');
     setKeyTarget(assetDest != null && destHoldingOf(assetDest) === 'quantity' ? 'qty' : 'amount');
     create.reset();
   }
@@ -1126,7 +1139,8 @@ function RecordBody({
     // 저축·투자. 서버에는 분류 없는 이체로 적히고 「어디에」 와 수량이 장부에 붙는다.
     const savingDest = isSave ? assetDest : null;
     const savingSide: AssetSideLog = sideShown ? assetSide : 'buy';
-    const savingQty = savingDest != null && destHoldingOf(savingDest) === 'quantity' ? qtyValue : null;
+    const savingQty =
+      savingDest != null && destHoldingOf(savingDest) === 'quantity' ? qtyValue : null;
     const assetLog: Pick<
       EventParamMap['save_result'],
       'side' | 'qty' | 'qty_all' | 'dest_from' | 'position'
@@ -1166,6 +1180,13 @@ function RecordBody({
               ...destBodyOf(savingDest),
               asset_side: savingSide,
               asset_quantity: savingQty,
+              // 금액으로 파는 항목은 남은 금액(0 이면 전부)과, 모르던 넣은 돈을 적었으면 그것.
+              ...(savingSide === 'sell' && amountSell && restValue != null
+                ? {
+                    asset_remaining: restValue,
+                    ...(totalCost != null ? { asset_cost_basis: totalCost } : {}),
+                  }
+                : {}),
             }),
       },
       {
@@ -1340,9 +1361,7 @@ function RecordBody({
     저장이 끝났으면 눌러 둔 숫자는 안 센다. 방금 저장한 그 금액이다.
   */
   draftedRef.current = () =>
-    (!done && (digits !== '' || qtyDigits !== '')) ||
-    nlDraftRef.current ||
-    composeDirtyRef.current;
+    (!done && (digits !== '' || qtyDigits !== '')) || nlDraftRef.current || composeDirtyRef.current;
   composingRef.current = creating;
   leaveComposeRef.current = requestLeaveCompose;
 
@@ -1356,14 +1375,27 @@ function RecordBody({
     assetDest?.type === 'item' && (destHolding === 'quantity' || destHolding === 'amount');
   const selling = sideShown && assetSide === 'sell';
   const sellItem = selling && assetDest?.type === 'item' ? assetDest.item : null;
-  const sellCheck = sellItem == null ? null : sellPreviewOf(sellItem, qtyDigits, amount);
+  // 금액으로 파는 항목. 받은 돈 말고 남은 금액으로 판 몫을 정한다.
+  const amountSell = sellItem != null && destHolding === 'amount';
+  const costUnknown = amountSell && sellItem.cost_basis == null;
+  const restAuto = amountSell ? defaultRemaining(sellItem.amount, amount) : 0;
+  const restValue = !amountSell
+    ? null
+    : restDigits != null && restDigits !== ''
+      ? toAmount(restDigits)
+      : restAuto;
+  const totalCost = costUnknown && costDigits !== '' ? toAmount(costDigits) : null;
+  const sellCheck =
+    sellItem == null
+      ? null
+      : sellPreviewOf(sellItem, qtyDigits, amount, { remaining: restValue, totalCost });
   const qtyValue = lot ? quantityValue(qtyDigits) : null;
   const typingQty = lot && keyTarget === 'qty';
+  const typingRest = amountSell && keyTarget === 'rest';
+  const typingCost = costUnknown && keyTarget === 'cost';
   // 수량 종목은 수량이 있어야, 팔 때는 보유를 넘지 않아야 저장이 켜진다.
   const assetReady =
-    assetDest != null &&
-    (!lot || qtyValue != null) &&
-    (!selling || sellCheck?.ok === true);
+    assetDest != null && (!lot || qtyValue != null) && (!selling || sellCheck?.ok === true);
 
   /** 팔 때 「전부」. 보유 수량을 그대로 넣고 금액을 치러 간다. */
   function sellAll(): void {
@@ -1371,6 +1403,18 @@ function RecordBody({
     setQtyDigits(quantityValue(sellItem.quantity) ?? '');
     setQtyAll(true);
     setKeyTarget('amount');
+  }
+
+  /** 금액으로 팔 때 「전부」. 남은 금액을 0 으로 둔다. 다시 누르면 처음 값으로 돌아간다. */
+  function sellAllAmount(): void {
+    setRestDigits(restDigits === '0' ? null : '0');
+    setKeyTarget('amount');
+  }
+
+  /** 「남은 금액」 칸을 누르면 새로 친다. 비어 있는 동안은 처음 값을 쓴다. */
+  function focusRest(): void {
+    if (keyTarget !== 'rest') setRestDigits('');
+    setKeyTarget('rest');
   }
 
   /** 저장 뒤 「자산 보기」. 다른 방법에 읽어 둔 것이 남았으면 그리로 먼저 간다. */
@@ -1540,11 +1584,7 @@ function RecordBody({
         />
       </div>
 
-      <div
-        className="record__panel"
-        data-record-step=""
-        hidden={!panelShown || tab !== 'capture'}
-      >
+      <div className="record__panel" data-record-step="" hidden={!panelShown || tab !== 'capture'}>
         <SheetHeader onBack={() => back('sheet')} title="캡처로 정리" backDisabled={busy} />
         <ImageImportTab
           key={panelKeys.capture}
@@ -1565,11 +1605,7 @@ function RecordBody({
         />
       </div>
 
-      <div
-        className="record__panel"
-        data-record-step=""
-        hidden={!panelShown || tab !== 'receipt'}
-      >
+      <div className="record__panel" data-record-step="" hidden={!panelShown || tab !== 'receipt'}>
         <SheetHeader onBack={() => back('sheet')} title="영수증 찍기" backDisabled={busy} />
         <ImageImportTab
           key={panelKeys.receipt}
@@ -1687,7 +1723,9 @@ function RecordBody({
               tagShown ? (
                 <button
                   type="button"
-                  className={pickedTag == null ? 'record-tag-chip' : 'record-tag-chip record-tag-chip--on'}
+                  className={
+                    pickedTag == null ? 'record-tag-chip' : 'record-tag-chip record-tag-chip--on'
+                  }
                   style={pickedTag == null ? undefined : tagStyle(pickedTag)}
                   disabled={savingNow}
                   onClick={() => {
@@ -1704,8 +1742,8 @@ function RecordBody({
           <AmountDisplay
             digits={digits}
             // 수량 칸이 있으면 금액 숫자를 눌러 다시 금액을 친다.
-            onPress={lot ? () => setKeyTarget('amount') : undefined}
-            dimmed={typingQty}
+            onPress={lot || amountSell ? () => setKeyTarget('amount') : undefined}
+            dimmed={typingQty || typingRest || typingCost}
           />
 
           {saveError ? (
@@ -1745,6 +1783,7 @@ function RecordBody({
                 quantity={
                   lot && assetDest != null
                     ? {
+                        label: '수량',
                         text: qtyDigits,
                         unit: unitOf(destKindOf(assetDest)),
                         focused: typingQty,
@@ -1755,9 +1794,40 @@ function RecordBody({
                 onAll={
                   lot && sellItem != null && quantityValue(sellItem.quantity) != null
                     ? sellAll
-                    : undefined
+                    : amountSell
+                      ? sellAllAmount
+                      : undefined
                 }
+                allOn={amountSell && restDigits === '0'}
               />
+              {/* 「전부」 가 아니면 남은 금액으로 판 몫을 정한다. */}
+              {amountSell && restDigits !== '0' ? (
+                <SaveBoxRow
+                  box={{
+                    label: '남은 금액',
+                    text:
+                      restDigits == null || restDigits === ''
+                        ? ''
+                        : formatNumber(toAmount(restDigits)),
+                    unit: '원',
+                    placeholder: formatCurrency(restAuto),
+                    focused: typingRest,
+                    onFocus: focusRest,
+                  }}
+                />
+              ) : null}
+              {costUnknown ? (
+                <SaveBoxRow
+                  box={{
+                    label: '넣은 돈',
+                    text: costDigits === '' ? '' : formatNumber(toAmount(costDigits)),
+                    unit: '원',
+                    placeholder: '모르면 비워 둬요',
+                    focused: typingCost,
+                    onFocus: () => setKeyTarget('cost'),
+                  }}
+                />
+              ) : null}
               {sellItem != null && sellCheck?.ok === true ? (
                 <SellPreviewCard
                   item={sellItem}
@@ -1815,6 +1885,10 @@ function RecordBody({
           {/* 목록을 끝까지 펼친 동안에는 접는다. 고를 것이 화면을 채운 자리에 숫자판까지 서면 혼선만 는다. */}
           {listExpanded ? null : typingQty ? (
             <Keypad digits={qtyDigits} onChange={typeQuantity} decimal />
+          ) : typingRest ? (
+            <Keypad digits={restDigits ?? ''} onChange={setRestDigits} />
+          ) : typingCost ? (
+            <Keypad digits={costDigits} onChange={setCostDigits} />
           ) : (
             <Keypad digits={digits} onChange={setDigits} />
           )}

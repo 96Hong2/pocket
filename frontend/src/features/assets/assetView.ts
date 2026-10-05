@@ -38,14 +38,14 @@ export const QUANTITY_DECIMALS = 8;
 
 /**
  * 항목이 값을 어떻게 갖나. 서버 `holding_of` 와 같은 규칙이다.
- * 투자 그룹이어도 종류가 없으면(옛 항목) 통장처럼 금액 하나다.
+ * 종류 없는 투자 항목(캡처로 금액만 들어온 것)은 넣은 돈을 모르는 금액 종목이다.
  */
 export type Holding = 'quantity' | 'amount' | 'balance' | 'debt';
 
 export function holdingOf(group: AssetGroup, kind: InvestKind | null | undefined): Holding {
   if (group === 'debt') return 'debt';
-  if (group === 'investment' && kind != null) {
-    return QUANTITY_KINDS.has(kind) ? 'quantity' : 'amount';
+  if (group === 'investment') {
+    return kind != null && QUANTITY_KINDS.has(kind) ? 'quantity' : 'amount';
   }
   return 'balance';
 }
@@ -113,7 +113,10 @@ export function rateChipOf(item: AssetItemOut): RateChip | null {
   return null;
 }
 
-/** 이름 아래 한 줄. 수량 종목은 「2주 보유, 넣은 돈 500,000원」, 금액 종목은 「넣은 돈 …」. */
+/**
+ * 이름 아래 한 줄. 수량 종목은 「2주 보유, 넣은 돈 500,000원」, 금액 종목은 「넣은 돈 …」.
+ * 넣은 돈을 모르면 넣은 돈을 적지 않는다.
+ */
 export function itemMetaOf(item: AssetItemOut): string | null {
   const holding = holdingOf(item.group, item.kind);
   const cost = parseDecimalOr(item.cost_basis, 0);
@@ -123,7 +126,7 @@ export function itemMetaOf(item: AssetItemOut): string | null {
       qty > 0 ? `${formatQuantity(item.quantity)}${unitOf(item.kind)} 보유` : '보유 없음';
     return cost > 0 ? `${held}, 넣은 돈 ${formatCurrency(cost)}` : held;
   }
-  if (holding === 'amount') return `넣은 돈 ${formatCurrency(cost)}`;
+  if (holding === 'amount' && item.cost_basis != null) return `넣은 돈 ${formatCurrency(cost)}`;
   return null;
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  defaultRemaining,
   formatScaledQuantity,
   parseQuantity,
   previewSell,
@@ -64,7 +65,7 @@ describe('검산 표', () => {
     const valuation = previewValuation({
       holding: 'quantity',
       quantity: after.remainingQuantity ?? '0',
-      costBasis: after.remainingCost,
+      costBasis: after.remainingCost ?? 0,
       unitPrice: 300_000,
     });
     expect(valuation.value).toBe(300_000);
@@ -78,6 +79,7 @@ describe('검산 표', () => {
         currentAmount: 1_200_000,
         costBasis: 1_000_000,
         received: 300_000,
+        remaining: null,
       }),
     );
     expect(preview.soldCost).toBe(250_000);
@@ -88,7 +90,7 @@ describe('검산 표', () => {
     const valuation = previewValuation({
       holding: 'amount',
       currentAmount: preview.remainingAmount ?? 0,
-      costBasis: preview.remainingCost,
+      costBasis: preview.remainingCost ?? 0,
     });
     expect(valuation.rate).toBe('20.0');
   });
@@ -169,6 +171,7 @@ describe('팔기 규칙', () => {
         currentAmount: 1_200_000,
         costBasis: 1_000_000,
         received: 1_200_001,
+        remaining: null,
       }),
     ).toEqual({ ok: false, reason: 'over_sell' });
   });
@@ -205,5 +208,102 @@ describe('수익률과 수량 문자열', () => {
     expect(formatScaledQuantity(200_000n)).toBe('0.002');
     expect(quantityValue('3.50')).toBe('3.5');
     expect(quantityValue('0.')).toBeNull();
+  });
+});
+
+/*
+  넣은 돈을 모르는 항목과 「전부」, 「남은 금액」. 서버 tests/domain/test_asset_ledger.py 의
+  예1~예4, 캡처 예는 tests/domain/test_asset_capture.py 와 같은 숫자다.
+*/
+describe('금액으로 파는 기록', () => {
+  it('예1 넣은 돈 모르는 1,000,000원을 전부 1,200,000원에 팔고 넣은 돈 800,000원을 적으면 +400,000원, +50.0%', () => {
+    const preview = sold(
+      previewSell({
+        holding: 'amount',
+        currentAmount: 1_000_000,
+        costBasis: null,
+        received: 1_200_000,
+        remaining: 0,
+        totalCost: 800_000,
+      }),
+    );
+    expect(preview.soldCost).toBe(800_000);
+    expect(preview.gain).toBe(400_000);
+    expect(preview.rate).toBe('50.0');
+    expect(preview.all).toBe(true);
+    expect(preview.remainingAmount).toBe(0);
+  });
+
+  it('예2 같은 항목을 전부 팔고 넣은 돈을 비우면 수익률이 없고 항목 금액은 0', () => {
+    const preview = sold(
+      previewSell({
+        holding: 'amount',
+        currentAmount: 1_000_000,
+        costBasis: null,
+        received: 1_200_000,
+        remaining: 0,
+        totalCost: null,
+      }),
+    );
+    expect(preview.soldCost).toBeNull();
+    expect(preview.gain).toBeNull();
+    expect(preview.rate).toBeNull();
+    expect(preview.remainingAmount).toBe(0);
+  });
+
+  it('예3 1,000,000원 넣은 돈 800,000원에서 300,000원을 받고 남은 금액 900,000원이면 판 몫 25%', () => {
+    const preview = sold(
+      previewSell({
+        holding: 'amount',
+        currentAmount: 1_000_000,
+        costBasis: 800_000,
+        received: 300_000,
+        remaining: 900_000,
+      }),
+    );
+    expect(preview.soldCost).toBe(200_000);
+    expect(preview.gain).toBe(100_000);
+    expect(preview.rate).toBe('50.0');
+    expect(preview.remainingAmount).toBe(900_000);
+    expect(preview.remainingCost).toBe(600_000);
+  });
+
+  it('예4 펀드 1,100,000원에서 550,000원을 받고 남은 금액 처음 값을 그대로 두면 지금 규칙과 같다', () => {
+    const rest = defaultRemaining(1_100_000, 550_000);
+    expect(rest).toBe(550_000);
+    const base = { holding: 'amount', currentAmount: 1_100_000, costBasis: 1_000_000 } as const;
+    for (const remaining of [rest, null]) {
+      const preview = sold(previewSell({ ...base, received: 550_000, remaining }));
+      expect(preview.soldCost).toBe(500_000);
+      expect(preview.gain).toBe(50_000);
+      expect(preview.rate).toBe('10.0');
+    }
+  });
+
+  it('남은 금액 처음 값은 지금 금액 − 받은 돈이고 0 아래면 0', () => {
+    expect(defaultRemaining(1_000_000, 300_000)).toBe(700_000);
+    expect(defaultRemaining(1_000_000, 1_200_000)).toBe(0);
+  });
+
+  it('전부는 받은 돈이 지금 금액보다 커도 된다', () => {
+    const check = previewSell({
+      holding: 'amount',
+      currentAmount: 1_000_000,
+      costBasis: 900_000,
+      received: 1_300_000,
+      remaining: 0,
+    });
+    expect(check.ok).toBe(true);
+  });
+
+  it('캡처 예 엔비디아 2주, 넣은 돈 2,000,000원, 1주 1,400,915원이면 2,801,830원, +40.1%', () => {
+    const valuation = previewValuation({
+      holding: 'quantity',
+      quantity: '2',
+      costBasis: 2_000_000,
+      unitPrice: 1_400_915,
+    });
+    expect(valuation.value).toBe(2_801_830);
+    expect(valuation.rate).toBe('40.1');
   });
 });
