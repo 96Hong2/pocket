@@ -38,6 +38,8 @@ from app.modules.assets.schemas import (
     AnalysisMonthChangeOut,
     AnalysisReturnRowOut,
     AnalysisReturnsOut,
+    AnalysisSavedItemOut,
+    AnalysisSavedPointOut,
     AnalysisSavingOut,
     AnalysisSummaryOut,
     AssetAnalysisOut,
@@ -52,6 +54,7 @@ from app.modules.assets.schemas import (
     AssetsOut,
     to_assets_out,
 )
+from app.modules.transactions.schemas import TransactionOut
 
 router = APIRouter(prefix="/assets", tags=["assets"], responses=ERROR_RESPONSES)
 
@@ -251,7 +254,39 @@ def _analysis_out(view: analysis_service.AnalysisView) -> AssetAnalysisOut:
             for row in result.bundles
         ],
         monthly_total=_won(result.monthly_total),
+        saved_items=[
+            AnalysisSavedItemOut(
+                item_key=uuid.UUID(saved.slice.key),
+                group=saved.row.group if saved.row is not None else None,
+                kind=saved.row.kind if saved.row is not None else None,
+                label=saved.row.label if saved.row is not None else None,
+                amount=saved.slice.amount.amount,
+                ratio=saved.slice.ratio,
+            )
+            for saved in view.saved_items
+        ],
+        saved_trend=[
+            AnalysisSavedPointOut(
+                month=period.start.strftime("%Y-%m"),
+                period_start=period.start,
+                period_end=period.end,
+                amount=amount.amount,
+            )
+            for period, amount in view.saved_trend
+        ],
+        large_saves=_saves_out(view),
     )
+
+
+def _saves_out(view: analysis_service.AnalysisView) -> list[TransactionOut]:
+    """거래 목록과 같은 모양. 「어디에」 이름은 그 키의 가장 최근 줄에서 붙인다."""
+    labels = {saved.row.item_key: saved.row.label for saved in view.saved_items if saved.row}
+    return [
+        TransactionOut.model_validate(row).model_copy(
+            update={"asset_label": labels.get(row.asset_item_key)}
+        )
+        for row in view.large_saves
+    ]
 
 
 # ── 자산 캡처 ────────────────────────────────────────────

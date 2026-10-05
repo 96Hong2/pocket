@@ -1441,6 +1441,48 @@ export interface components {
             realized_rate: string | null;
         };
         /**
+         * AnalysisSavedItemOut
+         * @description 이번 달 모은 돈의 「어디에」 한 항목. 큰 것부터. 이름과 그룹은 그 항목의 가장 최근 줄이다.
+         */
+        AnalysisSavedItemOut: {
+            /**
+             * Item Key
+             * Format: uuid
+             */
+            item_key: string;
+            group: components["schemas"]["AssetGroup"] | null;
+            kind: components["schemas"]["InvestKind"] | null;
+            /** Label */
+            label: string | null;
+            /** Amount */
+            amount: string;
+            /** Ratio */
+            ratio: string | null;
+        };
+        /**
+         * AnalysisSavedPointOut
+         * @description 달마다 모은 돈 막대 하나. 모은 것이 없는 달도 0 으로 들어온다.
+         */
+        AnalysisSavedPointOut: {
+            /**
+             * Month
+             * @description YYYY-MM, 기간이 시작하는 달
+             */
+            month: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Amount */
+            amount: string;
+        };
+        /**
          * AnalysisSavingOut
          * @description 이번 달 저축률. 번 돈이 0 이면 rate 가 null 이다.
          */
@@ -1473,7 +1515,8 @@ export interface components {
          * AssetAnalysisOut
          * @description 분석 한 벌. 서버는 잠금을 모른다. 화면이 본 지문과 fingerprint 를 견준다.
          *
-         *     all: summary, groups, returns, month_change, saving, bundles.
+         *     all: summary, groups, returns, month_change, saving, bundles, saved_items, saved_trend,
+         *     large_saves.
          *     stock: items, returns. cash: items, monthly_total. 안 쓰는 칸은 null 이나 빈 배열.
          */
         AssetAnalysisOut: {
@@ -1494,6 +1537,12 @@ export interface components {
             bundles?: components["schemas"]["AnalysisBundleOut"][];
             /** Monthly Total */
             monthly_total?: string | null;
+            /** Saved Items */
+            saved_items?: components["schemas"]["AnalysisSavedItemOut"][];
+            /** Saved Trend */
+            saved_trend?: components["schemas"]["AnalysisSavedPointOut"][];
+            /** Large Saves */
+            large_saves?: components["schemas"]["TransactionOut"][];
         };
         /**
          * AssetCaptureIn

@@ -37,6 +37,7 @@ __all__ = [
     "MonthChange",
     "ReturnRow",
     "Returns",
+    "SavedSlice",
     "SavingRate",
     "build_analysis",
     "bundles",
@@ -46,6 +47,7 @@ __all__ = [
     "investment_returns",
     "item_slices",
     "month_change",
+    "saved_slices",
     "saving_rate",
     "scope_of",
 ]
@@ -346,6 +348,26 @@ class SavingRate:
 
 def saving_rate(saved: Money, income: Money) -> SavingRate:
     return SavingRate(saved=saved, income=income, rate=rate_percent(saved, income))
+
+
+@dataclass(frozen=True)
+class SavedSlice:
+    """그 달 모은 돈 중 한 항목 몫."""
+
+    key: str
+    amount: Money
+    # 그 달 모은 돈 합 대비 %.
+    ratio: Decimal | None
+
+
+def saved_slices(rows: Sequence[tuple[str, Money]]) -> list[SavedSlice]:
+    """항목마다 모은 돈과 비율. 받은 순서 그대로, 0 원 줄은 뺀다."""
+    kept = [(key, amount) for key, amount in rows if amount.is_positive]
+    total = Money.total(amount for _, amount in kept)
+    return [
+        SavedSlice(key=key, amount=amount, ratio=rate_percent(amount, total))
+        for key, amount in kept
+    ]
 
 
 @dataclass(frozen=True)

@@ -22,6 +22,7 @@ from app.domain.asset_ledger import InvestKind, RateKind
 from app.domain.assets import LEGACY_GROUPS, AssetGroup, AssetSummary
 from app.domain.money import Money
 from app.models.asset import AssetSource
+from app.modules.transactions.schemas import TransactionOut
 
 __all__ = [
     "MAX_ITEMS",
@@ -34,6 +35,8 @@ __all__ = [
     "AnalysisMonthChangeOut",
     "AnalysisReturnRowOut",
     "AnalysisReturnsOut",
+    "AnalysisSavedItemOut",
+    "AnalysisSavedPointOut",
     "AnalysisSavingOut",
     "AnalysisSummaryOut",
     "AssetAnalysisOut",
@@ -383,6 +386,28 @@ class AnalysisBundleOut(BaseModel):
     fingerprint: str
 
 
+class AnalysisSavedItemOut(BaseModel):
+    """이번 달 모은 돈의 「어디에」 한 항목. 큰 것부터. 이름과 그룹은 그 항목의 가장 최근 줄이다."""
+
+    item_key: uuid.UUID
+    # 같은 날 목록에서 지운 항목은 남은 줄이 없어 null 이다. 화면이 「지운 항목」 으로 부른다.
+    group: AssetGroup | None
+    kind: InvestKind | None
+    label: str | None
+    amount: Decimal
+    # 이번 달 모은 돈 합 대비 %.
+    ratio: Decimal | None
+
+
+class AnalysisSavedPointOut(BaseModel):
+    """달마다 모은 돈 막대 하나. 모은 것이 없는 달도 0 으로 들어온다."""
+
+    month: str = Field(description="YYYY-MM, 기간이 시작하는 달")
+    period_start: date
+    period_end: date
+    amount: Decimal
+
+
 class AnalysisSummaryOut(BaseModel):
     total_assets: Decimal
     total_assets_without_pension: Decimal
@@ -393,7 +418,8 @@ class AnalysisSummaryOut(BaseModel):
 class AssetAnalysisOut(BaseModel):
     """분석 한 벌. 서버는 잠금을 모른다. 화면이 본 지문과 fingerprint 를 견준다.
 
-    all: summary, groups, returns, month_change, saving, bundles.
+    all: summary, groups, returns, month_change, saving, bundles, saved_items, saved_trend,
+    large_saves.
     stock: items, returns. cash: items, monthly_total. 안 쓰는 칸은 null 이나 빈 배열.
     """
 
@@ -409,6 +435,12 @@ class AssetAnalysisOut(BaseModel):
     saving: AnalysisSavingOut | None = None
     bundles: list[AnalysisBundleOut] = Field(default_factory=list)
     monthly_total: Decimal | None = None
+    # 아래 셋은 all 만 채운다. 판 기록은 모은 돈이 아니라 빠진다(saving.saved 와 같은 조건).
+    saved_items: list[AnalysisSavedItemOut] = Field(default_factory=list)
+    # 이번 기간으로 끝나는 여섯 기간, 오래된 것부터.
+    saved_trend: list[AnalysisSavedPointOut] = Field(default_factory=list)
+    # 이번 기간 모은 기록 중 큰 것 다섯. 고치기 시트가 바로 연다.
+    large_saves: list[TransactionOut] = Field(default_factory=list)
 
 
 # ── 자산 캡처 ────────────────────────────────────────────

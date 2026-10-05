@@ -234,3 +234,181 @@ def test_모르는_scope_는_422(client: TestClient) -> None:
     res = client.get(f"{ASSETS}/analysis?scope=coin", headers=AUTH)
 
     assert res.status_code == 422
+
+
+OTHER = {"X-Anon-Key": "second-device-key"}
+
+
+def _month_start(months_back: int) -> date:
+    day = datetime.now(KST).date().replace(day=1)
+    for _ in range(months_back):
+        day = (day - timedelta(days=1)).replace(day=1)
+    return day
+
+
+def test_빈_사람은_모은_돈_칸이_비고_달마다_막대는_여섯_개_0원이다(client: TestClient) -> None:
+    body = _analysis(client)
+
+    assert body["saved_items"] == [] and body["large_saves"] == []
+    trend = body["saved_trend"]
+    assert [point["amount"] for point in trend] == ["0"] * 6
+    # 오래된 달부터 이어진 여섯 달. 마지막이 이번 달이다.
+    assert [point["period_start"] for point in trend] == [
+        _month_start(back).isoformat() for back in range(5, -1, -1)
+    ]
+    assert trend[-1]["month"] == _month_start(0).strftime("%Y-%m")
+    # 종류별 분석은 이 칸들을 채우지 않는다.
+    stock = _analysis(client, "stock")
+    assert stock["saved_items"] == [] and stock["saved_trend"] == [] and stock["large_saves"] == []
+
+
+def test_어디에_모았나와_큰_기록은_판_것과_지출과_남의_것을_빼고_큰_것부터다(
+    two_devices: TestClient,
+) -> None:
+    client = two_devices
+    cash_key = _seed(client)  # 삼성전자 2주를 500,000원에 산 기록이 이번 달에 있다.
+    stock_key = next(
+        item["item_key"]
+        for item in client.get(ASSETS, headers=AUTH).json()["items"]
+        if item["label"] == "삼성전자"
+    )
+    _tx(client, "300000", asset_item_key=cash_key)
+    _tx(client, "100000", asset_item_key=cash_key)
+    # 판 것, 지출, 어디에 없는 이체는 모은 돈이 아니다.
+    _tx(client, "350000", asset_item_key=stock_key, asset_side="sell", asset_quantity="1")
+    _tx(client, "900000", kind="expense")
+    _tx(client, "800000")
+    # 다른 사람이 같은 달에 더 크게 모아도 안 보인다.
+    others = [{"group": "cash", "label": "남의 통장", "amount": "0"}]
+    put = client.put(ASSETS, json={"items": others}, headers=OTHER)
+    other = put.json()["items"][0]["item_key"]
+    res = client.post(
+        TX,
+        json={
+            "occurred_at": _now(),
+            "amount": "5000000",
+            "type": "transfer",
+            "asset_item_key": other,
+        },
+        headers=OTHER,
+    )
+    assert res.status_code == 201, res.text
+
+    body = _analysis(client)
+
+    # 500,000 + 400,000 = 900,000. 500,000 / 900,000 = 55.6%, 400,000 / 900,000 = 44.4%
+    assert [
+        (row["label"], row["group"], row["kind"], row["amount"], row["ratio"])
+        for row in body["saved_items"]
+    ] == [
+        ("삼성전자", "investment", "stock", "500000", "55.6"),
+        ("청년도약계좌", "cash", None, "400000", "44.4"),
+    ]
+    assert body["saving"]["saved"] == "900000"
+    assert [
+        (row["amount"], row["asset_label"], row["asset_item_key"]) for row in body["large_saves"]
+    ] == [
+        ("500000", "삼성전자", stock_key),
+        ("300000", "청년도약계좌", cash_key),
+        ("100000", "청년도약계좌", cash_key),
+    ]
+    assert body["saved_trend"][-1]["amount"] == "900000"
+
+
+def test_큰_기록은_다섯_줄까지고_지난달_기록은_이번_달_칸에_안_들고_지난달_막대에_든다(
+    client: TestClient,
+) -> None:
+    key = _put(client, [{"group": "cash", "label": "적금", "amount": "0"}])["items"][0]["item_key"]
+    for amount in ("10000", "20000", "30000", "40000", "50000", "60000"):
+        _tx(client, amount, asset_item_key=key)
+    last_month = datetime.combine(_month_start(1).replace(day=15), datetime.min.time(), KST)
+    res = client.post(
+        TX,
+        json={
+            "occurred_at": last_month.replace(hour=12).isoformat(),
+            "amount": "700000",
+            "type": "transfer",
+            "asset_item_key": key,
+        },
+        headers=AUTH,
+    )
+    assert res.status_code == 201, res.text
+
+    body = _analysis(client)
+
+    assert [row["amount"] for row in body["large_saves"]] == [
+        "60000",
+        "50000",
+        "40000",
+        "30000",
+        "20000",
+    ]
+    assert [(row["label"], row["amount"]) for row in body["saved_items"]] == [("적금", "210000")]
+    assert [point["amount"] for point in body["saved_trend"]] == [
+        "0",
+        "0",
+        "0",
+        "0",
+        "700000",
+        "210000",
+    ]
+
+
+def _drop(client: TestClient, keep: str) -> None:
+    items = client.get(ASSETS, headers=AUTH).json()["items"]
+    _put(
+        client,
+        [
+            {key: item[key] for key in ("group", "label", "amount", "item_key")}
+            for item in items
+            if item["item_key"] == keep
+        ],
+    )
+
+
+def test_지운_항목에_모은_돈도_빠지지_않고_남은_줄이_있으면_그_이름으로_부른다(
+    client: TestClient, db: Session
+) -> None:
+    body = _put(
+        client,
+        [
+            {"group": "cash", "label": "통장", "amount": "0"},
+            {"group": "cash", "label": "옛 적금", "amount": "0"},
+        ],
+    )
+    keep, gone = (row["item_key"] for row in body["items"])
+    _tx(client, "200000", asset_item_key=gone)
+    # 지난 스냅샷에 남은 줄이 있으면 그 이름이다.
+    snapshot = db.scalar(select(AssetSnapshot))
+    assert snapshot is not None
+    snapshot.effective_on = date.today() - timedelta(days=40)
+    db.commit()
+    _drop(client, keep)
+
+    saved = _analysis(client)["saved_items"]
+
+    assert [(row["label"], row["group"], row["amount"]) for row in saved] == [
+        ("옛 적금", "cash", "200000")
+    ]
+
+
+def test_같은_날_지운_항목은_이름_없이_남아_모은_돈_합과_맞는다(client: TestClient) -> None:
+    body = _put(
+        client,
+        [
+            {"group": "cash", "label": "통장", "amount": "0"},
+            {"group": "cash", "label": "옛 적금", "amount": "0"},
+        ],
+    )
+    keep, gone = (row["item_key"] for row in body["items"])
+    _tx(client, "200000", asset_item_key=gone)
+    _tx(client, "100000", asset_item_key=keep)
+    _drop(client, keep)
+
+    body = _analysis(client)
+
+    assert [(row["label"], row["group"], row["amount"]) for row in body["saved_items"]] == [
+        (None, None, "200000"),
+        ("통장", "cash", "100000"),
+    ]
+    assert body["saving"]["saved"] == "300000"
