@@ -126,9 +126,10 @@ export function itemMetaOf(item: AssetItemOut): string | null {
       qty > 0 ? `${formatQuantity(item.quantity)}${unitOf(item.kind)} 보유` : '보유 없음';
     return cost > 0 ? `${held}, 넣은 돈 ${formatCurrency(cost)}` : held;
   }
-  if (holding === 'amount') {
-    if (parseDecimalOr(item.amount, 0) <= 0) return '보유 없음';
-    if (item.cost_basis != null) return `넣은 돈 ${formatCurrency(cost)}`;
+  if (holding === 'amount' && item.cost_basis != null) {
+    // 다 팔면 넣은 돈도 0 이 된다. 넣은 돈이 남은 채 0원인 종목은 판 것이 아니다.
+    if (cost <= 0 && parseDecimalOr(item.amount, 0) <= 0) return '보유 없음';
+    return `넣은 돈 ${formatCurrency(cost)}`;
   }
   return null;
 }
