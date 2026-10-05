@@ -277,3 +277,43 @@ def test_공백만_남은_메모는_없는_것으로_본다(client: TestClient) 
     created = _add(client, memo="   ")
 
     assert created["memo"] is None
+
+
+# ── 기록 하나 ───────────────────────────────────────────
+
+
+def test_기록_하나를_id_로_받는다(client: TestClient) -> None:
+    saved = _add(client, amount="4200", merchant="빵집")
+
+    response = client.get(f"/api/v1/transactions/{saved['id']}", headers=AUTH)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["merchant"] == "빵집"
+    assert response.json()["amount"] == "4200"
+
+
+def test_지운_기록은_id_로_못_받는다(client: TestClient) -> None:
+    saved = _add(client)
+    assert client.delete(f"/api/v1/transactions/{saved['id']}", headers=AUTH).status_code == 204
+
+    response = client.get(f"/api/v1/transactions/{saved['id']}", headers=AUTH)
+
+    assert response.status_code == 404
+
+
+def test_남의_기록은_id_로_못_받는다(two_devices: TestClient) -> None:
+    body = {"occurred_at": SAME_MOMENT, "amount": "1000", "type": "expense", "source": "keypad"}
+    created = two_devices.post(
+        "/api/v1/transactions", json=body, headers={"X-Anon-Key": "device-a"}
+    )
+    assert created.status_code == 201, created.text
+    tx_id = created.json()["transaction"]["id"]
+
+    response = two_devices.get(f"/api/v1/transactions/{tx_id}", headers={"X-Anon-Key": "device-b"})
+
+    assert response.status_code == 404
+
+
+def test_달력과_요약_경로는_id_자리에_안_잡힌다(client: TestClient) -> None:
+    assert client.get("/api/v1/transactions/calendar", headers=AUTH).status_code == 200
+    assert client.get("/api/v1/transactions/summary", headers=AUTH).status_code == 200
