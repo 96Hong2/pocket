@@ -28,3 +28,4 @@ export {
 export { NetWorthCard, type NetWorthCardProps } from './NetWorthCard';
 export { NetWorthDetailSheet, type NetWorthDetailSheetProps } from './NetWorthDetailSheet';
 export { Sparkline, type SparklineProps } from './TrendCharts';
+export { useAssetIcons } from './useAssetIcons';

@@ -1,5 +1,5 @@
 import { parseDecimalOr, type CategoryOut, type TagOut, type TransactionOut } from '../api';
-import { Chip, TagMark, TransactionRow, iconOf } from '../ui';
+import { Chip, TagMark, TransactionRow, iconOf, type IconName } from '../ui';
 
 /**
  * 거래 한 줄을 화면 형태로 옮긴다.
@@ -10,6 +10,9 @@ import { Chip, TagMark, TransactionRow, iconOf } from '../ui';
  */
 
 /** 종류 라벨. 지출은 기본이라 라벨을 붙이지 않는다. */
+/** 저축·투자 줄인데 「어디에」 그룹을 모를 때 그림. 「기타」 그림으로 떨어지지 않게 한다. */
+export const SAVING_FALLBACK_ICON: IconName = '03_growth_chart';
+
 const KIND_LABEL: Partial<Record<TransactionOut['type'], string>> = {
   income: '수입',
   transfer: '이체',
@@ -32,6 +35,8 @@ export interface LedgerRowProps {
   hideDivider?: boolean;
   /** 누르면 수정 시트가 열리는 자리. 홈에서는 넘기지 않는다. */
   onClick?: () => void;
+  /** 「어디에」 항목 키 → 그 그룹 그림. 저축·투자 줄만 쓴다. */
+  assetIcons?: ReadonlyMap<string, IconName>;
 }
 
 export function LedgerRow({
@@ -42,6 +47,7 @@ export function LedgerRow({
   density = 'default',
   hideDivider = false,
   onClick,
+  assetIcons,
 }: LedgerRowProps) {
   const category = transaction.category_id
     ? categories.find((item) => item.id === transaction.category_id)
@@ -57,9 +63,17 @@ export function LedgerRow({
     ? tags.find((item) => item.id === transaction.tag_id)
     : undefined;
 
+  const icon = saving
+    ? {
+        icon: assetIcons?.get(transaction.asset_item_key ?? '') ?? SAVING_FALLBACK_ICON,
+        custom: null,
+        color: null,
+      }
+    : iconOf(category);
+
   return (
     <TransactionRow
-      {...iconOf(category)}
+      {...icon}
       title={transaction.merchant ?? (saving ? savingTitle : (category?.name ?? '기록'))}
       /*
         메모가 있으면 분류 이름 대신 메모를 보여 준다.

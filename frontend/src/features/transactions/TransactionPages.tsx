@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { useTags, type CategoryOut, type TransactionOut } from '../../shared/api';
 import { LedgerRow } from '../../shared/ledger';
+import { useAssetIcons } from '../assets';
 import { Button, Card, ErrorState, LoadingState } from '../../shared/ui';
 
 /**
@@ -40,6 +41,7 @@ export function TransactionPages({
   empty,
 }: TransactionPagesProps) {
   const tags = useTags();
+  const assetIcons = useAssetIcons();
 
   /*
     태그 목록은 캐시를 함께 읽으므로 요청이 늘지 않는다. 안 오면 표식만 안 그린다.
@@ -74,6 +76,7 @@ export function TransactionPages({
             density="compact"
             hideDivider={index === items.length - 1}
             onClick={() => onPick(tx)}
+            assetIcons={assetIcons}
           />
         ))}
       </Card>

@@ -3,6 +3,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { ROUTES } from '../../src/app/router/routes';
 import { TEST_IDS } from '../../src/shared/testIds';
 
+import { EditSheetArea } from './CalendarScreen';
+
 /**
  * 리포트 탭. 그 달의 총액·조각·6개월 흐름을 한 화면에서 본다.
  *
@@ -20,6 +22,8 @@ export class ReportScreen {
   readonly book: ReportBookArea;
   /** 공유 가계부 리포트의 「자세히 보기」 카드. */
   readonly insight: ReportInsightArea;
+  /** 큰 지출 줄을 눌러 뜨는 「기록 수정」 시트. 달력과 같은 시트다. */
+  readonly edit: EditSheetArea;
 
   constructor(page: Page) {
     this.page = page;
@@ -27,6 +31,7 @@ export class ReportScreen {
     this.closing = new ClosingArea(page);
     this.book = new ReportBookArea(page);
     this.insight = new ReportInsightArea(page);
+    this.edit = new EditSheetArea(page);
   }
 
   /**
@@ -46,6 +51,11 @@ export class ReportScreen {
   /** 조회가 끝나 총액이 그려질 때까지. */
   async waitReady(): Promise<void> {
     await expect(this.total).toBeVisible();
+  }
+
+  /** 탭 줄 오른쪽 「저축·투자 ›」. 자산 화면으로 간다. 공유 가계부 리포트에는 없다. */
+  get assetsLink(): Locator {
+    return this.root.getByRole('button', { name: /^저축·투자/ });
   }
 
   /** 소비/수입 전환. 기본은 소비다. */

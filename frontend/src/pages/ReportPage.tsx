@@ -1,14 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { IdentityNotice } from '../app/IdentityNotice';
-import { useBookView } from '../app/providers';
-import { ROUTES } from '../app/router/routes';
+import { useBookView, useToast } from '../app/providers';
+import {
+  REPORT_MONTH_QUERY,
+  REPORT_TAB_QUERY,
+  ROUTES,
+  parseReportTab,
+  reportCategoryPath,
+  reportPath,
+  type BackState,
+  type ReportTab,
+} from '../app/router/routes';
 import { AdSlot } from '../features/ads';
 import { BookChip } from '../features/books';
 import { BookReport, MonthlyReport } from '../features/reports';
+import { EditSheet } from '../features/transactions';
 import { EVENTS, useAnalytics } from '../shared/analytics';
-import { useBooks } from '../shared/api';
+import { useBooks, useCategories, useFetchTransaction, type TransactionOut } from '../shared/api';
 import { toLedgerDate } from '../shared/lib/format';
 import { CalendarGlyph } from '../shared/ui';
 
@@ -37,11 +47,15 @@ export default function ReportPage() {
   const analytics = useAnalytics();
   // 홈의 결산 카드가 `?month=2026-08&closing=1` 로 데려온다. 그때는 그 달로 열고
   // 결산까지 펼친다. 주소를 손으로 친 경우에도 어긋난 값이면 그냥 이번 달을 연다.
+  // 달과 탭은 주소가 들고 있다. 분류 화면이나 자산 화면에 다녀와도 보던 달과 탭으로 돌아온다.
   const [params, setParams] = useSearchParams();
-  const asked = params.get('month');
-  const [month, setMonth] = useState(
-    asked != null && MONTH_PATTERN.test(asked) && asked <= thisMonth ? asked : thisMonth,
-  );
+  const asked = params.get(REPORT_MONTH_QUERY);
+  const month =
+    asked != null && MONTH_PATTERN.test(asked) && asked <= thisMonth ? asked : thisMonth;
+  const tab = parseReportTab(params.get(REPORT_TAB_QUERY));
+  const navigate = useNavigate();
+  const toast = useToast();
+  const categories = useCategories();
   // 열어 달라는 부탁은 한 번만 쓴다. 주소를 계속 보고 열면, 달을 옮겨 본문을 다시 그릴 때마다
   // 사용자가 누르지도 않은 전체화면 결산이 다시 뜬다.
   const [openClosing, setOpenClosing] = useState(() => params.get('closing') === '1');
@@ -75,11 +89,59 @@ export default function ReportPage() {
         },
         { kind: 'click' },
       );
-      setMonth(next);
+      setParams(
+        (prev) => {
+          const query = new URLSearchParams(prev);
+          query.set(REPORT_MONTH_QUERY, next);
+          return query;
+        },
+        { replace: true },
+      );
       setOpenClosing(false);
     },
-    [analytics, month, thisMonth],
+    [analytics, month, setParams, thisMonth],
   );
+
+  const changeTab = useCallback(
+    (next: ReportTab) => {
+      setParams(
+        (prev) => {
+          const query = new URLSearchParams(prev);
+          if (next === 'income') query.set(REPORT_TAB_QUERY, next);
+          else query.delete(REPORT_TAB_QUERY);
+          return query;
+        },
+        { replace: true },
+      );
+    },
+    [setParams],
+  );
+
+  const here = reportPath(month, tab);
+
+  function openAssets(): void {
+    analytics.log(EVENTS.reportItemOpened, { what: 'assets', tab }, { kind: 'click' });
+    const state: BackState = { backTo: here };
+    void navigate(ROUTES.assets, { state });
+  }
+
+  function openCategory(key: string, from: 'row' | 'donut'): void {
+    analytics.log(EVENTS.reportItemOpened, { what: 'category', tab, from }, { kind: 'click' });
+    void navigate(reportCategoryPath(month, tab, key));
+  }
+
+  // 큰 지출 줄은 id 만 들고 있다. 그 기록을 한 번 받아 쥐고 시트를 연다.
+  const fetchTransaction = useFetchTransaction();
+  const [editing, setEditing] = useState<TransactionOut | null>(null);
+
+  async function openLarge(id: string): Promise<void> {
+    analytics.log(EVENTS.reportItemOpened, { what: 'large', tab }, { kind: 'click' });
+    try {
+      setEditing(await fetchTransaction(id));
+    } catch {
+      toast.show({ text: '기록을 불러오지 못했어요' });
+    }
+  }
 
   // 다 쓴 부탁은 주소에서도 지운다. 히스토리에는 남기지 않는다. 남기면 뒤로가기로
   // 그 주소에 되돌아왔을 때 또 열린다.
@@ -135,12 +197,24 @@ export default function ReportPage() {
         <MonthlyReport
           month={month}
           onMonthChange={changeMonth}
+          mode={tab}
+          onModeChange={changeTab}
+          onOpenAssets={openAssets}
+          onOpenCategory={openCategory}
+          onOpenLarge={(id) => void openLarge(id)}
           autoOpenClosing={openClosing}
           onClosingAutoOpened={consumeClosing}
           adSlot={<AdSlot placement="report" />}
           bottomAdSlot={<AdSlot placement="report_bottom" />}
         />
       )}
+
+      <EditSheet
+        transaction={editing}
+        categories={categories.data?.items ?? []}
+        month={{ year: Number(month.slice(0, 4)), month: Number(month.slice(5, 7)) }}
+        onClose={() => setEditing(null)}
+      />
     </div>
   );
 }

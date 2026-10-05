@@ -9,6 +9,8 @@ export const ROUTES = {
    */
   record: '/record',
   report: '/report',
+  /** 리포트 분류 줄 하나의 기록. 달, 탭, 줄 키를 주소로 받는다. */
+  reportCategory: '/report/category',
   manage: '/manage',
   calendar: '/calendar',
   goal: '/goal',
@@ -65,6 +67,52 @@ export function joinPath(code: string, src: string = JOIN_SRC): string {
   return `${ROUTES.join}?${JOIN_CODE_QUERY}=${encodeURIComponent(code)}&src=${src}`;
 }
 
+/** 리포트의 소비·수입 탭. 주소에 올려 두어야 다른 화면에 다녀와도 보던 탭으로 돌아온다. */
+export type ReportTab = 'expense' | 'income';
+
+export const REPORT_MONTH_QUERY = 'month';
+export const REPORT_TAB_QUERY = 'tab';
+export const REPORT_KEY_QUERY = 'key';
+
+export function parseReportTab(raw: string | null): ReportTab {
+  return raw === 'income' ? 'income' : 'expense';
+}
+
+/** 보던 달과 탭을 든 리포트 주소. 소비 탭은 기본이라 적지 않는다. */
+export function reportPath(month: string | null, tab: ReportTab = 'expense'): string {
+  const query = new URLSearchParams();
+  if (month != null) query.set(REPORT_MONTH_QUERY, month);
+  if (tab === 'income') query.set(REPORT_TAB_QUERY, tab);
+  const text = query.toString();
+  return text === '' ? ROUTES.report : `${ROUTES.report}?${text}`;
+}
+
+export function reportCategoryPath(month: string, tab: ReportTab, key: string): string {
+  const query = new URLSearchParams({
+    [REPORT_MONTH_QUERY]: month,
+    [REPORT_TAB_QUERY]: tab,
+    [REPORT_KEY_QUERY]: key,
+  });
+  return `${ROUTES.reportCategory}?${query.toString()}`;
+}
+
+/**
+ * 뒤로 갈 자리를 들고 가는 이동 상태. 들어온 자리가 정해진 부모와 다를 때만 쓴다.
+ * 리포트에서 연 자산 화면은 관리 탭이 아니라 그 리포트(보던 달과 탭)로 돌아가야 한다.
+ */
+export interface BackState {
+  backTo: string;
+}
+
+export function backStateOf(state: unknown): string | null {
+  if (state == null || typeof state !== 'object' || !('backTo' in state)) return null;
+  const { backTo } = state as { backTo: unknown };
+  // 앱 안 경로만 받는다. 바깥 주소로 내보내는 길이 되면 안 된다.
+  return typeof backTo === 'string' && backTo.startsWith('/') && !backTo.startsWith('//')
+    ? backTo
+    : null;
+}
+
 /** 개발 중에만 열리는 공용 UI 갤러리. */
 /** 분석 범위 쿼리. `all`·`stock`·`cash`, 모르는 값이면 `all`. */
 export const ASSET_SCOPE_QUERY = 'scope';
@@ -97,6 +145,7 @@ export const TAB_ROOTS: string[] = [ROUTES.home, ROUTES.report, ROUTES.manage];
  */
 export const PARENT_OF: Record<string, string> = {
   [ROUTES.calendar]: ROUTES.home,
+  [ROUTES.reportCategory]: ROUTES.report,
   // 목표·자산의 입구는 관리 탭뿐이다. 홈으로 보내면 들어온 자리와 다른 곳으로 나간다.
   [ROUTES.goal]: ROUTES.manage,
   [ROUTES.assets]: ROUTES.manage,
@@ -123,6 +172,7 @@ export const SCREEN_TITLES: Record<string, string> = {
   // 곧장 홈으로 넘기는 입구지만, 넘기기 전 한 번 찍히는 화면 로그가 `unknown` 으로 남지 않게.
   [ROUTES.record]: '기록하기',
   [ROUTES.report]: '리포트',
+  [ROUTES.reportCategory]: '분류별 기록',
   [ROUTES.manage]: '관리',
   [ROUTES.calendar]: '월간 달력',
   [ROUTES.goal]: '목표',
@@ -149,6 +199,11 @@ export function isTabRoot(pathname: string): boolean {
   return TAB_ROOTS.includes(pathname);
 }
 
-export function parentOf(pathname: string): string | null {
+export function parentOf(pathname: string, search = ''): string | null {
+  // 분류 화면은 자기 주소에 든 달과 탭으로 돌아간다. 들고 온 상태가 없는 딥링크도 그렇다.
+  if (pathname === ROUTES.reportCategory) {
+    const query = new URLSearchParams(search);
+    return reportPath(query.get(REPORT_MONTH_QUERY), parseReportTab(query.get(REPORT_TAB_QUERY)));
+  }
   return PARENT_OF[pathname] ?? null;
 }
