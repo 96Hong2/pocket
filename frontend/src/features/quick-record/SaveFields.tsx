@@ -139,18 +139,13 @@ export function SellPreviewCard({
       : `평균 ${formatCurrency(average)}에 산 ${formatQuantity(soldQuantity)}${unitOf(item.kind)}`;
   const tone = preview.gain >= 0 ? 'up' : 'down';
   return (
-    <div
-      className={`record-profit record-profit--${tone}`}
-      data-testid={TEST_IDS.recordSellPreview}
-    >
+    <div className={`record-profit record-profit--${tone}`} data-testid={TEST_IDS.recordSellPreview}>
       <span className="record-profit__basis" data-numeric="">
         {basis}
       </span>
       <b className="record-profit__gain" data-numeric="">
         {formatSignedWon(preview.gain)}
-        {preview.rate == null ? null : (
-          <em className="record-profit__rate">{rateText(preview.rate)}</em>
-        )}
+        {preview.rate == null ? null : <em className="record-profit__rate">{rateText(preview.rate)}</em>}
       </b>
     </div>
   );

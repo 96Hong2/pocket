@@ -569,7 +569,9 @@ function RecordBody({
     지출, 수입, 이체. 이 값이 고를 수 있는 분류와 저장할 종류를 함께 정한다.
     이체는 집계 어디에도 안 들어가서(ADR-0005) 분류도 태그도 없다.
   */
-  const [recordKind, setRecordKind] = useState<RecordKind>(sellStart != null ? 'save' : 'expense');
+  const [recordKind, setRecordKind] = useState<RecordKind>(
+    sellStart != null ? 'save' : 'expense',
+  );
   const isTransfer = recordKind === 'transfer';
   const isSave = recordKind === 'save';
   const kind: LedgerKind = recordKind === 'income' ? 'income' : 'expense';
@@ -582,7 +584,9 @@ function RecordBody({
     종류나 적을 곳을 바꾸면 비운다.
   */
   const [assetDest, setAssetDest] = useState<AssetDest | null>(sellStart);
-  const [destFrom, setDestFrom] = useState<{ from: AssetDestFrom; position: number } | null>(null);
+  const [destFrom, setDestFrom] = useState<{ from: AssetDestFrom; position: number } | null>(
+    null,
+  );
   const [assetSide, setAssetSide] = useState<AssetSideLog>(sellStart != null ? 'sell' : 'buy');
   /** 수량 종목의 수량. 소수점이 든 글자 그대로. */
   const [qtyDigits, setQtyDigits] = useState('');
@@ -642,7 +646,9 @@ function RecordBody({
     receipt: 0,
   });
   /** 읽어 온 것을 든 채 ‹ 를 눌러 묻는 중. 몇 건인지와 어느 길로 눌렀는지. */
-  const [panelAsk, setPanelAsk] = useState<{ count: number; how: 'sheet' | 'back' } | null>(null);
+  const [panelAsk, setPanelAsk] = useState<{ count: number; how: 'sheet' | 'back' } | null>(
+    null,
+  );
   /** 저장까지 마쳐 결과 화면을 든 패널. 이 패널의 ‹ 는 「확인」 과 같다. */
   const importSavedRef = useRef<Partial<Record<RecordTab, boolean>>>({});
   /** 패널마다 검토 묶음을 버리는 길. 검토 화면이 서 있을 때만 걸린다. */
@@ -973,11 +979,7 @@ function RecordBody({
   }
 
   /** 줄글·사진으로 읽은 것을 저장한 뒤. 공유 가계부에 적었으면 날로 옮겨 가지 않는다. */
-  function afterImportSaved(
-    key: PanelTab,
-    savedDay: string | null,
-    savedBook: string | null,
-  ): void {
+  function afterImportSaved(key: PanelTab, savedDay: string | null, savedBook: string | null): void {
     importSavedRef.current[key] = true;
     markRecorded();
     if (savedBook != null) return;
@@ -1139,8 +1141,7 @@ function RecordBody({
     // 저축·투자. 서버에는 분류 없는 이체로 적히고 「어디에」 와 수량이 장부에 붙는다.
     const savingDest = isSave ? assetDest : null;
     const savingSide: AssetSideLog = sideShown ? assetSide : 'buy';
-    const savingQty =
-      savingDest != null && destHoldingOf(savingDest) === 'quantity' ? qtyValue : null;
+    const savingQty = savingDest != null && destHoldingOf(savingDest) === 'quantity' ? qtyValue : null;
     const assetLog: Pick<
       EventParamMap['save_result'],
       'side' | 'qty' | 'qty_all' | 'dest_from' | 'position'
@@ -1361,7 +1362,9 @@ function RecordBody({
     저장이 끝났으면 눌러 둔 숫자는 안 센다. 방금 저장한 그 금액이다.
   */
   draftedRef.current = () =>
-    (!done && (digits !== '' || qtyDigits !== '')) || nlDraftRef.current || composeDirtyRef.current;
+    (!done && (digits !== '' || qtyDigits !== '')) ||
+    nlDraftRef.current ||
+    composeDirtyRef.current;
   composingRef.current = creating;
   leaveComposeRef.current = requestLeaveCompose;
 
@@ -1395,7 +1398,9 @@ function RecordBody({
   const typingCost = costUnknown && keyTarget === 'cost';
   // 수량 종목은 수량이 있어야, 팔 때는 보유를 넘지 않아야 저장이 켜진다.
   const assetReady =
-    assetDest != null && (!lot || qtyValue != null) && (!selling || sellCheck?.ok === true);
+    assetDest != null &&
+    (!lot || qtyValue != null) &&
+    (!selling || sellCheck?.ok === true);
 
   /** 팔 때 「전부」. 보유 수량을 그대로 넣고 금액을 치러 간다. */
   function sellAll(): void {
@@ -1584,7 +1589,11 @@ function RecordBody({
         />
       </div>
 
-      <div className="record__panel" data-record-step="" hidden={!panelShown || tab !== 'capture'}>
+      <div
+        className="record__panel"
+        data-record-step=""
+        hidden={!panelShown || tab !== 'capture'}
+      >
         <SheetHeader onBack={() => back('sheet')} title="캡처로 정리" backDisabled={busy} />
         <ImageImportTab
           key={panelKeys.capture}
@@ -1605,7 +1614,11 @@ function RecordBody({
         />
       </div>
 
-      <div className="record__panel" data-record-step="" hidden={!panelShown || tab !== 'receipt'}>
+      <div
+        className="record__panel"
+        data-record-step=""
+        hidden={!panelShown || tab !== 'receipt'}
+      >
         <SheetHeader onBack={() => back('sheet')} title="영수증 찍기" backDisabled={busy} />
         <ImageImportTab
           key={panelKeys.receipt}
@@ -1723,9 +1736,7 @@ function RecordBody({
               tagShown ? (
                 <button
                   type="button"
-                  className={
-                    pickedTag == null ? 'record-tag-chip' : 'record-tag-chip record-tag-chip--on'
-                  }
+                  className={pickedTag == null ? 'record-tag-chip' : 'record-tag-chip record-tag-chip--on'}
                   style={pickedTag == null ? undefined : tagStyle(pickedTag)}
                   disabled={savingNow}
                   onClick={() => {
