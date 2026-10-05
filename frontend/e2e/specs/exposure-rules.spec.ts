@@ -153,6 +153,7 @@ test('기본 분류의 이름과 색을 바꾸면 기록 화면까지 그대로 
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await expect(recordSheet.input.categoryChip('밥값')).toBeVisible();
   await expect(recordSheet.input.categoryChip('식비')).toHaveCount(0);
 });

@@ -134,12 +134,12 @@ test('태그 이름으로도 찾는다', async ({ calendar, home, prep, recordSh
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(12000);
+  await recordSheet.pickTag('출장');
   await recordSheet.input.pickCategory('교통');
   await recordSheet.feedback.waitSaved();
   await recordSheet.feedback.writeMerchant('택시');
-  await recordSheet.feedback.tagChip('출장').click();
-  await expect(recordSheet.feedback.tagChip('출장')).toHaveAttribute('aria-pressed', 'true');
-  await recordSheet.closeByEsc();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
 
   await calendar.open();
   await calendar.waitReady();

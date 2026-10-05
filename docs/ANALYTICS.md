@@ -13,15 +13,18 @@
 | 알고 싶은 것 | 이벤트 | 남기는 값 |
 | --- | --- | --- |
 | 들어와서 어디로 가나 | `app_open` · `screen_view` | 진입 화면, 화면 이름, 토스 앱 버전, **첫 실행인지 · 처음 연 지 며칠째 · 직전 실행 이후 며칠 · 실행 횟수 구간**, **들어온 길**(`referrer` 토스 입구 · `src` 우리 채널 표시 · `first_src` 이 기기에서 처음 들어온 길), **같이 쓰기 시작한 지 며칠째**(`shared_days`, 2026-09-28~. 이 기기에서 공유 가계부 멤버인 것을 처음 본 날부터 센다. 본 적 없으면 싣지 않는다) |
-| 어떤 방식을 고르나, 어디서 여나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향, 연 자리(`home`·`home_day`·`calendar_day`·`deeplink`)와 지난 날에 적는 것인지 |
+| 어떤 방식을 고르나, 어디서 여나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향, 연 자리(`home`·`home_day`·`calendar_day`·`deeplink`)와 지난 날에 적는 것인지. 2026-10-05~ 시트가 늘 첫 화면으로 열려 `record_started.method` 는 홈 복구 카드로 열면 `screenshot`, 그 밖에는 `keypad` 다. 고른 방법은 `record_setup_done.way` 로 본다 |
+| 첫 화면에서 무엇을 고르고 얼마나 머무나 | **`record_setup_done`** | 2026-10-05~(ADR-0044). 첫 화면 「다음」(사진 방법이면 「카메라 열기」, 「사진 고르기」)을 누른 순간. 방법(`way`: `keypad`·`nl`·`screenshot`·`receipt`, `record_started.method` 와 같은 말), 종류(`kind`: `expense`·`income`·`transfer`, 종류 칩이 서는 직접 입력일 때만 싣는다), 적을 곳(`book`: `mine`·`shared`), 날짜(`day`: `today`·`past`), 열린 값에서 바꾼 칸(`changed`: `day`·`book`·`way`·`kind` 를 이 순서대로 `+` 로 이은 값, 없으면 `none`), 첫 화면에 머문 시간(`setup_ms`), ‹ 로 돌아와 다시 눌렀나(`again`). 판정은 `again=false` 만 센다 |
+| 어느 단계에서 되돌아가나 | **`record_back`** | 2026-10-05~. 시트 안에서 한 단계 뒤로 간 자리(`from`: `amount`·`nl`·`photo`·`day`·`tag`)와 길(`how`: `sheet` 시트 안 ‹, `back` 토스 위 ‹ 와 폰 뒤로가기) |
+| 저장하지 않고 어디서 닫나 | **`record_closed`** | 2026-10-05~. 닫힐 때의 단계(`step`: `setup`·`amount`·`nl`·`photo`), 적어 둔 것(`drafted`: `none`·`typed` 금액을 넣음·`parsed` 읽어 온 결과가 있음), 닫은 길(`how`: `back`·`dim`·`drag`·`handle`·`esc`·`manage`·`cancel`, `cancel` 은 검토 화면 「취소」 로 닫힘). 저장한 뒤 닫힌 것은 안 남는다 |
 | 사진 고르기에서 막히나 | `image_pick_result` | 성공·취소·권한 거절·미지원, 장수 |
 | 인식이 얼마나 걸리고 왜 실패하나 | `parse_started` · `parse_finished` | 방식, 성공·부분·0건·실패, 소요 시간, 후보 수, 오류 코드 |
 | 결과를 얼마나 고치나 | `review_shown` · `review_finished` | 후보 수, 고른 수, 손댄 건수, **칸별 고친 횟수** |
 | 모르는 상호의 분류를 기억하길 바라나 | `merchant_rule_asked` · `review_finished` | 분류 없이 읽힌 상호에 분류를 골라 넣자 다음부터 그렇게 저장할지 물었을 때 무엇을 골랐나(`answer`: `remember`·`skip`)와 방식. 2026-10-04~. 답하지 않고 저장하면 이 로그는 없고 기억도 안 한다. 분모는 `review_finished` 의 `rule_asked`(물은 줄 수)와 `rule_remembered`(「기억하기」 수)로 센다. **상호와 분류 이름은 싣지 않는다** |
-| 읽어 온 것을 잃나 | `record_leave_asked` · `review_cancelled` | 물었나·머물렀나·나갔나와 그때 몇 건, 스스로 버린 건수 |
-| 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드, 키패드로 적은 종류(`type`: `expense`·`income`·**`transfer`**, 2026-09-27~. 「이체」 글씨가 쓰이는지 센다), **어느 가계부에 적었나**(`book`: `mine`·`shared`, 2026-09-28~. 공유 가계부가 없는 사람은 늘 `mine`) |
+| 읽어 온 것을 잃나 | `record_leave_asked` · `review_cancelled` | 물었나·머물렀나·나갔나와 그때 몇 건, 스스로 버린 건수. 2026-10-05~ 검토 화면에서 ‹ 로 첫 화면에 가려다 「읽어 온 N건이 사라져요」 를 물은 것도 같은 값으로 남고, 「나가기」 면 `review_cancelled` 도 남는다 |
+| 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드, 키패드로 적은 종류(`type`: `expense`·`income`·**`transfer`**, 2026-09-27~. 「이체」 글씨가 쓰이는지 센다), **어느 가계부에 적었나**(`book`: `mine`·`shared`, 2026-09-28~. 공유 가계부가 없는 사람은 늘 `mine`). 2026-10-05~ `save_result` 에 종류(`kind`, 직접 입력만), 첫 화면에 머문 시간(`setup_ms`), 직접 입력 둘째 화면에 머문 시간(`amount_ms`, 줄글과 사진은 안 싣는다), 시트를 연 때부터 저장을 누른 때까지(`flow_ms`), 첫 화면 값을 그대로 썼나(`defaults`) |
 | 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움과 **지우려다 그만둠**(`delete_asked`·`delete_cancelled`·`delete`), 고친 칸 이름, 그 기록의 입력 방식. 2026-09-28~ **옮김**(`move`, `to`: `mine`·`shared`)과 **되돌림**(`restore`, 지운 공유 기록을 알림에서 되살림), 2026-09-29~ **옮기기 되돌림**(`undo_move`, `to` 는 돌아간 쪽. 원본을 되살리는 것이라 `move` 로 세지 않는다), 공유 기록을 고치거나 지웠으면 `book: 'shared'` |
-| 저장 뒤 뜻이 전달됐나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것 |
+| 저장 뒤 화면을 보고 무엇을 하나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것(`confirm`, 2026-10-05~ `more` 어디서와 메모 칸을 펼침, 펼친 칸 `field`: `merchant`·`memo`). 2026-10-05~ 공유 가계부 저장 뒤 화면에서도 남고 `book`(`mine`·`shared`)을 싣는다 |
 | 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(`home_card`·`settings`)와 결과(`opened`·`guide_done`·`dismissed`), 동의·거절·미지원과 **켠 자리**(`where`: `home_card`·`settings`). 2026-09-30~ **`remind_card_dismissed`**: 홈 알림 카드를 몇 번째로 닫았나(`closes`). 닫을수록 다시 묻는 간격이 3, 7, 14, 30일로 길어진다 |
 | 새 기능 안내가 사람을 데려가나 | `books_intro_result` | 홈의 같이 쓰는 가계부 안내에서 만들기로 갔나(`opened`)·닫았나(`dismissed`). 2026-09-30~, 한 번뿐인 카드 |
 | 이메일 연결에서 어디서 빠지나 | `account_link_result` · `profile_result` | 권했나(`prompt_shown`)·열었나(`prompt_opened`)·닫았나(`prompt_dismissed`)와 그 자리(`manage`·`streak`), 코드를 보냈나(`sent`)·붙었나(`linked`·`switched`·`merged`)·어디서 막혔나(`send_failed`·`verify_failed` 와 오류 코드), 연령대·성별을 답했나 건너뛰었나와 그 갈래. **이메일 주소와 코드는 싣지 않는다** |
@@ -36,7 +39,7 @@
 | 꾸준히 적는 사람이 늘어나나 | `streak_celebrated` | 몇 일째 축하가 떴나(7·14·21…). **끊긴 것은 싣지 않는다** |
 | 미리 적어 둔 돈을 실제로 적나 | `recurring_result` | 적었나(`recorded`)·미뤘나(`dismissed`), 전날인가 당일인가(`eve`·`today`). **항목 이름과 금액은 싣지 않는다** |
 | 미리 적어 둘 돈을 걸어는 두나 | `recurring_changed` | 만듦·고침·지움과 잠시 끔·다시 켬(`created`·`updated`·`deleted`·`paused`·`resumed`), 앱 알림이 켜져 있나(`enabled`), 이 예고만 다른 시각을 골랐나(`at`: `default`·`custom`), 며칠 전인가(`lead`: `today`·`eve`), 태그를 달았나, 지울 때 켜져 있었나. **항목 이름과 금액은 싣지 않는다** |
-| 태그를 만들기만 하나 실제로 다나 | `tag_changed` · `tag_applied` | 만듦·고침·지움과 갈래(`expense`·`income`), 지울 때 몇 건이 표시를 잃나(`used`), 붙었나·떨어졌나와 어느 자리(`record`·`edit`)와 갈래. **태그 이름은 싣지 않는다** |
+| 태그를 만들기만 하나 실제로 다나 | `tag_changed` · `tag_applied` | 만듦·고침·지움과 갈래(`expense`·`income`), 지울 때 몇 건이 표시를 잃나(`used`), 붙었나·떨어졌나와 어느 자리(`record`·`edit`)와 갈래. 2026-10-05~ `record` 는 둘째 화면에서 골라 저장과 함께 붙은 것이다. **태그 이름은 싣지 않는다** |
 | 자산을 한 번 적고 마나 | `asset_changed` | 더함·고침·지움과 어느 그룹, 그 뒤 남은 줄 수. **이름과 금액은 싣지 않는다** |
 | 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나와 몇 장짜리인가(`cards`), 몇 장째에서 닫았나(`page`·`total`)와 끝까지 봤나(`finished`) |
 | 지난달 리포트를 보러 가나 | **`report_month_changed`** | 옮긴 쪽(`step`: `back`·`forward`), 도착한 달이 이번 달인가(`to`: `this`·`past`), 몇 달 전인가(`months_back`). 2026-09-27~. 지난달 리포트에 광고를 붙이기 전의 기준선이다. **그 달의 날짜와 금액은 싣지 않는다** |
@@ -159,6 +162,20 @@
 자리마다 「그 화면에서 하려던 일을 끝낸 비율」 을 광고 없이 지나간 사람과 견줘야 뜻이 생긴다.
 한 자리만 눈에 띄게 낮으면 그 자리가 잘못 놓인 것이다.
 
+### 판마다 바뀐 값: 기록 두 화면 판 (2026-10-05~, ADR-0044)
+
+이 판 앞뒤를 섞어 세면 안 되는 값이다.
+
+| 값 | 이 판부터 |
+|---|---|
+| `record_started.method` | 홈 복구 카드로 열면 `screenshot`, 그 밖에는 `keypad` 다. 시트가 늘 첫 화면으로 열린다. 사람이 고른 방법은 `record_setup_done.way` 로 본다 |
+| `record_started.from` | 지난 날을 보며 누른 홈 가운데 큰 「기록하기」 가 `home_day` 에서 `home` 으로 옮겨 갔다(날을 묻던 창을 걷었다). 지난 날인지는 `backfill` 로 본다. 이 판에서 `home_day` 가 줄고 `home` 이 느는 것은 입구 성적이 바뀐 것이 아니다 |
+| `input_method_changed` | 첫 화면에서 처음 고르는 것은 안 남는다(그 값은 `record_setup_done.changed`). ‹ 로 첫 화면에 돌아와 바꾼 것과 사진 패널이 「직접 입력」 으로 넘긴 것만 남는다. 앞 판과 개수를 견주지 않는다 |
+| `tag_applied` `where=record` | 저장 뒤 화면에서 태그를 고른 것이 아니라 **둘째 화면에서 골라 저장과 함께 붙은 것**이다. 저장 뒤 화면에는 태그 고르기가 없다 |
+| `feedback_shown` | 공유 가계부 저장 뒤 화면에서도 나기 시작한다(`book: 'shared'`). 개수가 그만큼 뛴다. `has_budget` 은 「그 달 예산이 있었나」 일 뿐, 화면이 예산 문장을 말했는지와 상관없다(예산 초과 한 줄만 남았다) |
+| `record_back.how` | `sheet`·`back` 둘뿐이다. 토스 위 ‹ 와 폰 뒤로가기는 브릿지가 같은 `backEvent` 로 줘서 코드로 가를 수 없다 |
+| 10초 기록률 | `save_result.flow_ms ≤ 10000` 인 흐름의 비율로 다시 정한다. 앞 판의 `save_result.elapsed_ms` 는 저장 버튼부터 재서 기준선이 못 된다. 판정선은 절대값(직접 입력 흐름의 `flow_ms` 중앙값 10초 이하)이다 |
+
 **`blocked` 와 `earned` 는 더 이상 안 나간다.** 장수가 없으면 막던 장치를 ADR-0031 이
 없앴다. 지금은 아무도 막히지 않고 읽는 동안 광고가 함께 돌 뿐이다. 09-22 이전 자료를 지금
 자료와 한 표에 얹으면 숫자가 어긋난다.
@@ -252,6 +269,12 @@ SDK 가 알려 주지 않는다. 그래서 우리가 볼 수 있는 것은 누�
 - 금액과 날짜의 실제 값
 - 계좌·카드번호, 인증 헤더, API 요청·응답 본문
 - 예외 메시지 본문과 스택 (`client_error` 는 오류 **이름**과 화면만 남긴다)
+- 수량, 현재가, 받은 돈, 수익 금액의 실제 값, 항목과 종목 이름
+
+**키 이름으로도 막는다.** `amount`·`quantity`·`price`·`name`·`label`·`memo`·`merchant` 키는
+`events.ts` 의 타입이 막아, 이 키를 실은 `log` 호출은 컴파일되지 않는다. 키와 값을 못 박은
+이벤트(`EventParamMap`: `record_setup_done`·`record_back`·`record_closed`·`save_result`·
+`feedback_shown`·`feedback_action`)는 그 모양으로만 남는다.
 
 화면이 죽는 자리는 대개 방금 넣은 값을 다루던 자리라, 예외 메시지에 그 값이 실려 있다.
 `e2e/specs/ads-and-logs.spec.ts` 가 실제로 적은 문장과 금액이 로그에 없는지 확인한다.
@@ -324,8 +347,8 @@ Carrying capacity = N ÷ c
 | 지표 | 계산 | 낮거나 느리면 볼 것 |
 | --- | --- | --- |
 | 첫 기록 성공률 | 첫 방문 세션에서 저장한 신규 ÷ 신규 진입 | 기록 버튼 발견, 입력 장벽 |
-| 방식별 완료율 | `save_result: ok` 흐름 ÷ `record_started` 흐름 | 어느 방식에서 막히나 |
-| 저장까지 시간 | `record_started` → `save_result` 의 중앙값·p95 | 인식 대기인지 수정 작업인지 |
+| 방식별 완료율 | `save_result: ok` 흐름 ÷ `record_setup_done`(`again=false`) 흐름, `way` 별. 2026-10-05~ 분모를 `record_started` 에서 옮겼다(늘 `keypad` 로 열려 방식을 못 가른다) | 어느 방식에서 막히나 |
+| 저장까지 시간 | `save_result.flow_ms` 의 중앙값·p95. 10초 기록률은 `flow_ms ≤ 10000` 비율 | 첫 화면(`setup_ms`)인지, 금액 화면(`amount_ms`)인지, 인식 대기인지 |
 | AI 무수정 저장률 | 손 안 댄 AI 후보 ÷ 저장한 AI 후보 | 날짜·금액·분류 중 어디가 문제인가 |
 | 기록 재방문율 | 첫 기록 다음 날 다시 저장한 사람 ÷ 관찰 가능한 첫 기록자 | 한 번 체험하고 끝나는가 |
 

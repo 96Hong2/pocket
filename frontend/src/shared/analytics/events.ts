@@ -17,8 +17,33 @@ export const EVENTS = {
 
   /** 기록 시트를 열었다. 여기서 flow 가 시작된다. */
   recordStarted: 'record_started',
-  /** 시트 안에서 방식을 옮겼다(키패드·줄글·캡처·영수증). */
+  /**
+   * 시트 안에서 방식을 옮겼다(키패드·줄글·캡처·영수증).
+   *
+   * 첫 화면에서 처음 고르는 것은 여기 안 남는다(`record_setup_done.changed`). ‹ 로 첫 화면에
+   * 돌아와 바꾼 것과, 사진 패널이 직접 입력으로 넘긴 것만 남는다.
+   */
   inputMethodChanged: 'input_method_changed',
+  /**
+   * 첫 화면에서 「다음」(사진 방법이면 「카메라 열기」·「사진 고르기」)을 눌렀다.
+   *
+   * 무엇을 골랐나(`way`·`kind`·`book`·`day`), 열렸을 때 값에서 무엇을 바꿨나(`changed`),
+   * 첫 화면에 얼마나 머물렀나(`setup_ms`). ‹ 로 돌아와 다시 누르면 `again` 이 참이다.
+   * 판정은 `again` 이 거짓인 줄만 센다.
+   */
+  recordSetupDone: 'record_setup_done',
+  /**
+   * 시트 안에서 한 단계 뒤로 갔다. 어느 단계에서(`from`), 어떻게(`how`).
+   *
+   * `how` 는 시트 안 ‹(`sheet`)와 그 밖(`back`) 둘뿐이다. 토스 위 ‹ 와 폰 뒤로가기는 브릿지가
+   * 같은 신호로 줘서 가를 수 없다.
+   */
+  recordBack: 'record_back',
+  /**
+   * 저장하지 않고 기록 시트가 닫혔다. 어느 단계에서(`step`), 적어 둔 것이 있었나(`drafted`),
+   * 어떻게 닫았나(`how`). 저장한 뒤 닫힌 것은 여기 안 남는다.
+   */
+  recordClosed: 'record_closed',
 
   /** 앨범·카메라를 열어 본 결과. 성공·취소·권한 거절. */
   imagePickResult: 'image_pick_result',
@@ -64,9 +89,14 @@ export const EVENTS = {
   /** 저장한 뒤에 고치거나 지우거나 되돌렸다. */
   recordChanged: 'record_changed',
 
-  /** 저장 직후 피드백을 보여 줬다. */
+  /**
+   * 저장 뒤 화면을 보여 줬다. 내 가계부와 공유 가계부 둘 다(`book`).
+   *
+   * `has_budget` 은 「그 달 예산이 있었나」 다. 저장 뒤 화면이 남은 예산을 말하지 않게 된 판부터
+   * 문구와 상관없는 값이다.
+   */
   feedbackShown: 'feedback_shown',
-  /** 그 피드백에서 무엇을 눌렀나. */
+  /** 저장 뒤 화면에서 무엇을 눌렀나. 확인(`confirm`), 어디서와 메모 칸 펼치기(`more`). */
   feedbackAction: 'feedback_action',
 
   /** 예산을 저장했다. 처음인지 아닌지. */
@@ -448,3 +478,125 @@ export type MembersBucket = '1' | '2' | '3-5' | '6-10';
  * `save_result`·`record_changed` 의 `book` 에 싣는다.
  */
 export type BookSide = 'mine' | 'shared';
+
+/** 기록 방법. `record_started.method` 와 같은 말이다(서버가 기억하는 이름). */
+export type RecordWay = 'keypad' | 'nl' | 'screenshot' | 'receipt';
+
+/** 첫 화면에서 고른 종류. */
+export type RecordKind = 'expense' | 'income' | 'transfer';
+
+/**
+ * 첫 화면에서 열린 값과 달라진 칸. 화면 순서(날짜, 적을 곳, 방법, 종류)대로 `+` 로 잇는다.
+ * 순서를 정해 두지 않으면 `kind+way` 와 `way+kind` 가 다른 값으로 잡힌다.
+ */
+export type SetupChanged =
+  | 'none'
+  | 'day'
+  | 'book'
+  | 'way'
+  | 'kind'
+  | 'day+book'
+  | 'day+way'
+  | 'day+kind'
+  | 'book+way'
+  | 'book+kind'
+  | 'way+kind'
+  | 'day+book+way'
+  | 'day+book+kind'
+  | 'day+way+kind'
+  | 'book+way+kind'
+  | 'day+book+way+kind';
+
+/** 한 단계 뒤로 간 자리. */
+export type RecordBackFrom = 'amount' | 'nl' | 'photo' | 'day' | 'tag';
+
+/** 저장 없이 닫힐 때 있던 단계. */
+export type RecordStep = 'setup' | 'amount' | 'nl' | 'photo';
+
+/** 저장 없이 닫힐 때 적어 둔 것. 금액을 넣었나(`typed`), 읽어 온 결과가 있었나(`parsed`). */
+export type RecordDrafted = 'none' | 'typed' | 'parsed';
+
+/**
+ * 저장 없이 닫은 길. 시트가 알려 주는 넷에 뒤로가기와 「관리」 로 나간 것을 더한다.
+ * `cancel` 은 검토 화면 「취소」 로 닫힌 것이다.
+ */
+export type RecordCloseHow = 'back' | 'dim' | 'drag' | 'handle' | 'esc' | 'manage' | 'cancel';
+
+/**
+ * 어느 이벤트에도 싣지 않는 키. 금액, 수량, 값, 이름, 상호, 메모.
+ *
+ * 값으로 막는 것이 아니라 **타입으로 막는다.** 이 키를 실으면 `log` 를 부르는 자리가 컴파일되지 않는다.
+ */
+export type ForbiddenParamKey = 'amount' | 'quantity' | 'price' | 'name' | 'label' | 'memo' | 'merchant';
+
+export type NoForbiddenKeys = { [K in ForbiddenParamKey]?: never };
+
+type ParamValue = string | number | boolean | undefined;
+
+/** 맵의 값이 브릿지가 받는 모양이고 금지 키가 없는지 컴파일 때 본다. */
+type CheckedMap<T extends { [K in keyof T]: K extends EventName ? Record<string, ParamValue> & NoForbiddenKeys : never }> = T;
+
+/** 흐름을 잇는 값. 보통은 `log` 의 `flowId` 로 넘기고, 값에 직접 실어도 같다. */
+type FlowParam = { flow_id?: string };
+
+/**
+ * 키와 값을 못 박은 이벤트. 여기 있는 이벤트는 이 모양으로만 남긴다.
+ *
+ * 여기 없는 이벤트는 지금처럼 자유로운 값을 받되 금지 키만 막는다.
+ */
+export type EventParamMap = CheckedMap<{
+  record_setup_done: FlowParam & {
+    way: RecordWay;
+    /** 직접 입력일 때만. 종류 칩은 다른 방법에는 서지 않는다. */
+    kind?: RecordKind;
+    book: BookSide;
+    day: 'today' | 'past';
+    changed: SetupChanged;
+    setup_ms: number;
+    again: boolean;
+  };
+  record_back: FlowParam & {
+    from: RecordBackFrom;
+    how: 'sheet' | 'back';
+  };
+  record_closed: FlowParam & {
+    step: RecordStep;
+    drafted: RecordDrafted;
+    how: RecordCloseHow;
+  };
+  save_result: FlowParam & {
+    method: LogMethod;
+    result: 'ok' | 'failed';
+    created_count?: number;
+    /** 저장을 누른 때부터 서버가 답한 때까지. */
+    elapsed_ms: number;
+    error_code?: string;
+    book: BookSide;
+    day_moved?: boolean;
+    type?: RecordKind;
+    kind?: RecordKind;
+    /** 첫 화면에 머문 시간의 합. */
+    setup_ms?: number;
+    /** 직접 입력 둘째 화면에 머문 시간의 합. 줄글과 사진은 싣지 않는다. */
+    amount_ms?: number;
+    /** 시트를 연 때부터 저장을 누른 때까지. 10초 기록률은 이 값으로 잰다. */
+    flow_ms?: number;
+    /** 첫 화면의 열린 값을 하나도 안 바꾸고 저장했나. */
+    defaults?: boolean;
+  };
+  feedback_shown: FlowParam & {
+    feedback_kind?: string;
+    has_budget: boolean;
+    book: BookSide;
+  };
+  feedback_action: FlowParam & {
+    action: 'confirm' | 'more';
+    /** `more` 일 때 펼친 칸. */
+    field?: 'merchant' | 'memo';
+  };
+}>;
+
+/** 이 이벤트에 실을 수 있는 값. 맵에 있으면 그 모양, 없으면 금지 키만 막은 자유 값. */
+export type EventParams<N extends EventName> = N extends keyof EventParamMap
+  ? EventParamMap[N]
+  : Record<string, ParamValue> & NoForbiddenKeys;

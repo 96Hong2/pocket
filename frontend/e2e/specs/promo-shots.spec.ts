@@ -64,7 +64,7 @@ test.describe('스토어 스크린샷용 화면', () => {
     await home.waitReady();
     await home.recordButton.click();
     await recordSheet.waitOpen();
-    await recordSheet.methodTab('줄글').click();
+    await recordSheet.chooseWay('줄글');
 
     await recordSheet.nl.textarea.fill(
       '어제 김밥천국 8000원\n그제 스타벅스 4500원\n오늘 아침 편의점 3200원',

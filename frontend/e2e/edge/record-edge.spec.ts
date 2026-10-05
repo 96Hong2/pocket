@@ -125,41 +125,49 @@ test('저장이 도는 동안 같은 분류를 다시 눌러도 한 건만 저�
   await expect(home.today.amount(formatCurrency(7_000))).toHaveCount(1);
 });
 
-test('줄글로 적고 나면 다음부터 줄글 탭으로 열린다', async ({ home, page, recordSheet }) => {
+test('줄글로 적고 나도 다음에는 직접 입력이 골라진 첫 화면으로 열리고, 쓴 방법은 서버가 기억한다', async ({
+  home,
+  page,
+  recordSheet,
+}) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  // 아직 한 번도 적지 않은 사람은 키패드로 시작한다.
+  // 아직 한 번도 적지 않은 사람은 직접 입력으로 시작한다.
   await expect(recordSheet.methodTab('키패드')).toHaveAttribute('aria-checked', 'true');
 
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
   await recordSheet.nl.save();
   await recordSheet.nl.confirmButton.click();
   await recordSheet.waitClosed();
 
-  // 같은 자리에서 다시 열었을 때. 매번 탭을 다시 고르게 하면 10초가 두 번 걸린다.
+  /*
+    같은 자리에서 다시 열었을 때도 직접 입력이다. 첫 화면에서 「다음」 한 번이면 둘째 화면이라
+    마지막 방법으로 건너뛸 이유가 없고, 건너뛰면 날짜와 적을 곳을 볼 기회가 사라진다.
+  */
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.methodTab('줄글')).toHaveAttribute('aria-checked', 'true');
-  await expect(recordSheet.nl.textarea).toBeVisible();
+  await expect(recordSheet.methodTab('키패드')).toHaveAttribute('aria-checked', 'true');
+  await expect(recordSheet.nl.textarea).toBeHidden();
   await recordSheet.closeByEsc();
   await recordSheet.waitClosed();
 
-  // 앱을 다시 켠 다음. 화면이 잠깐 들고 있던 것이 아니라 서버가 기억해야 여기서 산다.
+  // 앱을 다시 켠 다음. 마지막에 쓴 방법은 여전히 서버에 남아 있다(나중에 첫 화면 기본값으로 쓸 자리).
   const preferencesLoaded = page.waitForResponse(
     (res) =>
       res.url().startsWith(`${E2E_API_URL}/api/v1/preferences`) && res.request().method() === 'GET',
   );
   await home.open();
   await home.waitReady();
-  await preferencesLoaded;
+  const preferences = await preferencesLoaded;
+  expect((await preferences.json()).last_record_method).toBe('nl');
 
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.methodTab('줄글')).toHaveAttribute('aria-checked', 'true');
+  await expect(recordSheet.methodTab('키패드')).toHaveAttribute('aria-checked', 'true');
 });
 
 test.describe('저장이 실패했을 때', () => {

@@ -80,6 +80,7 @@ test.describe('일부러 막았을 때', () => {
     );
 
     // 확인을 누르는 클릭이 칸에서 먼저 빠져나가게 한다. 실기기에서 상호를 적는 길이 이것뿐이다.
+    await recordSheet.feedback.openMerchant();
     await recordSheet.feedback.merchantField.fill(BURGER);
     await recordSheet.feedback.confirmButton.click();
 
@@ -125,6 +126,7 @@ test.describe('일부러 막았을 때', () => {
     await home.waitReady();
     await home.recordButton.click();
     await recordSheet.waitOpen();
+    await recordSheet.openKeypad();
 
     // 서버 오류는 다시 불러 볼 만한 실패라, 한 번 더 부른 뒤에야 실패로 확정된다.
     await expect(recordSheet.input.categoriesError).toHaveText('카테고리를 불러오지 못했어요', {
@@ -166,7 +168,7 @@ test('검토 줄을 고치다 분류를 만들어도 적어 둔 상호·금액·
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
 
   await recordSheet.nl.openEdit('점심');
@@ -226,7 +228,7 @@ test('검토 줄을 고치다 분류를 만들어도 적어 둔 상호·금액·
   닫기를 되묻지도 않았다. 지금은 확인 화면이 다른 탭과 나란히 서고, 「확인」 은 시트를 닫는
   대신 남은 건이 있는 자리로 데려다 놓는다.
 */
-test('키패드로 한 건 저장해도 줄글에 읽어 둔 두 건이 사라지지 않는다', async ({
+test('줄글에 읽어 둔 두 건을 두고 키패드로 가려 하면 먼저 묻고, 머물면 두 건이 그대로 있다', async ({
   home,
   recordSheet,
 }) => {
@@ -235,29 +237,28 @@ test('키패드로 한 건 저장해도 줄글에 읽어 둔 두 건이 사라�
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze(TWO_ITEMS);
   await expect(recordSheet.nl.rows).toHaveCount(2);
 
-  // 문장에 안 적은 한 건을 키패드로 따로 넣는다. 읽어 둔 둘은 아직 아무 데도 안 갔다.
-  await recordSheet.methodTab('키패드').click();
-  await recordSheet.input.enterAmount(7_000);
-  await recordSheet.input.pickCategory('교통');
-  await recordSheet.feedback.waitSaved();
-  await recordSheet.feedback.confirmButton.click();
-
-  // 닫히지 않는다. 읽어 둔 것이 있는 자리로 데려다 놓는다.
-  await recordSheet.waitOpen();
-  await expect(recordSheet.methodTab('줄글')).toHaveAttribute('aria-checked', 'true');
+  // 문장에 안 적은 한 건을 키패드로 넣으려면 첫 화면을 지나야 한다. 읽어 둔 둘을 말없이 버리지 않는다.
+  await recordSheet.back();
+  await expect(recordSheet.panelLeave.text).toHaveText('읽어 온 2건이 사라져요');
+  await recordSheet.panelLeave.stayButton.click();
   await expect(recordSheet.nl.rows).toHaveCount(2);
   await expect(recordSheet.nl.amount('점심')).toHaveText(formatCurrency(12_000));
   await expect(recordSheet.nl.amount('커피')).toHaveText(formatCurrency(4_500));
   await expect(recordSheet.nl.saveButton).toHaveText(`2건 저장 · ${formatCurrency(16_500)}`);
 
-  // 그제서야 닫으려 하면 손잡이로 닫을 때와 똑같이 한 번 묻는다.
-  await recordSheet.closeButton.click();
-  await expect(recordSheet.leave.text).toContainText('읽어 온 2건이 사라져요');
-  await recordSheet.leave.leaveButton.click();
+  // 버리기로 고르면 그때 비우고 첫 화면으로 간다. 그 뒤 키패드로 한 건을 적는다.
+  await recordSheet.back();
+  await recordSheet.panelLeave.leaveButton.click();
+  await recordSheet.chooseWay('키패드');
+  await recordSheet.input.enterAmount(7_000);
+  await recordSheet.input.pickCategory('교통');
+  await recordSheet.feedback.waitSaved();
+  await recordSheet.feedback.confirmButton.click();
+  // 남은 읽어 둔 것이 없으니 바로 닫힌다.
   await recordSheet.waitClosed();
 
   // 키패드로 넣은 한 건만 남는다. 읽어 두기만 한 둘은 안 들어간다.

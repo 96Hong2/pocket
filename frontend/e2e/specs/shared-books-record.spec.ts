@@ -54,9 +54,11 @@ test('은홍이 우리 집에 적은 것을 준호가 보고, 준호가 고친 �
     await expect(recordSheet.destination.pill('우리 집')).toHaveAttribute('aria-pressed', 'true');
     // 공유 가계부는 지출만 받는다. 적는 방법은 내 가계부와 같이 넷이다(줄글·사진은 shared-books-inputs).
     await expect(recordSheet.methodTabs).toHaveCount(4);
-    await expect(recordSheet.input.kindToggle).toHaveCount(0);
-    await expect(recordSheet.input.transferButton).toHaveCount(0);
-    await expect(recordSheet.input.dayChip).toBeVisible();
+    await expect(recordSheet.kindChip('지출')).toHaveAttribute('aria-checked', 'true');
+    await expect(recordSheet.kindChip('수입')).toBeDisabled();
+    await expect(recordSheet.kindChip('이체')).toBeDisabled();
+    await expect(recordSheet.dayButton).toBeVisible();
+    await recordSheet.openKeypad();
     await expect(recordSheet.input.categoryChip('편의점')).toHaveCount(0);
 
     await recordSheet.input.enterAmount(32_000);
@@ -170,6 +172,29 @@ test('은홍이 우리 집에 적은 것을 준호가 보고, 준호가 고친 �
   });
 });
 
+test('예산을 정한 우리 집에 적어도 저장 뒤 화면에 남은 예산 문장이 없다', async ({
+  home,
+  prep,
+  recordSheet,
+}) => {
+  const bookId = await prep.createBook({ name: '우리 집', myName: '은홍' });
+  // 예산이 있어야 예전에는 「이번 달 남은 예산 …」 이 섰다.
+  await prep.setBookBudget(bookId, 300_000);
+
+  await home.open();
+  await home.waitReady();
+  await home.book.switchTo('우리 집');
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
+  await recordSheet.input.enterAmount(32_000);
+  await recordSheet.input.pickCategory('장보기');
+
+  await expect(recordSheet.bookFeedback.savedLabel('우리 집')).toBeVisible();
+  await expect(recordSheet.bookFeedback.card).toContainText('이번 달 같이 쓴 돈 32,000원');
+  await expect(recordSheet.bookFeedback.card).not.toContainText('남은 예산');
+});
+
 test('관리자가 남이 적은 기록을 지우면 한 번 묻고, 확인한 뒤에만 지운다', async ({
   home,
   partner,
@@ -221,10 +246,12 @@ test('공유 가계부가 셋이면 셋째 칩이 「다른 가계부」 이고 
   await expect(recordSheet.destination.pill('우리 방')).toBeVisible();
   await expect(recordSheet.destination.otherButton).toBeVisible();
   await expect(recordSheet.methodTabs).toHaveCount(4);
-  // 보통 폰(Pixel 8)에서는 줄이 하나 늘어도 키패드까지 한 화면이다.
+  // 보통 폰(Pixel 8)에서는 줄이 하나 늘어도 첫 화면이 한 화면이다.
   expect(await recordSheet.overflowY()).toBe(0);
 
+  // 금액을 눌러 둔 뒤 ‹ 로 첫 화면에 돌아와 적을 곳을 바꾼다.
   await recordSheet.input.enterAmount(8_000);
+  await recordSheet.back();
   await recordSheet.destination.otherButton.click();
   await expect(recordSheet.destination.picker).toBeVisible();
   await recordSheet.destination.pickerRow('제주 여행').click();
@@ -233,6 +260,7 @@ test('공유 가계부가 셋이면 셋째 칩이 「다른 가계부」 이고 
   // 고른 가계부가 둘째 칩 자리로 오고, 누른 금액은 그대로다. 분류만 그 가계부 것으로 바뀐다.
   await expect(recordSheet.destination.pill('제주 여행')).toHaveAttribute('aria-pressed', 'true');
   await expect(recordSheet.destination.pills).toHaveCount(3);
+  await recordSheet.next();
   await expect(recordSheet.input.amountText).toHaveText('8,000원');
   await expect(recordSheet.input.categoryChip('편의점')).toHaveCount(0);
   await recordSheet.input.pickCategory('숙소');
@@ -255,8 +283,9 @@ test('공유 가계부가 셋이면 셋째 칩이 「다른 가계부」 이고 
 
     await recordSheet.input.enterAmount(3_000);
     await recordSheet.input.pickCategory('편의점');
+    // 공유 가계부가 있는 사람에게도 어디에 적혔는지가 맨 위 큰 제목이다.
     await expect(recordSheet.feedback.savedToMineLabel).toBeVisible();
-    await expect(recordSheet.feedback.savedLabel).toHaveCount(0);
+    await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
   });
 
   const books = (await logsNamed(page, 'save_result')).map((log) => log.params.book);
@@ -264,7 +293,7 @@ test('공유 가계부가 셋이면 셋째 칩이 「다른 가계부」 이고 
   expect(JSON.stringify(await logsNamed(page, 'save_result'))).not.toContain('제주');
 });
 
-test('분류를 더 보기로 펼친 채 적을 곳을 바꾸면 목록이 접히고 키패드가 다시 선다', async ({
+test('분류를 더 보기로 펼친 뒤 첫 화면에서 적을 곳을 바꾸면 목록이 접히고 키패드가 다시 선다', async ({
   home,
   prep,
   recordSheet,
@@ -277,15 +306,19 @@ test('분류를 더 보기로 펼친 채 적을 곳을 바꾸면 목록이 접�
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.moreCategoriesButton.click();
   await expect(recordSheet.input.keypad).toHaveCount(0);
 
+  // 적을 곳은 첫 화면에 있다. ‹ 로 돌아가 바꾸고 「다음」 으로 온다.
+  await recordSheet.back();
   await recordSheet.destination.pill('우리 집').click();
   await expect(recordSheet.destination.pill('우리 집')).toHaveAttribute('aria-pressed', 'true');
-  // 적을 곳을 바꾸는 데 한 번 더 누를 일이 없다. 내 가계부에만 있는 관리 안내도 따라오지 않는다.
+  await recordSheet.next();
+  // 펼쳐 둔 목록이 다른 가계부로 따라오지 않는다. 내 가계부에만 있는 관리 칩도 따라오지 않는다.
   await expect(recordSheet.input.keypad).toBeVisible();
   await expect(recordSheet.input.foldCategoriesButton).toHaveCount(0);
-  await expect(recordSheet.input.categorySettingsNote).toHaveCount(0);
+  await expect(recordSheet.input.categoryManageLink).toHaveCount(0);
 });
 
 test('내 지출을 수정 시트에서 우리 집으로 옮기고, 알림에서 되돌린다', async ({
@@ -404,7 +437,7 @@ test('공유 가계부가 없는 사람의 홈과 기록 시트는 지금과 똑
   await recordSheet.waitOpen();
   await expect(recordSheet.destination.group).toHaveCount(0);
   await expect(recordSheet.methodTabs).toHaveCount(4);
-  await expect(recordSheet.input.transferButton).toBeVisible();
+  await expect(recordSheet.kindChip('이체')).toBeEnabled();
 
   await recordSheet.input.enterAmount(4_000);
   await recordSheet.input.pickCategory('식비');
@@ -416,18 +449,22 @@ test('공유 가계부가 없는 사람의 홈과 기록 시트는 지금과 똑
 test.describe('아이폰 세로 한 화면(390x664)', () => {
   test.use({ viewport: { width: 390, height: 664 } });
 
-  test('「적을 곳」 줄이 서도 시트가 지금보다 길어지지 않고, 공유 가계부에 적을 때는 키패드가 한 화면에 든다', async ({
+  test('「적을 곳」 은 첫 화면에만 서고, 어느 가계부에 적든 둘째 화면 키패드 맨 아래 줄까지 한 화면에 든다', async ({
     home,
     page,
     prep,
     recordSheet,
   }) => {
-    // 공유 가계부가 없을 때의 시트. 이 높이에서는 지금도 아래 줄 키가 접힌 아래에 있다.
+    // 공유 가계부가 없을 때의 둘째 화면.
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
     await recordSheet.waitOpen();
+    await recordSheet.openKeypad();
+    await expect(recordSheet.input.numberKey('00')).toBeInViewport({ ratio: 1 });
+    await expect(recordSheet.input.backspaceKey).toBeInViewport({ ratio: 1 });
     const before = await recordSheet.overflowY();
+    await recordSheet.back();
     await page.keyboard.press('Escape');
     await recordSheet.waitClosed();
 
@@ -439,18 +476,20 @@ test.describe('아이폰 세로 한 화면(390x664)', () => {
     await home.recordButton.click();
     await recordSheet.waitOpen();
     await expect(recordSheet.destination.group).toBeVisible();
+    // 첫 화면은 줄이 하나 늘어도 한 화면이다.
+    expect(await recordSheet.overflowY()).toBe(0);
 
-    // 내 가계부: 줄이 하나 늘어도 시트는 공유 가계부가 없던 때보다 길어지지 않는다.
+    // 내 가계부: 적을 곳 줄은 첫 화면에만 있어 둘째 화면은 공유 가계부가 없던 때보다 길어지지 않는다.
+    await recordSheet.next();
+    await expect(recordSheet.input.numberKey('00')).toBeInViewport({ ratio: 1 });
     const mine = await recordSheet.overflowY();
     expect(mine).toBeLessThanOrEqual(before);
 
-    /*
-      공유 가계부: 방법 탭이 내 가계부처럼 서고 종류 알약만 빠진다. 키패드 아래 줄 키까지
-      한 화면에 다 들고, 시트는 내 가계부에 적을 때보다 길지 않다.
-      남는 여백까지 한 화면에 드는지는 실제 토스 웹뷰 높이(390x746) 검사가 본다.
-    */
+    // 공유 가계부: 키패드 아래 줄 키까지 한 화면에 다 들고, 시트는 내 가계부에 적을 때보다 길지 않다.
+    await recordSheet.back();
     await recordSheet.destination.pill('우리 방').click();
     await expect(recordSheet.methodTabs).toHaveCount(4);
+    await recordSheet.next();
     await expect(recordSheet.input.numberKey('00')).toBeInViewport({ ratio: 1 });
     await expect(recordSheet.input.backspaceKey).toBeInViewport({ ratio: 1 });
     expect(await recordSheet.overflowY()).toBeLessThanOrEqual(mine);
@@ -460,7 +499,7 @@ test.describe('아이폰 세로 한 화면(390x664)', () => {
 test.describe('토스 웹뷰 한 화면(390x746)', () => {
   test.use({ viewport: { width: 390, height: 746 } });
 
-  test('공유 가계부에 적을 때 방법 탭이 서도 키패드가 스크롤 없이 한 화면에 든다', async ({
+  test('공유 가계부에 적을 때 둘째 화면 키패드가 스크롤 없이 한 화면에 든다', async ({
     home,
     prep,
     recordSheet,
@@ -474,16 +513,18 @@ test.describe('토스 웹뷰 한 화면(390x746)', () => {
     await home.recordButton.click();
     await recordSheet.waitOpen();
     await recordSheet.destination.pill('우리 방').click();
-
     await expect(recordSheet.methodTabs).toHaveCount(4);
+    expect(await recordSheet.overflowY()).toBe(0);
+
+    await recordSheet.next();
     await expect(recordSheet.input.numberKey('00')).toBeInViewport({ ratio: 1 });
     await expect(recordSheet.input.backspaceKey).toBeInViewport({ ratio: 1 });
     expect(await recordSheet.overflowY()).toBe(0);
   });
 
   /*
-    내 가계부 키패드. 적을 곳 줄과 알약 셋, 분류 넉 줄이 서도 맨 아래 줄 키(00, 0, 지우기)까지
-    한 화면에 든다. 금액 위아래에 여백을 준 만큼 시트가 조금 더 올라온다(92dvh).
+    내 가계부 키패드. 분류 넉 줄이 서도 맨 아래 줄 키(00, 0, 지우기)까지 한 화면에 든다.
+    금액 위아래에 여백을 준 만큼 시트가 조금 더 올라온다(92dvh).
   */
   test('내 가계부에 적을 때도 금액 여백을 두고 키패드 맨 아래 줄까지 한 화면에 든다', async ({
     home,
@@ -497,6 +538,7 @@ test.describe('토스 웹뷰 한 화면(390x746)', () => {
     await home.recordButton.click();
     await recordSheet.waitOpen();
     await expect(recordSheet.destination.pill('내 가계부')).toHaveAttribute('aria-pressed', 'true');
+    await recordSheet.next();
 
     await expect(recordSheet.input.numberKey('00')).toBeInViewport({ ratio: 1 });
     await expect(recordSheet.input.numberKey('0')).toBeInViewport({ ratio: 1 });

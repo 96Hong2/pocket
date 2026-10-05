@@ -16,7 +16,6 @@ import {
   GoalDoneCard,
   GoalStatusCard,
   HomeHero,
-  RecordDayAsk,
   RecoveryCard,
   ReviewAskCard,
   ShareAppCard,
@@ -33,7 +32,7 @@ import {
 import { QuickRecordSheet, type RecordFrom, type RecordTab } from '../features/quick-record';
 import { EditSheet } from '../features/transactions';
 // 방식 → 탭 환산은 시트 옆에 있다. 배럴에는 시트만 나와 있어 파일을 곧장 가리킨다.
-import { DEFAULT_RECORD_TAB, resolveRecordTab } from '../features/quick-record/recordTab';
+import { DEFAULT_RECORD_TAB } from '../features/quick-record/recordTab';
 import {
   useBooks,
   useBudget,
@@ -81,7 +80,7 @@ function HomeContent({
   /** 아래 목록이 보고 있는 날. 기록 시트가 저장한 날로 옮길 수 있어야 해서 밖에서 들고 있다. */
   day: string;
   onDayChange: (day: string) => void;
-  onRecord: (tab: RecordTab, day?: string) => void;
+  onRecord: (tab: RecordTab, day?: string, from?: RecordFrom) => void;
   /** 기록 시트가 떠 있나. 7일 축하가 그 위로 겹쳐 뜨지 않게 기다리는 데 쓴다. */
   recording: boolean;
 }) {
@@ -91,8 +90,6 @@ function HomeContent({
   // 홈에서 바로 고친다. 여기서 못 고치면 달력까지 들어가야 해서 아무도 안 고친다.
   const [editing, setEditing] = useState<TransactionOut | null>(null);
   const today = toLedgerDate(new Date());
-  /** 지난 날을 보는 중에 큰 버튼을 눌렀나. 어느 날에 적을지 묻는 자리가 펴진다. */
-  const [asking, setAsking] = useState(false);
   const budget = useBudget();
   const categories = useCategories();
   /*
@@ -305,7 +302,7 @@ function HomeContent({
         <ErrorState onRetry={() => void budget.refetch()} />
       )}
 
-      {/* 며칠치를 한 건씩 손으로 적는 것은 애초에 안 될 제안이라 캡처 탭으로 연다. */}
+      {/* 며칠치를 한 건씩 손으로 적는 것은 안 될 제안이라 「캡처로 정리」 가 골라진 첫 화면으로 연다. */}
       {showRecovery && budget.data != null ? (
         <RecoveryCard
           progress={budget.data.recovery}
@@ -315,38 +312,12 @@ function HomeContent({
       ) : null}
 
       {/*
-        마지막에 쓴 방식으로 연다. 설정이 아직 안 왔으면 기다리지 않고 키패드로 연다.
-        시트가 늦게 열리면 10초 안에 적는다는 약속부터 깨진다.
-
-        **지난 날을 보고 있으면 먼저 묻는다.** 이 버튼은 늘 오늘에 적는데, 며칠 전을
-        훑다가 누른 사람은 보고 있던 날에 적힐 것이라고 여긴다. 적고 나서야 알면
-        지우고 다시 적는 수밖에 없다.
+        늘 직접 입력이 골라진 첫 화면으로 연다. 지난 날을 보고 있었으면 그 날이 골라져 있다.
+        며칠 전을 훑다가 누른 사람은 보고 있던 날에 적힐 것이라고 여긴다.
       */}
       <RecordButton
-        onClick={() => {
-          const tab = resolveRecordTab(preferences.data?.last_record_method);
-          if (day === today) {
-            onRecord(tab);
-            return;
-          }
-          setAsking(true);
-        }}
+        onClick={() => onRecord('keypad', day === today ? undefined : day, 'home')}
       />
-
-      {asking ? (
-        <RecordDayAsk
-          day={day}
-          today={today}
-          onCancel={() => setAsking(false)}
-          onPick={(picked) => {
-            setAsking(false);
-            const tab = resolveRecordTab(preferences.data?.last_record_method);
-            // 오늘을 골랐으면 날을 안 넘긴다. 넘기면 「이름에 날이 붙은 버튼」 으로 취급돼
-            // 방식 알약이 사라진다.
-            onRecord(tab, picked === today ? undefined : picked);
-          }}
-        />
-      ) : null}
 
       {/*
         곧 나갈 돈. 스스로 나타나는 카드 중에서도 **이것이 맨 위**다.
@@ -419,11 +390,7 @@ function HomeContent({
 
       <TodayList
         day={day}
-        // 날을 옮기면 묻던 것도 접는다. 답이 다른 날에 붙으면 안 된다.
-        onDayChange={(next) => {
-          setAsking(false);
-          onDayChange(next);
-        }}
+        onDayChange={onDayChange}
         transactions={transactions.data?.items ?? []}
         categories={categories.data?.items ?? []}
         loading={transactions.isPending || categories.isPending}
@@ -434,13 +401,7 @@ function HomeContent({
         }}
         onPick={setEditing}
         /*
-          빈 날 카드의 「N 기록하기」 만 날을 들고 간다. 버튼에 날 이름이 적혀 있어서다.
-          위의 큰 「기록하기」 는 날 이름이 없으니 늘 오늘이다. 이름과 동작을 맞춘다.
-        */
-        /*
-          **날 이름이 붙은 버튼은 키패드로 연다.** 마지막에 쓴 방식으로 열면, 줄글을
-          마지막에 쓴 사람이 「9월 5일 기록하기」 를 눌러도 줄글 탭이 열리고 고른 날이
-          말없이 버려졌다. 큰 「기록하기」 는 지금처럼 마지막에 쓴 방식으로 연다.
+          빈 날 카드의 「N 기록하기」 는 그 날이 골라진 첫 화면으로 연다.
         */
         onRecord={(pickedDay) => onRecord('keypad', pickedDay)}
       />
@@ -451,7 +412,7 @@ function HomeContent({
       */}
       <StreakCelebration
         streak={budget.data?.streak}
-        blocked={recording || editing != null || asking}
+        blocked={recording || editing != null}
       />
 
       {/*
@@ -538,7 +499,7 @@ export default function HomePage() {
           <HomeContent
             day={day}
             onDayChange={setDay}
-            onRecord={(tab, pickedDay) => setSheet({ open: true, tab, day: pickedDay })}
+            onRecord={(tab, pickedDay, from) => setSheet({ open: true, tab, day: pickedDay, from })}
             recording={sheet.open}
           />
         </>

@@ -38,7 +38,7 @@ test('사진에서 읽어 온 줄을 펼쳐도 가로로 넘치지 않는다', a
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pick();
   await expect(recordSheet.capture.readLine).toBeVisible();
 

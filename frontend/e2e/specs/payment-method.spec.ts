@@ -27,6 +27,7 @@ test('적는 화면에는 결제 수단 칸이 없고, 저장한 뒤에 나온�
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   // 금액과 분류만 있는 화면이어야 한다. 칸이 하나 더 서면 10초 약속이 깨진다.
   await expect(recordSheet.input.paymentGroup).toHaveCount(0);
@@ -44,7 +45,7 @@ test('수입에는 결제 수단 자리가 아예 없다', async ({ home, record
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  await recordSheet.input.pickKind('수입');
+  await recordSheet.chooseKind('수입');
   await recordSheet.input.enterAmount(4000);
   await recordSheet.input.pickCategory('월급');
   await recordSheet.feedback.waitSaved();

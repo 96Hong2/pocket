@@ -7,7 +7,7 @@ import { Button, LoadingState } from '../../shared/ui';
 import { NL_TEXT_MAX_LENGTH } from '../../shared/lib/limits';
 import { parseOutcome } from './parseOutcome';
 
-import { ImportReview } from './ImportReview';
+import { ImportReview, type ImportSaveTimes } from './ImportReview';
 
 const PLACEHOLDER = '점심 12000 스벅 4500 어제 택시 9000';
 
@@ -32,6 +32,10 @@ export interface NaturalLanguageTabProps {
    * 보고 확인 없이 닫혔다(e2e 에서 실제로 흔들렸다). 여기 적어 두고 나갈 때 읽는다.
    */
   draftRef?: { current: boolean };
+  /** 바깥이 검토 묶음을 버릴 때 부르는 길. 검토 화면이 걸어 둔다. */
+  discardRef?: { current: () => void };
+  /** 저장을 누른 때의 시간. 검토 화면이 save_result 에 싣는다. */
+  saveTimes?: () => ImportSaveTimes;
   onDone: () => void;
   /** 저장이 성공한 순간. 닫기보다 앞선다. 공유 가계부에 적었으면 그 id 도 준다. */
   onSaved?: (day: string | null, bookId: string | null) => void;
@@ -60,6 +64,8 @@ export function NaturalLanguageTab({
   onBusyChange,
   onReviewChange,
   draftRef,
+  discardRef,
+  saveTimes,
   onDone,
   onSaved,
   baseDay = null,
@@ -92,6 +98,8 @@ export function NaturalLanguageTab({
         onRestart={() => setBatch(null)}
         onDone={onDone}
         onSaved={onSaved}
+        discardRef={discardRef}
+        saveTimes={saveTimes}
         testId={TEST_IDS.nlPanel}
         restartLabel="다시 쓰기"
         emptyMessage="문장에서 금액을 찾지 못했어요. `점심 12000` 처럼 금액을 함께 적어 주세요"
@@ -100,14 +108,11 @@ export function NaturalLanguageTab({
   }
 
   const message = analyze.error instanceof ApiError ? analyze.error.message : null;
+  const atLimit = text.length >= NL_TEXT_MAX_LENGTH;
 
   return (
     <div className="nl" data-testid={TEST_IDS.nlPanel}>
-      {/*
-        안내 한 줄은 상자 안에 두고 label 로는 감싸지 않는다. label 안에 넣으면 그 문구가
-        입력칸의 접근성 이름에 딸려 붙어 「무엇을 썼나요」가 길어진다. 대신 htmlFor 로
-        이름을 걸고 aria-describedby 로 설명을 따로 붙인다.
-      */}
+      {/* 상한 안내는 label 밖에 둔다. 안에 넣으면 입력칸의 접근성 이름이 길어진다. */}
       <div className="nl__field">
         <label className="nl__label" htmlFor={FIELD_ID}>
           무엇을 썼나요
@@ -116,7 +121,7 @@ export function NaturalLanguageTab({
           <textarea
             id={FIELD_ID}
             className="nl__input"
-            aria-describedby={HINT_ID}
+            aria-describedby={atLimit ? HINT_ID : undefined}
             value={text}
             rows={4}
             maxLength={NL_TEXT_MAX_LENGTH}
@@ -124,16 +129,15 @@ export function NaturalLanguageTab({
             disabled={analyze.isPending}
             onChange={(event) => setText(event.target.value)}
           />
-          <p id={HINT_ID} className="nl__hint">
-            {/*
-              상한에 닿으면 브라우저가 말없이 자른다. 붙여넣은 사람은 뒤쪽이 사라진 것을
-              알 길이 없다. 20건 상한은 몇 건이 남았는지 적어 주면서 길이만 조용히 자르면
-              같은 상황을 다르게 다루는 셈이라, 여기서도 닿았다는 것을 말한다.
-            */}
-            {text.length >= NL_TEXT_MAX_LENGTH
-              ? `${NL_TEXT_MAX_LENGTH}자까지 읽어요. 뒷부분은 나눠서 적어 주세요`
-              : '한 번에 여러 건을 적어도 돼요. 날짜를 적으면 그 날로 넣어요'}
-          </p>
+          {/*
+            상한에 닿으면 브라우저가 말없이 자른다. 붙여넣은 사람은 뒤쪽이 사라진 것을
+            알 길이 없어 그때만 한 줄 적는다.
+          */}
+          {atLimit ? (
+            <p id={HINT_ID} className="nl__hint">
+              {`${NL_TEXT_MAX_LENGTH}자까지 읽어요. 뒷부분은 나눠서 적어 주세요`}
+            </p>
+          ) : null}
         </div>
       </div>
 

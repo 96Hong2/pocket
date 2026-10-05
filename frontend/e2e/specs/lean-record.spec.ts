@@ -66,6 +66,7 @@ test('칩은 열한 개까지만 서고, 나머지는 「더 보기」 뒤에 �
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   const shown = await recordSheet.input.categoryChipNames();
   expect(shown).toHaveLength(QUICK_LIMIT);
@@ -87,6 +88,7 @@ test('숨긴 분류가 없으면 「더 보기」 대신 「새 분류」가 그
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   await expect(recordSheet.input.moreCategoriesButton).toHaveCount(0);
   await expect(recordSheet.input.newCategoryButton).toBeVisible();
@@ -105,14 +107,15 @@ test('숨긴 분류가 있으면 「더 보기」 안에서 만들고, 관리 �
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   // 앞자리는 고르는 자리다. 만들기가 늘 서 있으면 고를 것이 하나 더 는다.
   await expect(recordSheet.input.newCategoryButton).toHaveCount(0);
 
   await recordSheet.input.moreCategoriesButton.click();
   await expect(recordSheet.input.newCategoryButton).toBeVisible();
-  // 분류가 많아진 사람에게 카테고리 관리를 알려 주는 자리다. 그 화면이 있는 줄도 모른다.
-  await expect(recordSheet.input.categorySettingsNote).toBeVisible();
+  // 분류가 많아진 사람에게 카테고리 관리가 있다는 것을 칩 하나로 알린다. 안내 문단은 걷었다.
+  await expect(recordSheet.input.categoryManageLink).toBeVisible();
 
   await recordSheet.input.foldCategoriesButton.click();
   await expect(recordSheet.input.newCategoryButton).toHaveCount(0);
@@ -139,6 +142,7 @@ test('더 보기 안의 「관리 › 카테고리 관리」 를 누르면 그 �
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.moreCategoriesButton.click();
 
   await recordSheet.input.categoryManageLink.click();
@@ -151,13 +155,14 @@ test('더 보기 안의 「관리 › 카테고리 관리」 를 누르면 그 �
 });
 
 /*
-  읽어 온 것을 두고 이 줄을 누르면 손잡이로 닫을 때와 **같은 확인 창**이 뜬다.
+  적어 둔 것을 두고 이 칩을 누르면 손잡이로 닫을 때와 **같은 확인 창**이 뜬다.
 
-  예전에는 이 자리가 그냥 링크라, 검토 목록을 눈앞에 둔 채 눌러도 아무 말 없이 화면이
-  바뀌고 목록이 통째로 사라졌다. 시트가 애써 지키던 「닫기를 한 번 되묻는다」 를 이
-  한 줄이 우회했다.
+  예전에는 이 자리가 그냥 링크라, 적던 것을 눈앞에 둔 채 눌러도 아무 말 없이 화면이
+  바뀌고 통째로 사라졌다. 시트가 애써 지키던 「닫기를 한 번 되묻는다」 를 이 한 자리가
+  우회했다. 읽어 온 것은 이제 그 패널에서 ‹ 를 누를 때 먼저 묻고 비우므로, 둘째 화면에
+  닿았을 때 남아 있을 수 있는 것은 눌러 둔 금액이다.
 */
-test('읽어 온 것을 두고 카테고리 관리로 가려 하면 먼저 묻는다', async ({
+test('눌러 둔 금액을 두고 카테고리 관리로 가려 하면 먼저 묻는다', async ({
   appShell,
   home,
   prep,
@@ -171,21 +176,19 @@ test('읽어 온 것을 두고 카테고리 관리로 가려 하면 먼저 묻�
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  // 줄글로 한 건을 읽어 두면 잃을 것이 생긴다.
-  await recordSheet.methodTab('줄글').click();
-  await recordSheet.nl.analyze('점심 12000');
-
-  await recordSheet.methodTab('키패드').click();
+  // 금액을 눌러 두면 잃을 것이 생긴다.
+  await recordSheet.input.enterAmount(12_000);
   await recordSheet.input.moreCategoriesButton.click();
   await recordSheet.input.categoryManageLink.click();
 
   // 화면은 아직 안 옮겨 갔다. 물어보는 창이 먼저 선다.
   expect(appShell.pathname).toBe('/');
-  await expect(recordSheet.leave.stayButton).toBeVisible();
+  await expect(recordSheet.leave.draftText).toBeVisible();
 
   await recordSheet.leave.stayButton.click();
   expect(appShell.pathname).toBe('/');
   await expect(recordSheet.isVisible).resolves.toBe(true);
+  await expect(recordSheet.input.amountText).toHaveText('12,000원');
 });
 
 test('한 번 더 칩이 없다', async ({ home, recordSheet }) => {
@@ -203,6 +206,7 @@ test('한 번 더 칩이 없다', async ({ home, recordSheet }) => {
 
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await expect(recordSheet.input.repeatChip).toHaveCount(0);
 });
 
@@ -227,6 +231,7 @@ test('「더 보기」를 펴면 어느 화면에서 몇 개를 보고 있었는
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.moreCategoriesButton.click();
   await expect(recordSheet.input.newCategoryButton).toBeVisible();
 

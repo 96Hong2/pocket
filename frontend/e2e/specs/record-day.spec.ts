@@ -5,6 +5,7 @@ import {
   shiftDay,
   toLedgerDate,
 } from '../../src/shared/lib/format';
+import { TEST_IDS } from '../../src/shared/testIds';
 import { expect, test } from '../support/fixtures';
 
 /**
@@ -31,13 +32,17 @@ test('기록 시트에서 날짜를 지난 날로 바꿔 적으면 홈 목록이
 
   await home.open();
   await home.waitReady();
-  // 오늘로 시작한다. 알약이 「오늘」 이라고 적혀 있다.
+  // 오늘로 시작한다. 첫 화면 맨 위 날짜가 「오늘 10월 5일 (일)」 처럼 적혀 있다.
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await expect(recordSheet.input.dayChip).toHaveText(formatDayLabel(toLedgerDate(new Date())));
+  await expect(recordSheet.dayButton).toContainText(
+    `오늘 ${formatDayLabel(toLedgerDate(new Date()))} (`,
+  );
 
-  await recordSheet.input.dayField.fill(target);
-  await expect(recordSheet.input.dayChip).toHaveText(formatDayLabel(target));
+  // 날짜를 눌러 「언제예요?」 에서 「다른 날 고르기」 로 닷새 전을 고르면 첫 화면으로 돌아온다.
+  await recordSheet.chooseDay(target);
+  await expect(recordSheet.dayButton).toContainText(`${formatDayLabel(target)} (`);
+  await expect(recordSheet.dayButton).not.toContainText('오늘');
 
   await recordSheet.input.enterAmount(3_200);
   await recordSheet.input.pickCategory('식비');
@@ -53,7 +58,7 @@ test('기록 시트에서 날짜를 지난 날로 바꿔 적으면 홈 목록이
   await expect(home.today.noSpendButton).toHaveCount(0);
 });
 
-test('지난 날을 골라도 네 방식을 다 쓰고, 어디로 떨어지는지 적어 준다', async ({
+test('지난 날을 골라도 네 방식을 다 쓰고, 날짜 없는 줄글은 고른 날로 떨어진다', async ({
   home,
   recordSheet,
 }) => {
@@ -65,26 +70,28 @@ test('지난 날을 골라도 네 방식을 다 쓰고, 어디로 떨어지는�
   await expect(recordSheet.methodTab('줄글')).toBeEnabled();
 
   const past = ledgerDay(-3);
-  await recordSheet.input.dayField.fill(past);
-  // 잠그지 않는다. 고른 날이 세 탭에 함께 내려가므로 옮겨도 잃을 것이 없다.
+  await recordSheet.chooseDay(past);
+  // 잠그지 않는다. 고른 날이 네 방법에 함께 내려가므로 옮겨도 잃을 것이 없다.
   await expect(recordSheet.methodTab('줄글')).toBeEnabled();
   await expect(recordSheet.methodTab('캡처')).toBeEnabled();
   await expect(recordSheet.methodTab('영수증')).toBeEnabled();
 
-  // 키패드에는 이 줄이 안 뜬다. 키패드는 고른 날에 그대로 적는 것이라 설명할 것이 없다.
-  await expect(recordSheet.input.dayBaseNotice(formatDayLabel(past))).toHaveCount(0);
-  await recordSheet.methodTab('줄글').click();
-  await expect(recordSheet.input.dayBaseNotice(formatDayLabel(past))).toBeVisible();
-
   /*
-    **날짜 칸은 키패드 패널 안에 있다.** 줄글·캡처·영수증 쪽에서는 고른 날이 위의 한 줄로
-    보이기만 하고 바꾸지는 못한다. 바꾸려면 키패드로 돌아온다. 그 왕복이 실제로 되는지를
-    여기서 지킨다. 돌아올 길이 막히면 잘못 고른 날에 갇힌다.
+    **날짜는 첫 화면 맨 위에만 있다.** 줄글로 갔다가 ‹ 로 돌아오면 고른 날이 그대로다.
+    돌아올 길이 막히거나 날이 오늘로 돌아가면 잘못 고른 날에 갇히거나 엉뚱한 날에 적힌다.
   */
-  await recordSheet.methodTab('키패드').click();
-  await recordSheet.input.dayField.fill(toLedgerDate(new Date()));
-  await recordSheet.methodTab('줄글').click();
-  await expect(recordSheet.input.dayBaseNotice(formatDayLabel(past))).toHaveCount(0);
+  await recordSheet.chooseWay('줄글');
+  await expect(recordSheet.nl.textarea).toBeVisible();
+  await recordSheet.back();
+  await expect(recordSheet.dayButton).toContainText(`${formatDayLabel(past)} (`);
+
+  // 날짜를 안 적은 줄은 첫 화면에서 고른 날로 들어간다. 안내 글 대신 검토 줄이 그 날을 보여 준다.
+  await recordSheet.chooseWay('줄글');
+  await recordSheet.nl.analyze('택시 9000');
+  await expect(recordSheet.nl.rows).toHaveCount(1);
+  await expect(recordSheet.nl.rows.first().getByTestId(TEST_IDS.nlCandidateDate)).toHaveText(
+    formatDayLabel(past),
+  );
 });
 
 /*
@@ -102,9 +109,9 @@ test('앞날을 고르면 저장할 때 한 번 묻고, 그대로 저장할 수 
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  // 칸이 앞날을 막지 않는다.
-  await recordSheet.input.dayField.fill(future);
-  await expect(recordSheet.input.dayChip).toHaveText(formatDayLabel(future));
+  // 「다른 날 고르기」 가 앞날을 막지 않는다.
+  await recordSheet.chooseDay(future);
+  await expect(recordSheet.dayButton).toContainText(`${formatDayLabel(future)} (`);
 
   await recordSheet.input.enterAmount(6_000);
   await recordSheet.input.pickCategory('식비');
@@ -115,10 +122,17 @@ test('앞날을 고르면 저장할 때 한 번 묻고, 그대로 저장할 수 
   await expect(ask.dialog).toContainText(formatDayLabel(future));
   await expect(recordSheet.feedback.headline).toHaveCount(0);
 
-  // 「날짜 고치기」 를 고르면 그대로 남는다. 잃는 것이 없다.
+  // 「날짜 고치기」 는 날짜를 고르는 「언제예요?」 로 간다. 날짜 칸은 첫 화면에만 있다.
   await ask.fixButton.click();
   await expect(ask.dialog).toHaveCount(0);
   await expect(recordSheet.feedback.headline).toHaveCount(0);
+  await expect(recordSheet.sheet.getByText('언제예요?', { exact: true })).toBeVisible();
+
+  // 고치지 않고 돌아와도 잃는 것이 없다. 고른 날과 적던 금액이 그대로다.
+  await recordSheet.back();
+  await expect(recordSheet.dayButton).toContainText(`${formatDayLabel(future)} (`);
+  await recordSheet.next();
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(6_000));
 
   // 다시 눌러 「이 날짜로 저장」 을 고르면 그 날로 들어간다.
   await recordSheet.input.pickCategory('식비');
@@ -147,7 +161,7 @@ test('줄글로 어제 것을 넣으면 홈이 어제로 옮겨 간다', async (
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.textarea.fill('어제 택시 9000');
   await recordSheet.nl.analyzeButton.click();
   await expect(recordSheet.nl.saveButton).toBeVisible();

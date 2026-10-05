@@ -83,8 +83,8 @@ test('캡처 한 장에서 여섯 건을 읽어 한 화면에서 검토하고 �
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await expect(recordSheet.methodTab('캡처')).toBeEnabled();
-  await recordSheet.methodTab('캡처').click();
-  await expect(recordSheet.capture.guide).toBeVisible();
+  await recordSheet.chooseWay('캡처');
+  await expect(recordSheet.capture.setupCta).toBeVisible();
 
   await recordSheet.capture.pick();
 
@@ -148,7 +148,7 @@ test('고른 사진을 다시 보여 주지 않고 바로 읽는다', async ({ h
   expect(await mockImagesSeeded(page)).toBe(true);
 
   await home.recordButton.click();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pickButton.click();
 
   // 미리보기에서 한 번 더 확인받으면 10초가 넘는다. 진짜 확인은 후보 목록에서 한다.

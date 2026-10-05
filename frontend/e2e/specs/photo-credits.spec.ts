@@ -75,7 +75,7 @@ async function openCaptureTab(home: HomeScreen, recordSheet: RecordSheet): Promi
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
 }
 
 test('처음 써 보는 사람의 첫 한 장은 아무 말도 안 한다. 10초 안에 적으러 온 사람 앞이다', async ({
@@ -238,7 +238,7 @@ test('한 번 열어 둔 동안 둘째 장, 셋째 장에도 광고가 그대로
   await recordSheet.waitClosed();
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pickButton.click();
   await expect(recordSheet.capture.adConsent).toBeVisible();
   await recordSheet.capture.adConsentConfirm.click();
@@ -303,7 +303,11 @@ test('두 탭이 같은 체험을 나눠 쓴다. 탭마다 세면 공짜가 두 
   await recordSheet.capture.pick();
   await expect(recordSheet.capture.rows).toHaveCount(6);
 
-  await recordSheet.methodTab('영수증').click();
+  // 읽어 온 것을 비우고 첫 화면으로 돌아가 영수증을 고른다. 체험은 캡처에서 이미 썼다.
+  await recordSheet.back();
+  await recordSheet.panelLeave.leaveButton.click();
+  await recordSheet.chooseWay('영수증');
+  // 첫 화면 「카메라 열기」 바로 아래에 광고 예고 한 줄이 선다.
   await expect(recordSheet.receipt.creditLine).toBeVisible();
 });
 
@@ -416,7 +420,7 @@ test('여러 장을 먼저 읽어도 체험 한 장은 남는다. 광고를 치�
   await recordSheet.waitClosed();
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await expect(recordSheet.capture.creditLine).toBeHidden();
 });
 
@@ -452,7 +456,7 @@ test('영수증은 한 장씩이다. 카메라로는 여러 장을 못 찍는다
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('영수증').click();
+  await recordSheet.chooseWay('영수증');
   await recordSheet.receipt.pick();
   await expect(recordSheet.receipt.rows).toHaveCount(1);
 
@@ -527,7 +531,7 @@ test.describe('광고는 봤는데 못 읽었을 때', () => {
     await recordSheet.waitClosed();
     await home.recordButton.click();
     await recordSheet.waitOpen();
-    await recordSheet.methodTab('캡처').click();
+    await recordSheet.chooseWay('캡처');
     await recordSheet.capture.pickButton.click();
     await expect(recordSheet.capture.adConsent).toBeVisible();
   });

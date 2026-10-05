@@ -35,6 +35,13 @@ import { CandidateRow, type RowPreview, type RuleAnswer } from './CandidateRow';
 /** 후보 id 마다 다음부터 그렇게 저장할지 물었을 때 고른 답과 그때의 분류. */
 type RuleAnswers = Record<string, { answer: RuleAnswer; categoryId: string }>;
 
+/** 기록 시트가 재 둔 시간. 줄글과 사진은 둘째 화면을 지나지 않아 amount_ms 가 없다. */
+export interface ImportSaveTimes {
+  setup_ms: number;
+  flow_ms: number;
+  defaults: boolean;
+}
+
 export interface ImportReviewProps {
   /** 서버가 읽어 준 묶음. 껍데기가 들고 있고 여기서는 고쳐 준 것을 돌려주기만 한다. */
   batch: ImportBatchOut;
@@ -82,6 +89,10 @@ export interface ImportReviewProps {
   emptyAction?: ReactNode;
   /** 저장 직후에도 같은 사실이라 한 노드를 검토 화면과 저장 화면 두 자리에 그대로 쓴다. */
   notice?: ReactNode;
+  /** 바깥이 이 묶음을 버릴 때 부르는 길. 「취소」 와 같은 일을 한다. */
+  discardRef?: { current: () => void };
+  /** 저장을 누른 때의 시간. save_result 에 함께 싣는다. */
+  saveTimes?: () => ImportSaveTimes;
 }
 
 /**
@@ -106,6 +117,8 @@ export function ImportReview({
   emptyMessage,
   emptyAction,
   notice,
+  discardRef,
+  saveTimes,
 }: ImportReviewProps) {
   const analytics = useAnalytics();
   const bridge = useBridge();
@@ -228,6 +241,24 @@ export function ImportReview({
     // 부르는 쪽이 인라인 함수를 넘겨도 값이 같으면 아무것도 다시 그리지 않는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending]);
+
+  /** 읽어 온 것을 저장하지 않고 버린다. 서버 묶음도 지운다. 안 지우면 검토하다 만 것이 쌓인다. */
+  function discardReview(): void {
+    analytics.log(
+      EVENTS.reviewCancelled,
+      { method, candidate_count: batch.candidates?.length ?? 0 },
+      { flowId, kind: 'click' },
+    );
+    discard.mutate(batch.id);
+  }
+
+  useEffect(() => {
+    if (discardRef == null || saved != null) return;
+    discardRef.current = discardReview;
+    return () => {
+      discardRef.current = () => {};
+    };
+  });
 
   // 종류에 따라 고를 수 있는 분류가 다르다. 거르는 일은 후보 줄이 한다.
   // 공유 가계부면 그 가계부 분류다. 내 분류를 섞으면 상대 화면에 모르는 이름이 선다.
@@ -427,12 +458,7 @@ export function ImportReview({
               variant="outline"
               disabled={busy}
               onClick={() => {
-                analytics.log(
-                  EVENTS.reviewCancelled,
-                  { method, candidate_count: candidates.length },
-                  { flowId, kind: 'click' },
-                );
-                discard.mutate(batch.id);
+                discardReview();
                 setEditing(null);
                 onDone();
               }}
@@ -498,6 +524,7 @@ export function ImportReview({
       },
       { flowId },
     );
+    const times = saveTimes?.() ?? {};
     analytics.log(
       EVENTS.saveRequested,
       { method, count: latest.selected_count },
@@ -533,6 +560,7 @@ export function ImportReview({
               created_count: result.created_count,
               elapsed_ms: Date.now() - startedAt,
               book: shared ? 'shared' : 'mine',
+              ...times,
             },
             { flowId },
           );
@@ -550,6 +578,7 @@ export function ImportReview({
               elapsed_ms: Date.now() - startedAt,
               error_code: error instanceof ApiError ? error.code : 'unknown',
               book: shared ? 'shared' : 'mine',
+              ...times,
             },
             { flowId },
           );
@@ -741,11 +770,7 @@ function SavedPanel({
       <BookSavedPanel result={result} book={book} onDone={onDone} testId={testId} notice={notice} />
     );
   }
-  const budget = result.budget;
-  // 지난달 날짜만 저장하면 서버가 그 달의 예산 상태를 준다. '이번 달' 이라고 적으면 거짓말이라
-  // 감추는 대신 어느 달인지 적는다. 감추면 예산을 정해 둔 사람이 이유 없이 한 줄을 잃는다.
-  const remaining = budget?.remaining_budget ?? null;
-  const monthLabel = budget == null ? null : periodLabel(budget.period_start);
+  // 남은 예산은 말하지 않는다. 저장 뒤 화면은 몇 건을 적었는지까지다. 남은 돈은 홈이 들고 있다.
   const total = parseDecimalOr(result.expense_total, 0);
 
   return (
@@ -753,11 +778,6 @@ function SavedPanel({
       <p className="nl__saved-title">
         {result.created_count}건 저장했어요{total > 0 ? ` · ${formatCurrency(total)}` : ''}
       </p>
-      {remaining != null && monthLabel != null ? (
-        <p className="nl__saved-detail">
-          {monthLabel} 남은 예산 {formatCurrency(parseDecimalOr(remaining, 0))}
-        </p>
-      ) : null}
       {notice}
       <Button fullWidth onClick={onDone}>
         확인
@@ -802,16 +822,6 @@ function BookSavedPanel({
       </Button>
     </div>
   );
-}
-
-function thisMonth(): string {
-  return toLedgerDate(new Date()).slice(0, 7);
-}
-
-/** `이번 달` 또는 `8월`. 어느 달의 예산을 말하는지 한 눈에 보이게 한다. */
-function periodLabel(periodStart: string): string {
-  if (periodStart.slice(0, 7) === thisMonth()) return '이번 달';
-  return `${Number(periodStart.slice(5, 7))}월`;
 }
 
 /**

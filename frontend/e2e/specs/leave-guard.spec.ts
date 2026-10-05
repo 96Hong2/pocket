@@ -137,10 +137,16 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await recordSheet.waitOpen();
 
     await recordSheet.input.enterAmount(24_000);
+    // 둘째 화면의 Esc 는 ‹ 와 같다. 첫 화면으로 한 단계만 물러나고 아직 묻지 않는다.
     await page.keyboard.press('Escape');
+    await expect(recordSheet.wayGroup).toBeVisible();
+    await expect(recordSheet.leave.dialog).toHaveCount(0);
 
+    // 첫 화면에서 한 번 더 누르면 시트를 닫으려 들고, 눌러 둔 금액이 있으니 한 번 묻는다.
+    await page.keyboard.press('Escape');
     await expect(recordSheet.leave.dialog).toBeVisible();
     await recordSheet.leave.stayButton.click();
+    await recordSheet.next();
     // 눌러 둔 금액이 그대로다. 처음부터 다시 누르게 하지 않는다.
     await expect(recordSheet.input.amountText).toContainText('24,000');
   });
@@ -150,17 +156,23 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await home.waitReady();
     await home.recordButton.click();
     await recordSheet.waitOpen();
-    await recordSheet.methodTab('줄글').click();
+    await recordSheet.chooseWay('줄글');
 
     /*
       읽기를 안 눌렀으니 읽어 온 건수는 0이다. **옛 기준으로는 아무것도 안 물었다.**
       열 줄을 적어 둔 사람에게 0건은 「잃을 것이 없다」 가 아니다.
     */
     await recordSheet.nl.textarea.fill('어제 김밥천국 8000원\n그제 스타벅스 4500원');
+    // 줄글 화면의 Esc 는 ‹ 와 같다. 첫 화면으로 한 단계 물러나고, 적은 글은 패널에 그대로 남는다.
     await page.keyboard.press('Escape');
+    await expect(recordSheet.wayGroup).toBeVisible();
+    await expect(recordSheet.leave.dialog).toHaveCount(0);
 
+    // 첫 화면에서 시트를 닫으려 들면 그때 한 번 묻는다.
+    await page.keyboard.press('Escape');
     await expect(recordSheet.leave.dialog).toBeVisible();
     await recordSheet.leave.stayButton.click();
+    await recordSheet.chooseWay('줄글');
     await expect(recordSheet.nl.textarea).toHaveValue(/김밥천국/);
   });
 
@@ -335,6 +347,7 @@ test.describe('굴러가는 시트는 굴리는 손짓으로 안 닫힌다', () 
     await recordSheet.waitOpen();
 
     // 금액 표시 줄이다. 버튼도 입력칸도 아니라 여기서 시작한 손짓은 닫기로 읽혀야 한다.
+    await recordSheet.openKeypad();
     await swipeDownAt(page, recordSheet.input.amountText);
     await expect(recordSheet.leave.dialog).toHaveCount(0);
     await recordSheet.waitClosed();

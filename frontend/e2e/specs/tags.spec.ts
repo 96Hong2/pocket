@@ -39,7 +39,7 @@ test('지출 태그와 수입 태그는 같은 이름을 따로 쓴다', async (
   await expect(tags.group('수입 태그').getByText('출장', { exact: true })).toBeVisible();
 });
 
-test('저장한 뒤에 태그를 달고, 목록 줄에 표식이 붙는다', async ({
+test('둘째 화면에서 태그를 골라 저장하면 목록 줄에 표식이 붙는다', async ({
   home,
   recordSheet,
   tags,
@@ -53,16 +53,17 @@ test('저장한 뒤에 태그를 달고, 목록 줄에 표식이 붙는다', asy
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(12000);
+  /*
+    태그는 금액 화면 오른쪽 위 「＃ 태그」 에서 고른다. 칸이 하나 더 서는 것이 아니라
+    칩 하나라 10초 약속을 안 깬다. 고르면 둘째 화면으로 돌아오고 금액은 그대로다.
+  */
+  await recordSheet.pickTag('출장');
+  await expect(recordSheet.tagChip).toHaveText('＃ 출장');
+  await expect(recordSheet.input.amountText).toHaveText('12,000원');
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
-
-  /*
-    **저장이 끝난 다음에 묻는다.** 적는 화면에 칸이 하나 더 서면 10초 약속이 깨진다.
-    결제 수단과 같은 자리, 같은 규칙이다.
-  */
-  await recordSheet.feedback.tagChip('출장').click();
-  await expect(recordSheet.feedback.tagChip('출장')).toHaveAttribute('aria-pressed', 'true');
-  await recordSheet.closeByEsc();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
 
   // 목록 줄에 표식이 붙는다. 무엇이 어느 묶음인지 훑으면서 알 수 있어야 한다.
   await expect(home.today.row('출장')).toBeVisible();
@@ -78,28 +79,38 @@ test('눌린 태그를 다시 누르면 떨어진다', async ({ home, recordShee
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(9000);
-  await recordSheet.input.pickCategory('식비');
-  await recordSheet.feedback.waitSaved();
 
-  await recordSheet.feedback.tagChip('출장').click();
-  await expect(recordSheet.feedback.tagChip('출장')).toHaveAttribute('aria-pressed', 'true');
+  await recordSheet.pickTag('출장');
+  await expect(recordSheet.tagChip).toHaveText('＃ 출장');
 
-  // 잘못 단 태그를 되무를 길이 이것뿐이다.
-  await recordSheet.feedback.tagChip('출장').click();
-  await expect(recordSheet.feedback.tagChip('출장')).toHaveAttribute('aria-pressed', 'false');
+  // 잘못 고른 태그는 태그 단계에서 고른 칩을 다시 눌러 뗀다. 떼면 둘째 화면으로 돌아온다.
+  await recordSheet.tagChip.click();
+  await expect(recordSheet.tagOption('출장')).toHaveAttribute('aria-pressed', 'true');
+  await recordSheet.tagOption('출장').click();
+  await expect(recordSheet.amountTitle).toBeVisible();
+  await expect(recordSheet.tagChip).toHaveText('＃ 태그');
 });
 
-test('태그가 하나도 없어도 어디서 만드는지 알려준다', async ({ home, recordSheet }) => {
+test('태그가 하나도 없으면 「＃ 태그」 를 누르는 즉시 그 자리에서 만든다', async ({
+  home,
+  recordSheet,
+}) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(5000);
-  await recordSheet.input.pickCategory('식비');
-  await recordSheet.feedback.waitSaved();
 
-  // 「태그가 없어요」 만 적으면 어디서 만드는지 모른다.
-  await expect(recordSheet.feedback.tagManageLink).toBeVisible();
+  // 고를 것이 없으니 빈 목록 대신 새 태그 폼부터 선다. 관리 화면으로 가면 적던 금액을 잃는다.
+  await recordSheet.tagChip.click();
+  await expect(recordSheet.newTagNameField).toBeVisible();
+  await recordSheet.newTagNameField.fill('출장');
+  await recordSheet.newTagCreateButton.click();
+
+  // 만든 태그가 골라진 채 둘째 화면으로 돌아온다.
+  await expect(recordSheet.amountTitle).toBeVisible();
+  await expect(recordSheet.tagChip).toHaveText('＃ 출장');
+  await expect(recordSheet.input.amountText).toHaveText('5,000원');
 });
 
 /**
@@ -118,11 +129,15 @@ test('태그가 있어도 관리로 가는 길이 남는다', async ({ calendar,
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(5000);
-  await recordSheet.input.pickCategory('식비');
-  await recordSheet.feedback.waitSaved();
-  await expect(recordSheet.feedback.tagChip('데이트')).toBeVisible();
-  await expect(recordSheet.feedback.tagManageLink).toBeVisible();
+  await recordSheet.tagChip.click();
+  await expect(recordSheet.tagOption('데이트')).toBeVisible();
+  // 태그가 있어도 둘째를 만드는 칩이 남는다.
+  await expect(recordSheet.newTagButton).toBeVisible();
   await recordSheet.closeByEsc();
+  await expect(recordSheet.amountTitle).toBeVisible();
+  await recordSheet.closeButton.click();
+  await recordSheet.leave.leaveButton.click();
+  await recordSheet.waitClosed();
 
   await test.step('고치는 시트에도 있다', async () => {
     await prep.addTransaction({ amount: 9000, merchant: '영화관' });
@@ -144,11 +159,11 @@ test('리포트에서 태그별로 갈린다', async ({ home, recordSheet, repor
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(30000);
+  await recordSheet.pickTag('출장');
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
-  await recordSheet.feedback.tagChip('출장').click();
-  await expect(recordSheet.feedback.tagChip('출장')).toHaveAttribute('aria-pressed', 'true');
-  await recordSheet.closeByEsc();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
 
   await report.open();
   await report.waitReady();
@@ -172,11 +187,11 @@ test('지운 태그는 목록에서 사라지고 기록은 남는다', async ({
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(12000);
+  await recordSheet.pickTag('출장');
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
-  await recordSheet.feedback.tagChip('출장').click();
-  await expect(recordSheet.feedback.tagChip('출장')).toHaveAttribute('aria-pressed', 'true');
-  await recordSheet.closeByEsc();
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
 
   await tags.open();
   await tags.waitReady();
@@ -295,11 +310,10 @@ test('달력에서 그 날에 적을 때도 태그를 단다', async ({ calendar
   await calendar.list.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(8000);
+  // 달력에서 연 시트도 같은 둘째 화면이다. 태그를 골라 저장과 함께 붙인다.
+  await recordSheet.pickTag('정산완료');
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
-
-  // 저장이 끝난 뒤에 묻는다. 적는 화면에 칸이 하나 더 서면 10초 약속이 깨진다.
-  await recordSheet.feedback.tagChip('정산완료').click();
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
 

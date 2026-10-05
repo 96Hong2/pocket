@@ -213,11 +213,12 @@ test('수입 카테고리를 만들어 키패드에서 수입으로 저장한다
   await recordSheet.waitOpen();
 
   await test.step('지출로 열리고, 수입을 고르면 분류 목록이 갈린다', async () => {
-    await expect(recordSheet.input.kindButton('지출')).toHaveAttribute('aria-pressed', 'true');
+    await expect(recordSheet.kindChip('지출')).toHaveAttribute('aria-checked', 'true');
+    await recordSheet.openKeypad();
     // 기본 지출이 딱 열한 개라 앞자리에 그대로 다 선다.
     expect(await recordSheet.input.categoryChipNames()).toEqual(EXPENSE_CATEGORIES);
 
-    await recordSheet.input.pickKind('수입');
+    await recordSheet.chooseKind('수입');
     // 지출 분류가 남아 있으면 수입이 '식비' 로 저장된다.
     expect(await recordSheet.input.categoryChipNames()).toEqual([...INCOME_CATEGORIES, DIVIDEND]);
   });
@@ -227,10 +228,10 @@ test('수입 카테고리를 만들어 키패드에서 수입으로 저장한다
     await recordSheet.input.pickCategory(DIVIDEND);
     await recordSheet.feedback.waitSaved();
 
-    // 지출 판정 문장을 그대로 쓰면 "이번 달 얼마 썼어요" 가 수입 자리에 나온다.
-    await expect(recordSheet.feedback.headline).toHaveText(
-      `수입 ${formatCurrency(300_000)}을 적었어요.`,
-    );
+    // 저장 뒤 맨 위는 어디에 적었는지 한 줄이다. 예산 문장은 없고, 수입에 지출 판정이 붙지 않는다.
+    await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
+    await expect(recordSheet.feedback.detail).toHaveCount(0);
+    await expect(recordSheet.feedback.savedAmount).toContainText(formatCurrency(300_000));
 
     await recordSheet.feedback.confirmButton.click();
     await recordSheet.waitClosed();
@@ -427,6 +428,7 @@ test('이모지를 걸면 목록과 기록 시트가 같은 이모지를 그린�
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await expect(
     recordSheet.input.categoryChip('치킨').getByText(GLYPH, { exact: true }),
   ).toBeVisible();
@@ -480,6 +482,7 @@ test('편의점·구독으로 바로 적을 수 있고, 주유는 기본에 없�
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   for (const name of ['편의점', '구독']) {
     await expect(recordSheet.input.categoryChip(name)).toBeVisible();
@@ -659,11 +662,16 @@ test('분류를 만들다 시스템 뒤로가기를 누르면 만들기만 닫�
 
   await expect(recordSheet.input.newCategoryForm.title).toHaveCount(0);
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(12_000));
   await expect(recordSheet.input.categoryChip('식비')).toBeVisible();
 
-  // 한 번 더 누르면 그때는 시트가 닫힌다. 만들기만 삼키고 갇히면 그것도 막다른 길이다.
-  // 눌러 둔 금액이 있어 여기서도 한 번 묻는다.
+  // 한 번 더 누르면 둘째 화면에서 첫 화면으로 한 단계 물러난다. 만들기만 삼키고 갇히면 막다른 길이다.
+  await appShell.pressBack();
+  await expect(recordSheet.wayGroup).toBeVisible();
+  await expect(recordSheet.leave.dialog).toHaveCount(0);
+
+  // 첫 화면에서 누르면 그때는 시트가 닫힌다. 눌러 둔 금액이 있어 여기서도 한 번 묻는다.
   await appShell.pressBack();
   await recordSheet.leave.leaveButton.click();
   await recordSheet.waitClosed();
@@ -711,6 +719,7 @@ test('기록 화면에 보이기를 끄면 「더 보기」 뒤로 간다', asyn
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   await expect(recordSheet.input.categoryChip('기타')).toHaveCount(0);
   await expect(recordSheet.input.categoryChip('식비')).toBeVisible();
@@ -747,6 +756,7 @@ test('뒤로 밀린 분류를 골라 두고 다시 고르기를 눌러도 숫자
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   await recordSheet.input.moreCategoriesButton.click();
   // 금액이 아직 없으면 고르기만 하고 목록이 접힌다.
@@ -775,6 +785,7 @@ test('끈 것을 다시 켜면 곧바로 앞자리로 돌아온다', async ({ ca
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   await expect(recordSheet.input.categoryChip('기타')).toBeVisible();
   // 뒤로 밀린 것이 없어졌으니 「더 보기」도 사라진다. 그 자리는 「새 분류」가 받는다.
@@ -1000,7 +1011,7 @@ test.describe('새 분류 창이 뒤로 새지 않는다', () => {
     await home.waitReady();
     await home.recordButton.click();
     await recordSheet.waitOpen();
-    await recordSheet.methodTab('줄글').click();
+    await recordSheet.chooseWay('줄글');
     await recordSheet.nl.analyze('점심 12000');
     await recordSheet.nl.openEdit('점심');
 

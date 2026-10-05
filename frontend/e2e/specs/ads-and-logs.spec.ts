@@ -90,7 +90,7 @@ test('기록 흐름 하나가 같은 값으로 이어지고, 적은 내용은 �
   await home.recordButton.click();
   await recordSheet.waitOpen();
 
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
   await recordSheet.nl.save();
 

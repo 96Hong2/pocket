@@ -64,7 +64,7 @@ async function openMethod(
 ): Promise<void> {
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab(method).click();
+  await recordSheet.chooseWay(method);
 }
 
 // ── 사진을 가져오는 자리 ────────────────────────
@@ -84,7 +84,7 @@ test('촬영을 취소하면 취소로 남고 읽기 로그는 생기지 않는�
   await recordSheet.receipt.pickButton.click();
 
   // 화면은 아무 말도 안 하는 것이 맞다. 그래서 무슨 일이 있었는지는 로그로만 알 수 있다.
-  await expect(recordSheet.receipt.guide).toBeVisible();
+  await expect(recordSheet.receipt.panelPickButton).toBeVisible();
   await expect(recordSheet.receipt.pickAlert).toHaveCount(0);
 
   await expect

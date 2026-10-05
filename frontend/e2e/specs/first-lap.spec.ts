@@ -19,8 +19,8 @@ const BUDGET = 500_000;
 /** 저장한 뒤 피드백에서 고쳐 넣을 금액. 처음 누른 값과 자릿수가 달라 목록에서 헷갈리지 않는다. */
 const FIXED_AMOUNT = 30_000;
 
-/** 홈 CTA · 금액 · 카테고리. 금액은 몇 번을 누르든 한 단계로 센다. */
-const EXPECTED_STEPS = 3;
+/** 홈 CTA · 첫 화면 「다음」 · 금액 · 카테고리. 금액은 몇 번을 누르든 한 단계로 센다. */
+const EXPECTED_STEPS = 4;
 
 /** 탭 계수기가 페이지에 남기는 자리. 이 이름으로 심고 이 이름으로 읽는다. */
 const TAP_COUNT_KEY = '__pocketTapCount';
@@ -91,10 +91,12 @@ test('처음 열어 기록하고 그 자리에서 고치기까지 한 바퀴', a
     ).toBe(EXPECTED_STEPS - 1);
   });
 
-  await test.step('피드백에 이번 달 지출이 실제 숫자로 뜬다', async () => {
-    // 판정이 실패해도 서버는 빈 결과로 201 을 준다. 그때 숫자 자리가 비므로
-    // 카드가 떴는지가 아니라 금액 문자열이 찍혔는지를 본다.
-    await expect(recordSheet.feedback.headline).toContainText(formatCurrency(AMOUNT));
+  await test.step('저장 뒤 화면은 어디에 적었는지가 크고, 저장한 줄에 금액이 실제 숫자로 뜬다', async () => {
+    await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
+    // 화면이 숫자를 지어내지 않고 저장한 값을 그린다. 카드가 떴는지가 아니라 금액 문자열을 본다.
+    await expect(recordSheet.feedback.savedAmount).toContainText(formatCurrency(AMOUNT));
+    // 예산을 안 정했으니 판정 카드는 없다. 남은 예산 문장도 없다.
+    await expect(recordSheet.feedback.detail).toHaveCount(0);
   });
 
   /*
@@ -136,8 +138,10 @@ test('저장 직후 화면에 되돌리기와 바꾸기 버튼이 없다', async
   await expect(recordSheet.feedback.undoButton).toHaveCount(0);
   await expect(recordSheet.feedback.legacyChangeButtons).toHaveCount(0);
 
-  // 대신 줄을 눌러 고칠 수 있다고 적혀 있다. 이 줄이 없으면 누를 수 있다는 신호가 없다.
-  await expect(recordSheet.feedback.editHint).toBeVisible();
+  // 「눌러서 고칠 수 있어요」 안내 글은 걷었다. 대신 저장한 줄 자체가 분류와 금액 두 버튼이다.
+  await expect(recordSheet.feedback.editHint).toHaveCount(0);
+  await expect(recordSheet.feedback.changeCategoryButton).toBeVisible();
+  await expect(recordSheet.feedback.changeAmountButton).toBeVisible();
 });
 
 test('예산을 정하면 게이지가 생기고 기록할수록 찬다', async ({ home, recordSheet }) => {
@@ -270,8 +274,13 @@ test('저장 직후 그 자리에서 내용을 적으면 오늘 목록의 제목
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
 
-  // 누르지 않아도 칸이 이미 떠 있다. 버튼 뒤에 숨기면 적을 수 있다는 것을 모른다.
-  await expect(recordSheet.feedback.merchantField).toBeVisible();
+  /*
+    안 적어도 되는 칸이라 처음에는 접혀 있다. 대신 그 자리에 「어디서 썼나요」 가 그림과 함께
+    서서, 누르면 그 자리에 칸이 펼쳐진다.
+  */
+  await expect(recordSheet.feedback.merchantField).toHaveCount(0);
+  await expect(recordSheet.feedback.merchantOpener).toHaveText('어디서 썼나요');
+  await recordSheet.feedback.openMerchant();
   await expect(recordSheet.feedback.merchantField).toHaveValue('');
 
   await recordSheet.feedback.writeMerchant('메가커피 역삼점');
@@ -294,8 +303,8 @@ test('내용을 안 적어도 기록은 그대로 남는다', async ({ home, rec
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
 
-  // 손대지 않고 그대로 확인만 누른다.
-  await expect(recordSheet.feedback.merchantField).toBeVisible();
+  // 손대지 않고 그대로 확인만 누른다. 상호 칸은 펴지도 않았다.
+  await expect(recordSheet.feedback.merchantOpener).toBeVisible();
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
 

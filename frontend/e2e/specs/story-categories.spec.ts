@@ -52,6 +52,7 @@ test('분류 하나를 꺼 둬도 경계선 위가 기록 화면 칩과 같다',
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   const chips = await recordSheet.input.categoryChipNames();
   expect(chips).toHaveLength(QUICK_LIMIT);

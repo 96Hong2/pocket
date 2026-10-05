@@ -73,7 +73,7 @@ test('사진 접근이 꺼져 있으면 무슨 일인지 말해 주고 다시 �
   expect(await photoPermissionDenied(page)).toBe(true);
 
   await home.recordButton.click();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pickButton.click();
 
   await expect(recordSheet.capture.permissionDenied).toBeVisible();
@@ -103,7 +103,7 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
   expect(await mockImagesSeeded(page)).toBe(true);
 
   await home.recordButton.click();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pickButton.click();
 
   await expect(recordSheet.capture.analyzing).toBeVisible();
@@ -123,7 +123,7 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
   });
 
   // 결과가 돌아올 자리를 없애면 하루 상한만 깎고 얻은 것이 사라진다.
-  await expect(recordSheet.methodTab('키패드')).toBeDisabled();
+  await expect(recordSheet.backButton).toBeDisabled();
   await expect(recordSheet.closeButton).toHaveCount(0);
   await recordSheet.closeByEsc();
   await recordSheet.waitOpen();
@@ -137,7 +137,7 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
 
   await expect(recordSheet.capture.readLine).toBeVisible();
   await expect(recordSheet.capture.analyzing).toHaveCount(0);
-  await expect(recordSheet.methodTab('키패드')).toBeEnabled();
+  await expect(recordSheet.backButton).toBeEnabled();
   await expect(recordSheet.closeButton).toBeVisible();
 });
 
@@ -145,8 +145,8 @@ test('탭을 옮겨도 Tab 키가 시트 밖으로 새지 않는다', async ({ h
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
-  await recordSheet.methodTab('캡처').click();
-  await expect(recordSheet.capture.guide).toBeVisible();
+  await recordSheet.chooseWay('캡처');
+  await expect(recordSheet.capture.setupCta).toBeVisible();
 
   // 감춘 탭(키패드·줄글)의 버튼이 DOM 에 그대로 남아 있다. 그것까지 포커스 대상으로 세면
   // 마지막 자리가 안 보이는 요소가 되어 되감기가 안 걸리고 포커스가 시트 밖으로 나간다.
@@ -180,7 +180,7 @@ test.describe('일부러 실패시켰을 때', () => {
     expect(await mockImagesSeeded(page)).toBe(true);
 
     await home.recordButton.click();
-    await recordSheet.methodTab('캡처').click();
+    await recordSheet.chooseWay('캡처');
     await recordSheet.capture.pick();
 
     await expect(recordSheet.capture.emptyNotice).toBeVisible();
@@ -189,7 +189,7 @@ test.describe('일부러 실패시켰을 때', () => {
     await expect(recordSheet.capture.readLine).toHaveCount(0);
 
     await recordSheet.capture.restartButton.click();
-    await expect(recordSheet.capture.guide).toBeVisible();
+    await expect(recordSheet.capture.panelPickButton).toBeVisible();
   });
 
   test('읽기가 실패해도 첫 화면이 남고 다시 고를 수 있다', async ({ home, page, recordSheet }) => {
@@ -201,14 +201,14 @@ test.describe('일부러 실패시켰을 때', () => {
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
-    await recordSheet.methodTab('캡처').click();
+    await recordSheet.chooseWay('캡처');
     await recordSheet.capture.pickButton.click();
 
     await expect(recordSheet.capture.pickAlert).toContainText('지금은 캡처를 읽지 못했어요');
-    await expect(recordSheet.capture.guide).toBeVisible();
+    await expect(recordSheet.capture.panelPickButton).toBeVisible();
     await expect(recordSheet.capture.pickButton).toBeEnabled();
-    // 한 자리가 실패했다고 시트가 잠겨 버리면 키패드로도 못 적는다.
-    await expect(recordSheet.methodTab('키패드')).toBeEnabled();
+    // 한 자리가 실패했다고 시트가 잠겨 버리면 ‹ 로 돌아가 직접 입력으로도 못 적는다.
+    await expect(recordSheet.backButton).toBeEnabled();
     await expect(recordSheet.closeButton).toBeVisible();
   });
 
@@ -221,12 +221,12 @@ test.describe('일부러 실패시켰을 때', () => {
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
-    await recordSheet.methodTab('캡처').click();
+    await recordSheet.chooseWay('캡처');
     await recordSheet.capture.pickButton.click();
 
     await expect(recordSheet.capture.pickAlert).toContainText('오늘은 캡처 분석을 충분히 썼어요');
 
-    await recordSheet.methodTab('키패드').click();
+    await recordSheet.chooseWay('키패드');
     await recordSheet.input.enterAmount(5_000);
     await expect(recordSheet.input.amountText).toHaveText('5,000원');
   });

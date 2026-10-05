@@ -19,7 +19,7 @@
 
 import type { AnalyticsKind, AnalyticsParams, MiniAppBridge } from '../toss';
 
-import type { EventName } from './events';
+import type { EventName, EventParams } from './events';
 
 /** 흐름 하나를 가리키는 값. 기록 시작부터 저장까지 같은 값을 물고 간다. */
 export type FlowId = string;
@@ -60,7 +60,12 @@ export class Analytics {
     return newId();
   }
 
-  log(name: EventName, params: AnalyticsParams = {}, options: LogOptions = {}): void {
+  /**
+   * 값 모양은 `EventParamMap` 이 정한다. 맵에 없는 이벤트도 금지 키(금액, 이름, 상호, 메모 등)는
+   * 타입에서 막힌다.
+   */
+  log<N extends EventName>(name: N, params?: EventParams<N>, options: LogOptions = {}): void {
+    const values: AnalyticsParams = params ?? {};
     this.bridge.analytics.log(options.kind ?? 'event', name, {
       event_id: newId(),
       session_id: this.sessionId,
@@ -69,12 +74,12 @@ export class Analytics {
       os: this.bridge.platform,
       // 운영과 테스트를 갈라 놓지 않으면 QR 로 눌러 본 것이 지표에 섞인다.
       env: this.bridge.environment,
-      ...params,
+      ...values,
     });
   }
 
   /** 앱을 연 사실. 두 번째부터는 아무 일도 하지 않는다. */
-  appOpen(name: EventName, params: AnalyticsParams = {}): void {
+  appOpen<N extends EventName>(name: N, params?: EventParams<N>): void {
     if (this.opened) return;
     this.opened = true;
     this.log(name, params);

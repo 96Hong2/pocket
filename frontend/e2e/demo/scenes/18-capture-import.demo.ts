@@ -113,7 +113,7 @@ test('40 캡처 한 장에서 고른 것만 저장한다', async ({
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.methodTab('캡처').click();
-  await expect(recordSheet.capture.guide).toBeVisible();
+  await expect(recordSheet.capture.pickButton).toBeVisible();
   await demo.beat(2);
 
   await demo.step('앨범에서 거래내역 캡처 한 장을 고른다');
@@ -189,7 +189,7 @@ test('41 못 읽거나 사진이 막혀도 키패드로 빠져나간다', async 
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.methodTab('캡처').click();
-  await expect(recordSheet.capture.guide).toBeVisible();
+  await expect(recordSheet.capture.pickButton).toBeVisible();
   await demo.beat(2);
 
   await demo.step('한 장을 골랐는데 거래를 하나도 못 찾았다');
@@ -203,7 +203,7 @@ test('41 못 읽거나 사진이 막혀도 키패드로 빠져나간다', async 
 
   await demo.step('다시 고르기를 누르면 처음 화면으로 돌아온다');
   await recordSheet.capture.restartButton.click();
-  await expect(recordSheet.capture.guide).toBeVisible();
+  await expect(recordSheet.capture.pickButton).toBeVisible();
   await demo.beat(2);
 
   await demo.step('이번에는 사진 접근이 꺼진 채로 앱을 다시 연다');

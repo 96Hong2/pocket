@@ -34,7 +34,7 @@ const GS25 = 3_200;
   바꿔 끼워서 다른 탭이 언마운트되고, 읽어 둔 줄이 그 순간 사라진다. 고치려면 결과
   화면을 덮개로 바꿔 몸통을 살려 둬야 하는데 화면 배치를 건드리는 일이라 따로 다룬다.
 */
-test('캡처로 읽어 둔 여섯 건은 줄글을 따로 저장해도 남아 있다', async ({
+test('캡처로 읽어 둔 여섯 건은 줄글로 가려 해도 말없이 사라지지 않는다', async ({
   home,
   page,
   recordSheet,
@@ -48,18 +48,17 @@ test('캡처로 읽어 둔 여섯 건은 줄글을 따로 저장해도 남아 �
 
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pick();
   await expect(recordSheet.capture.rows).toHaveCount(6);
 
-  // 캡처가 못 읽은 한 건을 줄글로 따로 적는다. 읽어 둔 여섯은 아직 아무 데도 안 갔다.
-  await recordSheet.methodTab('줄글').click();
-  await recordSheet.nl.analyze('택시 9000');
-  await recordSheet.nl.save();
-  await recordSheet.nl.confirmButton.click();
-
-  // 닫히지 않는다. 남은 건이 있는 자리로 데려다 놓는다.
-  await recordSheet.waitOpen();
+  /*
+    캡처가 못 읽은 한 건을 줄글로 적으려면 첫 화면을 지나야 한다. 읽어 둔 여섯은 아직 아무 데도
+    안 갔으니 ‹ 가 몇 건을 잃는지 말하며 먼저 묻는다. 머물면 그대로 남는다.
+  */
+  await recordSheet.back();
+  await expect(recordSheet.panelLeave.text).toHaveText('읽어 온 6건이 사라져요');
+  await recordSheet.panelLeave.stayButton.click();
   await expect(recordSheet.capture.rows).toHaveCount(6);
 
   // 그제서야 닫으려 하면 손잡이로 닫을 때와 똑같이 한 번 묻는다.
@@ -90,7 +89,7 @@ test('카테고리 한 번에 바꾸기가 켜 둔 지출 줄만 한꺼번에 �
 
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pick();
   await expect(recordSheet.capture.rows).toHaveCount(6);
 
@@ -140,7 +139,7 @@ test('줄을 펴서 고치던 중에 한 번에 바꿔도 고친 상호가 남�
 
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pick();
   await expect(recordSheet.capture.rows).toHaveCount(6);
 
@@ -178,7 +177,7 @@ test('환불 줄을 펴서 수입으로 바꾸고 「완료」 를 눌러도 켜
 
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pick();
 
   const name = 'MY 카드 캐시백';
@@ -206,7 +205,7 @@ test('영수증 줄에서 분류 칩으로 고르면 줄 머리의 아이콘과 
 
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('영수증').click();
+  await recordSheet.chooseWay('영수증');
   await recordSheet.receipt.pick();
   await expect(recordSheet.receipt.rows).toHaveCount(1);
 
@@ -236,18 +235,20 @@ test('한 번에 바꾸기는 캡처에만 있고 줄글·영수증에는 없다
   await recordSheet.waitOpen();
 
   // 한 장에서 여러 건이 쏟아지는 탭이라 여기에만 필요하다.
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.chooseWay('캡처');
   await recordSheet.capture.pick();
   await expect(recordSheet.capture.bulkCategoryButton).toBeVisible();
 
   // 문장은 한두 건이라 줄마다 고치는 편이 빠르다. 자리만 먹는 버튼을 두지 않는다.
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.leavePanel();
+  await recordSheet.chooseWay('줄글');
   await recordSheet.nl.analyze('점심 12000');
   await expect(recordSheet.nl.readLine).toBeVisible();
   await expect(recordSheet.nl.bulkCategoryButton).toHaveCount(0);
 
   // 영수증은 늘 한 건이다.
-  await recordSheet.methodTab('영수증').click();
+  await recordSheet.leavePanel();
+  await recordSheet.chooseWay('영수증');
   await recordSheet.receipt.pick();
   await expect(recordSheet.receipt.rows).toHaveCount(1);
   await expect(recordSheet.receipt.bulkCategoryButton).toHaveCount(0);
@@ -267,7 +268,7 @@ test('검토 화면에서 고른 결제 수단이 리포트까지 그대로 간�
 
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('영수증').click();
+  await recordSheet.chooseWay('영수증');
   await recordSheet.receipt.pick();
   await expect(recordSheet.receipt.rows).toHaveCount(1);
 
