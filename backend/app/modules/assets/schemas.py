@@ -402,7 +402,8 @@ class AnalysisSavedItemOut(BaseModel):
 class AnalysisSavedPointOut(BaseModel):
     """달마다 모은 돈 막대 하나. 모은 것이 없는 달도 0 으로 들어온다."""
 
-    month: str = Field(description="YYYY-MM, 기간이 시작하는 달")
+    # 막대 아래 「N월」. 한 달 시작일이 16 이상이면 `period_start` 의 다음 달이다.
+    period_key: str = Field(description="YYYY-MM, 기간의 이름 달")
     period_start: date
     period_end: date
     amount: Decimal

@@ -286,7 +286,8 @@ function NetWorthTrend() {
   const history = useAssetHistory(TREND_MONTHS);
   const points = history.data?.points ?? [];
   if (points.length < 2) return null;
-  const thisMonth = toLedgerDate(new Date()).slice(0, 7);
+  // 이번 기간의 이름 달. 첫 점 뒤로는 기간마다 점이 있어 마지막 점이 늘 이번 기간이다.
+  const thisMonth = points[points.length - 1].month;
   const byMonth = new Map(points.map((point) => [point.month, parseDecimalOr(point.net_worth, 0)]));
 
   return (
@@ -333,7 +334,7 @@ function SavedItemsCard({ items }: { items: AnalysisSavedItemOut[] }) {
 /** 기간마다 모은 돈. 여섯 기간 모두 0 이면 그릴 것이 없다. */
 function SavedTrendCard({ points }: { points: NonNullable<AssetAnalysisOut['saved_trend']> }) {
   const bars = points.map((point) => ({
-    month: point.month,
+    month: point.period_key,
     value: parseDecimalOr(point.amount, 0),
   }));
   if (!bars.some((bar) => bar.value > 0)) return null;

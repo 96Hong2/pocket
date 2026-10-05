@@ -270,7 +270,7 @@ def _analysis_out(view: analysis_service.AnalysisView) -> AssetAnalysisOut:
         ],
         saved_trend=[
             AnalysisSavedPointOut(
-                month=period.start.strftime("%Y-%m"),
+                period_key=period.key,
                 period_start=period.start,
                 period_end=period.end,
                 amount=amount.amount,

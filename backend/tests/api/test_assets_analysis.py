@@ -256,7 +256,7 @@ def test_빈_사람은_모은_돈_칸이_비고_달마다_막대는_여섯_개_0
     assert [point["period_start"] for point in trend] == [
         _month_start(back).isoformat() for back in range(5, -1, -1)
     ]
-    assert trend[-1]["month"] == _month_start(0).strftime("%Y-%m")
+    assert trend[-1]["period_key"] == _month_start(0).strftime("%Y-%m")
     # 종류별 분석은 이 칸들을 채우지 않는다.
     stock = _analysis(client, "stock")
     assert stock["saved_items"] == [] and stock["saved_trend"] == [] and stock["large_saves"] == []

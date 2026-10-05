@@ -12034,10 +12034,10 @@
       },
       "AnalysisSavedPointOut": {
         "properties": {
-          "month": {
+          "period_key": {
             "type": "string",
-            "title": "Month",
-            "description": "YYYY-MM, 기간이 시작하는 달"
+            "title": "Period Key",
+            "description": "YYYY-MM, 기간의 이름 달"
           },
           "period_start": {
             "type": "string",
@@ -12057,7 +12057,7 @@
         },
         "type": "object",
         "required": [
-          "month",
+          "period_key",
           "period_start",
           "period_end",
           "amount"

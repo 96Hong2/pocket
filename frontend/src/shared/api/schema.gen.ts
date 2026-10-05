@@ -1501,10 +1501,10 @@ export interface components {
          */
         AnalysisSavedPointOut: {
             /**
-             * Month
-             * @description YYYY-MM, 기간이 시작하는 달
+             * Period Key
+             * @description YYYY-MM, 기간의 이름 달
              */
-            month: string;
+            period_key: string;
             /**
              * Period Start
              * Format: date
