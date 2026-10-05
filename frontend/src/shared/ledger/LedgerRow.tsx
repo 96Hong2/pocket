@@ -9,10 +9,10 @@ import { Chip, TagMark, TransactionRow, iconOf, type IconName } from '../ui';
  * 그려지는 모양은 `shared/ui/TransactionRow` 가 정하고, 여기서는 무엇을 넘길지만 정한다.
  */
 
-/** 종류 라벨. 지출은 기본이라 라벨을 붙이지 않는다. */
 /** 저축·투자 줄인데 「어디에」 그룹을 모를 때 그림. 「기타」 그림으로 떨어지지 않게 한다. */
 export const SAVING_FALLBACK_ICON: IconName = '03_growth_chart';
 
+/** 종류 라벨. 지출은 기본이라 라벨을 붙이지 않는다. */
 const KIND_LABEL: Partial<Record<TransactionOut['type'], string>> = {
   income: '수입',
   transfer: '이체',

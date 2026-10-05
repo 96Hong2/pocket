@@ -113,7 +113,19 @@ export function backStateOf(state: unknown): string | null {
     : null;
 }
 
-/** 개발 중에만 열리는 공용 UI 갤러리. */
+/**
+ * 상위 화면으로 돌아갈 때 그 화면에 다시 쥐여 줄 이동 상태.
+ * 리포트에서 연 자산 화면이 분석에 다녀와도 리포트로 돌아갈 자리(`BackState`)를 잃지 않게 한다.
+ */
+export interface ParentState {
+  parentState: unknown;
+}
+
+export function parentStateOf(state: unknown): unknown {
+  if (state == null || typeof state !== 'object' || !('parentState' in state)) return undefined;
+  return (state as ParentState).parentState;
+}
+
 /** 분석 범위 쿼리. `all`·`stock`·`cash`, 모르는 값이면 `all`. */
 export const ASSET_SCOPE_QUERY = 'scope';
 

@@ -928,13 +928,29 @@
     color: inherit;
     text-align: left;
     cursor: pointer;
-    /* › 칸이 하나 늘어 칸 사이를 좁힌다. 좁은 폭에서 막대 자리가 먼저 사라진다. */
-    grid-template-columns: auto auto minmax(0, 70px) minmax(0, 1fr) minmax(74px, auto) auto;
+    /*
+      › 칸이 하나 늘어 칸 사이를 좁힌다. 값 칸은 폭을 못 박아 줄마다 막대 끝이 같은 자리에
+      서게 하고, 막대는 최소 폭을 둬 좁은 화면에서도 사라지지 않게 한다.
+      값 칸 폭은 「484,000원 71%」 가 한 줄에 드는 만큼이다. 더 길면 비중이 금액 아래로 내려간다.
+    */
+    grid-template-columns: auto auto minmax(0, 70px) minmax(36px, 1fr) 106px auto;
     column-gap: 7px;
   }
 
   .report__row--link .report__chevron {
     margin-left: -2px;
+  }
+
+  /* 좁은 폭에서는 비중을 늘 금액 아래에 두고 이름 칸과 값 칸을 줄여 막대 자리를 남긴다. */
+  @media (max-width: 360px) {
+    .report__row--link {
+      grid-template-columns: auto auto minmax(0, 56px) minmax(36px, 1fr) 80px auto;
+      column-gap: 6px;
+    }
+
+    .report__row--link .report__row-share {
+      display: block;
+    }
   }
 
   .report__large-row--link {

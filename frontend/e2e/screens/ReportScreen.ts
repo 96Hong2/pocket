@@ -128,6 +128,41 @@ export class ReportScreen {
     return this.donut.locator('circle');
   }
 
+  /** 조각 하나. 목록 줄과 같은 차례다(0 이 가장 큰 조각). */
+  donutSlice(index: number): Locator {
+    return this.donutSlices.nth(index);
+  }
+
+  /**
+   * 조각 하나를 손가락으로 누른다.
+   *
+   * 조각은 링 위의 호라서 상자 가운데를 누르면 링 구멍에 빠진다. 그 조각 호의 가운데 각도에
+   * 있는 링 위 점을 계산해 누르고, 그 점에 실제로 그 조각이 있는지 먼저 확인한다.
+   */
+  async tapDonutSlice(index: number): Promise<void> {
+    await this.donut.scrollIntoViewIfNeeded();
+    const point = await this.donutSlice(index).evaluate((node) => {
+      const circle = node as unknown as SVGCircleElement;
+      const svg = circle.ownerSVGElement;
+      if (svg == null) throw new Error('도넛 svg 가 없다');
+      const radius = Number(circle.getAttribute('r'));
+      const cx = Number(circle.getAttribute('cx'));
+      const cy = Number(circle.getAttribute('cy'));
+      const round = 2 * Math.PI * radius;
+      const length = Number((circle.getAttribute('stroke-dasharray') ?? '0').split(' ')[0]);
+      const start = -Number(circle.getAttribute('stroke-dashoffset') ?? '0');
+      // 12시에서 시계 방향으로 돈다.
+      const angle = (2 * Math.PI * (start + length / 2)) / round;
+      const box = svg.getBoundingClientRect();
+      const scale = box.width / svg.viewBox.baseVal.width;
+      const x = box.left + (cx + radius * Math.sin(angle)) * scale;
+      const y = box.top + (cy - radius * Math.cos(angle)) * scale;
+      if (document.elementFromPoint(x, y) !== circle) throw new Error('누를 점에 그 조각이 없다');
+      return { x, y };
+    });
+    await this.page.mouse.click(point.x, point.y);
+  }
+
   /**
    * 조각과 목록 줄에 실제로 칠해진 색.
    *
@@ -156,6 +191,15 @@ export class ReportScreen {
 
   amount(name: string | RegExp): Locator {
     return this.row(name).getByTestId(TEST_IDS.reportRowAmount);
+  }
+
+  /** 차례로 본 줄의 이름 칸. 조각과 같은 차례다. */
+  rowNameAt(index: number): Locator {
+    return this.rows.nth(index).locator('.report__row-name');
+  }
+
+  rowAmountAt(index: number): Locator {
+    return this.rows.nth(index).getByTestId(TEST_IDS.reportRowAmount);
   }
 
   share(name: string | RegExp): Locator {
