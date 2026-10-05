@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -31,6 +32,8 @@ from app.modules import ledger
 from app.modules.categories import service as categories
 from app.modules.goals import service as goals
 
+logger = logging.getLogger(__name__)
+
 __all__ = [
     "LivingBudgetSuggestion",
     "budget_status",
@@ -41,6 +44,7 @@ __all__ = [
     "find_budget",
     "is_carried",
     "is_period_editable",
+    "keep_order",
     "list_category_budgets",
     "living_budget_suggestion",
     "move_to_start_day",
@@ -494,6 +498,23 @@ def ensure_carryover(session: Session, user: User, period: BudgetPeriod, today: 
 # ── 한 달 시작일 바꾸기 ─────────────────────────────────
 
 
+def keep_order(row: Budget) -> tuple[bool, bool, datetime]:
+    """이름 달이 같은 예산 줄 가운데 남길 줄이 앞에 오는 열쇠. `reverse=True` 로 정렬한다.
+
+    살아 있는 줄, 사람이 정한 줄(이어쓰기로 생기지 않은 줄), 나중에 고친 줄 순이다.
+    """
+    return (row.deleted_at is None, not row.is_auto_carried, row.updated_at)
+
+
+def _take_missing_category_budgets(keep: Budget, drop: Budget) -> None:
+    """지울 줄의 살아 있는 카테고리 예산 가운데 남는 줄에 없는 분류만 남는 줄로 옮긴다."""
+    have = {item.category_id for item in keep.category_budgets}
+    for item in list(drop.category_budgets):
+        if item.deleted_at is None and item.category_id not in have:
+            item.budget = keep
+            have.add(item.category_id)
+
+
 def move_to_start_day(session: Session, user: User, start_day: int) -> None:
     """예산 줄을 전부 새 시작일의 기간으로 옮긴다. **커밋은 부르는 쪽이 한다.**
 
@@ -503,8 +524,8 @@ def move_to_start_day(session: Session, user: User, start_day: int) -> None:
     카테고리 예산은 예산 줄에 딸려 있어 함께 따라온다.
 
     같은 이름으로 모이는 줄이 둘이면(시작일을 바꾸는 사이에 다른 요청이 옛 기간에 이어쓴 경우)
-    살아 있는 것, 그다음 나중에 고친 것 하나만 남긴다. `(user_id, period_start)` 가 유일이라
-    둘 다 옮길 수 없다.
+    `keep_order` 로 하나만 남긴다. `(user_id, period_start)` 가 유일이라 둘 다 옮길 수 없다.
+    지우는 줄의 카테고리 예산 가운데 남는 줄에 없는 분류는 남는 줄로 옮긴다.
     """
     rows = list(session.scalars(select(Budget).where(Budget.user_id == user.id).with_for_update()))
     by_key: dict[str, list[Budget]] = {}
@@ -513,9 +534,18 @@ def move_to_start_day(session: Session, user: User, start_day: int) -> None:
 
     moves: list[tuple[Budget, BudgetPeriod]] = []
     for key, group in by_key.items():
-        group.sort(key=lambda r: (r.deleted_at is None, r.updated_at), reverse=True)
+        group.sort(key=keep_order, reverse=True)
         keep, *extra = group
         for row in extra:
+            _take_missing_category_budgets(keep, row)
+            logger.info(
+                "시작일을 옮기며 이름 달이 같은 예산 줄을 하나로 줄였다 "
+                "user_id=%s period_key=%s kept=%s dropped=%s",
+                user.id,
+                key,
+                keep.id,
+                row.id,
+            )
             session.delete(row)
         year, month = (int(part) for part in key.split("-"))
         moves.append((keep, BudgetPeriod.of_month(year, month, start_day)))

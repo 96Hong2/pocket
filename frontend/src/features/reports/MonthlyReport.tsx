@@ -22,6 +22,7 @@ import {
   ErrorState,
   LoadingState,
   MonthStepper,
+  PeriodRange,
   SegmentedControl,
   type SegmentedOption,
 } from '../../shared/ui';
@@ -86,9 +87,11 @@ export function MonthlyReport({
     <div className="report__month">
       <MonthStepper value={month} onChange={onMonthChange} maxMonth={thisMonth} jumpTo={thisMonth} />
       {current.startDay !== 1 ? (
-        <PeriodLine
+        <PeriodRange
+          className="report__period"
           range={formatPeriodRange(periodOfMonth(month, current.startDay))}
           onClick={onPeriodClick}
+          testId={TEST_IDS.reportPeriod}
         />
       ) : null}
     </div>
@@ -395,28 +398,6 @@ function LargeExpenses({
         })}
       </ol>
     </Card>
-  );
-}
-
-/** 달 이름 아래 기간 줄. 누르면 한 달 시작일을 바꾸는 시트가 열린다. */
-function PeriodLine({ range, onClick }: { range: string; onClick?: () => void }) {
-  if (onClick == null) {
-    return (
-      <p className="report__period" data-testid={TEST_IDS.reportPeriod}>
-        {range}
-      </p>
-    );
-  }
-  return (
-    <button
-      type="button"
-      className="report__period report__period--button"
-      data-testid={TEST_IDS.reportPeriod}
-      aria-label={`기간 ${range}, 한 달 시작일 바꾸기`}
-      onClick={onClick}
-    >
-      {range}
-    </button>
   );
 }
 

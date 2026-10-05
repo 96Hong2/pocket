@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictInt
 
 from app.domain.period import MAX_START_DAY, MIN_START_DAY
 from app.models.preference import HomeHero, RecordMethod
@@ -40,5 +40,5 @@ class PreferencesPatch(BaseModel):
 
     budget_auto_carryover: bool | None = None
     home_hero: HomeHero | None = None
-    # 바꾸면 예산 줄이 같은 이름 달의 새 기간으로 함께 옮겨 간다.
-    month_start_day: int | None = Field(default=None, ge=MIN_START_DAY, le=MAX_START_DAY)
+    # 바꾸면 예산 줄이 같은 이름 달의 새 기간으로 함께 옮겨 간다. true 와 25.5 는 받지 않는다.
+    month_start_day: StrictInt | None = Field(default=None, ge=MIN_START_DAY, le=MAX_START_DAY)

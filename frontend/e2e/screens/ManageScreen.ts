@@ -140,6 +140,11 @@ export class ManageScreen {
     return this.section.getByText(/^\d{4}년 \d{1,2}월$/);
   }
 
+  /** 달 이름 아래 `9.25 ~ 10.24`. 한 달 시작일이 1 이면 없다. 누르면 같은 시트가 열린다. */
+  get periodLine(): Locator {
+    return this.section.getByTestId(TEST_IDS.budgetPeriod);
+  }
+
   /** 예산 아래 「한 달 시작 매달 25일」 줄. 누르면 한 달 시작일 시트가 열린다. */
   get monthStartRow(): Locator {
     return this.section.getByRole('button', { name: /^한 달 시작 매달 \d+일$/ });

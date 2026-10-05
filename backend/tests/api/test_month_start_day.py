@@ -7,7 +7,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import uuid
+from collections.abc import Callable, Iterator
 from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Any
@@ -19,10 +20,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.integrations.email.factory import get_email_sender
 from app.models import Budget, CategoryBudget, User
 from app.modules import ledger
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
+OTHER = {"X-Anon-Key": "second-device-key"}
 TZ = ZoneInfo(ledger.DEFAULT_TIMEZONE)
 TODAY = date(2026, 10, 5)
 
@@ -38,12 +41,12 @@ def pin(monkeypatch: pytest.MonkeyPatch) -> Pin:
     return _pin
 
 
-def _start_day(client: TestClient, value: Any) -> Any:
-    return client.patch("/api/v1/preferences", json={"month_start_day": value}, headers=AUTH)
+def _start_day(client: TestClient, value: Any, headers: dict[str, str] = AUTH) -> Any:
+    return client.patch("/api/v1/preferences", json={"month_start_day": value}, headers=headers)
 
 
-def _set_start_day(client: TestClient, value: int) -> None:
-    response = _start_day(client, value)
+def _set_start_day(client: TestClient, value: int, headers: dict[str, str] = AUTH) -> None:
+    response = _start_day(client, value, headers)
     assert response.status_code == 200, response.text
     assert response.json()["month_start_day"] == value
 
@@ -55,7 +58,8 @@ def _add(
     *,
     kind: str = "expense",
     category_id: str | None = None,
-) -> None:
+    asset_item_key: str | None = None,
+) -> dict:
     body: dict[str, object] = {
         "occurred_at": datetime.combine(day, time(hour=12), tzinfo=TZ).isoformat(),
         "amount": str(amount),
@@ -66,20 +70,44 @@ def _add(
     }
     if category_id:
         body["category_id"] = category_id
+    if asset_item_key:
+        body["asset_item_key"] = asset_item_key
     response = client.post("/api/v1/transactions", json=body, headers=AUTH)
     assert response.status_code == 201, response.text
+    return response.json()
 
 
-def _get(client: TestClient, path: str) -> dict:
-    response = client.get(path, headers=AUTH)
+def _get(client: TestClient, path: str, headers: dict[str, str] = AUTH) -> dict:
+    response = client.get(path, headers=headers)
     assert response.status_code == 200, response.text
     return response.json()
 
 
-def _put_budget(client: TestClient, amount: int, query: str = "") -> dict:
-    response = client.put(f"/api/v1/budgets{query}", json={"amount": str(amount)}, headers=AUTH)
+def _put_budget(
+    client: TestClient, amount: int, query: str = "", headers: dict[str, str] = AUTH
+) -> dict:
+    response = client.put(f"/api/v1/budgets{query}", json={"amount": str(amount)}, headers=headers)
     assert response.status_code == 200, response.text
     return response.json()
+
+
+def _put_category_budget(
+    client: TestClient,
+    category_id: str,
+    amount: int,
+    query: str = "",
+    headers: dict[str, str] = AUTH,
+) -> None:
+    response = client.put(
+        f"/api/v1/budgets/categories/{category_id}{query}",
+        json={"amount": str(amount)},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+
+
+def _category_amounts(body: dict) -> list[tuple[str, str]]:
+    return sorted((row["category_id"], row["amount"]) for row in body["category_budgets"])
 
 
 def _category(client: TestClient, name: str) -> str:
@@ -108,7 +136,14 @@ def test_시작일_기본값은_1이고_바꾸면_그대로_남는다(client: Te
     assert _get(client, "/api/v1/preferences")["month_start_day"] == 25
 
 
-@pytest.mark.parametrize("value", [0, 29, 31, -1, "열"])
+@pytest.mark.parametrize("value", [1, 28])
+def test_시작일은_1부터_28까지_받는다(client: TestClient, value: int) -> None:
+    _set_start_day(client, value)
+
+    assert _get(client, "/api/v1/preferences")["month_start_day"] == value
+
+
+@pytest.mark.parametrize("value", [0, 29, 31, -1, "열", 25.5, True])
 def test_범위_밖_시작일은_422(client: TestClient, value: Any) -> None:
     assert _start_day(client, value).status_code == 422
     assert _get(client, "/api/v1/preferences")["month_start_day"] == 1
@@ -249,6 +284,56 @@ def test_달력_요약의_예산_블록은_이름이_같은_달의_예산이고_
     assert [start for start, *_ in _budget_rows(db)] == [date(2026, 9, 25)]
 
 
+def test_저장_응답의_예산_블록은_기록한_날이_든_시작일_기간이다(
+    client: TestClient, pin: Pin, default_categories: object
+) -> None:
+    _set_start_day(client, 25)
+    _put_budget(client, 300_000)
+    _add(client, date(2026, 9, 25), 2_000)
+
+    saved = _add(client, date(2026, 10, 5), 4_000)["budget"]
+
+    assert _span(saved) == ("2026-09-25", "2026-10-24", "2026-10")
+    assert (saved["amount"], saved["budgeted_spend"], saved["remaining_budget"]) == (
+        "300000",
+        "6000",
+        "294000",
+    )
+    assert (saved["total_days"], saved["remaining_days"]) == (30, 20)
+    assert saved == _get(client, "/api/v1/budgets")["budget"]
+
+    # 앞 기간 마지막 날에 적으면 그 기간(9월) 블록이 온다. 9월 예산은 없다.
+    earlier = _add(client, date(2026, 9, 24), 1_000)["budget"]
+
+    assert _span(earlier) == ("2026-08-25", "2026-09-24", "2026-09")
+    assert (earlier["amount"], earlier["budgeted_spend"]) == (None, "1000")
+
+
+def test_모은_돈과_번_돈은_시작일_기간으로_센다(client: TestClient, pin: Pin) -> None:
+    _set_start_day(client, 25)
+    put = client.put(
+        "/api/v1/assets",
+        json={"items": [{"group": "cash", "label": "청년도약계좌", "amount": "1000000"}]},
+        headers=AUTH,
+    )
+    assert put.status_code == 200, put.text
+    key = put.json()["items"][0]["item_key"]
+    _add(client, date(2026, 9, 24), 9_000_000, kind="income")  # 9월 기간이라 안 센다
+    _add(client, date(2026, 9, 25), 2_000_000, kind="income")
+
+    september = _add(client, date(2026, 9, 24), 100_000, kind="transfer", asset_item_key=key)
+    first = _add(client, date(2026, 9, 25), 300_000, kind="transfer", asset_item_key=key)
+    latest = _add(client, date(2026, 10, 5), 50_000, kind="transfer", asset_item_key=key)
+
+    # 저장 응답은 그 기록이 든 기간의 모은 돈이다.
+    assert september["asset"]["month_saved"] == "100000"
+    assert first["asset"]["month_saved"] == "300000"
+    assert latest["asset"]["month_saved"] == "350000"
+    saving = _get(client, "/api/v1/assets/analysis?scope=all")["saving"]
+    assert (saving["saved"], saving["income"]) == ("350000", "2000000")
+    assert _get(client, "/api/v1/assets")["summary"]["month_saved"] == "350000"
+
+
 # ── 시작일 바꾸기 ───────────────────────────────────────
 
 
@@ -258,7 +343,7 @@ def test_시작일을_바꾸면_예산_줄이_같은_이름_달로_옮겨_간다
     food = _category(client, "식비")
     pin(date(2026, 9, 10))
     _put_budget(client, 100_000)
-    client.put(f"/api/v1/budgets/categories/{food}", json={"amount": "40000"}, headers=AUTH)
+    _put_category_budget(client, food, 40_000)
     pin(TODAY)
     assert _get(client, "/api/v1/budgets")["budget"]["is_auto_carried"] is True  # 10월 이어쓰기
     _put_budget(client, 500_000, "?year=2026&month=11")
@@ -351,6 +436,76 @@ def test_시작일이_같으면_예산을_건드리지_않는다(client: TestCli
     assert _budget_rows(db) == before
 
 
+def test_시작일을_같은_값으로_다시_보내도_예산을_건드리지_않는다(
+    client: TestClient, db: Session, pin: Pin
+) -> None:
+    _set_start_day(client, 25)
+    _put_budget(client, 100_000)
+    before = _budget_rows(db)
+    stamps = [(row.id, row.updated_at) for row in db.scalars(select(Budget))]
+    assert before == [(date(2026, 9, 25), date(2026, 10, 24), Decimal("100000"), False)]
+
+    _set_start_day(client, 25)
+
+    assert _budget_rows(db) == before
+    assert [(row.id, row.updated_at) for row in db.scalars(select(Budget))] == stamps
+
+
+def test_같은_이름_달에_줄이_둘이면_사람이_정한_줄을_남기고_없는_분류_한도만_옮겨_온다(
+    client: TestClient, db: Session, pin: Pin, default_categories: object
+) -> None:
+    """이어쓰기 줄이 나중에 고쳐졌어도 사람이 정한 줄이 남는다.
+
+    지우는 줄의 분류 한도는 남는 줄에 없는 분류만 채운다.
+    """
+    food = _category(client, "식비")
+    transit = _category(client, "교통")
+    user = db.scalars(select(User)).one()
+    user_set = Budget(
+        user_id=user.id,
+        period_start=date(2026, 10, 1),
+        period_end=date(2026, 10, 31),
+        amount=Decimal("100000"),
+        updated_at=datetime(2026, 10, 1, tzinfo=TZ),
+    )
+    # 옮겨 갈 자리에 이미 앉아 있는, 더 나중에 고친 이어쓰기 줄.
+    carried = Budget(
+        user_id=user.id,
+        period_start=date(2026, 9, 25),
+        period_end=date(2026, 10, 24),
+        amount=Decimal("70000"),
+        is_auto_carried=True,
+        updated_at=datetime(2026, 10, 3, tzinfo=TZ),
+    )
+    db.add_all([user_set, carried])
+    db.flush()
+    db.add_all(
+        [
+            CategoryBudget(
+                budget_id=user_set.id, category_id=uuid.UUID(food), amount=Decimal("40000")
+            ),
+            CategoryBudget(
+                budget_id=carried.id, category_id=uuid.UUID(food), amount=Decimal("20000")
+            ),
+            CategoryBudget(
+                budget_id=carried.id, category_id=uuid.UUID(transit), amount=Decimal("15000")
+            ),
+        ]
+    )
+    db.commit()
+
+    _set_start_day(client, 25)
+
+    assert _budget_rows(db) == [(date(2026, 9, 25), date(2026, 10, 24), Decimal("100000"), False)]
+    current = _get(client, "/api/v1/budgets")
+    assert (current["budget"]["amount"], current["budget"]["is_auto_carried"]) == (
+        "100000",
+        False,
+    )
+    assert _category_amounts(current) == sorted([(food, "40000"), (transit, "15000")])
+    assert len(db.scalars(select(CategoryBudget)).all()) == 2
+
+
 # ── 달력 월 그대로인 곳 ─────────────────────────────────
 
 
@@ -388,3 +543,83 @@ def test_공유_가계부_리포트는_시작일과_상관없이_달력_월이�
         assert (report["period_start"], report["period_end"]) == ("2026-08-01", "2026-08-31")
     finally:
         get_settings.cache_clear()
+
+
+# ── 계정 합치기 ─────────────────────────────────────────
+
+EMAIL = "someone@example.com"
+
+
+@pytest.fixture
+def fresh_sender() -> Iterator[None]:
+    """발송 스텁은 프로세스에 하나라 테스트 사이에 비운다."""
+    get_email_sender.cache_clear()
+    yield
+    get_email_sender.cache_clear()
+
+
+def _link(client: TestClient, headers: dict[str, str]) -> dict:
+    started = client.post("/api/v1/account/email/start", json={"email": EMAIL}, headers=headers)
+    assert started.status_code == 204, started.text
+    code = _get(client, f"/api/v1/account/email/peek?email={EMAIL}", headers)["code"]
+    verified = client.post(
+        "/api/v1/account/email/verify", json={"email": EMAIL, "code": str(code)}, headers=headers
+    )
+    assert verified.status_code == 200, verified.text
+    return verified.json()
+
+
+def _owner_rows(db: Session) -> list[tuple[date, date, Decimal, bool]]:
+    db.expire_all()
+    owner = db.scalars(select(User).where(User.deleted_at.is_(None))).one()
+    rows = db.scalars(
+        select(Budget).where(Budget.user_id == owner.id).order_by(Budget.period_start)
+    )
+    return [(r.period_start, r.period_end, r.amount, r.deleted_at is not None) for r in rows]
+
+
+def test_합칠_때_시작일이_다르면_옮겨_온_예산을_남는_계정의_기간으로_옮긴다(
+    two_devices: TestClient,
+    db: Session,
+    pin: Pin,
+    default_categories: object,
+    fresh_sender: None,
+) -> None:
+    client = two_devices
+    food = _category(client, "식비")
+    # 남는 계정: 시작일 25, 10월 예산과 식비 한도.
+    _link(client, AUTH)
+    _set_start_day(client, 25)
+    _put_budget(client, 300_000)
+    _put_category_budget(client, food, 40_000)
+    # 합쳐지는 기기: 시작일 1, 10월과 11월 예산.
+    _put_budget(client, 100_000, headers=OTHER)
+    _put_budget(client, 200_000, "?year=2026&month=11", headers=OTHER)
+    _put_category_budget(client, food, 30_000, "?year=2026&month=11", headers=OTHER)
+
+    assert _link(client, OTHER)["result"] == "merged"
+
+    # 10월은 남는 계정 것, 11월은 남는 계정의 시작일 기간으로 옮겨 왔다.
+    assert _owner_rows(db) == [
+        (date(2026, 9, 25), date(2026, 10, 24), Decimal("300000"), False),
+        (date(2026, 10, 25), date(2026, 11, 24), Decimal("200000"), False),
+    ]
+    november = _get(client, "/api/v1/budgets?year=2026&month=11", OTHER)
+    assert _span(november["budget"]) == ("2026-10-25", "2026-11-24", "2026-11")
+    assert november["budget"]["amount"] == "200000"
+    assert _category_amounts(november) == [(food, "30000")]
+    october = _get(client, "/api/v1/budgets", OTHER)
+    assert october["budget"]["amount"] == "300000"
+    assert _category_amounts(october) == [(food, "40000")]
+
+    # 합친 뒤 시작일을 바꿔도 남는 계정이 정한 10월 예산과 한도가 그대로다.
+    _set_start_day(client, 1, headers=OTHER)
+
+    assert _owner_rows(db) == [
+        (date(2026, 10, 1), date(2026, 10, 31), Decimal("300000"), False),
+        (date(2026, 11, 1), date(2026, 11, 30), Decimal("200000"), False),
+    ]
+    october = _get(client, "/api/v1/budgets", OTHER)
+    assert _span(october["budget"]) == ("2026-10-01", "2026-10-31", "2026-10")
+    assert october["budget"]["amount"] == "300000"
+    assert _category_amounts(october) == [(food, "40000")]

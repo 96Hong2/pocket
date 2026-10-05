@@ -96,7 +96,7 @@ export class ReportScreen {
    * 자리가 여기다. **보던 달을 들고 간다.**
    */
   get calendarLink(): Locator {
-    return this.page.getByRole('link', { name: '이 달을 달력으로 보기', exact: true });
+    return this.page.getByRole('link', { name: '달력으로 보기', exact: true });
   }
 
   get thisMonthJump(): Locator {
@@ -222,6 +222,13 @@ export class ReportScreen {
   /** 6개월 막대. 기록이 없는 달도 남으므로 늘 여섯이다. */
   get trendBars(): Locator {
     return this.root.getByTestId(TEST_IDS.reportTrendBar);
+  }
+
+  /** 흐름 막대마다 아래 적힌 달 이름(`10월`). 막대와 같은 차례다. */
+  get trendLabels(): Locator {
+    return this.root
+      .getByRole('listitem')
+      .filter({ has: this.page.getByTestId(TEST_IDS.reportTrendBar) });
   }
 
   trendBar(month: string): Locator {

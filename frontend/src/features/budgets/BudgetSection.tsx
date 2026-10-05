@@ -10,8 +10,11 @@ import {
   useDeleteBudget,
   type CategoryBudgetOut,
 } from '../../shared/api';
+import { cx } from '../../shared/lib/cx';
 import { shiftMonth } from '../../shared/lib/format';
-import { Card, ErrorState, MonthStepper, RetryButton } from '../../shared/ui';
+import { formatPeriodRange, periodOfMonth } from '../../shared/lib/monthPeriod';
+import { TEST_IDS } from '../../shared/testIds';
+import { Card, ErrorState, MonthStepper, PeriodRange, RetryButton } from '../../shared/ui';
 import { useRewardedAd } from '../ads';
 
 import { BudgetAmountSheet } from './BudgetAmountSheet';
@@ -21,6 +24,7 @@ import { CarryoverSetting } from './CarryoverSetting';
 import { CategoryBudgetList } from './CategoryBudgetList';
 import { CategoryBudgetSheet, type CategoryBudgetTarget } from './CategoryBudgetSheet';
 import { MonthStartSetting } from './MonthStartSetting';
+import { MonthStartSheet } from './MonthStartSheet';
 
 /** 달력 화면과 같게 3년 전까지 본다. */
 const MONTHS_BACK = 36;
@@ -48,6 +52,7 @@ export function BudgetSection() {
   const [amountOpen, setAmountOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [categoryTarget, setCategoryTarget] = useState<CategoryBudgetTarget | null>(null);
+  const [periodOpen, setPeriodOpen] = useState(false);
   const analytics = useAnalytics();
   const rewarded = useRewardedAd();
 
@@ -114,17 +119,34 @@ export function BudgetSection() {
     removeBudget.reset();
   }
 
+  const stepper = (
+    <MonthStepper
+      variant="compact"
+      value={month}
+      onChange={moveMonth}
+      maxMonth={thisMonth}
+      minMonth={shiftMonth(thisMonth, -MONTHS_BACK)}
+    />
+  );
+  // 한 달 시작일이 1 이 아니면 달 이름만으로는 며칠부터인지 모른다. 리포트처럼 바로 아래에 기간을 둔다.
+  const ranged = current.startDay !== 1;
+
   return (
     <section className="budget" aria-label="예산">
-      <div className="budget__head">
+      <div className={cx('budget__head', ranged && 'budget__head--ranged')}>
         <h2 className="budget__title">예산</h2>
-        <MonthStepper
-          variant="compact"
-          value={month}
-          onChange={moveMonth}
-          maxMonth={thisMonth}
-          minMonth={shiftMonth(thisMonth, -MONTHS_BACK)}
-        />
+        {ranged ? (
+          <div className="budget__month">
+            {stepper}
+            <PeriodRange
+              range={formatPeriodRange(periodOfMonth(month, current.startDay))}
+              onClick={() => setPeriodOpen(true)}
+              testId={TEST_IDS.budgetPeriod}
+            />
+          </div>
+        ) : (
+          stepper
+        )}
       </div>
 
       {/*
@@ -203,6 +225,7 @@ export function BudgetSection() {
       )}
 
       <MonthStartSetting />
+      <MonthStartSheet open={periodOpen} onClose={() => setPeriodOpen(false)} where="manage" />
 
       <CarryoverSetting />
 

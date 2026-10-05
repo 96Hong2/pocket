@@ -45,8 +45,6 @@ export default function ReportPage() {
   const [picked, setMonth] = useState<string | null>(
     asked != null && MONTH_PATTERN.test(asked) ? asked : null,
   );
-  // 고른 달이 없거나 이번 달보다 뒤면 이번 달을 본다. 시작일을 바꿔 이번 달이 당겨질 때도 같다.
-  const month = picked != null && picked <= thisMonth ? picked : thisMonth;
   const [periodOpen, setPeriodOpen] = useState(false);
   // 열어 달라는 부탁은 한 번만 쓴다. 주소를 계속 보고 열면, 달을 옮겨 본문을 다시 그릴 때마다
   // 사용자가 누르지도 않은 전체화면 결산이 다시 뜬다.
@@ -67,6 +65,16 @@ export default function ReportPage() {
     (books.data == null || bookItems.some((book) => book.id === pickedBookId))
       ? pickedBookId
       : null;
+  // 내 리포트의 달은 이름 달, 가계부의 달은 달력 월이라 같은 「10월」 도 다른 날들이다.
+  // 가계부를 바꾸면 고른 달을 버리고 그쪽의 이번 달로 연다.
+  const [monthBookId, setMonthBookId] = useState(bookId);
+  if (monthBookId !== bookId) {
+    setMonthBookId(bookId);
+    setMonth(null);
+  }
+  const baseMonth = bookId == null ? thisMonth : calendarMonth;
+  // 고른 달이 없거나 이번 달보다 뒤면 이번 달을 본다. 시작일을 바꿔 이번 달이 당겨질 때도 같다.
+  const month = picked != null && picked <= baseMonth ? picked : baseMonth;
   // 달을 옮기면 부탁도 접는다. 로딩 중에는 결산 자리가 아직 없어서 부탁을 못 쓴 채로
   // 달만 바뀔 수 있는데, 그러면 엉뚱한 달의 결산이 저절로 열린다.
   const changeMonth = useCallback(
@@ -76,15 +84,15 @@ export default function ReportPage() {
         EVENTS.reportMonthChanged,
         {
           step: next < month ? 'back' : 'forward',
-          to: next === thisMonth ? 'this' : 'past',
-          months_back: monthsBetween(next, thisMonth),
+          to: next === baseMonth ? 'this' : 'past',
+          months_back: monthsBetween(next, baseMonth),
         },
         { kind: 'click' },
       );
       setMonth(next);
       setOpenClosing(false);
     },
-    [analytics, month, thisMonth],
+    [analytics, month, baseMonth],
   );
 
   // 다 쓴 부탁은 주소에서도 지운다. 히스토리에는 남기지 않는다. 남기면 뒤로가기로
@@ -120,12 +128,14 @@ export default function ReportPage() {
           한쪽을 보다 다른 쪽이 궁금해지는 자리가 여기다. **보던 달을 들고 간다.**
           이번 달로 떨어뜨리면 반년 전 리포트를 보던 사람이 화살표를 여섯 번 더 눌러야 한다.
           달력은 내 기록만 그려서 공유 가계부를 보는 동안에는 두지 않는다.
+          이름 달을 넘긴다. 기간에서 날이 가장 많이 든 달력 월이라 그 달이 열린다. 다만 시작일이
+          1 이 아니면 같은 날들이 아니라서, 이름에 「이 달」 을 쓰지 않는다.
         */}
         {bookId == null ? (
           <Link
             className="page__head-action pk-cal-btn"
             to={`${ROUTES.calendar}?month=${month}`}
-            aria-label="이 달을 달력으로 보기"
+            aria-label="달력으로 보기"
           >
             <CalendarGlyph />
           </Link>
@@ -136,12 +146,7 @@ export default function ReportPage() {
       <IdentityNotice />
 
       {bookId != null ? (
-        // 공유 가계부는 달력 월이라, 이름 달이 달력보다 앞서 있으면 이번 달력 월로 본다.
-        <BookReport
-          bookId={bookId}
-          month={month > calendarMonth ? calendarMonth : month}
-          onMonthChange={changeMonth}
-        />
+        <BookReport bookId={bookId} month={month} onMonthChange={changeMonth} />
       ) : (
         <MonthlyReport
           month={month}

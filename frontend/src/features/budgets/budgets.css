@@ -27,6 +27,22 @@
     color: var(--color-ink);
   }
 
+  /* 달 이름 아래 기간 알약이 서면 머리가 두 줄이다. 「예산」 은 달 이름 줄 높이에 맞춘다. */
+  .budget__head--ranged {
+    align-items: flex-start;
+  }
+
+  .budget__head--ranged .budget__title {
+    line-height: 32px;
+  }
+
+  .budget__month {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
   /* 끝난 달 안내와 지우기 실패 안내. 둘 다 한 줄이라 같은 모양을 쓴다. */
   .budget__closed,
   .budget__notice {

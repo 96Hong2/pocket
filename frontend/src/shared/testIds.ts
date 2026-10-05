@@ -134,6 +134,8 @@ export const TEST_IDS = {
   reportHeadlineLabel: 'report-headline-label',
   /** 달 이름 아래 기간 줄. 한 달 시작일이 1 이 아닐 때만 선다. */
   reportPeriod: 'report-period',
+  /** 관리 탭 예산의 달 이름 아래 기간 줄. 한 달 시작일이 1 이 아닐 때만 선다. */
+  budgetPeriod: 'budget-period',
   /** 리포트의 그 달 총액 */
   reportTotal: 'report-total',
   /** 리포트 도넛. 조각 수를 세고 비어 있는지 본다. */

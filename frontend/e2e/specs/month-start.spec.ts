@@ -1,5 +1,10 @@
 import { ROUTES } from '../../src/app/router/routes';
-import { formatMonthLabel, toLedgerDate } from '../../src/shared/lib/format';
+import {
+  formatCurrency,
+  formatMonthLabel,
+  shiftMonth,
+  toLedgerDate,
+} from '../../src/shared/lib/format';
 import { logsNamed, pressSystemBack } from '../support/aitMock';
 import { thisMonth } from '../support/api';
 import { expect, test } from '../support/fixtures';
@@ -45,6 +50,7 @@ function salaryPeriod() {
     range: `${short(start)} ~ ${short(end)}`,
     preview: `${namedMonth}월은 ${startDate.getUTCMonth() + 1}월 25일부터 ${namedMonth}월 24일까지예요`,
     remaining: (end - today) / DAY_MS + 1,
+    elapsed,
     comparison: `${short(start)}~${short(today)} vs ${short(previousStart)}~${short(previousWindowEnd)}`,
   };
 }
@@ -65,13 +71,21 @@ test('관리 탭에서 시작일을 25일로 바꾸면 예산, 리포트, 홈이
   home,
 }) => {
   const expected = salaryPeriod();
-  await prep.setBudget(300_000);
-  await prep.addExpense({ amount: 12_000, daysAgo: 0 });
+  const food = (await prep.categoryIds()).get('식비');
+  if (food == null) throw new Error('식비 분류가 없다');
+  // 25일 기간의 이름 달에 바로 심는다. 시작일 1 에서는 그 달 1일에 앉아 있다가, 바꾸면 옮겨 와야 보인다.
+  // 이어쓰기로 생긴 예산이 아니라는 것은 금액과 분류 한도까지 그대로인 것으로 본다.
+  await prep.setBudget(300_000, expected.key);
+  await prep.setCategoryBudget(food, 40_000, expected.key);
+  await prep.addExpense({ amount: 12_000, daysAgo: 0, categoryId: food });
+  // 25일 기간이 시작하기 전날의 지출. 리포트와 예산의 이 기간에 들면 안 된다.
+  await prep.addExpense({ amount: 5_000, daysAgo: expected.elapsed + 1, categoryId: food });
 
   await manage.open();
   await manage.waitReady();
   await expect(manage.monthLabel).toHaveText(formatMonthLabel(thisMonth()));
   await expect(manage.monthStartRow).toHaveAccessibleName('한 달 시작 매달 1일');
+  await expect(manage.periodLine).toHaveCount(0);
 
   await manage.monthStartRow.click();
   await expect(manage.monthStart.sheet).toBeVisible();
@@ -85,14 +99,33 @@ test('관리 탭에서 시작일을 25일로 바꾸면 예산, 리포트, 홈이
   // 저장하면 시트가 닫히고 다시 열지 않아도 바뀐 기간이 보인다.
   await expect(manage.monthStartRow).toHaveAccessibleName('한 달 시작 매달 25일');
   await expect(manage.monthLabel).toHaveText(expected.monthLabel);
+  await expect(manage.periodLine).toHaveText(expected.range);
+  await expect(manage.total.amount).toHaveText(formatCurrency(300_000));
+  await expect(manage.total.used).toHaveText(formatCurrency(12_000));
+  await expect(manage.total.left).toHaveText(formatCurrency(288_000));
   await expect(manage.total.caption).toContainText(`${expected.remaining}일 남음`);
+  await expect(manage.categories.cap('식비')).toHaveText(formatCurrency(40_000));
+  await expect(manage.categories.used('식비')).toHaveText(formatCurrency(12_000));
+  // 기간 줄도 같은 시트를 연다.
+  await manage.periodLine.click();
+  await expect(manage.monthStart.day(25)).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Escape');
+  await expect(manage.monthStart.sheet).toHaveCount(0);
 
   await appShell.goToTab('리포트');
   await report.waitReady();
   await expect(report.monthLabel()).toHaveText(expected.monthLabel);
   await expect(report.periodLine).toHaveText(expected.range);
   await expect(report.headlineLabel).toHaveText(`${expected.monthLabel}에 쓴 돈`);
+  await expect(report.total).toHaveText(formatCurrency(12_000));
   await expect(report.comparison).toContainText(expected.comparison);
+  // 흐름 여섯 막대는 이름 달 차례다. 이번 이름 달에서 한 달씩 거슬러 센다.
+  const trend = [-5, -4, -3, -2, -1, 0].map((step) => shiftMonth(expected.key, step));
+  await expect(report.trendBars).toHaveCount(trend.length);
+  for (const [index, key] of trend.entries()) {
+    await expect(report.trendBars.nth(index)).toHaveAttribute('data-month', key);
+  }
+  await expect(report.trendLabels).toHaveText(trend.map((key) => `${Number(key.slice(5))}월`));
   await expect(report.trendBar(expected.key)).toHaveAttribute('data-current', '');
   await expect(report.monthButton('next')).toBeDisabled();
 
@@ -101,7 +134,7 @@ test('관리 탭에서 시작일을 25일로 바꾸면 예산, 리포트, 홈이
   await expect.poll(() => home.hero.remainingDays()).toBe(expected.remaining);
 
   const opened = await logsNamed(page, 'month_start_opened');
-  expect(opened.map((log) => log.params.where)).toEqual(['manage']);
+  expect(opened.map((log) => log.params.where)).toEqual(['manage', 'manage']);
   const saved = await logsNamed(page, 'month_start_saved');
   expect(saved.map((log) => [log.params.where, log.params.day, log.params.from_day])).toEqual([
     ['manage', 25, 1],
@@ -159,5 +192,10 @@ test('앱 설정 줄도 같은 시트를 열고, 뒤로가기는 시트만 닫�
 
   await settings.monthStartRow.click();
   await settings.monthStart.save(10);
+  await expect(settings.monthStartRow).toHaveAccessibleName('한 달 시작일 매달 10일');
+
+  // 화면 캐시가 아니라 서버에 남았는지 다시 열어 본다.
+  await page.reload();
+  await settings.waitReady();
   await expect(settings.monthStartRow).toHaveAccessibleName('한 달 시작일 매달 10일');
 });
