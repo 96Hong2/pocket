@@ -321,6 +321,14 @@ def test_다시_캡처하면_수량이_다른_종목은_읽은_수량과_넣은_
         row = _row(_capture(client), "삼성전자")
     assert (row["quantity"], row["cost_basis"], row["unit_price"]) == ("3", "780000", "300000")
 
+    # 종류를 못 읽어도 기존 종목이면 수량과 매입금액으로 맞춘다.
+    no_kind = ExtractedAsset(
+        name="삼성전자", amount=900_000, group=None, quantity=3, purchase=780_000
+    )
+    with _using(client, _reads(no_kind)):
+        row = _row(_capture(client), "삼성전자")
+    assert (row["kind"], row["quantity"], row["cost_basis"]) == ("stock", "3", "780000")
+
     unknown = ExtractedAsset(name="삼성전자", amount=900_000, group=None, quantity=3)
     with _using(client, _reads(unknown)):
         assert _capture(client)["items"] == []

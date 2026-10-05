@@ -220,14 +220,15 @@ def _fit(
                 cost_basis=cost,
                 unit_price=unit_price_of(value, quantity),
             )
-        if held.quantity is None:
+        if held.cost_basis is None:
             # 수량이 달라졌는데 넣은 돈을 못 읽었다. 옛 넣은 돈으로 기준을 지어내지 않는다.
             return None
+        # 종류는 이미 아는 항목의 것. 모델이 종류를 못 읽어도 수량과 넣은 돈이면 맞춘다.
         return CapturedHolding(
             kind=current.kind,
-            quantity=held.quantity,
+            quantity=read_quantity,
             cost_basis=held.cost_basis,
-            unit_price=held.unit_price,
+            unit_price=unit_price_of(value, read_quantity),
         )
     if holding is not Holding.AMOUNT:
         return AMOUNT_ONLY
