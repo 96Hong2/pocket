@@ -17,6 +17,8 @@ import {
   type SetupChanged,
 } from '../../shared/analytics';
 import {
+  formatCurrency,
+  formatNumber,
   isFutureDay,
   shiftMonth,
   toLedgerDate,
@@ -65,6 +67,7 @@ import {
   AssetDestField,
   AssetDestList,
   NewAssetForm,
+  defaultRemaining,
   destBodyOf,
   destFromItem,
   destGroupOf,
@@ -97,7 +100,7 @@ import { RecordDayStep } from './RecordDayStep';
 import { dayWithWeekday, nearDayWord, tagStyle } from './recordLabels';
 import { RecordSetup, type RecordKind } from './RecordSetup';
 import { RecordTagStep } from './RecordTagStep';
-import { AssetDestSource, SaveLotRow, SellPreviewCard } from './SaveFields';
+import { AssetDestSource, SaveBoxRow, SaveLotRow, SellPreviewCard } from './SaveFields';
 import { SavedAssetPanel, type SavedAssetInfo } from './SavedAssetPanel';
 import { quantityShapeOf, sameQuantity } from './saveInvest';
 import { DEFAULT_RECORD_TAB, recordMethodOf, type RecordTab } from './recordTab';
@@ -589,8 +592,14 @@ function RecordBody({
   const [qtyDigits, setQtyDigits] = useState('');
   /** 「전부」 로 넣은 수량인가. 그 뒤에 수량을 고치면 풀린다. */
   const [qtyAll, setQtyAll] = useState(false);
+  /*
+    금액으로 파는 항목의 「남은 금액」 과 「넣은 돈」. 남은 금액은 null 이거나 비었으면 처음 값
+    (지금 금액 − 받은 돈)을 쓴다. 「전부」 는 '0' 이다. 넣은 돈은 그 항목의 넣은 돈을 모를 때만 선다.
+  */
+  const [restDigits, setRestDigits] = useState<string | null>(null);
+  const [costDigits, setCostDigits] = useState('');
   /** 키패드가 무엇을 치나. 수량 종목을 고르면 수량부터 친다. */
-  const [keyTarget, setKeyTarget] = useState<'amount' | 'qty'>(
+  const [keyTarget, setKeyTarget] = useState<'amount' | 'qty' | 'rest' | 'cost'>(
     sellStart != null && destHoldingOf(sellStart) === 'quantity' ? 'qty' : 'amount',
   );
 
@@ -1052,6 +1061,8 @@ function RecordBody({
     setAssetSide('buy');
     setQtyDigits('');
     setQtyAll(false);
+    setRestDigits(null);
+    setCostDigits('');
     setKeyTarget('amount');
   }
 
@@ -1062,6 +1073,8 @@ function RecordBody({
     setAssetSide('buy');
     setQtyDigits('');
     setQtyAll(false);
+    setRestDigits(null);
+    setCostDigits('');
     setKeyTarget(destHoldingOf(pick.dest) === 'quantity' ? 'qty' : 'amount');
     create.reset();
     if (step !== 'amount') go('amount');
@@ -1073,6 +1086,8 @@ function RecordBody({
     setAssetSide(next);
     setQtyDigits('');
     setQtyAll(false);
+    setRestDigits(null);
+    setCostDigits('');
     setKeyTarget(assetDest != null && destHoldingOf(assetDest) === 'quantity' ? 'qty' : 'amount');
     create.reset();
   }
@@ -1166,6 +1181,13 @@ function RecordBody({
               ...destBodyOf(savingDest),
               asset_side: savingSide,
               asset_quantity: savingQty,
+              // 금액으로 파는 항목은 남은 금액(0 이면 전부)과, 모르던 넣은 돈을 적었으면 그것.
+              ...(savingSide === 'sell' && amountSell && restValue != null
+                ? {
+                    asset_remaining: restValue,
+                    ...(totalCost != null ? { asset_cost_basis: totalCost } : {}),
+                  }
+                : {}),
             }),
       },
       {
@@ -1356,9 +1378,24 @@ function RecordBody({
     assetDest?.type === 'item' && (destHolding === 'quantity' || destHolding === 'amount');
   const selling = sideShown && assetSide === 'sell';
   const sellItem = selling && assetDest?.type === 'item' ? assetDest.item : null;
-  const sellCheck = sellItem == null ? null : sellPreviewOf(sellItem, qtyDigits, amount);
+  // 금액으로 파는 항목. 받은 돈 말고 남은 금액으로 판 몫을 정한다.
+  const amountSell = sellItem != null && destHolding === 'amount';
+  const costUnknown = amountSell && sellItem.cost_basis == null;
+  const restAuto = amountSell ? defaultRemaining(sellItem.amount, amount) : 0;
+  const restValue = !amountSell
+    ? null
+    : restDigits != null && restDigits !== ''
+      ? toAmount(restDigits)
+      : restAuto;
+  const totalCost = costUnknown && costDigits !== '' ? toAmount(costDigits) : null;
+  const sellCheck =
+    sellItem == null
+      ? null
+      : sellPreviewOf(sellItem, qtyDigits, amount, { remaining: restValue, totalCost });
   const qtyValue = lot ? quantityValue(qtyDigits) : null;
   const typingQty = lot && keyTarget === 'qty';
+  const typingRest = amountSell && keyTarget === 'rest';
+  const typingCost = costUnknown && keyTarget === 'cost';
   // 수량 종목은 수량이 있어야, 팔 때는 보유를 넘지 않아야 저장이 켜진다.
   const assetReady =
     assetDest != null &&
@@ -1370,6 +1407,12 @@ function RecordBody({
     if (sellItem == null) return;
     setQtyDigits(quantityValue(sellItem.quantity) ?? '');
     setQtyAll(true);
+    setKeyTarget('amount');
+  }
+
+  /** 금액으로 팔 때 「전부」. 남은 금액을 0 으로 둔다. 다시 누르면 처음 값으로 돌아간다. */
+  function sellAllAmount(): void {
+    setRestDigits(restDigits === '0' ? null : '0');
     setKeyTarget('amount');
   }
 
@@ -1704,8 +1747,8 @@ function RecordBody({
           <AmountDisplay
             digits={digits}
             // 수량 칸이 있으면 금액 숫자를 눌러 다시 금액을 친다.
-            onPress={lot ? () => setKeyTarget('amount') : undefined}
-            dimmed={typingQty}
+            onPress={lot || amountSell ? () => setKeyTarget('amount') : undefined}
+            dimmed={typingQty || typingRest || typingCost}
           />
 
           {saveError ? (
@@ -1745,6 +1788,7 @@ function RecordBody({
                 quantity={
                   lot && assetDest != null
                     ? {
+                        label: '수량',
                         text: qtyDigits,
                         unit: unitOf(destKindOf(assetDest)),
                         focused: typingQty,
@@ -1755,9 +1799,41 @@ function RecordBody({
                 onAll={
                   lot && sellItem != null && quantityValue(sellItem.quantity) != null
                     ? sellAll
-                    : undefined
+                    : amountSell
+                      ? sellAllAmount
+                      : undefined
                 }
+                allOn={amountSell && restDigits === '0'}
               />
+              {/* 「전부」 가 아니면 남은 금액으로 판 몫을 정한다. */}
+              {amountSell && restDigits !== '0' ? (
+                <SaveBoxRow
+                  box={{
+                    label: '남은 금액',
+                    text:
+                      restDigits == null || restDigits === ''
+                        ? ''
+                        : formatNumber(toAmount(restDigits)),
+                    unit: '원',
+                    placeholder: formatCurrency(restAuto),
+                    focused: typingRest,
+                    // 다시 눌러도 적어 둔 값은 그대로다. 비어 있는 동안은 처음 값을 쓴다.
+                    onFocus: () => setKeyTarget('rest'),
+                  }}
+                />
+              ) : null}
+              {costUnknown ? (
+                <SaveBoxRow
+                  box={{
+                    label: '넣은 돈',
+                    text: costDigits === '' ? '' : formatNumber(toAmount(costDigits)),
+                    unit: '원',
+                    placeholder: '모르면 비워 둬요',
+                    focused: typingCost,
+                    onFocus: () => setKeyTarget('cost'),
+                  }}
+                />
+              ) : null}
               {sellItem != null && sellCheck?.ok === true ? (
                 <SellPreviewCard
                   item={sellItem}
@@ -1815,6 +1891,10 @@ function RecordBody({
           {/* 목록을 끝까지 펼친 동안에는 접는다. 고를 것이 화면을 채운 자리에 숫자판까지 서면 혼선만 는다. */}
           {listExpanded ? null : typingQty ? (
             <Keypad digits={qtyDigits} onChange={typeQuantity} decimal />
+          ) : typingRest ? (
+            <Keypad digits={restDigits ?? ''} onChange={setRestDigits} />
+          ) : typingCost ? (
+            <Keypad digits={costDigits} onChange={setCostDigits} />
           ) : (
             <Keypad digits={digits} onChange={setDigits} />
           )}

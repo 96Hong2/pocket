@@ -8,7 +8,7 @@ import {
   toLedgerDate,
   toLedgerNoonIso,
 } from '../../src/shared/lib/format';
-import { logsNamed } from '../support/aitMock';
+import { adsShown, logsNamed } from '../support/aitMock';
 import type { PrepApi } from '../support/api';
 import { expect, test } from '../support/fixtures';
 import type { ReportScreen } from '../screens/ReportScreen';
@@ -30,16 +30,6 @@ import type { ReportScreen } from '../screens/ReportScreen';
 /** 가계부 시간대(KST) 기준 오늘. 러너가 UTC 여도 하루가 밀리지 않는다. */
 function ledgerToday(): string {
   return toLedgerDate(new Date());
-}
-
-/** 목 SDK 가 지금까지 받은 전면(리워드 포함) 광고 표시 요청 수. */
-async function adsShown(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    const state = (
-      window as unknown as { __ait?: { state?: { sdkCallLog?: { method: string }[] } } }
-    ).__ait?.state;
-    return (state?.sdkCallLog ?? []).filter((entry) => entry.method === 'showFullScreenAd').length;
-  });
 }
 
 /** 기기에 남은 「자세히 보기 광고를 본 날」. 목 SDK 저장소는 접두사를 붙인 localStorage 다. */

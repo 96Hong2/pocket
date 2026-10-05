@@ -26,19 +26,60 @@ const SIDE_OPTIONS: { value: AssetSideLog; label: string }[] = [
   { value: 'sell', label: '팔았어요' },
 ];
 
+/** 키패드가 치는 작은 칸 하나. 수량, 남은 금액, 넣은 돈. */
+export interface LotBox {
+  label: string;
+  /** 친 글자. 비었으면 `placeholder`, 그것도 없으면 0. */
+  text: string;
+  unit: string;
+  focused: boolean;
+  onFocus: () => void;
+  /** 비었을 때 흐리게 보일 말. 단위까지 담는다(「700,000원」, 「모르면 비워 둬요」). */
+  placeholder?: string;
+}
+
+function LotBoxButton({ box }: { box: LotBox }) {
+  const empty = box.text === '';
+  const shown = empty ? (box.placeholder ?? '0') : box.text;
+  const hint = empty && box.placeholder != null;
+  return (
+    <button
+      type="button"
+      className={box.focused ? 'record-lot__qty record-lot__qty--on' : 'record-lot__qty'}
+      aria-pressed={box.focused}
+      aria-label={`${box.label} ${hint ? shown : `${shown}${box.unit}`}`}
+      onClick={box.onFocus}
+    >
+      <span className="record-lot__qty-label">{box.label}</span>
+      <b
+        className={
+          hint ? 'record-lot__qty-value record-lot__qty-value--hint' : 'record-lot__qty-value'
+        }
+        data-numeric=""
+      >
+        {shown}
+        {box.focused ? <i className="record-lot__caret" aria-hidden="true" /> : null}
+        {hint ? null : box.unit}
+      </b>
+    </button>
+  );
+}
+
 export interface SaveLotRowProps {
   /** 「넣었어요 | 팔았어요」 를 세우나. 저장 전 새 항목은 팔 것이 없어 안 세운다. */
   showSide: boolean;
   side: AssetSideLog;
   onSide: (side: AssetSideLog) => void;
   /** 수량 칸. 주식, ETF, 코인일 때만. */
-  quantity: { text: string; unit: string; focused: boolean; onFocus: () => void } | null;
+  quantity: LotBox | null;
   /** 팔 때 「전부」. 보유가 있을 때만. */
   onAll?: () => void;
+  /** 「전부」 가 눌려 있나. 금액으로 팔 때 남은 금액이 0 이면 그렇다. */
+  allOn?: boolean;
 }
 
 /** 「넣었어요 | 팔았어요」 와 수량 칸, 「전부」 한 줄. */
-export function SaveLotRow({ showSide, side, onSide, quantity, onAll }: SaveLotRowProps) {
+export function SaveLotRow({ showSide, side, onSide, quantity, onAll, allOn }: SaveLotRowProps) {
   if (!showSide && quantity == null) return null;
   return (
     <div className="record-lot">
@@ -51,24 +92,14 @@ export function SaveLotRow({ showSide, side, onSide, quantity, onAll }: SaveLotR
           ariaLabel="넣었나 팔았나"
         />
       ) : null}
-      {quantity != null ? (
+      {quantity != null ? <LotBoxButton box={quantity} /> : null}
+      {onAll != null ? (
         <button
           type="button"
-          className={quantity.focused ? 'record-lot__qty record-lot__qty--on' : 'record-lot__qty'}
-          aria-pressed={quantity.focused}
-          aria-label={`수량 ${quantity.text === '' ? '0' : quantity.text}${quantity.unit}`}
-          onClick={quantity.onFocus}
+          className={allOn === true ? 'record-lot__all record-lot__all--on' : 'record-lot__all'}
+          aria-pressed={allOn}
+          onClick={onAll}
         >
-          <span className="record-lot__qty-label">수량</span>
-          <b className="record-lot__qty-value" data-numeric="">
-            {quantity.text === '' ? '0' : quantity.text}
-            {quantity.focused ? <i className="record-lot__caret" aria-hidden="true" /> : null}
-            {quantity.unit}
-          </b>
-        </button>
-      ) : null}
-      {onAll != null ? (
-        <button type="button" className="record-lot__all" onClick={onAll}>
           전부
         </button>
       ) : null}
@@ -76,7 +107,19 @@ export function SaveLotRow({ showSide, side, onSide, quantity, onAll }: SaveLotR
   );
 }
 
-/** 팔 때 저장 전에 크게 보이는 수익. 수량 종목은 평균 넣은 돈, 금액 종목은 판 몫의 넣은 돈을 앞에 적는다. */
+/** 금액으로 팔 때 한 줄씩 더 서는 칸. 일부를 팔면 「남은 금액」, 넣은 돈을 모르면 「넣은 돈」. */
+export function SaveBoxRow({ box }: { box: LotBox }) {
+  return (
+    <div className="record-lot">
+      <LotBoxButton box={box} />
+    </div>
+  );
+}
+
+/**
+ * 팔 때 저장 전에 크게 보이는 수익. 수량 종목은 평균 넣은 돈, 금액 종목은 판 몫의 넣은 돈을 앞에 적는다.
+ * 넣은 돈을 모르면 그리지 않는다.
+ */
 export function SellPreviewCard({
   item,
   preview,
@@ -89,6 +132,7 @@ export function SellPreviewCard({
 }) {
   const average =
     soldQuantity == null ? null : averageCostOf(item.cost_basis ?? item.amount, item.quantity);
+  if (preview.gain == null || preview.soldCost == null) return null;
   const basis =
     soldQuantity == null || average == null
       ? `넣은 돈 ${formatCurrency(preview.soldCost)}어치`

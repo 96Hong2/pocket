@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domain.aggregation import TransactionSource
+from app.domain.asset_ledger import InvestKind
 from app.domain.assets import AssetGroup
 from app.domain.redaction import MASK
 from app.integrations.llm import (
@@ -120,7 +121,7 @@ def test_기존_이름은_키와_지금_금액이_붙고_새_이름은_그룹_�
     body = _capture(client)
 
     names = [item["name"] for item in body["items"]]
-    assert names == ["청년도약계좌", "카카오뱅크", "연금저축펀드"]
+    assert names == ["청년도약계좌", "카카오뱅크", "연금저축펀드", "엔비디아", "마이크로소프트"]
     known = _row(body, "청년도약계좌")
     assert known["item_key"] == key
     assert known["amount"] == "3300000"
@@ -199,7 +200,7 @@ def test_사용량은_자산_캡처로_남는다(client: TestClient, db: Session
 
     [usage] = db.scalars(select(ParseUsage)).all()
     assert usage.source == TransactionSource.ASSET_SCREENSHOT
-    assert usage.candidate_count == 3
+    assert usage.candidate_count == 5
     assert usage.failed is False
 
 
@@ -251,3 +252,141 @@ def test_출처를_안_보낸_옛_PUT_은_지금처럼_manual_이다(client: Tes
     assert body["snapshot"]["source"] == "manual"
     [snapshot] = db.scalars(select(AssetSnapshot)).all()
     assert snapshot.source == "manual"
+
+
+# ── 넣은 돈과 수량까지 읽은 줄 ───────────────────────────
+
+
+def test_보유_화면의_수량과_평가손익으로_넣은_돈과_1주_가격을_정한다(client: TestClient) -> None:
+    body = _capture(client)
+
+    nvidia = _row(body, "엔비디아")
+    assert nvidia["group"] == "investment"
+    assert (nvidia["kind"], nvidia["quantity"]) == ("stock", "2")
+    assert (nvidia["cost_basis"], nvidia["unit_price"], nvidia["rate"]) == (
+        "2000000",
+        "1400915",
+        "40.1",
+    )
+    msft = _row(body, "마이크로소프트")
+    assert (msft["kind"], msft["quantity"], msft["cost_basis"], msft["rate"]) == (
+        None,
+        None,
+        None,
+        None,
+    )
+
+
+def test_읽은_값으로_저장하면_자산_화면_줄도_같은_수익률이다(client: TestClient) -> None:
+    nvidia = _row(_capture(client), "엔비디아")
+    keys = ("kind", "quantity", "cost_basis", "unit_price")
+    item = {"group": "investment", "label": "엔비디아", "amount": nvidia["amount"]}
+    item.update({key: nvidia[key] for key in keys})
+
+    saved = _put(client, [item])["items"][0]
+
+    assert (saved["amount"], saved["rate"], saved["rate_kind"]) == ("2801830", "40.1", "valuation")
+
+
+def _reads(*rows: ExtractedAsset) -> Callable[[], StubLlmStructuredClient]:
+    return lambda: _Reads(list(rows))
+
+
+def test_다시_캡처하면_수량이_같은_종목은_1주_가격만_새로_적는다(client: TestClient) -> None:
+    _seed(client)  # 삼성전자 2주, 넣은 돈 500,000, 현재가 없음
+    read = ExtractedAsset(
+        name="삼성전자", amount=700_000, group=AssetGroup.INVESTMENT, quantity=2, purchase=1
+    )
+    with _using(client, _reads(read)):
+        row = _row(_capture(client), "삼성전자")
+
+    # 넣은 돈은 장부 값 그대로다. 읽은 매입금액(1원)으로 덮지 않는다.
+    assert (row["quantity"], row["cost_basis"], row["unit_price"]) == ("2", "500000", "350000")
+    assert row["rate"] == "40.0"
+
+
+def test_다시_캡처하면_수량이_다른_종목은_읽은_수량과_넣은_돈으로_맞추고_넣은_돈이_없으면_뺀다(
+    client: TestClient,
+) -> None:
+    _seed(client)
+    known = ExtractedAsset(
+        name="삼성전자",
+        amount=900_000,
+        group=None,
+        kind=InvestKind.STOCK,
+        quantity=3,
+        purchase=780_000,
+    )
+    with _using(client, _reads(known)):
+        row = _row(_capture(client), "삼성전자")
+    assert (row["quantity"], row["cost_basis"], row["unit_price"]) == ("3", "780000", "300000")
+
+    # 종류를 못 읽어도 기존 종목이면 수량과 매입금액으로 맞춘다.
+    no_kind = ExtractedAsset(
+        name="삼성전자", amount=900_000, group=None, quantity=3, purchase=780_000
+    )
+    with _using(client, _reads(no_kind)):
+        row = _row(_capture(client), "삼성전자")
+    assert (row["kind"], row["quantity"], row["cost_basis"]) == ("stock", "3", "780000")
+
+    unknown = ExtractedAsset(name="삼성전자", amount=900_000, group=None, quantity=3)
+    with _using(client, _reads(unknown)):
+        assert _capture(client)["items"] == []
+
+
+def test_금액만_있던_항목은_수량과_넣은_돈을_얻으면_종목이_된다(client: TestClient) -> None:
+    _put(client, [{"group": "investment", "label": "엔비디아", "amount": "2000000"}])
+
+    row = _row(_capture(client), "엔비디아")
+
+    assert row["item_key"] is not None
+    assert (row["kind"], row["quantity"], row["rate"]) == ("stock", "2", "40.1")
+
+
+def test_기록이_있는_금액만_있던_항목은_갈래를_안_바꾸고_넣은_돈만_채운다(
+    client: TestClient,
+) -> None:
+    body = _put(client, [{"group": "investment", "label": "엔비디아", "amount": "2000000"}])
+    key = body["items"][0]["item_key"]
+    tx = {"occurred_at": "2026-10-05T12:00:00+09:00", "amount": "100000", "type": "transfer"}
+    res = client.post("/api/v1/transactions", json={**tx, "asset_item_key": key}, headers=AUTH)
+    assert res.status_code == 201, res.text
+
+    row = _row(_capture(client), "엔비디아")
+
+    assert (row["kind"], row["quantity"], row["unit_price"]) == (None, None, None)
+    assert (row["cost_basis"], row["rate"]) == ("2000000", "40.1")
+
+
+def test_1주_가격이_1원_아래인_코인은_금액_항목으로_읽고_기존_코인은_덮지_않는다(
+    client: TestClient,
+) -> None:
+    # 6,000원 ÷ 12,000개 = 0.5원. 1원으로 적으면 12,000원이 되어 값이 두 배로 틀어진다.
+    coin = ExtractedAsset(
+        name="도지코인",
+        amount=6_000,
+        group=AssetGroup.INVESTMENT,
+        kind=InvestKind.COIN,
+        quantity=12_000,
+        profit=1_000,
+    )
+    with _using(client, _reads(coin)):
+        row = _row(_capture(client), "도지코인")
+    assert (row["kind"], row["quantity"], row["unit_price"]) == (None, None, None)
+    assert (row["cost_basis"], row["rate"]) == ("5000", "20.0")
+
+    _put(
+        client,
+        [
+            {
+                "group": "investment",
+                "label": "도지코인",
+                "amount": "5000",
+                "kind": "coin",
+                "quantity": "12000",
+                "cost_basis": "5000",
+            }
+        ],
+    )
+    with _using(client, _reads(coin)):
+        assert _capture(client)["items"] == []

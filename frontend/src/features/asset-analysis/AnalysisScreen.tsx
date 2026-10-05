@@ -2,19 +2,28 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
 import { assetAnalysisPath, type AssetAnalysisScope } from '../../app/router/routes';
+import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
   parseDecimal,
   parseDecimalOr,
   useAssetAnalysis,
+  useAssetHistory,
   type AnalysisReturnRowOut,
   type AnalysisReturnsOut,
+  type AnalysisSavedItemOut,
   type AssetAnalysisOut,
+  type TransactionOut,
 } from '../../shared/api';
-import { formatCurrency, formatSignedCurrency } from '../../shared/lib/format';
+import {
+  formatCurrency,
+  formatDayLabel,
+  formatSignedCurrency,
+  toLedgerDate,
+} from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import { Card, ErrorState, LoadingState, iconUrl } from '../../shared/ui';
 import { ASSET_GROUP_VIEWS, assetItemName } from '../assets';
-import { CategoryDonut, donutColors } from '../reports';
+import { CategoryDonut, MonthBars, RankList, ShareBars, donutColors } from '../reports';
 
 import { AnalysisLockedCard } from './AnalysisEntry';
 import {
@@ -22,25 +31,58 @@ import {
   formatManWon,
   formatRatio,
   formatSignedRatio,
+  monthsEndingAt,
   toDonutRows,
+  toneOf,
   type AnalysisSlice,
 } from './analysisFormat';
 import { ANALYSIS_KINDS } from './analysisKinds';
+import { SignedBars } from './SignedBars';
 import { useAssetAnalysisUnlock, type AssetAnalysisUnlock } from './useAssetAnalysisUnlock';
+
+/** 막대 여섯 개. 리포트 「6개월 흐름」 과 같다. */
+const TREND_MONTHS = 6;
 
 /**
  * 분석 화면 본문. 잠겨 있으면 입구와 같은 확인 창을 먼저 세운다.
  *
  * 경로로 바로 들어온 사람도 광고를 건너뛰지 못하게, 지문이 같을 때만 본문을 그린다.
  */
-export function AnalysisScreen({ scope }: { scope: AssetAnalysisScope }) {
+export function AnalysisScreen({
+  scope,
+  onEditRecord,
+}: {
+  scope: AssetAnalysisScope;
+  /**
+   * 「큰 저축·투자 Top 5」 줄을 눌렀다. 고치기 시트는 페이지가 띄운다.
+   * 시트가 저장하거나 지우면 `onSaved` 를 부른다.
+   */
+  onEditRecord: (transaction: TransactionOut, onSaved: () => void) => void;
+}) {
   const analysis = useAssetAnalysis(scope);
   const unlock = useAssetAnalysisUnlock();
   const fingerprint = analysis.data?.fingerprint ?? null;
-  const state = unlock.stateOf(scope, fingerprint);
-  const { request } = unlock;
+  const seen = unlock.stateOf(scope, fingerprint);
+  /*
+    열린 분석 안에서 기록을 고쳐 숫자가 바뀐 것은 다시 광고를 묻지 않는다.
+    `edited` 는 고치기를 연 때의 지문과 저장한 시각이다. 저장 뒤 처음 새로 받은 분석에서 지문이 바뀌었으면
+    그 지문 하나만 `carry` 로 남기고 `edited` 는 지운다. 그 뒤 다른 데서 자산이 바뀌면 다시 광고를 묻는다.
+  */
+  const [edited, setEdited] = useState<{ from: string | null; at: number } | null>(null);
+  const [carry, setCarry] = useState<string | null>(null);
+  if (edited != null && analysis.dataUpdatedAt > edited.at) {
+    setEdited(null);
+    setCarry(fingerprint !== edited.from ? fingerprint : null);
+  }
+  const carried = seen === 'stale' && carry != null && carry === fingerprint;
+  const state = carried ? 'open' : seen;
+  const { request, grant } = unlock;
   // 들어오자마자 한 번만 묻는다. 닫으면 카드가 남아 다시 누를 수 있다.
   const asked = useRef(false);
+
+  useEffect(() => {
+    if (carried) grant([{ scope, fingerprint }]);
+  }, [carried, fingerprint, grant, scope]);
 
   useEffect(() => {
     if (asked.current || (state !== 'locked' && state !== 'stale')) return;
@@ -71,7 +113,14 @@ export function AnalysisScreen({ scope }: { scope: AssetAnalysisScope }) {
   return (
     <div className="analysis">
       {scope === 'all' ? (
-        <AllAnalysis data={analysis.data} unlock={unlock} />
+        <AllAnalysis
+          data={analysis.data}
+          unlock={unlock}
+          onEdit={(transaction) => {
+            const from = fingerprint;
+            onEditRecord(transaction, () => setEdited({ from, at: Date.now() }));
+          }}
+        />
       ) : (
         <KindAnalysis scope={scope} data={analysis.data} />
       )}
@@ -80,8 +129,18 @@ export function AnalysisScreen({ scope }: { scope: AssetAnalysisScope }) {
   );
 }
 
-function AllAnalysis({ data, unlock }: { data: AssetAnalysisOut; unlock: AssetAnalysisUnlock }) {
+function AllAnalysis({
+  data,
+  unlock,
+  onEdit,
+}: {
+  data: AssetAnalysisOut;
+  unlock: AssetAnalysisUnlock;
+  /** Top 5 줄을 눌러 그 기록을 고치러 간다. */
+  onEdit: (transaction: TransactionOut) => void;
+}) {
   const navigate = useNavigate();
+  const analytics = useAnalytics();
   // 종류별 분석도 뒤로는 자산 화면이다. 맡겨 둔 자산 화면의 이동 상태를 그대로 넘긴다.
   const { state: carried } = useLocation();
   const [noPension, setNoPension] = useState(false);
@@ -105,6 +164,16 @@ function AllAnalysis({ data, unlock }: { data: AssetAnalysisOut; unlock: AssetAn
   const bundles = (data.bundles ?? []).filter(
     (bundle) => bundle.scope !== 'all' && bundle.item_count > 0,
   );
+  const { grant } = unlock;
+
+  // 전체 분석을 연 동안은 그 안의 종류별 분석도 연 것으로 적는다. 종류마다 광고를 또 보지 않게.
+  useEffect(() => {
+    grant(
+      (data.bundles ?? [])
+        .filter((bundle) => bundle.scope !== 'all')
+        .map((bundle) => ({ scope: bundle.scope, fingerprint: bundle.fingerprint })),
+    );
+  }, [data.bundles, grant]);
 
   return (
     <>
@@ -134,27 +203,42 @@ function AllAnalysis({ data, unlock }: { data: AssetAnalysisOut; unlock: AssetAn
         ) : null}
       </Card>
 
+      <NetWorthTrend />
+
       <ReturnsCard title="투자 수익률" returns={data.returns ?? null} />
 
       {data.month_change != null ? (
         <Card className="analysis-card" data-testid={TEST_IDS.analysisMonthChange}>
           <span className="analysis-card__kicker">지난달 대비</span>
           <BigSigned value={parseDecimalOr(data.month_change.delta, 0)} />
-          <ul className="analysis-lines">
-            {data.month_change.groups.map((change) => {
+          <SignedBars
+            rows={data.month_change.groups.map((change) => {
               const delta = parseDecimalOr(change.delta, 0);
-              return (
-                <li key={change.group} className="analysis-lines__row">
-                  <span>{ASSET_GROUP_VIEWS[change.group].label}</span>
-                  <b>{delta === 0 ? '그대로' : formatSignedCurrency(delta)}</b>
-                </li>
-              );
+              return {
+                key: change.group,
+                name: ASSET_GROUP_VIEWS[change.group].label,
+                value: delta,
+                text: delta === 0 ? '그대로' : formatSignedCurrency(delta),
+              };
             })}
-          </ul>
+          />
         </Card>
       ) : null}
 
       {data.saving != null ? <SavingCard saving={data.saving} /> : null}
+
+      <SavedItemsCard items={data.saved_items ?? []} />
+
+      <SavedTrendCard points={data.saved_trend ?? []} />
+
+      <TopSavesCard
+        rows={data.large_saves ?? []}
+        items={data.saved_items ?? []}
+        onPick={(transaction, rank) => {
+          analytics.log(EVENTS.assetAnalysisTopOpened, { rank }, { kind: 'click' });
+          onEdit(transaction);
+        }}
+      />
 
       {bundles.length > 0 ? (
         <section className="analysis-more" aria-label="종류별로 더 보기">
@@ -197,6 +281,122 @@ function AllAnalysis({ data, unlock }: { data: AssetAnalysisOut; unlock: AssetAn
   );
 }
 
+/** 달마다 월말 순자산. 첫 기록보다 앞 달은 막대 없이 달 이름만, 점이 하나뿐이면 카드를 안 세운다. */
+function NetWorthTrend() {
+  const history = useAssetHistory(TREND_MONTHS);
+  const points = history.data?.points ?? [];
+  if (points.length < 2) return null;
+  // 이번 기간의 이름 달. 첫 점 뒤로는 기간마다 점이 있어 마지막 점이 늘 이번 기간이다.
+  const thisMonth = points[points.length - 1].month;
+  const byMonth = new Map(points.map((point) => [point.month, parseDecimalOr(point.net_worth, 0)]));
+
+  return (
+    <Card className="analysis-card" data-testid={TEST_IDS.analysisNetWorthTrend}>
+      <span className="analysis-card__kicker">순자산 흐름</span>
+      <MonthBars
+        bars={monthsEndingAt(thisMonth, TREND_MONTHS).map((month) => ({
+          month,
+          value: byMonth.get(month) ?? null,
+        }))}
+        currentMonth={thisMonth}
+        testId={TEST_IDS.analysisTrendBar}
+      />
+    </Card>
+  );
+}
+
+/** 「어디에」 이름. 같은 날 지운 항목은 서버가 이름도 그룹도 없이 보낸다. */
+function savedItemName(item: Pick<AnalysisSavedItemOut, 'group' | 'label'>): string {
+  if (item.group == null) return item.label ?? '지운 항목';
+  return assetItemName(item.group, item.label);
+}
+
+/** 이번 달 넣은 돈을 「어디에」 마다. 없으면 카드를 안 세운다. */
+function SavedItemsCard({ items }: { items: AnalysisSavedItemOut[] }) {
+  if (items.length === 0) return null;
+  return (
+    <Card className="analysis-card">
+      <span className="analysis-card__kicker">어디에 모았나</span>
+      <ShareBars
+        className="analysis-share"
+        testId={TEST_IDS.analysisSavedItems}
+        rows={items.map((item) => ({
+          key: item.item_key,
+          name: savedItemName(item),
+          amount: parseDecimalOr(item.amount, 0),
+          share: (parseDecimal(item.ratio) ?? 0) / 100,
+        }))}
+      />
+    </Card>
+  );
+}
+
+/** 기간마다 모은 돈. 여섯 기간 모두 0 이면 그릴 것이 없다. */
+function SavedTrendCard({ points }: { points: NonNullable<AssetAnalysisOut['saved_trend']> }) {
+  const bars = points.map((point) => ({
+    month: point.period_key,
+    value: parseDecimalOr(point.amount, 0),
+  }));
+  if (!bars.some((bar) => bar.value > 0)) return null;
+
+  return (
+    <Card className="analysis-card" data-testid={TEST_IDS.analysisSavedTrend}>
+      <span className="analysis-card__kicker">달마다 모은 돈</span>
+      <MonthBars
+        bars={bars}
+        currentMonth={bars.at(-1)?.month ?? ''}
+        testId={TEST_IDS.analysisTrendBar}
+      />
+    </Card>
+  );
+}
+
+/** 이번 달 넣은 기록 중 큰 것 다섯. 서버가 골라 준 순서 그대로, 누르면 그 기록의 고치기 시트. */
+function TopSavesCard({
+  rows,
+  items,
+  onPick,
+}: {
+  rows: TransactionOut[];
+  items: AnalysisSavedItemOut[];
+  onPick: (transaction: TransactionOut, rank: number) => void;
+}) {
+  if (rows.length === 0) return null;
+  const byKey = new Map(items.map((item) => [item.item_key, item]));
+
+  return (
+    <Card className="analysis-card" data-testid={TEST_IDS.analysisTopSaves}>
+      <span className="analysis-card__kicker">큰 저축·투자 Top 5</span>
+      <RankList
+        rowTestId={TEST_IDS.analysisTopSaveRow}
+        amountTestId={TEST_IDS.analysisTopSaveAmount}
+        rows={rows.map((row, index) => {
+          const item = byKey.get(row.asset_item_key ?? '');
+          const group = item?.group ?? null;
+          return {
+            key: row.id,
+            name: item != null ? savedItemName(item) : (row.asset_label ?? '저축·투자'),
+            sub: formatDayLabel(toLedgerDate(new Date(row.occurred_at))),
+            icon:
+              group != null ? (
+                <img
+                  className="analysis-top__icon"
+                  src={iconUrl(ASSET_GROUP_VIEWS[group].icon)}
+                  alt=""
+                  aria-hidden="true"
+                />
+              ) : (
+                <span className="analysis-top__icon" aria-hidden="true" />
+              ),
+            amount: parseDecimalOr(row.amount, 0),
+            onSelect: () => onPick(row, index + 1),
+          };
+        })}
+      />
+    </Card>
+  );
+}
+
 function KindAnalysis({
   scope,
   data,
@@ -221,11 +421,11 @@ function KindAnalysis({
       </Card>
 
       {scope === 'stock' ? (
-        <ReturnsCard title="수익률" returns={data.returns ?? null} />
+        <ReturnsCard title="수익률" returns={data.returns ?? null} bars />
       ) : (
         <Card className="analysis-card" data-testid={TEST_IDS.analysisMonthly}>
           <span className="analysis-card__kicker">매달 넣는 돈</span>
-          <b className="analysis-card__big">
+          <b className="analysis-card__big" data-testid={TEST_IDS.analysisMonthlyTotal}>
             {formatCurrency(parseDecimalOr(data.monthly_total, 0))}
           </b>
           <ul className="analysis-lines">
@@ -290,7 +490,16 @@ function SliceChart({
 }
 
 /** 현재가나 판 기록이 있는 종목만 센다. 없으면 무엇을 적으면 보이는지 한 줄. */
-function ReturnsCard({ title, returns }: { title: string; returns: AnalysisReturnsOut | null }) {
+function ReturnsCard({
+  title,
+  returns,
+  bars = false,
+}: {
+  title: string;
+  returns: AnalysisReturnsOut | null;
+  /** 평가 줄을 늘고 줄고 막대로 그린다(주식 분석). 판 것 줄은 그대로 글줄이다. */
+  bars?: boolean;
+}) {
   const rows = returns?.rows ?? [];
 
   if (returns == null || rows.length === 0) {
@@ -303,6 +512,7 @@ function ReturnsCard({ title, returns }: { title: string; returns: AnalysisRetur
   }
 
   const rate = parseDecimal(returns.rate);
+  const lines = rows.flatMap((row, index) => returnLines(row, index, !bars));
   return (
     <Card className="analysis-card" data-testid={TEST_IDS.analysisReturns}>
       <span className="analysis-card__kicker">{title}</span>
@@ -315,18 +525,36 @@ function ReturnsCard({ title, returns }: { title: string; returns: AnalysisRetur
           </span>
         </>
       ) : null}
-      <ul className="analysis-lines">{rows.flatMap((row, index) => returnLines(row, index))}</ul>
+      {bars ? <ValuationBars rows={rows} /> : null}
+      {lines.length > 0 ? <ul className="analysis-lines">{lines}</ul> : null}
     </Card>
   );
 }
 
-/** 한 종목이 평가와 판 기록을 둘 다 가지면 두 줄이다. */
-function returnLines(row: AnalysisReturnRowOut, index: number) {
+/** 종목마다 지금 수익률 막대. 넣은 돈과 지금 가격을 아는 종목만 서버가 rate 를 준다. */
+function ValuationBars({ rows }: { rows: AnalysisReturnRowOut[] }) {
+  const rated = rows.filter((row) => parseDecimal(row.rate) != null);
+  if (rated.length === 0) return null;
+  return (
+    <SignedBars
+      testId={TEST_IDS.analysisStockRates}
+      rows={rated.map((row, index) => ({
+        key: row.item_key ?? `rate-${index}`,
+        name: assetItemName('investment', row.label),
+        value: parseDecimalOr(row.rate, 0),
+        text: `${formatSignedRatio(row.rate)} (${formatSignedCurrency(parseDecimalOr(row.gain, 0))})`,
+      }))}
+    />
+  );
+}
+
+/** 한 종목이 평가와 판 기록을 둘 다 가지면 두 줄이다. 평가를 막대로 그렸으면 판 것만. */
+function returnLines(row: AnalysisReturnRowOut, index: number, withValuation: boolean) {
   const name = assetItemName('investment', row.label);
   const key = row.item_key ?? `row-${index}`;
   const lines = [];
   const rate = parseDecimal(row.rate);
-  if (rate != null) {
+  if (rate != null && withValuation) {
     lines.push(
       <li key={`${key}-eval`} className="analysis-lines__row" data-kind="valuation">
         <span>
@@ -392,8 +620,4 @@ function SavingCard({ saving }: { saving: NonNullable<AssetAnalysisOut['saving']
 
 function BigSigned({ value }: { value: number }) {
   return <b className={`analysis-card__big ${toneOf(value)}`}>{formatSignedCurrency(value)}</b>;
-}
-
-function toneOf(value: number): string {
-  return value > 0 ? 'is-up' : value < 0 ? 'is-down' : '';
 }

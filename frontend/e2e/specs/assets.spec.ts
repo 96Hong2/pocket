@@ -101,11 +101,13 @@ test('금액을 고치면 그 줄과 순자산이 함께 바뀐다', async ({ as
 
   await assets.openEdit('주식');
   // 지금 적혀 있는 값이 시트에 들어 있어야 한다. 빈 칸으로 열면 얼마였는지 다시 찾아야 한다.
-  await expect(assets.sheet.amountField).toHaveValue('700,000');
+  // 종류 없는 투자 항목은 넣은 돈을 모르는 금액 종목이라 금액은 「지금 금액」 칸에 있다.
+  await expect(assets.sheet.field('지금 금액')).toHaveValue('700,000');
+  await expect(assets.sheet.field('넣은 돈')).toHaveValue('');
   await expect(assets.sheet.nameField).toHaveValue('주식');
   await expect(assets.sheet.groupChoice('투자')).toHaveAttribute('aria-checked', 'true');
 
-  await assets.sheet.fill({ amount: 900_000 });
+  await assets.sheet.field('지금 금액').fill('900000');
   await assets.sheet.save();
 
   await expect(assets.netWorth).toHaveText(formatCurrency(900_000));

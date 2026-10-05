@@ -183,11 +183,14 @@ def _fill(row: AssetItemRow, item: AssetItemIn, previous: AssetItemRow | None, t
         row.unit_price = None
         row.amount = item.amount
         if holding is Holding.AMOUNT:
+            # 비어 있으면 넣은 돈을 모르는 것이다. 지금 금액으로 채우지 않는다.
             cost = _pick(item, "cost_basis", previous)
-            row.cost_basis = cost if cost is not None else item.amount  # type: ignore[assignment]
-            # 지금 금액을 새로 적은 날이 평가 기준일이다. 넣은 돈을 모르면 수익률을 세지 않는다.
+            row.cost_basis = cost  # type: ignore[assignment]
+            # 지금 금액이나 넣은 돈을 새로 적은 날이 평가 기준일이다. 넣은 돈을 모르면 세지 않는다.
             amount_changed = previous is None or previous.amount != item.amount
-            if "price_noted_on" not in sent and cost is not None and amount_changed:
+            cost_changed = previous is None or previous.cost_basis != cost
+            fresh = amount_changed or cost_changed
+            if "price_noted_on" not in sent and cost is not None and fresh:
                 noted = today
         else:
             row.cost_basis = None
@@ -203,6 +206,15 @@ def _quantity_value(row: AssetItemRow) -> Decimal:
     if value > MAX_AMOUNT:
         raise ApiError(ErrorCode.INVALID_REQUEST, "금액이 너무 커요.", 422)
     return value
+
+
+# 장부를 다시 접어도 뜻이 같은 갈래. 금액만 있는 투자 항목을 통장 그룹으로 옮기는 일이 그렇다.
+# 판 줄이 있으면 통장으로 못 접어 다시 접기가 422 로 막는다.
+_SAME_LINES = frozenset({Holding.BALANCE, Holding.AMOUNT})
+
+
+def _compatible(before: Holding, after: Holding) -> bool:
+    return before is after or {before, after} <= _SAME_LINES
 
 
 def _changed(previous: AssetItemRow, row: AssetItemRow, holding: Holding) -> bool:
@@ -268,7 +280,7 @@ def replace_items(
         if entry.previous is None or key is None or not entries.has_ledger(session, user, key):
             continue
         holding = holding_of(entry.row.group, entry.row.kind)
-        if holding is not holding_of(entry.previous.group, entry.previous.kind):
+        if not _compatible(holding_of(entry.previous.group, entry.previous.kind), holding):
             raise ApiError(
                 ErrorCode.INVALID_REQUEST,
                 "기록이 있는 항목은 종류나 그룹을 이렇게 바꿀 수 없어요.",

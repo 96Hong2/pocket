@@ -464,7 +464,15 @@ def _projection_achievement(
 
 # ── 저축·투자 ──────────────────────────────────────────
 
-_ASSET_COLUMNS = ("asset_item_key", "asset_side", "asset_quantity")
+_ASSET_COLUMNS = (
+    "asset_item_key",
+    "asset_side",
+    "asset_quantity",
+    "asset_remaining",
+    "asset_cost_basis",
+)
+# 팔 때만 뜻이 있는 칸. 넣었어요로 바꾸거나 어디에를 옮기면 비운다.
+_SELL_COLUMNS = ("asset_remaining", "asset_cost_basis")
 
 
 def _new_asset_key(session: Session, user: User, today: date, spec: object) -> uuid.UUID:
@@ -486,9 +494,14 @@ def _settle_asset_columns(tx: Transaction) -> None:
         tx.asset_item_key = None
         tx.asset_side = None
         tx.asset_quantity = None
+        tx.asset_remaining = None
+        tx.asset_cost_basis = None
         return
     if tx.asset_side is None:
         tx.asset_side = EntrySide.BUY
+    if tx.asset_side != EntrySide.SELL:
+        tx.asset_remaining = None
+        tx.asset_cost_basis = None
     tx.category_id = None
 
 
@@ -602,6 +615,11 @@ def update_transaction(
         # 어디에를 비우면 그냥 이체다. 쪽과 수량도 함께 떼어 낸다.
         payload["asset_side"] = None
         payload["asset_quantity"] = None
+    moved = "asset_item_key" in payload and payload["asset_item_key"] != tx.asset_item_key
+    if moved or new_asset is not None:
+        # 남은 금액과 넣은 돈 전체는 앞 항목의 값이다. 새로 보낸 것만 남긴다.
+        for name in _SELL_COLUMNS:
+            payload.setdefault(name, None)
 
     if "category_id" in payload:
         categories.require_owned(session, user, payload["category_id"])

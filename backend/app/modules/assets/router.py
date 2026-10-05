@@ -14,7 +14,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Query
 from sqlalchemy.orm import Session
 
-from app.api.amounts import ratio_out
+from app.api.amounts import quantity_out, ratio_out
 from app.api.deps import CurrentUser, DbSession, LlmClient
 from app.api.errors import ERROR_RESPONSES, ApiError, ErrorCode
 from app.api.images import decode_data_url
@@ -38,6 +38,8 @@ from app.modules.assets.schemas import (
     AnalysisMonthChangeOut,
     AnalysisReturnRowOut,
     AnalysisReturnsOut,
+    AnalysisSavedItemOut,
+    AnalysisSavedPointOut,
     AnalysisSavingOut,
     AnalysisSummaryOut,
     AssetAnalysisOut,
@@ -52,6 +54,7 @@ from app.modules.assets.schemas import (
     AssetsOut,
     to_assets_out,
 )
+from app.modules.transactions.schemas import TransactionOut
 
 router = APIRouter(prefix="/assets", tags=["assets"], responses=ERROR_RESPONSES)
 
@@ -254,7 +257,39 @@ def _analysis_out(view: analysis_service.AnalysisView) -> AssetAnalysisOut:
             for row in result.bundles
         ],
         monthly_total=_won(result.monthly_total),
+        saved_items=[
+            AnalysisSavedItemOut(
+                item_key=uuid.UUID(saved.slice.key),
+                group=saved.row.group if saved.row is not None else None,
+                kind=saved.row.kind if saved.row is not None else None,
+                label=saved.row.label if saved.row is not None else None,
+                amount=saved.slice.amount.amount,
+                ratio=saved.slice.ratio,
+            )
+            for saved in view.saved_items
+        ],
+        saved_trend=[
+            AnalysisSavedPointOut(
+                period_key=period.key,
+                period_start=period.start,
+                period_end=period.end,
+                amount=amount.amount,
+            )
+            for period, amount in view.saved_trend
+        ],
+        large_saves=_saves_out(view),
     )
+
+
+def _saves_out(view: analysis_service.AnalysisView) -> list[TransactionOut]:
+    """거래 목록과 같은 모양. 「어디에」 이름은 그 키의 가장 최근 줄에서 붙인다."""
+    labels = {saved.row.item_key: saved.row.label for saved in view.saved_items if saved.row}
+    return [
+        TransactionOut.model_validate(row).model_copy(
+            update={"asset_label": labels.get(row.asset_item_key)}
+        )
+        for row in view.large_saves
+    ]
 
 
 # ── 자산 캡처 ────────────────────────────────────────────
@@ -279,6 +314,11 @@ def capture(
                 current_amount=(
                     row.current_amount.amount if row.current_amount is not None else None
                 ),
+                kind=row.held.kind,
+                quantity=quantity_out(row.held.quantity),
+                cost_basis=_won(row.held.cost_basis),
+                unit_price=_won(row.held.unit_price),
+                rate=row.rate,
             )
             for row in rows
         ],

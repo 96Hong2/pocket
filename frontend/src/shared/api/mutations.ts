@@ -405,7 +405,8 @@ export function useSavePreferences() {
             queryKeys.budgets(),
             queryKeys.reports(),
             queryKeys.summaries(),
-            queryKeys.assetAnalyses(),
+            // 자산 목록의 이번 달 모은 돈, 순자산 흐름, 분석이 모두 기간을 따른다.
+            queryKeys.assets(),
           ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         ).then(() => undefined);
       }

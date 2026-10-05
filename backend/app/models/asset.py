@@ -129,8 +129,11 @@ class AssetEntry(Entity, SoftDeleteMixin):
     quantity: Mapped[Decimal | None] = mapped_column(QuantityColumn, nullable=True)
     # buy 는 넣은 돈(부채는 갚은 돈), sell 은 받은 돈, set 은 잔액이나 지금 금액.
     amount: Mapped[Decimal] = mapped_column(LargeMoneyColumn, nullable=False)
-    # set 줄만 쓴다. 금액 종목과 수량 종목의 넣은 돈.
+    # set 줄은 금액 종목과 수량 종목의 넣은 돈. sell 줄은 넣은 돈을 모르는 항목을 팔 때 적은
+    # 그 항목에 넣은 돈 전체.
     cost_basis: Mapped[Decimal | None] = mapped_column(LargeMoneyColumn, nullable=True)
+    # 금액 종목 sell 줄의 팔고 남은 금액. 비어 있으면 옛 팔기 줄(받은 돈 ÷ 지금 금액)이다.
+    remaining: Mapped[Decimal | None] = mapped_column(LargeMoneyColumn, nullable=True)
     # 거래에서 온 줄. 손 수정과 시작 값 줄은 비어 있다.
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("transactions.id", ondelete="CASCADE"), nullable=True, index=True

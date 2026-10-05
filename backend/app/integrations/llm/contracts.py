@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # 종류·입력경로는 domain 이 정본이다. 여기서 값 목록을 다시 적지 않는다.
 from app.domain.aggregation import PaymentMethod, TransactionSource, TransactionType
+from app.domain.asset_ledger import InvestKind
 from app.domain.assets import AssetGroup
 from app.domain.categories import expense_category_names, income_category_names
 
@@ -103,6 +104,21 @@ class ExtractedAsset(BaseModel):
             "cash 현금·예적금 / investment 투자 / pension 연금 / deposit 보증금·기타"
             " / debt 대출. 모르겠으면 null."
         ),
+    )
+    # 아래는 증권 앱 보유 화면에 보일 때만. 넣은 돈은 서버가 정한다(모델은 빼기를 하지 않는다).
+    kind: InvestKind | None = Field(
+        default=None,
+        description="stock 주식 / etf / fund 펀드 / coin 코인 / bond 채권. 모르면 null.",
+    )
+    quantity: float | None = Field(
+        default=None, description="보유 수량. 화면에 적혀 있을 때만. 없으면 null."
+    )
+    purchase: int | None = Field(
+        default=None, ge=0, description="매입금액(투자원금). 부호 없는 정수(원). 없으면 null."
+    )
+    profit: int | None = Field(
+        default=None,
+        description="매입금액이 안 보일 때만 평가손익(수익금). 손해면 음수 정수(원). 없으면 null.",
     )
 
 

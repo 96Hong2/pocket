@@ -11,10 +11,12 @@ from app.domain.asset_ledger import (
     LedgerLine,
     RateKind,
     fold,
+    holding_of,
     item_rate,
     item_value,
     rate_percent,
 )
+from app.domain.assets import AssetGroup
 from app.domain.money import won
 
 
@@ -154,3 +156,152 @@ def test_수익률은_소수_첫째_자리에서_반올림한다():
     assert rate_percent(won(80_000), won(520_000)) == Decimal("15.4")
     assert rate_percent(won(-80_000), won(520_000)) == Decimal("-15.4")
     assert rate_percent(won(1), won(0)) is None
+
+
+# ── 넣은 돈을 모르는 항목과 「전부」, 「남은 금액」 ─────────────────
+# 기대값은 프론트 assetMath.test.ts 의 같은 이름 예와 같다. 한쪽만 바뀌면 둘 중 하나가 깨진다.
+
+
+def start(amount: int, cost: int | None) -> LedgerLine:
+    return LedgerLine(
+        "start", EntrySide.SET, won(amount), cost_basis=won(cost) if cost is not None else None
+    )
+
+
+def sell_amount(
+    ref: str, received: int, *, remaining: int | None, total_cost: int | None = None
+) -> LedgerLine:
+    return LedgerLine(
+        ref,
+        EntrySide.SELL,
+        won(received),
+        cost_basis=won(total_cost) if total_cost is not None else None,
+        remaining=won(remaining) if remaining is not None else None,
+    )
+
+
+def test_예1_넣은_돈_모르는_100만을_전부_120만에_팔고_넣은_돈_80만을_적으면_50퍼센트():
+    lines = [start(1_000_000, None), sell_amount("s1", 1_200_000, remaining=0, total_cost=800_000)]
+    result = fold(Holding.AMOUNT, lines)
+
+    outcome = result.sells["s1"]
+    assert outcome.sold_cost == won(800_000)
+    assert outcome.realized == won(400_000)
+    assert outcome.rate == Decimal("50.0")
+    assert result.state.amount == won(0)
+    assert result.state.cost_basis == won(0)
+
+
+def test_예2_같은_항목을_전부_팔고_넣은_돈을_비우면_수익률이_없고_금액은_0():
+    lines = [start(1_000_000, None), sell_amount("s1", 1_200_000, remaining=0)]
+    result = fold(Holding.AMOUNT, lines)
+
+    outcome = result.sells["s1"]
+    assert outcome.sold_cost is None
+    assert outcome.realized is None
+    assert outcome.rate is None
+    assert result.state.amount == won(0)
+    # 다 팔아 남은 것이 없으니 남은 넣은 돈은 0 으로 안다.
+    assert result.state.cost_basis == won(0)
+    # 실현 합계와 판 기록 수에 안 든다.
+    assert result.state.sell_count == 0
+    assert result.state.realized == won(0)
+    assert item_rate(Holding.AMOUNT, result.state, unit_price=None, price_noted=True) == (
+        None,
+        None,
+    )
+
+
+def test_예3_100만_넣은_돈_80만에서_30만을_받고_남은_금액_90만이면_판_몫_25퍼센트():
+    lines = [start(1_000_000, 800_000), sell_amount("s1", 300_000, remaining=900_000)]
+    result = fold(Holding.AMOUNT, lines)
+
+    outcome = result.sells["s1"]
+    assert outcome.sold_cost == won(200_000)
+    assert outcome.realized == won(100_000)
+    assert outcome.rate == Decimal("50.0")
+    assert result.state.amount == won(900_000)
+    assert result.state.cost_basis == won(600_000)
+
+
+def test_예4_펀드_110만에서_55만을_받고_남은_금액을_그대로_두면_지금_규칙과_같다():
+    with_rest = [start(1_100_000, 1_000_000), sell_amount("s1", 550_000, remaining=550_000)]
+    old_rule = [start(1_100_000, 1_000_000), sell_amount("s1", 550_000, remaining=None)]
+
+    for lines in (with_rest, old_rule):
+        result = fold(Holding.AMOUNT, lines)
+        outcome = result.sells["s1"]
+        assert outcome.sold_cost == won(500_000)
+        assert outcome.realized == won(50_000)
+        assert outcome.rate == Decimal("10.0")
+        assert result.state.amount == won(550_000)
+        assert result.state.cost_basis == won(500_000)
+
+
+def test_전부는_받은_돈이_지금_금액보다_커도_되고_옛_팔기_줄은_여전히_막는다():
+    assert fold(
+        Holding.AMOUNT, [start(1_000_000, 900_000), sell_amount("s", 1_300_000, remaining=0)]
+    )
+    with pytest.raises(LedgerError) as caught:
+        fold(
+            Holding.AMOUNT, [start(1_000_000, 900_000), sell_amount("s", 1_300_000, remaining=None)]
+        )
+    assert caught.value.code == "over_sell"
+
+
+def test_넣은_돈을_모르면_넣었어요를_더해도_계속_모르고_금액은_는다():
+    result = fold(Holding.AMOUNT, [start(1_000_000, None), buy("b1", 200_000)])
+
+    assert result.state.amount == won(1_200_000)
+    assert result.state.cost_basis is None
+
+
+def test_넣은_돈_모르는_항목을_다_팔면_다음_넣었어요부터_넣은_돈을_안다():
+    lines = [
+        start(1_000_000, None),
+        sell_amount("s1", 1_200_000, remaining=0),
+        buy("b1", 500_000),
+        sell_amount("s2", 600_000, remaining=0),
+    ]
+    result = fold(Holding.AMOUNT, lines)
+
+    assert result.sells["s1"].rate is None
+    outcome = result.sells["s2"]
+    assert (outcome.sold_cost, outcome.realized, outcome.rate) == (
+        won(500_000),
+        won(100_000),
+        Decimal("20.0"),
+    )
+    assert (result.state.amount, result.state.cost_basis) == (won(0), won(0))
+
+
+def test_남은_금액_없는_옛_팔기_줄도_다_팔면_넣은_돈이_0_이다():
+    lines = [start(1_000_000, None), sell_amount("s1", 1_000_000, remaining=None)]
+    result = fold(Holding.AMOUNT, lines)
+
+    assert result.sells["s1"].sold_cost is None
+    assert result.state.cost_basis == won(0)
+
+
+def test_일부만_팔면_모르던_넣은_돈은_계속_모른다():
+    lines = [start(1_000_000, None), sell_amount("s1", 300_000, remaining=900_000)]
+
+    assert fold(Holding.AMOUNT, lines).state.cost_basis is None
+
+
+def test_금액이_0_인데_넣은_돈을_모르는_항목에_넣으면_넣은_돈이_그만큼이다():
+    result = fold(Holding.AMOUNT, [start(0, None), buy("b1", 300_000)])
+
+    assert (result.state.amount, result.state.cost_basis) == (won(300_000), won(300_000))
+
+
+def test_넣은_돈을_아는_항목은_팔_때_적은_넣은_돈_전체를_쓰지_않는다():
+    lines = [start(1_000_000, 800_000), sell_amount("s1", 300_000, remaining=900_000, total_cost=1)]
+
+    assert fold(Holding.AMOUNT, lines).sells["s1"].sold_cost == won(200_000)
+
+
+def test_종류_없는_투자_항목은_금액_종목이고_통장은_그대로다():
+    assert holding_of(AssetGroup.INVESTMENT, None) is Holding.AMOUNT
+    assert holding_of(AssetGroup.CASH, None) is Holding.BALANCE
+    assert holding_of(AssetGroup.DEBT, None) is Holding.DEBT

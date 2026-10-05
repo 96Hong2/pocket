@@ -106,3 +106,7 @@ class Transaction(Entity, SoftDeleteMixin):
         str_enum_type(EntrySide, name="asset_entry_side"), nullable=True
     )
     asset_quantity: Mapped[Decimal | None] = mapped_column(Numeric(20, 8), nullable=True)
+    # 금액으로 적는 항목을 팔 때만. 팔고 남은 금액(0 이면 전부)과,
+    # 넣은 돈을 모를 때 적은 넣은 돈 전체.
+    asset_remaining: Mapped[Decimal | None] = mapped_column(Numeric(16, 0), nullable=True)
+    asset_cost_basis: Mapped[Decimal | None] = mapped_column(Numeric(16, 0), nullable=True)

@@ -65,3 +65,21 @@ export function toDonutRows(slices: AnalysisSlice[]): BreakdownRowOut[] {
     };
   });
 }
+
+/** `2026-03` 으로 끝나는 `count` 개 달, 오래된 것부터. 해를 넘겨도 이어진다. */
+export function monthsEndingAt(month: string, count: number): string[] {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const months: string[] = [];
+  for (let back = count - 1; back >= 0; back -= 1) {
+    const index = year * 12 + (monthNumber - 1) - back;
+    const y = Math.floor(index / 12);
+    const m = (index % 12) + 1;
+    months.push(`${y}-${String(m).padStart(2, '0')}`);
+  }
+  return months;
+}
+
+/** 늘면 is-up, 줄면 is-down. 색은 분석 화면 CSS 가 정한다. */
+export function toneOf(value: number): string {
+  return value > 0 ? 'is-up' : value < 0 ? 'is-down' : '';
+}

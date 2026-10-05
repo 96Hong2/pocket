@@ -46,7 +46,8 @@
 | 적금 지출이 저축·투자로 옮겨 가나 | `saving_hint_result` | 이름에 적금, 저축, 투자, 연금, 청약, IRP 가 든 지출 분류로 저장한 직후 저장 뒤 화면의 안내(기기마다 한 번)에 한 답(`answer`: `converted` 저축·투자로 바꿈·`kept` 「그냥 둘게요」·`dismissed` 답 없이 확인이나 ‹ 로 닫거나, 시트를 끌어내리거나 바깥을 눌러 닫음). 공유 가계부 저장 뒤에는 안 선다. **분류 이름과 금액, 고른 항목 이름은 싣지 않는다** |
 | 순자산 상세를 여나 | `asset_networth_opened` | 값 없음. 순자산 카드를 연 사람 중 5% 아래면 상세 시트를 걷는다 |
 | 분석 확인 창에서 고르나 | `asset_analysis_asked` | 범위(`scope`: `all`·`stock`·`cash`), 창이 선 까닭(`state`: `locked` 처음·`stale` 자산이 바뀌어 다시), 답(`answer`: `ok`·`close`) |
-| 분석을 어떻게 열었나 | `asset_analysis_opened` | 범위(`scope`), 광고(`ad`: `earned` 끝까지 봄·`watched` 중간에 닫음·`skipped` 광고 없이·`free` 자산이 그대로라 광고 없이), 광고 없이 열린 이유(`reason`: `no_group`·`unsupported`·`failed`·`stalled`). `earned` 와 `watched` 는 합치지 않는다 |
+| 분석을 어떻게 열었나 | `asset_analysis_opened` | 범위(`scope`), 광고(`ad`: `earned` 끝까지 봄·`watched` 중간에 닫음·`skipped` 광고 없이·`free` 자산이 그대로라 광고 없이, 또는 전체 분석을 연 뒤의 종류별 분석), 광고 없이 열린 이유(`reason`: `no_group`·`unsupported`·`failed`·`stalled`). `earned` 와 `watched` 는 합치지 않는다 |
+| 분석에서 큰 기록을 고치러 가나 | `asset_analysis_top_opened` | 「큰 저축·투자 Top 5」 에서 누른 줄의 순위(`rank`: 1~5). 2026-10-05~. **이름과 금액은 싣지 않는다** |
 | 캡처가 자산을 채우나 | `asset_capture` | 단계(`step`: `picked`·`read`·`failed`·`saved`·`cancelled`), 광고(`ad`: `watched`·`skipped`·`free_after_fail` 실패 다음 한 번 광고 없이), 읽은 줄 수(`rows`), 새 항목 수(`new_items`). **항목 이름과 금액은 싣지 않는다** |
 | 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나와 몇 장짜리인가(`cards`), 몇 장째에서 닫았나(`page`·`total`)와 끝까지 봤나(`finished`) |
 | 지난달 리포트를 보러 가나 | **`report_month_changed`** | 옮긴 쪽(`step`: `back`·`forward`), 도착한 달이 이번 달인가(`to`: `this`·`past`), 몇 달 전인가(`months_back`). 2026-09-27~. 지난달 리포트에 광고를 붙이기 전의 기준선이다. **그 달의 날짜와 금액은 싣지 않는다** |

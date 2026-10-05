@@ -132,9 +132,9 @@ interface FormState {
   label: string;
   /** 수량 종목의 보유 수량. 소수점이 든 글자 그대로. */
   qty: string;
-  /** 넣은 돈(수량 종목, 금액 종목). */
+  /** 넣은 돈(수량 종목, 금액 종목). 금액 종목은 비우면 모르는 것이다. */
   cost: string;
-  /** 금액 종목의 지금 금액. 비우면 넣은 돈과 같다. */
+  /** 금액 종목의 지금 금액. 넣은 돈을 적고 이것을 비우면 넣은 돈과 같다. */
   now: string;
   /** 통장, 연금, 보증금, 부채의 금액. */
   amount: string;
@@ -180,6 +180,7 @@ function initialState(saved: AssetItemOut | null, group: AssetGroup): FormState 
     qty: holding === 'quantity' ? (saved.quantity ?? '') : '',
     cost: holding === 'quantity' || holding === 'amount' ? cost : '',
     // 지금 금액을 따로 적은 적이 있을 때만 채운다. 안 적었으면 넣은 돈과 같은 값이 와 있다.
+    // 넣은 돈을 모르면 금액이 곧 지금 금액이다.
     now: holding === 'amount' && (saved.rate_kind === 'valuation' || amount !== cost) ? amount : '',
     amount: holding === 'balance' || holding === 'debt' ? amount : '',
     price: holding === 'quantity' ? wonDigits(saved.unit_price) : '',
@@ -197,10 +198,14 @@ function takesMonthly(group: AssetGroup): boolean {
   return group !== 'debt' && group !== 'deposit';
 }
 
-function canSaveState(state: FormState): boolean {
+function canSaveState(state: FormState, saved: AssetItemOut | null): boolean {
   if (takesMonthly(state.group) && state.monthly && num(state.monthlyAmount) <= 0) return false;
   switch (holdingOfState(state)) {
     case 'quantity':
+      // 금액만 있던 항목을 수량 종목으로 바꿀 때는 넣은 돈까지 적어야 한다. 금액이 0 이 되지 않게.
+      if (saved != null && holdingOf(saved.group, saved.kind) !== 'quantity' && state.cost === '') {
+        return false;
+      }
       return state.qty !== '' && state.qty !== '.';
     case 'amount':
       return state.cost !== '' || state.now !== '';
@@ -239,7 +244,8 @@ function toPutItem(state: FormState, initial: FormState, saved: AssetItemOut | n
     item.unit_price = state.price === '' ? null : num(state.price);
   } else if (holding === 'amount') {
     item.amount = state.now !== '' ? num(state.now) : num(state.cost);
-    item.cost_basis = state.cost !== '' ? num(state.cost) : num(state.now);
+    // 비우면 넣은 돈을 모르는 것이다. 지금 금액으로 채우면 지어낸 기준으로 수익률이 나온다.
+    item.cost_basis = state.cost !== '' ? num(state.cost) : null;
     item.price_noted_on = notedOn(state, initial, saved);
   } else {
     item.amount = num(state.amount);
@@ -279,7 +285,7 @@ interface AssetItemFormProps {
   onSell?: (item: AssetItemOut) => void;
 }
 
-/** 팔 보유가 있나. 수량 종목은 수량, 금액 종목은 지금 금액이 0 보다 커야 한다. */
+/** 팔 보유가 있나. 수량 종목은 수량, 금액 종목(넣은 돈 모르는 투자 항목 포함)은 금액이 0 보다 커야 한다. */
 function sellableOf(item: AssetItemOut | null): boolean {
   if (item?.item_key == null) return false;
   const holding = holdingOf(item.group, item.kind);
@@ -311,7 +317,7 @@ function AssetItemForm({
 
   const holding = holdingOfState(state);
   const unit = unitOf(state.kind);
-  const canSave = canSaveState(state) && !save.isPending;
+  const canSave = canSaveState(state, saved) && !save.isPending;
   const message = save.error instanceof ApiError ? save.error.message : null;
 
   function patch(next: Partial<FormState>): void {
@@ -451,11 +457,16 @@ function AssetItemForm({
           </>
         ) : holding === 'amount' ? (
           <div className="asset-sheet__two">
-            <AmountField label="넣은 돈" value={state.cost} onChange={(cost) => patch({ cost })} />
+            <AmountField
+              label="넣은 돈"
+              value={state.cost}
+              placeholder="모르면 비워 둬요"
+              onChange={(cost) => patch({ cost })}
+            />
             <AmountField
               label="지금 금액"
               value={state.now}
-              placeholder="모르면 비워 둬요"
+              placeholder={state.cost === '' ? undefined : '모르면 비워 둬요'}
               onChange={(now) => patch({ now })}
             />
           </div>

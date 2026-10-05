@@ -360,6 +360,41 @@ def test_모은_돈과_번_돈은_시작일_기간으로_센다(client: TestClie
     assert _get(client, "/api/v1/assets")["summary"]["month_saved"] == "350000"
 
 
+def test_분석의_어디에_모았나와_달마다_모은_돈과_큰_기록은_시작일_기간을_따른다(
+    client: TestClient, pin: Pin
+) -> None:
+    _set_start_day(client, 25)
+    put = client.put(
+        "/api/v1/assets",
+        json={"items": [{"group": "cash", "label": "적금", "amount": "0"}]},
+        headers=AUTH,
+    )
+    assert put.status_code == 200, put.text
+    key = put.json()["items"][0]["item_key"]
+    _add(client, date(2026, 9, 24), 100_000, kind="transfer", asset_item_key=key)
+    _add(client, date(2026, 9, 25), 300_000, kind="transfer", asset_item_key=key)
+    _add(client, date(2026, 10, 5), 50_000, kind="transfer", asset_item_key=key)
+
+    body = _get(client, "/api/v1/assets/analysis?scope=all")
+
+    # 「10월」 은 9월 25일 ~ 10월 24일이다. 9월 24일 것은 「9월」 막대에만 든다.
+    assert body["saving"]["saved"] == "350000"
+    assert [(row["label"], row["amount"]) for row in body["saved_items"]] == [("적금", "350000")]
+    assert [row["amount"] for row in body["large_saves"]] == ["300000", "50000"]
+    trend = body["saved_trend"]
+    assert [point["period_key"] for point in trend] == [
+        "2026-05",
+        "2026-06",
+        "2026-07",
+        "2026-08",
+        "2026-09",
+        "2026-10",
+    ]
+    assert (trend[0]["period_start"], trend[0]["period_end"]) == ("2026-04-25", "2026-05-24")
+    assert (trend[-1]["period_start"], trend[-1]["period_end"]) == ("2026-09-25", "2026-10-24")
+    assert [point["amount"] for point in trend] == ["0", "0", "0", "0", "100000", "350000"]
+
+
 # ── 시작일 바꾸기 ───────────────────────────────────────
 
 

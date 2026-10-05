@@ -79,26 +79,31 @@ export type SellInput =
       holding: 'amount';
       /** 금액 종목의 지금 금액(원). */
       currentAmount: number | string;
-      costBasis: number | string;
+      /** 넣은 돈(원). 모르면 null. */
+      costBasis: number | string | null;
       received: number | string;
+      /** 팔고 남은 금액(원). 0 이면 전부. null 이면 옛 규칙(받은 돈 ÷ 지금 금액). */
+      remaining: number | string | null;
+      /** 넣은 돈을 모를 때 적은 이 항목에 넣은 돈 전체(원). 비우면 null. */
+      totalCost?: number | string | null;
     };
 
 /** 미리보기를 못 세우는 까닭. `over_sell` 이면 「저장」 을 끈다. */
 export type SellBlock = 'no_quantity' | 'no_amount' | 'over_sell';
 
 export interface SellPreview {
-  /** 판 몫의 넣은 돈(원). */
-  soldCost: number;
-  /** 실현 수익(원) = 받은 돈 − 판 몫의 넣은 돈. */
-  gain: number;
+  /** 판 몫의 넣은 돈(원). 넣은 돈을 모르면 null. */
+  soldCost: number | null;
+  /** 실현 수익(원) = 받은 돈 − 판 몫의 넣은 돈. 넣은 돈을 모르면 null. */
+  gain: number | null;
   /** 실현 수익률(%) 문자열. 판 몫의 넣은 돈이 0 이면 null. */
   rate: string | null;
   /** 보유를 전부 팔았나(금액 종목은 지금 금액을 전부 뺐나). */
   all: boolean;
   /** 판 뒤 보유 수량. 금액 종목은 null. */
   remainingQuantity: string | null;
-  /** 판 뒤 넣은 돈(원). */
-  remainingCost: number;
+  /** 판 뒤 넣은 돈(원). 넣은 돈을 모르면 null, 다 팔았으면 0. */
+  remainingCost: number | null;
   /** 금액 종목의 판 뒤 지금 금액(원). 수량 종목은 null. */
   remainingAmount: number | null;
 }
@@ -106,10 +111,10 @@ export interface SellPreview {
 export type SellCheck = { ok: true; preview: SellPreview } | { ok: false; reason: SellBlock };
 
 export function previewSell(input: SellInput): SellCheck {
-  const cost = parseWon(input.costBasis) ?? 0n;
   const received = parseWon(input.received) ?? 0n;
 
   if (input.holding === 'quantity') {
+    const cost = parseWon(input.costBasis) ?? 0n;
     const held = parseQuantity(input.heldQuantity) ?? 0n;
     const sold = parseQuantity(input.soldQuantity);
     if (sold == null || sold <= 0n) return { ok: false, reason: 'no_quantity' };
@@ -132,22 +137,47 @@ export function previewSell(input: SellInput): SellCheck {
   }
 
   const current = parseWon(input.currentAmount) ?? 0n;
+  // 넣은 돈을 모르면 이 기록에 적은 넣은 돈 전체를 쓴다. 그것도 없으면 수익을 세지 않는다.
+  const cost = parseWon(input.costBasis) ?? parseWon(input.totalCost ?? null);
   if (received <= 0n) return { ok: false, reason: 'no_amount' };
-  if (received > current) return { ok: false, reason: 'over_sell' };
-  const all = received === current;
-  const soldCost = all ? cost : divHalfUp(cost * received, current);
+  const rest = parseWon(input.remaining);
+  let whole: bigint;
+  let left: bigint;
+  if (rest == null) {
+    if (received > current) return { ok: false, reason: 'over_sell' };
+    whole = current;
+    left = current - received;
+  } else {
+    // 판 몫 = 받은 돈 ÷ (받은 돈 + 남은 금액). 받은 돈이 지금 금액보다 커도 된다.
+    whole = received + rest;
+    left = rest;
+  }
+  const all = left === 0n;
+  const soldCost =
+    cost == null ? null : received === whole ? cost : divHalfUp(cost * received, whole);
   return {
     ok: true,
     preview: {
-      soldCost: Number(soldCost),
-      gain: Number(received - soldCost),
-      rate: ratePercent(received - soldCost, soldCost),
+      soldCost: soldCost == null ? null : Number(soldCost),
+      gain: soldCost == null ? null : Number(received - soldCost),
+      rate: soldCost == null ? null : ratePercent(received - soldCost, soldCost),
       all,
       remainingQuantity: null,
-      remainingCost: Number(cost - soldCost),
-      remainingAmount: Number(current - received),
+      // 다 팔았으면 남은 넣은 돈은 0 이다. 넣은 돈을 몰랐어도 그렇다(서버 장부 접기와 같다).
+      remainingCost: all ? 0 : cost == null || soldCost == null ? null : Number(cost - soldCost),
+      remainingAmount: Number(left),
     },
   };
+}
+
+/** 금액으로 파는 화면의 「남은 금액」 처음 값. 지금 금액 − 받은 돈, 0 아래면 0. */
+export function defaultRemaining(
+  currentAmount: number | string,
+  received: number | string,
+): number {
+  const current = parseWon(currentAmount) ?? 0n;
+  const got = parseWon(received) ?? 0n;
+  return current > got ? Number(current - got) : 0;
 }
 
 export type ValuationInput =
@@ -184,28 +214,41 @@ export function previewValuation(input: ValuationInput): Valuation {
   };
 }
 
+/** 금액으로 파는 화면의 칸. 남은 금액(0 이면 전부)과, 넣은 돈을 모를 때 적은 넣은 돈 전체. */
+export interface AmountSellFields {
+  remaining: number | string | null;
+  totalCost?: number | string | null;
+}
+
 /**
- * 「어디에」 로 고른 항목에서 바로 미리보기. 팔 수 없는 항목(통장, 부채, 종류 없는 옛 투자)이면 null.
- * 금액 종목의 지금 금액은 `amount`(지금 금액을 안 적었으면 서버가 넣은 돈을 둔다)다.
+ * 「어디에」 로 고른 항목에서 바로 미리보기. 팔 수 없는 항목(통장, 부채)이면 null.
+ * 금액 종목의 지금 금액은 `amount` 다. 넣은 돈(`cost_basis`)이 null 이면 모르는 것이다.
  */
 export function sellPreviewOf(
   item: AssetItemOut,
   soldQuantity: string,
   received: number | string,
+  fields: AmountSellFields = { remaining: null },
 ): SellCheck | null {
   const holding = holdingOf(item.group, item.kind);
-  const costBasis = item.cost_basis ?? item.amount;
   if (holding === 'quantity') {
     return previewSell({
       holding,
       heldQuantity: item.quantity ?? '0',
-      costBasis,
+      costBasis: item.cost_basis ?? item.amount,
       soldQuantity,
       received,
     });
   }
   if (holding === 'amount') {
-    return previewSell({ holding, currentAmount: item.amount, costBasis, received });
+    return previewSell({
+      holding,
+      currentAmount: item.amount,
+      costBasis: item.cost_basis ?? null,
+      received,
+      remaining: fields.remaining,
+      totalCost: fields.totalCost ?? null,
+    });
   }
   return null;
 }

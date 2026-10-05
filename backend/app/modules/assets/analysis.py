@@ -5,21 +5,46 @@
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.domain.asset_analysis import Analysis, AnalysisItem, AnalysisScope, build_analysis
+from app.domain.asset_analysis import (
+    Analysis,
+    AnalysisItem,
+    AnalysisScope,
+    SavedSlice,
+    build_analysis,
+    saved_slices,
+)
 from app.domain.money import Money
-from app.models import User
+from app.domain.period import BudgetPeriod
+from app.models import Transaction, User
 from app.models.asset import AssetItem as AssetItemRow
 from app.modules import ledger
 from app.modules.assets import entries, service
 from app.modules.goals import service as goals
 
-__all__ = ["AnalysisView", "build"]
+__all__ = ["SAVED_TREND_MONTHS", "TOP_SAVES", "AnalysisView", "SavedItem", "build"]
+
+# 「달마다 모은 돈」 막대 수. 리포트 「6개월 흐름」 과 같다.
+SAVED_TREND_MONTHS = 6
+# 「큰 저축·투자」 줄 수. 화면이 자를 수 없게 서버가 정한다.
+TOP_SAVES = 5
+
+
+@dataclass(frozen=True)
+class SavedItem:
+    """이번 달 모은 돈의 「어디에」 한 항목. row 는 그 키의 가장 최근 항목 줄이다.
+
+    같은 날 목록에서 지운 항목은 줄이 남지 않아 None 이다. 그 돈도 모은 돈이라 빼지 않는다.
+    """
+
+    slice: SavedSlice
+    row: AssetItemRow | None
 
 
 @dataclass(frozen=True)
@@ -30,6 +55,11 @@ class AnalysisView:
     # 지난달 대비가 견준 점. 전체 분석에서만.
     previous_month: str | None
     previous_effective_on: date | None
+    # 아래 셋도 전체 분석에서만. 판 기록은 모은 돈이 아니라 빠진다.
+    saved_items: tuple[SavedItem, ...] = ()
+    # 오래된 달부터 (기간, 모은 돈).
+    saved_trend: tuple[tuple[BudgetPeriod, Money], ...] = ()
+    large_saves: tuple[Transaction, ...] = ()
 
 
 def _money(value: Decimal | None) -> Money | None:
@@ -84,6 +114,12 @@ def build(session: Session, user: User, scope: AnalysisScope) -> AnalysisView:
     points = service.month_end_points(session, user, today, 2)
     previous = points[0] if len(points) == 2 else None
     goal = goals.active_goal(session, user)
+    months = [period]
+    for _ in range(SAVED_TREND_MONTHS - 1):
+        months.append(months[-1].previous_period())
+    months.reverse()
+    by_item = entries.saved_by_item(session, user, period)
+    heads = entries.item_heads(session, user, (key for key, _ in by_item), rows)
     return AnalysisView(
         analysis=build_analysis(
             scope,
@@ -95,4 +131,10 @@ def build(session: Session, user: User, scope: AnalysisScope) -> AnalysisView:
         goal=goals.evaluate(goal, today) if goal is not None else None,
         previous_month=previous.month.key if previous is not None else None,
         previous_effective_on=previous.effective_on if previous is not None else None,
+        saved_items=tuple(
+            SavedItem(slice=row, row=heads.get(uuid.UUID(row.key)))
+            for row in saved_slices([(str(key), amount) for key, amount in by_item])
+        ),
+        saved_trend=tuple(zip(months, entries.saved_by_period(session, user, months), strict=True)),
+        large_saves=tuple(entries.largest_saves(session, user, period, TOP_SAVES)),
     )

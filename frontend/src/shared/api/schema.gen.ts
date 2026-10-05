@@ -1477,6 +1477,48 @@ export interface components {
             realized_rate: string | null;
         };
         /**
+         * AnalysisSavedItemOut
+         * @description 이번 달 모은 돈의 「어디에」 한 항목. 큰 것부터. 이름과 그룹은 그 항목의 가장 최근 줄이다.
+         */
+        AnalysisSavedItemOut: {
+            /**
+             * Item Key
+             * Format: uuid
+             */
+            item_key: string;
+            group: components["schemas"]["AssetGroup"] | null;
+            kind: components["schemas"]["InvestKind"] | null;
+            /** Label */
+            label: string | null;
+            /** Amount */
+            amount: string;
+            /** Ratio */
+            ratio: string | null;
+        };
+        /**
+         * AnalysisSavedPointOut
+         * @description 달마다 모은 돈 막대 하나. 모은 것이 없는 달도 0 으로 들어온다.
+         */
+        AnalysisSavedPointOut: {
+            /**
+             * Period Key
+             * @description YYYY-MM, 기간의 이름 달
+             */
+            period_key: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Amount */
+            amount: string;
+        };
+        /**
          * AnalysisSavingOut
          * @description 이번 달 저축률. 번 돈이 0 이면 rate 가 null 이다.
          */
@@ -1509,7 +1551,8 @@ export interface components {
          * AssetAnalysisOut
          * @description 분석 한 벌. 서버는 잠금을 모른다. 화면이 본 지문과 fingerprint 를 견준다.
          *
-         *     all: summary, groups, returns, month_change, saving, bundles.
+         *     all: summary, groups, returns, month_change, saving, bundles, saved_items, saved_trend,
+         *     large_saves.
          *     stock: items, returns. cash: items, monthly_total. 안 쓰는 칸은 null 이나 빈 배열.
          */
         AssetAnalysisOut: {
@@ -1530,6 +1573,12 @@ export interface components {
             bundles?: components["schemas"]["AnalysisBundleOut"][];
             /** Monthly Total */
             monthly_total?: string | null;
+            /** Saved Items */
+            saved_items?: components["schemas"]["AnalysisSavedItemOut"][];
+            /** Saved Trend */
+            saved_trend?: components["schemas"]["AnalysisSavedPointOut"][];
+            /** Large Saves */
+            large_saves?: components["schemas"]["TransactionOut"][];
         };
         /**
          * AssetCaptureIn
@@ -1553,6 +1602,15 @@ export interface components {
             item_key?: string | null;
             /** Current Amount */
             current_amount?: string | null;
+            kind?: components["schemas"]["InvestKind"] | null;
+            /** Quantity */
+            quantity?: string | null;
+            /** Cost Basis */
+            cost_basis?: string | null;
+            /** Unit Price */
+            unit_price?: string | null;
+            /** Rate */
+            rate?: string | null;
         };
         /** AssetCaptureMetaOut */
         AssetCaptureMetaOut: {
@@ -3778,6 +3836,16 @@ export interface components {
              * @description 주식·ETF·코인만. 소수 8자리까지
              */
             asset_quantity?: number | string | null;
+            /**
+             * Asset Remaining
+             * @description 금액으로 적는 항목을 팔 때 팔고 남은 금액. 0 이면 전부. 안 보내면 옛 규칙
+             */
+            asset_remaining?: number | string | null;
+            /**
+             * Asset Cost Basis
+             * @description 넣은 돈을 모르는 항목을 팔 때 그 항목에 넣은 돈 전체. 모르면 안 보낸다
+             */
+            asset_cost_basis?: number | string | null;
             /** @description 어디에를 새로 만들 때 */
             new_asset?: components["schemas"]["NewAssetIn"] | null;
         };
@@ -3880,6 +3948,10 @@ export interface components {
             asset_side?: components["schemas"]["AssetSide"] | null;
             /** Asset Quantity */
             asset_quantity?: number | string | null;
+            /** Asset Remaining */
+            asset_remaining?: number | string | null;
+            /** Asset Cost Basis */
+            asset_cost_basis?: number | string | null;
             new_asset?: components["schemas"]["NewAssetIn"] | null;
         };
         /**

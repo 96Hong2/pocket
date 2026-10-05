@@ -11964,6 +11964,107 @@
         "title": "AnalysisReturnsOut",
         "description": "투자 수익률. 현재가나 판 기록을 적은 종목이 없으면 rows 가 비어 있다."
       },
+      "AnalysisSavedItemOut": {
+        "properties": {
+          "item_key": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Item Key"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetGroup"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "ratio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_key",
+          "group",
+          "kind",
+          "label",
+          "amount",
+          "ratio"
+        ],
+        "title": "AnalysisSavedItemOut",
+        "description": "이번 달 모은 돈의 「어디에」 한 항목. 큰 것부터. 이름과 그룹은 그 항목의 가장 최근 줄이다."
+      },
+      "AnalysisSavedPointOut": {
+        "properties": {
+          "period_key": {
+            "type": "string",
+            "title": "Period Key",
+            "description": "YYYY-MM, 기간의 이름 달"
+          },
+          "period_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Period End"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period_key",
+          "period_start",
+          "period_end",
+          "amount"
+        ],
+        "title": "AnalysisSavedPointOut",
+        "description": "달마다 모은 돈 막대 하나. 모은 것이 없는 달도 0 으로 들어온다."
+      },
       "AnalysisSavingOut": {
         "properties": {
           "saved": {
@@ -12136,6 +12237,27 @@
               }
             ],
             "title": "Monthly Total"
+          },
+          "saved_items": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisSavedItemOut"
+            },
+            "type": "array",
+            "title": "Saved Items"
+          },
+          "saved_trend": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisSavedPointOut"
+            },
+            "type": "array",
+            "title": "Saved Trend"
+          },
+          "large_saves": {
+            "items": {
+              "$ref": "#/components/schemas/TransactionOut"
+            },
+            "type": "array",
+            "title": "Large Saves"
           }
         },
         "type": "object",
@@ -12145,7 +12267,7 @@
           "total"
         ],
         "title": "AssetAnalysisOut",
-        "description": "분석 한 벌. 서버는 잠금을 모른다. 화면이 본 지문과 fingerprint 를 견준다.\n\nall: summary, groups, returns, month_change, saving, bundles.\nstock: items, returns. cash: items, monthly_total. 안 쓰는 칸은 null 이나 빈 배열."
+        "description": "분석 한 벌. 서버는 잠금을 모른다. 화면이 본 지문과 fingerprint 를 견준다.\n\nall: summary, groups, returns, month_change, saving, bundles, saved_items, saved_trend,\nlarge_saves.\nstock: items, returns. cash: items, monthly_total. 안 쓰는 칸은 null 이나 빈 배열."
       },
       "AssetCaptureIn": {
         "properties": {
@@ -12200,6 +12322,63 @@
               }
             ],
             "title": "Current Amount"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "cost_basis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Basis"
+          },
+          "unit_price": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
           }
         },
         "type": "object",
@@ -18195,6 +18374,42 @@
             "title": "Asset Quantity",
             "description": "주식·ETF·코인만. 소수 8자리까지"
           },
+          "asset_remaining": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Remaining",
+            "description": "금액으로 적는 항목을 팔 때 팔고 남은 금액. 0 이면 전부. 안 보내면 옛 규칙"
+          },
+          "asset_cost_basis": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Cost Basis",
+            "description": "넣은 돈을 모르는 항목을 팔 때 그 항목에 넣은 돈 전체. 모르면 안 보낸다"
+          },
           "new_asset": {
             "anyOf": [
               {
@@ -18607,6 +18822,40 @@
               }
             ],
             "title": "Asset Quantity"
+          },
+          "asset_remaining": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Remaining"
+          },
+          "asset_cost_basis": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999999999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Cost Basis"
           },
           "new_asset": {
             "anyOf": [

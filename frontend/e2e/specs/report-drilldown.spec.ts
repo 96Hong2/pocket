@@ -164,8 +164,8 @@ test('자산 화면에서 내 자산 분석과 종류별 분석에 다녀와도 
   await assets.analysisButton.click();
   await assetAnalysis.adConsentConfirm.click();
   await assetAnalysis.waitOpen('all');
+  // 전체 분석을 연 뒤라 종류별 분석은 광고 없이 열린다.
   await assetAnalysis.kindRow('cash').click();
-  await assetAnalysis.adConsentConfirm.click();
   await assetAnalysis.waitOpen('cash');
 
   // 종류별 분석의 뒤로는 자산 화면이다. 그 자산 화면은 여전히 리포트로 돌아갈 자리를 든다.

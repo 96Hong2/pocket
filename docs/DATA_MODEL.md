@@ -147,6 +147,7 @@ erDiagram
 | `category_id` | `uuid?` | 분류를 지우면 이 칸만 비고 거래는 남는다. FK 가 `SET NULL` 이지만 실제로는 소프트 삭제라 행이 안 지워지고, 서비스가 분류를 떼어 낸다 |
 | `source` | `keypad` \| `nl` \| `screenshot` \| `receipt` \| `asset_screenshot` \| `no_spend` | 어떤 경로로 들어왔는지 |
 | `asset_item_key` · `asset_side` · `asset_quantity` | null 허용 | 저축·투자. `type=transfer` 에 「어디에」 를 붙인 것이다(ADR-0045). 집계는 이 칸을 안 본다 |
+| `asset_remaining` · `asset_cost_basis` | null 허용 | 금액 종목을 팔 때만. 팔고 남은 금액(0 이면 전부)과, 넣은 돈을 모를 때 적은 넣은 돈 전체(ADR-0047). 장부 sell 줄의 `remaining` · `cost_basis` 로 넘어간다 |
 | `confidence` | `float` = 1.0 | 0~1. 사용자가 직접 넣은 값은 1.0 |
 | `excluded_from_budget` | `bool` = false | **거래목록·리포트에는 남고 예산 계산에서만 빠진다** |
 | `payment_method` | `credit` \| `debit` \| `cash` \| `null` | 신용카드·체크카드·현금. **지출과 환불에만 붙고** 수입·이체로 고치면 서비스가 비운다. `null` 이 「안 고름」이라 '모름' 값을 따로 두지 않는다 |
@@ -359,9 +360,9 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | `confidence` | 캡처 인식값의 신뢰도. 직접 입력이면 1.0 |
 | `sort_order` | 화면에 놓이는 순서. API 가 받은 순서대로 0 부터 붙인다 |
 | `item_key` | 스냅샷이 바뀌어도 같은 항목을 가리키는 키(uuid). 거래와 장부가 이 키로 항목을 찾는다. 배포 중 옛 리비전이 만든 행만 비어 있을 수 있다. (snapshot_id, item_key) 유일 |
-| `kind` | 투자 그룹만. `stock` \| `etf` \| `coin`(수량 종목) \| `fund` \| `bond` \| `other`(금액 종목) |
+| `kind` | 투자 그룹만. `stock` \| `etf` \| `coin`(수량 종목) \| `fund` \| `bond` \| `other`(금액 종목). 비어 있는 투자 항목도 금액 종목이다(ADR-0047) |
 | `monthly_amount` | 매달 넣는 돈. 선택. 0 보다 클 때만 「매달」 항목으로 본다(이름 맞추기, 분석의 매달 넣는 돈 합) |
-| `quantity` · `cost_basis` | 보유 수량(`numeric(20,8)`)과 넣은 돈. **장부를 접은 결과의 사본이다** |
+| `quantity` · `cost_basis` | 보유 수량(`numeric(20,8)`)과 넣은 돈. **장부를 접은 결과의 사본이다.** 금액 종목의 `cost_basis` 가 null 이면 넣은 돈을 모르는 것이고 지금 금액으로 채우지 않는다 |
 | `unit_price` · `price_noted_on` | 지금 1주 가격(수량 종목)과 지금 가격·금액을 적은 날. 날이 비어 있으면 평가 수익률을 내지 않는다. 금액 종목은 PUT 으로 지금 금액이 처음 오거나 바뀌면 그 날이 적힌다 |
 
 수량 종목의 `amount` 는 `quantity × unit_price`(원 단위 사사오입), 가격이 없으면 넣은 돈이다. 금액 종목의 `amount` 는 지금 금액이다.
@@ -377,7 +378,8 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | `side` | `buy`(넣었어요, 부채는 갚았어요) \| `sell`(팔았어요) \| `set`(여기서부터 이 값: 손 수정, 처음 장부가 생길 때의 시작 값) |
 | `quantity` | 수량 종목만 |
 | `amount` | buy 는 넣은 돈, sell 은 받은 돈, set 은 잔액이나 지금 금액 |
-| `cost_basis` | set 줄만. 종목의 넣은 돈(금액 종목은 넣은 돈과 지금 금액 두 값이다) |
+| `cost_basis` | set 줄은 종목의 넣은 돈(금액 종목은 넣은 돈과 지금 금액 두 값이다, null 이면 모름). sell 줄은 넣은 돈을 모르는 항목을 팔 때 적은 넣은 돈 전체 |
+| `remaining` | 금액 종목 sell 줄만. 팔고 남은 금액, 0 이면 전부. 판 몫 = 받은 돈 ÷ (받은 돈 + 남은 금액). null 인 옛 줄은 받은 돈 ÷ 지금 금액으로 접는다(ADR-0047) |
 | `transaction_id` | 거래에서 온 줄. 거래가 지워지면 이 줄도 지운 표시를 받는다 |
 | `occurred_on` | 거래 날짜(사용자 시간대). 순서는 이 날짜가 아니라 `created_at` 이다 |
 

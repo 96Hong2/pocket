@@ -312,14 +312,15 @@
   .report__trend-item {
     min-width: 0;
     display: grid;
-    grid-template-rows: var(--report-trend-track) auto;
+    /* 리포트 밖(자산 분석)에서 쓸 때도 같은 높이로 선다. */
+    grid-template-rows: var(--report-trend-track, 96px) auto;
     gap: 6px;
     justify-items: center;
   }
 
   .report__trend-track {
     width: 100%;
-    height: var(--report-trend-track);
+    height: var(--report-trend-track, 96px);
     display: flex;
     align-items: flex-end;
   }

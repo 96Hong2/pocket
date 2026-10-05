@@ -203,6 +203,20 @@ export async function reviewsOpened(page: Page): Promise<number> {
   return page.evaluate(() => window.__pocketReviews ?? 0);
 }
 
+/**
+ * 목 SDK 가 지금까지 받은 전면(리워드 포함) 광고 표시 요청 수. 문서마다 새로 센다.
+ *
+ * 목 광고는 화면에 아무것도 그리지 않고 스스로 닫혀서 화면으로는 못 잡는다.
+ */
+export async function adsShown(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const state = (
+      window as unknown as { __ait?: { state?: { sdkCallLog?: { method: string }[] } } }
+    ).__ait?.state;
+    return (state?.sdkCallLog ?? []).filter((entry) => entry.method === 'showFullScreenAd').length;
+  });
+}
+
 /** 그 이름으로 남은 로그만. 순서는 찍힌 순서 그대로다. */
 export async function logsNamed(page: Page, name: string): Promise<RecordedLog[]> {
   return (await readLogs(page)).filter((log) => log.name === name);

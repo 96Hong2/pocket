@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.amounts import MAX_AMOUNT
@@ -63,12 +63,17 @@ __all__ = [
     "ensure_today_snapshot",
     "has_ledger",
     "item_figures",
+    "item_heads",
+    "largest_saves",
     "latest_snapshot",
     "ledger_error",
+    "ledger_keys",
     "live_rows",
     "month_saved",
     "refold",
     "row_for_key",
+    "saved_by_item",
+    "saved_by_period",
     "snapshot_on",
     "start_line_if_new",
     "sync_transaction",
@@ -251,6 +256,23 @@ def has_ledger(session: Session, user: User, key: uuid.UUID) -> bool:
     return found is not None
 
 
+def ledger_keys(session: Session, user: User, keys: Iterable[uuid.UUID]) -> set[uuid.UUID]:
+    """장부 줄이 있는 항목의 키."""
+    wanted = list(set(keys))
+    if not wanted:
+        return set()
+    found = session.scalars(
+        select(AssetEntry.item_key)
+        .where(
+            AssetEntry.user_id == user.id,
+            AssetEntry.item_key.in_(wanted),
+            AssetEntry.deleted_at.is_(None),
+        )
+        .distinct()
+    ).all()
+    return set(found)
+
+
 def _next_stamp(session: Session, user: User, key: uuid.UUID) -> datetime:
     last = session.scalar(
         select(func.max(AssetEntry.created_at)).where(
@@ -273,6 +295,7 @@ def add_entry(
     occurred_on: date,
     quantity: Decimal | None = None,
     cost_basis: Decimal | None = None,
+    remaining: Decimal | None = None,
     transaction_id: uuid.UUID | None = None,
 ) -> AssetEntry:
     entry = AssetEntry(
@@ -282,6 +305,7 @@ def add_entry(
         amount=amount,
         quantity=quantity,
         cost_basis=cost_basis,
+        remaining=remaining,
         transaction_id=transaction_id,
         occurred_on=occurred_on,
         created_at=_next_stamp(session, user, key),
@@ -294,15 +318,17 @@ def add_entry(
 def set_line_values(
     row: AssetItemRow,
 ) -> tuple[Decimal, Decimal | None, Decimal | None]:
-    """스냅샷 행의 지금 값을 set 줄 (금액, 수량, 넣은 돈) 으로. 수량 종목의 금액은 넣은 돈이다."""
+    """스냅샷 행의 지금 값을 set 줄 (금액, 수량, 넣은 돈) 으로. 수량 종목의 금액은 넣은 돈이다.
+
+    금액 종목의 넣은 돈이 비어 있으면 모르는 것이다. 지금 금액으로 채우지 않는다.
+    """
     holding = holding_of(row.group, row.kind)
     if holding is Holding.QUANTITY:
         cost = row.cost_basis if row.cost_basis is not None else row.amount
         quantity = row.quantity if row.quantity is not None else Decimal(0)
         return cost, quantity, cost
     if holding is Holding.AMOUNT:
-        cost = row.cost_basis if row.cost_basis is not None else row.amount
-        return row.amount, None, cost
+        return row.amount, None, row.cost_basis
     return row.amount, None, None
 
 
@@ -331,6 +357,7 @@ def _line(entry: AssetEntry) -> LedgerLine:
         amount=Money(entry.amount),
         quantity=entry.quantity,
         cost_basis=Money(entry.cost_basis) if entry.cost_basis is not None else None,
+        remaining=Money(entry.remaining) if entry.remaining is not None else None,
     )
 
 
@@ -408,15 +435,26 @@ def sync_transaction(session: Session, user: User, tx: Transaction, today: date)
             entry.deleted_at = now
             entry = None
 
+    noted: AssetItemRow | None = None
     if _wants_entry(tx):
         key = tx.asset_item_key
         assert key is not None
-        side = tx.asset_side or EntrySide.BUY
+        # 요청에서 온 값은 AssetSide 다. 접기가 is 로 가르므로 EntrySide 로 바꿔 둔다.
+        side = EntrySide(tx.asset_side) if tx.asset_side is not None else EntrySide.BUY
         occurred_on = ledger.local_date(tx.occurred_at, ledger.user_tz(user))
+        row = row_for_key(ensure_today_snapshot(session, user, today), key)
+        if row is None and entry is None:
+            raise ApiError(ErrorCode.INVALID_REQUEST, "그 자산 항목을 찾지 못했어요.", 422)
+        # 남은 금액과 넣은 돈 전체는 금액 종목을 팔 때만 뜻이 있다.
+        by_amount = (
+            side == EntrySide.SELL
+            and row is not None
+            and holding_of(row.group, row.kind) is Holding.AMOUNT
+        )
+        remaining = tx.asset_remaining if by_amount else None
+        total_cost = tx.asset_cost_basis if by_amount else None
         if entry is None:
-            row = row_for_key(ensure_today_snapshot(session, user, today), key)
-            if row is None:
-                raise ApiError(ErrorCode.INVALID_REQUEST, "그 자산 항목을 찾지 못했어요.", 422)
+            assert row is not None
             start_line_if_new(session, user, row, today)
             add_entry(
                 session,
@@ -425,6 +463,8 @@ def sync_transaction(session: Session, user: User, tx: Transaction, today: date)
                 side=side,
                 amount=tx.amount,
                 quantity=tx.asset_quantity,
+                cost_basis=total_cost,
+                remaining=remaining,
                 occurred_on=occurred_on,
                 transaction_id=tx.id,
             )
@@ -432,11 +472,20 @@ def sync_transaction(session: Session, user: User, tx: Transaction, today: date)
             entry.side = side
             entry.amount = tx.amount
             entry.quantity = tx.asset_quantity
+            if row is not None:
+                entry.cost_basis = total_cost
+                entry.remaining = remaining
             entry.occurred_on = occurred_on
         touched.add(key)
+        # 팔고 남은 금액을 적었으면 지금 금액을 새로 적은 셈이다.
+        if remaining is not None:
+            noted = row
 
     session.flush()
     refold(session, user, today, touched)
+    if noted is not None:
+        noted.price_noted_on = today
+        session.flush()
 
 
 def drop_if_born_with(session: Session, user: User, tx: Transaction, today: date) -> None:
@@ -542,21 +591,98 @@ def check_planned(session: Session, user: User, planned: Sequence[PlannedLine]) 
             raise ApiError(ErrorCode.INVALID_REQUEST, "금액이 너무 커요.", 422)
 
 
+def _saved_where(user: User, start: datetime, end: datetime) -> list[ColumnElement[bool]]:
+    """모은 돈으로 세는 거래: 이체 중 「어디에」 가 있고 판 것이 아닌 것."""
+    return [
+        Transaction.user_id == user.id,
+        Transaction.deleted_at.is_(None),
+        Transaction.type == TransactionType.TRANSFER,
+        Transaction.asset_item_key.is_not(None),
+        or_(Transaction.asset_side.is_(None), Transaction.asset_side != EntrySide.SELL),
+        Transaction.occurred_at >= start,
+        Transaction.occurred_at < end,
+    ]
+
+
 def month_saved(session: Session, user: User, period: BudgetPeriod) -> Money:
     """그 달 모은 돈: 이체 중 「어디에」 가 있고 판 것이 아닌 합. 사용자 시간대의 달이다."""
     start, end = ledger.period_bounds(period, ledger.user_tz(user))
     total = session.scalar(
         select(func.coalesce(func.sum(Transaction.amount), 0)).where(
-            Transaction.user_id == user.id,
-            Transaction.deleted_at.is_(None),
-            Transaction.type == TransactionType.TRANSFER,
-            Transaction.asset_item_key.is_not(None),
-            or_(Transaction.asset_side.is_(None), Transaction.asset_side != EntrySide.SELL),
-            Transaction.occurred_at >= start,
-            Transaction.occurred_at < end,
+            *_saved_where(user, start, end)
         )
     )
     return Money(Decimal(total or 0))
+
+
+def saved_by_item(
+    session: Session, user: User, period: BudgetPeriod
+) -> list[tuple[uuid.UUID, Money]]:
+    """그 달 모은 돈을 「어디에」 항목마다 더한 것. 큰 것부터, 같으면 키 순."""
+    start, end = ledger.period_bounds(period, ledger.user_tz(user))
+    rows = session.execute(
+        select(Transaction.asset_item_key, func.sum(Transaction.amount))
+        .where(*_saved_where(user, start, end))
+        .group_by(Transaction.asset_item_key)
+    ).all()
+    found = [(key, Money(Decimal(total))) for key, total in rows if key is not None]
+    found.sort(key=lambda row: (-row[1].amount, str(row[0])))
+    return found
+
+
+def saved_by_period(session: Session, user: User, periods: Sequence[BudgetPeriod]) -> list[Money]:
+    """기간마다 모은 돈. 오래된 것부터 받은 기간을 한 번에 읽어 사용자 시간대 날짜로 나눈다."""
+    if not periods:
+        return []
+    tz = ledger.user_tz(user)
+    start, _ = ledger.period_bounds(periods[0], tz)
+    _, end = ledger.period_bounds(periods[-1], tz)
+    rows = session.execute(
+        select(Transaction.occurred_at, Transaction.amount).where(*_saved_where(user, start, end))
+    ).all()
+    totals = [Decimal(0) for _ in periods]
+    for occurred_at, amount in rows:
+        day = ledger.local_date(occurred_at, tz)
+        for index, period in enumerate(periods):
+            if period.contains(day):
+                totals[index] += Decimal(amount)
+                break
+    return [Money(total) for total in totals]
+
+
+def largest_saves(
+    session: Session, user: User, period: BudgetPeriod, limit: int
+) -> list[Transaction]:
+    """그 달 모은 기록 중 큰 것부터. 같은 금액이면 최근 것부터, 순서가 흔들리지 않게 id 까지."""
+    start, end = ledger.period_bounds(period, ledger.user_tz(user))
+    return list(
+        session.scalars(
+            select(Transaction)
+            .where(*_saved_where(user, start, end))
+            .order_by(Transaction.amount.desc(), Transaction.occurred_at.desc(), Transaction.id)
+            .limit(limit)
+        )
+    )
+
+
+def item_heads(
+    session: Session, user: User, keys: Iterable[uuid.UUID], current: Sequence[AssetItemRow]
+) -> dict[uuid.UUID, AssetItemRow]:
+    """키마다 가장 최근 항목 줄. 지금 목록(current)에 없으면 마지막으로 있던 스냅샷 줄이다."""
+    wanted = set(keys)
+    found = {row.item_key: row for row in current if row.item_key in wanted}
+    missing = wanted - found.keys()
+    if missing:
+        older = session.scalars(
+            select(AssetItemRow)
+            .join(AssetSnapshot, AssetItemRow.snapshot_id == AssetSnapshot.id)
+            .where(AssetSnapshot.user_id == user.id, AssetItemRow.item_key.in_(missing))
+            .order_by(AssetSnapshot.effective_on.desc(), AssetSnapshot.created_at.desc())
+        )
+        for row in older:
+            if row.item_key is not None:
+                found.setdefault(row.item_key, row)
+    return found
 
 
 # ── 읽기 ────────────────────────────────────────────────
@@ -650,6 +776,7 @@ def asset_result(session: Session, user: User, tx: Transaction) -> AssetResult |
     rate: Decimal | None = None
     entry = _transaction_entry(session, tx)
     if figures is not None and entry is not None and entry.id in figures.sells:
+        # 넣은 돈을 모르고 팔았으면 둘 다 None 이다.
         outcome = figures.sells[entry.id]
         realized, rate = outcome.realized, outcome.rate
     tz = ledger.user_tz(user)

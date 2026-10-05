@@ -91,7 +91,7 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 10월 25일부터 「11월」 이다. **화면은 「N월」 을 `period_start` 의 달로 그리지 않는다.** s ≥ 16 이면 틀린다.
 
 따르는 곳: `/budgets*`(추천 기준 기간과 이어쓰기 포함), `/reports/monthly`(기간, 6개월 흐름, 지난달 같은 날수),
-`/reports/category`, `/reports/closing`, 거래 저장·수정·묶음 저장 응답의 `budget`, 자산 분석의 이번 달 모은 돈과 번 돈, 자산 달마다 점.
+`/reports/category`, `/reports/closing`, 거래 저장·수정·묶음 저장 응답의 `budget`, 자산 분석의 이번 달 모은 돈과 번 돈(`saved_items`, `saved_trend`, `large_saves` 포함), 자산 달마다 점.
 따르지 않는 곳(달력 월 그대로): `/transactions/calendar`, `/transactions?year&month`, 공유 가계부 전부,
 목표의 달 셈, 반복 지출, 알림, 자산 체크인 달, 내보내기. `/transactions/summary` 는 합계가 달력 월이고
 `budget` 블록만 이름이 같은 달의 예산 기간이다(아래).
@@ -126,6 +126,13 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 비고 태그·결제수단은 지금 규칙대로 떨어진다). 지우기와 되돌리기는 장부 줄을 빼고 다시 접는다.
 「새 종목이나 통장」(`new_asset`)으로 만든 항목이 그 기록으로만 생겼으면(장부가 0 시작 값 줄과 그 기록 줄뿐이고,
 기록을 저장한 날 전 스냅샷에 없던 항목) 지우거나 되돌릴 때 오늘 스냅샷에서 그 행도 뺀다.
+
+**금액으로 적는 항목 팔기(ADR-0047).** 금액 종목(펀드, 채권, 기타, 종류 없는 투자 항목)을 팔 때 선택 칸 둘이 더 있다.
+`asset_remaining`(팔고 남은 금액, 0 이면 전부): 판 몫 = 받은 돈 ÷ (받은 돈 + 남은 금액)이고 팔고 난 항목 금액이 남은 금액이 된다.
+이 칸이 있으면 받은 돈이 지금 금액보다 커도 된다. 안 보내면(옛 번들) 지금 규칙(받은 돈 ≤ 지금 금액, 판 몫 = 받은 돈 ÷ 지금 금액) 그대로다.
+`asset_cost_basis`: 넣은 돈을 모르는 항목을 팔 때 그 항목에 넣은 돈 전체. 적으면 항목의 넣은 돈이 되고 그 판 기록부터 수익이 나온다.
+넣은 돈을 아는 항목이면 무시한다. 넣은 돈을 모른 채 팔면 응답 `asset.realized`, `asset.rate` 가 null 이다.
+두 칸은 `asset_side=sell` 이고 금액 종목일 때만 장부에 남는다. 넣었어요로 바꾸거나 어디에를 옮기면 비운다.
 
 응답 `transaction` 에 `asset_item_key`, `asset_side`, `asset_quantity`, `asset_label`(최신 스냅샷의 그 키 이름)이 붙고(목록도 같다),
 저장·수정 응답에는 저축·투자일 때만 `asset {item_key, label, item_amount, quantity, month_saved, realized, rate}` 블록이 온다.
@@ -1107,10 +1114,14 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 (group, label) 로 안 맞은 줄은 같은 자리의 아직 안 맞춘 같은 그룹 행을 잇는다. 옛 번들에서 이름만 바꿔도 종류, 수량, 넣은 돈과
 장부가 이어진다. 수량 종목은 옛 모양 PUT 의 `amount` 를 무시한다.
 장부가 있는 항목은 값이 바뀐 줄만 `set` 장부 줄을 남긴다. 장부가 있는 항목의 모양(통장, 수량 종목, 금액 종목, 부채)을
-바꾸는 종류·그룹 변경은 422 다.
+바꾸는 종류·그룹 변경은 422 다. 통장과 금액 종목 사이만은 받는다(판 줄이 있으면 통장으로 못 접어 422).
 
-금액 종목(펀드, 채권, 기타)은 `price_noted_on` 을 안 보내도, 지금 금액(`amount`)이 처음 오거나 바뀌었고 넣은 돈을 알면
-(`cost_basis` 를 보냈거나 기존 값이 있으면) 그 날(사용자 시간대의 오늘)을 `price_noted_on` 에 적는다. 그래서 항목 시트, 캡처,
+**종류 없는 투자 항목은 넣은 돈을 모르는 금액 종목이다(ADR-0047).** 캡처로 금액만 들어온 투자 줄이 그렇다. `cost_basis` 가 null 이면
+모르는 것이고, 서버는 지금 금액으로 채우지 않는다. 그래서 그 항목은 `rate` 가 없고 「팔았어요」 를 받는다.
+금액 종목의 `cost_basis` 를 비워(null) 보내면 넣은 돈은 모름이 된다. 다 팔아 금액이 0 이 되면 `cost_basis` 는 `0` 이다(모르던 항목도).
+
+금액 종목(펀드, 채권, 기타, 종류 없는 투자)은 `price_noted_on` 을 안 보내도, 지금 금액(`amount`)이나 넣은 돈이 처음 오거나
+바뀌었고 넣은 돈을 알면 그 날(사용자 시간대의 오늘)을 `price_noted_on` 에 적는다. 남은 금액을 적은 팔기도 그 날을 적는다. 그래서 항목 시트, 캡처,
 체크인 「바뀐 것만 고쳐요」 로 금액을 고쳐도 평가 수익률(`rate_kind: valuation`)이 선다.
 
 **옛 번들 결산의 알려진 차이.** 새 번들에서 모은 돈을 적은 달은 결산 `highlights` 맨 앞에 `saved` 가 들어간다.
@@ -1140,12 +1151,22 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 본문 `{ "image": "data:image/png;base64,…" }` 한 장(32~6,000,000자). 이미지 검사(형식, 4MiB, 매직바이트)는 줄글·캡처 입력과 같고
 하루 상한과 1분 상한도 나눠 쓴다(429 「자산 캡처 분석」). 사용량은 `source: asset_screenshot` 으로 남는다. 검토 단위(`ImportBatch`)를 만들지 않는다.
 
-- 모델 계약은 `AssetExtraction { rows: [{ name, amount, group }] }` 이다. 지시에 기존 항목 이름을 주고, 잔액 숫자만, 계좌번호 금지, 합계 줄 금지다.
-- 응답 `items[]`: `name`(가린 뒤), `amount`, `group`, `item_key`, `current_amount`. 기존 이름과 같으면 그 항목의 `item_key`, 지금 금액, 그 그룹.
-  새 이름이면 `item_key`·`current_amount` 가 null 이고 `group` 은 읽은 추정(모르면 `cash`).
-- **수량 종목(주식, ETF, 코인)에 맞은 줄은 목록에서 뺀다.** 잔액으로 덮으면 수량과 넣은 돈이 어긋난다.
+- 모델 계약은 `AssetExtraction { rows: [{ name, amount, group, kind, quantity, purchase, profit }] }` 이다. 지시에 기존 항목 이름을 주고,
+  화면 숫자만, 계좌번호 금지, 합계 줄 금지다. `kind`, `quantity`, `purchase`(매입금액), `profit`(평가손익, 부호 있음)은 증권 앱 보유 화면에
+  보일 때만 채우고 모델은 계산하지 않는다(ADR-0047).
+- **넣은 돈은 서버가 정한다.** 매입금액(0 이면 못 읽은 것으로 보고 넘어간다), 없으면 평가금액 − 평가손익. 0 이하로 나오면 못 읽은 것이다.
+  수량 종목 + 수량 + 넣은 돈이면 수량 종목이 되고 지금 1주 가격 = 평가금액 ÷ 수량(원 단위 사사오입). 넣은 돈만 있으면 금액 종목,
+  넣은 돈을 못 읽으면 금액만 있는 항목이다. 수량 × 그 1주 가격이 평가금액에서 0.5% 넘게 벗어나거나 1주 가격이 0 이면(1원 아래 코인)
+  새 줄은 넣은 돈과 지금 금액만 있는 금액 항목으로 주고, 이미 있는 수량 종목에 맞은 줄은 뺀다.
+- 응답 `items[]`: `name`(가린 뒤), `amount`, `group`, `item_key`, `current_amount`, `kind`, `quantity`, `cost_basis`, `unit_price`,
+  `rate`(평가 수익률, 항목 줄 칩과 같은 식). 기존 이름과 같으면 그 항목의 `item_key`, 지금 금액, 그 그룹.
+  새 이름이면 `item_key`·`current_amount` 가 null 이고 `group` 은 읽은 추정(모르면 `cash`). 넣은 돈을 못 읽은 줄은 새 칸이 다 null 이다.
+- **기존 항목에 맞은 줄도 읽은 값으로 채운다.** 수량 종목은 수량이 같게 읽히면 장부의 넣은 돈은 그대로 두고 1주 가격만 새로 준다.
+  수량이 다르면 읽은 수량과 넣은 돈을 주고(저장하면 `set` 장부 줄), 넣은 돈을 못 읽었거나 수량을 못 읽었으면 그 줄을 뺀다.
+  금액만 있던 항목은 넣은 돈과 수량을 얻으면 종목이 된다. 장부가 있는 항목은 모양(수량, 금액)을 바꾸지 않고 넣은 돈만 채운다.
 - 잔액을 못 찾은 그림이면 `items: []` 로 200 이다. 모델 호출이 실패하면 503 `PARSE_UNAVAILABLE` 「지금은 캡처를 읽지 못했어요」.
-- `meta`: `provider`, `is_stub`, `notes`(스텁이면 `stub_image`). 스텁은 그림을 안 읽고 늘 세 줄(청년도약계좌, 카카오뱅크, 연금저축펀드)을 낸다.
+- `meta`: `provider`, `is_stub`, `notes`(스텁이면 `stub_image`). 스텁은 그림을 안 읽고 늘 다섯 줄(청년도약계좌, 카카오뱅크, 연금저축펀드,
+  엔비디아 2주 평가금액 2,801,830 평가손익 +801,830, 마이크로소프트 47,446 금액만)을 낸다.
   못 읽은 그림은 pytest 가 모델을 갈아 끼우고, e2e 는 응답을 바꿔 본다.
 - 저장은 화면이 `PUT /assets` 에 `source: "screenshot"` 을 실어 한다. 값이 바뀐 줄은 `set` 장부 줄이 된다.
 
@@ -1187,7 +1208,7 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 
 | scope | 채우는 칸 |
 | --- | --- |
-| `all` | `summary`(자산·연금 뺀 자산·부채·순자산), `groups`(부채 뺀 그룹 조각, 금액 있는 것만, `ratio` 와 `ratio_without_pension`), `returns`, `month_change`, `saving`, `bundles` |
+| `all` | `summary`(자산·연금 뺀 자산·부채·순자산), `groups`(부채 뺀 그룹 조각, 금액 있는 것만, `ratio` 와 `ratio_without_pension`), `returns`, `month_change`, `saving`, `bundles`, `saved_items`, `saved_trend`, `large_saves` |
 | `stock` | 주식·ETF·펀드·채권 항목만. `items`(큰 것부터, `ratio`), `returns` |
 | `cash` | 현금·예적금 그룹 항목만. `items`(`monthly_amount` 포함), `monthly_total` |
 
@@ -1195,7 +1216,10 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 - `month_change`: 지난달 월말 점(`/assets/history` 와 같은 함수)과 지금 목록. 순자산과 그룹별 증감. 지난달 점이 없으면 null
 - `saving`: 이번 달 `saved`(= `summary.month_saved`) ÷ 번 돈 `income`. 번 돈이 0 이면 `rate` null. `goal` 은 진행 중 목표 한 줄
 - `bundles`: 종류별 입구(`stock`, `cash`), 항목이 있는 묶음만. 묶음마다 `fingerprint`
-- `fingerprint`: item_key 순으로 (group, kind, amount, quantity, cost_basis, unit_price, 판 기록 수·받은 돈·실현 수익)과 항목 목록의 sha256. 날짜, 스냅샷 id, 순서, 이름, `price_noted_on` 은 안 먹어서 체크인 복사만으로는 안 바뀐다. 잠금은 화면이 광고 뒤 `{scope: fingerprint}` 를 기기에 두고 견준다
+- `saved_items`: 이번 기간 모은 돈(`saving.saved` 와 같은 조건, 판 기록 빼고)을 「어디에」 항목마다. 큰 것부터 `amount`, `ratio`(모은 돈 합 대비 %), 이름과 그룹, 종류는 그 키의 가장 최근 항목 줄. 같은 날 목록에서 지운 항목은 줄이 안 남아 `group`, `kind`, `label` 이 null 이다(화면은 「지운 항목」)
+- `saved_trend`: 이번 기간으로 끝나는 여섯 기간, 오래된 것부터 `period_key`(기간의 이름 달), `period_start`, `period_end`, `amount`. 모은 것이 없는 기간도 0 으로 온다. 앞 기간은 `BudgetPeriod.previous_period()` 로 건다
+- `large_saves`: 이번 기간 모은 기록 중 큰 것 다섯(같으면 최근 것부터). 거래 목록과 같은 `TransactionOut` 이라 고치기 시트가 바로 연다
+- `fingerprint`: item_key 순으로 (group, kind, amount, quantity, cost_basis, unit_price, 판 기록 수·받은 돈·실현 수익)과 항목 목록의 sha256. 날짜, 스냅샷 id, 순서, 이름, `price_noted_on` 은 안 먹어서 체크인 복사만으로는 안 바뀐다. 잠금은 화면이 광고 뒤 `{scope: fingerprint}` 를 기기에 두고 견준다. 전체 분석이 열려 있는 동안 화면은 `bundles` 의 지문도 함께 적어 둬서 주식, 예/적금 분석은 광고 없이 열린다. 열린 전체 분석의 「큰 저축·투자 Top 5」 에서 기록을 고쳐 바뀐 지문도 광고 없이 적는다
 
 ### 목표
 

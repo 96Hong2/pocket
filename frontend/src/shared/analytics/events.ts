@@ -210,6 +210,8 @@ export const EVENTS = {
    * `earned` 와 `watched` 는 합치지 않는다(ADR-0024).
    */
   assetAnalysisOpened: 'asset_analysis_opened',
+  /** 분석 「큰 저축·투자 Top 5」 줄을 눌러 고치기 시트를 열었다(`rank`). 이름과 금액은 싣지 않는다. */
+  assetAnalysisTopOpened: 'asset_analysis_top_opened',
   /**
    * 잔액 캡처의 단계마다(`step`). 광고(`ad`), 읽은 줄 수(`rows`), 새 항목 수(`new_items`).
    * **이름과 금액은 싣지 않는다.**

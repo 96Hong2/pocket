@@ -33,7 +33,8 @@ describe('holdingOf', () => {
     expect(holdingOf('investment', 'stock')).toBe('quantity');
     expect(holdingOf('investment', 'coin')).toBe('quantity');
     expect(holdingOf('investment', 'fund')).toBe('amount');
-    expect(holdingOf('investment', null)).toBe('balance');
+    // 종류 없는 투자 항목(캡처로 금액만 들어온 것)은 넣은 돈을 모르는 금액 종목이라 팔 수 있다.
+    expect(holdingOf('investment', null)).toBe('amount');
     expect(holdingOf('pension', null)).toBe('balance');
     expect(holdingOf('debt', null)).toBe('debt');
   });
@@ -99,6 +100,12 @@ describe('항목 줄 한 줄', () => {
   it('금액 종목은 넣은 돈만, 통장은 줄이 없다', () => {
     expect(itemMetaOf(item({ kind: 'fund', cost_basis: '300000' }))).toBe('넣은 돈 300,000원');
     expect(itemMetaOf(item({ group: 'cash' }))).toBeNull();
+  });
+
+  it('넣은 돈을 모르는 투자 항목은 넣은 돈을 적지 않고 칩도 없다', () => {
+    const unknown = item({ kind: null, cost_basis: null, amount: '1577696' });
+    expect(itemMetaOf(unknown)).toBeNull();
+    expect(rateChipOf(unknown)).toBeNull();
   });
 });
 

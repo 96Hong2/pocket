@@ -92,9 +92,11 @@ export interface EditSheetProps {
   /** 무효화 대상 달. 홈·요약과 같은 키를 써야 숫자가 함께 맞는다. */
   month?: MonthParams;
   onClose: () => void;
+  /** 고친 것을 저장했거나 지웠다. 닫기만 한 것은 부르지 않는다. */
+  onSaved?: () => void;
 }
 
-export function EditSheet({ transaction, categories, month, onClose }: EditSheetProps) {
+export function EditSheet({ transaction, categories, month, onClose, onSaved }: EditSheetProps) {
   const analytics = useAnalytics();
   const toast = useToast();
   /*
@@ -191,6 +193,7 @@ export function EditSheet({ transaction, categories, month, onClose }: EditSheet
           month={month}
           dirtyRef={dirtyRef}
           onClose={onClose}
+          onSaved={onSaved}
           onMovedIn={afterMoveIn}
         />
       ) : null}
@@ -218,6 +221,7 @@ interface EditFormProps {
    */
   dirtyRef: { current: boolean };
   onClose: () => void;
+  onSaved?: () => void;
   /** 공유 가계부로 옮긴 뒤. 알림과 되돌리기는 시트 바깥이 띄운다. */
   onMovedIn: (book: BookOut, entryId: string) => void;
 }
@@ -275,7 +279,15 @@ const SIDES: SegmentedOption<Side>[] = [
   { value: 'sell', label: '팔았어요' },
 ];
 
-function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn }: EditFormProps) {
+function EditForm({
+  transaction,
+  categories,
+  month,
+  dirtyRef,
+  onClose,
+  onSaved,
+  onMovedIn,
+}: EditFormProps) {
   const analytics = useAnalytics();
   const update = useUpdateTransaction(month);
   const remove = useDeleteTransaction();
@@ -514,6 +526,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
         setFailed('edit');
         return;
       }
+      onSaved?.();
       /*
         저장하고 한참 뒤에 발견한 잘못.
 
@@ -589,6 +602,7 @@ function EditForm({ transaction, categories, month, dirtyRef, onClose, onMovedIn
     try {
       setFailed(null);
       await remove.mutateAsync(transaction.id);
+      onSaved?.();
       analytics.log(EVENTS.recordChanged, { action: 'delete', source: transaction.source });
       onClose();
     } catch {

@@ -21,9 +21,9 @@ import {
   iconUrl,
 } from '../../shared/ui';
 import { useInterstitial } from '../ads';
-import { assetGroupLabel } from '../assets';
+import { assetGroupLabel, itemMetaOf, rateChipOf } from '../assets';
 
-import { captureDelta, captureRowState, mergeCaptured } from './captureMerge';
+import { captureDelta, captureRowState, capturedItemOf, mergeCaptured } from './captureMerge';
 
 type Step = 'intro' | 'reading' | 'review' | 'fail' | 'denied' | 'unsupported';
 
@@ -234,6 +234,9 @@ export function CaptureSheet({ open, onClose, onManual }: CaptureSheetProps) {
             <ul className="capture-rows">
               {rows.map((row, index) => {
                 const state = captureRowState(row);
+                const view = capturedItemOf(row);
+                const meta = itemMetaOf(view);
+                const chip = rateChipOf(view);
                 return (
                   <li key={`${row.name}-${index}`}>
                     <button
@@ -261,8 +264,23 @@ export function CaptureSheet({ open, onClose, onManual }: CaptureSheetProps) {
                               ? formatSignedCurrency(captureDelta(row))
                               : `새 항목, ${assetGroupLabel(row.group)}`}
                         </i>
+                        {meta != null ? (
+                          <span className="capture-row__meta" data-numeric="">
+                            {meta}
+                          </span>
+                        ) : null}
                       </span>
-                      <b className="capture-row__amount">{formatCurrency(Number(row.amount))}</b>
+                      <span className="capture-row__right">
+                        <b className="capture-row__amount">{formatCurrency(Number(row.amount))}</b>
+                        {chip != null ? (
+                          <i
+                            className={`asset-chip asset-chip--${chip.tone}`}
+                            data-testid={TEST_IDS.captureRate}
+                          >
+                            {chip.text}
+                          </i>
+                        ) : null}
+                      </span>
                     </button>
                   </li>
                 );
