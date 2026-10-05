@@ -27,6 +27,7 @@ from app.domain.categories import FIXED_COST_CATEGORY
 from app.domain.money import Money
 from app.domain.period import BudgetPeriod
 from app.models import Budget, Category, CategoryBudget, User, UserPreference
+from app.modules import ledger
 from app.modules.categories import service as categories
 from app.modules.goals import service as goals
 
@@ -42,6 +43,7 @@ __all__ = [
     "is_period_editable",
     "list_category_budgets",
     "living_budget_suggestion",
+    "move_to_start_day",
     "require_open_period",
     "upsert_budget",
     "upsert_category_budget",
@@ -462,8 +464,10 @@ def ensure_carryover(session: Session, user: User, period: BudgetPeriod, today: 
 
     오늘이 속한 기간에만 만든다. 지난달이나 다음달을 넘겨보는 것만으로 유령 예산이 생기면
     없던 예산이 생겼다 사라지는 것처럼 보이고, 과거 기간은 지금 고칠 수도 없다.
+    그 사용자의 한 달 시작일로 만든 기간이어야 한다. 달력 월을 넘기면 시작일이 1 이 아닌
+    사람에게 아무도 안 보는 예산 줄이 생긴다.
     """
-    if not period.contains(today) or not period.is_full_month:
+    if period != ledger.period_for(user, today):
         return
 
     if find_budget(session, user, period) is not None:
@@ -485,3 +489,50 @@ def ensure_carryover(session: Session, user: User, period: BudgetPeriod, today: 
     if not result.should_copy or result.amount is None:
         return
     _copy_into(session, user, period, result.amount, result.category_budgets)
+
+
+# ── 한 달 시작일 바꾸기 ─────────────────────────────────
+
+
+def move_to_start_day(session: Session, user: User, start_day: int) -> None:
+    """예산 줄을 전부 새 시작일의 기간으로 옮긴다. **커밋은 부르는 쪽이 한다.**
+
+    줄마다 지금 기간의 이름 달(10월)을 읽고 새 시작일로 만든 그 달 기간으로 옮긴다.
+    지난 달도 옮긴다. 그래야 지난 리포트와 결산이 같은 이름의 예산을 그대로 본다.
+    지운 줄도 옮긴다. 그 줄이 자리를 지켜야 이어쓰기가 지운 예산을 되살리지 않는다.
+    카테고리 예산은 예산 줄에 딸려 있어 함께 따라온다.
+
+    같은 이름으로 모이는 줄이 둘이면(시작일을 바꾸는 사이에 다른 요청이 옛 기간에 이어쓴 경우)
+    살아 있는 것, 그다음 나중에 고친 것 하나만 남긴다. `(user_id, period_start)` 가 유일이라
+    둘 다 옮길 수 없다.
+    """
+    rows = list(session.scalars(select(Budget).where(Budget.user_id == user.id).with_for_update()))
+    by_key: dict[str, list[Budget]] = {}
+    for row in rows:
+        by_key.setdefault(BudgetPeriod(row.period_start, row.period_end).key, []).append(row)
+
+    moves: list[tuple[Budget, BudgetPeriod]] = []
+    for key, group in by_key.items():
+        group.sort(key=lambda r: (r.deleted_at is None, r.updated_at), reverse=True)
+        keep, *extra = group
+        for row in extra:
+            session.delete(row)
+        year, month = (int(part) for part in key.split("-"))
+        moves.append((keep, BudgetPeriod.of_month(year, month, start_day)))
+    session.flush()
+
+    # 한 줄씩 옮긴다. 옮길 자리에 아직 안 옮긴 줄이 앉아 있으면 그 줄부터 비켜 준다.
+    pending = [
+        (row, target)
+        for row, target in moves
+        if (row.period_start, row.period_end) != (target.start, target.end)
+    ]
+    while pending:
+        seated = {row.period_start: row for row, _ in pending}
+        ready = [item for item in pending if seated.get(item[1].start) in (None, item[0])]
+        if not ready:
+            raise RuntimeError("예산 기간을 옮길 순서를 정하지 못했다")
+        for row, target in ready:
+            row.period_start, row.period_end = target.start, target.end
+        session.flush()
+        pending = [item for item in pending if item not in ready]

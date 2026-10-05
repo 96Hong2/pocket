@@ -581,7 +581,7 @@
           "transactions"
         ],
         "summary": "Calendar",
-        "description": "달력 격자용 날짜별 합계. 기본 기간은 사용자 시간대의 이번 달이다.",
+        "description": "달력 격자용 날짜별 합계. 기본 기간은 사용자 시간대의 이번 달이다.\n\n달력은 한 달 시작일과 상관없이 늘 달력 월이다(ADR-0046).",
         "operationId": "calendar_api_v1_transactions_calendar_get",
         "parameters": [
           {
@@ -727,6 +727,7 @@
           "transactions"
         ],
         "summary": "Summary",
+        "description": "달력 화면 위 합계. 합계는 달력 월이고, 예산 블록은 이름이 같은 달의 예산 기간이다.\n\n시작일이 25 면 10월 달력의 예산 블록은 9월 25일 ~ 10월 24일 예산이다. 예산을 달력 월로\n다시 세면 홈과 같은 달 예산이 두 숫자가 되고, 그 달력 월에 예산 줄을 이어쓰게 된다.",
         "operationId": "summary_api_v1_transactions_summary_get",
         "parameters": [
           {
@@ -4335,7 +4336,7 @@
           "assets"
         ],
         "summary": "History",
-        "description": "달마다 월말 순자산 점. 이번 달 점은 오늘까지의 가장 늦은 스냅샷이다.",
+        "description": "달마다 월말 순자산 점. 이번 달 점은 오늘까지의 가장 늦은 스냅샷이다.\n\n달은 한 달 시작일로 자른 기간이고 `month` 는 그 이름 달이다. 시작일 1 이면 달력 월이다.",
         "operationId": "history_api_v1_assets_history_get",
         "parameters": [
           {
@@ -13659,6 +13660,10 @@
             "format": "date",
             "title": "Period End"
           },
+          "period_key": {
+            "type": "string",
+            "title": "Period Key"
+          },
           "amount": {
             "anyOf": [
               {
@@ -13788,6 +13793,7 @@
         "required": [
           "period_start",
           "period_end",
+          "period_key",
           "amount",
           "budgeted_spend",
           "remaining_budget",
@@ -14387,6 +14393,10 @@
             "format": "date",
             "title": "Period End"
           },
+          "period_key": {
+            "type": "string",
+            "title": "Period Key"
+          },
           "is_closed": {
             "type": "boolean",
             "title": "Is Closed"
@@ -14440,6 +14450,7 @@
         "required": [
           "period_start",
           "period_end",
+          "period_key",
           "is_closed",
           "has_any_transaction",
           "highlights",
@@ -16150,6 +16161,10 @@
             "format": "date",
             "title": "Period End"
           },
+          "period_key": {
+            "type": "string",
+            "title": "Period Key"
+          },
           "has_any_transaction": {
             "type": "boolean",
             "title": "Has Any Transaction"
@@ -16253,6 +16268,7 @@
         "required": [
           "period_start",
           "period_end",
+          "period_key",
           "has_any_transaction",
           "month_expense",
           "month_income",
@@ -16613,13 +16629,20 @@
                 "type": "null"
               }
             ]
+          },
+          "month_start_day": {
+            "type": "integer",
+            "maximum": 28.0,
+            "minimum": 1.0,
+            "title": "Month Start Day"
           }
         },
         "type": "object",
         "required": [
           "budget_auto_carryover",
           "home_hero",
-          "last_record_method"
+          "last_record_method",
+          "month_start_day"
         ],
         "title": "PreferencesOut"
       },
@@ -16645,6 +16668,19 @@
                 "type": "null"
               }
             ]
+          },
+          "month_start_day": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 28.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month Start Day"
           }
         },
         "type": "object",
@@ -18273,6 +18309,10 @@
             "format": "date",
             "title": "Period End"
           },
+          "period_key": {
+            "type": "string",
+            "title": "Period Key"
+          },
           "expense": {
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -18288,6 +18328,7 @@
         "required": [
           "period_start",
           "period_end",
+          "period_key",
           "expense",
           "income"
         ],

@@ -62,6 +62,8 @@ export interface paths {
         /**
          * Calendar
          * @description 달력 격자용 날짜별 합계. 기본 기간은 사용자 시간대의 이번 달이다.
+         *
+         *     달력은 한 달 시작일과 상관없이 늘 달력 월이다(ADR-0046).
          */
         get: operations["calendar_api_v1_transactions_calendar_get"];
         put?: never;
@@ -79,7 +81,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Summary */
+        /**
+         * Summary
+         * @description 달력 화면 위 합계. 합계는 달력 월이고, 예산 블록은 이름이 같은 달의 예산 기간이다.
+         *
+         *     시작일이 25 면 10월 달력의 예산 블록은 9월 25일 ~ 10월 24일 예산이다. 예산을 달력 월로
+         *     다시 세면 홈과 같은 달 예산이 두 숫자가 되고, 그 달력 월에 예산 줄을 이어쓰게 된다.
+         */
         get: operations["summary_api_v1_transactions_summary_get"];
         put?: never;
         post?: never;
@@ -459,6 +467,8 @@ export interface paths {
         /**
          * History
          * @description 달마다 월말 순자산 점. 이번 달 점은 오늘까지의 가장 늦은 스냅샷이다.
+         *
+         *     달은 한 달 시작일로 자른 기간이고 `month` 는 그 이름 달이다. 시작일 1 이면 달력 월이다.
          */
         get: operations["history_api_v1_assets_history_get"];
         put?: never;
@@ -2132,6 +2142,8 @@ export interface components {
              * Format: date
              */
             period_end: string;
+            /** Period Key */
+            period_key: string;
             /** Amount */
             amount: string | null;
             /** Budgeted Spend */
@@ -2442,6 +2454,8 @@ export interface components {
              * Format: date
              */
             period_end: string;
+            /** Period Key */
+            period_key: string;
             /** Is Closed */
             is_closed: boolean;
             /** Has Any Transaction */
@@ -3044,6 +3058,8 @@ export interface components {
              * Format: date
              */
             period_end: string;
+            /** Period Key */
+            period_key: string;
             /** Has Any Transaction */
             has_any_transaction: boolean;
             /** Month Expense */
@@ -3243,6 +3259,8 @@ export interface components {
             budget_auto_carryover: boolean;
             home_hero: components["schemas"]["HomeHero"];
             last_record_method: components["schemas"]["RecordMethod"] | null;
+            /** Month Start Day */
+            month_start_day: number;
         };
         /**
          * PreferencesPatch
@@ -3256,6 +3274,8 @@ export interface components {
             /** Budget Auto Carryover */
             budget_auto_carryover?: boolean | null;
             home_hero?: components["schemas"]["HomeHero"] | null;
+            /** Month Start Day */
+            month_start_day?: number | null;
         };
         /**
          * ProfilePatch
@@ -3825,6 +3845,8 @@ export interface components {
              * Format: date
              */
             period_end: string;
+            /** Period Key */
+            period_key: string;
             /** Expense */
             expense: string;
             /** Income */

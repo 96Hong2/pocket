@@ -10,7 +10,7 @@ from fastapi import APIRouter
 
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES
-from app.api.months import MonthQuery
+from app.api.months import UserMonthQuery
 from app.modules import ledger
 from app.modules.budgets import service as budgets
 from app.modules.budgets.schemas import to_budget_state
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/reports", tags=["reports"], responses=ERROR_RESPONSE
 
 
 @router.get("/monthly", response_model=MonthlyReportOut)
-def monthly(session: DbSession, user: CurrentUser, period: MonthQuery) -> MonthlyReportOut:
+def monthly(session: DbSession, user: CurrentUser, period: UserMonthQuery) -> MonthlyReportOut:
     today = ledger.today_for(user)
     month = period or ledger.period_for(user, today)
     report = service.build_monthly(session, user, month, today=today)
@@ -40,6 +40,7 @@ def monthly(session: DbSession, user: CurrentUser, period: MonthQuery) -> Monthl
     return MonthlyReportOut(
         period_start=month.start,
         period_end=month.end,
+        period_key=month.key,
         has_any_transaction=report.has_any_transaction,
         month_expense=report.totals.month_expense.amount,
         month_income=report.totals.month_income.amount,
@@ -74,6 +75,7 @@ def monthly(session: DbSession, user: CurrentUser, period: MonthQuery) -> Monthl
             TrendPointOut(
                 period_start=window.start,
                 period_end=window.end,
+                period_key=window.key,
                 expense=totals.month_expense.amount,
                 income=totals.month_income.amount,
             )
@@ -85,7 +87,7 @@ def monthly(session: DbSession, user: CurrentUser, period: MonthQuery) -> Monthl
 
 
 @router.get("/closing", response_model=ClosingOut)
-def closing(session: DbSession, user: CurrentUser, period: MonthQuery) -> ClosingOut:
+def closing(session: DbSession, user: CurrentUser, period: UserMonthQuery) -> ClosingOut:
     """월간 결산. 카드 넉 장이 그리는 것을 한 응답으로 준다.
 
     **아무것도 저장하지 않는다.** 결산을 열어 봤다는 표시는 기기에만 남는다.

@@ -65,6 +65,9 @@ class BudgetStateOut(BaseModel):
 
     period_start: date
     period_end: date
+    # 기간의 이름 달 "YYYY-MM". 한 달 시작일이 16 이상이면 `period_start` 의 다음 달이다.
+    # 화면의 「N월」 과 캐시 열쇠는 이 칸으로 정한다.
+    period_key: str
     # 정하지 않았으면 null. 이 값이 null 이면 아래 예산 기반 값도 전부 null 이다.
     amount: Decimal | None
     # 예산에 반영되는 지출. month_expense 와 달리 예산 제외 거래를 빼고 환불을 되돌린다.
@@ -212,6 +215,7 @@ def to_budget_state(
     return BudgetStateOut(
         period_start=period.start,
         period_end=period.end,
+        period_key=period.key,
         amount=_amount(status.budget_amount),
         budgeted_spend=status.budgeted_spend.amount,
         remaining_budget=_amount(status.remaining_budget),

@@ -1,6 +1,6 @@
 """설정 API 스키마.
 
-지금 여는 값은 자동 이어쓰기, 홈 표시 방식, 마지막 기록 방식 셋이다.
+지금 여는 값은 자동 이어쓰기, 홈 표시 방식, 마지막 기록 방식, 한 달 시작일 넷이다.
 앞의 둘은 화면이 읽고 쓰지만 마지막 기록 방식은 읽기만 연다. 그 값은 사용자가 고르는 것이
 아니라 거래를 저장할 때 서버가 남기는 흔적이라, 화면이 쓸 수 있으면 실제로 쓴 방식과
 어긋난 값이 들어올 자리가 생긴다. 알림처럼 아직 화면이 없는 설정은 여기 열지 않는다.
@@ -11,8 +11,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.domain.period import MAX_START_DAY, MIN_START_DAY
 from app.models.preference import HomeHero, RecordMethod
 
 __all__ = ["PreferencesOut", "PreferencesPatch"]
@@ -25,6 +26,8 @@ class PreferencesOut(BaseModel):
     home_hero: HomeHero
     # 마지막에 쓴 기록 방식. 홈이 기록 시트를 이 탭으로 연다. 아직 한 건도 없으면 null.
     last_record_method: RecordMethod | None
+    # 한 달 시작일(1 ~ 28). 예산·리포트·결산의 기간이 이 날에 시작한다. 기본 1.
+    month_start_day: int = Field(ge=MIN_START_DAY, le=MAX_START_DAY)
 
 
 class PreferencesPatch(BaseModel):
@@ -37,3 +40,5 @@ class PreferencesPatch(BaseModel):
 
     budget_auto_carryover: bool | None = None
     home_hero: HomeHero | None = None
+    # 바꾸면 예산 줄이 같은 이름 달의 새 기간으로 함께 옮겨 간다.
+    month_start_day: int | None = Field(default=None, ge=MIN_START_DAY, le=MAX_START_DAY)
