@@ -166,6 +166,12 @@ test.describe('첫 화면', () => {
     await recordSheet.destination.pill('내 가계부').click();
     await expect(recordSheet.kindChip('수입')).toBeEnabled();
     await expect(recordSheet.kindChip('이체')).toBeEnabled();
+
+    // 공유 가계부 기록에는 태그 칸이 없다. 둘째 화면에 「＃ 태그」 칩이 서지 않는다.
+    await recordSheet.destination.pill('우리 집').click();
+    await recordSheet.next();
+    await expect(recordSheet.amountTitle).toHaveText('얼마 썼어요?');
+    await expect(recordSheet.tagChip).toHaveCount(0);
   });
 });
 
@@ -188,6 +194,9 @@ test.describe('둘째 화면', () => {
     await expect(recordSheet.kindGroup).toBeHidden();
     await expect(recordSheet.dayButton).toBeHidden();
     await expect(recordSheet.wayGroup).toBeHidden();
+    // 걷은 작은 글씨. 금액 아래 안내와 분류 아래 카테고리 관리 안내가 다시 서면 안 된다.
+    await expect(recordSheet.input.hint).toHaveCount(0);
+    await expect(recordSheet.sheet).not.toContainText('앞에 보일 분류를 고를 수 있어요');
 
     await recordSheet.input.enterAmount(12_000);
     await recordSheet.input.pickCategory('식비');
@@ -208,6 +217,24 @@ test.describe('둘째 화면', () => {
     await recordSheet.input.saveButton.click();
     await recordSheet.feedback.waitSaved();
     await expect(recordSheet.feedback.savedLabel).toBeVisible();
+  });
+
+  test('분류만 고르고 ‹ 로 첫 화면에 갔다 와도 그 분류가 골라져 있다', async ({
+    home,
+    recordSheet,
+  }) => {
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.next();
+
+    await recordSheet.input.pickCategory('식비');
+    await expect(recordSheet.input.pickedCategory).toContainText('식비');
+    await recordSheet.back();
+    await expect(recordSheet.wayGroup).toBeVisible();
+    await recordSheet.next();
+    await expect(recordSheet.input.pickedCategory).toContainText('식비');
   });
 });
 
@@ -288,10 +315,17 @@ test.describe('저장 뒤 화면', () => {
     await home.recordButton.click();
     await recordSheet.waitOpen();
     await recordSheet.chooseKind('이체');
+    // 이체에는 태그 칩도, 걷은 이체 안내 줄도 없다.
+    await expect(recordSheet.amountTitle).toHaveText('얼마 옮겼어요?');
+    await expect(recordSheet.tagChip).toHaveCount(0);
+    await expect(recordSheet.sheet).not.toContainText('내 계좌끼리 옮긴 돈');
+    await expect(recordSheet.sheet).not.toContainText('지출과 수입에 안 들어가요');
     await recordSheet.input.enterAmount(100_000);
     await recordSheet.input.saveButton.click();
     await recordSheet.feedback.waitSaved();
 
+    // 분류가 없어도 줄 이름은 「기록」 이 아니라 「이체」 다.
+    await expect(recordSheet.feedback.savedRowTitle).toHaveText('이체');
     await expect(recordSheet.feedback.memoOpener).toBeVisible();
     await expect(recordSheet.feedback.merchantOpener).toHaveCount(0);
     await expect(recordSheet.feedback.paymentGroup).toHaveCount(0);
@@ -320,6 +354,13 @@ test.describe('뒤로 가기', () => {
     await recordSheet.next();
     await expect(recordSheet.input.amountText).toHaveText(formatCurrency(12_000));
     await expect(recordSheet.tagChip).toHaveText('＃ 출장');
+
+    // 종류를 바꾸면 태그를 비운다. 지출 태그가 수입 기록에 실리면 안 된다.
+    await recordSheet.back();
+    await recordSheet.kindChip('수입').click();
+    await recordSheet.next();
+    await expect(recordSheet.amountTitle).toHaveText('얼마 벌었어요?');
+    await expect(recordSheet.tagChip).toHaveText('＃ 태그');
   });
 
   test('날짜와 태그 단계의 ‹ 는 그 앞 화면으로 간다', async ({ home, prep, recordSheet }) => {
@@ -390,7 +431,11 @@ test.describe('뒤로 가기', () => {
     await recordSheet.waitClosed();
   });
 
-  test('저장 뒤 화면의 ‹ 와 폰 뒤로가기는 창을 닫는다', async ({ home, page, recordSheet }) => {
+  test('저장 뒤 화면의 ‹ 와 폰 뒤로가기는 적어 둔 상호를 보내고 창을 닫는다', async ({
+    home,
+    page,
+    recordSheet,
+  }) => {
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
@@ -398,16 +443,247 @@ test.describe('뒤로 가기', () => {
     await recordSheet.input.enterAmount(12_000);
     await recordSheet.input.pickCategory('식비');
     await recordSheet.feedback.waitSaved();
+    await recordSheet.feedback.openMerchant();
+    await recordSheet.feedback.merchantField.fill('역전우동');
     await recordSheet.feedback.backButton.click();
     await recordSheet.waitClosed();
+    await expect(home.today.row('역전우동')).toBeVisible();
 
     await home.recordButton.click();
     await recordSheet.waitOpen();
     await recordSheet.input.enterAmount(5_000);
     await recordSheet.input.pickCategory('식비');
     await recordSheet.feedback.waitSaved();
+    await recordSheet.feedback.openMerchant();
+    // 칸에서 빠져나오지 않은 채 누른다. blur 가 아니라 「확인」 과 같은 길이 상호를 보내야 한다.
+    await recordSheet.feedback.merchantField.fill('김밥천국');
     await pressSystemBack(page);
     await recordSheet.waitClosed();
+    await expect(home.today.row('김밥천국')).toBeVisible();
+  });
+
+  test('「그만둘까요?」 창이 떠 있을 때 뒤로가기와 Esc 는 그 창만 접는다', async ({
+    home,
+    page,
+    recordSheet,
+  }) => {
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.input.enterAmount(3_000);
+
+    await recordSheet.dragDown();
+    await expect(recordSheet.leave.dialog).toBeVisible();
+    await pressSystemBack(page);
+    await expect(recordSheet.leave.dialog).toHaveCount(0);
+    await expect(recordSheet.amountTitle).toBeVisible();
+
+    await recordSheet.dragDown();
+    await expect(recordSheet.leave.dialog).toBeVisible();
+    await recordSheet.closeByEsc();
+    await expect(recordSheet.leave.dialog).toHaveCount(0);
+    await expect(recordSheet.amountTitle).toBeVisible();
+    await expect(recordSheet.input.amountText).toHaveText(formatCurrency(3_000));
+
+    await expect
+      .poll(async () => (await logsNamed(page, 'record_leave_asked')).map((log) => log.params.result))
+      .toEqual(['asked', 'stayed', 'asked', 'stayed']);
+    expect(await logsNamed(page, 'record_back')).toHaveLength(0);
+  });
+
+  test('앞날 확인 창은 뒤로가기면 그 창만 접히고, 「날짜 고치기」 는 「언제예요?」 로 간다', async ({
+    home,
+    page,
+    recordSheet,
+  }) => {
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.chooseDay(shiftDay(today(), 1));
+    await recordSheet.next();
+    await recordSheet.input.enterAmount(5_000);
+
+    await recordSheet.input.pickCategory('식비');
+    await expect(recordSheet.futureDayConfirm.dialog).toBeVisible();
+    await pressSystemBack(page);
+    await expect(recordSheet.futureDayConfirm.dialog).toHaveCount(0);
+    await expect(recordSheet.amountTitle).toBeVisible();
+
+    await recordSheet.input.pickCategory('식비');
+    await expect(recordSheet.futureDayConfirm.dialog).toBeVisible();
+    await recordSheet.futureDayConfirm.fixButton.click();
+    await expect(recordSheet.sheet.getByText('언제예요?', { exact: true })).toBeVisible();
+    await recordSheet.dayRow('오늘').click();
+    await expect(recordSheet.dayButton).toContainText(`오늘 ${dayText(today())}`);
+
+    // 날을 오늘로 고쳤으니 둘째 화면에 들어서도 앞날 창이 다시 뜨지 않는다. 적던 금액은 남는다.
+    await recordSheet.next();
+    await expect(recordSheet.amountTitle).toBeVisible();
+    await expect(recordSheet.futureDayConfirm.dialog).toHaveCount(0);
+    await expect(recordSheet.input.amountText).toHaveText(formatCurrency(5_000));
+  });
+});
+
+test.describe('글로 쓰기', () => {
+  test('저장한 결과 화면의 뒤로가기와 ‹ 는 창을 닫고, 다시 열면 빈 입력칸이다', async ({
+    home,
+    page,
+    prep,
+    recordSheet,
+  }) => {
+    // 예산이 있어야 예전에는 저장 뒤에 남은 예산 문장이 섰다.
+    await prep.setBudget(500_000);
+
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.chooseWay('글로 쓰기');
+    await expect(recordSheet.nl.textarea).toBeVisible();
+    // 걷은 작은 글씨.
+    await expect(recordSheet.sheet).not.toContainText('한 번에 여러 건을 적어도 돼요');
+
+    await recordSheet.nl.analyze('점심 12000');
+    await recordSheet.nl.save();
+    await expect(recordSheet.nl.panel).not.toContainText('남은 예산');
+
+    await test.step('로그: 종류 칩이 없는 방법이라 kind 가 없고, 저장 결과에 시간이 실린다', async () => {
+      const setup = (await logsNamed(page, 'record_setup_done')).at(-1)?.params;
+      expect(setup?.way).toBe('nl');
+      expect(setup).not.toHaveProperty('kind');
+      const saved = (await logsNamed(page, 'save_result')).at(-1)?.params;
+      expect(saved).toMatchObject({ method: 'text', result: 'ok', defaults: false });
+      expect(typeof saved?.flow_ms).toBe('number');
+      expect(typeof saved?.setup_ms).toBe('number');
+      // 줄글은 둘째 화면을 지나지 않는다.
+      expect(saved).not.toHaveProperty('amount_ms');
+    });
+
+    await pressSystemBack(page);
+    await recordSheet.waitClosed();
+
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.chooseWay('글로 쓰기');
+    await expect(recordSheet.nl.textarea).toBeVisible();
+    await expect(recordSheet.nl.textarea).toHaveValue('');
+    await expect(recordSheet.nl.savedTitle).toHaveCount(0);
+
+    await recordSheet.nl.analyze('저녁 9000');
+    await recordSheet.nl.save();
+    await recordSheet.back();
+    await recordSheet.waitClosed();
+  });
+
+  test('검토 화면 ‹ 로 버리면 묻고 답한 것이 남고, 서버의 검토 묶음도 지운다', async ({
+    home,
+    page,
+    recordSheet,
+  }) => {
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    // 지난 날을 골라 두어도 「날짜가 없는 건 …로 적어요」 안내는 걷었다.
+    await recordSheet.chooseDay(shiftDay(today(), -1));
+    await recordSheet.chooseWay('글로 쓰기');
+    await expect(recordSheet.sheet).not.toContainText('날짜가 없는 건');
+    await recordSheet.nl.analyze('점심 12000');
+
+    await recordSheet.back();
+    await expect(recordSheet.panelLeave.dialog).toBeVisible();
+    await recordSheet.panelLeave.stayButton.click();
+    await expect(recordSheet.panelLeave.dialog).toHaveCount(0);
+
+    const deleted = page.waitForRequest(
+      (request) => request.method() === 'DELETE' && /\/api\/v1\/imports\//.test(request.url()),
+    );
+    await recordSheet.leavePanel();
+    await deleted;
+
+    await expect
+      .poll(async () =>
+        (await logsNamed(page, 'record_leave_asked')).map((log) => [
+          log.params.result,
+          log.params.pending,
+        ]),
+      )
+      .toEqual([
+        ['asked', 1],
+        ['stayed', 1],
+        ['asked', 1],
+        ['left', 1],
+      ]);
+    expect((await logsNamed(page, 'record_leave_asked'))[0].params.reason).toBe('parsed');
+    await expect
+      .poll(async () => (await logsNamed(page, 'review_cancelled')).map((log) => log.params))
+      .toMatchObject([{ method: 'text', candidate_count: 1 }]);
+  });
+
+  test('검토 화면 「취소」 로 닫으면 record_closed 가 cancel 로 남는다', async ({
+    home,
+    page,
+    recordSheet,
+  }) => {
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.chooseWay('글로 쓰기');
+    await recordSheet.nl.analyze('점심 12000');
+    await recordSheet.nl.cancelButton.click();
+    await recordSheet.waitClosed();
+
+    await expect
+      .poll(async () => (await logsNamed(page, 'record_closed')).at(-1)?.params)
+      .toMatchObject({ step: 'nl', how: 'cancel', drafted: 'none' });
+  });
+});
+
+/** 태그 조회만 막는다. CORS 헤더가 없으면 앱이 서버 오류가 아니라 네트워크 실패로 읽는다. */
+const TAGS = '**/api/v1/tags*';
+const TAGS_DOWN = {
+  status: 500,
+  headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' },
+  body: JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: '' } }),
+};
+
+test.describe('태그를 못 불러왔을 때', () => {
+  test.use({
+    // 우리가 막은 응답이다. 브라우저가 그것을 콘솔에 적는 것이고 앱이 낸 오류가 아니다.
+    consoleErrorAllowList: [/Failed to load resource.*500/],
+  });
+
+  test('태그 단계에 오류와 「다시 시도」 가 서고, 다시 시도하면 목록이 온다', async ({
+    home,
+    page,
+    prep,
+    recordSheet,
+  }) => {
+    await prep.addTag('출장');
+    await page.route(TAGS, (route) =>
+      route.request().method() === 'GET' ? route.fulfill(TAGS_DOWN) : route.continue(),
+    );
+
+    await home.open();
+    await home.waitReady();
+    await home.recordButton.click();
+    await recordSheet.waitOpen();
+    await recordSheet.next();
+    await recordSheet.tagChip.click();
+
+    // 서버 오류는 한 번 더 불러 본 뒤에야 실패로 확정된다.
+    await expect(recordSheet.sheet.getByText('태그를 불러오지 못했어요', { exact: true })).toBeVisible(
+      { timeout: 10_000 },
+    );
+    const retry = recordSheet.sheet.getByRole('button', { name: '다시 시도', exact: true });
+    await expect(retry).toBeVisible();
+
+    await page.unroute(TAGS);
+    await retry.click();
+    await expect(recordSheet.tagOption('출장')).toBeVisible();
   });
 });
 
@@ -469,6 +745,18 @@ for (const viewport of [
         expect(await horizontalScrollers(page)).toEqual([]);
         const chip = await recordSheet.tagChip.boundingBox();
         expect(chip?.width ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(120);
+        // 폭만으로는 말줄임이 먹었는지 모른다. flex 계열이면 글자가 잘리기만 하고 「…」 가 안 붙는다.
+        const clip = await recordSheet.tagChip.evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            cut: element.scrollWidth > element.clientWidth,
+            textOverflow: style.textOverflow,
+            display: style.display,
+          };
+        });
+        expect(clip.cut).toBe(true);
+        expect(clip.textOverflow).toBe('ellipsis');
+        expect(['flex', 'inline-flex']).not.toContain(clip.display);
       });
     });
   });

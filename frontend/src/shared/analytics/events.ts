@@ -516,8 +516,11 @@ export type RecordStep = 'setup' | 'amount' | 'nl' | 'photo';
 /** 저장 없이 닫힐 때 적어 둔 것. 금액을 넣었나(`typed`), 읽어 온 결과가 있었나(`parsed`). */
 export type RecordDrafted = 'none' | 'typed' | 'parsed';
 
-/** 저장 없이 닫은 길. 시트가 알려 주는 넷에 뒤로가기와 「관리」 로 나간 것을 더한다. */
-export type RecordCloseHow = 'back' | 'dim' | 'drag' | 'handle' | 'esc' | 'manage';
+/**
+ * 저장 없이 닫은 길. 시트가 알려 주는 넷에 뒤로가기와 「관리」 로 나간 것을 더한다.
+ * `cancel` 은 검토 화면 「취소」 로 닫힌 것이다.
+ */
+export type RecordCloseHow = 'back' | 'dim' | 'drag' | 'handle' | 'esc' | 'manage' | 'cancel';
 
 /**
  * 어느 이벤트에도 싣지 않는 키. 금액, 수량, 값, 이름, 상호, 메모.
@@ -544,7 +547,8 @@ type FlowParam = { flow_id?: string };
 export type EventParamMap = CheckedMap<{
   record_setup_done: FlowParam & {
     way: RecordWay;
-    kind: RecordKind;
+    /** 직접 입력일 때만. 종류 칩은 다른 방법에는 서지 않는다. */
+    kind?: RecordKind;
     book: BookSide;
     day: 'today' | 'past';
     changed: SetupChanged;

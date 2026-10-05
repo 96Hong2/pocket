@@ -146,6 +146,8 @@ test('촬영을 취소하면 아무 말도 하지 않고 첫 화면 그대로다
   await expect(recordSheet.receipt.pickAlert).toHaveCount(0);
   await expect(recordSheet.receipt.panelPickButton).toBeVisible();
   await expect(recordSheet.receipt.readLine).toHaveCount(0);
+  // 걷은 사진 안내 줄이 패널에 다시 서면 안 된다.
+  await expect(recordSheet.sheet).not.toContainText('영수증이 잘 보이게 찍어주세요');
   // 잠금이 풀려야 다시 찍거나 다른 탭으로 갈 수 있다.
   await expect(recordSheet.closeButton).toBeVisible();
   await expect(recordSheet.backButton).toBeEnabled();

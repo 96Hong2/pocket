@@ -122,10 +122,17 @@ test('앞날을 고르면 저장할 때 한 번 묻고, 그대로 저장할 수 
   await expect(ask.dialog).toContainText(formatDayLabel(future));
   await expect(recordSheet.feedback.headline).toHaveCount(0);
 
-  // 「날짜 고치기」 를 고르면 그대로 남는다. 잃는 것이 없다.
+  // 「날짜 고치기」 는 날짜를 고르는 「언제예요?」 로 간다. 날짜 칸은 첫 화면에만 있다.
   await ask.fixButton.click();
   await expect(ask.dialog).toHaveCount(0);
   await expect(recordSheet.feedback.headline).toHaveCount(0);
+  await expect(recordSheet.sheet.getByText('언제예요?', { exact: true })).toBeVisible();
+
+  // 고치지 않고 돌아와도 잃는 것이 없다. 고른 날과 적던 금액이 그대로다.
+  await recordSheet.back();
+  await expect(recordSheet.dayButton).toContainText(`${formatDayLabel(future)} (`);
+  await recordSheet.next();
+  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(6_000));
 
   // 다시 눌러 「이 날짜로 저장」 을 고르면 그 날로 들어간다.
   await recordSheet.input.pickCategory('식비');

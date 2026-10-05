@@ -23,7 +23,7 @@ import {
 
 import { AdConsent } from '../ads';
 
-import { ImportReview } from './ImportReview';
+import { ImportReview, type ImportSaveTimes } from './ImportReview';
 import { ParseProgress, type ParseStep } from './ParseProgress';
 import { PhotoCreditLine } from './PhotoCreditLine';
 import type { PhotoAdPlan, PhotoCreditsHandle } from './usePhotoCredits';
@@ -133,6 +133,10 @@ export interface ImageImportTabProps {
   onBusyChange: (busy: boolean) => void;
   /** 지금 닫으면 잃을 건수. 껍데기가 시트 크기와 닫기 확인을 이 값으로 정한다. */
   onReviewChange?: (pending: number) => void;
+  /** 바깥이 검토 묶음을 버릴 때 부르는 길. 검토 화면이 걸어 둔다. */
+  discardRef?: { current: () => void };
+  /** 저장을 누른 때의 시간. 검토 화면이 save_result 에 싣는다. */
+  saveTimes?: () => ImportSaveTimes;
   onDone: () => void;
   /** 저장이 성공한 순간. 닫기보다 앞선다. 공유 가계부에 적었으면 그 id 도 준다. */
   onSaved?: (day: string | null, bookId: string | null) => void;
@@ -179,6 +183,8 @@ export function ImageImportTab({
   flowId,
   onBusyChange,
   onReviewChange,
+  discardRef,
+  saveTimes,
   onDone,
   onSaved,
   fallbackAction,
@@ -231,6 +237,8 @@ export function ImageImportTab({
         onRestart={() => setBatch(null)}
         onDone={onDone}
         onSaved={onSaved}
+        discardRef={discardRef}
+        saveTimes={saveTimes}
         testId={mode.panelTestId}
         // 한 장에서 여러 건이 오는 캡처에서만 쓸모가 있다. 영수증은 보통 한 건이다.
         allowBulkCategory={kind === 'capture'}
@@ -338,6 +346,7 @@ export function ImageImportTab({
       >
         {pickFailure != null ? '다시 시도' : mode.pickLabel}
       </Button>
+      {/* 첫 화면 버튼 아래에도 같은 줄이 있다. 광고가 뜨는 버튼마다 바로 아래에서 미리 알린다. */}
       <PhotoCreditLine credits={credits} />
 
       {/* 사진을 고른 뒤, 광고가 뜨기 바로 전에 선다. 여기서 「닫기」 면 아무 일도 없다. */}

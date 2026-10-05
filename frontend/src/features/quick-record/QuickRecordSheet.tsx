@@ -61,6 +61,7 @@ import {
   PhotoCreditLine,
   usePhotoCredits,
   type ImageImportHandle,
+  type ImportSaveTimes,
 } from '../imports';
 
 import { FeedbackPanel } from './FeedbackPanel';
@@ -253,6 +254,11 @@ export function QuickRecordSheet({
   }
 
   function requestClose(reason?: SheetCloseReason): void {
+    // 「그만둘까요?」 를 묻는 중이면 그 창만 접는다. 뒤 화면은 그대로 둔다.
+    if (asking) {
+      answer('stayed');
+      return;
+    }
     // 만드는 중이면 만들기만 접고 기록 화면으로 돌아간다. 묻는 일은 그쪽이 한다.
     if (composingRef.current) {
       leaveComposeRef.current();
@@ -274,6 +280,8 @@ export function QuickRecordSheet({
   }
 
   useOverlayBackClose(open, () => requestClose(), saving);
+  // 묻는 창이 뜬 뒤에 걸려 단계 뒤로가기보다 먼저 받는다.
+  useOverlayBackClose(asking, () => answer('stayed'));
 
   return (
     <BottomSheet
@@ -547,6 +555,26 @@ function RecordBody({
   const [panelAsk, setPanelAsk] = useState<{ count: number; how: 'sheet' | 'back' } | null>(
     null,
   );
+  /** 저장까지 마쳐 결과 화면을 든 패널. 이 패널의 ‹ 는 「확인」 과 같다. */
+  const importSavedRef = useRef<Partial<Record<RecordTab, boolean>>>({});
+  /** 패널마다 검토 묶음을 버리는 길. 검토 화면이 서 있을 때만 걸린다. */
+  const nlDiscardRef = useRef<() => void>(() => {});
+  const captureDiscardRef = useRef<() => void>(() => {});
+  const receiptDiscardRef = useRef<() => void>(() => {});
+  const discardRefs: Record<PanelTab, { current: () => void }> = {
+    nl: nlDiscardRef,
+    capture: captureDiscardRef,
+    receipt: receiptDiscardRef,
+  };
+
+  /**
+   * 저장하려다 앞날이라 물어보는 중. 누르면 그대로 이어서 저장한다.
+   * 고른 분류와 금액을 여기 들고 있는다.
+   */
+  const [futureAsk, setFutureAsk] = useState<{
+    category: CategoryOut | null;
+    amount: number;
+  } | null>(null);
 
   /**
    * 키패드로 한 건을 저장해 확인 화면이 떠 있나.
@@ -643,16 +671,28 @@ function RecordBody({
     if (busy || done || step === 'setup') return;
     // 버릴지 묻는 중에 또 뒤로 가면 묻던 창만 접는다. 읽어 온 것은 그대로 둔다.
     if (panelAsk != null) {
-      setPanelAsk(null);
+      stayPanel();
+      return;
+    }
+    // 앞날인지 묻는 창도 그 창만 접는다. 남겨 두면 날을 고친 뒤 둘째 화면에서 다시 뜬다.
+    if (step === 'amount' && futureAsk != null) {
+      setFutureAsk(null);
       return;
     }
     if (step === 'tag' && tagFormOpen && (kindTags?.length ?? 0) > 0) {
       setTagComposing(false);
       return;
     }
-    if ((step === 'nl' || step === 'photo') && (reviewCounts[tab] ?? 0) > 0) {
-      setPanelAsk({ count: reviewCounts[tab] ?? 0, how });
-      return;
+    if (step === 'nl' || step === 'photo') {
+      // 저장까지 마친 결과 화면이면 「확인」 과 같은 길로 닫는다.
+      if (importSavedRef.current[tab]) {
+        finish();
+        return;
+      }
+      if ((reviewCounts[tab] ?? 0) > 0) {
+        askPanel(how);
+        return;
+      }
     }
     analytics.log(EVENTS.recordBack, { from: step, how }, { flowId, kind: 'click' });
     if (step === 'tag') {
@@ -663,13 +703,45 @@ function RecordBody({
     go('setup');
   }
 
-  /** 읽어 온 것을 버리고 첫 화면으로. 그 패널을 새로 세워 비운다. */
-  function leavePanel(): void {
-    if (panelAsk == null || tab === 'keypad' || step === 'setup') return;
-    analytics.log(EVENTS.recordBack, { from: step, how: panelAsk.how }, { flowId, kind: 'click' });
-    const key = tab;
+  /** 읽어 온 것을 버릴지 묻는다. 시트를 닫으려 할 때와 같은 로그를 남긴다. */
+  function askPanel(how: 'sheet' | 'back'): void {
+    const count = reviewCounts[tab] ?? 0;
+    analytics.log(
+      EVENTS.recordLeaveAsked,
+      { result: 'asked', pending: count, reason: 'parsed' },
+      { kind: 'impression', flowId },
+    );
+    setPanelAsk({ count, how });
+  }
+
+  function stayPanel(): void {
+    if (panelAsk == null) return;
+    analytics.log(
+      EVENTS.recordLeaveAsked,
+      { result: 'stayed', pending: panelAsk.count },
+      { kind: 'click', flowId },
+    );
+    setPanelAsk(null);
+  }
+
+  /** 그 패널을 새로 세워 비운다. 읽어 둔 것과 저장 결과 화면이 함께 사라진다. */
+  function resetPanel(key: PanelTab): void {
     setPanelKeys((prev) => ({ ...prev, [key]: prev[key] + 1 }));
     setReviewCounts((prev) => ({ ...prev, [key]: 0 }));
+    importSavedRef.current[key] = false;
+  }
+
+  /** 읽어 온 것을 버리고 첫 화면으로. 서버의 검토 묶음도 「취소」 처럼 지운다. */
+  function leavePanel(): void {
+    if (panelAsk == null || tab === 'keypad' || step === 'setup') return;
+    analytics.log(
+      EVENTS.recordLeaveAsked,
+      { result: 'left', pending: panelAsk.count },
+      { kind: 'click', flowId },
+    );
+    analytics.log(EVENTS.recordBack, { from: step, how: panelAsk.how }, { flowId, kind: 'click' });
+    discardRefs[tab].current();
+    resetPanel(tab);
     setPanelAsk(null);
     go('setup');
   }
@@ -775,6 +847,8 @@ function RecordBody({
     if (savedEntry == null && !shared) rememberMethod();
     const waiting = PANEL_TABS.find((key) => key !== tab && (reviewCounts[key] ?? 0) > 0);
     if (waiting != null) {
+      // 일을 마친 패널은 새로 세운다. 그대로 두면 첫 화면에서 다시 골랐을 때 끝난 화면이 선다.
+      if (tab !== 'keypad') resetPanel(tab);
       setSaved(null);
       setSavedEntry(null);
       // 적을 곳은 그대로 둔다. 읽어 둔 것이 있는 동안 적을 곳이 잠겨 있다.
@@ -782,11 +856,24 @@ function RecordBody({
       go(waiting === 'nl' ? 'nl' : 'photo');
       return;
     }
+    // 검토 화면 「취소」 로 저장 없이 닫힌다. leave() 를 지나지 않아 여기서 남긴다.
+    if (savedRef.current !== flowId) {
+      analytics.log(
+        EVENTS.recordClosed,
+        {
+          step: step === 'day' ? 'setup' : step === 'tag' ? 'amount' : step,
+          drafted: draftedRef.current() ? 'typed' : 'none',
+          how: 'cancel',
+        },
+        { flowId },
+      );
+    }
     onDone();
   }
 
   /** 줄글·사진으로 읽은 것을 저장한 뒤. 공유 가계부에 적었으면 날로 옮겨 가지 않는다. */
-  function afterImportSaved(savedDay: string | null, savedBook: string | null): void {
+  function afterImportSaved(key: PanelTab, savedDay: string | null, savedBook: string | null): void {
+    importSavedRef.current[key] = true;
     markRecorded();
     if (savedBook != null) return;
     rememberMethod();
@@ -812,7 +899,8 @@ function RecordBody({
       EVENTS.recordSetupDone,
       {
         way: recordMethodOf(tab),
-        kind: recordKind,
+        // 종류 칩은 직접 입력에만 선다. 다른 방법이면 남아 있는 값을 싣지 않는다.
+        ...(tab === 'keypad' ? { kind: recordKind } : {}),
         book: shared ? 'shared' : 'mine',
         day: isBackfill ? 'past' : 'today',
         changed: changedFields(),
@@ -858,15 +946,6 @@ function RecordBody({
     setTagId(null);
   }
 
-  /**
-   * 저장하려다 앞날이라 물어보는 중. 누르면 그대로 이어서 저장한다.
-   * 고른 분류와 금액을 여기 들고 있는다.
-   */
-  const [futureAsk, setFutureAsk] = useState<{
-    category: CategoryOut | null;
-    amount: number;
-  } | null>(null);
-
   function requestSave(category: CategoryOut | null, amount: number): void {
     if (!Number.isFinite(amount) || amount <= 0) return;
     // 아직 오지 않은 날이면 한 번 묻는다. 막지는 않는다.
@@ -887,6 +966,12 @@ function RecordBody({
       flow_ms: now - timing.openedAt,
       defaults: changedFields() === 'none',
     };
+  }
+
+  /** 줄글과 사진의 저장 시간. 둘째 화면을 지나지 않아 amount_ms 는 뺀다. */
+  function importTimes(): ImportSaveTimes {
+    const { amount_ms: _amountMs, ...rest } = timesAtSave();
+    return rest;
   }
 
   function save(category: CategoryOut | null, amount: number): void {
@@ -964,6 +1049,16 @@ function RecordBody({
               { flowId, kind: 'click' },
             );
           }
+          // 저장 뒤 화면을 세우는 이 자리에서 남긴다. 효과에서 남기면 개발 판에서 두 줄이 된다.
+          analytics.log(
+            EVENTS.feedbackShown,
+            {
+              feedback_kind: created.feedback.kind,
+              has_budget: created.feedback.remaining_budget != null,
+              book: 'mine',
+            },
+            { flowId, kind: 'impression' },
+          );
           rememberMethod();
           markRecorded();
           tellRecorded(toLedgerDate(new Date(created.transaction.occurred_at)));
@@ -1031,6 +1126,12 @@ function RecordBody({
               ...times,
             },
             { flowId },
+          );
+          // 공유 가계부에는 내 예산이 없어 그 가계부의 예산 여부를 싣는다.
+          analytics.log(
+            EVENTS.feedbackShown,
+            { has_budget: created.month.budget != null, book: 'shared' },
+            { flowId, kind: 'impression' },
           );
           markRecorded();
           // 다음에 내 가계부를 보다가 시트를 열어도 이 가계부가 둘째 칩에 선다.
@@ -1145,6 +1246,8 @@ function RecordBody({
         <RecordTagStep
           kind={kind}
           tags={kindTags}
+          failed={tags.isError && kindTags == null}
+          onRetry={() => void tags.refetch()}
           selectedId={tagId}
           composing={tagFormOpen}
           onBack={() => back('sheet')}
@@ -1177,8 +1280,10 @@ function RecordBody({
           onBusyChange={markBusy}
           onReviewChange={trackReview('nl')}
           draftRef={nlDraftRef}
+          discardRef={nlDiscardRef}
+          saveTimes={importTimes}
           onDone={finish}
-          onSaved={afterImportSaved}
+          onSaved={(savedDay, savedBook) => afterImportSaved('nl', savedDay, savedBook)}
         />
       </div>
 
@@ -1197,8 +1302,10 @@ function RecordBody({
           bookId={destination}
           onBusyChange={markBusy}
           onReviewChange={trackReview('capture')}
+          discardRef={captureDiscardRef}
+          saveTimes={importTimes}
           onDone={finish}
-          onSaved={afterImportSaved}
+          onSaved={(savedDay, savedBook) => afterImportSaved('capture', savedDay, savedBook)}
           // 권한이 꺼져 있거나 못 쓰는 자리에서 빠져나갈 데가 없으면 그 사람은 기록을 포기한다.
           fallbackAction={keypadFallback}
           credits={photoCredits}
@@ -1220,8 +1327,10 @@ function RecordBody({
           bookId={destination}
           onBusyChange={markBusy}
           onReviewChange={trackReview('receipt')}
+          discardRef={receiptDiscardRef}
+          saveTimes={importTimes}
           onDone={finish}
-          onSaved={afterImportSaved}
+          onSaved={(savedDay, savedBook) => afterImportSaved('receipt', savedDay, savedBook)}
           fallbackAction={keypadFallback}
           credits={photoCredits}
         />
@@ -1372,7 +1481,11 @@ function RecordBody({
           {futureAsk != null ? (
             <FutureDayConfirm
               day={recordDay}
-              onFix={() => setFutureAsk(null)}
+              // 날짜 칸은 첫 화면에만 있어 「언제예요?」 로 곧장 보낸다.
+              onFix={() => {
+                setFutureAsk(null);
+                go('day');
+              }}
               onSave={() => save(futureAsk.category, futureAsk.amount)}
             />
           ) : null}
@@ -1425,7 +1538,7 @@ function RecordBody({
           text={`읽어 온 ${panelAsk.count}건이 사라져요`}
           leaveLabel="나가기"
           ariaLabel="나갈까요"
-          onStay={() => setPanelAsk(null)}
+          onStay={stayPanel}
           onLeave={leavePanel}
         />
       ) : null}

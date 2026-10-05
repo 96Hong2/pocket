@@ -7,7 +7,7 @@ import { Button, LoadingState } from '../../shared/ui';
 import { NL_TEXT_MAX_LENGTH } from '../../shared/lib/limits';
 import { parseOutcome } from './parseOutcome';
 
-import { ImportReview } from './ImportReview';
+import { ImportReview, type ImportSaveTimes } from './ImportReview';
 
 const PLACEHOLDER = '점심 12000 스벅 4500 어제 택시 9000';
 
@@ -32,6 +32,10 @@ export interface NaturalLanguageTabProps {
    * 보고 확인 없이 닫혔다(e2e 에서 실제로 흔들렸다). 여기 적어 두고 나갈 때 읽는다.
    */
   draftRef?: { current: boolean };
+  /** 바깥이 검토 묶음을 버릴 때 부르는 길. 검토 화면이 걸어 둔다. */
+  discardRef?: { current: () => void };
+  /** 저장을 누른 때의 시간. 검토 화면이 save_result 에 싣는다. */
+  saveTimes?: () => ImportSaveTimes;
   onDone: () => void;
   /** 저장이 성공한 순간. 닫기보다 앞선다. 공유 가계부에 적었으면 그 id 도 준다. */
   onSaved?: (day: string | null, bookId: string | null) => void;
@@ -60,6 +64,8 @@ export function NaturalLanguageTab({
   onBusyChange,
   onReviewChange,
   draftRef,
+  discardRef,
+  saveTimes,
   onDone,
   onSaved,
   baseDay = null,
@@ -92,6 +98,8 @@ export function NaturalLanguageTab({
         onRestart={() => setBatch(null)}
         onDone={onDone}
         onSaved={onSaved}
+        discardRef={discardRef}
+        saveTimes={saveTimes}
         testId={TEST_IDS.nlPanel}
         restartLabel="다시 쓰기"
         emptyMessage="문장에서 금액을 찾지 못했어요. `점심 12000` 처럼 금액을 함께 적어 주세요"

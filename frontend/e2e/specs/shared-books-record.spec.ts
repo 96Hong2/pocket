@@ -172,6 +172,29 @@ test('은홍이 우리 집에 적은 것을 준호가 보고, 준호가 고친 �
   });
 });
 
+test('예산을 정한 우리 집에 적어도 저장 뒤 화면에 남은 예산 문장이 없다', async ({
+  home,
+  prep,
+  recordSheet,
+}) => {
+  const bookId = await prep.createBook({ name: '우리 집', myName: '은홍' });
+  // 예산이 있어야 예전에는 「이번 달 남은 예산 …」 이 섰다.
+  await prep.setBookBudget(bookId, 300_000);
+
+  await home.open();
+  await home.waitReady();
+  await home.book.switchTo('우리 집');
+  await home.recordButton.click();
+  await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
+  await recordSheet.input.enterAmount(32_000);
+  await recordSheet.input.pickCategory('장보기');
+
+  await expect(recordSheet.bookFeedback.savedLabel('우리 집')).toBeVisible();
+  await expect(recordSheet.bookFeedback.card).toContainText('이번 달 같이 쓴 돈 32,000원');
+  await expect(recordSheet.bookFeedback.card).not.toContainText('남은 예산');
+});
+
 test('관리자가 남이 적은 기록을 지우면 한 번 묻고, 확인한 뒤에만 지운다', async ({
   home,
   partner,

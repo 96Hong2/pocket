@@ -60,17 +60,6 @@ export function BookFeedbackPanel({
     panelRef.current?.focus();
   }, []);
 
-  // 저장 뒤 화면을 보여 줬다. 공유 가계부에는 내 예산이 없어 그 가계부의 예산 여부를 싣는다.
-  useEffect(() => {
-    analytics.log(
-      EVENTS.feedbackShown,
-      { has_budget: month.budget != null, book: 'shared' },
-      { flowId, kind: 'impression' },
-    );
-    // 저장 한 건에 한 번이다. 낸 사람을 고쳐 다시 그려져도 같은 저장이다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const busy = update.isPending || moveOut.isPending || undoMove.isPending;
   const error = [update.error, moveOut.error].find((item) => item instanceof ApiError);
   // 되돌리기가 막힌 이유는 서버 문구로. 없으면 한 줄로 끝낸다.

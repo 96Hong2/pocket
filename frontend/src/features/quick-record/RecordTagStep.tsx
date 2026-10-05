@@ -1,5 +1,5 @@
 import type { TagKind, TagOut } from '../../shared/api';
-import { LoadingState, SheetHeader } from '../../shared/ui';
+import { ErrorState, LoadingState, SheetHeader } from '../../shared/ui';
 
 import { TagForm } from '../tags';
 
@@ -12,6 +12,9 @@ export interface RecordTagStepProps {
   kind: TagKind;
   /** 그 종류 태그. 많이 쓴 것부터. 아직 못 받았으면 `null`. */
   tags: TagOut[] | null;
+  /** 목록을 못 받았나. 참이면 도는 표시 대신 오류와 「다시 시도」 를 그린다. */
+  failed?: boolean;
+  onRetry?: () => void;
   selectedId: string | null;
   /** 새 태그 폼을 펴 둔 중인가. */
   composing: boolean;
@@ -32,6 +35,8 @@ export interface RecordTagStepProps {
 export function RecordTagStep({
   kind,
   tags,
+  failed = false,
+  onRetry,
   selectedId,
   composing,
   onPick,
@@ -51,7 +56,9 @@ export function RecordTagStep({
   return (
     <div className="record-tags" data-record-step="">
       <SheetHeader onBack={onBack} title="태그" />
-      {tags == null ? (
+      {tags == null && failed ? (
+        <ErrorState size="inline" title="태그를 불러오지 못했어요" onRetry={onRetry} />
+      ) : tags == null ? (
         <LoadingState size="inline" />
       ) : (
         <div className="record-tags__grid" role="group" aria-label="태그">

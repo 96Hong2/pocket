@@ -6,7 +6,7 @@ export {
   type ImageImportTabProps,
 } from './ImageImportTab';
 export { PhotoCreditLine } from './PhotoCreditLine';
-export { ImportReview, type ImportReviewProps } from './ImportReview';
+export { ImportReview, type ImportReviewProps, type ImportSaveTimes } from './ImportReview';
 export { MerchantRuleList } from './MerchantRuleList';
 export { MerchantRuleSheet } from './MerchantRuleSheet';
 export { NaturalLanguageTab, type NaturalLanguageTabProps } from './NaturalLanguageTab';

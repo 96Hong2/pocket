@@ -113,6 +113,8 @@ export function FeedbackPanel({
   const isTransfer = transaction.type === 'transfer';
   const savedDay = toLedgerDate(new Date(transaction.occurred_at));
   const dayLabel = `${formatDayLabel(savedDay)} (${formatWeekday(savedDay)})`;
+  // 이체는 분류가 없다. 「기록」 대신 종류 이름으로 부른다.
+  const rowName = isTransfer ? '이체' : (category?.name ?? '기록');
   const message = buildFeedbackMessage(feedback, {
     overCategoryName: overName,
     savedIncome: kind === 'income' ? savedAmount : undefined,
@@ -126,21 +128,6 @@ export function FeedbackPanel({
   // 저장하면 방금 누른 칩이 사라지면서 포커스가 시트 밖으로 떨어진다. 여기서 다시 잡는다.
   useEffect(() => {
     panelRef.current?.focus();
-  }, []);
-
-  // 저장 뒤에 무슨 말을 건넸나. 문구가 아니라 종류만 남긴다.
-  useEffect(() => {
-    analytics.log(
-      EVENTS.feedbackShown,
-      {
-        feedback_kind: feedback.kind,
-        has_budget: feedback.remaining_budget != null,
-        book: 'mine',
-      },
-      { flowId, kind: 'impression' },
-    );
-    // 저장 한 건에 한 번이다. 금액을 고쳐 피드백이 다시 와도 같은 저장이다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
@@ -280,8 +267,8 @@ export function FeedbackPanel({
       */}
       <TransactionRow
         {...iconOf(category)}
-        title={transaction.merchant ?? category?.name ?? '기록'}
-        subtitle={transaction.merchant ? `${category?.name ?? '기록'}, ${dayLabel}` : dayLabel}
+        title={transaction.merchant ?? rowName}
+        subtitle={transaction.merchant ? `${rowName}, ${dayLabel}` : dayLabel}
         amount={savedAmount}
         tone={transaction.type}
         avatarSize={50}

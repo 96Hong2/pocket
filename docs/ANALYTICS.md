@@ -13,16 +13,16 @@
 | 알고 싶은 것 | 이벤트 | 남기는 값 |
 | --- | --- | --- |
 | 들어와서 어디로 가나 | `app_open` · `screen_view` | 진입 화면, 화면 이름, 토스 앱 버전, **첫 실행인지 · 처음 연 지 며칠째 · 직전 실행 이후 며칠 · 실행 횟수 구간**, **들어온 길**(`referrer` 토스 입구 · `src` 우리 채널 표시 · `first_src` 이 기기에서 처음 들어온 길), **같이 쓰기 시작한 지 며칠째**(`shared_days`, 2026-09-28~. 이 기기에서 공유 가계부 멤버인 것을 처음 본 날부터 센다. 본 적 없으면 싣지 않는다) |
-| 어떤 방식을 고르나, 어디서 여나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향, 연 자리(`home`·`home_day`·`calendar_day`·`deeplink`)와 지난 날에 적는 것인지. 2026-10-05~ 시트가 늘 첫 화면(직접 입력)으로 열려 `record_started.method` 는 늘 `keypad` 다. 고른 방법은 `record_setup_done.way` 로 본다 |
-| 첫 화면에서 무엇을 고르고 얼마나 머무나 | **`record_setup_done`** | 2026-10-05~(ADR-0044). 첫 화면 「다음」(사진 방법이면 「카메라 열기」, 「사진 고르기」)을 누른 순간. 방법(`way`: `keypad`·`nl`·`screenshot`·`receipt`, `record_started.method` 와 같은 말), 종류(`kind`: `expense`·`income`·`transfer`), 적을 곳(`book`: `mine`·`shared`), 날짜(`day`: `today`·`past`), 열린 값에서 바꾼 칸(`changed`: `day`·`book`·`way`·`kind` 를 이 순서대로 `+` 로 이은 값, 없으면 `none`), 첫 화면에 머문 시간(`setup_ms`), ‹ 로 돌아와 다시 눌렀나(`again`). 판정은 `again=false` 만 센다 |
+| 어떤 방식을 고르나, 어디서 여나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향, 연 자리(`home`·`home_day`·`calendar_day`·`deeplink`)와 지난 날에 적는 것인지. 2026-10-05~ 시트가 늘 첫 화면으로 열려 `record_started.method` 는 홈 복구 카드로 열면 `screenshot`, 그 밖에는 `keypad` 다. 고른 방법은 `record_setup_done.way` 로 본다 |
+| 첫 화면에서 무엇을 고르고 얼마나 머무나 | **`record_setup_done`** | 2026-10-05~(ADR-0044). 첫 화면 「다음」(사진 방법이면 「카메라 열기」, 「사진 고르기」)을 누른 순간. 방법(`way`: `keypad`·`nl`·`screenshot`·`receipt`, `record_started.method` 와 같은 말), 종류(`kind`: `expense`·`income`·`transfer`, 종류 칩이 서는 직접 입력일 때만 싣는다), 적을 곳(`book`: `mine`·`shared`), 날짜(`day`: `today`·`past`), 열린 값에서 바꾼 칸(`changed`: `day`·`book`·`way`·`kind` 를 이 순서대로 `+` 로 이은 값, 없으면 `none`), 첫 화면에 머문 시간(`setup_ms`), ‹ 로 돌아와 다시 눌렀나(`again`). 판정은 `again=false` 만 센다 |
 | 어느 단계에서 되돌아가나 | **`record_back`** | 2026-10-05~. 시트 안에서 한 단계 뒤로 간 자리(`from`: `amount`·`nl`·`photo`·`day`·`tag`)와 길(`how`: `sheet` 시트 안 ‹, `back` 토스 위 ‹ 와 폰 뒤로가기) |
-| 저장하지 않고 어디서 닫나 | **`record_closed`** | 2026-10-05~. 닫힐 때의 단계(`step`: `setup`·`amount`·`nl`·`photo`), 적어 둔 것(`drafted`: `none`·`typed` 금액을 넣음·`parsed` 읽어 온 결과가 있음), 닫은 길(`how`: `back`·`dim`·`drag`·`handle`·`esc`·`manage`). 저장한 뒤 닫힌 것은 안 남는다 |
+| 저장하지 않고 어디서 닫나 | **`record_closed`** | 2026-10-05~. 닫힐 때의 단계(`step`: `setup`·`amount`·`nl`·`photo`), 적어 둔 것(`drafted`: `none`·`typed` 금액을 넣음·`parsed` 읽어 온 결과가 있음), 닫은 길(`how`: `back`·`dim`·`drag`·`handle`·`esc`·`manage`·`cancel`, `cancel` 은 검토 화면 「취소」 로 닫힘). 저장한 뒤 닫힌 것은 안 남는다 |
 | 사진 고르기에서 막히나 | `image_pick_result` | 성공·취소·권한 거절·미지원, 장수 |
 | 인식이 얼마나 걸리고 왜 실패하나 | `parse_started` · `parse_finished` | 방식, 성공·부분·0건·실패, 소요 시간, 후보 수, 오류 코드 |
 | 결과를 얼마나 고치나 | `review_shown` · `review_finished` | 후보 수, 고른 수, 손댄 건수, **칸별 고친 횟수** |
 | 모르는 상호의 분류를 기억하길 바라나 | `merchant_rule_asked` · `review_finished` | 분류 없이 읽힌 상호에 분류를 골라 넣자 다음부터 그렇게 저장할지 물었을 때 무엇을 골랐나(`answer`: `remember`·`skip`)와 방식. 2026-10-04~. 답하지 않고 저장하면 이 로그는 없고 기억도 안 한다. 분모는 `review_finished` 의 `rule_asked`(물은 줄 수)와 `rule_remembered`(「기억하기」 수)로 센다. **상호와 분류 이름은 싣지 않는다** |
-| 읽어 온 것을 잃나 | `record_leave_asked` · `review_cancelled` | 물었나·머물렀나·나갔나와 그때 몇 건, 스스로 버린 건수 |
-| 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드, 키패드로 적은 종류(`type`: `expense`·`income`·**`transfer`**, 2026-09-27~. 「이체」 글씨가 쓰이는지 센다), **어느 가계부에 적었나**(`book`: `mine`·`shared`, 2026-09-28~. 공유 가계부가 없는 사람은 늘 `mine`). 2026-10-05~ `save_result` 에 종류(`kind`), 첫 화면에 머문 시간(`setup_ms`), 직접 입력 둘째 화면에 머문 시간(`amount_ms`, 줄글과 사진은 안 싣는다), 시트를 연 때부터 저장을 누른 때까지(`flow_ms`), 첫 화면 값을 그대로 썼나(`defaults`) |
+| 읽어 온 것을 잃나 | `record_leave_asked` · `review_cancelled` | 물었나·머물렀나·나갔나와 그때 몇 건, 스스로 버린 건수. 2026-10-05~ 검토 화면에서 ‹ 로 첫 화면에 가려다 「읽어 온 N건이 사라져요」 를 물은 것도 같은 값으로 남고, 「나가기」 면 `review_cancelled` 도 남는다 |
+| 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드, 키패드로 적은 종류(`type`: `expense`·`income`·**`transfer`**, 2026-09-27~. 「이체」 글씨가 쓰이는지 센다), **어느 가계부에 적었나**(`book`: `mine`·`shared`, 2026-09-28~. 공유 가계부가 없는 사람은 늘 `mine`). 2026-10-05~ `save_result` 에 종류(`kind`, 직접 입력만), 첫 화면에 머문 시간(`setup_ms`), 직접 입력 둘째 화면에 머문 시간(`amount_ms`, 줄글과 사진은 안 싣는다), 시트를 연 때부터 저장을 누른 때까지(`flow_ms`), 첫 화면 값을 그대로 썼나(`defaults`) |
 | 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움과 **지우려다 그만둠**(`delete_asked`·`delete_cancelled`·`delete`), 고친 칸 이름, 그 기록의 입력 방식. 2026-09-28~ **옮김**(`move`, `to`: `mine`·`shared`)과 **되돌림**(`restore`, 지운 공유 기록을 알림에서 되살림), 2026-09-29~ **옮기기 되돌림**(`undo_move`, `to` 는 돌아간 쪽. 원본을 되살리는 것이라 `move` 로 세지 않는다), 공유 기록을 고치거나 지웠으면 `book: 'shared'` |
 | 저장 뒤 화면을 보고 무엇을 하나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것(`confirm`, 2026-10-05~ `more` 어디서와 메모 칸을 펼침, 펼친 칸 `field`: `merchant`·`memo`). 2026-10-05~ 공유 가계부 저장 뒤 화면에서도 남고 `book`(`mine`·`shared`)을 싣는다 |
 | 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(`home_card`·`settings`)와 결과(`opened`·`guide_done`·`dismissed`), 동의·거절·미지원과 **켠 자리**(`where`: `home_card`·`settings`). 2026-09-30~ **`remind_card_dismissed`**: 홈 알림 카드를 몇 번째로 닫았나(`closes`). 닫을수록 다시 묻는 간격이 3, 7, 14, 30일로 길어진다 |
@@ -168,7 +168,8 @@
 
 | 값 | 이 판부터 |
 |---|---|
-| `record_started.method` | 늘 `keypad` 다. 시트가 늘 첫 화면(직접 입력)으로 열린다. 사람이 고른 방법은 `record_setup_done.way` 로 본다 |
+| `record_started.method` | 홈 복구 카드로 열면 `screenshot`, 그 밖에는 `keypad` 다. 시트가 늘 첫 화면으로 열린다. 사람이 고른 방법은 `record_setup_done.way` 로 본다 |
+| `record_started.from` | 지난 날을 보며 누른 홈 가운데 큰 「기록하기」 가 `home_day` 에서 `home` 으로 옮겨 갔다(날을 묻던 창을 걷었다). 지난 날인지는 `backfill` 로 본다. 이 판에서 `home_day` 가 줄고 `home` 이 느는 것은 입구 성적이 바뀐 것이 아니다 |
 | `input_method_changed` | 첫 화면에서 처음 고르는 것은 안 남는다(그 값은 `record_setup_done.changed`). ‹ 로 첫 화면에 돌아와 바꾼 것과 사진 패널이 「직접 입력」 으로 넘긴 것만 남는다. 앞 판과 개수를 견주지 않는다 |
 | `tag_applied` `where=record` | 저장 뒤 화면에서 태그를 고른 것이 아니라 **둘째 화면에서 골라 저장과 함께 붙은 것**이다. 저장 뒤 화면에는 태그 고르기가 없다 |
 | `feedback_shown` | 공유 가계부 저장 뒤 화면에서도 나기 시작한다(`book: 'shared'`). 개수가 그만큼 뛴다. `has_budget` 은 「그 달 예산이 있었나」 일 뿐, 화면이 예산 문장을 말했는지와 상관없다(예산 초과 한 줄만 남았다) |
