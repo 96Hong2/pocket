@@ -20,6 +20,7 @@ import {
 } from '../../shared/api';
 import {
   CategoryPicker,
+  EditHeadIcon,
   FutureDayConfirm,
   PaymentMethodPicker,
   SAVING_FALLBACK_ICON,
@@ -40,7 +41,6 @@ import {
   AmountField,
   BottomSheet,
   Button,
-  CategoryAvatar,
   LeaveConfirm,
   SegmentedControl,
   Toggle,
@@ -56,6 +56,7 @@ import {
   destGroupOf,
   destHoldingOf,
   destKindOf,
+  destNameOf,
   parseQuantity,
   quantityValue,
   useAssetDestinations,
@@ -63,7 +64,7 @@ import {
 } from '../asset-dest';
 import { ASSET_GROUP_VIEWS, sanitizeQuantityInput, unitOf } from '../assets';
 import { BookDestinationRow, asPickable, movedInToast, sameNameCategoryId } from '../books';
-import { CategoryComposeOverlay } from '../categories';
+import { CategoryComposeOverlay, CategoryPickOverlay } from '../categories';
 import { TagPicker } from '../tags';
 
 /** 얼마나 옛날까지 옮길 수 있나. 달력 화면과 같게 3년이다. */
@@ -347,6 +348,11 @@ function EditForm({
   */
   const [creating, setCreating] = useState(false);
   /*
+    맨 위 그림을 눌러 연 분류 고르기. 분류 칸이 시트 맨 아래라 작은 화면에서는 굴려야 나와서,
+    그림을 누르면 전부 펼친 목록을 한 장으로 띄운다(어디서 열었든 같은 시트다).
+  */
+  const [picking, setPicking] = useState(false);
+  /*
     지우기 전에 한 번 묻는다.
 
     **시트를 하나 더 겹치지 않는다.** 화면에 dialog 가 둘이 되면 뒤로가기가 어느 것을
@@ -416,6 +422,13 @@ function EditForm({
     targetBook != null
       ? targetCategories.find((item) => item.id === targetCategoryId)
       : categories.find((item) => item.id === categoryId);
+  // 저축·투자 머리 그림이 화면 낭독기에 읽히는 이름. 분류 칸 위 「어디에」 와 같은 값을 쓴다.
+  const headDestName = savedUnlisted
+    ? (transaction.asset_label ?? '지운 항목')
+    : dest != null
+      ? destNameOf(dest)
+      : null;
+  const headDestLabel = headDestName == null ? '어디에 고르기' : `어디에 ${headDestName}, 바꾸기`;
 
   const nextAmount = Number(amount);
   // 저장할 수 없는 금액이면 완료를 잠근다. 열어 두면 금액만 조용히 빠지고 나머지가 저장된다.
@@ -617,13 +630,26 @@ function EditForm({
     <div className="tx-edit__body">
       <div className="tx-edit__scroll">
         <div className="tx-edit__head">
+          {/* 그림을 누르면 분류 칸과 같은 고르기가 열린다. 저축·투자는 어디에, 이체는 고를 것이 없다. */}
           {saving ? (
-            <CategoryAvatar
-              icon={dest != null ? ASSET_GROUP_VIEWS[destGroupOf(dest)].icon : SAVING_FALLBACK_ICON}
-              size={58}
+            <EditHeadIcon
+              avatar={{
+                icon:
+                  dest != null ? ASSET_GROUP_VIEWS[destGroupOf(dest)].icon : SAVING_FALLBACK_ICON,
+              }}
+              onPress={() => setDestOpen(true)}
+              label={headDestLabel}
+              disabled={busy}
             />
           ) : (
-            <CategoryAvatar {...iconOf(headCategory)} size={58} />
+            <EditHeadIcon
+              avatar={iconOf(headCategory)}
+              onPress={isTransfer ? undefined : () => setPicking(true)}
+              label={
+                headCategory == null ? '카테고리 고르기' : `카테고리 ${headCategory.name}, 바꾸기`
+              }
+              disabled={busy || creating}
+            />
           )}
           {/* 머리의 날짜도 고른 값을 따라간다. 저장한 값만 보면 옮긴 뒤에도 옛 날이 남는다. */}
           <p className="tx-edit__title">
@@ -919,6 +945,26 @@ function EditForm({
           setDestOpen(false);
         }}
         onBack={() => setDestOpen(false)}
+      />
+
+      {/* 맨 위 그림으로 여는 고르기. 분류 칸과 같은 목록, 같은 「새 분류」 다. */}
+      <CategoryPickOverlay
+        open={picking}
+        categories={targetBook != null ? targetCategories : pickable}
+        selectedId={targetBook != null ? targetCategoryId : categoryId}
+        onPick={(category) => {
+          if (targetBook != null) {
+            setBookPicks((picks) => ({ ...picks, [targetBook.id]: category.id }));
+          } else {
+            setCategoryId(category.id);
+          }
+          setPicking(false);
+        }}
+        onCreate={() => {
+          setPicking(false);
+          setCreating(true);
+        }}
+        onBack={() => setPicking(false)}
       />
 
       <CategoryComposeOverlay

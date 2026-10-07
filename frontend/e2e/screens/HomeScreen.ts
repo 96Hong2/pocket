@@ -6,6 +6,7 @@ import { TEST_IDS } from '../../src/shared/testIds';
 
 import { EditSheetArea } from './CalendarScreen';
 import { CategoryComposeArea } from './CategoryComposeArea';
+import { CategoryPickArea } from './CategoryPickArea';
 
 /**
  * 홈 화면.
@@ -1221,6 +1222,12 @@ class BookRecentList {
     return this.root.getByRole('button', { name: startsWith(title) });
   }
 
+  /** 그 줄의 분류 그림. 줄에 분류 이름이 안 적혀 있어 고친 분류는 그림으로 본다. */
+  rowIcon(title: string): Locator {
+    // 장식 그림이라 접근성 이름이 없다. 줄 안의 그림 하나를 잡는다.
+    return this.row(title).locator('img');
+  }
+
   /** 기록 줄만. 아래 「이번 달 N건 모두 보기」 는 세지 않는다. */
   get rows(): Locator {
     return this.root.getByRole('button').filter({ hasNotText: /모두 보기$/ });
@@ -1313,6 +1320,15 @@ class BookEntryEditArea {
     return this.root
       .getByRole('group', { name: '카테고리' })
       .getByRole('button', { name, exact: true });
+  }
+
+  /** 맨 위 그림 버튼. 개인 고치기와 같은 「카테고리 바꾸기」 를 연다. */
+  get headCategoryButton(): Locator {
+    return this.root.getByRole('button', { name: /^카테고리 (.+, 바꾸기|고르기)$/ });
+  }
+
+  get categoryPick(): CategoryPickArea {
+    return new CategoryPickArea(this.root.page());
   }
 
   /** 이 가계부 분류를 만드는 입구. 공유 분류는 몇 개 안 돼 보통 앞자리에 바로 선다. */

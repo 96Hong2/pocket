@@ -181,7 +181,7 @@ export function MonthlyReport({
           onChange={onModeChange}
           ariaLabel="보는 것"
         />
-        {/* 탭이 아니라 다른 화면으로 가는 길이라 트랙 밖에 글자 버튼으로 둔다. */}
+        {/* 탭이 아니라 다른 화면으로 가는 길이라 트랙 밖에 같은 높이의 흰 버튼으로 따로 둔다. */}
         {onOpenAssets != null ? (
           <button type="button" className="report__assets-link" onClick={onOpenAssets}>
             저축·투자

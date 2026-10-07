@@ -2,6 +2,7 @@ export {
   CategoryComposeOverlay,
   type CategoryComposeOverlayProps,
 } from './CategoryComposeOverlay';
+export { CategoryPickOverlay, type CategoryPickOverlayProps } from './CategoryPickOverlay';
 export { CategoryEditForm, type CategoryEditFormProps } from './CategoryEditSheet';
 export { CategoryEditSheet, type CategoryEditSheetProps } from './CategoryEditSheet';
 export { CategoryManageList } from './CategoryManageList';
