@@ -45,9 +45,17 @@ function ProceedsDestBody({
   onBack,
 }: Omit<ProceedsDestPageProps, 'open'>) {
   const boxRef = useRef<HTMLDivElement>(null);
+  const newRef = useRef<HTMLButtonElement>(null);
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState('');
   const ready = label.trim() !== '';
+
+  // 칸을 접으면 그 칸에 있던 포커스가 갈 곳이 없다. 칸을 편 「새 통장」 줄로 돌려준다.
+  const wasAdding = useRef(false);
+  useEffect(() => {
+    if (wasAdding.current && !adding) newRef.current?.focus();
+    wasAdding.current = adding;
+  }, [adding]);
 
   function back(): void {
     if (adding) {
@@ -154,7 +162,12 @@ function ProceedsDestBody({
               enterKeyHint="done"
               onChange={(event) => setLabel(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') submitNew();
+                // 한글을 조합하는 중의 Enter 는 글자를 맺는 키다. 그때는 보내지 않는다.
+                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+                // 창이 닫히며 포커스가 창을 연 줄로 돌아간다. 기본 동작을 두면 같은 Enter 가
+                // 그 줄을 눌러 창이 바로 다시 열린다.
+                event.preventDefault();
+                submitNew();
               }}
             />
           </label>
@@ -169,6 +182,7 @@ function ProceedsDestBody({
         </div>
       ) : (
         <button
+          ref={newRef}
           type="button"
           className="asset-dest-list__row asset-dest-list__row--add"
           onClick={() => setAdding(true)}

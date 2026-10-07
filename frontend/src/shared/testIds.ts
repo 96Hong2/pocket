@@ -68,6 +68,8 @@ export const TEST_IDS = {
   recordSellPreview: 'record-sell-preview',
   /** 저축·투자 저장 뒤 화면의 줄 하나. data-row(saved·item·gain·left)로 무슨 줄인지 싣는다. */
   savedAssetRow: 'saved-asset-row',
+  /** 저축·투자 저장 뒤 화면에서 받은 돈 넣을 곳을 못 넣었을 때 그 카드 바로 아래에 뜨는 문구. */
+  savedAssetProceedsError: 'saved-asset-proceeds-error',
   /** 달력 화면 합계 띠의 이번 달 지출 */
   monthTotalExpense: 'month-total-expense',
   /** 합계 띠의 이번 달 수입 */

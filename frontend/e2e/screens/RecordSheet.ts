@@ -559,6 +559,19 @@ export class RecordSheet {
     return this.root.getByRole('button', { name: /^받은 돈 넣을 곳 / });
   }
 
+  /** 그 줄 왼쪽의 이름표. 통장 이름이 길어도 줄어들거나 잘리지 않아야 한다. */
+  get proceedsRowLabel(): Locator {
+    return this.proceedsRow.getByText('받은 돈 넣을 곳', { exact: true });
+  }
+
+  /**
+   * 넣을 곳을 못 넣었을 때의 서버 문구. 그 줄이 든 카드 바로 아래에 뜬다.
+   * 메모 칸 아래의 저장 실패 문구(`feedback.notice`)와 다른 자리다.
+   */
+  get proceedsNotice(): Locator {
+    return this.root.getByTestId(TEST_IDS.savedAssetProceedsError);
+  }
+
   /** 줄을 눌러 여는 고르는 창. */
   get proceeds(): ProceedsDestArea {
     return new ProceedsDestArea(this.root.page());

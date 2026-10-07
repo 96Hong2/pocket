@@ -4,6 +4,7 @@ import { formatCurrency } from '../../src/shared/lib/format';
 import { TEST_IDS } from '../../src/shared/testIds';
 import { logsNamed } from '../support/aitMock';
 import type { AssetSeed, PrepApi } from '../support/api';
+import { E2E_API_URL } from '../support/env';
 import { expect, test } from '../support/fixtures';
 import { shotBothWidths } from '../support/shots';
 import type { AssetsScreen } from '../screens/AssetsScreen';
@@ -65,6 +66,52 @@ function keyIn(seeded: Seeded, label: string): string {
   const key = seeded.items.find((item) => item.label === label)?.item_key;
   if (key == null) throw new Error(`${label} 항목 키가 없다`);
   return key;
+}
+
+/** 거래 하나의 주소. 고치기(PATCH)가 여기로 나간다. */
+const ONE_TRANSACTION = new RegExp(`^${E2E_API_URL}/api/v1/transactions/[^/?]+$`);
+
+interface HeldPatch {
+  /** 서버가 그 요청을 처리했고 응답이 붙잡혀 있다. */
+  arrived: Promise<void>;
+  /** 붙잡아 둔 응답을 화면에 내준다. */
+  release: () => void;
+  /** 화면에서 나간 고치기 요청이 실은 칸 이름. 나간 차례대로다. */
+  sent: string[];
+}
+
+/**
+ * 그 칸을 실은 고치기의 응답을 붙잡는다. 서버는 바로 처리하고 화면만 「아직 도는 중」 이다.
+ * 응답은 서버가 준 그대로 내준다(422 도 그대로다). 다른 고치기는 지나가고 나간 차례만 적는다.
+ */
+async function holdPatch(page: Page, field: string): Promise<HeldPatch> {
+  let markArrived: () => void = () => {};
+  let open: () => void = () => {};
+  const arrived = new Promise<void>((resolve) => {
+    markArrived = resolve;
+  });
+  const gate = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  const sent: string[] = [];
+  await page.route(ONE_TRANSACTION, async (route) => {
+    const request = route.request();
+    if (request.method() !== 'PATCH') {
+      await route.fallback();
+      return;
+    }
+    const body = request.postDataJSON() as Record<string, unknown>;
+    sent.push(Object.keys(body).sort().join('+'));
+    if (!(field in body)) {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    markArrived();
+    await gate;
+    await route.fulfill({ response });
+  });
+  return { arrived, release: open, sent };
 }
 
 /** 기록하기 › 저축·투자에서 삼성전자 5주를 420,000원 받고 판다. 끝나면 저장 뒤 화면이다. */
@@ -159,6 +206,8 @@ test('팔고 난 저장 뒤 화면에서 받은 돈 넣을 곳을 고르면 그 
     await expect(recordSheet.proceedsRow).toHaveAccessibleName(
       '받은 돈 넣을 곳 카카오뱅크, 바꾸기',
     );
+    // 창이 닫히면 포커스가 창을 연 줄로 돌아온다. 화면 밖(body)으로 떨어지지 않는다.
+    await expect(recordSheet.proceedsRow).toBeFocused();
     await expect(recordSheet.proceedsRow).toBeEnabled();
     await expect(recordSheet.savedAssetRow('gain')).toContainText('+70,000원');
     await shot(page, 'S_저장뒤_고른뒤', recordSheet.proceedsRow);
@@ -223,6 +272,8 @@ test('통장이 없으면 고르는 창에서 「새 통장」 에 이름만 적
   await appShell.pressBack();
   await expect(recordSheet.proceeds.nameInput).toHaveCount(0);
   await expect(recordSheet.proceeds.title).toBeVisible();
+  // 접힌 칸에 있던 포커스는 그 칸을 편 「새 통장」 줄로 돌아온다.
+  await expect(recordSheet.proceeds.newButton).toBeFocused();
 
   await recordSheet.proceeds.newButton.click();
   await recordSheet.proceeds.nameInput.fill('카카오뱅크');
@@ -385,6 +436,7 @@ test.describe('서버가 넣을 곳을 막았을 때', () => {
   test('고르는 사이 그 통장이 예적금·현금이 아니게 됐으면 서버 문구가 줄 아래에 뜨고 줄은 「고르기」 로 돌아온다', async ({
     assets,
     home,
+    page,
     prep,
     recordSheet,
   }) => {
@@ -413,20 +465,293 @@ test.describe('서버가 넣을 곳을 막았을 때', () => {
     await recordSheet.proceeds.account('카카오뱅크').click();
 
     await expect(recordSheet.proceeds.dialog).toHaveCount(0);
-    await expect(recordSheet.feedback.notice).toHaveText(
+    await expect(recordSheet.proceedsNotice).toHaveText(
       '받은 돈은 예적금·현금 항목에만 넣을 수 있어요.',
     );
     // 먼저 세워 둔 이름은 걷히고 다시 고를 수 있다.
     await expect(recordSheet.proceedsRow).toHaveAccessibleName('받은 돈 넣을 곳 고르기');
     await expect(recordSheet.proceedsRow).toBeEnabled();
 
-    // 통장 금액은 안 움직였다. 판 기록은 그대로 저장돼 있다.
+    await test.step('문구는 그 줄이 든 카드 바로 아래에 뜬다. 메모 자리 아래가 아니다', async () => {
+      const row = await recordSheet.proceedsRow.boundingBox();
+      const notice = await recordSheet.proceedsNotice.boundingBox();
+      const memo = await recordSheet.feedback.memoOpener.boundingBox();
+      expect(notice?.y ?? 0).toBeGreaterThanOrEqual((row?.y ?? 0) + (row?.height ?? 0));
+      expect((notice?.y ?? 0) + (notice?.height ?? 0)).toBeLessThanOrEqual(memo?.y ?? 0);
+      await shot(page, 'S_저장뒤_넣을곳오류', recordSheet.proceedsNotice);
+    });
+
+    await test.step('메모 저장이 성공해도 넣을 곳 문구는 제자리에 남고 메모 쪽 문구는 없다', async () => {
+      await recordSheet.feedback.writeMemo('반만 팔았다');
+      await expect(recordSheet.feedback.memoField).toBeEnabled();
+      await expect(recordSheet.proceedsNotice).toBeVisible();
+      // 화면의 알림 문구는 넣을 곳 것 하나뿐이다.
+      await expect(recordSheet.feedback.notice).toHaveCount(1);
+    });
+
+    await test.step('막힌 통장은 다시 받은 목록에서 빠져 있고, 새 통장으로 넣으면 문구가 걷힌다', async () => {
+      await recordSheet.proceedsRow.click();
+      await expect(recordSheet.proceeds.title).toBeVisible();
+      await expect(recordSheet.proceeds.account('카카오뱅크')).toHaveCount(0);
+      await recordSheet.proceeds.newButton.click();
+      await recordSheet.proceeds.nameInput.fill('토스뱅크 통장');
+      await recordSheet.proceeds.okButton.click();
+      await expect(recordSheet.proceedsRow).toHaveAccessibleName(
+        '받은 돈 넣을 곳 토스뱅크 통장, 바꾸기',
+      );
+      await expect(recordSheet.proceedsRow).toBeEnabled();
+      await expect(recordSheet.proceedsNotice).toHaveCount(0);
+    });
+
+    // 보증금·기타로 옮긴 통장은 안 움직였고, 새 통장이 받은 돈을 들고 있다.
     await recordSheet.assetsButton.click();
     await recordSheet.waitClosed();
     await assets.waitArrived();
     await expect(assets.row('카카오뱅크')).toContainText(formatCurrency(1_000_000));
+    await expect(assets.row('토스뱅크 통장')).toContainText(formatCurrency(420_000));
     await expect(assets.row('삼성전자')).toContainText('5주 보유, 넣은 돈 350,000원');
   });
+
+  test('넣을 곳을 고르자마자 「확인」 을 눌러도 요청이 끝난 뒤에 닫히고, 실패하면 화면이 남아 문구가 보인다', async ({
+    home,
+    page,
+    prep,
+    recordSheet,
+  }) => {
+    test.slow();
+    const seeded = await prep.putAssets([KAKAO, SAMSUNG_TEN]);
+
+    await sellFiveFromRecord(home, recordSheet);
+    await recordSheet.proceedsRow.click();
+    await expect(recordSheet.proceeds.account('카카오뱅크')).toBeVisible();
+    // 서버가 422 로 막을 통장이다(그 사이 보증금·기타로 옮겨졌다).
+    await prep.putAssets([
+      {
+        group: 'deposit',
+        label: '카카오뱅크',
+        amount: 1_000_000,
+        itemKey: keyIn(seeded, '카카오뱅크'),
+      },
+      {
+        group: 'investment',
+        label: '삼성전자',
+        amount: 350_000,
+        itemKey: keyIn(seeded, '삼성전자'),
+      },
+    ]);
+    const held = await holdPatch(page, 'asset_proceeds_key');
+    await recordSheet.proceeds.account('카카오뱅크').click();
+    await held.arrived;
+
+    // 응답이 오기 전에 「확인」 을 누른다. 아직 닫히지 않는다.
+    await recordSheet.feedback.confirmButton.click();
+    await expect(recordSheet.feedback.headline).toBeVisible();
+    await expect(recordSheet.proceedsRow).toHaveAccessibleName(
+      '받은 돈 넣을 곳 카카오뱅크, 바꾸기',
+    );
+
+    held.release();
+
+    // 실패했으니 닫지 않는다. 고른 것이 왜 안 들어갔는지 그 자리에서 말한다.
+    await expect(recordSheet.proceedsNotice).toHaveText(
+      '받은 돈은 예적금·현금 항목에만 넣을 수 있어요.',
+    );
+    await expect(recordSheet.feedback.headline).toBeVisible();
+    await expect(recordSheet.proceedsRow).toHaveAccessibleName('받은 돈 넣을 곳 고르기');
+    expect(
+      (await logsNamed(page, 'feedback_action')).filter(
+        (log) => log.params.action === 'proceeds_result',
+      ),
+    ).toHaveLength(0);
+
+    // 문구를 본 뒤의 「확인」 은 그대로 닫는다.
+    await recordSheet.feedback.confirmButton.click();
+    await recordSheet.waitClosed();
+  });
+});
+
+test('넣을 곳을 고르자마자 뒤로가기로 닫아도 요청이 끝난 뒤에 닫히고, 저장되고, 고른 결과 로그가 남는다', async ({
+  appShell,
+  assets,
+  home,
+  page,
+  prep,
+  recordSheet,
+}) => {
+  test.slow();
+  await prep.putAssets([KAKAO, SAMSUNG_TEN]);
+
+  await sellFiveFromRecord(home, recordSheet);
+  await recordSheet.proceedsRow.click();
+  const held = await holdPatch(page, 'asset_proceeds_key');
+  await recordSheet.proceeds.account('카카오뱅크').click();
+  await held.arrived;
+
+  // 토스 ‹ 와 같은 신호. 「확인」 과 같은 길이라 넣을 곳이 저장될 때까지 닫히지 않는다.
+  await appShell.pressBack();
+  await expect(recordSheet.feedback.headline).toBeVisible();
+
+  held.release();
+  await recordSheet.waitClosed();
+
+  // 화면이 내려간 뒤에도 「서버에 저장된 순간」 의 로그가 빠지지 않는다.
+  const results = (await logsNamed(page, 'feedback_action')).filter(
+    (log) => log.params.action === 'proceeds_result',
+  );
+  expect(results.map((log) => log.params.result)).toEqual(['picked']);
+
+  await assets.open();
+  await assets.waitReady();
+  await expect(assets.row('카카오뱅크')).toContainText(formatCurrency(1_420_000));
+});
+
+test('넣을 곳을 고르자마자 「자산 보기」 를 눌러도 저장된 뒤에 넘어가 자산 화면 금액이 맞다', async ({
+  assets,
+  home,
+  page,
+  prep,
+  recordSheet,
+}) => {
+  test.slow();
+  await prep.putAssets([KAKAO, SAMSUNG_TEN]);
+
+  await sellFiveFromRecord(home, recordSheet);
+  await recordSheet.proceedsRow.click();
+  const held = await holdPatch(page, 'asset_proceeds_key');
+  await recordSheet.proceeds.account('카카오뱅크').click();
+  await held.arrived;
+
+  await recordSheet.assetsButton.click();
+  // 넣을 곳이 저장되기 전에는 넘어가지 않는다.
+  await expect(recordSheet.feedback.headline).toBeVisible();
+
+  held.release();
+  await recordSheet.waitClosed();
+  await assets.waitArrived();
+  await expect(assets.row('카카오뱅크')).toContainText(formatCurrency(1_420_000));
+  await expect(assets.netWorth).toHaveText(formatCurrency(1_770_000));
+});
+
+test('메모를 보내는 중에 넣을 곳을 골라도 요청이 차례로 나가, 늦게 온 메모 응답이 넣을 곳을 되돌리지 않는다', async ({
+  assets,
+  home,
+  page,
+  prep,
+  recordSheet,
+}) => {
+  test.slow();
+  await prep.putAssets([KAKAO, SAMSUNG_TEN]);
+
+  await sellFiveFromRecord(home, recordSheet);
+  // 메모 응답을 붙잡는다. 서버는 넣을 곳이 없던 때의 값으로 이미 답했다.
+  const held = await holdPatch(page, 'memo');
+  await recordSheet.feedback.writeMemo('반만 팔았다');
+  await held.arrived;
+
+  await recordSheet.proceedsRow.click();
+  await recordSheet.proceeds.account('카카오뱅크').click();
+  await expect(recordSheet.proceedsRow).toHaveAccessibleName('받은 돈 넣을 곳 카카오뱅크, 바꾸기');
+  // 메모 응답이 안 온 동안에는 넣을 곳 요청이 나가지 않는다. 한 번에 하나씩이다.
+  expect(held.sent).toEqual(['memo']);
+
+  held.release();
+
+  await expect(recordSheet.proceedsRow).toBeEnabled();
+  await expect(recordSheet.proceedsRow).toHaveAccessibleName('받은 돈 넣을 곳 카카오뱅크, 바꾸기');
+  await expect(recordSheet.feedback.memoField).toHaveValue('반만 팔았다');
+  expect(held.sent).toEqual(['memo', 'asset_proceeds_key']);
+
+  await recordSheet.assetsButton.click();
+  await recordSheet.waitClosed();
+  await assets.waitArrived();
+  await expect(assets.row('카카오뱅크')).toContainText(formatCurrency(1_420_000));
+});
+
+test('「새 통장」 이름을 적고 자판 Enter 로 확인해도 창이 닫힌 채로 남는다: 저장 뒤 화면', async ({
+  assets,
+  prep,
+  recordSheet,
+}) => {
+  test.slow();
+  await prep.putAssets([SAMSUNG_TEN]);
+
+  await sellFiveFromAssets(assets, recordSheet);
+  await recordSheet.proceedsRow.click();
+  await recordSheet.proceeds.newButton.click();
+  await recordSheet.proceeds.nameInput.fill('비상금');
+  await recordSheet.proceeds.nameInput.press('Enter');
+
+  await expect(recordSheet.proceedsRow).toHaveAccessibleName('받은 돈 넣을 곳 비상금, 바꾸기');
+  await expect(recordSheet.proceedsRow).toBeEnabled();
+  // 포커스는 줄로 돌아오지만 같은 Enter 가 그 줄을 다시 누르지 않는다.
+  await expect(recordSheet.proceeds.dialog).toHaveCount(0);
+  await expect(recordSheet.proceedsRow).toBeFocused();
+
+  await recordSheet.feedback.confirmButton.click();
+  await recordSheet.waitClosed();
+  await expect(assets.row('비상금')).toContainText(formatCurrency(420_000));
+});
+
+test('「새 통장」 이름을 적고 자판 Enter 로 확인해도 창이 닫힌 채로 남는다: 기록 고치기', async ({
+  assets,
+  calendar,
+  prep,
+}) => {
+  test.slow();
+  const seeded = await prep.putAssets([SAMSUNG_TEN]);
+  await prep.addAssetTransfer({
+    amount: 420_000,
+    itemKey: keyIn(seeded, '삼성전자'),
+    side: 'sell',
+    quantity: '5',
+    memo: '반만 팔았다',
+  });
+
+  await calendar.open();
+  await calendar.waitReady();
+  await calendar.list.pick('반만 팔았다');
+  await calendar.edit.waitOpen();
+  await calendar.edit.proceedsRow.click();
+  await calendar.edit.proceeds.newButton.click();
+  await calendar.edit.proceeds.nameInput.fill('비상금');
+  await calendar.edit.proceeds.nameInput.press('Enter');
+
+  await expect(calendar.edit.proceedsRow).toHaveAccessibleName('받은 돈 넣을 곳 비상금, 바꾸기');
+  // 줄에 이름이 선 뒤에도 창은 닫힌 채다. 다시 떠 있으면 같은 Enter 가 줄을 누른 것이다.
+  await expect(calendar.edit.proceeds.dialog).toHaveCount(0);
+  await expect(calendar.edit.proceedsRow).toBeFocused();
+
+  await calendar.edit.done();
+  await calendar.edit.waitClosed();
+  await assets.open();
+  await assets.waitReady();
+  await expect(assets.row('비상금')).toContainText(formatCurrency(420_000));
+});
+
+test('고르는 창을 뒤로가기로 닫은 뒤의 뒤로가기는 「확인」 과 같아서 저장 뒤 화면을 닫는다', async ({
+  appShell,
+  home,
+  page,
+  prep,
+  recordSheet,
+}) => {
+  test.slow();
+  await prep.putAssets([KAKAO, SAMSUNG_TEN]);
+
+  await sellFiveFromRecord(home, recordSheet);
+  await recordSheet.proceedsRow.click();
+  await expect(recordSheet.proceeds.title).toBeVisible();
+
+  await appShell.pressBack();
+  await expect(recordSheet.proceeds.dialog).toHaveCount(0);
+  await expect(recordSheet.feedback.headline).toBeVisible();
+
+  await appShell.pressBack();
+  await recordSheet.waitClosed();
+  // 창이 등록을 풀어 뒤로가기가 다시 저장 뒤 화면 몫이다. 「확인」 을 누른 것으로 남는다.
+  expect(
+    (await logsNamed(page, 'feedback_action')).filter((log) => log.params.action === 'confirm'),
+  ).toHaveLength(1);
 });
 
 test('가장 좁은 344 폭에서 통장 이름이 길어도 「받은 돈 넣을 곳」 줄이 옆으로 넘치지 않는다', async ({
@@ -451,7 +776,14 @@ test('가장 좁은 344 폭에서 통장 이름이 길어도 「받은 돈 넣�
   const row = await recordSheet.proceedsRow.boundingBox();
   expect((row?.x ?? -1) >= 0 && (row?.x ?? 0) + (row?.width ?? 999) <= 344).toBe(true);
   expect(await recordSheet.horizontalScrollers()).toEqual([]);
-  // 이름표는 줄어들지 않고 그대로 읽힌다. 긴 이름은 값 칸 안에서 말줄임된다.
-  await expect(recordSheet.proceedsRow).toContainText('받은 돈 넣을 곳');
+  // 이름표는 줄어들지도 줄이 바뀌지도 않는다. 긴 이름은 값 칸 안에서 말줄임된다.
+  await expect(recordSheet.proceedsRowLabel).toBeVisible();
+  const label = await recordSheet.proceedsRowLabel.evaluate((el) => ({
+    cut: el.scrollWidth - el.clientWidth,
+    // 한 줄이면 글자 높이의 두 배에 못 미친다.
+    lines: el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).fontSize),
+  }));
+  expect(label.cut).toBeLessThanOrEqual(0);
+  expect(label.lines).toBeLessThan(2);
   await shot(page, 'S_저장뒤_긴이름', recordSheet.proceedsRow);
 });

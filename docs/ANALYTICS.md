@@ -216,7 +216,7 @@
 | 값 | 이 판부터 |
 |---|---|
 | `feedback_action.action` 의 `proceeds` | 「받은 돈 넣을 곳」 줄을 눌러 창을 열었다. 팔았어요 저장 뒤 화면에서만 난다. 팔기 저장 수(`save_result` 의 `side=sell`)에 견주면 줄을 누르는 비율이 나온다 |
-| `feedback_action.action` 의 `proceeds_result` | 창에서 고른 것이 서버에 저장된 순간. `result` 가 `picked`(있던 통장을 골랐다), `created`(「새 통장」 으로 만들었다), `cleared`(「넣지 않기」 로 비웠다)다. 창을 열고 그냥 닫으면 안 남는다. 저장에 실패해도 안 남는다. 통장 이름과 금액은 싣지 않는다 |
+| `feedback_action.action` 의 `proceeds_result` | 창에서 고른 것이 서버에 저장된 순간. `result` 가 `picked`(있던 통장을 골랐다), `created`(「새 통장」 으로 만들었다), `cleared`(「넣지 않기」 로 비웠다)다. 창을 열고 그냥 닫으면 안 남는다. 저장에 실패해도 안 남는다. 고르자마자 화면을 닫아도 저장이 끝나면 남는다(요청에 걸어 둔 로그라 화면이 내려가도 빠지지 않는다). 통장 이름과 금액은 싣지 않는다 |
 | `record_changed.fields` | 기록 고치기에서 넣을 곳을 바꾸면 `asset_proceeds_key`, 새 통장을 만들면 `new_proceeds_asset` 이 고친 칸 이름에 든다. 고치기에는 `feedback_action` 이 없다 |
 
 `created` 가 `picked` 보다 많으면 통장 없이 종목만 적어 둔 사람이 많다는 뜻이다.

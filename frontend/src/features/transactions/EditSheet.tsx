@@ -865,7 +865,7 @@ function EditForm({
               <ProceedsDestRow
                 className="tx-edit__proceeds"
                 name={proceedsName}
-                disabled={busy}
+                busy={busy}
                 onOpen={() => setProceedsOpen(true)}
               />
             ) : null}
