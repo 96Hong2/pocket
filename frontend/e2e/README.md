@@ -45,8 +45,9 @@ e2e/
                      capture 와 receipt 는 같은 클래스에 문구 표만 바꿔 끼운 둘이다
                      **X 버튼은 없다.** `closeButton` 은 시트 맨 위 손잡이이고, 눌러도 아래로 밀어도(`dragDown`) 닫힌다
                      **뒤로 버튼도 없다.** 상단바의 ‹ 는 토스가 그린다. `back()` 은 그 ‹ 와 같은 신호
-                     (`pressSystemBack`)를 쏘아 한 단계 물러난다. 시트와 창 어디에도 앱이 그린 뒤로
-                     버튼이 없다는 것은 `specs/no-self-drawn-back.spec.ts` 가 지킨다
+                     (`pressSystemBack`)를 쏘아 한 단계 물러난다. `specs/no-self-drawn-back.spec.ts` 가
+                     주요 시트와 창을 열어 이름이 「뒤로」, 「이전」, ‹, ← 인 버튼이 0개인지 센다
+                     (이름 없는 그림 버튼은 못 잡는다. 머리에 버튼을 더할 때는 눈으로도 본다)
                      분류 칩은 앞자리 `QUICK_LIMIT`(11)개까지다. 그 뒤와 「새 분류」는 「더 보기」 안에 있어
                      `pickCategory`·`openNewCategory` 가 필요할 때 알아서 한 번 펼친다
                      **숨긴 분류가 하나도 없으면 「더 보기」가 아예 없다.** 그 자리에 「새 분류」가 바로 선다.

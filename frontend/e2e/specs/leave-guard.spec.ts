@@ -428,7 +428,7 @@ test.describe('분류 만들기는 한 겹만 접힌다', () => {
 
   test('🔴 덮는 창에서도 적어 둔 것이 있으면 내릴 때 묻는다', async ({ page, prep, calendar }) => {
     /*
-      손짓으로 창을 접는 길은 이번에 새로 생겼다. 「이전」 버튼만 묻고 손짓은 그냥
+      손짓으로도 창을 접을 수 있다. 뒤로가기만 묻고 손짓은 그냥
       접히면, 어디로 나가느냐에 따라 잃는 것이 달라진다.
     */
     await prep.addTransaction({ amount: 12_000, merchant: '김밥천국', daysAgo: 0 });
