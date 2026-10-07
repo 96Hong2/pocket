@@ -27,6 +27,7 @@ from app.domain.asset_capture import (
 )
 from app.domain.asset_ledger import (
     AMOUNT_KINDS,
+    QUANTITY_KINDS,
     QUANTITY_PLACES,
     Holding,
     InvestKind,
@@ -210,7 +211,7 @@ def _candidates(
         quantity = _read_quantity(read.quantity)
         held = AMOUNT_ONLY
         if group is AssetGroup.INVESTMENT:
-            read = _typed_cost(read) if typed and current is None else read
+            read = _typed_cost(read, quantity) if typed and current is None else read
             held = _read_holding(read, value, quantity)
         if current is not None:
             fitted = _fit(current, held, value, quantity, ledgered=key in ledgered)
@@ -232,9 +233,16 @@ def _candidates(
     return out
 
 
-def _typed_cost(read: ExtractedAsset) -> ExtractedAsset:
-    """넣은 돈이 안 적힌 새 줄은 적은 금액을 넣은 돈으로 둔다. 빼기를 하지 않는다."""
+def _typed_cost(read: ExtractedAsset, quantity: Decimal | None) -> ExtractedAsset:
+    """넣은 돈이 안 적힌 새 수량 종목은 적은 금액을 넣은 돈으로 둔다.
+
+    기록하기의 「넣었어요」 와 같은 뜻이다.
+
+    수량이 없는 줄(펀드, 계좌 합계)은 그대로 둔다. 짐작한 넣은 돈으로 수익률을 내지 않는다.
+    """
     if read.purchase is not None or read.profit is not None:
+        return read
+    if quantity is None or read.kind not in QUANTITY_KINDS:
         return read
     return read.model_copy(update={"purchase": read.amount})
 

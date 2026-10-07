@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domain.aggregation import TransactionSource
-from app.integrations.llm import AssetExtraction, LlmError, get_llm_client
+from app.integrations.llm import AssetExtraction, ExtractedAsset, LlmError, get_llm_client
 from app.integrations.llm.stub import StubLlmStructuredClient
 from app.models import ImportBatch, ParseUsage
 
@@ -83,6 +83,29 @@ def test_새_종목은_적은_금액을_넣은_돈으로_보고_수량과_1주_�
     assert saving["cost_basis"] is None
     # 스텁도 글은 실제로 읽는다. 예시 결과라는 표시가 없다.
     assert body["meta"] == {"provider": "stub", "is_stub": True, "notes": []}
+
+
+class _Fund(StubLlmStructuredClient):
+    """수량 없는 투자 줄 하나를 낸다."""
+
+    async def extract(self, *, prompt, schema, text=None, image=None, today=None):  # type: ignore[no-untyped-def]
+        return AssetExtraction(
+            rows=[
+                ExtractedAsset(
+                    name="미국 지수 펀드", amount=6_000_000, group="investment", kind="fund"
+                )
+            ]
+        )
+
+
+def test_수량_없는_새_투자_줄은_넣은_돈을_짐작하지_않는다(client: TestClient) -> None:
+    with _using(client, _Fund):
+        body = _read(client, "미국 지수 펀드 600만원")
+
+    fund = _row(body, "미국 지수 펀드")
+    assert fund["amount"] == "6000000"
+    assert fund["cost_basis"] is None
+    assert fund["rate"] is None
 
 
 def test_기존_종목은_넣은_돈을_지어내지_않고_수량이_같으면_1주_가격만_새로_적는다(
