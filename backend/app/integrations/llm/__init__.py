@@ -37,10 +37,12 @@ from app.integrations.llm.port import (
 from app.integrations.llm.prompts import (
     ASSET_CAPTURE_MARKER,
     ASSET_TASK_MARKER,
+    ASSET_TEXT_MARKER,
     RECEIPT_TASK_MARKER,
     SHARED_BOOK_MARKER,
     AssetHint,
     asset_capture_prompt,
+    asset_text_prompt,
     for_shared_book,
     listed_asset_names,
     listed_categories,
@@ -55,6 +57,7 @@ from app.integrations.llm.stub import StubLlmStructuredClient
 __all__ = [
     "ASSET_CAPTURE_MARKER",
     "ASSET_TASK_MARKER",
+    "ASSET_TEXT_MARKER",
     "DEFAULT_CATEGORY_HINTS",
     "GEMINI_DEFAULT_MODEL",
     "GEMINI_ESCALATION_MODEL",
@@ -83,6 +86,7 @@ __all__ = [
     "TransactionSource",
     "TransactionType",
     "asset_capture_prompt",
+    "asset_text_prompt",
     "attach_source",
     "build_meta",
     "for_shared_book",

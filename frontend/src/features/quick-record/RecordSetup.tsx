@@ -2,7 +2,7 @@ import type { KeyboardEvent, ReactNode } from 'react';
 
 import { Button, SheetHeader, iconUrl, type IconName } from '../../shared/ui';
 
-import type { RecordTab } from './recordTab';
+import { wayHasKinds, type RecordTab } from './recordTab';
 
 /**
  * 기록의 종류. 지출과 수입은 분류가 있고, 이체는 분류 없이 금액만 적는다.
@@ -148,7 +148,7 @@ export function RecordSetup({
         })}
       </div>
 
-      {way === 'keypad' ? (
+      {wayHasKinds(way) ? (
         <div
           className="record-kinds"
           role="radiogroup"

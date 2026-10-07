@@ -621,6 +621,15 @@ export function useCaptureAssets() {
   });
 }
 
+/** 적은 보유 내역 읽기. 캡처와 같은 후보를 준다. 아무것도 저장하지 않는다. */
+export function useCaptureAssetsText() {
+  const client = useApiClient();
+
+  return useMutation({
+    mutationFn: (text: string): Promise<AssetCaptureOut> => client.captureAssetsText(text),
+  });
+}
+
 /**
  * 목표를 만들고 고치고 접는 것, 모은 돈을 더하고 지우는 것이 화면을 맞추는 방법.
  *

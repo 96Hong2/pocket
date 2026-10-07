@@ -1,7 +1,7 @@
-"""자산 캡처: 은행·증권 앱의 잔액 화면 한 장을 읽어 후보 목록을 돌려준다.
+"""자산 캡처: 은행·증권 앱의 잔액 화면 한 장이나 적은 보유 내역을 읽어 후보 목록을 돌려준다.
 
-검토 단위(ImportBatch)를 만들지 않는다. 저장은 화면이 PUT /assets(source=screenshot)로 한다.
-이미지와 모델 원문은 어디에도 남기지 않는다. 하루 상한과 사용량 표는 줄글·캡처와 나눠 쓴다.
+검토 단위(ImportBatch)를 만들지 않는다. 저장은 화면이 PUT /assets 로 한다.
+이미지, 글, 모델 원문은 어디에도 남기지 않는다. 하루 상한과 사용량 표는 줄글·캡처와 나눠 쓴다.
 """
 
 from __future__ import annotations
@@ -44,6 +44,7 @@ from app.integrations.llm import (
     LlmImage,
     LlmStructuredClient,
     asset_capture_prompt,
+    asset_text_prompt,
 )
 from app.models import AssetItem, User
 from app.modules import ledger
@@ -52,9 +53,11 @@ from app.modules.imports import service as imports
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["CaptureRow", "read_capture"]
+__all__ = ["CaptureRow", "read_capture", "read_text"]
 
 _SOURCE = TransactionSource.ASSET_SCREENSHOT
+# 적은 보유 내역은 줄글 상한과 사용량에 함께 센다. 출처 값을 새로 늘리지 않는다.
+_TEXT_SOURCE = TransactionSource.NL
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +111,47 @@ def read_capture(
     return found
 
 
+def read_text(
+    session: Session, user: User, *, text: str, client: LlmStructuredClient
+) -> list[CaptureRow]:
+    """적은 보유 내역을 캡처와 같은 후보 목록으로 읽는다. 금액이 없는 글이면 빈 목록이다."""
+    day = ledger.today_for(user)
+    imports.require_quota(session, user, day, label="줄글 분석")
+    # 저장하지 않는 것만으로는 부족하다. 보내기 전에 계좌번호를 가린다.
+    cleaned = redact(text)
+    rows = asset_names.current_rows(session, user)
+    call = partial(
+        client.extract,
+        prompt=asset_text_prompt(asset_names.hints(rows)),
+        schema=AssetExtraction,
+        text=cleaned.text,
+        today=day,
+    )
+    size = len(text)
+    try:
+        extraction = anyio.from_thread.run(call)
+    except LlmError as exc:
+        _record(session, user, client, size, found=0, failed=True, source=_TEXT_SOURCE)
+        raise ApiError(
+            ErrorCode.PARSE_UNAVAILABLE,
+            "지금은 글을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+            status_code=503,
+        ) from exc
+    keys = [row.item_key for row in rows if row.item_key is not None]
+    found = _candidates(extraction, rows, entries.ledger_keys(session, user, keys), typed=True)
+    _record(
+        session,
+        user,
+        client,
+        size,
+        found=len(found),
+        failed=False,
+        source=_TEXT_SOURCE,
+        redacted=cleaned.count,
+    )
+    return found
+
+
 def _record(
     session: Session,
     user: User,
@@ -116,14 +160,16 @@ def _record(
     *,
     found: int,
     failed: bool,
+    source: TransactionSource = _SOURCE,
+    redacted: int = 0,
 ) -> None:
     imports.record_usage(
         session,
         user,
         client=client,
-        source=_SOURCE,
+        source=source,
         input_length=size,
-        redacted_count=0,
+        redacted_count=redacted,
         candidate_count=found,
         model=None if failed else client.model,
         escalated=False,
@@ -132,12 +178,19 @@ def _record(
 
 
 def _candidates(
-    extraction: AssetExtraction, rows: list[AssetItem], ledgered: set[uuid.UUID]
+    extraction: AssetExtraction,
+    rows: list[AssetItem],
+    ledgered: set[uuid.UUID],
+    *,
+    typed: bool = False,
 ) -> list[CaptureRow]:
     """읽은 줄을 기존 항목에 맞춘다. 맞은 항목도 새로 읽은 수량과 넣은 돈으로 채운다.
 
     수량 종목에 맞은 줄은 수량이 같게 읽히면 지금 1주 가격만, 다르면 읽은 수량과 넣은 돈으로
     맞춘다. 둘 다 못 하면 덮지 않으려고 뺀다. 장부가 있는 항목은 갈래(수량, 금액)를 바꾸지 않는다.
+
+    typed 는 사람이 적은 글이다. 새 종목에 넣은 돈이 따로 안 적혔으면 적은 금액을 넣은 돈으로 본다.
+    안 그러면 「삼성전자 3주 21만원」 의 수량이 사라진다. 기존 항목에는 이 규칙을 쓰지 않는다.
     """
     items = asset_names.named(rows)
     by_key = {row.item_key: row for row in rows}
@@ -157,6 +210,7 @@ def _candidates(
         quantity = _read_quantity(read.quantity)
         held = AMOUNT_ONLY
         if group is AssetGroup.INVESTMENT:
+            read = _typed_cost(read) if typed and current is None else read
             held = _read_holding(read, value, quantity)
         if current is not None:
             fitted = _fit(current, held, value, quantity, ledgered=key in ledgered)
@@ -176,6 +230,13 @@ def _candidates(
             )
         )
     return out
+
+
+def _typed_cost(read: ExtractedAsset) -> ExtractedAsset:
+    """넣은 돈이 안 적힌 새 줄은 적은 금액을 넣은 돈으로 둔다. 빼기를 하지 않는다."""
+    if read.purchase is not None or read.profit is not None:
+        return read
+    return read.model_copy(update={"purchase": read.amount})
 
 
 def _read_holding(read: ExtractedAsset, value: Money, quantity: Decimal | None) -> CapturedHolding:

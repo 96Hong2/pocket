@@ -195,7 +195,8 @@ const runRewarded = (ads: AdsBridge, group: string, hooks: FullScreenAdHooks) =>
 /**
  * 전면 광고 그룹. `shared` 는 결산과 사진이 함께 쓰는 그룹이다.
  *
- * `asset_capture` 는 전용 그룹만 쓴다. 비어 있으면 광고 없이 지나간다.
+ * `asset_capture` 는 자산 쪽 전용 그룹이다. 잔액 캡처와 내 자산 리포트가 함께 쓴다.
+ * 비어 있으면 다른 그룹으로 떨어지지 않고 광고 없이 지나간다.
  */
 export type FullScreenGroup = 'shared' | 'asset_capture';
 
@@ -277,23 +278,6 @@ export function useReportRewardedAd(): {
   show: (where: string) => Promise<RewardedAdOutcome>;
 } {
   const dedicated = import.meta.env.VITE_AD_REPORT_GROUP_ID;
-  const configured =
-    typeof dedicated === 'string' && dedicated.trim() !== '' ? dedicated : undefined;
-  return useAdShow(configured, runRewarded);
-}
-
-/**
- * 「내 자산 분석」 을 열려고 스스로 보는 광고.
- *
- * **전용 그룹만 쓴다.** 비어 있으면 광고를 안 세우고(`available` 거짓) 분석을 그냥 연다.
- * 상한은 세지 않는다. 사람이 확인 창에서 스스로 누른 자리다(ADR-0024).
- */
-export function useAssetAnalysisRewardedAd(): {
-  busy: boolean;
-  available: boolean;
-  show: (where: string) => Promise<RewardedAdOutcome>;
-} {
-  const dedicated = import.meta.env.VITE_AD_ASSET_ANALYSIS_GROUP_ID;
   const configured =
     typeof dedicated === 'string' && dedicated.trim() !== '' ? dedicated : undefined;
   return useAdShow(configured, runRewarded);

@@ -4,7 +4,7 @@ import { assetAnalysisPath, type AssetAnalysisScope } from '../../src/app/router
 import { TEST_IDS } from '../../src/shared/testIds';
 
 /**
- * 「내 자산 분석」 화면. 경로(`/assets/analysis?scope=`)가 달라 따로 둔다.
+ * 「내 자산 리포트」 화면. 경로(`/assets/analysis?scope=`)가 달라 따로 둔다.
  *
  * 잠겨 있으면 본문 대신 잠김 카드와 광고 확인 창이 선다. 확인 창은 자산 화면 입구가 띄우는
  * 것과 같은 부품이라 여기서 함께 든다.

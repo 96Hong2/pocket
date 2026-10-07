@@ -190,7 +190,7 @@ export const SCREEN_TITLES: Record<string, string> = {
   [ROUTES.goal]: '목표',
   [ROUTES.assets]: '자산',
   // 범위가 달라도 화면 이름은 하나다.
-  [ROUTES.assetAnalysis]: '내 자산 분석',
+  [ROUTES.assetAnalysis]: '내 자산 리포트',
   [ROUTES.categories]: '카테고리 관리',
   [ROUTES.tags]: '태그',
   [ROUTES.recurring]: '반복 지출',

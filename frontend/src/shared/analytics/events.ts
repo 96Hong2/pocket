@@ -203,17 +203,18 @@ export const EVENTS = {
   assetCheckinResult: 'asset_checkin_result',
   /** 순자산 상세 시트를 열었다. 값 없음. */
   assetNetworthOpened: 'asset_networth_opened',
-  /** 분석 확인 창에서 골랐다(`scope`, `state`, `answer`). */
+  /** 내 자산 리포트 확인 창에서 골랐다(`scope`, `state`, `answer`). */
   assetAnalysisAsked: 'asset_analysis_asked',
   /**
-   * 분석 화면이 열렸다. 어떻게 열었나(`ad`)와 광고 없이 열린 이유(`reason`).
-   * `earned` 와 `watched` 는 합치지 않는다(ADR-0024).
+   * 내 자산 리포트가 열렸다. 어떻게 열었나(`ad`)와 광고 없이 열린 이유(`reason`).
+   * 2026-10-07 부터 광고는 전면 광고라 `earned` 가 없다.
    */
   assetAnalysisOpened: 'asset_analysis_opened',
   /** 분석 「큰 저축·투자 Top 5」 줄을 눌러 고치기 시트를 열었다(`rank`). 이름과 금액은 싣지 않는다. */
   assetAnalysisTopOpened: 'asset_analysis_top_opened',
   /**
-   * 잔액 캡처의 단계마다(`step`). 광고(`ad`), 읽은 줄 수(`rows`), 새 항목 수(`new_items`).
+   * 잔액 캡처의 단계마다(`step`). 광고(`ad`), 읽은 줄 수(`rows`), 새 항목 수(`new_items`),
+   * 어디서 열었나(`from`: 자산 화면·기록하기), 무엇으로 읽었나(`input`: 사진·글).
    * **이름과 금액은 싣지 않는다.**
    */
   assetCapture: 'asset_capture',
@@ -516,17 +517,23 @@ export type AssetAnalysisState = 'locked' | 'stale';
 /** 확인 창 답. */
 export type AssetAnalysisAnswer = 'ok' | 'close';
 
-/** 분석을 어떻게 열었나. `free` 는 지문이 같아 광고 없이 연 것이다. */
-export type AssetAnalysisAd = 'earned' | 'watched' | 'skipped' | 'free';
+/** 리포트를 어떻게 열었나. `free` 는 지문이 같아 광고 없이 연 것이다. */
+export type AssetAnalysisAd = 'watched' | 'skipped' | 'free';
 
-/** 광고 없이 열린 이유. `ad` 가 `skipped` 일 때만. */
-export type AssetAnalysisSkipReason = 'no_group' | 'unsupported' | 'failed' | 'stalled';
+/** 광고 없이 열린 이유. `ad` 가 `skipped` 일 때만. `capped` 는 다른 광고가 도는 중이었다. */
+export type AssetAnalysisSkipReason = 'no_group' | 'unsupported' | 'failed' | 'stalled' | 'capped';
 
 /** 캡처 단계. */
 export type AssetCaptureStep = 'picked' | 'read' | 'failed' | 'saved' | 'cancelled';
 
 /** 캡처 광고. `free_after_fail` 은 실패 다음 한 번 광고 없이 읽은 것이다. */
 export type AssetCaptureAd = 'watched' | 'skipped' | 'free_after_fail';
+
+/** 자산 채우기를 연 자리. 자산 화면 입구와 기록하기의 「저축·투자」. */
+export type AssetCaptureFrom = 'assets' | 'record';
+
+/** 무엇으로 읽었나. 잔액 화면 사진과 적은 글. */
+export type AssetCaptureInput = 'photo' | 'text';
 
 /** 공유 가계부에 한 일. `book_changed` 의 `action`. */
 export type BookChangeAction =
@@ -628,7 +635,7 @@ type FlowParam = { flow_id?: string };
 export type EventParamMap = CheckedMap<{
   record_setup_done: FlowParam & {
     way: RecordWay;
-    /** 직접 입력일 때만. 종류 칩은 다른 방법에는 서지 않는다. */
+    /** 종류 칩이 서는 방법(직접 입력, 캡처, 글)일 때만. 영수증에는 서지 않는다. */
     kind?: RecordKind;
     book: BookSide;
     day: 'today' | 'past';

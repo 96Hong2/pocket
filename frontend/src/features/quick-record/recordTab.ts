@@ -45,3 +45,11 @@ export function resolveRecordTab(method: RecordMethod | null | undefined): Recor
 export function recordMethodOf(tab: RecordTab): RecordMethod {
   return METHOD_BY_TAB[tab];
 }
+
+/**
+ * 종류 칩이 서는 방법. 영수증은 늘 지출 한 건이라 칩을 세우지 않는다.
+ * 캡처와 글은 「저축·투자」 를 고르면 거래가 아니라 자산을 채운다.
+ */
+export function wayHasKinds(way: RecordTab): boolean {
+  return way !== 'receipt';
+}

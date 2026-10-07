@@ -215,6 +215,7 @@ const PATHS = {
   assetCheckin: '/api/v1/assets/checkin',
   assetAnalysis: '/api/v1/assets/analysis',
   assetCapture: '/api/v1/assets/capture',
+  assetCaptureText: '/api/v1/assets/capture-text',
   goals: '/api/v1/goals',
   tags: '/api/v1/tags',
   recurring: '/api/v1/recurring',
@@ -486,13 +487,15 @@ export interface ApiClient extends Transport {
   getAssetHistory(months?: number, options?: CallOptions): Promise<AssetHistoryOut>;
   /** 「그대로예요」. 최신 목록을 오늘로 복사한다. `month` 는 `YYYY-MM`, 이번 달만. */
   checkinAssets(month: string, options?: CallOptions): Promise<AssetsOut>;
-  /** 「내 자산 분석」. 아무것도 저장하지 않는다. */
+  /** 「내 자산 리포트」. 아무것도 저장하지 않는다. */
   getAssetAnalysis(scope: AnalysisScope, options?: CallOptions): Promise<AssetAnalysisOut>;
   /**
    * 잔액 화면 캡처 한 장을 읽어 후보를 준다. 저장은 `saveAssets` 에 `source: 'screenshot'`.
    * `dataUri` 는 `data:image/png;base64,...` 통째다.
    */
   captureAssets(dataUri: string, options?: CallOptions): Promise<AssetCaptureOut>;
+  /** 적은 보유 내역을 캡처와 같은 후보로 읽는다. 저장은 `saveAssets` 에 `source: 'manual'`. */
+  captureAssetsText(text: string, options?: CallOptions): Promise<AssetCaptureOut>;
 
   /** 진행 중인 목표 하나. 없으면 `goal` 이 null 이다. 오류가 아니다. */
   getGoal(options?: CallOptions): Promise<GoalStateOut>;
@@ -1131,6 +1134,16 @@ export function createApiClient(options: TransportOptions): ApiClient {
         body: { image: dataUri },
         signal: call?.signal,
         timeoutMs: IMAGE_TIMEOUT_MS,
+      });
+    },
+
+    captureAssetsText(text, call) {
+      return transport.request<AssetCaptureOut>({
+        method: 'POST',
+        path: PATHS.assetCaptureText,
+        body: { text },
+        signal: call?.signal,
+        timeoutMs: TEXT_TIMEOUT_MS,
       });
     },
 

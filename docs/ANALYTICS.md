@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | 들어와서 어디로 가나 | `app_open` · `screen_view` | 진입 화면, 화면 이름, 토스 앱 버전, **첫 실행인지 · 처음 연 지 며칠째 · 직전 실행 이후 며칠 · 실행 횟수 구간**, **들어온 길**(`referrer` 토스 입구 · `src` 우리 채널 표시 · `first_src` 이 기기에서 처음 들어온 길), **같이 쓰기 시작한 지 며칠째**(`shared_days`, 2026-09-28~. 이 기기에서 공유 가계부 멤버인 것을 처음 본 날부터 센다. 본 적 없으면 싣지 않는다) |
 | 어떤 방식을 고르나, 어디서 여나 | `record_started` · `input_method_changed` | 키패드·줄글·캡처·영수증, 옮긴 방향, 연 자리(`home`·`home_day`·`calendar_day`·`deeplink`, 자산관리 판부터 `asset_item` 자산 화면 항목 시트의 「팔았어요」)와 지난 날에 적는 것인지. 2026-10-05~ 시트가 늘 첫 화면으로 열려 `record_started.method` 는 홈 복구 카드로 열면 `screenshot`, 그 밖에는 `keypad` 다. 고른 방법은 `record_setup_done.way` 로 본다 |
-| 첫 화면에서 무엇을 고르고 얼마나 머무나 | **`record_setup_done`** | 2026-10-05~(ADR-0044). 첫 화면 「다음」(사진 방법이면 「카메라 열기」, 「사진 고르기」)을 누른 순간. 방법(`way`: `keypad`·`nl`·`screenshot`·`receipt`, `record_started.method` 와 같은 말), 종류(`kind`: `expense`·`income`·`transfer`, 자산관리 판부터 `save` 저축·투자, 종류 칩이 서는 직접 입력일 때만 싣는다), 적을 곳(`book`: `mine`·`shared`), 날짜(`day`: `today`·`past`), 열린 값에서 바꾼 칸(`changed`: `day`·`book`·`way`·`kind` 를 이 순서대로 `+` 로 이은 값, 없으면 `none`), 첫 화면에 머문 시간(`setup_ms`), ‹ 로 돌아와 다시 눌렀나(`again`). 판정은 `again=false` 만 센다 |
+| 첫 화면에서 무엇을 고르고 얼마나 머무나 | **`record_setup_done`** | 2026-10-05~(ADR-0044). 첫 화면 「다음」(사진 방법이면 「카메라 열기」, 「사진 고르기」)을 누른 순간. 방법(`way`: `keypad`·`nl`·`screenshot`·`receipt`, `record_started.method` 와 같은 말), 종류(`kind`: `expense`·`income`·`transfer`, 자산관리 판부터 `save` 저축·투자, 종류 칩이 서는 방법일 때만 싣는다. 2026-10-07 까지는 직접 입력, 그 뒤로는 영수증을 뺀 셋), 적을 곳(`book`: `mine`·`shared`), 날짜(`day`: `today`·`past`), 열린 값에서 바꾼 칸(`changed`: `day`·`book`·`way`·`kind` 를 이 순서대로 `+` 로 이은 값, 없으면 `none`), 첫 화면에 머문 시간(`setup_ms`), ‹ 로 돌아와 다시 눌렀나(`again`). 판정은 `again=false` 만 센다 |
 | 어느 단계에서 되돌아가나 | **`record_back`** | 2026-10-05~. 시트 안에서 한 단계 뒤로 간 자리(`from`: `amount`·`nl`·`photo`·`day`·`tag`, 자산관리 판부터 `dest` 「다른 곳」 목록·`item` 「새 종목이나 통장」)와 길(`how`: `sheet` 시트 안 ‹, `back` 토스 위 ‹ 와 폰 뒤로가기) |
 | 저장하지 않고 어디서 닫나 | **`record_closed`** | 2026-10-05~. 닫힐 때의 단계(`step`: `setup`·`amount`·`nl`·`photo`), 적어 둔 것(`drafted`: `none`·`typed` 금액을 넣음·`parsed` 읽어 온 결과가 있음), 닫은 길(`how`: `back`·`dim`·`drag`·`handle`·`esc`·`manage`·`cancel`, `cancel` 은 검토 화면 「취소」 로 닫힘). 저장한 뒤 닫힌 것은 안 남는다 |
 | 사진 고르기에서 막히나 | `image_pick_result` | 성공·취소·권한 거절·미지원, 장수 |
@@ -45,10 +45,10 @@
 | 자산 체크인에 답하나 | `asset_checkin_result` | 홈 체크인 카드의 답(`answer`: `same` 「그대로예요」·`changed` 「바뀐 게 있어요」·`dismissed` 닫음) |
 | 적금 지출이 저축·투자로 옮겨 가나 | `saving_hint_result` | 이름에 적금, 저축, 투자, 연금, 청약, IRP 가 든 지출 분류로 저장한 직후 저장 뒤 화면의 안내(기기마다 한 번)에 한 답(`answer`: `converted` 저축·투자로 바꿈·`kept` 「그냥 둘게요」·`dismissed` 답 없이 확인이나 ‹ 로 닫거나, 시트를 끌어내리거나 바깥을 눌러 닫음). 공유 가계부 저장 뒤에는 안 선다. **분류 이름과 금액, 고른 항목 이름은 싣지 않는다** |
 | 순자산 상세를 여나 | `asset_networth_opened` | 값 없음. 순자산 카드를 연 사람 중 5% 아래면 상세 시트를 걷는다 |
-| 분석 확인 창에서 고르나 | `asset_analysis_asked` | 범위(`scope`: `all`·`stock`·`cash`), 창이 선 까닭(`state`: `locked` 처음·`stale` 자산이 바뀌어 다시), 답(`answer`: `ok`·`close`) |
-| 분석을 어떻게 열었나 | `asset_analysis_opened` | 범위(`scope`), 광고(`ad`: `earned` 끝까지 봄·`watched` 중간에 닫음·`skipped` 광고 없이·`free` 자산이 그대로라 광고 없이, 또는 전체 분석을 연 뒤의 종류별 분석), 광고 없이 열린 이유(`reason`: `no_group`·`unsupported`·`failed`·`stalled`). `earned` 와 `watched` 는 합치지 않는다 |
+| 내 자산 리포트 확인 창에서 고르나 | `asset_analysis_asked` | 범위(`scope`: `all`·`stock`·`cash`), 창이 선 까닭(`state`: `locked` 처음·`stale` 자산이 바뀌어 다시), 답(`answer`: `ok`·`close`) |
+| 내 자산 리포트를 어떻게 열었나 | `asset_analysis_opened` | 범위(`scope`), 광고(`ad`: `watched` 전면 광고를 지남·`skipped` 광고 없이·`free` 자산이 그대로라 광고 없이, 또는 전체 리포트를 연 뒤의 종류별 리포트), 광고 없이 열린 이유(`reason`: `no_group`·`unsupported`·`failed`·`stalled`·`capped` 다른 광고가 도는 중). 2026-10-07 까지는 리워드 광고라 `earned`(끝까지 봄)가 따로 있었다. 그 뒤로는 전면 광고라 `earned` 가 없다 |
 | 분석에서 큰 기록을 고치러 가나 | `asset_analysis_top_opened` | 「큰 저축·투자 Top 5」 에서 누른 줄의 순위(`rank`: 1~5). 2026-10-05~. **이름과 금액은 싣지 않는다** |
-| 캡처가 자산을 채우나 | `asset_capture` | 단계(`step`: `picked`·`read`·`failed`·`saved`·`cancelled`), 광고(`ad`: `watched`·`skipped`·`free_after_fail` 실패 다음 한 번 광고 없이), 읽은 줄 수(`rows`), 새 항목 수(`new_items`). **항목 이름과 금액은 싣지 않는다** |
+| 캡처가 자산을 채우나 | `asset_capture` | 단계(`step`: `picked`·`read`·`failed`·`saved`·`cancelled`), 광고(`ad`: `watched`·`skipped`·`free_after_fail` 실패 다음 한 번 광고 없이), 읽은 줄 수(`rows`), 새 항목 수(`new_items`), 2026-10-07~ 연 자리(`from`: `assets` 자산 화면·`record` 기록하기의 저축·투자)와 무엇으로 읽었나(`input`: `photo`·`text`). 글은 광고가 없어 `ad` 가 없다. **항목 이름과 금액은 싣지 않는다** |
 | 결산 카드가 읽히나 | `closing_opened` · `closing_closed` | 열었나와 몇 장짜리인가(`cards`), 몇 장째에서 닫았나(`page`·`total`)와 끝까지 봤나(`finished`) |
 | 지난달 리포트를 보러 가나 | **`report_month_changed`** | 옮긴 쪽(`step`: `back`·`forward`), 도착한 달이 이번 달인가(`to`: `this`·`past`), 몇 달 전인가(`months_back`). 2026-09-27~. 지난달 리포트에 광고를 붙이기 전의 기준선이다. **그 달의 날짜와 금액은 싣지 않는다** |
 | 리포트에서 기록까지 내려가 보나 | **`report_item_opened`** | 2026-10-05~. 무엇을 눌렀나(`what`: `category` 분류 줄이나 도넛 조각·`large` 큰 지출 Top 5 줄·`assets` 탭 줄 오른쪽 「저축·투자」), 어느 탭에서(`tab`: `expense`·`income`), 분류면 줄인지 조각인지(`from`: `row`·`donut`). **분류 이름과 금액은 싣지 않는다** |
@@ -160,6 +160,7 @@
 | 2026-09-26~ (ADR-0039) | `closing` · `photo`. 관리 탭 하위 화면과 자산 앞의 광고를 걷었다 |
 | 2026-09-27~ | 자리는 위와 같다. `result` 에 **`declined`** 가 더해졌다: 결산 광고 앞 확인 창에서 「닫기」 나 뒤로가기로 돌아선 것. 그 전에는 아무 줄도 안 남아 돌아선 사람을 못 셌다 |
 | 자산관리 판~ | `closing` · `photo` · **`asset_capture`**(잔액 캡처를 읽는 동안, 상한 밖이라 `capped` 가 안 남는다) |
+| 2026-10-07~ | 위에 **`asset_analysis`**(내 자산 리포트를 열기 전, 확인 창 뒤, 상한 밖)가 더해졌다. 그 전에는 리워드 광고라 이 표에 없었다. 같은 날부터 그 화면의 `screen_view` 화면 이름이 「내 자산 분석」 에서 「내 자산 리포트」 로 바뀌었다 |
 
 가운데 하루는 자리를 **결산 하나로 줄였던** 때다. 그때 뺀 이유는 자산·리포트 둘 다 사람이
 광고를 부른 적이 없는 자리로 봤기 때문인데, 자산은 실제로 **관리 탭의 카드를 눌러** 들어가고

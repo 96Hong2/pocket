@@ -141,7 +141,7 @@ test('「저축·투자」 로 자산 화면에 갔다가 뒤로 오면 보던 �
   await expect(report.monthLabel()).toHaveText(formatMonthLabel(month));
 });
 
-test('자산 화면에서 내 자산 분석과 종류별 분석에 다녀와도 마지막 뒤로는 보던 리포트다', async ({
+test('자산 화면에서 내 자산 리포트와 종류별 리포트에 다녀와도 마지막 뒤로는 보던 리포트다', async ({
   page,
   prep,
   report,

@@ -167,6 +167,30 @@ _ASSET_CAPTURE_TASK = f"""\
 """
 
 
+# 자산 줄글 지시라는 표지. 캡처와 같은 모양으로 답하되 입력이 사람이 적은 글이다.
+ASSET_TEXT_MARKER = "적은 보유 내역"
+
+_ASSET_TEXT_TASK = f"""\
+너는 사용자가 {ASSET_TEXT_MARKER}을 읽는 파서다. 아래 규칙을 지킨다.
+
+- 주어진 스키마에 맞는 JSON 만 낸다. 설명 문장을 덧붙이지 않는다.
+- 글에 적힌 통장·상품·종목마다 rows 에 한 줄씩 넣는다. name 은 이름, amount 는 그 줄의 금액이다.
+  「21만원」 「300만」 처럼 적힌 금액은 부호 없는 정수(원)로 옮긴다. 대출도 양수로 적는다.
+- 적힌 숫자만 옮긴다. 합계·수익·이자·수익률을 계산하지 않는다.
+- 주식·ETF·펀드·코인·채권이면 kind 를 고른다: stock / etf / fund / coin / bond.
+  quantity: 「3주」 「0.5개」 처럼 적힌 보유 수량. 없으면 null.
+  purchase: 「산 돈」 「원금」 「매입」 처럼 넣은 돈이 따로 적혀 있을 때만 그 금액. 없으면 null.
+  profit 은 null 로 둔다.
+- 「총」 「합계」 같은 합계 줄은 넣지 않는다.
+- 계좌번호와 카드번호는 어디에도 적지 않는다. 이름에 붙어 있으면 떼고 이름만 적는다.
+- group 은 cash(입출금·예금·적금·청약·CMA) / investment(주식·ETF·펀드·코인)
+  / pension(연금저축·IRP·퇴직연금) / deposit(보증금·기타) / debt(대출) 중 하나다. 모르면 null.
+- 아래 기존 항목과 같은 것이면 그 이름을 그대로 쓴다. 「{_MONTHLY}」 는 이름에 넣지 않는다.
+  {ASSET_TASK_MARKER} {{names}}
+- 금액이 없는 글이면 rows 를 빈 목록으로 둔다. 지어내지 않는다.
+"""
+
+
 def _asset_names_line(hints: Sequence[AssetHint]) -> str:
     seen: dict[str, bool] = {}
     for hint in hints:
@@ -187,6 +211,10 @@ def with_assets(prompt: str, hints: Sequence[AssetHint]) -> str:
 
 def asset_capture_prompt(hints: Sequence[AssetHint]) -> str:
     return _ASSET_CAPTURE_TASK.format(names=_asset_names_line(hints))
+
+
+def asset_text_prompt(hints: Sequence[AssetHint]) -> str:
+    return _ASSET_TEXT_TASK.format(names=_asset_names_line(hints))
 
 
 def listed_asset_names(prompt: str) -> tuple[AssetHint, ...]:

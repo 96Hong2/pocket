@@ -17,7 +17,7 @@ export interface AnalysisEntryProps {
 }
 
 /**
- * 자산 화면의 「내 자산 분석」 입구.
+ * 자산 화면의 「내 자산 리포트」 입구.
  *
  * 잠김이면 카드, 본 숫자 그대로면 줄 하나, 숫자가 바뀌었으면 다시 카드다.
  * 카드에는 광고 이야기를 적지 않는다. 광고는 누른 뒤 확인 창이 묻는다.
@@ -95,12 +95,18 @@ export function AnalysisLockedCard({
       data-testid={TEST_IDS.analysisEntry}
       data-state={stale ? 'stale' : 'locked'}
     >
-      <span className="analysis-entry__kicker">{kind.label}</span>
-      <b className="analysis-entry__title">
-        {stale ? '자산이 바뀌어서 분석을 다시 해요' : kind.hint}
-      </b>
+      <div className="analysis-entry__head">
+        <img className="analysis-entry__icon" src={iconUrl(kind.icon)} alt="" aria-hidden="true" />
+        <div className="analysis-entry__text">
+          <span className="analysis-entry__kicker">{kind.label}</span>
+          <b className="analysis-entry__title">
+            {stale ? '자산이 바뀌어서 리포트를 새로 만들어요' : kind.hint}
+          </b>
+        </div>
+      </div>
+      {/* 이름은 카드 머리가 이미 말한다. 버튼에서 또 적지 않는다. */}
       <Button variant="primarySmall" fullWidth disabled={busy} onClick={onOpen}>
-        {kind.label}
+        리포트 보기
       </Button>
     </Card>
   );

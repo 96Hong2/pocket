@@ -48,6 +48,12 @@ export class AssetsScreen {
     await expect(this.netWorth.or(this.emptyTitle)).toBeVisible();
   }
 
+  /** 다른 화면에서 저장한 뒤 자산 화면으로 옮겨 왔는지 본다. 주소와 첫 그림을 함께 기다린다. */
+  async waitArrived(): Promise<void> {
+    await expect(this.page).toHaveURL((url) => url.pathname === ROUTES.assets);
+    await this.waitReady();
+  }
+
   /** 순자산 금액. 자산 합에서 부채 합을 뺀 값이고 서버가 센다. */
   get netWorth(): Locator {
     return this.page.getByTestId(TEST_IDS.netWorth);
@@ -96,14 +102,21 @@ export class AssetsScreen {
     return this.detailRow(label).locator('b');
   }
 
-  /** 「내 자산 분석」 입구. `data-state` 가 locked, open, stale 중 하나다. */
+  /** 「내 자산 리포트」 입구. `data-state` 가 locked, open, stale 중 하나다. */
   get analysisEntry(): Locator {
     return this.page.getByTestId(TEST_IDS.analysisEntry);
   }
 
-  /** 입구 안의 「내 자산 분석」 버튼(잠김, 바뀜 카드). 열림 줄이면 줄 자체가 버튼이다. */
+  /** 입구의 그림. 잠김 카드와 열림 줄이 같은 도넛 그림을 쓴다. */
+  get analysisEntryIcon(): Locator {
+    return this.analysisEntry.getByRole('img', { includeHidden: true }).first();
+  }
+
+  /** 입구 버튼. 잠김, 바뀜 카드는 「리포트 보기」, 열림 줄이면 「내 자산 리포트」 줄 자체가 버튼이다. */
   get analysisButton(): Locator {
-    return this.page.getByRole('button', { name: /^내 자산 분석/ });
+    return this.analysisEntry
+      .getByRole('button', { name: '리포트 보기', exact: true })
+      .or(this.page.getByRole('button', { name: /^내 자산 리포트/ }));
   }
 
   /** 자산 화면의 캡처 입구 버튼. */

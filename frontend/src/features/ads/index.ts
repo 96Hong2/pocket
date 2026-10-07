@@ -2,7 +2,6 @@ export { AdAheadNote } from './AdAheadNote';
 export { AdConsent } from './AdConsent';
 export { AdSlot } from './AdSlot';
 export {
-  useAssetAnalysisRewardedAd,
   useFullScreenAd,
   usePhotoRewardedAd,
   useReportRewardedAd,
