@@ -9,8 +9,10 @@
  * POCKET_SHOT_DIR=<폴더> node scripts/store-shots.mjs
  * ```
  *
- * 같이 쓰는 가계부 판(2026-09-30)은 1번과 3번 앞에 `POCKET_SHOT_SET=shared` 를 붙인다.
- * 비우면 2026-09-25 판이 그대로 나온다.
+ * 판은 셋이다. 1번과 3번 앞에 `POCKET_SHOT_SET=<판>` 을 붙인다.
+ * 비우거나 `basic` 이면 기본 판(캡처, 글, 도넛, 분류, 엑셀, 태그), `shared` 는 같이 쓰는 가계부,
+ * `assets` 는 내 자산 판이다. 결과 이름은 `<판>-<번호>-<제목 앞말>.png` 다.
+ * 결과 폴더를 바꾸려면 `POCKET_STORE_OUT=<폴더>` 를 준다. 없으면 `<폴더>/store`.
  *
  * **자르는 일은 여기서 안 한다.** 어느 카드까지 담을지는 그때그때 화면을 보고 정하는
  * 판단이라, 숫자로 박아 두면 다음 판에서 반드시 어긋난다. 자른 결과의 이름만 약속한다.
@@ -27,49 +29,56 @@ const DIR = process.env.POCKET_SHOT_DIR;
 if (DIR == null) throw new Error('POCKET_SHOT_DIR 을 주세요. 자른 그림이 있는 폴더입니다.');
 
 const CROPS = resolve(DIR, 'crops');
-const OUT = resolve(DIR, 'store');
+const OUT = process.env.POCKET_STORE_OUT ?? resolve(DIR, 'store');
 
 const uri = (buf) => `data:image/png;base64,${buf.toString('base64')}`;
 const crop = (name) => uri(readFileSync(`${CROPS}/${name}.png`));
 
-/** 어느 판을 만드나. 비우면 2026-09-25 판, `shared` 면 같이 쓰는 가계부 판. */
-const SET = process.env.POCKET_SHOT_SET ?? '';
+/** 어느 판을 만드나. 비우면 기본 판이다. */
+const SET = process.env.POCKET_SHOT_SET || 'basic';
 
 const logo = uri(readFileSync(resolve(HERE, '../public/icons/app-logo-192.png')));
 
 /*
-  여섯 장 중 다섯 장. 첫 장(캡처)은 2026-09 판을 그대로 쓴다.
+  기본 판 여섯 장. 2026-10-07 에 지금 화면으로 다시 찍었다. 첫 장(캡처)도 이제 이 길로 만든다.
 
   `crops/` 에 있어야 하는 이름이 여기 적힌 것들이다. 폰 목업은 높이를 그림에 맡기므로
   (`store-frame.html` 의 `.phone`) 세로 비율을 맞출 필요는 없다. 가로는 1082 로 맞춘다.
+  제목과 부제의 말은 화면에 적힌 이름(글로 쓰기, 새 분류 만들기)을 따른다.
 */
-const PAGES = [
+const BASIC_PAGES = [
   {
-    file: 'promo-2-줄글로 적으면.png',
-    title: '줄글로 적으면|날짜까지 알아서',
+    file: '1-캡처 한 장이면.png',
+    title: '캡처 한 장이면|며칠치가 끝나요',
+    sub: '카드 문자도 결제 내역도, 캡처해서 올리기만 하면 돼요',
+    shot: 'one-capture',
+  },
+  {
+    file: '2-글로 쓰면.png',
+    title: '글로 쓰면|날짜까지 알아서',
     sub: '「어제 김밥천국 8000원」 이라고 쓰면 어제 칸에 들어가요',
     shot: 'one-nl',
   },
   {
-    file: 'promo-3-어디에 썼는지.png',
+    file: '3-어디에 썼는지.png',
     title: '어디에 썼는지|한눈에 보여요',
-    sub: '카테고리별로 얼마를 썼는지 동그라미 하나로 보여줘요',
+    sub: '분류별로 얼마를 썼는지 동그라미 하나로 보여줘요',
     shot: 'one-donut',
   },
   {
-    file: 'promo-4-나만의 카테고리.png',
-    title: '나만의|카테고리를 만들어요',
-    sub: '이름만 적으면 끝이에요. 그림과 색은 고르고 싶을 때만 골라요',
+    file: '4-나만의 분류를.png',
+    title: '나만의|분류를 만들어요',
+    sub: '이름만 적으면 돼요. 그림은 고르고 싶을 때만 골라요',
     shot: 'one-category',
   },
   {
-    file: 'promo-5-내 기록을 엑셀로.png',
+    file: '5-내 기록을 엑셀로.png',
     title: '내 기록을|엑셀 파일로 받아요',
     sub: '월별 요약과 카테고리별 요약까지 한 파일에 담아 줘요',
     shot: 'one-export',
   },
   {
-    file: 'promo-6-태그로 따로 모아서.png',
+    file: '6-태그로 따로.png',
     title: '태그로 따로|모아서 봐요',
     sub: '카테고리와 별개로 통계를 볼 수 있어요',
     layout: 'two',
@@ -105,7 +114,61 @@ const SHARED_PAGES = [
   },
 ];
 
-const LIST = SET === 'shared' ? SHARED_PAGES : PAGES;
+/*
+  내 자산 판 다섯 장(2026-10-07). 계좌 연결, 자동 연동, 투자 권유로 읽히는 말을 쓰지 않는다.
+  수익률은 넣은 돈을 아는 종목만 뜬다. 앞 카드가 긴 두 장 판은 `frontTop` 으로 내린다.
+*/
+const ASSET_PAGES = [
+  {
+    file: '1-예금, 적금, 투자를.png',
+    title: '예금, 적금, 투자를|한 화면에 모아요',
+    sub: '넣은 돈을 아는 종목은 수익률까지 보여줘요',
+    shot: 'asset-groups',
+  },
+  {
+    file: '2-은행, 증권 앱 캡처로.png',
+    title: '은행, 증권 앱 캡처로|자산을 채워요',
+    sub: '잔액과 종목을 읽어 와요. 고른 것만 넣어요',
+    shot: 'asset-capture',
+  },
+  {
+    file: '3-내 자산이 어디에.png',
+    title: '내 자산이 어디에|얼마나 있는지',
+    sub: '종류별 비중과 큰 저축·투자 Top 5 를 보여줘요',
+    layout: 'two',
+    back: 'asset-donut',
+    front: 'asset-top5',
+    tagBack: '내 자산 리포트',
+    frontTop: 660,
+  },
+  {
+    file: '4-적금에 넣은 돈도.png',
+    title: '적금에 넣은 돈도|10초면 적어요',
+    sub: '넣은 곳을 고르고 금액만 치면 내 자산에 더해져요',
+    layout: 'two',
+    back: 'save-keypad',
+    front: 'save-done',
+    tagBack: '기록하기',
+    tagFront: '저장 뒤',
+    frontTop: 600,
+  },
+  {
+    file: '5-월급날부터.png',
+    title: '월급날부터|한 달로 봐요',
+    sub: '25일로 두면 리포트와 예산이 9.25 ~ 10.24 로 맞춰져요',
+    layout: 'two',
+    back: 'month-sheet',
+    front: 'month-report',
+    tagBack: '한 달 시작일',
+    tagFront: '리포트',
+    frontTop: 600,
+  },
+];
+
+const SETS = { basic: BASIC_PAGES, shared: SHARED_PAGES, assets: ASSET_PAGES };
+
+const LIST = SETS[SET];
+if (LIST == null) throw new Error(`POCKET_SHOT_SET 은 basic, shared, assets 중 하나예요: ${SET}`);
 
 mkdirSync(OUT, { recursive: true });
 
@@ -158,8 +221,10 @@ for (const item of LIST) {
   if (item.layout === 'two') {
     params.set('shotFront', crop(item.front));
     params.set('shotBack', crop(item.back));
-    params.set('tagFront', item.tagFront);
-    params.set('tagBack', item.tagBack);
+    params.set('tagFront', item.tagFront ?? '');
+    params.set('tagBack', item.tagBack ?? '');
+    if (item.backTop != null) params.set('backTop', String(item.backTop));
+    if (item.frontTop != null) params.set('frontTop', String(item.frontTop));
   } else {
     params.set('shot', crop(item.shot));
   }
@@ -167,8 +232,9 @@ for (const item of LIST) {
   await page.goto(`file://${resolve(HERE, 'store-frame.html')}?${params.toString()}`);
   await page.waitForTimeout(700);
   const shot = await page.screenshot();
-  writeFileSync(`${OUT}/${item.file}`, await toConsoleSize(shot));
-  console.log('만들었다:', item.file);
+  const name = `${SET}-${item.file}`;
+  writeFileSync(`${OUT}/${name}`, await toConsoleSize(shot));
+  console.log('만들었다:', name);
 }
 
 await browser.close();

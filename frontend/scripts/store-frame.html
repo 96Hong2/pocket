@@ -252,10 +252,23 @@
       put('sub', q.get('sub'));
       put('tagBack', q.get('tagBack'));
       put('tagFront', q.get('tagFront'));
+      // 두 화면이 한 화면 안의 두 자리면 이름표는 하나만 둔다. 빈 이름표는 감춘다.
+      for (const id of ['tagBack', 'tagFront']) {
+        if (!q.get(id)) document.getElementById(id).style.display = 'none';
+      }
       src('shot', q.get('shot'));
       src('shotBack', q.get('shotBack'));
       src('shotFront', q.get('shotFront'));
       src('logo', q.get('logo'));
+
+      // 두 장 판에서 앞 카드가 길면 뒤 카드와 겹친다. 그때만 위치를 넘겨받아 옮긴다. 이름표는 카드 18px 위.
+      const place = (card, tag, top) => {
+        if (!top) return;
+        document.querySelector(card).style.top = `${top}px`;
+        document.querySelector(tag).style.top = `${Number(top) - 18}px`;
+      };
+      place('.duo__card--back', '.duo__tag--back', q.get('backTop'));
+      place('.duo__card--front', '.duo__tag--front', q.get('frontTop'));
     </script>
   </body>
 </html>
