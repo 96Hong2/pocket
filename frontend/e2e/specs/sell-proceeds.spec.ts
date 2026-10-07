@@ -1,8 +1,9 @@
 import type { Locator, Page } from '@playwright/test';
 
 import { formatCurrency } from '../../src/shared/lib/format';
+import { TEST_IDS } from '../../src/shared/testIds';
 import { logsNamed } from '../support/aitMock';
-import type { AssetSeed } from '../support/api';
+import type { AssetSeed, PrepApi } from '../support/api';
 import { expect, test } from '../support/fixtures';
 import { shotBothWidths } from '../support/shots';
 import type { AssetsScreen } from '../screens/AssetsScreen';
@@ -50,11 +51,20 @@ async function shot(
   block: 'start' | 'center' = 'center',
 ): Promise<void> {
   if ((process.env.POCKET_SHOT_DIR ?? '') === '') return;
+  const hidden = ['.ait-panel-toggle', '.ait-panel', `[data-testid="${TEST_IDS.adSlot}"]`];
   await page.addStyleTag({
-    content:
-      '.ait-panel-toggle,.ait-panel,[data-testid="ad-slot"]{display:none!important}*{scrollbar-width:none!important}',
+    content: `${hidden.join(',')}{display:none!important}*{scrollbar-width:none!important}`,
   });
   await shotBothWidths(page, name, focus, block);
+}
+
+type Seeded = Awaited<ReturnType<PrepApi['putAssets']>>;
+
+/** 심은 자산에서 그 이름의 항목 키. */
+function keyIn(seeded: Seeded, label: string): string {
+  const key = seeded.items.find((item) => item.label === label)?.item_key;
+  if (key == null) throw new Error(`${label} 항목 키가 없다`);
+  return key;
 }
 
 /** 기록하기 › 저축·투자에서 삼성전자 5주를 420,000원 받고 판다. 끝나면 저장 뒤 화면이다. */
@@ -247,17 +257,12 @@ test('기록 고치기에서 받은 돈 넣을 곳을 비우면 통장이 돌아
 }) => {
   test.slow();
   const seeded = await prep.putAssets([KAKAO, TOSS, SAMSUNG_TEN]);
-  const keyOf = (label: string): string => {
-    const key = seeded.items.find((item) => item.label === label)?.item_key;
-    if (key == null) throw new Error(`${label} 항목 키가 없다`);
-    return key;
-  };
   await prep.addAssetTransfer({
     amount: 420_000,
-    itemKey: keyOf('삼성전자'),
+    itemKey: keyIn(seeded, '삼성전자'),
     side: 'sell',
     quantity: '5',
-    proceedsKey: keyOf('카카오뱅크'),
+    proceedsKey: keyIn(seeded, '카카오뱅크'),
     memo: '반만 팔았다',
   });
 
@@ -328,6 +333,99 @@ test('기록 고치기에서 받은 돈 넣을 곳을 비우면 통장이 돌아
     await expect(assets.row('토스뱅크 통장')).toContainText(formatCurrency(920_000));
     await expect(assets.row('카카오뱅크')).toContainText(formatCurrency(1_000_000));
     await expect(assets.netWorth).toHaveText(formatCurrency(2_270_000));
+  });
+});
+
+test('금액으로 적는 펀드의 팔기 기록도 고치기에 줄이 서고, 금액만 고치면 넣은 통장이 따라간다', async ({
+  assets,
+  calendar,
+  prep,
+}) => {
+  // 펀드 1,000,000원을 전부 1,200,000원 받고 팔아 토스뱅크 통장(500,000원)에 넣었다: 1,700,000원.
+  const seeded = await prep.putAssets([
+    TOSS,
+    { group: 'investment', label: 'S&P500 펀드', kind: 'fund', amount: 1_000_000, cost: 1_000_000 },
+  ]);
+  await prep.addAssetTransfer({
+    amount: 1_200_000,
+    itemKey: keyIn(seeded, 'S&P500 펀드'),
+    side: 'sell',
+    remaining: '0',
+    proceedsKey: keyIn(seeded, '토스뱅크 통장'),
+    memo: '펀드 정리',
+  });
+
+  await calendar.open();
+  await calendar.waitReady();
+  await calendar.list.pick('펀드 정리');
+  await calendar.edit.waitOpen();
+  // 금액 종목은 「넣었어요 | 팔았어요」 를 고르지 않는다. 적혀 있던 쪽이 팔았어요라 줄이 선다.
+  await expect(calendar.edit.sideOption('팔았어요')).toHaveCount(0);
+  await expect(calendar.edit.proceedsRow).toHaveAccessibleName(
+    '받은 돈 넣을 곳 토스뱅크 통장, 바꾸기',
+  );
+
+  // 넣을 곳은 건드리지 않고 받은 돈만 1,300,000원으로 고친다. 통장은 500,000 + 1,300,000 이다.
+  await calendar.edit.amount.fill('1300000');
+  await calendar.edit.done();
+  await calendar.edit.waitClosed();
+
+  await assets.open();
+  await assets.waitReady();
+  await expect(assets.row('토스뱅크 통장')).toContainText(formatCurrency(1_800_000));
+  await expect(assets.netWorth).toHaveText(formatCurrency(1_800_000));
+});
+
+test.describe('서버가 넣을 곳을 막았을 때', () => {
+  test.use({
+    // 서버가 422 로 막는 것이 확인하려는 일이다. 브라우저가 적는 줄이고 앱이 낸 오류가 아니다.
+    consoleErrorAllowList: [/Failed to load resource[\s\S]*422/],
+  });
+
+  test('고르는 사이 그 통장이 예적금·현금이 아니게 됐으면 서버 문구가 줄 아래에 뜨고 줄은 「고르기」 로 돌아온다', async ({
+    assets,
+    home,
+    prep,
+    recordSheet,
+  }) => {
+    test.slow();
+    const seeded = await prep.putAssets([KAKAO, SAMSUNG_TEN]);
+
+    await sellFiveFromRecord(home, recordSheet);
+    await recordSheet.proceedsRow.click();
+    await expect(recordSheet.proceeds.account('카카오뱅크')).toBeVisible();
+
+    // 창이 떠 있는 사이 다른 기기에서 그 통장을 보증금·기타로 옮겼다. 화면의 목록은 아직 옛 것이다.
+    await prep.putAssets([
+      {
+        group: 'deposit',
+        label: '카카오뱅크',
+        amount: 1_000_000,
+        itemKey: keyIn(seeded, '카카오뱅크'),
+      },
+      {
+        group: 'investment',
+        label: '삼성전자',
+        amount: 350_000,
+        itemKey: keyIn(seeded, '삼성전자'),
+      },
+    ]);
+    await recordSheet.proceeds.account('카카오뱅크').click();
+
+    await expect(recordSheet.proceeds.dialog).toHaveCount(0);
+    await expect(recordSheet.feedback.notice).toHaveText(
+      '받은 돈은 예적금·현금 항목에만 넣을 수 있어요.',
+    );
+    // 먼저 세워 둔 이름은 걷히고 다시 고를 수 있다.
+    await expect(recordSheet.proceedsRow).toHaveAccessibleName('받은 돈 넣을 곳 고르기');
+    await expect(recordSheet.proceedsRow).toBeEnabled();
+
+    // 통장 금액은 안 움직였다. 판 기록은 그대로 저장돼 있다.
+    await recordSheet.assetsButton.click();
+    await recordSheet.waitClosed();
+    await assets.waitArrived();
+    await expect(assets.row('카카오뱅크')).toContainText(formatCurrency(1_000_000));
+    await expect(assets.row('삼성전자')).toContainText('5주 보유, 넣은 돈 350,000원');
   });
 });
 

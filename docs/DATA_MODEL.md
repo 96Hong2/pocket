@@ -64,7 +64,7 @@ erDiagram
   asset_snapshots ||--o{ asset_items : ""
   users ||--o{ asset_entries : "넣고 판 기록"
   asset_items |o--o{ asset_entries : "item_key 로 잇는다"
-  transactions |o--o| asset_entries : "저축·투자 거래"
+  transactions |o--o{ asset_entries : "저축·투자 거래(팔고 받은 돈을 넣었으면 줄이 둘)"
   goals ||--o{ goal_contributions : ""
 ```
 
@@ -148,6 +148,7 @@ erDiagram
 | `source` | `keypad` \| `nl` \| `screenshot` \| `receipt` \| `asset_screenshot` \| `no_spend` | 어떤 경로로 들어왔는지 |
 | `asset_item_key` · `asset_side` · `asset_quantity` | null 허용 | 저축·투자. `type=transfer` 에 「어디에」 를 붙인 것이다(ADR-0045). 집계는 이 칸을 안 본다 |
 | `asset_remaining` · `asset_cost_basis` | null 허용 | 금액 종목을 팔 때만. 팔고 남은 금액(0 이면 전부)과, 넣은 돈을 모를 때 적은 넣은 돈 전체(ADR-0047). 장부 sell 줄의 `remaining` · `cost_basis` 로 넘어간다 |
+| `asset_proceeds_key` | `uuid?` | 팔았어요로 받은 돈을 넣은 통장(ADR-0049). 예적금·현금 항목의 `item_key` 다. 팔기 기록에만 있고, 넣었어요로 바꾸거나 어디에를 비우면 서버가 비운다. 차 있으면 그 통장 장부에 `is_proceeds` 줄이 하나 생긴다 |
 | `confidence` | `float` = 1.0 | 0~1. 사용자가 직접 넣은 값은 1.0 |
 | `excluded_from_budget` | `bool` = false | **거래목록·리포트에는 남고 예산 계산에서만 빠진다** |
 | `payment_method` | `credit` \| `debit` \| `cash` \| `null` | 신용카드·체크카드·현금. **지출과 환불에만 붙고** 수입·이체로 고치면 서비스가 비운다. `null` 이 「안 고름」이라 '모름' 값을 따로 두지 않는다 |
@@ -381,6 +382,7 @@ pref.budget_auto_carryover = false         → 복사 안 함
 | `cost_basis` | set 줄은 종목의 넣은 돈(금액 종목은 넣은 돈과 지금 금액 두 값이다, null 이면 모름). sell 줄은 넣은 돈을 모르는 항목을 팔 때 적은 넣은 돈 전체 |
 | `remaining` | 금액 종목 sell 줄만. 팔고 남은 금액, 0 이면 전부. 판 몫 = 받은 돈 ÷ (받은 돈 + 남은 금액). null 인 옛 줄은 받은 돈 ÷ 지금 금액으로 접는다(ADR-0047) |
 | `transaction_id` | 거래에서 온 줄. 거래가 지워지면 이 줄도 지운 표시를 받는다 |
+| `is_proceeds` | 팔기 거래가 받은 돈을 넣은 통장에 남긴 `buy` 줄이면 참(ADR-0049). 같은 거래의 판 종목 줄과 이 칸으로 가른다. 금액은 거래 금액(받은 돈)이다. 기본 false |
 | `occurred_on` | 거래 날짜(사용자 시간대). 순서는 이 날짜가 아니라 `created_at` 이다 |
 
 **거래가 바꾸는 것은 늘 오늘 스냅샷이고 지난 점은 고치지 않는다.** 거래 저장·고치기·지우기·되돌리기는 거래와

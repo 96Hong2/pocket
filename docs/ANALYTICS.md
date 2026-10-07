@@ -24,7 +24,7 @@
 | 읽어 온 것을 잃나 | `record_leave_asked` · `review_cancelled` | 물었나·머물렀나·나갔나와 그때 몇 건, 스스로 버린 건수. 2026-10-05~ 검토 화면에서 뒤로 가 첫 화면에 가려다 「읽어 온 N건이 사라져요」 를 물은 것도 같은 값으로 남고, 「나가기」 면 `review_cancelled` 도 남는다 |
 | 저장이 실제로 됐나 | `save_requested` · `save_result` | 성공·실패, 저장 건수, 소요 시간, 오류 코드, 키패드로 적은 종류(`type`: `expense`·`income`·**`transfer`**, 2026-09-27~. 「이체」 글씨가 쓰이는지 센다), **어느 가계부에 적었나**(`book`: `mine`·`shared`, 2026-09-28~. 공유 가계부가 없는 사람은 늘 `mine`). 2026-10-05~ `save_result` 에 종류(`kind`, 직접 입력만), 첫 화면에 머문 시간(`setup_ms`), 직접 입력 둘째 화면에 머문 시간(`amount_ms`, 줄글과 사진은 안 싣는다), 시트를 연 때부터 저장을 누른 때까지(`flow_ms`), 첫 화면 값을 그대로 썼나(`defaults`). 자산관리 판부터 저축·투자는 `type`·`kind` 가 `save` 이고(서버에는 이체로 적힌다) 넣었나 팔았나(`side`: `buy`·`sell`), 수량의 꼴(`qty`: `none` 수량 칸 없음·`int`·`decimal`), 팔 때 「전부」 그대로였나(`qty_all`), 「어디에」 를 고른 길(`dest_from`: `grid`·`other`·`new`, 자산 화면 「팔았어요」 로 열었으면 없음), 격자에서 고른 자리(`position`, 0부터, 격자에서 골랐을 때만)를 싣는다. **수량 값, 받은 돈, 항목 이름은 싣지 않는다** |
 | 저장 뒤에 잘못을 찾나 | `record_changed` | 고침·지움과 **지우려다 그만둠**(`delete_asked`·`delete_cancelled`·`delete`), 고친 칸 이름, 그 기록의 입력 방식. 2026-09-28~ **옮김**(`move`, `to`: `mine`·`shared`)과 **되돌림**(`restore`, 지운 공유 기록을 알림에서 되살림), 2026-09-29~ **옮기기 되돌림**(`undo_move`, `to` 는 돌아간 쪽. 원본을 되살리는 것이라 `move` 로 세지 않는다), 공유 기록을 고치거나 지웠으면 `book: 'shared'` |
-| 저장 뒤 화면을 보고 무엇을 하나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것(`confirm`, 2026-10-05~ `more` 어디서와 메모 칸을 펼침, 펼친 칸 `field`: `merchant`·`memo`, 자산관리 판부터 `assets` 저축·투자 저장 뒤 「자산 보기」). 2026-10-05~ 공유 가계부 저장 뒤 화면에서도 남고 `book`(`mine`·`shared`)을 싣는다 |
+| 저장 뒤 화면을 보고 무엇을 하나 | `feedback_shown` · `feedback_action` | 피드백 종류, 예산 유무, 누른 것(`confirm`, 2026-10-05~ `more` 어디서와 메모 칸을 펼침, 펼친 칸 `field`: `merchant`·`memo`, 자산관리 판부터 `assets` 저축·투자 저장 뒤 「자산 보기」, 판 돈 넣을 곳 판부터 `proceeds` 팔고 난 뒤 「받은 돈 넣을 곳」 창을 엶과 `proceeds_result` 그 창에서 고른 것이 저장됨, 그 결과 `result`: `picked`·`created`·`cleared`). 2026-10-05~ 공유 가계부 저장 뒤 화면에서도 남고 `book`(`mine`·`shared`)을 싣는다. **통장 이름과 금액은 싣지 않는다** |
 | 다시 쓰기 위한 설정을 하나 | `budget_saved` · `home_add_result` · `notification_result` | 첫 설정인지와 어디서 정했나(`sheet`·`calculator`·`goal_suggestion`·`settings`), 유도한 자리(`home_card`·`settings`)와 결과(`opened`·`guide_done`·`dismissed`), 동의·거절·미지원과 **켠 자리**(`where`: `home_card`·`settings`). 2026-09-30~ **`remind_card_dismissed`**: 홈 알림 카드를 몇 번째로 닫았나(`closes`). 닫을수록 다시 묻는 간격이 3, 7, 14, 30일로 길어진다 |
 | 한 달을 월급날에 맞추나 | **`month_start_opened`** · **`month_start_saved`** | 2026-10-05~. 한 달 시작일 시트를 연 자리(`where`: `manage` 관리 탭 예산 줄과 기간 줄 · `settings` 앱 설정 줄 · `report` 리포트 기간 줄), 저장한 날(`day`)과 그 전 날(`from_day`). 둘 다 1 ~ 28 의 숫자라 싣는다 |
 | 새 기능 안내가 사람을 데려가나 | `books_intro_result` | 홈의 같이 쓰는 가계부 안내에서 만들기로 갔나(`opened`)·닫았나(`dismissed`). 2026-09-30~, 한 번뿐인 카드 |
@@ -208,6 +208,18 @@
 | `record_back.how` | 안 싣는다. 시트 안 ‹(`sheet`)가 없어져 남는 값이 `back` 하나뿐이다. 앞 판과 견줄 때는 앞 판의 `sheet` 와 `back` 을 합친 개수를 이 판의 `record_back` 개수와 견준다 |
 | `record_closed.how` 의 `back` | 값 이름은 그대로다. 앞 판은 첫 화면의 시트 안 ‹ 로 닫은 것도 `back` 이었고, 이 판부터는 토스 위 ‹ 와 폰 뒤로가기뿐이다 |
 | `feedback_action.action` 의 `confirm` | 값 이름은 그대로다. 앞 판은 저장 뒤 화면의 시트 안 ‹ 로 닫은 것도 `confirm` 이었다. 이 판부터는 「확인」, 토스 위 ‹, 폰 뒤로가기, Esc 다 |
+
+### 판마다 바뀐 값: 판 돈 넣을 곳 판 (2026-10-07~, ADR-0049)
+
+팔고 난 저장 뒤 화면에 「받은 돈 넣을 곳」 한 줄이 생겼다. 누르면 예적금·현금 통장을 고르는 창이 뜬다.
+
+| 값 | 이 판부터 |
+|---|---|
+| `feedback_action.action` 의 `proceeds` | 「받은 돈 넣을 곳」 줄을 눌러 창을 열었다. 팔았어요 저장 뒤 화면에서만 난다. 팔기 저장 수(`save_result` 의 `side=sell`)에 견주면 줄을 누르는 비율이 나온다 |
+| `feedback_action.action` 의 `proceeds_result` | 창에서 고른 것이 서버에 저장된 순간. `result` 가 `picked`(있던 통장을 골랐다), `created`(「새 통장」 으로 만들었다), `cleared`(「넣지 않기」 로 비웠다)다. 창을 열고 그냥 닫으면 안 남는다. 저장에 실패해도 안 남는다. 통장 이름과 금액은 싣지 않는다 |
+| `record_changed.fields` | 기록 고치기에서 넣을 곳을 바꾸면 `asset_proceeds_key`, 새 통장을 만들면 `new_proceeds_asset` 이 고친 칸 이름에 든다. 고치기에는 `feedback_action` 이 없다 |
+
+`created` 가 `picked` 보다 많으면 통장 없이 종목만 적어 둔 사람이 많다는 뜻이다.
 
 **`blocked` 와 `earned` 는 더 이상 안 나간다.** 장수가 없으면 막던 장치를 ADR-0031 이
 없앴다. 지금은 아무도 막히지 않고 읽는 동안 광고가 함께 돌 뿐이다. 09-22 이전 자료를 지금
