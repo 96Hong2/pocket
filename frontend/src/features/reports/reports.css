@@ -901,32 +901,61 @@
 
   /* ── 눌러서 들어가는 자리 ─────────────────────────── */
 
-  /* 탭 트랙과 같은 높이에 글자 버튼 하나. 트랙이 남은 폭을 다 쓴다. */
+  /*
+    소비|수입 탭과 저축·투자 가는 길.
+
+    공용 세그먼트 트랙은 페이지 바탕과 같은 색이라 이 화면에서는 안 보였다. 그래서 고른 탭만
+    흰 알약으로 뜨고 안 고른 탭은 글자만, 저축·투자는 초록 글자 링크라 한 줄에 세 가지 모양이
+    섞였다. 둘 다 카드와 같은 흰 바탕, 같은 높이(44px), 같은 모서리로 맞춘다.
+    고른 탭은 아래 탭바처럼 세이지로 칠한다. 저축·투자는 탭이 아니라 다른 화면으로 가는 길이라
+    트랙 밖에 따로 서고 › 를 단다.
+  */
   .report__modes-row {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 8px;
   }
 
   .report__modes-row .report__modes {
     flex: 1;
     min-width: 0;
+    padding: 4px;
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+  }
+
+  .report__modes-row .pk-segmented__item {
+    height: 36px;
+    font-size: var(--text-14);
+  }
+
+  .report__modes-row .pk-segmented__item[aria-checked='true'] {
+    background: var(--color-sage-50);
+    box-shadow: none;
+    color: var(--color-sage-700);
   }
 
   .report__assets-link {
     flex: none;
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    height: 40px;
-    padding: 0 2px 0 6px;
+    gap: 4px;
+    height: 44px;
+    padding: 0 12px 0 16px;
     border: 0;
-    background: transparent;
-    color: var(--color-sage-700);
-    font-size: var(--text-13);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    color: var(--color-ink);
+    font-size: var(--text-14);
     font-weight: var(--font-weight-bold);
     white-space: nowrap;
     cursor: pointer;
+  }
+
+  .report__assets-link:active {
+    background: var(--color-surface-sunken);
   }
 
   .report__chevron {

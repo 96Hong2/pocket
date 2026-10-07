@@ -62,6 +62,35 @@ export class ReportScreen {
     return this.root.getByRole('button', { name: /^저축·투자/ });
   }
 
+  /** 소비·수입 트랙. 「저축·투자 ›」 와 한 줄에 선다. */
+  get modesTrack(): Locator {
+    return this.root.getByRole('radiogroup', { name: '보는 것' });
+  }
+
+  /**
+   * 트랙 바탕색과 그 뒤에 비치는 바탕색. 둘이 같으면 트랙이 안 보여 고른 탭만 알약으로 뜨고
+   * 나머지는 글자만 남는다(사용자가 이상하다고 한 모양).
+   */
+  async modesTrackColors(): Promise<{ track: string; behind: string; picked: string }> {
+    return this.modesTrack.evaluate((track) => {
+      const clear = (color: string) => color === 'transparent' || color === 'rgba(0, 0, 0, 0)';
+      let behind = 'rgba(0, 0, 0, 0)';
+      for (let node = track.parentElement; node != null; node = node.parentElement) {
+        const color = getComputedStyle(node).backgroundColor;
+        if (!clear(color)) {
+          behind = color;
+          break;
+        }
+      }
+      const checked = track.querySelector('[aria-checked="true"]');
+      return {
+        track: getComputedStyle(track).backgroundColor,
+        behind,
+        picked: checked == null ? '' : getComputedStyle(checked).backgroundColor,
+      };
+    });
+  }
+
   /** 소비/수입 전환. 기본은 소비다. */
   modeTab(label: '소비' | '수입'): Locator {
     return this.root.getByRole('radio', { name: label, exact: true });
