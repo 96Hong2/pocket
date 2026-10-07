@@ -89,7 +89,7 @@ test('45 며칠 비운 뒤 돌아오면 복구 카드가 맞아준다', async ({
   expect(await home.recovery.gaugeFillColor(), '복구 게이지가 경고색이다').not.toBe(warning);
   await demo.beat(3);
 
-  await demo.step('밀린 내역 한 번에 정리를 누른다. 캡처 탭이 먼저 열려 있다');
+  await demo.step('밀린 내역 한 번에 정리를 누른다. 캡처로 정리가 먼저 골라져 있다');
   await home.recovery.catchUpButton.click();
   await recordSheet.waitOpen();
   await expect(recordSheet.methodTab('캡처')).toHaveAttribute('aria-checked', 'true');

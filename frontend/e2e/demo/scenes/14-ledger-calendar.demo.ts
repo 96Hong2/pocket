@@ -161,7 +161,7 @@ test('25 상호나 카테고리 이름으로 찾는다', async ({ demo, calendar
   await expect(calendar.search.noResult).toBeVisible();
   await demo.beat(3);
 
-  await demo.step('지우면 달력이 돌아온다');
+  await demo.step('검색어를 지우면 아래 목록이 고른 날 기록으로 돌아온다');
   await calendar.search.clear();
   await expect(calendar.grid.selected).toBeVisible();
   await demo.beat(2);

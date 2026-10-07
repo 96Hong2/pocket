@@ -5,7 +5,7 @@ import { expect, test } from '../support/director';
  * 이 앱의 한 바퀴를 화면으로 찍는다.
  *
  * 01 은 처음 연 홈에서 12,000원을 식비로 남기고, 저장한 줄을 눌러 고치는 데까지 간다.
- * 홈 CTA · 금액 · 카테고리, 저장까지 세 단계뿐이라는 것이 이 영상의 볼거리다.
+ * 기록하기, 다음, 금액, 분류. 고르는 화면은 기본값이 골라져 있어 「다음」 한 번이면 된다.
  * 02 는 그 뒤 이야기다. 예산을 정하면 게이지가 생기고 기록할수록 찬다.
  */
 
@@ -27,7 +27,7 @@ test('01 처음 열어 기록하고 그 자리에서 고치기까지 한 바퀴'
   await home.open();
   await demo.open(
     '10초 기록 한 바퀴',
-    '홈 CTA · 금액 · 카테고리, 세 단계로 저장하고 그 줄에서 바로 고치기까지',
+    '고르는 화면에서 다음, 금액, 분류를 누르면 저장. 저장한 줄에서 바로 고치기까지',
   );
   await home.waitReady();
 
@@ -39,41 +39,46 @@ test('01 처음 열어 기록하고 그 자리에서 고치기까지 한 바퀴'
   await expect(home.today.empty).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('처음 열어도 예산부터 묻지 않아요. 이번 달 남은 돈과 번 돈·쓴 돈만 보여줍니다');
+  await demo.step('처음 열어도 예산부터 묻지 않아요. 이번 달 남은 돈과 번 돈, 쓴 돈만 보여줍니다');
   // 예산이 없으면 히어로는 수입·지출 갈래로 떨어진다(homeMode.ts resolveHeroLayout).
   await expect(home.hero.label).toHaveText(`${MONTH_NUMBER}월 · 이번 달 남은 돈`);
   await demo.beat(2);
 
-  await demo.step('1단계 · 홈에서 기록하기를 누릅니다');
+  await demo.step('기록하기를 누르면 오늘, 직접 입력, 지출이 미리 골라져 있어요');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await expect(recordSheet.dayButton).toContainText('오늘');
+  await expect(recordSheet.methodTab('직접 입력')).toHaveAttribute('aria-checked', 'true');
+  await expect(recordSheet.kindChip('지출')).toHaveAttribute('aria-checked', 'true');
+  await demo.beat(2);
+
+  await demo.step('그대로 다음을 누르면 금액 화면이에요');
+  await recordSheet.next();
+  await expect(recordSheet.amountTitle).toHaveText('얼마 썼어요?');
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));
   // 안내 줄 없이 금액과 칩만 선다. 누를 곳이 곧 설명이다.
   await expect(recordSheet.input.hint).toHaveCount(0);
-  // 순서를 강요하지 않는다. 금액이 아직 0원이어도 카테고리는 열려 있다.
   await expect(recordSheet.input.categoryChip(CATEGORY)).toBeEnabled();
   await demo.beat(2);
 
-  await demo.step('2단계 · 키패드로 금액만 찍어요');
+  await demo.step('키패드로 금액만 찍어요');
   await recordSheet.input.enterAmount(AMOUNT);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(AMOUNT));
-  await expect(recordSheet.input.categoryChip(CATEGORY)).toBeEnabled();
   await demo.beat(2);
 
-  await demo.step('3단계 · 식비를 누르는 것이 곧 저장이에요. 저장 버튼은 없습니다');
+  await demo.step('식비를 누르는 것이 곧 저장이에요');
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
 
   await demo.clearStep();
-  await expect(recordSheet.feedback.headline).toHaveText(
-    `이번 달 ${formatCurrency(AMOUNT)} 썼어요.`,
-  );
+  await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
+  await expect(recordSheet.feedback.savedAmount).toHaveText(formatCurrency(AMOUNT));
   await demo.beat(2);
 
   await demo.step('뒤에 있는 홈의 쓴 돈도 새로고침 없이 따라 올라갔어요');
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(AMOUNT));
 
-  await demo.step('잘못 적었으면 저장한 줄을 그대로 눌러 고칩니다');
+  await demo.step('잘못 적었으면 저장한 줄의 금액을 눌러 고칩니다');
   await recordSheet.feedback.changeAmountButton.click();
   await recordSheet.feedback.enterAmount(FIXED_AMOUNT);
   await recordSheet.feedback.applyAmountButton.click();

@@ -109,10 +109,10 @@ test('40 캡처 한 장에서 고른 것만 저장한다', async ({
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(SEEDED));
   await demo.beat(2);
 
-  await demo.step('기록하기를 눌러 캡처 탭으로 옮긴다');
+  await demo.step('기록하기에서 캡처로 정리를 고른다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.methodTab('캡처로 정리').click();
   await expect(recordSheet.capture.pickButton).toBeVisible();
   await demo.beat(2);
 
@@ -152,7 +152,7 @@ test('40 캡처 한 장에서 고른 것만 저장한다', async ({
   );
   await demo.beat(3);
 
-  await demo.step('홈의 이번 달 쓴 돈이 그만큼 올라간다');
+  await demo.step('홈의 쓴 돈이 그만큼 올라간다');
   await recordSheet.capture.confirmButton.click();
   await recordSheet.waitClosed();
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(thisMonthTotal()));
@@ -185,10 +185,10 @@ test('41 못 읽거나 사진이 막혀도 키패드로 빠져나간다', async 
   expect(await mockImagesSeeded(page), '목에 사진이 안 심겼다').toBe(true);
   await demo.open('안 될 때의 캡처', '무슨 일인지 말하고 다른 길을 남긴다');
 
-  await demo.step('기록하기를 눌러 캡처 탭으로 옮긴다');
+  await demo.step('기록하기에서 캡처로 정리를 고른다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.methodTab('캡처로 정리').click();
   await expect(recordSheet.capture.pickButton).toBeVisible();
   await demo.beat(2);
 
@@ -201,7 +201,7 @@ test('41 못 읽거나 사진이 막혀도 키패드로 빠져나간다', async 
   await expect(recordSheet.capture.saveButton).toHaveCount(0);
   await demo.beat(3);
 
-  await demo.step('다시 고르기를 누르면 처음 화면으로 돌아온다');
+  await demo.step('다시 고르기를 누르면 캡처 고르기 버튼이 있는 화면으로 돌아온다');
   await recordSheet.capture.restartButton.click();
   await expect(recordSheet.capture.pickButton).toBeVisible();
   await demo.beat(2);
@@ -215,9 +215,10 @@ test('41 못 읽거나 사진이 막혀도 키패드로 빠져나간다', async 
   expect(await photoPermissionDenied(page), '사진 권한이 안 꺼졌다').toBe(true);
   await demo.beat(2);
 
-  await demo.step('캡처 고르기를 눌러도 앨범이 열리지 않는다');
+  await demo.step('캡처로 정리를 고르고 아래 사진 고르기를 눌러도 앨범이 열리지 않는다');
   await home.recordButton.click();
-  await recordSheet.methodTab('캡처').click();
+  await recordSheet.waitOpen();
+  await recordSheet.methodTab('캡처로 정리').click();
   await recordSheet.capture.pickButton.click();
   await expect(recordSheet.capture.permissionDenied).toBeVisible();
   await demo.beat(3);
@@ -227,8 +228,8 @@ test('41 못 읽거나 사진이 막혀도 키패드로 빠져나간다', async 
   await expect(recordSheet.capture.permissionDenied).toBeVisible();
   await demo.beat(3);
 
-  await demo.step('사진이 막혀도 키패드로는 그대로 적는다');
-  await recordSheet.methodTab('키패드').click();
+  await demo.step('사진이 막혀도 직접 입력으로는 그대로 적는다');
+  await recordSheet.chooseWay('직접 입력');
   await recordSheet.input.enterAmount(5_000);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(5_000));
   await demo.beat(3);

@@ -41,22 +41,24 @@ test('42 영수증을 찍으면 총액 한 건이 나오고 상호는 비어 있
   await recordSheet.waitOpen();
   await demo.beat(2);
 
-  await demo.step('기록 방법에서 영수증으로 옮긴다');
-  await recordSheet.methodTab('영수증').click();
+  await demo.step('방법 카드에서 영수증 찍기를 고른다');
+  await recordSheet.methodTab('영수증 찍기').click();
   await expect(recordSheet.receipt.pickButton).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('영수증 찍기를 누르면 카메라가 열리고 한 장을 읽는다');
+  await demo.step('아래 카메라 열기를 누르면 카메라가 열리고 한 장을 읽는다');
   await recordSheet.receipt.pick();
   await expect(recordSheet.receipt.rows).toHaveCount(1);
-  await expect(recordSheet.receipt.stubNotice).toBeVisible();
+  // 스텁 결과 안내 줄은 녹화 오버레이가 감춘다(support/overlay.ts). 붙어 있는지만 본다.
+  await expect(recordSheet.receipt.stubNotice).toBeHidden();
+  await expect(recordSheet.receipt.stubNotice).toHaveCount(1);
   await demo.beat(3);
 
   await demo.step('총액 한 건을 읽었는데 상호를 못 읽어 분류 이름으로 선다');
   await expect(recordSheet.receipt.amount(NO_NAME)).toHaveText(formatCurrency(RECEIPT_AMOUNT));
   await demo.beat(3);
 
-  await demo.step('이름을 못 읽었다고 줄을 버리지 않는다. 켜 둔 채로 확인만 부탁한다');
+  await demo.step('이름을 못 읽었다고 줄을 버리지 않는다. 켜 둔 채로 두고 눌러서 고칠 수 있다고 알린다');
   await expect(recordSheet.receipt.checkbox(NO_NAME)).toBeChecked();
   await expect(recordSheet.receipt.readLine).toBeVisible();
   await demo.beat(3);
@@ -74,7 +76,7 @@ test('42 영수증을 찍으면 총액 한 건이 나오고 상호는 비어 있
   );
   await demo.beat(3);
 
-  await demo.step('홈의 이번 달 쓴 돈이 그만큼 올라간다');
+  await demo.step('홈의 쓴 돈이 그만큼 올라간다');
   await recordSheet.receipt.confirmButton.click();
   await recordSheet.waitClosed();
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(RECEIPT_AMOUNT));

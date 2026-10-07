@@ -24,6 +24,14 @@ const TARGET_WIDTH = 824;
 /** 목록에 쓸 대표 그림을 모아 두는 곳. */
 const THUMB_DIR = '_thumbs';
 
+/**
+ * 앞머리에서 잘라 내는 길이(초).
+ *
+ * 녹화는 빈 문서에서 시작한다. 표지를 깔기 전 한 프레임이 흰 화면으로 찍히는 편이 있어
+ * (여러 편이 한꺼번에 뜨는 맨 처음에 특히) 영상마다 앞을 조금 버린다. 그 구간은 어느 편이나 표지다.
+ */
+const HEAD_TRIM_SEC = 0.2;
+
 async function main() {
   const [srcDir, outDir = srcDir] = process.argv.slice(2);
   if (!srcDir) {
@@ -50,6 +58,7 @@ async function main() {
     await run('ffmpeg', [
       '-v', 'error', '-y',
       '-i', src,
+      '-ss', String(HEAD_TRIM_SEC),
       // 짝수 폭·높이가 아니면 h264 가 거부한다. 반올림해서 맞춘다.
       '-vf', `scale=${TARGET_WIDTH}:-2:flags=lanczos`,
       '-c:v', 'libx264',
@@ -113,22 +122,43 @@ function split(base) {
  *
  * 번호 순서가 곧 주제 순서다. 영상을 더하면 여기 범위도 함께 고친다.
  * 묶음 없이 23개를 한 줄로 늘어놓으면 무엇부터 봐야 할지 알 수 없다.
+ *
+ * 뒤늦게 찍어 번호가 멀리 떨어진 영상은 `also` 에 번호를 적어 제 주제 절로 보낸다.
+ * `also` 가 번호 구간보다 먼저다.
  */
 const GROUPS = [
-  { upTo: 2, title: '기록 한 바퀴', lead: '이 앱이 하려는 일. 열고 적고 되돌리기까지' },
+  { upTo: 2, title: '기록 한 바퀴', lead: '이 앱이 하려는 일. 열고 적고 그 자리에서 고치기까지' },
   { upTo: 8, title: '홈 화면', lead: '상황마다 달라지는 얼굴, 그리고 잘 안 될 때' },
-  { upTo: 16, title: '기록 시트', lead: '금액을 찍고 카테고리를 고르고 되돌리는 자리' },
-  { upTo: 21, title: '화면 이동', lead: '탭과 뒤로가기, 아직 자리만 잡아 둔 화면들' },
+  {
+    upTo: 16,
+    title: '기록하기',
+    lead: '고르는 화면에서 다음을 누르고, 금액을 찍고, 분류를 누르면 저장되는 자리',
+  },
+  { upTo: 21, title: '화면 이동', lead: '탭과 뒤로가기, 관리 탭이 데리고 있는 화면들' },
   { upTo: 23, title: '공용 UI', lead: '앱이 쓰는 부품을 한자리에 모아 둔 개발용 화면' },
   { upTo: 29, title: '내역과 수정', lead: '달력으로 다시 보고, 찾고, 고치고, 지우는 자리' },
-  { upTo: 34, title: '예산', lead: '한 달 쓸 돈을 정하고, 카테고리로 쪼개고, 다음 달로 이어 쓰는 자리' },
+  {
+    upTo: 34,
+    also: [69],
+    title: '예산',
+    lead: '한 달 쓸 돈을 정하고, 카테고리로 쪼개고, 다음 달로 이어 쓰고, 수정 시트 안에서 지우는 자리',
+  },
   {
     upTo: 39,
-    title: '줄글 입력',
+    title: '글로 쓰기',
     lead: '한 줄에 적으면 여러 건으로 갈라 읽고, 검토해서 한 번에 저장하는 자리',
   },
-  { upTo: 42, title: '사진으로 적기', lead: '앨범 캡처 한 장에서 여러 건, 영수증 한 장에서 총액 한 건' },
-  { upTo: 44, title: '리포트', lead: '그 달에 어디로 얼마나 갔는지 도넛과 목록으로 보는 자리' },
+  {
+    upTo: 42,
+    title: '캡처로 정리와 영수증 찍기',
+    lead: '앨범 캡처 한 장에서 여러 건, 영수증 한 장에서 총액 한 건',
+  },
+  {
+    upTo: 44,
+    also: [67],
+    title: '리포트',
+    lead: '그 달에 어디로 얼마나 갔는지 도넛과 목록으로 보고, 줄을 눌러 분류 화면과 기록 고치기로 들어가는 자리',
+  },
   {
     upTo: 48,
     title: '복구·분류·설정',
@@ -140,9 +170,29 @@ const GROUPS = [
     lead: '모을 돈을 정하고, 가진 것을 적고, 지난달을 돌아보고, 언제 부를지 정하는 자리',
   },
   {
-    upTo: 999,
+    upTo: 60,
     title: '내보내기·이체·적다 만 것',
     lead: '가계부를 파일로 꺼내 가고, 내 계좌끼리 옮긴 돈을 쓴 돈과 가르고, 적던 것을 말없이 버리지 않는 자리',
+  },
+  {
+    upTo: 62,
+    title: '같이 쓰는 가계부',
+    lead: '관리 탭에서 만들어 링크로 초대하고, 같이 적고, 정산을 보고, 홈 맨 위 칩으로 가계부를 오가는 자리',
+  },
+  {
+    upTo: 65,
+    title: '저축·투자',
+    lead: '기록하기에서 저축·투자를 고르면 쓴 돈과 따로 적고, 캡처와 글로 내 자산을 한 번에 채운다',
+  },
+  {
+    upTo: 66,
+    title: '자산관리와 내 자산 리포트',
+    lead: '순자산과 종목 수익률을 한 화면에 모으고, 짧은 광고 뒤에 리포트로 갈라 본다',
+  },
+  {
+    upTo: 999,
+    title: '한 달 시작',
+    lead: '월급날이 25일이면 25일부터 다음 달 24일까지를 한 달로 정하고, 예산과 리포트와 홈이 그 기간으로 세는 자리',
   },
 ];
 
@@ -152,7 +202,11 @@ const GROUPS = [
 
 function groupOf(no) {
   const n = Number(no);
-  return GROUPS.find((group) => n <= group.upTo) ?? GROUPS[GROUPS.length - 1];
+  return (
+    GROUPS.find((group) => group.also?.includes(n)) ??
+    GROUPS.find((group) => n <= group.upTo) ??
+    GROUPS[GROUPS.length - 1]
+  );
 }
 
 function renderIndex(clips) {

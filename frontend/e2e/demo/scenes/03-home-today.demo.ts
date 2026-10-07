@@ -97,7 +97,7 @@ test('05 오늘 목록이 기록을 보여주는 방식', async ({ demo, home, p
   await expect(home.today.chip('수입')).toBeInViewport();
   await demo.beat(2);
 
-  await demo.step('수입만 초록색에 + 가 붙고, 이체·환불은 회색으로 눌린다');
+  await demo.step('수입만 파란색에 + 가 붙고, 이체와 환불은 회색으로 눌린다');
   await expect(home.today.amount(formatSignedCurrency(INCOME))).toBeInViewport();
   await expect(home.today.amount(formatCurrency(TRANSFER))).toBeVisible();
   await expect(home.today.amount(formatCurrency(REFUND))).toBeVisible();
