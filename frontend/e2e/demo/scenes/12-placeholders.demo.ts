@@ -72,6 +72,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   });
   await expect(subScreens).toBeInViewport({ ratio: 1 });
   await expect(appShell.subScreenRows('관리 하위 화면')).toHaveText([
+    /^한 달 시작/,
     '목표',
     '카테고리 관리',
     '태그',
