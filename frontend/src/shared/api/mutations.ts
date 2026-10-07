@@ -108,7 +108,14 @@ function invalidateAssets(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: queryKeys.assets() });
 }
 
-const ASSET_BODY_FIELDS = ['asset_item_key', 'asset_side', 'asset_quantity', 'new_asset'] as const;
+const ASSET_BODY_FIELDS = [
+  'asset_item_key',
+  'asset_side',
+  'asset_quantity',
+  'new_asset',
+  'asset_proceeds_key',
+  'new_proceeds_asset',
+] as const;
 
 /**
  * 저축·투자 저장이나 고치기였나. 응답에 자산 블록이나 어디에 키가 있거나, 본문에 자산 칸이 있으면 그렇다.
@@ -167,6 +174,11 @@ export function useUpdateTransaction(params?: MonthParams) {
       // 그 왕복이 8초 되돌리기 창을 그대로 갉아먹는다.
       // 패널이 보여주는 금액·판정·예산은 수정 응답과 바로 위 캐시 쓰기에서 온다.
       void invalidateMoney(queryClient);
+    },
+    onError: (_error, input) => {
+      // 자산 칸이 든 고치기가 막혔으면 화면의 자산 목록이 낡은 것이다(그 사이 지웠거나 그룹을 옮겼다).
+      // 다시 받아야 막힌 통장이 고르는 목록에 그대로 남지 않는다.
+      if (ASSET_BODY_FIELDS.some((field) => field in input.body)) invalidateAssets(queryClient);
     },
   });
 }

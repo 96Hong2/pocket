@@ -297,6 +297,7 @@ def add_entry(
     cost_basis: Decimal | None = None,
     remaining: Decimal | None = None,
     transaction_id: uuid.UUID | None = None,
+    is_proceeds: bool = False,
 ) -> AssetEntry:
     entry = AssetEntry(
         user_id=user.id,
@@ -307,6 +308,7 @@ def add_entry(
         cost_basis=cost_basis,
         remaining=remaining,
         transaction_id=transaction_id,
+        is_proceeds=is_proceeds,
         occurred_on=occurred_on,
         created_at=_next_stamp(session, user, key),
     )
@@ -402,10 +404,17 @@ def refold(session: Session, user: User, today: date, keys: Iterable[uuid.UUID])
 # ── 거래 ────────────────────────────────────────────────
 
 
-def _transaction_entry(session: Session, tx: Transaction) -> AssetEntry | None:
+def _transaction_entry(
+    session: Session, tx: Transaction, *, proceeds: bool = False
+) -> AssetEntry | None:
+    """거래의 장부 줄. 팔기 거래는 둘일 수 있어 표식으로 가른다(판 종목 줄, 받은 돈 통장 줄)."""
     return session.scalar(
         select(AssetEntry)
-        .where(AssetEntry.transaction_id == tx.id, AssetEntry.deleted_at.is_(None))
+        .where(
+            AssetEntry.transaction_id == tx.id,
+            AssetEntry.is_proceeds.is_(proceeds),
+            AssetEntry.deleted_at.is_(None),
+        )
         .limit(1)
     )
 
@@ -418,12 +427,69 @@ def _wants_entry(tx: Transaction) -> bool:
     )
 
 
+def _wants_proceeds(tx: Transaction) -> bool:
+    """받은 돈 넣은 곳은 팔았어요 기록에만 붙는다."""
+    return (
+        _wants_entry(tx) and tx.asset_side == EntrySide.SELL and tx.asset_proceeds_key is not None
+    )
+
+
+def _sync_proceeds(session: Session, user: User, tx: Transaction, today: date) -> set[uuid.UUID]:
+    """받은 돈을 넣은 통장의 buy 줄을 거래 칸에 맞춘다. 닿은 항목 키를 돌려준다.
+
+    금액과 날짜만 바뀌면 줄은 자기 자리를 지킨다. 통장이 바뀌면 옛 줄을 지우고 새 통장 장부
+    끝에 붙인다. 넣을 수 있는 곳은 예적금·현금 항목뿐이고, 새로 붙일 때만 검사한다.
+    """
+    entry = _transaction_entry(session, tx, proceeds=True)
+    touched: set[uuid.UUID] = set()
+    wanted = _wants_proceeds(tx)
+    if entry is not None:
+        touched.add(entry.item_key)
+        if not wanted or entry.item_key != tx.asset_proceeds_key:
+            entry.deleted_at = datetime.now(UTC)
+            entry = None
+    if not wanted:
+        return touched
+
+    key = tx.asset_proceeds_key
+    assert key is not None
+    occurred_on = ledger.local_date(tx.occurred_at, ledger.user_tz(user))
+    if entry is None:
+        if key == tx.asset_item_key:
+            raise ApiError(ErrorCode.INVALID_REQUEST, "판 항목에는 받은 돈을 넣을 수 없어요.", 422)
+        row = row_for_key(ensure_today_snapshot(session, user, today), key)
+        if row is None:
+            raise ApiError(ErrorCode.INVALID_REQUEST, "그 자산 항목을 찾지 못했어요.", 422)
+        if row.group is not AssetGroup.CASH:
+            raise ApiError(
+                ErrorCode.INVALID_REQUEST, "받은 돈은 예적금·현금 항목에만 넣을 수 있어요.", 422
+            )
+        start_line_if_new(session, user, row, today)
+        add_entry(
+            session,
+            user,
+            key,
+            side=EntrySide.BUY,
+            amount=tx.amount,
+            occurred_on=occurred_on,
+            transaction_id=tx.id,
+            is_proceeds=True,
+        )
+    else:
+        entry.amount = tx.amount
+        entry.occurred_on = occurred_on
+    touched.add(key)
+    return touched
+
+
 def sync_transaction(session: Session, user: User, tx: Transaction, today: date) -> None:
     """거래 한 건의 장부 줄을 거래 칸에 맞추고, 닿은 항목을 다시 접는다.
 
     같은 항목 안에서 금액·수량·날짜만 바뀌면 줄은 자기 자리(들어온 순서)를 지킨다.
     항목이 바뀌면 옛 줄을 지우고 새 항목 장부 끝에 붙인다. 그 항목의 손 수정 뒤에 놓여야
     넣은 돈이 손 수정에 먹히지 않는다.
+
+    팔기 거래에 받은 돈 넣은 곳이 있으면 줄이 둘이다. 그 통장의 buy 줄도 여기서 함께 맞춘다.
     """
     entry = _transaction_entry(session, tx)
     touched: set[uuid.UUID] = set()
@@ -481,6 +547,7 @@ def sync_transaction(session: Session, user: User, tx: Transaction, today: date)
         if remaining is not None:
             noted = row
 
+    touched |= _sync_proceeds(session, user, tx, today)
     session.flush()
     refold(session, user, today, touched)
     if noted is not None:
@@ -494,10 +561,19 @@ def drop_if_born_with(session: Session, user: User, tx: Transaction, today: date
     기록 흐름의 「새 종목이나 통장」 은 0 원짜리 행을 붙이고 거래 줄을 단다. 그 거래를 지우면
     남는 것은 0 시작 값 줄뿐이라, 행을 두면 자산 화면과 「어디에」 에 빈 항목이 남는다.
     그 전날까지의 스냅샷에 있던 항목은 사람이 만든 것이라 건드리지 않는다.
+    받은 돈을 넣으려고 그 자리에서 만든 「새 통장」 도 같은 규칙이다. 다만 넣은 곳은 며칠 뒤에
+    고치기로 붙일 수 있어 「그 전날」 을 판 기록을 적은 날이 아니라 통장 줄이 붙은 날로 센다.
     """
-    key = tx.asset_item_key
-    if key is None or tx.deleted_at is None:
+    if tx.deleted_at is None:
         return
+    for key in (tx.asset_item_key, tx.asset_proceeds_key):
+        if key is not None:
+            _drop_born_item(session, user, tx, key, today)
+
+
+def _drop_born_item(
+    session: Session, user: User, tx: Transaction, key: uuid.UUID, today: date
+) -> None:
     ever = session.scalars(
         select(AssetEntry).where(AssetEntry.user_id == user.id, AssetEntry.item_key == key)
     ).all()
@@ -510,7 +586,9 @@ def drop_if_born_with(session: Session, user: User, tx: Transaction, today: date
         return
     if any(value not in (None, 0) for value in (start.amount, start.quantity, start.cost_basis)):
         return
-    born_on = ledger.local_date(ledger.as_utc(tx.created_at), ledger.user_tz(user))
+    line = next(entry for entry in ever if entry.transaction_id == tx.id)
+    born_at = line.created_at if line.is_proceeds else tx.created_at
+    born_on = ledger.local_date(ledger.as_utc(born_at), ledger.user_tz(user))
     earlier = session.scalar(
         select(AssetItemRow.id)
         .join(AssetSnapshot, AssetSnapshot.id == AssetItemRow.snapshot_id)
@@ -526,6 +604,10 @@ def drop_if_born_with(session: Session, user: User, tx: Transaction, today: date
     snapshot = snapshot_on(session, user, today)
     row = row_for_key(snapshot, key)
     if snapshot is None or row is None:
+        return
+    # 같은 날 손으로 만든 빈 통장은 장부만으로 「새 통장」 과 못 가른다. 매달 넣는 돈을 적어 둔
+    # 통장은 사람이 만든 것이라 남긴다(「새 통장」 은 이름만 받는다).
+    if line.is_proceeds and row.monthly_amount is not None:
         return
     snapshot.items.remove(row)
     start.deleted_at = datetime.now(UTC)
@@ -762,15 +844,25 @@ class AssetResult:
     month_saved: Money
     realized: Money | None
     rate: Decimal | None
+    # 받은 돈을 넣은 통장과 넣은 뒤 그 통장 금액. 안 넣었으면 셋 다 None.
+    proceeds_key: uuid.UUID | None = None
+    proceeds_label: str | None = None
+    proceeds_amount: Money | None = None
 
 
 def asset_result(session: Session, user: User, tx: Transaction) -> AssetResult | None:
     """거래가 닿은 항목의 지금 값. 팔았으면 그 판 기록의 실현 수익과 수익률."""
     if not _wants_entry(tx) or tx.asset_item_key is None:
         return None
-    row = row_for_key(latest_snapshot(session, user), tx.asset_item_key)
+    snapshot = latest_snapshot(session, user)
+    row = row_for_key(snapshot, tx.asset_item_key)
     if row is None:
         return None
+    proceeds = (
+        row_for_key(snapshot, tx.asset_proceeds_key)
+        if _wants_proceeds(tx) and tx.asset_proceeds_key is not None
+        else None
+    )
     figures = item_figures(session, user, [row]).get(tx.asset_item_key)
     realized: Money | None = None
     rate: Decimal | None = None
@@ -789,4 +881,7 @@ def asset_result(session: Session, user: User, tx: Transaction) -> AssetResult |
         month_saved=month_saved(session, user, period),
         realized=realized,
         rate=rate,
+        proceeds_key=proceeds.item_key if proceeds is not None else None,
+        proceeds_label=proceeds.label if proceeds is not None else None,
+        proceeds_amount=Money(proceeds.amount) if proceeds is not None else None,
     )

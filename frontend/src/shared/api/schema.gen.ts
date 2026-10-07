@@ -1800,6 +1800,12 @@ export interface components {
             realized?: string | null;
             /** Rate */
             rate?: string | null;
+            /** Proceeds Key */
+            proceeds_key?: string | null;
+            /** Proceeds Label */
+            proceeds_label?: string | null;
+            /** Proceeds Amount */
+            proceeds_amount?: string | null;
         };
         /**
          * AssetSide
@@ -3281,6 +3287,14 @@ export interface components {
             label?: string | null;
         };
         /**
+         * NewProceedsIn
+         * @description 받은 돈을 넣을 통장을 그 자리에서 만든다. 그룹은 예적금·현금 하나라 이름만 받는다.
+         */
+        NewProceedsIn: {
+            /** Label */
+            label: string;
+        };
+        /**
          * NextOut
          * @description 다음 달에 해 볼 것 하나. **여기에 적용 버튼은 없다.**
          *
@@ -3876,6 +3890,13 @@ export interface components {
             asset_cost_basis?: number | string | null;
             /** @description 어디에를 새로 만들 때 */
             new_asset?: components["schemas"]["NewAssetIn"] | null;
+            /**
+             * Asset Proceeds Key
+             * @description 팔았어요로 받은 돈을 넣은 통장. 예적금·현금 항목 키. 안 보내면 안 넣는다
+             */
+            asset_proceeds_key?: string | null;
+            /** @description 받은 돈 넣을 통장을 새로 만들 때 */
+            new_proceeds_asset?: components["schemas"]["NewProceedsIn"] | null;
         };
         /** TransactionCreated */
         TransactionCreated: {
@@ -3934,6 +3955,10 @@ export interface components {
             asset_quantity?: string | null;
             /** Asset Label */
             asset_label?: string | null;
+            /** Asset Proceeds Key */
+            asset_proceeds_key?: string | null;
+            /** Asset Proceeds Label */
+            asset_proceeds_label?: string | null;
         };
         /**
          * TransactionSource
@@ -3981,6 +4006,9 @@ export interface components {
             /** Asset Cost Basis */
             asset_cost_basis?: number | string | null;
             new_asset?: components["schemas"]["NewAssetIn"] | null;
+            /** Asset Proceeds Key */
+            asset_proceeds_key?: string | null;
+            new_proceeds_asset?: components["schemas"]["NewProceedsIn"] | null;
         };
         /**
          * TransactionUpdated

@@ -615,14 +615,19 @@ export type RecordCloseHow = 'back' | 'dim' | 'drag' | 'handle' | 'esc' | 'manag
  *
  * 값으로 막는 것이 아니라 **타입으로 막는다.** 이 키를 실으면 `log` 를 부르는 자리가 컴파일되지 않는다.
  */
-export type ForbiddenParamKey = 'amount' | 'quantity' | 'price' | 'name' | 'label' | 'memo' | 'merchant';
+export type ForbiddenParamKey =
+  'amount' | 'quantity' | 'price' | 'name' | 'label' | 'memo' | 'merchant';
 
 export type NoForbiddenKeys = { [K in ForbiddenParamKey]?: never };
 
 type ParamValue = string | number | boolean | undefined;
 
 /** 맵의 값이 브릿지가 받는 모양이고 금지 키가 없는지 컴파일 때 본다. */
-type CheckedMap<T extends { [K in keyof T]: K extends EventName ? Record<string, ParamValue> & NoForbiddenKeys : never }> = T;
+type CheckedMap<
+  T extends {
+    [K in keyof T]: K extends EventName ? Record<string, ParamValue> & NoForbiddenKeys : never;
+  },
+> = T;
 
 /** 흐름을 잇는 값. 보통은 `log` 의 `flowId` 로 넘기고, 값에 직접 실어도 같다. */
 type FlowParam = { flow_id?: string };
@@ -687,10 +692,15 @@ export type EventParamMap = CheckedMap<{
     book: BookSide;
   };
   feedback_action: FlowParam & {
-    /** `assets` 는 저축·투자 저장 뒤 「자산 보기」. */
-    action: 'confirm' | 'more' | 'assets';
+    /**
+     * `assets` 는 저축·투자 저장 뒤 「자산 보기」. `proceeds` 는 팔고 난 뒤 「받은 돈 넣을 곳」 창을 열었다,
+     * `proceeds_result` 는 그 창에서 고른 것이 서버에 저장됐다.
+     */
+    action: 'confirm' | 'more' | 'assets' | 'proceeds' | 'proceeds_result';
     /** `more` 일 때 펼친 칸. */
     field?: 'merchant' | 'memo';
+    /** `proceeds_result` 일 때. 있던 통장을 골랐나, 새 통장을 만들었나, 비웠나. 이름과 금액은 안 싣는다. */
+    result?: 'picked' | 'created' | 'cleared';
   };
   month_start_opened: {
     where: 'manage' | 'settings' | 'report';

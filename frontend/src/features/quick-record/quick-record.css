@@ -837,6 +837,21 @@
     background: var(--color-sage-50);
   }
 
+  .saved-asset__list {
+    margin: 0;
+  }
+
+  /* 「받은 돈 넣을 곳」. 위 줄들과 같은 카드 안에서 한 줄로 이어진다. */
+  .proceeds-row.saved-asset__proceeds {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  /* 넣을 곳을 못 넣은 까닭. 카드 안 글자와 같은 왼쪽 줄에서 시작해 그 줄의 말로 읽힌다. */
+  .feedback__notice.saved-asset__proceeds-error {
+    margin-top: 8px;
+    padding: 0 16px;
+  }
+
   .saved-asset__row {
     display: flex;
     align-items: center;

@@ -134,9 +134,20 @@ X-Anon-Key: <User.getAnonymousKey() 가 돌려준 hash>
 넣은 돈을 아는 항목이면 무시한다. 넣은 돈을 모른 채 팔면 응답 `asset.realized`, `asset.rate` 가 null 이다.
 두 칸은 `asset_side=sell` 이고 금액 종목일 때만 장부에 남는다. 넣었어요로 바꾸거나 어디에를 옮기면 비운다.
 
+**받은 돈 넣은 곳(ADR-0049).** 팔았어요 기록(`asset_side=sell`)의 저장과 수정 본문에 선택 칸 둘이 더 있다.
+`asset_proceeds_key`: 받은 돈을 넣은 통장의 항목 키. **예적금·현금(`cash`) 항목만** 된다. `new_proceeds_asset {label}`: 넣을 통장을
+그 자리에서 만든다(그룹은 `cash`, 이름 필수, 같은 이름 통장이 있으면 그 통장). 둘을 함께 보내면 422 다.
+넣으면 그 통장 금액이 거래 금액만큼 오르고, 거래 금액이나 날짜를 고치면 따라가고, 거래를 지우면 돌아온다. 모은 돈(`month_saved`)에는 안 든다.
+아래는 422 다: 예적금·현금이 아닌 항목, 판 항목 자신, 없는 항목 키, 팔기가 아닌 기록에 이 칸을 값으로 보냄.
+수정 본문에 `asset_proceeds_key` 칸이 **없으면 지금 값을 지키고**(옛 번들), `null` 을 보내면 비운다.
+넣었어요로 바꾸거나 어디에를 비우거나 이체가 아니게 되면 서버가 비운다.
+이 기록으로만 생긴 빈 새 통장은 기록을 지우거나 되돌릴 때 오늘 스냅샷에서 함께 뺀다.
+
 응답 `transaction` 에 `asset_item_key`, `asset_side`, `asset_quantity`, `asset_label`(최신 스냅샷의 그 키 이름)이 붙고(목록도 같다),
 저장·수정 응답에는 저축·투자일 때만 `asset {item_key, label, item_amount, quantity, month_saved, realized, rate}` 블록이 온다.
 `month_saved` 는 그 기록이 든 달의 모은 돈, `realized`·`rate` 는 팔았을 때 그 판 기록의 실현 수익과 수익률이다.
+받은 돈을 통장에 넣었으면 `transaction` 에 `asset_proceeds_key`, `asset_proceeds_label` 이, `asset` 블록에 `proceeds_key`,
+`proceeds_label`, `proceeds_amount`(넣은 뒤 그 통장 금액)가 붙는다. 안 넣었으면 전부 null 이다. 옛 번들은 모르는 칸이라 무시한다.
 
 **금액과 비율은 JSON 에서 문자열로 온다.** 부동소수 오차를 만들지 않으려고 서버가 Decimal 로
 다루기 때문이다. 화면은 `Number()` 로 바꿔 쓴다.

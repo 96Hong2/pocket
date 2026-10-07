@@ -49,12 +49,16 @@ def _budget_out(outcome: service.SaveOutcome) -> BudgetStateOut | None:
 
 def _outs(session: Session, user: User, rows: list[Transaction]) -> list[TransactionOut]:
     """거래 응답. 저축·투자면 「어디에」 이름을 최신 스냅샷에서 붙인다."""
-    labels = asset_entries.asset_labels(session, user, (row.asset_item_key for row in rows))
+    keys = [key for row in rows for key in (row.asset_item_key, row.asset_proceeds_key)]
+    labels = asset_entries.asset_labels(session, user, keys)
     outs = []
     for row in rows:
         out = TransactionOut.model_validate(row)
         if row.asset_item_key is not None:
-            out = out.model_copy(update={"asset_label": labels.get(row.asset_item_key)})
+            names: dict[str, str | None] = {"asset_label": labels.get(row.asset_item_key)}
+            if row.asset_proceeds_key is not None:
+                names["asset_proceeds_label"] = labels.get(row.asset_proceeds_key)
+            out = out.model_copy(update=names)
         outs.append(out)
     return outs
 
@@ -71,6 +75,11 @@ def _asset_out(session: Session, user: User, tx: Transaction) -> AssetResultOut 
         month_saved=result.month_saved.amount,
         realized=result.realized.amount if result.realized is not None else None,
         rate=result.rate,
+        proceeds_key=result.proceeds_key,
+        proceeds_label=result.proceeds_label,
+        proceeds_amount=(
+            result.proceeds_amount.amount if result.proceeds_amount is not None else None
+        ),
     )
 
 

@@ -46,6 +46,17 @@ export {
 } from './destinations';
 export { NewAssetForm, type NewAssetFormProps } from './NewAssetForm';
 export {
+  accountNameOf,
+  findSameAccount,
+  proceedsAccountsOf,
+  proceedsBodyOf,
+  proceedsNameOf,
+  proceedsResultOf,
+  type ProceedsChoice,
+} from './proceeds';
+export { ProceedsDestPage, type ProceedsDestPageProps } from './ProceedsDestPage';
+export { ProceedsDestRow, type ProceedsDestRowProps } from './ProceedsDestRow';
+export {
   appendQuantityKey,
   dropQuantityKey,
   QUANTITY_INT_DIGITS,

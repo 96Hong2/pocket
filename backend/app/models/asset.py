@@ -8,6 +8,7 @@ from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     Float,
@@ -138,4 +139,6 @@ class AssetEntry(Entity, SoftDeleteMixin):
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("transactions.id", ondelete="CASCADE"), nullable=True, index=True
     )
+    # 팔기 거래가 받은 돈을 넣은 통장에 남긴 buy 줄. 같은 거래의 판 종목 줄과 이 표식으로 가른다.
+    is_proceeds: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     occurred_on: Mapped[date] = mapped_column(Date, nullable=False)

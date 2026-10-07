@@ -34,11 +34,13 @@ from app.modules import ledger
 from app.modules.budgets.schemas import BudgetStateOut
 
 __all__ = [
+    "PROCEEDS_ONLY_FOR_SELL",
     "AssetResultOut",
     "CalendarDayOut",
     "CalendarMonthOut",
     "FeedbackOut",
     "NewAssetIn",
+    "NewProceedsIn",
     "PeriodSummaryOut",
     "TransactionCreate",
     "TransactionCreated",
@@ -131,6 +133,25 @@ class NewAssetIn(BaseModel):
         return self
 
 
+class NewProceedsIn(BaseModel):
+    """받은 돈을 넣을 통장을 그 자리에서 만든다. 그룹은 예적금·현금 하나라 이름만 받는다."""
+
+    label: str = Field(max_length=80)
+
+    @field_validator("label")
+    @classmethod
+    def _needs_name(cls, value: str) -> str:
+        if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
+            raise ValueError("이름에 넣을 수 없는 문자가 있어요.")
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("통장 이름을 적어 주세요.")
+        return stripped
+
+
+# 받은 돈 넣을 곳을 팔기가 아닌 기록에 붙이려 할 때. 저장과 고치기가 같은 말을 한다.
+PROCEEDS_ONLY_FOR_SELL = "받은 돈 넣을 곳은 팔았어요 기록에만 둘 수 있어요."
+
 _ASSET_FIELDS = (
     "asset_item_key",
     "asset_side",
@@ -138,6 +159,8 @@ _ASSET_FIELDS = (
     "asset_remaining",
     "asset_cost_basis",
     "new_asset",
+    "asset_proceeds_key",
+    "new_proceeds_asset",
 )
 
 
@@ -147,8 +170,11 @@ def _check_asset_fields(
     """「어디에」 와 새 항목은 하나만. 쪽·수량만 오고 어디에가 없으면 막는다."""
     if model.asset_item_key is not None and model.new_asset is not None:
         raise ValueError("어디에는 기존 항목과 새 항목 중 하나만 보내 주세요.")
+    if model.asset_proceeds_key is not None and model.new_proceeds_asset is not None:
+        raise ValueError("받은 돈 넣을 곳은 기존 통장과 새 통장 중 하나만 보내 주세요.")
     has_target = model.asset_item_key is not None or model.new_asset is not None
-    dangling = any(
+    has_proceeds = model.asset_proceeds_key is not None or model.new_proceeds_asset is not None
+    dangling = has_proceeds or any(
         value is not None
         for value in (
             model.asset_side,
@@ -157,8 +183,13 @@ def _check_asset_fields(
             model.asset_cost_basis,
         )
     )
-    if dangling and not has_target and isinstance(model, TransactionCreate):
+    if not isinstance(model, TransactionCreate):
+        # 고치기는 저장된 값과 합쳐 봐야 안다. 서비스가 마지막 모양으로 검사한다.
+        return
+    if dangling and not has_target:
         raise ValueError("어디에를 함께 보내 주세요.")
+    if has_proceeds and model.asset_side is not AssetSide.SELL:
+        raise ValueError(PROCEEDS_ONLY_FOR_SELL)
 
 
 class TransactionCreate(BaseModel):
@@ -199,6 +230,13 @@ class TransactionCreate(BaseModel):
         description="넣은 돈을 모르는 항목을 팔 때 그 항목에 넣은 돈 전체. 모르면 안 보낸다",
     )
     new_asset: NewAssetIn | None = Field(default=None, description="어디에를 새로 만들 때")
+    asset_proceeds_key: uuid.UUID | None = Field(
+        default=None,
+        description="팔았어요로 받은 돈을 넣은 통장. 예적금·현금 항목 키. 안 보내면 안 넣는다",
+    )
+    new_proceeds_asset: NewProceedsIn | None = Field(
+        default=None, description="받은 돈 넣을 통장을 새로 만들 때"
+    )
 
     _check_amount = field_validator("amount")(integral_won)
     _check_asset_money = field_validator("asset_remaining", "asset_cost_basis")(integral_won)
@@ -251,6 +289,9 @@ class TransactionUpdate(BaseModel):
     asset_remaining: Decimal | None = Field(default=None, ge=0, le=MAX_AMOUNT)
     asset_cost_basis: Decimal | None = Field(default=None, ge=0, le=MAX_AMOUNT)
     new_asset: NewAssetIn | None = None
+    # 받은 돈 넣은 통장. 칸을 안 보내면 지금 값을 지키고, null 을 보내면 비운다.
+    asset_proceeds_key: uuid.UUID | None = None
+    new_proceeds_asset: NewProceedsIn | None = None
 
     _check_amount = field_validator("amount")(integral_won)
     _check_asset_money = field_validator("asset_remaining", "asset_cost_basis")(integral_won)
@@ -295,6 +336,9 @@ class TransactionOut(BaseModel):
     asset_side: AssetSide | None = None
     asset_quantity: QuantityOut | None = None
     asset_label: str | None = None
+    # 팔았어요로 받은 돈을 넣은 통장과 그 이름. 옛 번들은 모르는 칸이라 무시한다.
+    asset_proceeds_key: uuid.UUID | None = None
+    asset_proceeds_label: str | None = None
 
     _stamp_occurred_at = field_validator("occurred_at", mode="before")(_as_utc)
     _trim_quantity = field_validator("asset_quantity", mode="after")(quantity_out)
@@ -364,6 +408,10 @@ class AssetResultOut(BaseModel):
     # 팔았으면 이 판 기록의 실현 수익과 수익률(%). 넣었으면 null.
     realized: Decimal | None = None
     rate: Decimal | None = None
+    # 받은 돈을 넣은 통장, 그 이름, 넣은 뒤 그 통장 금액. 안 넣었으면 셋 다 null.
+    proceeds_key: uuid.UUID | None = None
+    proceeds_label: str | None = None
+    proceeds_amount: Decimal | None = None
 
     _trim_quantity = field_validator("quantity", mode="after")(quantity_out)
 

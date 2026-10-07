@@ -75,6 +75,10 @@ e2e/
                      `ledgerExport` 는 가계부를 파일로 내려받는 줄과 그 시트다. 저장은 페이지 바깥에서
                      일어나 화면에 흔적이 없으니, 무엇이 나갔는지는 `support/aitMock.ts` 의
                      `readSavedFiles` 로 본다
+    ProceedsDestArea 「받은 돈을 어디에 넣었어요?」 창. 팔고 난 저장 뒤 화면(`RecordSheet.proceeds`)과
+                     기록 고치기(`EditSheetArea.proceeds`)가 같은 창을 연다. 여는 줄은 양쪽의 `proceedsRow` 다.
+                     뒤로 버튼과 닫기 버튼이 없어 `appShell.pressBack()` 으로 닫는다. 「새 통장」 칸을 편 채로
+                     누르면 칸만 접히고 한 번 더 눌러야 창이 닫힌다
     MonthStartArea   한 달 시작일 시트. 관리 탭 「한 달 시작」 줄, 앱 설정 줄, 리포트 기간 줄이 같은 시트를 열어
                      세 화면 객체가 `monthStart` 로 함께 든다
     NotificationsScreen 알림 설정 화면. 켜기와 시각 둘뿐이라 안을 더 쪼개지 않았다
