@@ -47,7 +47,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
 }) => {
   await home.open();
   await home.waitReady();
-  await demo.open('관리 탭 아래', '카테고리 관리와 앱 설정이 어디까지 왔는지 본다');
+  await demo.open('관리 탭 아래', '목표, 자산, 카테고리 관리, 앱 설정까지 관리 탭에서 들어가는 화면을 둘러본다');
 
   await demo.step('하단 관리 탭을 누른다');
   await appShell.goToTab('관리');
@@ -55,16 +55,16 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await appShell.expectCurrentTab('관리');
   await demo.beat(2);
 
-  await demo.step('같이 쓰는 가계부와 자산관리 카드 아래에 예산 섹션이 있다');
+  await demo.step('맨 위에 같이 쓰는 가계부와 자산관리 카드가 있다');
   await manage.waitReady();
   await expect(manage.booksEntry).toBeVisible();
   await expect(manage.assetsEntry).toBeVisible();
-  await expect(manage.total.startButton).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('예산 바로 아래가 배너 광고 자리다');
+  await demo.step('자산관리 바로 아래가 배너 광고 자리이고, 그 아래가 예산이다');
   await expect(page.getByTestId(TEST_IDS.adSlot)).toHaveAttribute('data-placement', 'manage');
   await expect(page.getByTestId(TEST_IDS.adSlot)).toBeInViewport();
+  await expect(manage.total.startButton).toBeVisible();
   await demo.beat(2);
 
   await demo.step('그 아래로 내려가면 한 달 시작 줄과 하위 화면 입구가 줄지어 있다');
@@ -146,14 +146,14 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await manage.calc.sheet.getByRole('button', { name: '닫기' }).click();
   await manage.calc.waitClosed();
 
-  await demo.step('이번에는 자산으로 들어간다. 가진 것을 대략 적는 화면이다');
+  await demo.step('이번에는 자산관리 카드를 눌러 자산 화면으로 들어간다. 가진 것을 대략 적는 화면이다');
   await manage.openAssets();
   // 설명 줄은 걷었다. 제목만 남는다.
   await appShell.expectScreen('자산');
   await assets.waitReady();
   await demo.beat(2);
 
-  await demo.step('아직 한 줄도 없어서 다음 한 걸음만 보여준다. 계좌 연결은 없다');
+  await demo.step('아직 한 줄도 없다. 캡처로 채우기와 직접 적기 두 길을 보여준다. 계좌 연결은 없다');
   await expect(assets.emptyTitle).toBeVisible();
   await expect(assets.startButton).toBeVisible();
   await demo.beat(2);
@@ -166,9 +166,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await demo.step('부채를 더하면 순자산이 줄어든다. 부채도 양수로 적고 빼는 것은 그룹이 정한다');
   await assets.add('부채', { name: '학자금', amount: DEBT });
   await expect(assets.netWorth).toHaveText(formatCurrency(CASH - DEBT));
-  await expect(assets.breakdown).toHaveText(
-    `자산 ${formatCurrency(CASH)} − 부채 ${formatCurrency(DEBT)}`,
-  );
+  await expect(assets.groupTotal('부채')).toHaveText(formatCurrency(DEBT));
   await demo.beat(3);
 
   await demo.step('시스템 뒤로가기로 관리로 돌아온다');
@@ -212,7 +210,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await settings.waitReady();
   await demo.beat(2);
 
-  await demo.step('홈 맨 위에 무엇을 크게 보여줄지 세 갈래 중에 고른다');
+  await demo.step('홈 맨 위에 무엇을 크게 보여줄지 세 갈래 중에 고른다. 예산이 없어 지금은 수입·지출이 눌려 있다');
   /*
     서버 기본값은 「남은 예산」 인데 이 계정은 예산이 없다. 홈은 수입·지출로 떨어지고
     되짚는 한 줄이 그 이유까지 말한다(HomeHeroSetting.tsx 의 needsBudget 분기).
@@ -222,7 +220,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   );
   await demo.beat(2);
 
-  await demo.step('수입·지출로 바꾸면 아래 한 줄이 결과를 말로 되짚어 준다');
+  await demo.step('수입·지출을 직접 누르면 아래 한 줄에서 예산 이야기가 빠지고 예산 정하기 버튼도 사라진다');
   await settings.chooseHero('수입·지출');
   await expect(settings.preview).toHaveText('홈 맨 위에 이번 달 남은 돈이 먼저 보여요.');
   await demo.beat(2);

@@ -5,7 +5,7 @@ import { formatCurrency } from '../../../src/shared/lib/format';
 /**
  * 저장한 뒤에 고치는 흐름을 찍는다.
  *
- * 카테고리 바꾸기로 칩을 펼쳐 다른 분류로 옮기고, 상세 칸 아래에서 결제 수단을 고른 뒤
+ * 저장한 줄의 분류 쪽을 눌러 칩을 펼쳐 다른 분류로 옮기고, 그 줄 아래에서 결제 수단을 고른 뒤
  * 확인으로 시트를 닫는다. 무엇으로 냈는지는 **저장이 끝난 다음에** 묻는다.
  * 적는 화면에 칸이 하나 더 서면 10초 약속이 깨진다.
  */
@@ -64,7 +64,7 @@ test('14 저장한 뒤 카테고리와 결제 수단 고치기', async ({ demo, 
   await recordSheet.input.enterAmount(AMOUNT);
   await recordSheet.input.pickCategory(MOVED_CATEGORY);
   await recordSheet.feedback.waitSaved();
-  // 적는 화면에는 이 칸이 없었다. 저장이 끝난 지금 상세 칸 아래에 선다.
+  // 적는 화면에는 이 칸이 없었다. 저장이 끝난 지금 방금 적은 줄 아래에 선다.
   await expect(recordSheet.feedback.paymentGroup).toBeVisible();
   await demo.beat(2);
 

@@ -28,6 +28,22 @@ const BEAT_MS = 750;
 /** 제목 카드를 띄워 두는 시간. 읽고 넘어갈 만큼만. */
 const TITLE_MS = 1900;
 
+/**
+ * 앱을 열기 전 빈 문서에 깔아 두는 표지. overlay 의 `.pdemo-title` 과 같은 그림이다.
+ *
+ * 장면이 화면을 열기 전에 데이터를 심으면 그동안 빈 문서가 흰 화면으로 찍힌다.
+ * 영상 첫 프레임부터 표지가 보이게 같은 색과 같은 자리의 글자를 먼저 그려 둔다.
+ */
+const BLANK_COVER_HTML =
+  // viewport 를 안 적으면 모바일 에뮬레이션이 980px 로 그려 줄여서 글자가 작게 찍힌다.
+  '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+  '<body style="margin:0"><div style="position:fixed;inset:0;display:flex;flex-direction:column;' +
+  'align-items:center;justify-content:center;gap:10px;padding:32px;text-align:center;' +
+  'background:linear-gradient(160deg,#1B64DA 0%,#3182F6 100%);color:#fff;' +
+  'font-family:-apple-system,BlinkMacSystemFont,\'Apple SD Gothic Neo\',sans-serif">' +
+  '<div style="font-size:13px;font-weight:600;opacity:.78;letter-spacing:.4px">10초 가계부</div>' +
+  '<div></div><div></div></div></body>';
+
 interface DemoWindow {
   __pocketDemoStep: (text: string) => void;
   __pocketDemoTitle: (eyebrow: string, main: string, sub: string) => void;
@@ -126,6 +142,7 @@ export const test = base.extend<DemoFixtures>({
   // 오버레이를 얹는다. 부모 page 의 격리 트랩과 가드는 그대로 살아 있다.
   page: async ({ page }, use) => {
     await page.addInitScript(installDemoOverlay);
+    await page.setContent(BLANK_COVER_HTML);
 
     const strayFailures: string[] = [];
     page.on('requestfailed', (request) => {

@@ -1,4 +1,5 @@
 import { formatCurrency } from '../../../src/shared/lib/format';
+import { thisMonth } from '../../support/api';
 import { expect, test } from '../support/director';
 
 /**
@@ -26,6 +27,14 @@ test('69 예산 카드는 한 줄로 말하고, 지우기는 수정 시트 안�
   prep,
 }) => {
   await prep.setBudget(BUDGET);
+  // 예산을 지운 뒤 홈 맨 위 남은 돈이 음수로 서지 않게 이번 달 월급을 심는다.
+  await prep.addTransaction({
+    amount: 3_200_000,
+    type: 'income',
+    merchant: '월급',
+    categoryId: await prep.categoryIdByName('월급'),
+    on: `${thisMonth()}-01`,
+  });
   for (const seed of SEEDS) {
     await prep.addTransaction({
       amount: seed.amount,

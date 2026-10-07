@@ -120,7 +120,7 @@ test('29 지우면 목록과 합계에서 함께 빠진다', async ({ demo, cale
   await expect(calendar.totals.expense).toHaveText(formatCurrency(15_000));
   await demo.beat(2);
 
-  await demo.step('지울 줄을 열고 삭제를 누른다');
+  await demo.step('지울 줄을 열고 삭제를 누른 뒤, 한 번 더 묻는 자리에서 지울게요를 누른다');
   await calendar.list.pick('스타벅스');
   await calendar.edit.waitOpen();
   await demo.beat(2);

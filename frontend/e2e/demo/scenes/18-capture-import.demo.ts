@@ -201,7 +201,7 @@ test('41 못 읽거나 사진이 막혀도 키패드로 빠져나간다', async 
   await expect(recordSheet.capture.saveButton).toHaveCount(0);
   await demo.beat(3);
 
-  await demo.step('다시 고르기를 누르면 처음 화면으로 돌아온다');
+  await demo.step('다시 고르기를 누르면 캡처 고르기 버튼이 있는 화면으로 돌아온다');
   await recordSheet.capture.restartButton.click();
   await expect(recordSheet.capture.pickButton).toBeVisible();
   await demo.beat(2);
@@ -215,7 +215,7 @@ test('41 못 읽거나 사진이 막혀도 키패드로 빠져나간다', async 
   expect(await photoPermissionDenied(page), '사진 권한이 안 꺼졌다').toBe(true);
   await demo.beat(2);
 
-  await demo.step('캡처 고르기를 눌러도 앨범이 열리지 않는다');
+  await demo.step('캡처로 정리를 고르고 아래 사진 고르기를 눌러도 앨범이 열리지 않는다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.methodTab('캡처로 정리').click();

@@ -240,7 +240,7 @@ test('34 끝난 달은 보기만 한다', async ({ demo, manage, prep }) => {
   await expect(manage.categories.addButton).toBeVisible();
   await demo.beat(3);
 
-  await demo.step('‹ 를 눌러 지난달로 옮긴다');
+  await demo.step('달 옆 왼쪽 화살표를 눌러 지난달로 옮긴다');
   await manage.goToMonth(formatMonthLabel(LAST_MONTH));
   await expect(manage.closedNotice).toBeVisible();
   await demo.beat(3);

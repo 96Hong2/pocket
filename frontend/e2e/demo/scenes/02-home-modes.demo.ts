@@ -106,7 +106,7 @@ test('03 홈이 상황마다 다른 얼굴로 뜬다', async ({ page, home, reco
   await expect(home.recovery.catchUpButton).toHaveCount(0);
   await demo.beat(2);
 
-  await demo.step('예산부터 묻지 않는다. 부담 덜기 두 줄과 기록 버튼뿐이다');
+  await demo.step('예산부터 묻지 않는다. 남은 돈과 번 돈, 쓴 돈 아래에 부담 덜기 두 줄과 기록하기 버튼이 있다');
   await expect(home.hero.firstLead).toBeVisible();
   await demo.beat(2);
 

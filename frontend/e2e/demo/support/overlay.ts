@@ -15,6 +15,9 @@ export function installDemoOverlay(): void {
     /* devtools 가 띄우는 파란 AIT 버튼. 제품 화면이 아니라 개발 도구라 영상에서 걷어낸다.
        목 SDK 자체는 그대로 돌고 버튼만 안 보인다. */
     .ait-panel-root { display: none !important; }
+    /* 서버 스텁이 읽은 사진 결과에 붙는 「아직 예시 결과예요」 줄. 녹화 스택이 스텁이라 서는 것이고
+       운영에서는 안 선다. 영상을 보는 사람이 기능이 아직 없다고 읽지 않게 걷는다. */
+    .capture__stub { display: none !important; }
     .pdemo-layer { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; }
     .pdemo-ripple {
       position: fixed; width: 64px; height: 64px; margin: -32px 0 0 -32px;

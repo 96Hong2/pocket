@@ -46,8 +46,8 @@ test('17 하단 3탭으로 홈·리포트·관리를 오간다', async ({ prep, 
   await demo.clearStep();
   await demo.beat(2);
 
-  await demo.step('관리는 자산과 예산을 위에서 바로 보고, 나머지 화면 입구는 예산 아래 목록에 모아 둔다');
-  // 예산 아래에 배너가 서면서 목록이 첫 화면 밖으로 밀렸다. 굴려서 보여 준다.
+  await demo.step('관리는 같이 쓰는 가계부, 자산관리, 예산을 위에서 바로 보고, 나머지 화면 입구는 예산 아래 목록에 모아 둔다');
+  // 카드와 배너, 예산이 위에 서면서 목록이 첫 화면 밖으로 밀렸다. 굴려서 보여 준다.
   const subScreens = page.getByRole('navigation', { name: '관리 하위 화면' });
   await subScreens.evaluate((element) => {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });

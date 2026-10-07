@@ -1,4 +1,5 @@
 import { formatCurrency } from '../../../src/shared/lib/format';
+import { thisMonth } from '../../support/api';
 import { expect, test } from '../support/director';
 
 /**
@@ -314,12 +315,20 @@ const TRANSFER_AMOUNT = 800_000;
 
 test('59 이체한 돈은 지출에 안 들어간다', async ({ demo, home, prep, recordSheet }) => {
   await prep.addTransaction({ amount: SPENT, merchant: SPENT_MERCHANT });
+  // 홈 맨 위 남은 돈이 음수로 서지 않게 이번 달 월급을 심는다.
+  await prep.addTransaction({
+    amount: 3_200_000,
+    type: 'income',
+    merchant: '월급',
+    categoryId: await prep.categoryIdByName('월급'),
+    on: `${thisMonth()}-01`,
+  });
 
   await home.open();
   await home.waitReady();
   await demo.open('이체', '카드값처럼 내 계좌끼리 옮긴 돈은 쓴 돈이 아니다');
 
-  await demo.step(`이번 달 쓴 돈은 ${formatCurrency(SPENT)}이다`);
+  await demo.step(`홈 맨 위 남은 돈 아래에 쓴 돈 ${formatCurrency(SPENT)}이 있다`);
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(SPENT));
   await demo.beat(2);
 
@@ -351,7 +360,7 @@ test('59 이체한 돈은 지출에 안 들어간다', async ({ demo, home, prep
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
 
-  await demo.step(`이번 달 쓴 돈은 그대로 ${formatCurrency(SPENT)}이다`);
+  await demo.step(`쓴 돈은 그대로 ${formatCurrency(SPENT)}이다`);
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(SPENT));
   await demo.beat(3);
 

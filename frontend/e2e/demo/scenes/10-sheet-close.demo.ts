@@ -152,7 +152,7 @@ test('16 저장이 실패해도 시트는 닫히지 않고 금액이 남는다',
   await home.waitReady();
   await demo.open('저장이 실패하면', '시트를 닫지 않는다. 금액이 남아 그대로 다시 누르면 된다');
 
-  await demo.step(`${formatCurrency(FAIL_AMOUNT)} 을 찍고 ${CATEGORY}를 누른다`);
+  await demo.step(`기록하기에서 다음을 누르고 ${formatCurrency(FAIL_AMOUNT)} 을 찍은 뒤 ${CATEGORY}를 누른다`);
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.openKeypad();
@@ -206,7 +206,7 @@ test('60 적다 만 것이 있으면 닫기 전에 한 번 묻는다', async ({ 
   await home.waitReady();
   await demo.open('적다 만 것', '실수로 닫아도 적던 것을 말없이 잃지 않는다');
 
-  await demo.step(`기록하기를 누르고 ${formatCurrency(DRAFT_AMOUNT)}을 찍는다`);
+  await demo.step(`기록하기에서 다음을 누르고 ${formatCurrency(DRAFT_AMOUNT)}을 찍는다`);
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.input.enterAmount(DRAFT_AMOUNT);

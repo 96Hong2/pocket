@@ -21,13 +21,21 @@ const BUDGET = 500_000;
 const STEADY = 20_000;
 const OVER = 500_000;
 
-test('11 저장하면 어디에 무엇을 적었는지 보여 준다', async ({ demo, home, recordSheet }) => {
+test('11 저장하면 어디에 무엇을 적었는지 보여 준다', async ({ demo, home, prep, recordSheet }) => {
+  // 홈 맨 위 남은 돈이 음수로 서지 않게 월급을 심는다. 오늘 날짜로 둔다.
+  // 며칠 전 기록만 있으면 홈이 복구 카드(「며칠 놓쳤어도 괜찮아요」)부터 세운다.
+  await prep.addTransaction({
+    amount: 3_200_000,
+    type: 'income',
+    merchant: '월급',
+    categoryId: await prep.categoryIdByName('월급'),
+  });
   await home.open();
   await home.waitReady();
 
-  await demo.open('저장한 뒤 화면', '어디에 적었는지와 방금 적은 한 줄. 그것뿐이다');
+  await demo.open('저장한 뒤 화면', '어디에 적었는지와 방금 적은 한 줄이 먼저 보인다');
 
-  await demo.step('예산은 아직 없다. 기록하기에서 12,000원을 찍는다');
+  await demo.step('예산은 아직 없다. 기록하기에서 다음을 누르고 12,000원을 찍는다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await recordSheet.openKeypad();

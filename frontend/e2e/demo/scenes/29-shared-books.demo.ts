@@ -82,7 +82,7 @@ test('61 같이 쓰는 가계부를 만들고 초대한다', async ({
 
   await demo.step('초대 링크를 보내면 그 가계부 홈이다. 들어오면 여기서 알려 준다');
   await expect(home.book.cards.inviteSent).toContainText('초대장을 보냈어요');
-  await demo.beat(3);
+  await demo.beat(2);
 
   // 준호는 링크를 받아 들어온 사람이다. 합류 화면은 62 가 찍는다.
   const [book] = await prep.books();
@@ -160,7 +160,7 @@ test('62 초대 링크로 들어와 같이 적고 정산을 본다', async ({
 
   await demo.step('내 가계부 기록은 은홍에게 보이지 않는다고 먼저 말한다');
   await expect(books.join.lockLine).toHaveText('내 가계부 기록은 은홍님에게 보이지 않아요');
-  await demo.beat(3);
+  await demo.beat(2);
 
   await demo.step('여기서 부를 내 이름을 적고 같이 쓰기를 누른다');
   await books.join.nameInput.fill('준호');
@@ -171,7 +171,7 @@ test('62 초대 링크로 들어와 같이 적고 정산을 본다', async ({
   await demo.step('은홍이 먼저 적은 두 줄이 보인다');
   await expect(home.book.recent.row('주말 장보기')).toContainText('은홍');
   await expect(home.book.recent.row('영화 두 장')).toBeVisible();
-  await demo.beat(3);
+  await demo.beat(2);
 
   await demo.step('기록하기를 누르면 적을 곳이 둘이 쓰는 돈으로 골라져 있다');
   await home.recordButton.click();
@@ -190,7 +190,7 @@ test('62 초대 링크로 들어와 같이 적고 정산을 본다', async ({
   await demo.step('은홍도 바로 본다. 낸 사람은 나로 골라져 있다');
   await expect(recordSheet.bookFeedback.card).toContainText('은홍도 바로 볼 수 있어요');
   await expect(recordSheet.bookFeedback.payer('준호')).toHaveAttribute('aria-pressed', 'true');
-  await demo.beat(3);
+  await demo.beat(2);
   await recordSheet.bookFeedback.confirmButton.click();
   await recordSheet.waitClosed();
 
@@ -199,13 +199,13 @@ test('62 초대 링크로 들어와 같이 적고 정산을 본다', async ({
   await expect(home.book.recent.row('외식·배달')).toContainText('준호');
   await expect(home.book.settleCard).toContainText(`준호가 은홍에게 ${formatCurrency(25_500)} 보내면 반반이에요`);
   await home.book.settleCard.scrollIntoViewIfNeeded();
-  await demo.beat(3);
+  await demo.beat(2);
 
   await demo.step('누르면 정산 화면에서 누가 얼마를 냈는지 함께 본다');
   await home.book.settleCard.click();
   await books.settle.waitReady();
   await expect(books.settle.result).toContainText(formatCurrency(25_500));
-  await demo.beat(4);
+  await demo.beat(3);
 
   await demo.step('홈으로 돌아와 맨 위 칩에서 내 가계부를 고른다');
   await appShell.pressBack();
@@ -220,7 +220,7 @@ test('62 초대 링크로 들어와 같이 적고 정산을 본다', async ({
   await demo.step('내 가계부에는 내가 쓴 돈만 있다');
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(12_500));
   await expect(home.today.row('스타벅스')).toBeVisible();
-  await demo.beat(3);
+  await demo.beat(2);
 
   await demo.clearStep();
   await demo.beat(2);

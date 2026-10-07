@@ -113,6 +113,9 @@ function split(base) {
  *
  * 번호 순서가 곧 주제 순서다. 영상을 더하면 여기 범위도 함께 고친다.
  * 묶음 없이 23개를 한 줄로 늘어놓으면 무엇부터 봐야 할지 알 수 없다.
+ *
+ * 뒤늦게 찍어 번호가 멀리 떨어진 영상은 `also` 에 번호를 적어 제 주제 절로 보낸다.
+ * `also` 가 번호 구간보다 먼저다.
  */
 const GROUPS = [
   { upTo: 2, title: '기록 한 바퀴', lead: '이 앱이 하려는 일. 열고 적고 그 자리에서 고치기까지' },
@@ -125,14 +128,28 @@ const GROUPS = [
   { upTo: 21, title: '화면 이동', lead: '탭과 뒤로가기, 관리 탭이 데리고 있는 화면들' },
   { upTo: 23, title: '공용 UI', lead: '앱이 쓰는 부품을 한자리에 모아 둔 개발용 화면' },
   { upTo: 29, title: '내역과 수정', lead: '달력으로 다시 보고, 찾고, 고치고, 지우는 자리' },
-  { upTo: 34, title: '예산', lead: '한 달 쓸 돈을 정하고, 카테고리로 쪼개고, 다음 달로 이어 쓰는 자리' },
+  {
+    upTo: 34,
+    also: [69],
+    title: '예산',
+    lead: '한 달 쓸 돈을 정하고, 카테고리로 쪼개고, 다음 달로 이어 쓰고, 수정 시트 안에서 지우는 자리',
+  },
   {
     upTo: 39,
     title: '글로 쓰기',
     lead: '한 줄에 적으면 여러 건으로 갈라 읽고, 검토해서 한 번에 저장하는 자리',
   },
-  { upTo: 42, title: '사진으로 적기', lead: '앨범 캡처 한 장에서 여러 건, 영수증 한 장에서 총액 한 건' },
-  { upTo: 44, title: '리포트', lead: '그 달에 어디로 얼마나 갔는지 도넛과 목록으로 보는 자리' },
+  {
+    upTo: 42,
+    title: '캡처로 정리와 영수증 찍기',
+    lead: '앨범 캡처 한 장에서 여러 건, 영수증 한 장에서 총액 한 건',
+  },
+  {
+    upTo: 44,
+    also: [67],
+    title: '리포트',
+    lead: '그 달에 어디로 얼마나 갔는지 도넛과 목록으로 보고, 줄을 눌러 분류 화면과 기록 고치기로 들어가는 자리',
+  },
   {
     upTo: 48,
     title: '복구·분류·설정',
@@ -165,8 +182,8 @@ const GROUPS = [
   },
   {
     upTo: 999,
-    title: '리포트, 한 달 시작, 예산 카드',
-    lead: '리포트 줄을 눌러 한 칸 더 들어가고, 월급날에 맞춰 한 달을 정하고, 예산 카드를 한 줄로 보는 자리',
+    title: '한 달 시작',
+    lead: '월급날이 25일이면 25일부터 다음 달 24일까지를 한 달로 정하고, 예산과 리포트와 홈이 그 기간으로 세는 자리',
   },
 ];
 
@@ -176,7 +193,11 @@ const GROUPS = [
 
 function groupOf(no) {
   const n = Number(no);
-  return GROUPS.find((group) => n <= group.upTo) ?? GROUPS[GROUPS.length - 1];
+  return (
+    GROUPS.find((group) => group.also?.includes(n)) ??
+    GROUPS.find((group) => n <= group.upTo) ??
+    GROUPS[GROUPS.length - 1]
+  );
 }
 
 function renderIndex(clips) {

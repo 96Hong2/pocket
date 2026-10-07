@@ -128,10 +128,15 @@ test('51 자산을 적으면 순자산이 나온다', async ({ appShell, assets,
   await expect(assets.netWorth).toHaveText(formatCurrency(CASH + INVEST - DEBT));
   await demo.beat(3);
 
-  await demo.step('순자산이 어디서 나왔는지 한 줄로 적어 준다');
-  await expect(assets.breakdown).toBeVisible();
-  await expect(assets.groupTotal('부채')).toHaveText(formatCurrency(DEBT));
+  await demo.step('맨 위 순자산 카드를 누르면 자산과 부채를 따로 적어 준다');
+  await assets.netWorthButton.click();
+  await expect(assets.detailSheet).toBeVisible();
+  await expect(assets.detailValue('자산')).toHaveText(formatCurrency(CASH + INVEST));
+  await expect(assets.detailValue('부채')).toHaveText(`− ${formatCurrency(DEBT)}`);
   await demo.beat(3);
+  // 손잡이도 이름이 「닫기」 라 글자가 적힌 아래 버튼으로 좁힌다.
+  await assets.detailSheet.getByRole('button', { name: '닫기', exact: true }).filter({ hasText: '닫기' }).click();
+  await expect(assets.detailSheet).toHaveCount(0);
 
   await demo.step('관리 탭으로 돌아오면 그 숫자가 입구에 그대로 있다');
   await appShell.pressBack();

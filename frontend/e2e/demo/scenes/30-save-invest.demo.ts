@@ -8,7 +8,7 @@ import { expect, test } from '../support/director';
  *
  * 63 은 키패드로 한 건. 분류 대신 「어디에」 를 고르고, 저장하면 내 자산이 움직이고
  * 홈 남은 예산은 그대로다. 64 와 65 는 캡처와 글로 내 자산을 한 번에 채운다.
- * 둘 다 같은 검토 화면을 지나 저장하면 기록 목록이 아니라 내 자산 화면으로 간다.
+ * 둘 다 같은 검토 화면을 지나 저장하면 기록 목록이 아니라 자산 화면으로 간다.
  *
  * 사진과 글은 서버 스텁이 읽는다. 캡처는 그림을 보지 않고 늘 같은 다섯 줄(잔액 셋, 보유 종목 둘)을
  * 내고, 글은 「삼성전자 10주 72만원」 같은 모양을 규칙으로 읽는다(backend/app/integrations/llm/stub.py).
@@ -28,11 +28,42 @@ async function seedMonth(prep: PrepApi): Promise<void> {
   await prep.addTransaction({ amount: 4_500, merchant: '스타벅스', categoryId: await prep.categoryIdByName('카페·간식') });
 }
 
+/**
+ * 청년도약계좌와 이번 달 납입 한 줄을 심는다. 납입까지 더해 잔액이 3,300,000원이 된다.
+ *
+ * 자산 화면 순자산 카드의 「이번 달 모은 돈」 이 0원으로 서지 않게 하려는 것이다.
+ */
+async function seedSavings(
+  prep: PrepApi,
+  more: Parameters<PrepApi['putAssets']>[0] = [],
+): Promise<void> {
+  const seeded = await prep.putAssets([
+    { group: 'cash', label: '청년도약계좌', amount: 2_600_000, monthly: 700_000 },
+    ...more,
+  ]);
+  const key = seeded.items.find((item) => item.label === '청년도약계좌')?.item_key;
+  if (key == null) throw new Error('청년도약계좌를 심지 못했다');
+  await prep.addAssetTransfer({
+    amount: 700_000,
+    itemKey: key,
+    on: `${thisMonth()}-01`,
+    memo: '도약 납입',
+  });
+}
+
 test('63 저축·투자를 고르고 적금에 넣은 돈을 적는다', async ({ assets, demo, home, prep, recordSheet }) => {
   await prep.putAssets([
     { group: 'cash', label: '카카오뱅크 적금', amount: 1_200_000, monthly: 300_000 },
     { group: 'cash', label: '청년도약계좌', amount: 3_300_000, monthly: 700_000 },
-    { group: 'investment', label: '삼성전자', kind: 'stock', quantity: '10', cost: 720_000, amount: 780_000 },
+    {
+      group: 'investment',
+      label: '삼성전자',
+      kind: 'stock',
+      quantity: '10',
+      cost: 720_000,
+      price: 78_000,
+      amount: 780_000,
+    },
   ]);
   await prep.setBudget(1_500_000);
   await prep.addTransaction({ amount: 8_000, merchant: '김밥천국', categoryId: await prep.categoryIdByName('식비') });
@@ -59,7 +90,7 @@ test('63 저축·투자를 고르고 적금에 넣은 돈을 적는다', async (
   await expect(recordSheet.amountTitle).toHaveText('얼마를 어디에 넣었어요?');
   await demo.beat();
 
-  await demo.step('분류 대신 어디에 넣었는지 고른다. 내 자산의 통장과 종목이 선다');
+  await demo.step('분류 대신 어디에 넣었는지 고른다. 자산 화면에 적어 둔 통장과 종목이 선다');
   await expect(recordSheet.destCell('카카오뱅크 적금')).toBeVisible();
   await expect(recordSheet.destCell('청년도약계좌')).toBeVisible();
   await demo.beat(2);
@@ -75,7 +106,7 @@ test('63 저축·투자를 고르고 적금에 넣은 돈을 적는다', async (
   await expect(recordSheet.feedback.headline).toHaveText('카카오뱅크 적금에 300,000원 넣었어요');
   await demo.beat(3);
 
-  await demo.step('자산 보기를 누르면 내 자산 화면이다. 적금이 그만큼 늘었다');
+  await demo.step('자산 보기를 누르면 자산 화면이다. 적금이 그만큼 늘었다');
   await recordSheet.assetsButton.click();
   await recordSheet.waitClosed();
   await assets.waitReady();
@@ -96,10 +127,7 @@ test('63 저축·투자를 고르고 적금에 넣은 돈을 적는다', async (
 test('64 캡처 한 장으로 내 자산을 채운다', async ({ assets, demo, home, page, prep, recordSheet }) => {
   await seedMockImages(CAPTURE_DATA_URI)(page);
   await seedMonth(prep);
-  await prep.putAssets([
-    { group: 'cash', label: '청년도약계좌', amount: 3_300_000, monthly: 700_000 },
-    { group: 'cash', label: '카카오뱅크', amount: 1_000_000 },
-  ]);
+  await seedSavings(prep, [{ group: 'cash', label: '카카오뱅크', amount: 1_000_000 }]);
 
   await home.open();
   await home.waitReady();
@@ -141,7 +169,7 @@ test('64 캡처 한 장으로 내 자산을 채운다', async ({ assets, demo, h
   await expect(recordSheet.assetFill.saveButton).toHaveText('4줄 저장');
   await demo.beat(2);
 
-  await demo.step('저장하면 내 자산 화면으로 가서 채워진 것을 보여 준다');
+  await demo.step('저장하면 자산 화면으로 가서 채워진 것을 보여 준다');
   await recordSheet.assetFill.saveButton.click();
   await recordSheet.waitClosed();
   await assets.waitArrived();
@@ -157,6 +185,7 @@ test('64 캡처 한 장으로 내 자산을 채운다', async ({ assets, demo, h
 
 test('65 글 한 줄로 내 자산을 채운다', async ({ assets, demo, home, prep, recordSheet }) => {
   await seedMonth(prep);
+  await seedSavings(prep);
   await home.open();
   await home.waitReady();
   await demo.open('글로 자산 채우기', '가진 종목과 통장을 한 줄로 적는다');
@@ -188,7 +217,7 @@ test('65 글 한 줄로 내 자산을 채운다', async ({ assets, demo, home, p
   await expect(recordSheet.assetFill.row('카카오뱅크 적금')).toContainText('새 항목, 예적금·현금');
   await demo.beat(4);
 
-  await demo.step('2줄 저장을 누르면 내 자산 화면이다');
+  await demo.step('2줄 저장을 누르면 자산 화면이다');
   await expect(recordSheet.assetFill.saveButton).toHaveText('2줄 저장');
   await recordSheet.assetFill.saveButton.click();
   await recordSheet.waitClosed();
@@ -197,8 +226,9 @@ test('65 글 한 줄로 내 자산을 채운다', async ({ assets, demo, home, p
   await expect(assets.row('카카오뱅크 적금')).toContainText(formatCurrency(3_000_000));
   await demo.beat(3);
 
-  await demo.step('순자산이 적은 만큼 맨 위에 선다');
-  await expect(assets.netWorth).toHaveText(formatCurrency(3_720_000));
+  // 청년도약계좌 3,300,000 + 삼성전자 720,000 + 카카오뱅크 적금 3,000,000.
+  await demo.step('적은 만큼 맨 위 순자산이 늘었다');
+  await expect(assets.netWorth).toHaveText(formatCurrency(7_020_000));
   await demo.beat(3);
 
   await demo.clearStep();

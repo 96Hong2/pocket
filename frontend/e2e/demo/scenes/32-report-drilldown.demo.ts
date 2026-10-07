@@ -10,7 +10,7 @@ import { expect, test } from '../support/director';
  * 리포트에서 한 칸 더 들어가기.
  *
  * 분류 줄을 누르면 그 분류 화면, 큰 지출 Top 5 줄을 누르면 그 기록 고치기, 「저축·투자 ›」 를
- * 누르면 내 자산 화면이다. 어디를 다녀와도 보던 탭으로 돌아온다.
+ * 누르면 자산 화면이다. 어디를 다녀와도 보던 탭으로 돌아온다.
  *
  * 날짜는 이번 달 안에 머물게 오늘보다 앞으로 넘기지 않는다. 달 초에 돌려도 지난달로 새지 않는다.
  */
@@ -48,16 +48,33 @@ async function seed(prep: PrepApi): Promise<void> {
     categoryId: await id('월급'),
     daysAgo: daysInto(6),
   });
-  await prep.putAssets([
-    { group: 'cash', label: '청년도약계좌', amount: 3_300_000, monthly: 700_000 },
-    { group: 'investment', label: '삼성전자', kind: 'stock', quantity: '10', cost: 720_000, amount: 780_000 },
+  const assets = await prep.putAssets([
+    { group: 'cash', label: '청년도약계좌', amount: 2_600_000, monthly: 700_000 },
+    {
+      group: 'investment',
+      label: '삼성전자',
+      kind: 'stock',
+      quantity: '10',
+      cost: 720_000,
+      price: 78_000,
+      amount: 780_000,
+    },
   ]);
+  // 자산 화면의 「이번 달 모은 돈」 이 0원으로 서지 않게 이번 달 납입 한 줄을 심는다. 납입 뒤 3,300,000원이다.
+  const account = assets.items.find((item) => item.label === '청년도약계좌')?.item_key;
+  if (account == null) throw new Error('청년도약계좌를 심지 못했다');
+  await prep.addAssetTransfer({
+    amount: 700_000,
+    itemKey: account,
+    daysAgo: daysInto(6),
+    memo: '도약 납입',
+  });
 }
 
 /** 위에 심은 지출 합. 무신사를 79,000원으로 고치면 10,000원 준다. */
 const SPENT = 180_000 + 89_000 + 46_000 + 32_900 + 23_000 + 12_400 + 8_000 + 4_500 * 2;
 
-test('67 리포트 줄을 눌러 분류 화면, 기록 고치기, 내 자산으로 들어간다', async ({
+test('67 리포트 줄을 눌러 분류 화면, 기록 고치기, 자산 화면으로 들어간다', async ({
   appShell,
   assets,
   demo,
@@ -65,14 +82,11 @@ test('67 리포트 줄을 눌러 분류 화면, 기록 고치기, 내 자산으�
   report,
   reportCategory,
 }) => {
+  // 먼저 심고 연다. 연 뒤에 심으면 제목 카드가 걷힌 직후 기록 없는 리포트가 한 번 찍힌다.
+  await seed(prep);
   await report.open();
   await report.waitReady();
-  await Promise.all([
-    demo.open('리포트에서 한 칸 더', '분류 줄, 큰 지출, 저축·투자를 눌러 들어간다'),
-    seed(prep),
-  ]);
-  await report.open();
-  await report.waitReady();
+  await demo.open('리포트에서 한 칸 더', '분류 줄, 큰 지출, 저축·투자를 눌러 들어간다');
   await expect(report.total).toHaveText(formatCurrency(SPENT));
 
   await demo.step('맨 위에서 소비와 수입을 고르고, 오른쪽에 저축·투자가 따로 있다');
@@ -96,8 +110,12 @@ test('67 리포트 줄을 눌러 분류 화면, 기록 고치기, 내 자산으�
   await demo.beat();
 
   await demo.step('아래 큰 지출 Top 5 에서 무신사 줄을 누른다');
-  await report.largeExpenseCard.scrollIntoViewIfNeeded();
+  // 화면 아래 끝에 걸치면 탭바에 가린다. 가운데로 올려 다섯 줄이 다 보이게 한다.
+  await report.largeExpenseCard.evaluate((element) => {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
   await expect(report.largeExpenseRows).toHaveCount(5);
+  await expect(report.largeExpenseRow('무신사')).toBeInViewport({ ratio: 1 });
   await demo.beat(2);
   await report.largeExpenseRow('무신사').click();
   await report.edit.waitOpen();
@@ -117,7 +135,7 @@ test('67 리포트 줄을 눌러 분류 화면, 기록 고치기, 내 자산으�
   await expect(report.total).toHaveText(formatSignedCurrency(3_200_000));
   await demo.beat(3);
 
-  await demo.step('저축·투자를 누르면 내 자산 화면이다');
+  await demo.step('저축·투자를 누르면 자산 화면이다');
   await report.assetsLink.click();
   await assets.waitReady();
   await expect(assets.row('청년도약계좌')).toBeVisible();

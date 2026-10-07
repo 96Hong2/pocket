@@ -110,7 +110,10 @@ test('68 한 달 시작일을 25일로 바꾸면 예산과 리포트와 홈 기�
   await demo.step(`저장하면 예산 기간이 ${period.range} 로 바뀌고 그 사이 쓴 돈을 센다`);
   await manage.monthStart.save(25);
   await expect(manage.monthStartRow).toHaveAccessibleName('한 달 시작 매달 25일');
-  await manage.periodLine.scrollIntoViewIfNeeded();
+  // 맨 위로 붙이면 자막 밑에 깔린다. 기간 줄과 그 아래 예산 카드가 함께 보이게 가운데로 올린다.
+  await manage.periodLine.evaluate((element) => {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
   await expect(manage.periodLine).toHaveText(period.range);
   await expect(manage.total.used).toHaveText(formatCurrency(periodSpent));
   await demo.beat(3);
