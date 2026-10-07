@@ -24,6 +24,14 @@ const TARGET_WIDTH = 824;
 /** 목록에 쓸 대표 그림을 모아 두는 곳. */
 const THUMB_DIR = '_thumbs';
 
+/**
+ * 앞머리에서 잘라 내는 길이(초).
+ *
+ * 녹화는 빈 문서에서 시작한다. 표지를 깔기 전 한 프레임이 흰 화면으로 찍히는 편이 있어
+ * (여러 편이 한꺼번에 뜨는 맨 처음에 특히) 영상마다 앞을 조금 버린다. 그 구간은 어느 편이나 표지다.
+ */
+const HEAD_TRIM_SEC = 0.2;
+
 async function main() {
   const [srcDir, outDir = srcDir] = process.argv.slice(2);
   if (!srcDir) {
@@ -50,6 +58,7 @@ async function main() {
     await run('ffmpeg', [
       '-v', 'error', '-y',
       '-i', src,
+      '-ss', String(HEAD_TRIM_SEC),
       // 짝수 폭·높이가 아니면 h264 가 거부한다. 반올림해서 맞춘다.
       '-vf', `scale=${TARGET_WIDTH}:-2:flags=lanczos`,
       '-c:v', 'libx264',
