@@ -9,12 +9,19 @@ import {
   useCurrentPeriod,
   type CategoryBudgetOut,
 } from '../../shared/api';
-import { markCardDismissed, readCardDismissed } from '../../shared/lib/cardDismiss';
+import { addCardDismissed, readCardDismissedIn } from '../../shared/lib/cardDismiss';
 import { cx } from '../../shared/lib/cx';
 import { shiftMonth } from '../../shared/lib/format';
 import { formatPeriodRange, periodOfMonth } from '../../shared/lib/monthPeriod';
 import { TEST_IDS } from '../../shared/testIds';
-import { Card, CardClose, ErrorState, MonthStepper, PeriodRange, RetryButton } from '../../shared/ui';
+import {
+  Card,
+  CardClose,
+  ErrorState,
+  MonthStepper,
+  PeriodRange,
+  RetryButton,
+} from '../../shared/ui';
 import { useRewardedAd } from '../ads';
 
 import { BudgetAmountSheet } from './BudgetAmountSheet';
@@ -167,6 +174,8 @@ export function BudgetSection() {
         <>
           {state.is_auto_carried ? (
             <CarriedNotice
+              // 달을 옮기면 새로 읽는다. 앞 달의 닫음이 새 달 안내를 잠깐 가리지 않게.
+              key={state.period_key}
               periodKey={state.period_key}
               onEdit={editable ? () => setAmountOpen(true) : null}
             />
@@ -232,7 +241,7 @@ function CarriedNotice({ periodKey, onEdit }: { periodKey: string; onEdit: (() =
 
   useEffect(() => {
     let alive = true;
-    void readCardDismissed(bridge.storage, 'budget-carried', periodKey).then((value) => {
+    void readCardDismissedIn(bridge.storage, 'budget-carried', periodKey).then((value) => {
       if (alive) setDismissed(value);
     });
     return () => {
@@ -255,7 +264,7 @@ function CarriedNotice({ periodKey, onEdit }: { periodKey: string; onEdit: (() =
         label="이어쓴 예산 안내 닫기"
         onClick={() => {
           setDismissed(true);
-          void markCardDismissed(bridge.storage, 'budget-carried', periodKey);
+          void addCardDismissed(bridge.storage, 'budget-carried', periodKey);
         }}
       />
     </div>
@@ -272,7 +281,11 @@ function CarriedNotice({ periodKey, onEdit }: { periodKey: string; onEdit: (() =
 function BudgetSlotSkeleton() {
   return (
     <Card padding="md">
-      <div className="pk-state pk-state--inline" role="status" aria-label="예산을 불러오는 중이에요">
+      <div
+        className="pk-state pk-state--inline"
+        role="status"
+        aria-label="예산을 불러오는 중이에요"
+      >
         <span className="pk-skeleton budget__skeleton-icon" aria-hidden="true" />
         <span className="pk-skeleton budget__skeleton-title" aria-hidden="true" />
         <span className="pk-skeleton budget__skeleton-desc" aria-hidden="true" />
