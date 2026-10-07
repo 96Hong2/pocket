@@ -138,18 +138,20 @@ test('32 카테고리 예산을 넘기면 그 카테고리를 짚어 말한다',
   await expect(manage.categories.caution('식비')).toHaveCount(0);
   await demo.beat(2);
 
-  await demo.step('홈에서 식비로 4만원을 더 쓴다');
+  await demo.step('홈에서 기록하기를 눌러 식비로 4만원을 더 적는다');
   await appShell.goToTab('홈');
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.enterAmount(40_000);
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
   await demo.beat(2);
 
-  await demo.step('전체 예산은 남았지만 식비가 넘었다고 말한다');
-  await expect(recordSheet.feedback.headline).toHaveText(
+  await demo.step('전체 예산은 남았지만 식비가 넘었다는 한 줄이 붙는다');
+  await expect(recordSheet.feedback.card).toContainText('예산 초과');
+  await expect(recordSheet.feedback.detail).toHaveText(
     `식비에서 예산을 ${formatCurrency(20_000)} 넘었어요.`,
   );
   await demo.beat(3);
@@ -195,13 +197,21 @@ test('33 지난달 예산이 이번 달로 이어진다', async ({ demo, manage,
   await expect(manage.categories.cap('식비')).toHaveText(formatCurrency(150_000));
   await demo.beat(3);
 
-  await demo.step('띠 안의 수정으로 이번 달 금액을 바꾼다');
-  await manage.banner.editButton.click();
-  await manage.total.sheet.save(700_000);
-  await expect(manage.total.amount).toHaveText(formatCurrency(700_000));
+  await demo.step('안내 줄에는 수정과 ✕ 가 나란히 있다');
+  await expect(manage.banner.editButton).toBeVisible();
+  await expect(manage.banner.closeButton).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('한 번 손댄 예산이라 띠가 사라진다. 닫기 버튼은 따로 없다');
+  await demo.step('그대로 쓸 거면 ✕ 로 안내만 닫는다. 예산은 그대로 남는다');
+  await manage.banner.closeButton.click();
+  await expect(manage.banner.card).toHaveCount(0);
+  await expect(manage.total.amount).toHaveText(formatCurrency(400_000));
+  await demo.beat(3);
+
+  await demo.step('다시 열어도 이번 달에는 안내가 다시 뜨지 않는다');
+  await manage.open();
+  await manage.waitReady();
+  await expect(manage.total.amount).toHaveText(formatCurrency(400_000));
   await expect(manage.banner.card).toHaveCount(0);
   await demo.beat(3);
 

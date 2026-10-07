@@ -1,229 +1,125 @@
 import { expect, test } from '../support/director';
-import { formatCurrency, toLedgerDate } from '../../../src/shared/lib/format';
+import { formatCurrency } from '../../../src/shared/lib/format';
 
 /**
- * 저장 직후 한마디가 상황마다 달라지는 것을 찍는다.
+ * 저장 뒤 화면을 찍는다.
  *
- * 11 은 예산을 정하기 전. 이번 달 사실만 말하다가, 30,000원을 넘기면 그 지출부터 짚는다.
- * 12 는 예산을 정한 뒤. 계획대로 갈 때, 속도가 빠를 때, 예산을 넘겼을 때 세 가지가 이어진다.
- * 카드가 떴는지만 보면 판정 실패와 정상이 구분되지 않아서 문장을 금액까지 통째로 단언한다.
+ * 11 은 예산이 없을 때. 저장 뒤 화면은 「내 가계부에 적었어요」 와 방금 적은 한 줄이 주인공이고,
+ * 남은 돈이나 큰 지출을 따로 말하지 않는다. 남은 돈은 홈이 늘 들고 있다.
+ * 12 는 예산이 있을 때. 예산 안이면 똑같이 아무 말도 안 하고, 넘은 지출에만 그 한 줄이 붙는다.
+ * 줄이 떴는지만 보면 판정 실패와 정상이 구분되지 않아서 문장을 금액까지 통째로 단언한다.
  */
 
 const CATEGORY = '식비';
 
-/** 예산이 없을 때. 30,000원이 큰 지출 기준이라 그 아래와 위를 하나씩 찍는다. */
+/** 예산이 없을 때 적는 두 건. */
 const SMALL = 12_000;
 const LARGE = 50_000;
 
-/** 예산이 있을 때. 500,000원 예산에 세 번을 이어 넣으며 한마디가 바뀌는 것을 본다. */
+/** 예산이 있을 때. 500,000원 예산에 두 번을 이어 넣어 넘기는 순간을 본다. */
 const BUDGET = 500_000;
 const STEADY = 20_000;
-const OVER = 400_000;
+const OVER = 500_000;
 
-/** 속도 판정은 이번 달이 이 일수를 채워야 잡힌다. 서버의 MIN_PACE_ELAPSED_DAYS 와 같은 값이다. */
-const MIN_PACE_ELAPSED_DAYS = 3;
-
-interface MonthProgress {
-  totalDays: number;
-  elapsedDays: number;
-  remainingDays: number;
-}
-
-/**
- * 오늘이 이번 달 며칠째이고 며칠 남았는지.
- *
- * 서버가 가계부 기준 시간대로 오늘을 판정하므로 여기서도 같은 기준을 쓴다.
- * 남은 일수에는 오늘이 들어간다.
- */
-function monthProgress(): MonthProgress {
-  const [year, month, day] = toLedgerDate(new Date()).split('-').map(Number);
-  const totalDays = new Date(year, month, 0).getDate();
-  return { totalDays, elapsedDays: day, remainingDays: totalDays - day + 1 };
-}
-
-/** 지금 속도로 갔을 때 월말 예상 지출. 이번 달 지출을 날짜 진행률로 나눈 값이다. */
-function projectedMonthEnd(spend: number, progress: MonthProgress): number {
-  return Math.round((spend * progress.totalDays) / progress.elapsedDays);
-}
-
-/**
- * 두 번째 금액. 날짜에 따라 정한다.
- *
- * 속도 판정은 예상 지출(지출 × 총일수 / 경과일)이 예산을 넘어야 서는데, 달이 흐를수록
- * 같은 금액으로는 못 넘긴다. 고정값(100,000원)은 7일차까지만 섰다. 예산을 넘기는 가장 작은
- * 만 원 단위로 잡되 100,000원 아래로는 내리지 않는다. 남은 예산이 양수인지는 아래 guard 가 본다.
- */
-function fastAmount(progress: MonthProgress): number {
-  const floorSpend = Math.floor((BUDGET * progress.elapsedDays) / progress.totalDays / 10_000);
-  return Math.max(100_000, (floorSpend + 1) * 10_000 - STEADY);
-}
-
-test('11 예산이 없을 때 저장 직후 한마디', async ({ demo, home, recordSheet }) => {
-  const monthTotal = SMALL + LARGE;
-
+test('11 저장하면 어디에 무엇을 적었는지 보여 준다', async ({ demo, home, recordSheet }) => {
   await home.open();
   await home.waitReady();
 
-  await demo.open('저장하면 바로 한마디', '예산을 정하기 전에는 이번 달 사실만 말한다');
+  await demo.open('저장한 뒤 화면', '어디에 적었는지와 방금 적은 한 줄. 그것뿐이다');
 
-  await demo.step('예산은 아직 없다. 12,000원을 적어 본다');
+  await demo.step('예산은 아직 없다. 기록하기에서 12,000원을 찍는다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.enterAmount(SMALL);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(SMALL));
 
-  await demo.step('카테고리를 누르는 것이 곧 저장이다');
+  await demo.step('식비를 누르는 것이 곧 저장이다');
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
 
-  await demo.step('예산이 없으니 이번 달 쓴 돈만 알려 준다');
-  // 판정이 실패해도 서버는 빈 결과로 201 을 주고 그때도 kind 는 month_fact 다.
-  // 카드가 떴는지로는 실패를 못 가르므로 금액이 박힌 문장 전체를 본다.
-  await expect(recordSheet.feedback.headline).toHaveText(
-    `이번 달 ${formatCurrency(SMALL)} 썼어요.`,
-  );
-  // 예산이 없으면 둘째 줄에 붙일 숫자가 없어 아예 그리지 않는다.
+  await demo.step('가장 크게 내 가계부에 적었다고 말하고, 아래에 방금 적은 한 줄이 선다');
+  await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
+  await expect(recordSheet.feedback.savedAmount).toHaveText(formatCurrency(SMALL));
+  // 덧붙이는 말이 없다. 남은 돈은 홈이 늘 들고 있다.
   await expect(recordSheet.feedback.detail).toHaveCount(0);
-  // 조심할 것이 없는 한마디라 배지도 붙지 않는다.
-  await expect(recordSheet.feedback.card).not.toContainText('주의');
+  await demo.beat(3);
+
+  await demo.step('무엇으로 냈는지는 여기서 고른다. 적는 화면에는 이 칸이 없다');
+  await expect(recordSheet.feedback.paymentGroup).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('확인을 누르면 시트가 닫힌다');
+  await demo.step('확인을 누르면 닫히고 홈의 쓴 돈이 올라가 있다');
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(SMALL));
   await demo.beat();
 
-  await demo.step('이번엔 50,000원. 30,000원을 넘으면 큰 지출로 본다');
+  await demo.step('50,000원처럼 큰 지출도 저장 뒤 화면은 같다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.enterAmount(LARGE);
-  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(LARGE));
-
-  await demo.step('같은 식비로 저장한다');
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
-
-  await demo.step('한마디가 바뀐다. 방금 쓴 금액부터 짚어 준다');
-  await expect(recordSheet.feedback.headline).toHaveText(
-    `${formatCurrency(LARGE)}, 평소보다 큰 지출이에요.`,
-  );
-  // 예산이 없어 둘째 줄이 남은 예산 대신 이번 달 합계로 떨어진다.
-  await expect(recordSheet.feedback.detail).toHaveText(
-    `이번 달 쓴 돈은 ${formatCurrency(monthTotal)}이에요.`,
-  );
-  await expect(recordSheet.feedback.card).not.toContainText('주의');
+  await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
+  await expect(recordSheet.feedback.detail).toHaveCount(0);
   await demo.beat(3);
 
-  await demo.step('닫으면 홈의 쓴 돈도 같은 값이다');
+  await demo.step('닫으면 홈의 쓴 돈이 두 건을 더한 값이다');
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
-  await expect(home.hero.monthSpent).toHaveText(formatCurrency(monthTotal));
+  await expect(home.hero.monthSpent).toHaveText(formatCurrency(SMALL + LARGE));
   await demo.clearStep();
   await demo.beat(2);
 });
 
-test('12 예산이 있을 때 저장 직후 한마디', async ({ demo, home, prep, recordSheet }) => {
-  const progress = monthProgress();
-  const FAST = fastAmount(progress);
-
-  const afterSteady = STEADY;
-  const afterFast = STEADY + FAST;
-  const afterOver = STEADY + FAST + OVER;
-  const projectedAfterFast = projectedMonthEnd(afterFast, progress);
-
-  // 예산은 배경이라 API 로 심는다. 이 영상이 보여줄 것은 저장 직후의 한마디다.
+test('12 예산을 넘었을 때만 저장 뒤에 한 줄 알린다', async ({ demo, home, prep, recordSheet }) => {
+  // 예산은 배경이라 API 로 심는다. 이 영상이 보여줄 것은 저장 뒤 화면이다.
   await prep.setBudget(BUDGET);
 
   await home.open();
   await home.waitReady();
   await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET));
 
-  // 속도 판정은 사흘째부터 서고, 달 마지막 날에는 설 수 없다(예상 지출이 곧 지출이라 예산을
-  // 넘기면 이미 초과다). 그때는 문장이 어긋나기 전에 이유를 말하고 멈춘다.
-  expect(
-    progress.elapsedDays >= MIN_PACE_ELAPSED_DAYS &&
-      projectedAfterFast > BUDGET &&
-      afterFast < BUDGET,
-    `속도 장면이 오늘 날짜에서는 서지 않는다. 이번 달 ${progress.elapsedDays}일차라 ` +
-      `${formatCurrency(afterFast)}를 쓰면 예상 지출이 ${formatCurrency(projectedAfterFast)}다. ` +
-      '사흘째부터 달 마지막 날 전까지만 찍을 수 있다',
-  ).toBe(true);
+  await demo.open('예산을 넘으면 한 줄', '예산 안에서는 아무 말도 안 하고, 넘은 순간에만 알린다');
 
-  await demo.open(
-    '예산이 있으면 말이 달라진다',
-    '계획대로 · 속도가 빠를 때 · 예산 초과가 차례로 온다',
-  );
-
-  await demo.step('이번 달 예산은 500,000원. 20,000원을 적는다');
+  await demo.step('이번 달 예산은 500,000원. 20,000원을 식비로 적는다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.enterAmount(STEADY);
-  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(STEADY));
-
-  await demo.step('식비로 저장한다');
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
 
-  await demo.step('계획대로 가는 중이라 남은 예산 한 줄만 알려 준다');
-  await expect(recordSheet.feedback.headline).toHaveText(
-    `남은 예산은 ${formatCurrency(BUDGET - afterSteady)}이에요.`,
-  );
-  // 남은 날과 하루 몫은 홈이 늘 들고 있다. 적을 때마다 세어 주면 쫓기는 화면이 된다.
+  await demo.step('예산 안이라 남은 예산을 세어 주지 않는다. 적었다는 말뿐이다');
+  await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
   await expect(recordSheet.feedback.detail).toHaveCount(0);
-  await expect(recordSheet.feedback.card).not.toContainText(/남은 \d+일/);
-  await expect(recordSheet.feedback.card).not.toContainText('주의');
-  await demo.beat(2);
-
-  await demo.step(`확인하고 이어서 ${formatCurrency(FAST)}을 적는다`);
-  await recordSheet.feedback.confirmButton.click();
-  await recordSheet.waitClosed();
-  await home.recordButton.click();
-  await recordSheet.waitOpen();
-  await recordSheet.input.enterAmount(FAST);
-  await expect(recordSheet.input.amountText).toHaveText(formatCurrency(FAST));
-
-  await demo.step('저장하면 남은 예산만 알려 준다');
-  await recordSheet.input.pickCategory(CATEGORY);
-  await recordSheet.feedback.waitSaved();
-
-  await demo.step('속도가 빨라도 겁주지 않는다. 남은 돈 한 줄이면 된다');
-  // 달 말 예상액은 며칠치로 남은 달을 늘린 값이라 초반일수록 크게 튄다.
-  // 적을 때마다 그 숫자나 남은 날을 보여 주면 적기가 무서워진다.
-  await expect(recordSheet.feedback.headline).toHaveText(
-    `남은 예산은 ${formatCurrency(BUDGET - afterFast)}이에요.`,
-  );
-  await expect(recordSheet.feedback.detail).toHaveCount(0);
-  await expect(recordSheet.feedback.card).not.toContainText('주의');
-  await expect(recordSheet.feedback.card).not.toContainText('쓰게 돼요');
-  await expect(recordSheet.feedback.card).not.toContainText(/남은 \d+일/);
+  await expect(recordSheet.sheet).not.toContainText('남은 예산');
   await demo.beat(3);
 
-  await demo.step('확인하고 400,000원을 마저 적는다');
+  await demo.step('확인하고 500,000원을 더 적는다');
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.enterAmount(OVER);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(OVER));
-
-  await demo.step('이걸 저장하면 이번 달 예산을 넘는다');
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
 
-  await demo.step('얼마나 넘었는지만 말하고 탓하지 않는다');
+  await demo.step('이번에는 예산을 넘었다. 얼마나 넘었는지 한 줄만 붙는다');
   await expect(recordSheet.feedback.card).toContainText('예산 초과');
-  await expect(recordSheet.feedback.headline).toHaveText(
-    `이번 달 예산을 ${formatCurrency(afterOver - BUDGET)} 넘었어요.`,
+  await expect(recordSheet.feedback.detail).toHaveText(
+    `이번 달 예산을 ${formatCurrency(STEADY + OVER - BUDGET)} 넘었어요.`,
   );
-  // 넘었을 때도 날을 세지 않는다. 얼마나 넘었는지 한 줄이 전부다.
-  await expect(recordSheet.feedback.detail).toHaveCount(0);
   await demo.beat(3);
 
   await demo.step('홈으로 돌아오면 남은 예산이 음수고 게이지가 꽉 찬다');
   await recordSheet.feedback.confirmButton.click();
   await recordSheet.waitClosed();
-  await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - afterOver));
+  await expect(home.hero.remainingBudget).toHaveText(formatCurrency(BUDGET - STEADY - OVER));
   expect(await home.hero.gaugePercent(), '예산을 넘겼는데 게이지가 꽉 차지 않았다').toBe(100);
   await demo.clearStep();
   await demo.beat(2);

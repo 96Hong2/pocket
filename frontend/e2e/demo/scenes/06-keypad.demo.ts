@@ -8,6 +8,7 @@ import { expect, test } from '../support/director';
  * 앞자리 0 과 12자리 상한이 어떻게 걸리는지까지 실제로 눌러서 보여준다.
  * 10 은 카테고리 칩이다. 지출 열한 개만 나오는 것, 금액이 0원일 때 누르면 저장이 아니라
  * 고르기가 되는 것, 목록을 불러오는 중과 못 불러왔을 때의 화면을 이어서 보여준다.
+ * 둘 다 고르는 화면에서 「다음」 을 눌러 금액 화면으로 간 뒤에 시작한다.
  * 59 는 이체다. 내 계좌끼리 옮긴 돈은 목록에 남되 이번 달 쓴 돈에 안 들어간다.
  */
 
@@ -55,21 +56,28 @@ test('09 키패드로 금액을 찍는 규칙', async ({ home, recordSheet, demo
   await home.waitReady();
   await demo.open('키패드로 금액 찍기', '숫자 키 열한 개와 지우기 하나. 앞자리 0 은 먹지 않는다');
 
-  await demo.step('홈에서 기록하기를 누른다');
+  await demo.step('홈에서 기록하기를 누르면 먼저 어떻게 적을지 고르는 화면이다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await demo.beat();
+
+  await demo.step('방법은 직접 입력, 영수증 찍기, 캡처로 정리, 글로 쓰기 넷이다');
+  await expect(recordSheet.methodTabs).toHaveText([
+    '직접 입력',
+    '영수증 찍기',
+    '캡처로 정리',
+    '글로 쓰기',
+  ]);
+  await expect(recordSheet.methodTab('직접 입력')).toHaveAttribute('aria-checked', 'true');
+  await demo.beat(3);
+
+  await demo.step('직접 입력 그대로 다음을 누르면 금액과 키패드가 선다');
+  await recordSheet.next();
+  await expect(recordSheet.amountTitle).toHaveText('얼마 썼어요?');
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));
   // 금액 아래 안내 줄은 없다. 상태마다 줄이 생겼다 사라지면 키패드가 들썩인다.
   await expect(recordSheet.input.hint).toHaveCount(0);
   await demo.beat(2);
-
-  await demo.step('기록 방법은 네 가지. 키패드·줄글·캡처·영수증이 모두 열려 있다');
-  await expect(recordSheet.methodTabs).toHaveCount(4);
-  await expect(recordSheet.methodTab('키패드')).toHaveAttribute('aria-checked', 'true');
-  for (const label of ['줄글', '캡처', '영수증'] as const) {
-    await expect(recordSheet.methodTab(label)).toBeEnabled();
-  }
-  await demo.beat(3);
 
   await demo.step('키는 1부터 9까지와 00, 0. 그리고 한 자리 지우기 하나');
   for (const key of NUMBER_KEYS) {
@@ -172,14 +180,15 @@ test('10 카테고리 칩과 불러오기 실패', async ({
     '지출 열한 개. 0원에 누르면 고르기가 되고, 못 불러오면 다시 시도한다',
   );
 
-  await demo.step('기록 시트를 열면 지출 카테고리 열한 개가 놓인다');
+  await demo.step('기록하기에서 다음을 누르면 금액 아래 지출 분류 열한 개가 놓인다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   for (const name of EXPENSE_CATEGORIES) {
     await expect(recordSheet.input.categoryChip(name)).toBeVisible();
   }
-  // 수입·이체도 기본 카테고리지만 기록 시트는 지출만 올린다.
-  // 셋째 알약 「이체」 도 이름이 같은 버튼이라, 버튼이 아니라 분류 칩 이름으로 센다.
+  // 수입·이체도 기본 카테고리지만 지출을 고르면 지출 분류만 올린다.
+  // 이름이 같은 버튼이 생겨도 헷갈리지 않게 분류 칩 이름으로 센다.
   const onSheet = await recordSheet.input.categoryChipNames();
   for (const name of NOT_ON_SHEET) {
     expect(onSheet).not.toContain(name);
@@ -229,9 +238,10 @@ test('10 카테고리 칩과 불러오기 실패', async ({
   await home.open();
   await home.waitReady();
 
-  await demo.step('응답을 붙잡아 둔 채 기록 시트를 연다');
+  await demo.step('응답을 붙잡아 둔 채 기록하기에서 다음을 누른다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   await demo.step('불러오는 동안에는 칩 자리에 스피너가 돈다');
   await expect(recordSheet.input.categoriesLoading).toBeVisible();
@@ -272,9 +282,10 @@ test('10 카테고리 칩과 불러오기 실패', async ({
   await home.open();
   await home.waitReady();
 
-  await demo.step('조회가 막힌 채로 기록 시트를 연다');
+  await demo.step('조회가 막힌 채로 기록하기에서 다음을 누른다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
 
   await demo.step('못 불러오면 이유와 다시 시도 버튼이 칩 자리에 뜬다');
   // 서버 오류는 재시도할 만한 실패라 두 번 더 부른 뒤에야 실패로 확정된다. 그만큼 기다려 준다.
@@ -306,27 +317,29 @@ test('59 이체한 돈은 지출에 안 들어간다', async ({ demo, home, prep
 
   await home.open();
   await home.waitReady();
-  await demo.open('이체', '카드값·적금처럼 내 계좌끼리 옮긴 돈은 쓴 돈이 아니다');
+  await demo.open('이체', '카드값처럼 내 계좌끼리 옮긴 돈은 쓴 돈이 아니다');
 
   await demo.step(`이번 달 쓴 돈은 ${formatCurrency(SPENT)}이다`);
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(SPENT));
   await demo.beat(2);
 
-  await demo.step(`기록하기를 누르고 카드값 ${formatCurrency(TRANSFER_AMOUNT)}을 찍는다`);
+  await demo.step('기록하기를 누르고 종류에서 이체를 고른다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.kindChip('이체').click();
+  await expect(recordSheet.kindChip('이체')).toHaveAttribute('aria-checked', 'true');
+  await demo.beat(2);
+
+  await demo.step(`다음을 누르면 얼마 옮겼는지 묻는다. 카드값 ${formatCurrency(TRANSFER_AMOUNT)}을 찍는다`);
+  await recordSheet.next();
+  await expect(recordSheet.amountTitle).toHaveText('얼마 옮겼어요?');
   await recordSheet.input.enterAmount(TRANSFER_AMOUNT);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(TRANSFER_AMOUNT));
   await demo.beat(2);
 
-  await demo.step('「지출」, 「수입」 옆 셋째 알약 「이체」 를 누른다');
-  await recordSheet.chooseKind('이체');
-  await expect(recordSheet.amountTitle).toHaveText('얼마 옮겼어요?');
-  await demo.beat(2);
-
-  await demo.step('이체에는 분류가 없다. 분류 칩이 걷히고 지출·수입 알약도 꺼진다');
+  await demo.step('이체에는 분류가 없다. 분류 칩 자리가 비어 있다');
   await expect(recordSheet.input.newCategoryButton).toHaveCount(0);
-  await expect(recordSheet.kindChip('지출')).toHaveCount(0);
+  await expect(recordSheet.input.categoryChip('식비')).toHaveCount(0);
   await demo.beat(3);
 
   await demo.step('고를 것이 없으니 저장 버튼으로 바로 적는다');

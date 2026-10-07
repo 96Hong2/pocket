@@ -2,7 +2,7 @@ import { formatCurrency } from '../../../src/shared/lib/format';
 import { expect, test } from '../support/director';
 
 /**
- * 줄글로 적고 검토해서 저장하는 다섯 장면.
+ * 글로 쓰기로 적고 검토해서 저장하는 다섯 장면. 고르는 화면에서 「글로 쓰기」 를 고르고 「다음」 을 누른다.
  *
  * 장면마다 홈을 먼저 열어 제목 카드를 띄우고 그 뒤에 시트를 연다.
  * 시트를 먼저 열고 제목 카드를 띄우면 카드 뒤로 딤이 비쳐 앞머리가 어둡게 남는다.
@@ -13,18 +13,18 @@ import { expect, test } from '../support/director';
 
 const THREE_ITEMS = '점심 12000 스벅 4500 어제 택시 9000';
 
-test('35 줄글 한 줄에 여러 건을 적는다', async ({ demo, home, recordSheet }) => {
+test('35 글로 쓰기 한 줄에 여러 건을 적는다', async ({ demo, home, recordSheet }) => {
   await home.open();
   await home.waitReady();
-  await demo.open('줄글로 적기', '한 줄에 여러 건을 적어도 따로 읽는다');
+  await demo.open('글로 쓰기', '한 줄에 여러 건을 적어도 따로 읽는다');
 
   await demo.step('홈에서 기록하기를 누른다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
   await demo.beat(2);
 
-  await demo.step('기록 방법에서 줄글로 옮긴다');
-  await recordSheet.methodTab('줄글').click();
+  await demo.step('방법에서 글로 쓰기를 고르고 다음을 누른다');
+  await recordSheet.chooseWay('글로 쓰기');
   await expect(recordSheet.nl.textarea).toBeVisible();
   await demo.beat(2);
 
@@ -57,7 +57,8 @@ test('36 확신이 낮은 것은 스스로 켜지지 않는다', async ({ demo, 
 
   await demo.step('금액만 적고 무엇에 썼는지는 안 적었다');
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.waitOpen();
+  await recordSheet.chooseWay('글로 쓰기');
   await recordSheet.nl.textarea.fill('9000');
   await demo.beat(2);
 
@@ -89,7 +90,8 @@ test('37 이해한 결과를 눌러서 고친다', async ({ demo, home, recordSh
 
   await demo.step('점심 12,000원 한 건을 읽었다');
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.waitOpen();
+  await recordSheet.chooseWay('글로 쓰기');
   await recordSheet.nl.analyze('점심 12000');
   await demo.beat(2);
 
@@ -123,7 +125,8 @@ test('38 고른 것만 한 번에 저장한다', async ({ calendar, demo, home, 
 
   await demo.step('세 건을 읽었다. 버튼에 3건과 합계가 적힌다');
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.waitOpen();
+  await recordSheet.chooseWay('글로 쓰기');
   await recordSheet.nl.analyze(THREE_ITEMS);
   await expect(recordSheet.nl.saveButton).toHaveText(`3건 저장 · ${formatCurrency(25_500)}`);
   await demo.beat(3);
@@ -138,7 +141,7 @@ test('38 고른 것만 한 번에 저장한다', async ({ calendar, demo, home, 
   await expect(recordSheet.nl.savedTitle).toHaveText(`2건 저장했어요 · ${formatCurrency(21_000)}`);
   await demo.beat(3);
 
-  await demo.step('홈의 이번 달 쓴 돈이 그만큼 올라간다');
+  await demo.step('홈의 쓴 돈이 그만큼 올라간다');
   await recordSheet.nl.confirmButton.click();
   await recordSheet.waitClosed();
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(21_000));
@@ -162,7 +165,8 @@ test('39 한 번 고친 분류를 기억한다', async ({ categories, demo, home
 
   await demo.step('올리브영을 건강·미용으로 읽었다');
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.waitOpen();
+  await recordSheet.chooseWay('글로 쓰기');
   await recordSheet.nl.analyze('올리브영 23000');
   await expect(recordSheet.nl.row('올리브영')).toContainText('건강·미용');
   await demo.beat(3);
@@ -178,7 +182,8 @@ test('39 한 번 고친 분류를 기억한다', async ({ categories, demo, home
 
   await demo.step('다음에 같은 상호를 적으면 생활로 먼저 잡는다');
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.waitOpen();
+  await recordSheet.chooseWay('글로 쓰기');
   await recordSheet.nl.analyze('올리브영 5000');
   await expect(recordSheet.nl.row('올리브영')).toContainText('생활');
   await demo.beat(3);

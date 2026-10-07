@@ -22,11 +22,13 @@ test('14 저장한 뒤 카테고리와 결제 수단 고치기', async ({ demo, 
   await demo.step('먼저 12,000원을 식비로 저장한다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.enterAmount(AMOUNT);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(AMOUNT));
   await recordSheet.input.pickCategory(FIRST_CATEGORY);
   await recordSheet.feedback.waitSaved();
-  await expect(recordSheet.feedback.headline).toContainText(formatCurrency(AMOUNT));
+  await expect(recordSheet.feedback.headline).toHaveText('내 가계부에 적었어요');
+  await expect(recordSheet.feedback.savedAmount).toHaveText(formatCurrency(AMOUNT));
   await demo.beat(2);
 
   await demo.step('저장한 줄의 분류 쪽을 누르면 칩이 펼쳐진다');
@@ -58,6 +60,7 @@ test('14 저장한 뒤 카테고리와 결제 수단 고치기', async ({ demo, 
   await demo.step('무엇으로 냈는지는 저장이 끝난 뒤에 묻는다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.enterAmount(AMOUNT);
   await recordSheet.input.pickCategory(MOVED_CATEGORY);
   await recordSheet.feedback.waitSaved();

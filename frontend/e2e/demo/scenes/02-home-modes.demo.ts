@@ -145,7 +145,7 @@ test('03 홈이 상황마다 다른 얼굴로 뜬다', async ({ page, home, reco
   await home.recovery.catchUpButton.click();
   await recordSheet.waitOpen();
 
-  await demo.step('며칠치를 한 건씩 적는 건 무리라, 캡처 탭이 먼저 열려 있다');
+  await demo.step('며칠치를 한 건씩 적는 건 무리라, 캡처로 정리가 먼저 골라져 있다');
   await expect(recordSheet.methodTab('캡처')).toHaveAttribute('aria-checked', 'true');
   await expect(recordSheet.capture.pickButton).toBeVisible();
   await demo.beat(3);

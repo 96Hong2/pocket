@@ -41,12 +41,12 @@ test('42 영수증을 찍으면 총액 한 건이 나오고 상호는 비어 있
   await recordSheet.waitOpen();
   await demo.beat(2);
 
-  await demo.step('기록 방법에서 영수증으로 옮긴다');
-  await recordSheet.methodTab('영수증').click();
+  await demo.step('방법 카드에서 영수증 찍기를 고른다');
+  await recordSheet.methodTab('영수증 찍기').click();
   await expect(recordSheet.receipt.pickButton).toBeVisible();
   await demo.beat(2);
 
-  await demo.step('영수증 찍기를 누르면 카메라가 열리고 한 장을 읽는다');
+  await demo.step('아래 카메라 열기를 누르면 카메라가 열리고 한 장을 읽는다');
   await recordSheet.receipt.pick();
   await expect(recordSheet.receipt.rows).toHaveCount(1);
   await expect(recordSheet.receipt.stubNotice).toBeVisible();
@@ -74,7 +74,7 @@ test('42 영수증을 찍으면 총액 한 건이 나오고 상호는 비어 있
   );
   await demo.beat(3);
 
-  await demo.step('홈의 이번 달 쓴 돈이 그만큼 올라간다');
+  await demo.step('홈의 쓴 돈이 그만큼 올라간다');
   await recordSheet.receipt.confirmButton.click();
   await recordSheet.waitClosed();
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(RECEIPT_AMOUNT));

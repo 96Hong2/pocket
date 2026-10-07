@@ -66,12 +66,13 @@ test('46 내 분류를 만들고 아이콘을 고른다', async ({
   await expect(categories.basicRow(PET)).toHaveCount(0);
   await demo.beat(3);
 
-  await demo.step('기록 시트를 열면 그 분류가 칩으로 나와 있다');
+  await demo.step('기록하기에서 다음을 누르면 그 분류가 칩으로 나와 있다');
   await appShell.pressBack();
   await appShell.goToTab('홈');
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.enterAmount(5_000);
   await expect(recordSheet.input.categoryChip(PET)).toBeVisible();
   await demo.beat(3);
@@ -85,9 +86,10 @@ test('47 기억한 자동 분류를 보고 지운다', async ({ categories, demo
   await home.waitReady();
   await demo.open('기억한 분류', '한 번 고친 분류가 쌓이는 자리와 지우는 자리');
 
-  await demo.step('줄글로 두 건을 한 줄에 적는다');
+  await demo.step('글로 쓰기로 두 건을 한 줄에 적는다');
   await home.recordButton.click();
-  await recordSheet.methodTab('줄글').click();
+  await recordSheet.waitOpen();
+  await recordSheet.chooseWay('글로 쓰기');
   await recordSheet.nl.analyze('올리브영 23000 스벅 4500');
   await expect(recordSheet.nl.rows).toHaveCount(2);
   await demo.beat(3);

@@ -42,9 +42,10 @@ test('15 시트를 닫는 세 가지 방법 (손잡이 · Esc · 시스템 뒤�
   await expect(home.today.row(CATEGORY)).toBeVisible();
   await demo.beat(2);
 
-  await demo.step(`시트를 열고 ${formatCurrency(TYPED)} 을 찍어 둔다`);
+  await demo.step(`기록하기에서 다음을 누르고 ${formatCurrency(TYPED)} 을 찍어 둔다`);
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.enterAmount(TYPED);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(TYPED));
   await demo.beat(2);
@@ -65,13 +66,19 @@ test('15 시트를 닫는 세 가지 방법 (손잡이 · Esc · 시스템 뒤�
   await demo.step('다시 열면 금액은 0원부터다');
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   // 닫을 때 시트 안쪽이 통째로 언마운트된다. 방금 찍은 3,500원이 남아 있지 않다.
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(0));
   await demo.beat(2);
 
-  await demo.step(`이번엔 ${formatCurrency(RETYPED)} 을 찍고 Esc 를 누른다. 같은 확인을 지난다`);
+  await demo.step(`이번엔 ${formatCurrency(RETYPED)} 을 찍고 Esc 를 누른다. 고르는 화면으로 한 단계 물러난다`);
   await recordSheet.input.enterAmount(RETYPED);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(RETYPED));
+  await recordSheet.closeByEsc();
+  await expect(recordSheet.wayGroup).toBeVisible();
+  await demo.beat(2);
+
+  await demo.step('여기서 한 번 더 Esc 를 누르면 찍어 둔 금액이 있어 같은 확인을 지난다');
   await recordSheet.closeByEsc();
   await expect(recordSheet.leave.dialog).toBeVisible();
   await demo.beat(2);
@@ -148,6 +155,7 @@ test('16 저장이 실패해도 시트는 닫히지 않고 금액이 남는다',
   await demo.step(`${formatCurrency(FAIL_AMOUNT)} 을 찍고 ${CATEGORY}를 누른다`);
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.enterAmount(FAIL_AMOUNT);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(FAIL_AMOUNT));
   await recordSheet.input.pickCategory(CATEGORY);
@@ -176,7 +184,7 @@ test('16 저장이 실패해도 시트는 닫히지 않고 금액이 남는다',
   await expect(recordSheet.input.categoryChip(CATEGORY)).toBeEnabled();
   await recordSheet.input.pickCategory(CATEGORY);
   await recordSheet.feedback.waitSaved();
-  await expect(recordSheet.feedback.headline).toContainText(formatCurrency(FAIL_AMOUNT));
+  await expect(recordSheet.feedback.savedAmount).toHaveText(formatCurrency(FAIL_AMOUNT));
   await expect(home.hero.monthSpent).toHaveText(formatCurrency(FAIL_AMOUNT));
   await demo.beat(2);
 

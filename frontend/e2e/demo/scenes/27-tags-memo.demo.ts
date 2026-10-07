@@ -3,8 +3,8 @@ import { expect, test } from '../support/director';
 /**
  * 태그와 메모 한 장면.
  *
- * 둘 다 **저장이 끝난 다음에** 묻는 값이다. 적는 화면에 칸이 하나 더 서면 10초 약속이
- * 깨지므로, 영상도 저장을 먼저 보여 주고 그 뒤에 두 칸이 나오는 순서를 그대로 따라간다.
+ * 태그는 금액 화면 오른쪽 위 「＃ 태그」 칩에서 고르고, 상호와 메모는 **저장이 끝난 다음에** 적는다.
+ * 적는 화면에 칸이 하나 더 서면 10초 약속이 깨지므로 둘은 저장 뒤 화면에 접혀 있다.
  */
 
 test('56 태그와 메모로 기록을 묶는다', async ({
@@ -37,23 +37,29 @@ test('56 태그와 메모로 기록을 묶는다', async ({
   await demo.beat(3);
 
   // 하위 화면에는 탭바가 없다(세 탭 루트에서만 선다). 홈으로는 주소로 돌아간다.
-  await demo.step('이제 기록한다. 적는 화면은 그대로 열 걸음이다');
+  await demo.step('이제 기록한다. 기록하기에서 다음을 누르고 23,000원을 찍는다');
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
   await recordSheet.waitOpen();
+  await recordSheet.openKeypad();
   await recordSheet.input.enterAmount(23000);
+  await demo.beat();
+
+  await demo.step('금액 오른쪽 위 ＃ 태그를 눌러 출장을 고른다. 태그는 하나만 단다');
+  await recordSheet.pickTag('출장');
+  await expect(recordSheet.tagChip).toHaveText('＃ 출장');
+  await demo.beat(2);
+
+  await demo.step('식비를 누르면 저장이다');
   await recordSheet.input.pickCategory('식비');
   await recordSheet.feedback.waitSaved();
   await demo.beat(2);
 
-  await demo.step('저장이 끝난 다음에 상호·메모·태그를 묻는다');
+  await demo.step('상호와 메모는 저장이 끝난 다음에 적는다');
   await recordSheet.feedback.writeMerchant('부산 국밥');
   await demo.beat(1);
   await recordSheet.feedback.writeMemo('출장 첫날 저녁');
-  await demo.beat(2);
-
-  await demo.step('태그는 하나만 단다. 여럿 달면 비율이 거짓이 된다');
   await expect(recordSheet.feedback.savedLabel).toBeVisible();
   await demo.beat(3);
 

@@ -58,7 +58,7 @@ test('54 목표와 결산을 친구에게 보낸다', async ({ appShell, demo, g
   await demo.step('모은 금액은 안 보낸다. 진행률만 간다');
   await demo.beat(3);
 
-  await demo.step('결산도 같은 자리에 있다. 리포트로 간다');
+  await demo.step('결산도 보낼 수 있다. 리포트로 간다');
   await report.open({ month: LAST_MONTH });
   await report.waitReady();
   await demo.beat(2);

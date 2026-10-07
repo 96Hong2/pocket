@@ -55,8 +55,10 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await appShell.expectCurrentTab('관리');
   await demo.beat(2);
 
-  await demo.step('맨 위 자산 카드 아래에 예산 섹션이 있다');
+  await demo.step('같이 쓰는 가계부와 자산관리 카드 아래에 예산 섹션이 있다');
   await manage.waitReady();
+  await expect(manage.booksEntry).toBeVisible();
+  await expect(manage.assetsEntry).toBeVisible();
   await expect(manage.total.startButton).toBeVisible();
   await demo.beat(2);
 
@@ -65,7 +67,7 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
   await expect(page.getByTestId(TEST_IDS.adSlot)).toBeInViewport();
   await demo.beat(2);
 
-  await demo.step('그 아래로 내려가면 일곱 줄이 하위 화면으로 들어가는 입구다');
+  await demo.step('그 아래로 내려가면 한 달 시작 줄과 하위 화면 입구가 줄지어 있다');
   const subScreens = page.getByRole('navigation', { name: '관리 하위 화면' });
   await subScreens.evaluate((element) => {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -146,10 +148,8 @@ test('20 관리 탭이 데리고 있는 화면들', async ({
 
   await demo.step('이번에는 자산으로 들어간다. 가진 것을 대략 적는 화면이다');
   await manage.openAssets();
-  await appShell.expectScreen(
-    '자산',
-    '대략 알아도 충분해요. 나중에 언제든 바꿀 수 있어요. 계좌 연결이나 정확한 숫자는 필요 없어요.',
-  );
+  // 설명 줄은 걷었다. 제목만 남는다.
+  await appShell.expectScreen('자산');
   await assets.waitReady();
   await demo.beat(2);
 

@@ -59,7 +59,7 @@ test('22 공용 UI 갤러리의 부품들', async ({ page, appShell, demo }) => 
   await expect(card.gauge('예산 사용률 62%')).toHaveAttribute('aria-valuenow', '62');
   await demo.beat(2);
 
-  await demo.step('그 아래 세이지 카드는 코치 한마디를 얹는 자리다');
+  await demo.step('그 아래 세이지 카드는 홈에 스스로 서는 안내 카드 자리다');
   await expect(card.text('오늘까지 페이스대로 쓰고 있어요.')).toBeVisible();
   await demo.beat(2);
 
@@ -101,7 +101,7 @@ test('22 공용 UI 갤러리의 부품들', async ({ page, appShell, demo }) => 
   await demo.beat(2);
 
   const controls = await gallery.scrollTo('SegmentedControl / Toggle');
-  await demo.step('세그먼트를 옮기면 흰 알약이 그 칸으로 미끄러진다');
+  await demo.step('세그먼트를 누르면 고른 칸만 흰 바탕으로 바뀐다');
   await expect(controls.radio('키패드')).toHaveAttribute('aria-checked', 'true');
   await controls.radio('문장').click();
   await expect(controls.radio('문장')).toHaveAttribute('aria-checked', 'true');
@@ -157,7 +157,7 @@ test('23 갤러리의 바텀시트와 상태와 색', async ({ page, demo }) => 
 
   await gallery.open();
   await gallery.waitReady();
-  await demo.open('시트와 상태와 색', '바텀시트가 닫히는 길 셋, 상태 여섯 가지, 색 토큰');
+  await demo.open('시트와 상태와 색', '바텀시트가 닫히는 길 가운데 셋, 상태 여섯 가지, 색 토큰');
 
   const sheetSection = await gallery.scrollTo('BottomSheet');
   await demo.step('BottomSheet 섹션까지 내려간다');

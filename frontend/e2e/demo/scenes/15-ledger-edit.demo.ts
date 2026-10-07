@@ -2,7 +2,7 @@ import { formatCurrency, formatNumber } from '../../../src/shared/lib/format';
 import { expect, test } from '../support/director';
 
 /**
- * 수정 시트를 찍는다. 고치기·예산에서 빼기·지우기 세 장면이다.
+ * 기록 고치기 시트를 찍는다. 고치기·예산에서 빼기·지우기 세 장면이다.
  *
  * 예산 제외 장면은 화면을 넘나든다. 달력에서 토글을 켠 뒤 홈으로 가서 남은 예산이
  * 돌아온 것을 숫자로 보여준다. 그게 이 토글의 뜻이라서다.
@@ -10,13 +10,13 @@ import { expect, test } from '../support/director';
 
 const BUDGET = 500_000;
 
-test('27 수정 시트에서 상호·금액·카테고리를 고친다', async ({ demo, calendar, prep }) => {
+test('27 기록 고치기에서 상호·금액을 고치고 맨 위 그림으로 분류를 바꾼다', async ({ demo, calendar, prep }) => {
   const meal = await prep.categoryIdByName('식비');
   await prep.addTransaction({ amount: 12_000, categoryId: meal, merchant: '스타벅스' });
 
   await calendar.open();
   await calendar.waitReady();
-  await demo.open('수정 시트', '상호·금액·카테고리를 한 화면에서');
+  await demo.open('기록 고치기', '상호와 금액은 칸에서, 분류는 맨 위 그림을 눌러서');
 
   await demo.step('고칠 줄을 누른다');
   await expect(calendar.totals.expense).toHaveText(formatCurrency(12_000));
@@ -38,15 +38,24 @@ test('27 수정 시트에서 상호·금액·카테고리를 고친다', async (
   await calendar.edit.amount.fill('9000');
   await demo.beat(2);
 
-  await demo.step('카테고리를 바꾼다');
-  await calendar.edit.categoryChip('교통').click();
-  await expect(calendar.edit.pickedCategory).toHaveText(/교통/);
+  await demo.step('분류는 맨 위 그림을 누르면 전부 펼친 한 장에서 고른다');
+  await expect(calendar.edit.headCategoryButton).toHaveAccessibleName('카테고리 식비, 바꾸기');
+  await calendar.edit.headCategoryButton.click();
+  await expect(calendar.edit.categoryPick.dialog).toBeVisible();
+  await expect(calendar.edit.categoryPick.picked).toHaveText('식비');
+  await demo.beat(2);
+
+  await demo.step('카페·간식을 고르면 고치던 화면으로 돌아오고 그림이 바뀐다');
+  await calendar.edit.categoryPick.chip('카페·간식').click();
+  await expect(calendar.edit.categoryPick.dialog).toHaveCount(0);
+  await expect(calendar.edit.headCategoryButton).toHaveAccessibleName('카테고리 카페·간식, 바꾸기');
+  await expect(calendar.edit.pickedCategory).toHaveText(/카페·간식/);
   await demo.beat(2);
 
   await demo.step('완료를 누르면 목록과 합계가 함께 바뀐다');
   await calendar.edit.done();
   await expect(calendar.list.row('스타벅스 강남')).toBeVisible();
-  await expect(calendar.list.row('교통')).toBeVisible();
+  await expect(calendar.list.rowSubtitle('스타벅스 강남')).toContainText('카페·간식');
   await expect(calendar.totals.expense).toHaveText(formatCurrency(9_000));
   await demo.beat(3);
 

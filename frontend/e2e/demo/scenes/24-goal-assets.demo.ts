@@ -22,6 +22,8 @@ const CONTRIBUTION = 300_000;
 
 const CASH = 3_200_000;
 const INVEST = 1_500_000;
+/** 펀드에 넣은 돈. 지금 금액과 견줘 +25% 가 붙는다. */
+const INVEST_COST = 1_200_000;
 const DEBT = 2_000_000;
 
 test('50 목표를 정하고 모은 돈을 더한다', async ({ appShell, demo, goal, home }) => {
@@ -88,7 +90,7 @@ test('51 자산을 적으면 순자산이 나온다', async ({ appShell, assets,
   await home.waitReady();
   await demo.open('자산 적기', '가진 것과 갚을 것을 적으면 순자산이 나온다');
 
-  await demo.step('관리 탭 맨 위가 자산 입구다');
+  await demo.step('관리 탭의 자산관리 카드가 입구다');
   await appShell.goToTab('관리');
   await manage.waitReady();
   await expect(manage.assetsEntry).toBeVisible();
@@ -105,9 +107,20 @@ test('51 자산을 적으면 순자산이 나온다', async ({ appShell, assets,
   await expect(assets.netWorth).toHaveText(formatCurrency(CASH));
   await demo.beat(3);
 
-  await demo.step('투자한 것도 그룹을 골라 더한다');
-  await assets.add('투자', { name: 'ETF', amount: INVEST });
+  await demo.step('투자는 종류를 고른다. 펀드에 넣은 돈과 지금 금액을 적는다');
+  await assets.addButton('투자').click();
+  await assets.sheet.waitOpen();
+  await assets.sheet.kindChoice('펀드').click();
+  await assets.sheet.nameField.fill('S&P500 펀드');
+  await assets.sheet.field('넣은 돈').fill(String(INVEST_COST));
+  await assets.sheet.field('지금 금액').fill(String(INVEST));
+  await demo.beat(2);
+  await assets.sheet.save();
   await expect(assets.netWorth).toHaveText(formatCurrency(CASH + INVEST));
+  await demo.beat();
+
+  await demo.step('넣은 돈을 적은 종목에는 수익률이 붙는다');
+  await expect(assets.rowChip('S&P500 펀드', '+25%')).toBeVisible();
   await demo.beat(3);
 
   await demo.step('갚을 돈도 양수로 적는다. 빼는 것은 그룹이 정한다');
