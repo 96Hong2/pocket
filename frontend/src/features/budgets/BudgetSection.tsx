@@ -1,20 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { useBridge } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import {
-  ApiError,
   parseDecimal,
   useBudget,
   useCategories,
   useCurrentPeriod,
-  useDeleteBudget,
   type CategoryBudgetOut,
 } from '../../shared/api';
+import { markCardDismissed, readCardDismissed } from '../../shared/lib/cardDismiss';
 import { cx } from '../../shared/lib/cx';
 import { shiftMonth } from '../../shared/lib/format';
 import { formatPeriodRange, periodOfMonth } from '../../shared/lib/monthPeriod';
 import { TEST_IDS } from '../../shared/testIds';
-import { Card, ErrorState, MonthStepper, PeriodRange, RetryButton } from '../../shared/ui';
+import { Card, CardClose, ErrorState, MonthStepper, PeriodRange, RetryButton } from '../../shared/ui';
 import { useRewardedAd } from '../ads';
 
 import { BudgetAmountSheet } from './BudgetAmountSheet';
@@ -23,7 +23,6 @@ import { BudgetTotalCard } from './BudgetTotalCard';
 import { CarryoverSetting } from './CarryoverSetting';
 import { CategoryBudgetList } from './CategoryBudgetList';
 import { CategoryBudgetSheet, type CategoryBudgetTarget } from './CategoryBudgetSheet';
-import { MonthStartSetting } from './MonthStartSetting';
 import { MonthStartSheet } from './MonthStartSheet';
 
 /** 달력 화면과 같게 3년 전까지 본다. */
@@ -64,7 +63,6 @@ export function BudgetSection() {
   // 시작일을 모르면 이번 달이 어느 달인지도 모른다. 받고 나서 묻는다.
   const budget = useBudget(monthParams, { enabled: current.known });
   const categories = useCategories();
-  const removeBudget = useDeleteBudget(monthParams);
 
   const data = budget.data ?? null;
   const state = data?.budget ?? null;
@@ -75,12 +73,6 @@ export function BudgetSection() {
   const expenseCategories = (categories.data?.items ?? []).filter(
     (category) => category.kind === 'expense',
   );
-  const removeFailure =
-    removeBudget.error instanceof ApiError
-      ? removeBudget.error.message
-      : removeBudget.isError
-        ? '예산을 지우지 못했어요.'
-        : null;
 
   /**
    * 계산기는 리워드 광고 한 편 뒤에 연다.
@@ -115,8 +107,6 @@ export function BudgetSection() {
     setAmountOpen(false);
     setCalcOpen(false);
     setCategoryTarget(null);
-    // 지우기 실패 안내는 그 달의 것이다. 다른 달까지 따라가면 안 된다.
-    removeBudget.reset();
   }
 
   const stepper = (
@@ -176,40 +166,13 @@ export function BudgetSection() {
       ) : (
         <>
           {state.is_auto_carried ? (
-            <div className="budget-banner" aria-label="이어쓴 예산 안내" role="group">
-              <p className="budget-banner__text">지난달 예산을 그대로 가져왔어요</p>
-              {/* 끝난 달에도 이어써진 예산은 남는다. 알려는 주되 고치는 입구는 열지 않는다. */}
-              {editable ? (
-                <button
-                  type="button"
-                  className="budget-banner__action"
-                  onClick={() => setAmountOpen(true)}
-                >
-                  수정
-                </button>
-              ) : null}
-            </div>
+            <CarriedNotice
+              periodKey={state.period_key}
+              onEdit={editable ? () => setAmountOpen(true) : null}
+            />
           ) : null}
 
-          <BudgetTotalCard
-            state={state}
-            editable={editable}
-            busy={removeBudget.isPending}
-            categoryCount={rows.length}
-            onEdit={() => setAmountOpen(true)}
-            // 전체 예산이 없어지면 카테고리 한도를 붙일 자리도 사라진다. 재조회를 기다리는 사이
-            // 열어 둔 시트를 함께 닫는다. 남겨 두면 저장을 눌러야 막힌 이유를 알게 된다.
-            onDelete={() =>
-              removeBudget.mutate(undefined, { onSuccess: () => setCategoryTarget(null) })
-            }
-          />
-
-          {/* 왜 못 지웠는지는 서버가 안다. 끝난 기간이라 막힌 것을 다시 시도로 안내하지 않는다. */}
-          {removeFailure ? (
-            <p className="budget__notice" role="alert">
-              {removeFailure}
-            </p>
-          ) : null}
+          <BudgetTotalCard state={state} editable={editable} onEdit={() => setAmountOpen(true)} />
 
           {amount != null ? (
             <CategoryBudgetList
@@ -224,7 +187,6 @@ export function BudgetSection() {
         </>
       )}
 
-      <MonthStartSetting />
       <MonthStartSheet open={periodOpen} onClose={() => setPeriodOpen(false)} where="manage" />
 
       <CarryoverSetting />
@@ -236,6 +198,9 @@ export function BudgetSection() {
         onClose={() => setAmountOpen(false)}
         onCalc={() => void openCalc()}
         calcBusy={rewarded.busy}
+        categoryCount={rows.length}
+        // 전체 예산이 없어지면 카테고리 한도를 붙일 자리도 사라진다. 열어 둔 시트를 함께 닫는다.
+        onDeleted={() => setCategoryTarget(null)}
       />
       {/*
         생활비 계산기. 예산 시트에서 「계산해서 정하기」 로만 열린다.
@@ -251,6 +216,49 @@ export function BudgetSection() {
         onClose={() => setCategoryTarget(null)}
       />
     </section>
+  );
+}
+
+/**
+ * 「지난달 예산을 그대로 가져왔어요」 한 줄.
+ *
+ * 닫으면 그 달에는 다시 안 뜬다. 다음 달에 또 이어써지면 그 달 것으로 새로 뜬다.
+ * 닫은 표시는 기기에 남긴다(`cardDismiss`). 못 읽으면 한 번 더 뜰 뿐이다.
+ */
+function CarriedNotice({ periodKey, onEdit }: { periodKey: string; onEdit: (() => void) | null }) {
+  const bridge = useBridge();
+  // 아직 모르는 동안(null)은 감추지 않는다. 늦게 사라지는 쪽이 깜빡이는 쪽보다 덜 거슬린다.
+  const [dismissed, setDismissed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void readCardDismissed(bridge.storage, 'budget-carried', periodKey).then((value) => {
+      if (alive) setDismissed(value);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [bridge, periodKey]);
+
+  if (dismissed === true) return null;
+
+  return (
+    <div className="budget-banner" aria-label="이어쓴 예산 안내" role="group">
+      <p className="budget-banner__text">지난달 예산을 그대로 가져왔어요</p>
+      {/* 끝난 달에도 이어써진 예산은 남는다. 알려는 주되 고치는 입구는 열지 않는다. */}
+      {onEdit != null ? (
+        <button type="button" className="budget-banner__action" onClick={onEdit}>
+          수정
+        </button>
+      ) : null}
+      <CardClose
+        label="이어쓴 예산 안내 닫기"
+        onClick={() => {
+          setDismissed(true);
+          void markCardDismissed(bridge.storage, 'budget-carried', periodKey);
+        }}
+      />
+    </div>
   );
 }
 

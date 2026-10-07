@@ -48,7 +48,7 @@ test('30 전체 예산을 정하면 남은 돈이 보인다', async ({ appShell,
   await demo.beat(3);
 
   await demo.step('하루에 얼마까지 쓸 수 있는지도 함께 말한다');
-  await expect(manage.total.caption).toContainText('20% 사용 · 하루');
+  await expect(manage.total.daily).toBeVisible();
   await demo.beat(3);
 
   await demo.step('홈도 같은 값을 본다');
@@ -227,7 +227,6 @@ test('34 끝난 달은 보기만 한다', async ({ demo, manage, prep }) => {
 
   await demo.step('이번 달에는 고칠 입구가 다 있다');
   await expect(manage.total.editButton).toBeVisible();
-  await expect(manage.total.deleteButton).toBeVisible();
   await expect(manage.categories.addButton).toBeVisible();
   await demo.beat(3);
 
@@ -241,7 +240,7 @@ test('34 끝난 달은 보기만 한다', async ({ demo, manage, prep }) => {
   await expect(manage.categories.cap('식비')).toHaveText(formatCurrency(100_000));
   await demo.beat(3);
 
-  await demo.step('수정·지우기·추가가 하나도 없다');
+  await demo.step('수정·추가가 하나도 없다');
   await expect(manage.total.editButton).toHaveCount(0);
   await expect(manage.total.deleteButton).toHaveCount(0);
   await expect(manage.categories.addButton).toHaveCount(0);

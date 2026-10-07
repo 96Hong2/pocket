@@ -5,7 +5,7 @@ import { ROUTES } from '../app/router/routes';
 import { KeepDataCard } from '../features/account';
 import { AdSlot } from '../features/ads';
 import { AssetsEntryCard } from '../features/assets';
-import { BudgetSection } from '../features/budgets';
+import { BudgetSection, MonthStartSetting } from '../features/budgets';
 import { useBooks, useSharedBooksEnabled } from '../shared/api';
 import { Card, CategoryAvatar, type IconName } from '../shared/ui';
 
@@ -24,6 +24,8 @@ interface SubScreen {
  *
  * 알림 설정은 여기와 앱 설정 두 곳에 있다. 켜려는 사람이 어느 쪽을 먼저 뒤질지
  * 갈려서 한 곳만 두면 못 찾는다.
+ *
+ * 맨 위 「한 달 시작」 줄은 링크가 아니라 시트를 여는 줄이라 이 표 밖에서 넣는다(`MonthStartSetting`).
  */
 const SUB_SCREENS: SubScreen[] = [
   { to: ROUTES.goal, label: '목표', icon: '02_gold_bars' },
@@ -72,13 +74,13 @@ export default function ManagePage() {
 
       <AssetsEntryCard />
 
-      <BudgetSection />
-
       {/*
-        배너는 예산 바로 아래다(사용자 지시). 맨 끝에 두면 하위 화면 목록 밑이라 화면을
-        끝까지 내려야 보였다. 예산과 목록 사이에 서지만 둘 다 따로 누르는 자리라 흐름은 안 끊긴다.
+        배너는 자산관리 바로 아래 하나다(사용자 지시). 예산 아래에 있던 것은 옮겼다.
+        토스 광고 정책이 같은 화면에 같은 형식의 광고를 둘 이상 두는 것을 막는다(web-banner 문서의 금지 행위 표).
       */}
       <AdSlot placement="manage" />
+
+      <BudgetSection />
 
       {/*
         「내 계정」 은 아래 목록 안에 있어 아무도 스스로 들어가지 않는다. 쌓아 둔 것이
@@ -89,6 +91,7 @@ export default function ManagePage() {
       <nav aria-label="관리 하위 화면">
         <Card padding="list">
           <ul className="link-rows">
+            <MonthStartSetting />
             {SUB_SCREENS.map((screen) => (
               <li key={screen.to}>
                 <Link className="link-row" to={screen.to}>

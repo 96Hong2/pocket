@@ -84,8 +84,10 @@ export const TEST_IDS = {
   budgetUsed: 'budget-used',
   /** 전체 예산 카드의 남은 금액 */
   budgetLeft: 'budget-left',
-  /** 전체 예산 카드 아래 한 줄. 진행률과 하루 가용액이 여기 붙는다. */
+  /** 전체 예산 카드 아래 상태 한 줄. 남은 돈이나 넘은 돈을 말한다. */
   budgetCaption: 'budget-caption',
+  /** 전체 예산 카드의 하루 쓸 수 있는 돈. 진행 중이고 안 넘긴 달에만 선다. */
+  budgetDaily: 'budget-daily',
   /** 생활비 제안 카드의 목표저축. 목표가 이번 달에 요구하는 몫이다. */
   budgetSuggestSaving: 'budget-suggest-saving',
   /** 생활비 계산기의 고정비 합계. 항목 여섯을 더한 값이라 이름이 없다. */

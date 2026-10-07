@@ -39,11 +39,15 @@ function remainingDaysThisMonth(): number {
   return lastDay - day + 1;
 }
 
-/** 진행 중인 달의 카드 캡션. 서버가 남은 일수로 나눈 하루 가용액까지 함께 못 박는다. */
-function runningCaption(percent: number, remaining: number): string {
+/** 진행 중인 달 카드의 상태 줄. 남은 돈과 하루 가용액이다. */
+function runningCaption(remaining: number): string {
+  return `${formatCurrency(remaining)} 남았어요`;
+}
+
+/** 서버가 남은 일수로 나눈 하루 가용액. 달력에서 직접 센 일수로 못 박는다. */
+function runningDaily(remaining: number): string {
   const days = remainingDaysThisMonth();
-  const daily = Math.floor(Math.max(0, remaining) / days);
-  return `${percent}% 사용 · 하루 ${formatCurrency(daily)} · ${days}일 남음`;
+  return formatCurrency(Math.floor(Math.max(0, remaining) / days));
 }
 
 // ── 다 썼을 때와 넘겼을 때 ──────────────────────────────
@@ -64,7 +68,8 @@ test('예산을 정확히 다 쓰면 남은 예산이 0원이고 아직 초과�
   await expect(manage.total.left).toHaveText(formatCurrency(0));
   expect(await manage.total.gaugePercent(), '딱 맞춰 쓴 게이지가 100 이 아니다').toBe(100);
   // 남은 돈이 0 이라 하루에 쓸 수 있는 돈도 0 이다. 여기서 음수가 나오면 안 된다.
-  await expect(manage.total.caption).toHaveText(runningCaption(100, 0));
+  await expect(manage.total.caption).toHaveText(runningCaption(0));
+  await expect(manage.total.daily).toHaveText(runningDaily(0));
 
   await appShell.goToTab('홈');
   await home.waitReady();
@@ -132,7 +137,8 @@ test('예산 제외 거래는 게이지와 남은 예산을 건드리지 않는�
   await expect(manage.total.used).toHaveText(formatCurrency(50_000));
   await expect(manage.total.left).toHaveText(formatCurrency(150_000));
   expect(await manage.total.gaugePercent(), '제외 거래가 게이지에 섞였다').toBe(25);
-  await expect(manage.total.caption).toHaveText(runningCaption(25, 150_000));
+  await expect(manage.total.caption).toHaveText(runningCaption(150_000));
+  await expect(manage.total.daily).toHaveText(runningDaily(150_000));
 
   await appShell.goToTab('홈');
   await home.waitReady();
@@ -152,7 +158,8 @@ test('수입과 이체는 예산 사용액에 섞이지 않는다', async ({ man
   await expect(manage.total.used).toHaveText(formatCurrency(90_000));
   await expect(manage.total.left).toHaveText(formatCurrency(210_000));
   expect(await manage.total.gaugePercent(), '수입이나 이체가 게이지에 섞였다').toBe(30);
-  await expect(manage.total.caption).toHaveText(runningCaption(30, 210_000));
+  await expect(manage.total.caption).toHaveText(runningCaption(210_000));
+  await expect(manage.total.daily).toHaveText(runningDaily(210_000));
 });
 
 // ── 카테고리 한도의 경계 ────────────────────────────────
@@ -343,7 +350,8 @@ test('홈에서 정한 예산이 관리 탭에 같은 금액으로 뜬다', asyn
   await expect(manage.total.used).toHaveText(formatCurrency(20_000));
   await expect(manage.total.left).toHaveText(formatCurrency(380_000));
   expect(await manage.total.gaugePercent(), '관리 탭 게이지가 홈과 다른 값을 그렸다').toBe(5);
-  await expect(manage.total.caption).toHaveText(runningCaption(5, 380_000));
+  await expect(manage.total.caption).toHaveText(runningCaption(380_000));
+  await expect(manage.total.daily).toHaveText(runningDaily(380_000));
 });
 
 test('예산 카드를 닫으면 사라지고, 어디서 다시 정하는지 알려 준다', async ({
