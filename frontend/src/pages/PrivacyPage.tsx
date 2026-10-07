@@ -87,6 +87,9 @@ export default function PrivacyPage() {
             <li className="privacy__item">넣었는지 팔았는지와 그 수량</li>
             <li className="privacy__item">종목마다 보유 수량, 넣은 돈, 판 기록의 받은 돈과 수익</li>
             <li className="privacy__item">
+              받은 돈 넣을 곳을 골랐을 때만: 판 돈을 어느 통장에 넣었는지
+            </li>
+            <li className="privacy__item">
               직접 적었을 때만: 지금 1주 가격과 적은 날, 매달 넣는 돈
             </li>
           </ul>

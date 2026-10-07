@@ -73,11 +73,17 @@
   다시 세우게 해 두었고 테스트로 못 박았다
 - 저장 뒤 화면을 손잡이나 바깥 누름으로 닫으면 도는 요청을 기다리지 않는다(메모도 원래 그렇다). 그 길로 닫은 뒤
   넣을 곳 저장이 실패하면 까닭을 볼 자리가 없다. 「확인」, 뒤로가기, Esc, 「자산 보기」 는 기다린다
+- **같은 날 손으로 만든 빈 통장은 「새 통장」 과 못 가른다.** 자산 화면에서 0원 통장을 만들고 그날 넣을 곳으로 골랐다가
+  그 판 기록을 지우면, 장부가 「새 통장」 으로 만든 것과 똑같아 통장도 함께 빠진다. 가르는 것은 둘뿐이다:
+  그 전날까지의 스냅샷에 있던 통장(통장 줄이 붙은 날 기준)과 매달 넣는 돈을 적어 둔 통장은 남긴다
+- **서버 리비전을 앞 판으로 되돌릴 수 없다.** 앞 판의 코드는 거래마다 장부 줄이 하나라고 믿어, 통장 줄이 있는 채로
+  돌면 판 기록을 고치거나 지울 때 통장이 어긋난다. 되돌릴 일이 생기면 번들을 먼저 되돌린다. 꼭 서버를 되돌려야 하면
+  통장 줄을 걷고 통장 금액을 다시 맞춘 뒤에 한다. 순서와 SQL 은 `docs/DEPLOY.md` 「롤백」 에 있다
 
 ## 결과
 
 - 마이그레이션 `c5e8a1f3d7b2`: `transactions.asset_proceeds_key`(uuid, null 허용)와 `asset_entries.is_proceeds`
-  (boolean, 기본 false)를 더한다. 기존 행의 값은 안 바꾼다
+  (boolean, 기본 false)를 더한다. 기존 행의 값은 안 바꾼다. 내려갈 때는 칸을 지우기 전에 통장 줄에 지운 표시를 한다
 - 서버: `modules/assets/entries.py` 의 `_sync_proceeds`, `_transaction_entry(proceeds=)`, `drop_if_born_with`,
   `asset_result`. `modules/transactions/service.py` 의 `_attach_proceeds`, `_settle_asset_columns`
 - 화면: `features/asset-dest/` 의 `ProceedsDestRow`(줄), `ProceedsDestPage`(창), `proceeds.ts`(규칙).

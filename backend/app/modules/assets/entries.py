@@ -561,7 +561,8 @@ def drop_if_born_with(session: Session, user: User, tx: Transaction, today: date
     기록 흐름의 「새 종목이나 통장」 은 0 원짜리 행을 붙이고 거래 줄을 단다. 그 거래를 지우면
     남는 것은 0 시작 값 줄뿐이라, 행을 두면 자산 화면과 「어디에」 에 빈 항목이 남는다.
     그 전날까지의 스냅샷에 있던 항목은 사람이 만든 것이라 건드리지 않는다.
-    받은 돈을 넣으려고 그 자리에서 만든 「새 통장」 도 같은 규칙이다.
+    받은 돈을 넣으려고 그 자리에서 만든 「새 통장」 도 같은 규칙이다. 다만 넣은 곳은 며칠 뒤에
+    고치기로 붙일 수 있어 「그 전날」 을 판 기록을 적은 날이 아니라 통장 줄이 붙은 날로 센다.
     """
     if tx.deleted_at is None:
         return
@@ -585,7 +586,9 @@ def _drop_born_item(
         return
     if any(value not in (None, 0) for value in (start.amount, start.quantity, start.cost_basis)):
         return
-    born_on = ledger.local_date(ledger.as_utc(tx.created_at), ledger.user_tz(user))
+    line = next(entry for entry in ever if entry.transaction_id == tx.id)
+    born_at = line.created_at if line.is_proceeds else tx.created_at
+    born_on = ledger.local_date(ledger.as_utc(born_at), ledger.user_tz(user))
     earlier = session.scalar(
         select(AssetItemRow.id)
         .join(AssetSnapshot, AssetSnapshot.id == AssetItemRow.snapshot_id)
@@ -601,6 +604,10 @@ def _drop_born_item(
     snapshot = snapshot_on(session, user, today)
     row = row_for_key(snapshot, key)
     if snapshot is None or row is None:
+        return
+    # 같은 날 손으로 만든 빈 통장은 장부만으로 「새 통장」 과 못 가른다. 매달 넣는 돈을 적어 둔
+    # 통장은 사람이 만든 것이라 남긴다(「새 통장」 은 이름만 받는다).
+    if line.is_proceeds and row.monthly_amount is not None:
         return
     snapshot.items.remove(row)
     start.deleted_at = datetime.now(UTC)

@@ -217,6 +217,66 @@ gcloud run services update-traffic pocket-backend --to-revisions=<이전 리비�
 **스키마는 같이 안 돌아간다.** 컬럼을 지우거나 이름을 바꾸는 마이그레이션은 앞 리비전을 깨뜨린다.
 그래서 지우는 변경은 두 번에 나눠 넣는다: 먼저 안 쓰게 만들어 배포하고, 다음 배포에서 지운다.
 
+### 받은 돈 넣은 곳 판부터 (리비전 `c5e8a1f3d7b2`, ADR-0049)
+
+**이 판부터는 서버 리비전을 앞 판으로 되돌리지 않는다. 되돌릴 일이 생기면 번들을 먼저 되돌린다.**
+새 서버는 옛 번들과 그대로 맞는다(옛 번들은 넣은 곳 칸을 안 보내고, 서버는 칸이 없으면 지금 값을 지킨다).
+그래서 화면 쪽 문제는 콘솔에서 번들만 앞 판으로 돌리면 된다.
+
+서버 리비전을 되돌리면 안 되는 까닭은 장부다. 이 판부터 팔기 거래 하나가 장부 줄을 둘 가질 수 있다
+(판 종목의 `sell` 줄, 받은 돈을 넣은 통장의 `buy` 줄, `asset_entries.is_proceeds` 로 가른다).
+앞 판의 코드는 거래마다 줄이 하나라고 믿는다. 그 코드가 돌면 판 기록의 금액을 고쳐도 통장이 따라가지 않고,
+판 기록을 지워도 통장 줄이 남고, 둘 가운데 엉뚱한 줄을 고칠 수 있다.
+
+**꼭 서버 리비전을 되돌려야 하면 아래 순서로 한다.** 통장 줄을 걷고 그 통장들의 금액을 다시 맞춘 뒤에 트래픽을 옮긴다.
+
+1. 번들을 앞 판으로 돌려 넣은 곳이 더 붙지 않게 한다
+2. 백업을 하나 뜬다(8절)
+3. 아래 SQL 을 한 트랜잭션으로 돌린다. 통장 금액에서 받은 돈을 빼고, 통장 줄에 지운 표시를 하고, 거래의 넣은 곳 칸을 비운다
+4. 트래픽을 앞 리비전으로 옮긴다
+
+```sql
+BEGIN;
+
+-- (가) 통장마다 뺄 금액. 마지막 「여기서부터 이 값」(set) 뒤에 들어온 받은 돈 줄의 합이다.
+--      손으로 고친 값보다 먼저 들어온 줄은 이미 금액에 안 들어 있어 빼지 않는다.
+CREATE TEMP TABLE proceeds_gone ON COMMIT DROP AS
+SELECT e.user_id, e.item_key, sum(e.amount) AS amount
+FROM asset_entries e
+WHERE e.is_proceeds AND e.deleted_at IS NULL
+  AND e.created_at > COALESCE((
+        SELECT max(s.created_at) FROM asset_entries s
+        WHERE s.user_id = e.user_id AND s.item_key = e.item_key
+          AND s.side = 'set' AND s.deleted_at IS NULL), '-infinity')
+GROUP BY e.user_id, e.item_key;
+
+-- (나) 사용자마다 가장 최근 스냅샷의 그 통장 금액에서 뺀다. 지난 날짜의 스냅샷은 건드리지 않는다.
+UPDATE asset_items i
+SET amount = i.amount - g.amount
+FROM proceeds_gone g
+JOIN asset_snapshots sn ON sn.user_id = g.user_id AND sn.deleted_at IS NULL
+WHERE i.snapshot_id = sn.id AND i.item_key = g.item_key AND i.deleted_at IS NULL
+  AND NOT EXISTS (
+        SELECT 1 FROM asset_snapshots newer
+        WHERE newer.user_id = sn.user_id AND newer.deleted_at IS NULL
+          AND (newer.effective_on, newer.created_at) > (sn.effective_on, sn.created_at));
+
+-- (다) 통장 줄에 지운 표시를 하고 거래의 넣은 곳 칸을 비운다.
+UPDATE asset_entries SET deleted_at = now() WHERE is_proceeds AND deleted_at IS NULL;
+UPDATE transactions SET asset_proceeds_key = NULL WHERE asset_proceeds_key IS NOT NULL;
+
+COMMIT;
+```
+
+(가)의 행 수와 (나)의 `UPDATE` 행 수가 같은지 본다. 둘 다 통장 수다. (다)의 첫 `UPDATE` 는 받은 돈 줄 수라
+통장 하나에 줄이 여럿이면 더 크다.
+칸(`asset_proceeds_key`, `is_proceeds`)은 지우지 않는다. 앞 판의 코드는 모르는 칸을 그냥 지나가고,
+다시 이 판으로 올 때 칸이 그대로 있어야 한다. `alembic downgrade` 는 (다)의 통장 줄 지운 표시까지 하고 칸을 지우지만
+**(나)의 금액은 맞추지 않는다.** 칸을 지우고 나면 어느 줄이 받은 돈 줄이었는지 알 수 없으니,
+`downgrade` 를 쓸 때도 (가)와 (나)를 먼저 돌린다.
+
+되돌린 동안 사람들이 넣어 둔 「받은 돈 넣을 곳」 은 사라진 것이다. 다시 이 판으로 와도 돌아오지 않는다.
+
 ---
 
 ## 8. 백업과 복구

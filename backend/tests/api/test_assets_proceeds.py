@@ -11,7 +11,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+import uuid
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
@@ -19,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AssetEntry, Transaction, User
+from app.models.asset import AssetSnapshot
 from app.modules import ledger
 from app.modules.assets import entries as asset_entries
 
@@ -55,6 +57,12 @@ def _save(client: TestClient, amount: str, **asset: object) -> dict:
     res = client.post(TX, json=body, headers=AUTH)
     assert res.status_code == 201, res.text
     return res.json()
+
+
+def _listed(client: TestClient, tx_id: str) -> dict:
+    """목록에서 그 기록. 같은 초에 적은 기록끼리는 차례가 흔들려 자리로 찾지 않는다."""
+    items = client.get(TX, headers=AUTH).json()["items"]
+    return next(row for row in items if row["id"] == tx_id)
 
 
 def _patch(client: TestClient, tx_id: str, body: dict, status: int = 200) -> dict:
@@ -137,7 +145,8 @@ def test_넣을_곳을_붙여_팔면_통장이_받은_돈만큼_오르고_순자
         ("sell", False, 420000, True),
         ("buy", True, 420000, True),
     ]
-    listed = client.get(TX, headers=AUTH).json()["items"][0]
+    # 산 기록과 같은 초에 적혀 목록의 차례는 id 로 갈린다. 차례가 아니라 id 로 찾는다.
+    listed = _listed(client, sold["transaction"]["id"])
     assert listed["asset_proceeds_label"] == "카카오뱅크"
 
 
@@ -414,7 +423,8 @@ def test_예적금_현금이_아닌_항목에는_넣을_수_없다(client: TestC
     assert _item(body, "삼성전자")["quantity"] == "10"
     assert _item(body, "IRP")["amount"] == "2000000"
     assert _item(body, "학자금")["amount"] == "3000000"
-    assert client.get(TX, headers=AUTH).json()["items"][0]["asset_side"] == "buy"
+    # 기록은 처음에 산 것 하나뿐이다.
+    assert [row["asset_side"] for row in client.get(TX, headers=AUTH).json()["items"]] == ["buy"]
 
     # 고치기로 붙일 때도 같다.
     sold = _sell(client, keys)
@@ -600,8 +610,43 @@ def test_새_통장_이름이_비었거나_기존_통장과_함께_보내면_422
         status=422,
     )
 
-    assert "케이뱅크" not in _labels(client)
     assert _amount(client, "카카오뱅크") == "1000000"
+
+
+def test_새_통장을_만든_뒤_장부에서_막히면_그_통장이_남지_않는다(client: TestClient) -> None:
+    """새 통장은 장부를 접기 전에 만들어진다. 접다가 막힌 요청이 빈 통장만 남기면 안 된다."""
+    keys = _ready(client)
+
+    # 10주뿐인데 11주를 판다. 본문은 맞는 모양이라 서비스까지 가고, 장부를 접다가 막힌다.
+    over = client.post(
+        TX,
+        json={
+            "occurred_at": _now(),
+            "amount": "420000",
+            "type": "transfer",
+            "asset_item_key": keys["삼성전자"],
+            "asset_side": "sell",
+            "asset_quantity": "11",
+            "new_proceeds_asset": {"label": "케이뱅크"},
+        },
+        headers=AUTH,
+    )
+    assert over.status_code == 422, over.text
+    assert "가진 것보다 많이" in over.json()["error"]["message"]
+    assert _labels(client) == ["카카오뱅크", "토스뱅크 통장", "삼성전자"]
+
+    # 고치기에서도 같다. 5주를 판 기록을 11주로 고치면서 새 통장을 만든다.
+    sold = _sell(client, keys)
+    res = client.patch(
+        f"{TX}/{sold['transaction']['id']}",
+        json={"asset_quantity": "11", "new_proceeds_asset": {"label": "케이뱅크"}},
+        headers=AUTH,
+    )
+    assert res.status_code == 422, res.text
+    assert "가진 것보다 많이" in res.json()["error"]["message"]
+    assert _labels(client) == ["카카오뱅크", "토스뱅크 통장", "삼성전자"]
+    assert _item(_assets(client), "삼성전자")["quantity"] == "5"
+    assert _listed(client, sold["transaction"]["id"])["asset_proceeds_key"] is None
 
 
 def test_새_통장으로_넣은_판_기록을_지우면_빈_통장이_남지_않는다(client: TestClient) -> None:
@@ -622,3 +667,109 @@ def test_다른_기록이_남은_새_통장은_판_기록을_지워도_목록에
     assert client.delete(f"{TX}/{sold['transaction']['id']}", headers=AUTH).status_code == 204
 
     assert _amount(client, "케이뱅크") == "50000"
+
+
+# ── 손으로 만든 빈 통장 ────────────────────────────────────
+
+
+def test_며칠_전에_손으로_만든_빈_통장은_넣을_곳으로_골랐다가_판_기록을_지워도_남는다(
+    client: TestClient, db: Session
+) -> None:
+    """판 기록은 닷새 전, 빈 통장은 이틀 전에 손으로 만들었다. 넣을 곳은 오늘 붙이고 오늘 지운다.
+
+    그 통장이 「이 기록으로 생긴 것」 인지는 판 기록을 적은 날이 아니라 통장 줄이 붙은 날로 가른다.
+    """
+    keys = _ready(client, [{"group": "cash", "label": "비상금", "amount": "0"}])
+    sold = _sell(client, keys)
+    tx_id = sold["transaction"]["id"]
+    today = datetime.now(KST).date()
+    tx = db.get(Transaction, uuid.UUID(tx_id))
+    snapshot = db.scalar(select(AssetSnapshot).where(AssetSnapshot.effective_on == today))
+    assert tx is not None and snapshot is not None
+    tx.created_at = datetime.now(UTC) - timedelta(days=5)
+    snapshot.effective_on = today - timedelta(days=2)
+    db.commit()
+
+    _patch(client, tx_id, {"asset_proceeds_key": keys["비상금"]})
+    assert _amount(client, "비상금") == "420000"
+    assert client.delete(f"{TX}/{tx_id}", headers=AUTH).status_code == 204
+
+    assert _labels(client) == ["카카오뱅크", "토스뱅크 통장", "비상금", "삼성전자"]
+    assert _amount(client, "비상금") == "0"
+
+
+def test_매달_넣는_돈을_적어_둔_빈_통장은_같은_날_넣을_곳으로_골랐다가_지워도_남는다(
+    client: TestClient,
+) -> None:
+    """같은 날 손으로 만든 빈 통장은 「새 통장」 과 장부가 같다.
+
+    매달 넣는 돈이 적혀 있으면 사람이 만든 것이다. 「새 통장」 은 이름만 받는다.
+    """
+    keys = _ready(
+        client,
+        [{"group": "cash", "label": "청년도약계좌", "amount": "0", "monthly_amount": "300000"}],
+    )
+    sold = _sell(client, keys, asset_proceeds_key=keys["청년도약계좌"])
+    assert _amount(client, "청년도약계좌") == "420000"
+
+    assert client.delete(f"{TX}/{sold['transaction']['id']}", headers=AUTH).status_code == 204
+
+    made = _item(_assets(client), "청년도약계좌")
+    assert (made["amount"], made["monthly_amount"]) == ("0", "300000")
+
+
+# ── 한 거래의 두 줄을 가르는 표식 ────────────────────────────
+
+
+def test_판_항목을_다른_종목으로_바꾸고_금액을_고치고_지워도_두_줄이_제_줄을_찾는다(
+    client: TestClient, db: Session
+) -> None:
+    """판 종목 줄과 통장 줄은 쪽이나 항목이 아니라 표식으로 가른다. 섞이면 엉뚱한 줄을 고친다."""
+    keys = _ready(client)
+    naver = _save(
+        client,
+        "800000",
+        new_asset={"group": "investment", "kind": "stock", "label": "네이버"},
+        asset_quantity="4",
+    )["asset"]["item_key"]
+    sold = _sell(client, keys, asset_proceeds_key=keys["카카오뱅크"])
+    tx_id = sold["transaction"]["id"]
+
+    # 삼성전자가 아니라 네이버 2주(400,000원어치)를 420,000원 받고 판 것으로 고친다.
+    moved = _patch(
+        client, tx_id, {"asset_item_key": naver, "asset_side": "sell", "asset_quantity": "2"}
+    )
+
+    assert moved["asset"]["realized"] == "20000"
+    assert moved["transaction"]["asset_proceeds_key"] == keys["카카오뱅크"]
+    body = _assets(client)
+    samsung, held = _item(body, "삼성전자"), _item(body, "네이버")
+    assert (samsung["quantity"], samsung["cost_basis"]) == ("10", "700000")
+    assert (held["quantity"], held["cost_basis"]) == ("2", "400000")
+    assert _item(body, "카카오뱅크")["amount"] == "1420000"
+    # 삼성전자의 sell 줄만 지워지고 통장 줄은 제자리다. 네이버 장부 끝에 sell 줄이 붙었다.
+    assert _lines(db, tx_id) == [
+        ("sell", False, 420000, False),
+        ("buy", True, 420000, True),
+        ("sell", False, 420000, True),
+    ]
+
+    fixed = _patch(client, tx_id, {"amount": "500000"})
+
+    assert fixed["asset"]["realized"] == "100000"
+    assert fixed["asset"]["proceeds_amount"] == "1500000"
+    assert _amount(client, "카카오뱅크") == "1500000"
+    assert _lines(db, tx_id) == [
+        ("sell", False, 420000, False),
+        ("buy", True, 500000, True),
+        ("sell", False, 500000, True),
+    ]
+
+    assert client.delete(f"{TX}/{tx_id}", headers=AUTH).status_code == 204
+
+    body = _assets(client)
+    samsung, held = _item(body, "삼성전자"), _item(body, "네이버")
+    assert (samsung["quantity"], samsung["cost_basis"]) == ("10", "700000")
+    assert (held["quantity"], held["cost_basis"]) == ("4", "800000")
+    assert _item(body, "카카오뱅크")["amount"] == "1000000"
+    assert [alive for *_, alive in _lines(db, tx_id)] == [False, False, False]

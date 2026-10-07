@@ -8,6 +8,10 @@
 
 칸을 더하기만 한다. 기존 행의 값은 바꾸지 않는다. 옛 번들은 두 칸을 모르고 지금처럼 저장된다.
 
+내려갈 때는 통장 줄에 지운 표시를 먼저 한다. 앞 리비전의 코드는 그 줄을 모른다. 살려 두면
+판 기록의 금액을 고쳐도 통장이 그대로이고, 판 기록을 지워도 통장 줄이 남는다.
+스냅샷에 적어 둔 통장 금액은 여기서 맞추지 않는다. 순서와 SQL 은 `docs/DEPLOY.md` 「롤백」 에 있다.
+
 Revision ID: c5e8a1f3d7b2
 Revises: b4c7e2a9d051
 Create Date: 2026-10-07 21:30:00.000000+09:00
@@ -35,5 +39,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute(
+        sa.text(
+            "UPDATE asset_entries SET deleted_at = CURRENT_TIMESTAMP "
+            "WHERE is_proceeds = true AND deleted_at IS NULL"
+        )
+    )
     op.drop_column("asset_entries", "is_proceeds")
     op.drop_column("transactions", "asset_proceeds_key")
