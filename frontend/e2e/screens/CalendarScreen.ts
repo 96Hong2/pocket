@@ -6,6 +6,7 @@ import { TEST_IDS } from '../../src/shared/testIds';
 import { horizontalScrollersIn } from '../support/overflow';
 
 import { CategoryComposeArea } from './CategoryComposeArea';
+import { CategoryPickArea } from './CategoryPickArea';
 
 /**
  * 월간 달력 화면. 달력·선택한 날 목록·검색·수정 시트를 한 화면이 다 가진다.
@@ -318,6 +319,32 @@ export class EditSheetArea {
   /** 맨 위 그림. 저축·투자 기록은 분류 대신 「어디에」 항목 그룹 그림이다. */
   get headIcon(): Locator {
     return this.root.locator('.tx-edit__head .pk-avatar img');
+  }
+
+  /**
+   * 맨 위 그림 버튼. 누르면 분류 칸과 같은 고르기(`categoryPick`)가 열린다.
+   * 이름은 `카테고리 식비, 바꾸기` 이고 분류가 없으면 `카테고리 고르기` 다.
+   */
+  get headCategoryButton(): Locator {
+    return this.root.getByRole('button', { name: /^카테고리 (.+, 바꾸기|고르기)$/ });
+  }
+
+  /** 저축·투자 기록의 맨 위 그림 버튼. 「어디에」 목록을 연다. */
+  get headDestButton(): Locator {
+    return this.root.getByRole('button', { name: /^어디에 (.+, 바꾸기|고르기)$/ });
+  }
+
+  get categoryPick(): CategoryPickArea {
+    return new CategoryPickArea(this.root.page());
+  }
+
+  /** 「어디에」 목록 한 장. 저축·투자 그림 버튼이 연다. 포털이라 페이지 전체에서 찾는다. */
+  get destPage(): Locator {
+    return this.root.page().getByRole('dialog', { name: '어디에', exact: true });
+  }
+
+  destPageRow(name: string): Locator {
+    return this.destPage.getByRole('button', { name: new RegExp(`^${name}`) });
   }
 
   /** 맨 위 한 줄. `스타벅스 · 9월 10일`. */

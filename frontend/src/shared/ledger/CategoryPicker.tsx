@@ -49,6 +49,8 @@ export interface CategoryPickerProps {
   manageNote?: boolean;
   /** 작은 자리(수정 시트·검토 목록)에서는 칩을 낮게 그린다. */
   size?: 'lg' | 'sm';
+  /** 처음부터 전부 펼친다. 화면을 덮는 한 장처럼 고르기만 하는 자리라 「더 보기」·「접기」가 없다. */
+  expanded?: boolean;
   className?: string;
   ariaLabel?: string;
 }
@@ -78,6 +80,7 @@ export function CategoryPicker({
   onOpenChange,
   manageNote = true,
   size = 'lg',
+  expanded = false,
   className,
   ariaLabel = '분류',
 }: CategoryPickerProps) {
@@ -86,7 +89,7 @@ export function CategoryPicker({
   const { front, rest } = splitQuick(categories);
   // 고른 것이 뒤에 숨어 있으면 눌러 둔 표시가 어디에도 안 보인다. 그때는 펼친 채로 둔다.
   const pickedIsHidden = rest.some((item) => item.id === selectedId);
-  const open = showAll || pickedIsHidden;
+  const open = expanded || showAll || pickedIsHidden;
   const shown = open ? [...front, ...rest] : front;
   /**
    * 뒤에 숨긴 분류가 있나.
@@ -95,7 +98,7 @@ export function CategoryPicker({
    * 한 번 누르는 값만 치르고 얻는 것이 없다. 그때는 그 자리에 「새 분류」를 바로 세운다.
    * 기본 분류 열한 개를 그대로 쓰는 사람이 대부분이라, 이쪽이 오히려 보통 상태다.
    */
-  const hasHidden = rest.length > 0;
+  const hasHidden = !expanded && rest.length > 0;
   // 「더 보기」는 숨긴 것이 있을 때만 있다. 그래서 open 이면 숨긴 것도 반드시 있다.
   const showCreate = onCreate != null && (open || !hasHidden);
 
@@ -179,7 +182,7 @@ export function CategoryPicker({
             </button>
           ) : null}
 
-          {pickedIsHidden ? null : (
+          {pickedIsHidden || expanded ? null : (
             <button
               type="button"
               className="cat-chips__fold"
