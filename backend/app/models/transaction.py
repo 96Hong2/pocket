@@ -110,3 +110,5 @@ class Transaction(Entity, SoftDeleteMixin):
     # 넣은 돈을 모를 때 적은 넣은 돈 전체.
     asset_remaining: Mapped[Decimal | None] = mapped_column(Numeric(16, 0), nullable=True)
     asset_cost_basis: Mapped[Decimal | None] = mapped_column(Numeric(16, 0), nullable=True)
+    # 팔았어요로 받은 돈을 넣은 통장(ADR-0049). 예적금·현금 항목만. 비어 있으면 어디에도 안 넣었다.
+    asset_proceeds_key: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)

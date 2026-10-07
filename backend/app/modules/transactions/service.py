@@ -46,6 +46,7 @@ from app.modules.budgets import service as budgets
 from app.modules.categories import service as categories
 from app.modules.settings import service as settings
 from app.modules.tags import service as tags
+from app.modules.transactions.schemas import PROCEEDS_ONLY_FOR_SELL
 
 logger = logging.getLogger(__name__)
 
@@ -470,6 +471,7 @@ _ASSET_COLUMNS = (
     "asset_quantity",
     "asset_remaining",
     "asset_cost_basis",
+    "asset_proceeds_key",
 )
 # 팔 때만 뜻이 있는 칸. 넣었어요로 바꾸거나 어디에를 옮기면 비운다.
 _SELL_COLUMNS = ("asset_remaining", "asset_cost_basis")
@@ -485,6 +487,38 @@ def _new_asset_key(session: Session, user: User, today: date, spec: object) -> u
     )
 
 
+def _new_proceeds_key(session: Session, user: User, today: date, spec: object) -> uuid.UUID:
+    """받은 돈을 넣을 새 통장을 오늘 스냅샷에 붙인다. 같은 이름의 통장이 있으면 그 키다."""
+    values = spec if isinstance(spec, dict) else dict(vars(spec))
+    return asset_entries.add_item(
+        session, user, today, group=AssetGroup.CASH, kind=None, label=values["label"]
+    )
+
+
+def _is_sell(tx: Transaction) -> bool:
+    return (
+        tx.type is agg.TransactionType.TRANSFER
+        and tx.asset_item_key is not None
+        and tx.asset_side == EntrySide.SELL
+    )
+
+
+def _attach_proceeds(
+    session: Session, user: User, tx: Transaction, today: date, *, sent: bool, new: object | None
+) -> None:
+    """받은 돈 넣을 곳을 거래에 붙인다. 팔기가 아닌 기록에 보내면 422, 새 통장은 여기서 만든다.
+
+    `sent` 는 이 요청이 넣을 곳을 값으로 보냈는가다. 안 보냈으면 저장된 값은 건드리지 않고,
+    팔기가 아니게 된 기록의 값은 `_settle_asset_columns` 가 비운다.
+    """
+    if not sent and new is None:
+        return
+    if not _is_sell(tx):
+        raise ApiError(ErrorCode.INVALID_REQUEST, PROCEEDS_ONLY_FOR_SELL, 422)
+    if new is not None:
+        tx.asset_proceeds_key = _new_proceeds_key(session, user, today, new)
+
+
 def _settle_asset_columns(tx: Transaction) -> None:
     """어디에가 있으면 쪽은 기본이 넣었어요. 어디에가 없거나 이체가 아니면 자산 칸을 비운다.
 
@@ -496,12 +530,15 @@ def _settle_asset_columns(tx: Transaction) -> None:
         tx.asset_quantity = None
         tx.asset_remaining = None
         tx.asset_cost_basis = None
+        tx.asset_proceeds_key = None
         return
     if tx.asset_side is None:
         tx.asset_side = EntrySide.BUY
     if tx.asset_side != EntrySide.SELL:
         tx.asset_remaining = None
         tx.asset_cost_basis = None
+        # 받은 돈은 팔았을 때만 있다. 넣었어요로 바꾸면 넣은 곳도 비운다.
+        tx.asset_proceeds_key = None
     tx.category_id = None
 
 
@@ -515,7 +552,10 @@ def _sync_asset(
 
 
 def _drop_asset(session: Session, user: User, tx: Transaction) -> None:
-    """지운 거래의 장부 줄을 빼고, 그 거래로만 생긴 빈 항목이면 목록에서도 뺀다."""
+    """지운 거래의 장부 줄을 빼고, 그 거래로만 생긴 빈 항목이면 목록에서도 뺀다.
+
+    받은 돈을 넣은 통장의 줄도 함께 빠진다. 넣으려고 그 자리에서 만든 빈 통장도 같은 규칙이다.
+    """
     today = ledger.today_for(user)
     _sync_asset(session, user, tx, today, had_asset=False)
     if tx.asset_item_key is not None:
@@ -542,6 +582,7 @@ def create_transaction(
 
     payload = _normalized(data)
     new_asset = payload.pop("new_asset", None)
+    new_proceeds = payload.pop("new_proceeds_asset", None)
     if target is not None:
         # 환불의 종류·예산 반영 여부·분류는 되돌리는 지출이 정한다. 요청 본문 값을 믿지 않는다.
         # 예산에서 뺀 지출을 환불하면서 예산 제외를 안 붙이면 그 돈이 예산으로 되돌아온다.
@@ -561,7 +602,11 @@ def create_transaction(
         payload["tag_id"] = target.tag_id
 
     _drop_method_if_not_spending(payload, payload["type"])
-    wants_asset = new_asset is not None or any(payload.get(name) for name in _ASSET_COLUMNS)
+    wants_asset = (
+        new_asset is not None
+        or new_proceeds is not None
+        or any(payload.get(name) for name in _ASSET_COLUMNS)
+    )
     if wants_asset and payload["type"] is not agg.TransactionType.TRANSFER:
         raise ApiError(ErrorCode.INVALID_REQUEST, "저축·투자는 이체로만 적을 수 있어요.", 422)
 
@@ -571,6 +616,9 @@ def create_transaction(
     _clear_no_spend_for_spending(session, user, tx)
     if new_asset is not None:
         tx.asset_item_key = _new_asset_key(session, user, day, new_asset)
+    _attach_proceeds(
+        session, user, tx, day, sent=tx.asset_proceeds_key is not None, new=new_proceeds
+    )
     _settle_asset_columns(tx)
     _sync_asset(session, user, tx, day, had_asset=False)
     if link is not None:
@@ -605,10 +653,17 @@ def update_transaction(
     tx = _get_owned(session, user, tx_id)
     payload = _normalized(data)
     new_asset = payload.pop("new_asset", None)
+    new_proceeds = payload.pop("new_proceeds_asset", None)
     had_asset = tx.asset_item_key is not None
+    # 본문에 칸이 없으면 지금 넣은 곳을 지킨다(옛 번들은 이 칸을 모른다). null 은 비운다.
+    sent_proceeds = payload.get("asset_proceeds_key") is not None
 
     final_type = payload.get("type", tx.type)
-    sent_asset = new_asset is not None or any(payload.get(name) for name in _ASSET_COLUMNS)
+    sent_asset = (
+        new_asset is not None
+        or new_proceeds is not None
+        or any(payload.get(name) for name in _ASSET_COLUMNS)
+    )
     if sent_asset and final_type is not agg.TransactionType.TRANSFER:
         raise ApiError(ErrorCode.INVALID_REQUEST, "저축·투자는 이체로만 적을 수 있어요.", 422)
     if had_asset and "asset_item_key" in payload and payload["asset_item_key"] is None:
@@ -647,6 +702,7 @@ def update_transaction(
         setattr(tx, field, value)
     if new_asset is not None:
         tx.asset_item_key = _new_asset_key(session, user, day, new_asset)
+    _attach_proceeds(session, user, tx, day, sent=sent_proceeds, new=new_proceeds)
     _settle_asset_columns(tx)
     _stamp_identity(tx, user)
     # 날짜나 종류를 고쳐 지출이 옮겨 간 날에도 표시가 남으면 안 된다.

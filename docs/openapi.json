@@ -13029,6 +13029,41 @@
               }
             ],
             "title": "Rate"
+          },
+          "proceeds_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proceeds Key"
+          },
+          "proceeds_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proceeds Label"
+          },
+          "proceeds_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proceeds Amount"
           }
         },
         "type": "object",
@@ -17063,6 +17098,21 @@
         "title": "NewAssetIn",
         "description": "기록 흐름에서 새로 만드는 자산 항목. 거래와 같은 commit 에서 오늘 스냅샷에 붙는다."
       },
+      "NewProceedsIn": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "title": "NewProceedsIn",
+        "description": "받은 돈을 넣을 통장을 그 자리에서 만든다. 그룹은 예적금·현금 하나라 이름만 받는다."
+      },
       "NextOut": {
         "properties": {
           "kind": {
@@ -18556,6 +18606,30 @@
               }
             ],
             "description": "어디에를 새로 만들 때"
+          },
+          "asset_proceeds_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Proceeds Key",
+            "description": "팔았어요로 받은 돈을 넣은 통장. 예적금·현금 항목 키. 안 보내면 안 넣는다"
+          },
+          "new_proceeds_asset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NewProceedsIn"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "받은 돈 넣을 통장을 새로 만들 때"
           }
         },
         "type": "object",
@@ -18770,6 +18844,29 @@
               }
             ],
             "title": "Asset Label"
+          },
+          "asset_proceeds_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Proceeds Key"
+          },
+          "asset_proceeds_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Proceeds Label"
           }
         },
         "type": "object",
@@ -18997,6 +19094,28 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/NewAssetIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asset_proceeds_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Proceeds Key"
+          },
+          "new_proceeds_asset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NewProceedsIn"
               },
               {
                 "type": "null"
