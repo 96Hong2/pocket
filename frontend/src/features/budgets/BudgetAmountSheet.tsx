@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
-import { ApiError, useSaveBudget, type MonthParams } from '../../shared/api';
+import { ApiError, useDeleteBudget, useSaveBudget, type MonthParams } from '../../shared/api';
 import { AmountField, BottomSheet, Button } from '../../shared/ui';
 
 import { BudgetCalcAsk } from './BudgetCalcAsk';
@@ -29,6 +29,19 @@ export interface BudgetAmountSheetProps {
    * 사람이 몇인지 못 보면, 버튼을 더 눌러 볼 가치가 있는지 판단할 수 없다.
    */
   from?: 'sheet' | 'settings';
+  /**
+   * 주면 이미 정한 예산을 고칠 때 맨 아래에 작은 「예산 지우기」 가 선다. 지운 뒤에 부른다.
+   *
+   * 관리 탭만 준다. 카드에 늘 서 있던 지우기 버튼을 여기로 옮겼다. 자주 쓰는 일이 아니다.
+   */
+  onDeleted?: () => void;
+  /**
+   * 지우면 딸려 사라지는 카테고리 한도가 몇 개인가.
+   *
+   * 전체 예산을 지우면 서버가 카테고리 한도까지 함께 지운다. 그 말을 안 하면
+   * 한 번 누르고 여러 개를 잃는다. 없으면 굳이 말하지 않는다.
+   */
+  categoryCount?: number;
 }
 
 /** 전체 예산 금액을 정하는 시트. 처음 정할 때와 고칠 때가 같은 화면이다. */
@@ -40,6 +53,8 @@ export function BudgetAmountSheet({
   onCalc,
   calcBusy = false,
   from = 'sheet',
+  onDeleted,
+  categoryCount = 0,
 }: BudgetAmountSheetProps) {
   // 저장 응답을 기다리는 동안에는 닫히지 않는다.
   // 닫히면 폼이 사라져 실패를 그릴 자리가 없어진다. 적어 둔 금액도 함께 사라진다.
@@ -66,6 +81,8 @@ export function BudgetAmountSheet({
           onClose={onClose}
           onCalc={amount == null ? onCalc : undefined}
           calcBusy={calcBusy}
+          onDeleted={amount != null ? onDeleted : undefined}
+          categoryCount={categoryCount}
         />
       ) : null}
     </BottomSheet>
@@ -80,6 +97,8 @@ interface BudgetAmountFormProps {
   onClose: () => void;
   onCalc?: () => void;
   calcBusy: boolean;
+  onDeleted?: () => void;
+  categoryCount: number;
 }
 
 function BudgetAmountForm({
@@ -90,16 +109,29 @@ function BudgetAmountForm({
   onClose,
   onCalc,
   calcBusy,
+  onDeleted,
+  categoryCount,
 }: BudgetAmountFormProps) {
   const analytics = useAnalytics();
   const save = useSaveBudget(month);
+  const remove = useDeleteBudget(month);
   const [digits, setDigits] = useState(amount == null ? '' : String(amount));
   /** 「얼마로 할지 모르겠어요」 를 누른 뒤, 광고를 틀기 전에 한 번 묻는 자리. */
   const [confirmCalc, setConfirmCalc] = useState(false);
+  /** 「예산 지우기」 를 누른 뒤 한 번 묻는 자리. 되돌릴 수 없고 딸려 사라지는 것이 있다. */
+  const [asking, setAsking] = useState(false);
 
+  const busy = save.isPending || remove.isPending;
   const next = Number(digits);
-  const canSave = digits !== '' && next > 0 && !save.isPending;
-  const message = save.error instanceof ApiError ? save.error.message : null;
+  const canSave = digits !== '' && next > 0 && !busy;
+  const failed = save.error ?? remove.error;
+  // 왜 못 지웠는지는 서버가 안다. 끝난 기간이라 막힌 것을 다시 시도로 안내하지 않는다.
+  const message =
+    failed instanceof ApiError
+      ? failed.message
+      : remove.isError
+        ? '예산을 지우지 못했어요.'
+        : null;
 
   /*
     묻는 동안에는 이 한 장만 남긴다.
@@ -140,6 +172,7 @@ function BudgetAmountForm({
         fullWidth
         disabled={!canSave}
         onClick={() => {
+          remove.reset();
           // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
           onSavingChange(true);
           save.mutate(
@@ -173,6 +206,56 @@ function BudgetAmountForm({
           >
             얼마로 할지 모르겠어요
           </Button>
+        </div>
+      ) : null}
+
+      {/*
+        지우기는 맨 아래 작은 글자 하나다. 저장과 나란히 두면 같은 무게로 읽힌다.
+        누르면 그 자리만 묻는 줄로 바뀐다. 시트를 하나 더 겹치지 않는다.
+      */}
+      {onDeleted != null && !asking ? (
+        <button
+          type="button"
+          className="budget-sheet__delete"
+          disabled={busy}
+          onClick={() => setAsking(true)}
+        >
+          예산 지우기
+        </button>
+      ) : null}
+
+      {onDeleted != null && asking ? (
+        <div className="budget-sheet__confirm" role="group" aria-label="지우기 확인">
+          <p className="budget-sheet__confirm-text">
+            <b>이번 달 예산을 지울까요?</b>{' '}
+            {categoryCount > 0
+              ? `카테고리 한도 ${categoryCount}개도 함께 사라져요`
+              : '지우면 되돌릴 수 없어요'}
+          </p>
+          <div className="budget-sheet__confirm-actions">
+            <Button variant="outline" disabled={busy} onClick={() => setAsking(false)}>
+              그대로 둘래요
+            </Button>
+            <Button
+              variant="danger"
+              disabled={busy}
+              onClick={() => {
+                save.reset();
+                onSavingChange(true);
+                remove.mutate(undefined, {
+                  onSettled: () => onSavingChange(false),
+                  onSuccess: () => {
+                    onDeleted();
+                    onClose();
+                  },
+                  // 실패하면 묻는 줄을 접고 이유를 위에 적는다. 금액 칸은 그대로 남는다.
+                  onError: () => setAsking(false),
+                });
+              }}
+            >
+              지울게요
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>

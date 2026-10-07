@@ -145,9 +145,19 @@ export class ManageScreen {
     return this.section.getByTestId(TEST_IDS.budgetPeriod);
   }
 
-  /** 예산 아래 「한 달 시작 매달 25일」 줄. 누르면 한 달 시작일 시트가 열린다. */
+  /** 하위 화면 목록 맨 위(목표 바로 위) 「한 달 시작 매달 25일」 줄. 누르면 한 달 시작일 시트가 열린다. */
   get monthStartRow(): Locator {
-    return this.section.getByRole('button', { name: /^한 달 시작 매달 \d+일$/ });
+    return this.page
+      .getByRole('navigation', { name: '관리 하위 화면' })
+      .getByRole('button', { name: /^한 달 시작 매달 \d+일$/ });
+  }
+
+  /** 하위 화면 목록의 줄 이름들. 화면에 그려진 순서 그대로다. */
+  async subScreenLabels(): Promise<string[]> {
+    const labels = this.page
+      .getByRole('navigation', { name: '관리 하위 화면' })
+      .locator('.link-row__label');
+    return (await labels.allInnerTexts()).map((label) => label.trim());
   }
 
   /** 끝난 달에 뜨는 안내. 이 달은 보기만 한다는 말이다. */
@@ -350,9 +360,14 @@ class BudgetTotalArea {
     return this.page.getByTestId(TEST_IDS.budgetLeft);
   }
 
-  /** 카드 아래 한 줄. 진행률과 하루 가용액이 여기 붙는다. */
+  /** 카드 아래 상태 한 줄. `139,000원 남았어요` 나 `177,000원 넘었어요`. */
   get caption(): Locator {
     return this.page.getByTestId(TEST_IDS.budgetCaption);
+  }
+
+  /** 상태 줄 오른쪽 하루 쓸 수 있는 돈. 진행 중이고 안 넘긴 달에만 선다. */
+  get daily(): Locator {
+    return this.page.getByTestId(TEST_IDS.budgetDaily);
   }
 
   /**
@@ -401,36 +416,12 @@ class BudgetTotalArea {
     return this.head.getByRole('button', { name: '수정', exact: true });
   }
 
+  /**
+   * 카드 안의 「예산 지우기」. **이제 카드에는 없어야 한다.** 지우기는 수정 시트 맨 아래로 옮겼다.
+   * 시트는 화면 밖 층에 붙어 예산 섹션 안에서 찾으면 시트 것은 안 잡힌다.
+   */
   get deleteButton(): Locator {
     return this.section.getByRole('button', { name: '예산 지우기' });
-  }
-
-  /**
-   * 지우기를 누른 뒤 그 자리에 펼쳐지는 확인.
-   *
-   * 시트를 겹치지 않고 카드 안에서 버튼 줄만 물음으로 바뀐다. 목표 시트와 같은 모양이다.
-   */
-  get deleteConfirm(): Locator {
-    return this.section.getByRole('group', { name: '지우기 확인' });
-  }
-
-  /** 확인 안의 지우기. 카드의 「예산 지우기」와 섞이지 않게 확인 안에서만 찾는다. */
-  get confirmDeleteButton(): Locator {
-    return this.deleteConfirm.getByRole('button', { name: '지울게요', exact: true });
-  }
-
-  /** 잘못 눌렀을 때 빠져나오는 자리. */
-  get keepButton(): Locator {
-    return this.deleteConfirm.getByRole('button', { name: '그대로 둘래요', exact: true });
-  }
-
-  /**
-   * 지우기가 막혔을 때 카드 아래 서는 한 줄.
-   *
-   * 이어쓰기 설정 저장이 막힐 때도 같은 자리를 쓴다. 둘을 함께 만들지 않는다.
-   */
-  get deleteFailure(): Locator {
-    return this.section.getByRole('alert');
   }
 
   /** 게이지가 스크린리더에 알리는 사용률(%). 게이지가 없으면 null. */
@@ -458,15 +449,17 @@ class BudgetTotalArea {
     await this.sheet.save(amount);
   }
 
-  /** 지우기를 끝까지. 묻는 한 걸음을 지나야 실제로 지워진다. */
+  /** 지우기를 끝까지. 카드의 `수정` 으로 시트를 열고, 묻는 한 걸음을 지나야 실제로 지워진다. */
   async remove(): Promise<void> {
-    await this.deleteButton.click();
-    await expect(this.deleteConfirm).toBeVisible();
-    await this.confirmDeleteButton.click();
+    await this.openEdit();
+    await this.sheet.deleteButton.click();
+    await expect(this.sheet.deleteConfirm).toBeVisible();
+    await this.sheet.confirmDeleteButton.click();
+    await this.sheet.waitClosed();
   }
 }
 
-/** 전체 예산 금액 시트. 카드의 버튼과 배너의 `수정` 이 같은 것을 연다. */
+/** 전체 예산 금액 시트. 카드의 버튼과 배너의 `수정` 이 같은 것을 연다. 맨 아래에 작은 지우기가 있다. */
 class AmountSheetArea {
   private readonly root: Locator;
 
@@ -520,9 +513,29 @@ class AmountSheetArea {
       .getByRole('button', { name: '닫기', exact: true });
   }
 
-  /** 저장이 막혔을 때 시트 안에 서는 한 줄. 시트를 닫지 않고 여기서 말한다. */
+  /** 저장이나 지우기가 막혔을 때 시트 안에 서는 한 줄. 시트를 닫지 않고 여기서 말한다. */
   get failureNotice(): Locator {
     return this.root.getByRole('alert');
+  }
+
+  /** 이미 정한 예산을 고칠 때만 맨 아래 서는 작은 「예산 지우기」. 관리 탭에서 연 시트에만 있다. */
+  get deleteButton(): Locator {
+    return this.root.getByRole('button', { name: '예산 지우기', exact: true });
+  }
+
+  /** 지우기를 누른 뒤 그 자리에 펼쳐지는 확인. 시트를 겹치지 않고 버튼 줄만 물음으로 바뀐다. */
+  get deleteConfirm(): Locator {
+    return this.root.getByRole('group', { name: '지우기 확인' });
+  }
+
+  /** 확인 안의 지우기. */
+  get confirmDeleteButton(): Locator {
+    return this.deleteConfirm.getByRole('button', { name: '지울게요', exact: true });
+  }
+
+  /** 잘못 눌렀을 때 빠져나오는 자리. */
+  get keepButton(): Locator {
+    return this.deleteConfirm.getByRole('button', { name: '그대로 둘래요', exact: true });
   }
 
   async waitOpen(): Promise<void> {
@@ -744,7 +757,7 @@ class CategoryBudgetSheetArea {
   }
 }
 
-/** 지난달 예산을 그대로 가져왔을 때 뜨는 띠. 닫기 버튼은 없다. */
+/** 지난달 예산을 그대로 가져왔을 때 뜨는 띠. 닫으면 그 달에는 다시 안 뜬다. */
 class CarryoverBannerArea {
   private readonly root: Locator;
 
@@ -764,6 +777,11 @@ class CarryoverBannerArea {
   /** 띠 안의 `수정`. 전체 예산 카드에도 같은 이름이 있어 띠 안에서만 찾는다. */
   get editButton(): Locator {
     return this.root.getByRole('button', { name: '수정', exact: true });
+  }
+
+  /** 띠 오른쪽 끝의 ✕. */
+  get closeButton(): Locator {
+    return this.root.getByRole('button', { name: '이어쓴 예산 안내 닫기', exact: true });
   }
 }
 

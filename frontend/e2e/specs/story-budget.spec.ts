@@ -1,12 +1,13 @@
 import { formatCurrency } from '../../src/shared/lib/format';
 import { logsNamed } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
+import { shotBothWidths as shot } from '../support/shots';
 
 /**
  * 예산을 정하고 지우는 자리에서 **되돌릴 수 없는 일과 안 보이는 일.**
  *
  * 세 가지를 본다.
- * 1. 「예산 지우기」가 한 번 묻는가. 카테고리 한도가 딸려 사라진다는 것을 그 자리에서 말하는가.
+ * 1. 「예산 지우기」(수정 시트 맨 아래)가 한 번 묻는가. 카테고리 한도가 딸려 사라진다는 것을 그 자리에서 말하는가.
  * 2. 예산을 어디서 정했는지가 로그에 남는가. 앱 설정 쪽 입구를 더 밀지 말지를 그 숫자로 정한다.
  * 3. 이미 한도를 정한 카테고리가 추가 시트의 칩에서 빠지는가. 두 번 고르면 앞 값이 소리 없이 덮인다.
  *
@@ -17,8 +18,9 @@ const BUDGET = 600_000;
 const FOOD_CAP = 200_000;
 const TRANSPORT_CAP = 100_000;
 
-test('예산 지우기는 한 번 묻고, 카테고리 한도도 함께 사라진다고 말한다', async ({
+test('예산 지우기는 카드에 없고 수정 시트 맨 아래에서 한 번 묻고, 카테고리 한도도 함께 사라진다고 말한다', async ({
   manage,
+  page,
   prep,
 }) => {
   const food = await prep.categoryIdByName('식비');
@@ -32,28 +34,35 @@ test('예산 지우기는 한 번 묻고, 카테고리 한도도 함께 사라�
   await expect(manage.total.amount).toHaveText(formatCurrency(BUDGET));
   await expect(manage.categories.rows).toHaveCount(2);
 
-  await manage.total.deleteButton.click();
+  // 카드에는 지우기가 없다. 「수정」 을 눌러 연 시트 맨 아래에 있다.
+  await expect(manage.total.deleteButton).toHaveCount(0);
+  await manage.total.openEdit();
+  await shot(page, 'C_수정시트_지우기', manage.total.sheet.deleteButton);
+  await manage.total.sheet.deleteButton.click();
 
   /*
     확인을 먼저 못 박는다. 이 줄이 없으면 **바로 지워진** 경우에도 뒤의 단언이
     "없어진 것을 확인" 하는 모양이 되어 통과할 수 있다.
   */
-  await expect(manage.total.deleteConfirm).toBeVisible();
+  await expect(manage.total.sheet.deleteConfirm).toBeVisible();
   // 문구까지 못 박지는 않는다. 딸려 사라지는 것을 이름으로 말하는지만 본다.
-  await expect(manage.total.deleteConfirm).toContainText('카테고리');
+  await expect(manage.total.sheet.deleteConfirm).toContainText('카테고리');
 
   // 아직 아무것도 안 지워졌다.
   await expect(manage.total.amount).toHaveText(formatCurrency(BUDGET));
   await expect(manage.categories.rows).toHaveCount(2);
 
-  await manage.total.keepButton.click();
-  await expect(manage.total.deleteConfirm).toHaveCount(0);
+  await manage.total.sheet.keepButton.click();
+  await expect(manage.total.sheet.deleteConfirm).toHaveCount(0);
+  // 「그대로 둘래요」 는 묻는 줄만 접는다. 시트와 적힌 금액은 그대로다.
+  await expect(manage.total.sheet.amountField).toHaveValue('600,000');
   await expect(manage.total.amount).toHaveText(formatCurrency(BUDGET));
   await expect(manage.categories.cap('식비')).toHaveText(formatCurrency(FOOD_CAP));
 
-  // 한 번 더 눌러야 그때 지워진다.
-  await manage.total.deleteButton.click();
-  await manage.total.confirmDeleteButton.click();
+  // 한 번 더 눌러야 그때 지워진다. 지우면 시트가 닫힌다.
+  await manage.total.sheet.deleteButton.click();
+  await manage.total.sheet.confirmDeleteButton.click();
+  await manage.total.sheet.waitClosed();
 
   await expect(manage.total.emptyTitle).toBeVisible();
   // 전체 예산이 없으면 카테고리 한도를 붙일 자리도 사라진다.

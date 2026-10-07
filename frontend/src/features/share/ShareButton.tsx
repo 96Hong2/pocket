@@ -17,8 +17,9 @@ export interface ShareButtonProps {
    *
    * `quiet` 는 카드 아래 한 줄이다. 늘 서 있는 자리라 눈에 덜 띄어야 한다.
    * `strong` 은 다 모았을 때·결산을 다 봤을 때처럼 축하하는 순간에만 쓴다.
+   * `icon` 은 카드 머리의 그림 하나다. `label` 은 스크린리더 이름으로만 쓴다.
    */
-  tone?: 'quiet' | 'strong';
+  tone?: 'quiet' | 'strong' | 'icon';
   className?: string;
 }
 
@@ -40,18 +41,25 @@ export function ShareButton({
   className,
 }: ShareButtonProps) {
   const { busy, failure, share } = useShare(where);
+  // 누른 뒤 한 박자 걸린다. 글자가 안 바뀌면 눌렸는지 알 수 없다.
+  const text = busy ? '공유창 여는 중' : label;
+  const icon = tone === 'icon';
 
   return (
-    <div className={cx('share', className)}>
+    <div className={cx('share', icon && 'share--icon', className)}>
       <button
         type="button"
-        className={cx('share__button', tone === 'strong' && 'share__button--strong')}
+        className={cx(
+          'share__button',
+          tone === 'strong' && 'share__button--strong',
+          icon && 'share__button--icon',
+        )}
         disabled={busy}
+        aria-label={icon ? text : undefined}
         onClick={() => void share(kind, message)}
       >
         <ShareGlyph />
-        {/* 누른 뒤 한 박자 걸린다. 글자가 안 바뀌면 눌렸는지 알 수 없다. */}
-        <span className="share__label">{busy ? '공유창 여는 중' : label}</span>
+        {icon ? null : <span className="share__label">{text}</span>}
       </button>
 
       {failure ? (
