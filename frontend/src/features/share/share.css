@@ -60,6 +60,28 @@
   }
 
   /*
+    카드 머리의 그림 하나. 감싼 상자를 풀어 버튼과 실패 줄이 머리 줄의 자식으로 선다.
+    머리가 줄바꿈을 허용하면 실패 줄은 다음 줄 전체를 쓴다.
+  */
+  .share--icon {
+    display: contents;
+  }
+
+  .share__button--icon {
+    flex: none;
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border-radius: 50%;
+    color: var(--color-muted);
+  }
+
+  .share--icon .share__failure {
+    flex-basis: 100%;
+    order: 1;
+  }
+
+  /*
     ── 공유를 권하는 카드 ──────────────────────────────
 
     복구 카드·예산 제안 카드와 같은 골격이다(`home-card__*`). 클래스를 따로 두는 것은

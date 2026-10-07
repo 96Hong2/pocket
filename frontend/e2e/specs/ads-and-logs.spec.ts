@@ -1,5 +1,6 @@
 import { logsNamed, readLogs } from '../support/aitMock';
 import { expect, test } from '../support/fixtures';
+import { shotBothWidths as shot } from '../support/shots';
 
 /**
  * 배너 자리와 행동 로그.
@@ -188,25 +189,36 @@ test('배너 자리는 화면마다 흐름을 끊지 않는 끝자리에 선다'
 });
 
 /**
- * 관리 탭만 예외다. 배너가 예산 바로 아래에 선다(사용자 지시).
+ * 관리 탭만 예외다. 배너가 자산관리 바로 아래, 예산 위에 선다(사용자 지시).
  *
- * 맨 끝에 두면 하위 화면 목록 밑이라 화면을 끝까지 내려야 보였다.
- * 자리 이름만 보면 위치가 바뀐 것을 못 잡으니 예산과 목록 사이에 있는지를 잰다.
+ * 예산 아래에 있던 배너는 옮겼다. 토스 광고 정책이 같은 화면에 같은 형식의 광고를 둘 이상
+ * 두는 것을 막는다. 자리 이름만 보면 위치가 바뀐 것을 못 잡으니 자산 카드와 예산 사이에 있는지를 잰다.
  */
-test('관리 탭 배너는 예산 바로 아래, 하위 화면 목록 위에 선다', async ({ page }) => {
-  await page.goto('/manage');
+test('관리 탭 배너는 하나이고, 자산관리 바로 아래 예산 위에 선다', async ({
+  manage,
+  page,
+  prep,
+}) => {
+  // 사진에 예산 카드가 실제 모양으로 서게 한다. 위치 단언은 예산 유무와 무관하다.
+  await prep.setBudget(300_000);
+  await prep.addExpense({ amount: 161_000, daysAgo: 0 });
+  await manage.open();
+  await manage.waitReady();
   const slot = page.getByTestId('ad-slot');
+  await expect(slot).toHaveCount(1);
   await expect(slot).toHaveAttribute('data-placement', 'manage');
 
-  const budget = await page.getByRole('region', { name: '예산' }).boundingBox();
+  const assets = await manage.assetsEntry.boundingBox();
   const ad = await slot.boundingBox();
-  const list = await page.getByRole('navigation', { name: '관리 하위 화면' }).boundingBox();
-  expect(budget, '예산 자리가 안 보인다').not.toBeNull();
+  const budget = await page.getByRole('region', { name: '예산', exact: true }).boundingBox();
+  expect(assets, '자산관리 카드가 안 보인다').not.toBeNull();
   expect(ad, '배너 자리가 안 보인다').not.toBeNull();
-  expect(list, '하위 화면 목록이 안 보인다').not.toBeNull();
-  if (budget == null || ad == null || list == null) return;
-  expect(ad.y).toBeGreaterThanOrEqual(budget.y + budget.height);
-  expect(ad.y + ad.height).toBeLessThanOrEqual(list.y);
+  expect(budget, '예산 자리가 안 보인다').not.toBeNull();
+  if (assets == null || ad == null || budget == null) return;
+  expect(ad.y).toBeGreaterThanOrEqual(assets.y + assets.height);
+  expect(ad.y + ad.height).toBeLessThanOrEqual(budget.y);
+
+  await shot(page, 'C_관리탭_위', page.getByRole('heading', { name: '관리', level: 1 }), 'start');
 });
 
 test('저축·투자 기록의 로그에 종목 이름, 수량, 금액이 없고 한 흐름으로 이어진다', async ({

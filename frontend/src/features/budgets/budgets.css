@@ -133,14 +133,18 @@
     gap: 10px;
   }
 
+  /* 공유 실패 줄이 머리 아래로 내려설 수 있게 줄바꿈을 연다(`share--icon`). */
   .budget-total__head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    gap: 0 4px;
+    margin: -8px -8px -4px 0;
   }
 
   .budget-total__title {
+    flex: 1;
+    min-width: 0;
     margin: 0;
     font-size: var(--text-13);
     font-weight: var(--font-weight-semibold);
@@ -148,7 +152,7 @@
   }
 
   .budget-total__edit {
-    min-height: 32px;
+    min-height: 44px;
     padding: 0 8px;
     border: 0;
     background: transparent;
@@ -158,73 +162,50 @@
     color: var(--color-sage-700);
   }
 
-  .budget-total__amount {
+  /* 쓴 돈을 크게, 예산은 그 옆에 작게. 카테고리 줄의 「쓴 돈 / 한도」 와 같은 읽는 순서다. */
+  .budget-total__figure {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    margin: 0;
     color: var(--color-ink);
   }
 
-  .budget-total__gauge {
-    margin-top: 2px;
+  .budget-total__cap {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
   }
 
-  .budget-total__meta {
+  .budget-total__cap .pk-amount {
+    color: inherit;
+  }
+
+  .budget-total__status {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 8px;
-    font-size: var(--text-12);
+    font-size: var(--text-13);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
-  }
-
-  .budget-total__caption {
-    margin: 0;
-    font-size: var(--text-12);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-sage-700);
     font-variant-numeric: tabular-nums;
   }
 
-  .budget-total__delete {
-    align-self: flex-start;
-    min-height: 32px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    font-family: inherit;
-    font-size: var(--text-12);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-muted);
-    text-decoration: underline;
+  .budget-total__caption {
+    color: var(--color-sage-700);
   }
 
-  .budget-total__delete:disabled {
-    color: var(--color-disabled);
-  }
-
-  /* 지우기 전 물음. 카드 안에서 버튼 줄만 바뀐다. 내역 지우기와 같은 모양이다. */
-  .budget-total__confirm {
-    margin-top: 4px;
-    padding: 12px;
-    border-radius: var(--radius-md);
-    background: var(--color-amber-50);
-  }
-
-  .budget-total__confirm-text {
-    margin: 0;
-    font-size: var(--text-13);
+  /* 넘긴 것은 막대 색과 같은 앰버로 말한다. 퍼센트를 따로 적지 않는다. */
+  .budget-total__caption--over,
+  .budget-total__caption--over .pk-amount {
     color: var(--color-amber-700);
   }
 
-  .budget-total__confirm-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
+  .budget-total__daily .pk-amount {
+    color: var(--color-ink);
   }
-
-  .budget-total__confirm-actions > * {
-    flex: 1;
-  }
-
 
   /* ── 카테고리 예산 ──────────────────────────────── */
 
@@ -297,7 +278,7 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 8px;
   }
 
   .budget-cat__head {
@@ -306,13 +287,20 @@
     gap: 6px;
   }
 
+  /* 이름이 길면 이름이 줄어든다. 금액은 끝까지 다 보여야 한다. */
   .budget-cat__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: var(--text-14);
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
   }
 
   .budget-cat__nums {
+    flex: none;
+    margin-left: auto;
     font-size: var(--text-12);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
@@ -366,33 +354,6 @@
     font-size: var(--text-13);
     font-weight: var(--font-weight-semibold);
     color: var(--color-ink);
-  }
-
-  /* 시트를 여는 줄. 이어쓰기 줄과 같은 판에 값과 꺾쇠만 더한다. */
-  button.budget-setting--link {
-    width: 100%;
-    border: 0;
-    font-family: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .budget-setting--link::after {
-    content: '';
-    flex: none;
-    width: 7px;
-    height: 7px;
-    margin-left: -4px;
-    border-top: 2px solid var(--color-placeholder);
-    border-right: 2px solid var(--color-placeholder);
-    transform: rotate(45deg);
-  }
-
-  .budget-setting__value {
-    flex: none;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-muted);
   }
 
   /* ── 한 달 시작일 시트 ─────────────────────────────── */
@@ -505,6 +466,48 @@
 
   .budget-sheet__done {
     flex: 2;
+  }
+
+  /* 예산 지우기. 자주 쓰는 일이 아니라 시트 맨 아래 작은 글자로 둔다. 누를 자리는 44px 이다. */
+  .budget-sheet__delete {
+    align-self: center;
+    min-height: 44px;
+    margin-top: -6px;
+    padding: 0 12px;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    text-decoration: underline;
+  }
+
+  .budget-sheet__delete:disabled {
+    color: var(--color-disabled);
+  }
+
+  /* 지우기 전 물음. 그 자리에서 버튼 줄만 바뀐다. 내역 지우기와 같은 모양이다. */
+  .budget-sheet__confirm {
+    padding: 12px;
+    border-radius: var(--radius-md);
+    background: var(--color-amber-50);
+  }
+
+  .budget-sheet__confirm-text {
+    margin: 0;
+    font-size: var(--text-13);
+    color: var(--color-amber-700);
+  }
+
+  .budget-sheet__confirm-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .budget-sheet__confirm-actions > * {
+    flex: 1;
   }
 
   /* ── 예산 시트의 「계산해서 정하기」 ──────────────── */

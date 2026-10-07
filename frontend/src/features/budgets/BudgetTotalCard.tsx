@@ -1,27 +1,15 @@
-import { useState } from 'react';
-
 import { parseDecimal, parseDecimalOr, type BudgetStateOut } from '../../shared/api';
-import { formatCurrency, formatPercent } from '../../shared/lib/format';
+import { cx } from '../../shared/lib/cx';
 import { TEST_IDS } from '../../shared/testIds';
-import { Amount, Button, Card, EmptyState, Gauge } from '../../shared/ui';
+import { Amount, Card, EmptyState, Gauge } from '../../shared/ui';
 import { budgetLine, closingLine, ShareButton, type ShareButtonProps } from '../share';
 
 export interface BudgetTotalCardProps {
   state: BudgetStateOut;
   /** 지금 고칠 수 있는 기간인가. 서버가 정한 값을 그대로 받는다. */
   editable: boolean;
-  /** 금액 입력 시트를 연다. */
+  /** 금액 시트를 연다. 예산 지우기도 그 시트 맨 아래에 있다. */
   onEdit: () => void;
-  onDelete: () => void;
-  /** 지우는 중. 두 번 눌리지 않게 잠근다. */
-  busy: boolean;
-  /**
-   * 딸려 사라지는 카테고리 한도가 몇 개인가.
-   *
-   * 전체 예산을 지우면 서버가 카테고리 한도까지 함께 지운다. 그 말을 안 하면
-   * 한 번 누르고 여러 개를 잃는다. 없으면 굳이 말하지 않는다.
-   */
-  categoryCount: number;
 }
 
 /** 이름 달 `2026-10` → `10`. 시작일이 25 면 첫날(9월 25일)의 달과 다르다. */
@@ -62,27 +50,16 @@ function shareOf(
 /**
  * 전체 예산 카드.
  *
- * 게이지 비율·남은 금액·하루 가용액을 여기서 계산하지 않는다. 예산에서 뺀 거래가 있으면
+ * **한 장에 세 줄만 둔다: 쓴 돈 / 예산, 막대, 상태 한 줄.** 쓴 돈·남은 돈·퍼센트·하루·남은 날·
+ * 공유·지우기가 한 장에 다 서 있어 무엇을 봐야 할지 안 읽혔다(사용자 지적). 퍼센트는 막대가,
+ * 남은 날은 하루 쓸 돈이 이미 말한다. 공유는 머리의 그림 하나로, 지우기는 수정 시트로 옮겼다.
+ *
+ * 남은 금액과 하루 가용액은 여기서 계산하지 않는다. 예산에서 뺀 거래가 있으면
  * 화면이 되짚은 값과 서버 값이 어긋난다. 서버가 준 것을 그대로 그린다.
  */
-export function BudgetTotalCard({
-  state,
-  editable,
-  onEdit,
-  onDelete,
-  busy,
-  categoryCount,
-}: BudgetTotalCardProps) {
+export function BudgetTotalCard({ state, editable, onEdit }: BudgetTotalCardProps) {
   const amount = parseDecimal(state.amount);
   const month = monthNumber(state.period_key);
-  /*
-    지우기 전에 한 번 묻는다.
-
-    **되돌릴 수 없고 딸려 사라지는 것이 있다.** 전체 예산을 지우면 카테고리 한도까지
-    서버가 함께 지운다. 한 번 눌러 여러 개를 잃는 자리라 내역 지우기와 같은 모양을 쓴다.
-    시트를 겹치지 않고 카드 안에서 버튼 줄만 물음으로 바뀐다.
-  */
-  const [asking, setAsking] = useState(false);
   const share = shareOf(state, editable);
 
   if (amount == null) {
@@ -112,6 +89,8 @@ export function BudgetTotalCard({
   }
 
   const progress = parseDecimal(state.spend_progress);
+  const remaining = parseDecimalOr(state.remaining_budget, 0);
+  const over = state.is_over_budget;
 
   return (
     <Card padding="lg" className="budget-total">
@@ -119,6 +98,8 @@ export function BudgetTotalCard({
         <h3 className="budget-total__title">
           {editable ? '이번 달 전체 예산' : `${month}월 전체 예산`}
         </h3>
+        {/* 무엇을 보낼지는 `shareOf` 가 정한다. 넘긴 달에는 이 자리가 없다. */}
+        {share != null ? <ShareButton tone="icon" {...share} /> : null}
         {editable ? (
           <button type="button" className="budget-total__edit" onClick={onEdit}>
             수정
@@ -126,106 +107,63 @@ export function BudgetTotalCard({
         ) : null}
       </div>
 
-      <Amount
-        className="budget-total__amount"
-        data-testid={TEST_IDS.budgetTotalAmount}
-        value={amount}
-        size={26}
-        weight={800}
-      />
+      <p className="budget-total__figure">
+        <Amount
+          data-testid={TEST_IDS.budgetUsed}
+          value={parseDecimalOr(state.budgeted_spend, 0)}
+          size={26}
+          weight={800}
+        />
+        <span className="budget-total__cap">
+          {'/ '}
+          <Amount
+            data-testid={TEST_IDS.budgetTotalAmount}
+            value={amount}
+            size={15}
+            weight={600}
+          />
+        </span>
+      </p>
 
       <Gauge
-        className="budget-total__gauge"
         data-testid={TEST_IDS.budgetTotalGauge}
         ratio={progress ?? 0}
-        over={state.is_over_budget}
+        over={over}
         label="전체 예산 사용률"
       />
 
-      <div className="budget-total__meta">
-        <span>
-          <Amount
-            data-testid={TEST_IDS.budgetUsed}
-            value={parseDecimalOr(state.budgeted_spend, 0)}
-            size={13}
-            weight={700}
-          />{' '}
-          사용
-        </span>
-        <span>
-          <Amount
-            data-testid={TEST_IDS.budgetLeft}
-            value={parseDecimalOr(state.remaining_budget, 0)}
-            size={13}
-            weight={700}
-          />{' '}
-          남음
-        </span>
-      </div>
-
       {progress != null ? (
-        <p className="budget-total__caption" data-testid={TEST_IDS.budgetCaption}>
-          {caption(state, progress, editable)}
-        </p>
-      ) : null}
-
-      {/* 무엇을 보낼지는 아래 `shareOf` 가 정한다. 넘긴 달에는 이 자리가 없다. */}
-      {share != null ? <ShareButton className="budget-total__share" {...share} /> : null}
-
-      {editable && !asking ? (
-        <button
-          type="button"
-          className="budget-total__delete"
-          onClick={() => setAsking(true)}
-          disabled={busy}
-        >
-          예산 지우기
-        </button>
-      ) : null}
-
-      {editable && asking ? (
-        <div className="budget-total__confirm" role="group" aria-label="지우기 확인">
-          <p className="budget-total__confirm-text">
-            <b>이번 달 예산을 지울까요?</b>{' '}
-            {categoryCount > 0
-              ? `카테고리 한도 ${categoryCount}개도 함께 사라져요`
-              : '지우면 되돌릴 수 없어요'}
-          </p>
-          <div className="budget-total__confirm-actions">
-            <Button variant="outline" disabled={busy} onClick={() => setAsking(false)}>
-              그대로 둘래요
-            </Button>
-            <Button
-              variant="danger"
-              disabled={busy}
-              onClick={() => {
-                setAsking(false);
-                onDelete();
-              }}
-            >
-              지울게요
-            </Button>
-          </div>
+        <div className="budget-total__status">
+          <span
+            className={cx('budget-total__caption', over && 'budget-total__caption--over')}
+            data-testid={TEST_IDS.budgetCaption}
+          >
+            {over ? (
+              <>
+                <Amount value={-remaining} size={13} weight={700} />
+                {editable ? ' 넘었어요' : ' 넘겼어요'}
+              </>
+            ) : (
+              <>
+                <Amount data-testid={TEST_IDS.budgetLeft} value={remaining} size={13} weight={700} />
+                {editable ? ' 남았어요' : ' 남기고 지켰어요'}
+              </>
+            )}
+          </span>
+          {/* 끝난 달에 하루 얼마를 적으면 이제 와서 지킬 수 없는 것을 알려 주는 셈이다. 넘긴 달은 늘 0원이다. */}
+          {editable && !over ? (
+            <span className="budget-total__daily">
+              하루{' '}
+              <Amount
+                data-testid={TEST_IDS.budgetDaily}
+                value={parseDecimalOr(state.daily_allowance, 0)}
+                size={13}
+                weight={700}
+              />
+            </span>
+          ) : null}
         </div>
       ) : null}
     </Card>
   );
-}
-
-/**
- * 카드 아래 한 줄.
- *
- * 진행 중인 달은 앞으로 쓸 수 있는 돈을, 끝난 달은 결과를 말한다.
- * 끝난 달에 '하루 얼마' 를 적으면 이제 와서 지킬 수 없는 것을 알려 주는 셈이 된다.
- */
-function caption(state: BudgetStateOut, progress: number, editable: boolean): string {
-  const percent = formatPercent(progress);
-
-  if (editable) {
-    const daily = formatCurrency(parseDecimalOr(state.daily_allowance, 0));
-    return `${percent} 사용 · 하루 ${daily} · ${state.remaining_days}일 남음`;
-  }
-  if (state.is_over_budget) return `${percent} 사용 · 예산을 넘겼어요`;
-  if (progress >= 0.8) return `${percent} 사용 · 예산 안에서 끝났어요`;
-  return `${percent} 사용 · 잘 지켰어요`;
 }

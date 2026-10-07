@@ -33,7 +33,8 @@ export type DismissibleCard =
   | 'rating-ask'
   | 'books-intro'
   | 'asset-checkin'
-  | 'saving-hint';
+  | 'saving-hint'
+  | 'budget-carried';
 
 function keyFor(card: DismissibleCard): string {
   return `card-dismissed-${card}`;
@@ -70,6 +71,38 @@ export async function markCardDismissed(
     await store.set(keyFor(card), mark);
   } catch {
     /* 저장소가 막힌 환경에서도 화면은 그대로 돈다. */
+  }
+}
+
+/**
+ * 표를 여럿 기억하는 카드. 달마다 따로 닫는 안내는 한 달을 닫았다고 다른 달 것이 되살아나면
+ * 안 되므로, 닫은 표를 쉼표로 이어 최근 `keep` 개까지 남긴다. 옛 값(표 하나)도 그대로 읽힌다.
+ */
+export async function readCardDismissedIn(
+  store: KeyValueStore,
+  card: DismissibleCard,
+  mark: string,
+): Promise<boolean> {
+  try {
+    const saved = await store.get(keyFor(card));
+    return saved != null && saved.split(',').includes(mark);
+  } catch {
+    return false;
+  }
+}
+
+export async function addCardDismissed(
+  store: KeyValueStore,
+  card: DismissibleCard,
+  mark: string,
+  keep = 12,
+): Promise<void> {
+  try {
+    const saved = (await store.get(keyFor(card))) ?? '';
+    const marks = saved.split(',').filter((item) => item !== '' && item !== mark);
+    await store.set(keyFor(card), [...marks, mark].slice(-keep).join(','));
+  } catch {
+    /* 못 적으면 다음에 한 번 더 뜰 뿐이다. */
   }
 }
 

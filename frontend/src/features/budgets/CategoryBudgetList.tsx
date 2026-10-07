@@ -93,11 +93,28 @@ function CategoryBudgetRow({ row, category, editable, onPick }: CategoryBudgetRo
   const inner = (
     <>
       <CategoryAvatar {...iconOf(category)} size={52} />
+      {/* 이름과 「쓴 돈 / 한도」 를 한 줄에, 막대를 그 아래에. 세 줄이던 것을 두 줄로 줄였다. */}
       <div className="budget-cat__body">
         <div className="budget-cat__head">
           <span className="budget-cat__name">{name}</span>
           {/* 넘긴 뒤가 아니라 넘기기 전에 붙는다. 기준값은 홈 히어로와 같은 것을 쓴다. */}
           {isCaution(progress) ? <Chip variant="caution">주의</Chip> : null}
+          <span className="budget-cat__nums">
+            <Amount
+              data-testid={TEST_IDS.categoryBudgetUsed}
+              value={parseDecimalOr(row.budgeted_spend, 0)}
+              size={12}
+              weight={700}
+            />
+            {' / '}
+            <Amount
+              className="budget-cat__cap"
+              data-testid={TEST_IDS.categoryBudgetCap}
+              value={parseDecimalOr(row.amount, 0)}
+              size={12}
+              weight={600}
+            />
+          </span>
         </div>
         <Gauge
           size={8}
@@ -105,22 +122,6 @@ function CategoryBudgetRow({ row, category, editable, onPick }: CategoryBudgetRo
           over={row.is_over_budget}
           label={`${name} 예산 사용률`}
         />
-        <div className="budget-cat__nums">
-          <Amount
-            data-testid={TEST_IDS.categoryBudgetUsed}
-            value={parseDecimalOr(row.budgeted_spend, 0)}
-            size={12}
-            weight={700}
-          />
-          {' / '}
-          <Amount
-            className="budget-cat__cap"
-            data-testid={TEST_IDS.categoryBudgetCap}
-            value={parseDecimalOr(row.amount, 0)}
-            size={12}
-            weight={600}
-          />
-        </div>
       </div>
     </>
   );

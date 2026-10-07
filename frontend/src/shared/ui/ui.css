@@ -859,6 +859,41 @@
     font-weight: var(--font-weight-semibold);
   }
 
+  /* ── 기록 고치기 맨 위 그림(EditHeadIcon) ───────────── */
+
+  .edit-head-icon {
+    position: relative;
+    flex: none;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: none;
+    cursor: pointer;
+    transition: transform 0.12s ease;
+  }
+
+  .edit-head-icon:active {
+    transform: scale(0.95);
+  }
+
+  /*
+    누를 수 있다는 표시. 그림 테두리에 걸친 작은 동그라미 하나로 둔다.
+    버튼 상자 밖으로 내밀지 않는다. 2px 만 나가도 시트가 가로로 굴러간다고 잡힌다.
+  */
+  .edit-head-icon__badge {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--color-surface);
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-700);
+    color: var(--color-surface);
+  }
+
   /* ── SegmentedControl ───────────────────────────────── */
   .pk-segmented {
     display: flex;

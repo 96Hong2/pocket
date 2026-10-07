@@ -15,19 +15,17 @@ import {
   type BookEntryUpdate,
   type BookOut,
 } from '../../shared/api';
-import { CategoryPicker, FutureDayConfirm, categoriesOfKind } from '../../shared/ledger';
+import {
+  CategoryPicker,
+  EditHeadIcon,
+  FutureDayConfirm,
+  categoriesOfKind,
+} from '../../shared/ledger';
 import { isFutureDay } from '../../shared/lib/format';
 import { DAY_MAX } from '../../shared/lib/limits';
-import {
-  AmountField,
-  BottomSheet,
-  Button,
-  CategoryAvatar,
-  LeaveConfirm,
-  iconOf,
-} from '../../shared/ui';
+import { AmountField, BottomSheet, Button, LeaveConfirm, iconOf } from '../../shared/ui';
 
-import { CategoryComposeOverlay } from '../categories';
+import { CategoryComposeOverlay, CategoryPickOverlay } from '../categories';
 
 import {
   asPickable,
@@ -211,6 +209,8 @@ function EntryForm({
   const [failed, setFailed] = useState<string | null>(null);
   /** 새 분류 만들기 창이 떴나. 이 가계부 분류를 만들어 멤버 모두에게 보인다. */
   const [creating, setCreating] = useState(false);
+  /** 맨 위 그림을 눌러 연 분류 고르기. 개인 기록 고치기와 같은 동작이다. */
+  const [picking, setPicking] = useState(false);
   const confirmRef = useRef<HTMLDivElement>(null);
 
   // 작은 화면에서는 버튼 줄이 접힌 아래에 있다. 물음이 열리면 그 자리로 데려간다.
@@ -328,7 +328,15 @@ function EntryForm({
     <div className="tx-edit__body">
       <div className="tx-edit__scroll">
         <div className="tx-edit__head">
-          <CategoryAvatar {...iconOf(headCategory)} size={58} />
+          {/* 그림을 누르면 아래 분류 칸과 같은 고르기가 열린다. 완료한 가계부는 그림만 둔다. */}
+          <EditHeadIcon
+            avatar={iconOf(headCategory)}
+            onPress={readOnly ? undefined : () => setPicking(true)}
+            label={
+              headCategory == null ? '카테고리 고르기' : `카테고리 ${headCategory.name}, 바꾸기`
+            }
+            disabled={busy || creating}
+          />
           {/* 날짜는 바로 아래 「날짜」 칸이 말한다. 제목에 이어 붙이지 않는다. */}
           <p className="tx-edit__title">{entryTitle(book, entry)}</p>
         </div>
@@ -424,6 +432,26 @@ function EntryForm({
           고치던 날짜·상호·금액은 뒤에 그대로 남는다. 만들면 그 분류가 골라진다.
           내 가계부로 옮기는 중이면 내 분류를, 아니면 이 가계부 분류를 만든다.
         */}
+        <CategoryPickOverlay
+          open={picking}
+          categories={toMine ? mineCategories : asPickable(book.categories)}
+          selectedId={toMine ? mineSelected : categoryId}
+          onPick={(category) => {
+            if (toMine) {
+              setMinePicked(true);
+              setMineCategoryId(category.id);
+            } else {
+              setCategoryId(category.id);
+            }
+            setPicking(false);
+          }}
+          onCreate={() => {
+            setPicking(false);
+            setCreating(true);
+          }}
+          onBack={() => setPicking(false)}
+        />
+
         <CategoryComposeOverlay
           open={creating}
           fixedKind="expense"

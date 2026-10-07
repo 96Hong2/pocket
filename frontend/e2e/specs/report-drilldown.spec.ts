@@ -141,6 +141,51 @@ test('「저축·투자」 로 자산 화면에 갔다가 뒤로 오면 보던 �
   await expect(report.monthLabel()).toHaveText(formatMonthLabel(month));
 });
 
+test('소비·수입 탭과 「저축·투자 ›」 가 한 줄에 같은 높이로 서고, 트랙이 바탕과 갈린다', async ({
+  page,
+  prep,
+  report,
+}) => {
+  // 사용자 캡처와 같은 모양(달 이름 아래 기간 알약)으로 본다.
+  await prep.setMonthStartDay(25);
+  const food = await prep.categoryIdByName('식비');
+  const salary = await prep.categoryIdByName('월급');
+  await prep.addTransaction({ amount: 12_000, merchant: '스타벅스', categoryId: food });
+  await prep.addTransaction({ amount: 50_000, type: 'income', categoryId: salary });
+
+  await report.open();
+  await report.waitReady();
+  await expect(report.periodLine).toBeVisible();
+
+  // 트랙이 바탕과 같은 색이면 고른 탭만 알약으로 뜨고 나머지는 글자만 남아 셋이 서로 다른 물건처럼 보인다.
+  const colors = await report.modesTrackColors();
+  expect(colors.track).not.toBe(colors.behind);
+  expect(colors.picked).not.toBe(colors.track);
+
+  for (const width of [390, 344]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
+    const track = await report.modesTrack.boundingBox();
+    const link = await report.assetsLink.boundingBox();
+    const spend = await report.modeTab('소비').boundingBox();
+    const income = await report.modeTab('수입').boundingBox();
+    if (track == null || link == null || spend == null || income == null) {
+      throw new Error('탭 줄이 그려지지 않았다');
+    }
+    expect(Math.abs(track.y - link.y), `${width}폭 윗선`).toBeLessThanOrEqual(1);
+    expect(Math.abs(track.height - link.height), `${width}폭 높이`).toBeLessThanOrEqual(1);
+    expect(link.height, `${width}폭 저축·투자 눌림 높이`).toBeGreaterThanOrEqual(44);
+    expect(Math.abs(spend.width - income.width), `${width}폭 두 탭 너비`).toBeLessThanOrEqual(1);
+    expect(link.x + link.width, `${width}폭 오른쪽 끝`).toBeLessThanOrEqual(width);
+    expect(link.x, `${width}폭 트랙과 겹침`).toBeGreaterThan(track.x + track.width);
+  }
+
+  await shot(page, 'A_리포트탭_소비');
+  await report.modeTab('수입').click();
+  await expect(report.modeTab('수입')).toBeChecked();
+  await shot(page, 'A_리포트탭_수입');
+});
+
 test('자산 화면에서 내 자산 리포트와 종류별 리포트에 다녀와도 마지막 뒤로는 보던 리포트다', async ({
   page,
   prep,

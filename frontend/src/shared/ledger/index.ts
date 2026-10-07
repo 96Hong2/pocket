@@ -1,4 +1,5 @@
 export { CategoryPicker, type CategoryPickerProps } from './CategoryPicker';
+export { EditHeadIcon, type EditHeadIconProps } from './EditHeadIcon';
 export { FutureDayConfirm } from './FutureDayConfirm';
 export { KindToggle, type KindToggleProps } from './KindToggle';
 export {

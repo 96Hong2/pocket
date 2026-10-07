@@ -92,11 +92,15 @@ test('예산이 지워지지 않으면 금액과 카테고리 한도가 그대�
     route.request().method() === 'DELETE' ? route.fulfill(FAIL_500) : route.continue(),
   );
 
-  await manage.total.deleteButton.click();
-  await expect(manage.total.deleteConfirm).toBeVisible();
-  await manage.total.confirmDeleteButton.click();
+  const sheet = manage.total.sheet;
+  await manage.total.openEdit();
+  await sheet.deleteButton.click();
+  await expect(sheet.deleteConfirm).toBeVisible();
+  await sheet.confirmDeleteButton.click();
 
-  await expect(manage.total.deleteFailure).toHaveText(SERVER_DOWN);
+  // 시트가 닫히지 않고 그 안에서 말한다. 닫히면 실패를 그릴 자리가 없다.
+  await expect(sheet.failureNotice).toHaveText(SERVER_DOWN);
+  await expect(sheet.amountField).toHaveValue('600,000');
   /*
     지워진 것처럼 보이면 사람은 예산을 다시 정하러 간다. 그 사이 서버에는 옛 예산이 남아 있어
     카테고리 한도까지 어긋난 채로 다음 달을 맞는다.
@@ -105,11 +109,13 @@ test('예산이 지워지지 않으면 금액과 카테고리 한도가 그대�
   await expect(manage.categories.cap('식비')).toHaveText(formatCurrency(FOOD_CAP));
 
   await page.unroute(BUDGETS);
-  await manage.total.remove();
+  await sheet.deleteButton.click();
+  await sheet.confirmDeleteButton.click();
+  await sheet.waitClosed();
 
   await expect(manage.total.emptyTitle).toBeVisible();
   // 지워졌으면 아까 못 지웠다는 말도 함께 걷힌다.
-  await expect(manage.total.deleteFailure).toHaveCount(0);
+  await expect(page.getByText(SERVER_DOWN)).toHaveCount(0);
 });
 
 test('카테고리 한도가 저장되지 않으면 고른 분류와 적은 한도가 시트에 남는다', async ({

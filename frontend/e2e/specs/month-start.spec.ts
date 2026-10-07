@@ -8,6 +8,7 @@ import {
 import { logsNamed, pressSystemBack } from '../support/aitMock';
 import { thisMonth } from '../support/api';
 import { expect, test } from '../support/fixtures';
+import { shotBothWidths as shot } from '../support/shots';
 
 /**
  * 한 달 시작일. 월급날이 25일인 사람이 25일부터 다음 달 24일까지를 한 달로 본다.
@@ -88,6 +89,12 @@ test('관리 탭에서 시작일을 25일로 바꾸면 예산, 리포트, 홈이
   await expect(manage.monthLabel).toHaveText(formatMonthLabel(thisMonth()));
   await expect(manage.monthStartRow).toHaveAccessibleName('한 달 시작 매달 1일');
   await expect(manage.periodLine).toHaveCount(0);
+  // 예산 자리 안이 아니라 하위 화면 목록 맨 위, 목표 바로 위에 선다.
+  expect((await manage.subScreenLabels()).slice(0, 2)).toEqual(['한 달 시작', '목표']);
+  await expect(
+    page.getByRole('region', { name: '예산', exact: true }).getByRole('button', { name: /^한 달 시작/ }),
+  ).toHaveCount(0);
+  await shot(page, 'C_한달시작_목표', manage.monthStartRow);
 
   await manage.monthStartRow.click();
   await expect(manage.monthStart.sheet).toBeVisible();
@@ -105,7 +112,10 @@ test('관리 탭에서 시작일을 25일로 바꾸면 예산, 리포트, 홈이
   await expect(manage.total.amount).toHaveText(formatCurrency(300_000));
   await expect(manage.total.used).toHaveText(formatCurrency(12_000));
   await expect(manage.total.left).toHaveText(formatCurrency(288_000));
-  await expect(manage.total.caption).toContainText(`${expected.remaining}일 남음`);
+  // 남은 날은 화면에 적지 않지만 하루 가용액이 그 날수로 나뉜다. 25일 기간으로 센 날수로 못 박는다.
+  await expect(manage.total.daily).toHaveText(
+    formatCurrency(Math.floor(288_000 / expected.remaining)),
+  );
   await expect(manage.categories.cap('식비')).toHaveText(formatCurrency(40_000));
   await expect(manage.categories.used('식비')).toHaveText(formatCurrency(12_000));
   // 기간 줄도 같은 시트를 연다.

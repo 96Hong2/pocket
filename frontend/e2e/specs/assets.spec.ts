@@ -19,7 +19,9 @@ test('관리 탭에서 자산으로 들어가면 빈 상태가 있다', async ({
   await manage.waitReady();
 
   // 자산은 목록 줄이 아니라 예산 위의 요약 카드다. 순자산을 그 자리에서 보여준다.
+  // 맨 위는 한 달 시작 줄이다. 오른쪽에 지금 시작일(「매달 1일」)이 붙는다.
   await expect(appShell.subScreenRows('관리 하위 화면')).toHaveText([
+    /^한 달 시작/,
     '목표',
     '카테고리 관리',
     '태그',
