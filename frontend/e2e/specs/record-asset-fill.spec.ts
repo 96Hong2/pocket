@@ -69,7 +69,7 @@ test('캡처 + 저축·투자는 자산 캡처와 같은 광고와 검토를 지
   const read = (await logsNamed(page, 'asset_capture')).find((log) => log.params.step === 'read');
   expect(read?.params).toMatchObject({ from: 'record', input: 'photo', rows: 5, new_items: 4 });
 
-  // 검토 중에 ‹ 를 누르면 버릴지 묻는다. 남으면 검토가 그대로다.
+  // 검토 중에 뒤로 가려 하면 버릴지 묻는다. 남으면 검토가 그대로다.
   await recordSheet.back();
   await expect(recordSheet.panelLeave.dialog).toBeVisible();
   await recordSheet.panelLeave.stayButton.click();

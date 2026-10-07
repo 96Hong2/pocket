@@ -399,11 +399,6 @@ class AssetItemSheet {
       .getByRole('radio', { name: label, exact: true });
   }
 
-  /** 맨 위 ‹ . */
-  get backButton(): Locator {
-    return this.root.getByRole('button', { name: /뒤로/ });
-  }
-
   get saveButton(): Locator {
     return this.root.getByRole('button', { name: '저장', exact: true });
   }

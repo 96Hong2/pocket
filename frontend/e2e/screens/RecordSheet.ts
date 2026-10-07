@@ -4,6 +4,7 @@ import { CategoryComposeArea } from './CategoryComposeArea';
 
 import { shiftDay, toLedgerDate } from '../../src/shared/lib/format';
 import { TEST_IDS } from '../../src/shared/testIds';
+import { pressSystemBack } from '../support/aitMock';
 import { horizontalScrollersIn } from '../support/overflow';
 
 /**
@@ -90,7 +91,7 @@ export class LeaveConfirmArea {
 }
 
 /**
- * 줄글이나 사진에서 읽어 온 것이 남은 채 ‹ 를 눌렀을 때의 확인.
+ * 줄글이나 사진에서 읽어 온 것이 남은 채 뒤로 가려 할 때의 확인.
  *
  * 시트를 닫는 확인(「그만둘까요」)과 다른 창이다. 시트는 남고, 「나가기」 를 고르면 그 패널만
  * 비우고 첫 화면으로 간다.
@@ -229,7 +230,7 @@ export class RecordSheet {
    */
   readonly leave: LeaveConfirmArea;
 
-  /** 읽어 온 것이 남은 패널에서 ‹ 를 눌렀을 때 그 패널을 비울지 묻는 창. */
+  /** 읽어 온 것이 남은 패널에서 뒤로 가려 할 때 그 패널을 비울지 묻는 창. */
   readonly panelLeave: PanelLeaveArea;
 
   /** 손잡이를 잡고 아래로 민다. 실기기에서 시트를 닫는 가장 흔한 손짓이다. */
@@ -300,9 +301,13 @@ export class RecordSheet {
     return this.root.getByLabel('다른 날 고르기');
   }
 
-  /** 지금 보이는 화면 머리의 ‹. 한 단계 뒤로 간다. 첫 화면에서는 시트를 닫으려 든다. */
-  get backButton(): Locator {
-    return this.root.getByRole('button', { name: '뒤로', exact: true });
+  /**
+   * 지금 보이는 단계의 제목 줄. 첫 화면에는 없다(맨 위가 날짜 버튼이다).
+   *
+   * 감춰 둔 패널의 제목은 접근성 트리에 없어 여기 안 잡힌다.
+   */
+  get stepTitle(): Locator {
+    return this.root.getByRole('heading', { level: 2 });
   }
 
   /**
@@ -339,12 +344,16 @@ export class RecordSheet {
     return this.wayGroup.isVisible();
   }
 
-  /** 시트 안 ‹ 를 누른다. */
+  /**
+   * 한 단계 뒤로 간다. 토스 상단바의 ‹ 를 누른 것과 같다(폰 뒤로가기도 같은 신호다).
+   *
+   * **시트 안에는 뒤로 버튼이 없다.** 첫 화면에서는 시트를 닫으려 든다.
+   */
   async back(): Promise<void> {
-    await this.backButton.click();
+    await pressSystemBack(this.page);
   }
 
-  /** 읽어 온 것이 남은 패널을 ‹ 로 나가며 비운다. 확인 창에서 「나가기」 를 고른다. */
+  /** 읽어 온 것이 남은 패널을 뒤로 나가며 비운다. 확인 창에서 「나가기」 를 고른다. */
   async leavePanel(): Promise<void> {
     await this.back();
     await this.panelLeave.leaveButton.click();
@@ -357,12 +366,12 @@ export class RecordSheet {
   }
 
   /**
-   * 첫 화면까지 ‹ 로 물러난다. 이미 첫 화면이면 아무것도 안 누른다.
+   * 첫 화면까지 한 단계씩 물러난다. 이미 첫 화면이면 아무것도 안 한다.
    *
-   * 첫 화면에서 ‹ 를 누르면 시트가 닫히므로, 한 번 누를 때마다 어디에 닿았는지 확인한다.
+   * 첫 화면에서 뒤로 가면 시트가 닫히므로, 한 번 물러날 때마다 어디에 닿았는지 확인한다.
    */
   async toSetup(): Promise<void> {
-    await expect(this.wayGroup.or(this.backButton).first()).toBeVisible();
+    await expect(this.wayGroup.or(this.stepTitle).first()).toBeVisible();
     if (await this.wayGroup.isVisible()) return;
     if (await this.tagGroup.or(this.newTagForm).first().isVisible()) {
       await this.back();
@@ -412,7 +421,7 @@ export class RecordSheet {
   }
 
   /**
-   * 종류를 바꾼다. 둘째 화면이면 ‹ 로 물러나 칩을 누르고 「다음」 으로 돌아온다.
+   * 종류를 바꾼다. 둘째 화면이면 뒤로 물러나 칩을 누르고 「다음」 으로 돌아온다.
    * 끝나면 늘 둘째 화면이다.
    */
   async chooseKind(label: KindLabel): Promise<void> {
@@ -565,6 +574,13 @@ export class RecordSheet {
     await expect(this.destList).toBeVisible();
   }
 
+  /** 「다른 곳」 → 「새 종목이나 통장」 폼을 연다. 아무것도 적지 않는다. */
+  async openNewDest(): Promise<void> {
+    await this.openOtherDest();
+    await this.destList.getByRole('button', { name: '새 종목이나 통장', exact: true }).click();
+    await expect(this.newDestForm).toBeVisible();
+  }
+
   /** 「다른 곳」 → 「새 종목이나 통장」 에서 그룹, 종류, 이름을 적고 「저장」. 둘째 화면으로 돌아온다. */
   async addNewDest({
     group,
@@ -575,9 +591,7 @@ export class RecordSheet {
     kind?: DestKindLabel;
     name: string;
   }): Promise<void> {
-    await this.openOtherDest();
-    await this.destList.getByRole('button', { name: '새 종목이나 통장', exact: true }).click();
-    await expect(this.newDestForm).toBeVisible();
+    await this.openNewDest();
     await this.newDestForm
       .getByRole('radiogroup', { name: '자산 그룹' })
       .getByRole('radio', { name: group, exact: true })
@@ -852,7 +866,7 @@ class RecordInput {
  *
  * 시트가 하나 더 뜨는 것이 아니라 **시트 안쪽이 통째로 이 화면이 된다.** 그래야 적던 금액이
  * 살아 있고, 탭·키패드가 함께 보여 헷갈릴 일도 없다.
- * 「이전」 과 「저장」 은 맨 위에 붙어 있어 아이콘 격자를 내려도 자리가 안 바뀐다.
+ * 제목과 「저장」 은 맨 위에 붙어 있어 아이콘 격자를 내려도 자리가 안 바뀐다.
  */
 class RecordFeedback {
   private readonly root: Locator;
@@ -869,11 +883,6 @@ class RecordFeedback {
   /** 공유 가계부가 있는 사람의 머리 한 줄. 어디에 적혔는지를 먼저 말한다. */
   get savedToMineLabel(): Locator {
     return this.root.getByText('내 가계부에 적었어요', { exact: true });
-  }
-
-  /** 저장 뒤 화면의 ‹. 「확인」 과 같은 길이다(적어 둔 상호와 메모를 보내고 닫는다). */
-  get backButton(): Locator {
-    return this.root.getByRole('button', { name: '뒤로', exact: true });
   }
 
   get headline(): Locator {
@@ -1542,11 +1551,6 @@ class RecordNaturalLanguageForm {
   /** 이 창이 떠 있는지. 적어 둔 상호·금액·날짜가 살아 있는지 보려면 열림·닫힘을 가린다. */
   get newCategoryTitle(): Locator {
     return this.compose.title;
-  }
-
-  /** 만들지 않고 고치던 줄로 돌아간다. 맨 위 왼쪽에 있다. */
-  get newCategoryBackButton(): Locator {
-    return this.compose.backButton;
   }
 
   /** 이름과 그림을 정해 분류를 만든다. 종류는 위 칸이 이미 정했다. */

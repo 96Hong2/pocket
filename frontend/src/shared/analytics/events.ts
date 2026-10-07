@@ -20,7 +20,7 @@ export const EVENTS = {
   /**
    * 시트 안에서 방식을 옮겼다(키패드·줄글·캡처·영수증).
    *
-   * 첫 화면에서 처음 고르는 것은 여기 안 남는다(`record_setup_done.changed`). ‹ 로 첫 화면에
+   * 첫 화면에서 처음 고르는 것은 여기 안 남는다(`record_setup_done.changed`). 뒤로 가 첫 화면에
    * 돌아와 바꾼 것과, 사진 패널이 직접 입력으로 넘긴 것만 남는다.
    */
   inputMethodChanged: 'input_method_changed',
@@ -28,15 +28,15 @@ export const EVENTS = {
    * 첫 화면에서 「다음」(사진 방법이면 「카메라 열기」·「사진 고르기」)을 눌렀다.
    *
    * 무엇을 골랐나(`way`·`kind`·`book`·`day`), 열렸을 때 값에서 무엇을 바꿨나(`changed`),
-   * 첫 화면에 얼마나 머물렀나(`setup_ms`). ‹ 로 돌아와 다시 누르면 `again` 이 참이다.
+   * 첫 화면에 얼마나 머물렀나(`setup_ms`). 뒤로 가 돌아와 다시 누르면 `again` 이 참이다.
    * 판정은 `again` 이 거짓인 줄만 센다.
    */
   recordSetupDone: 'record_setup_done',
   /**
-   * 시트 안에서 한 단계 뒤로 갔다. 어느 단계에서(`from`), 어떻게(`how`).
+   * 시트 안에서 한 단계 뒤로 갔다. 어느 단계에서(`from`).
    *
-   * `how` 는 시트 안 ‹(`sheet`)와 그 밖(`back`) 둘뿐이다. 토스 위 ‹ 와 폰 뒤로가기는 브릿지가
-   * 같은 신호로 줘서 가를 수 없다.
+   * 길은 싣지 않는다. 시트 안 ‹ 를 걷어(ADR-0048) 남은 길은 토스 위 ‹, 폰 뒤로가기, Esc 인데
+   * 앞의 둘은 브릿지가 같은 신호로 줘서 가를 수 없다. 걷기 전 판은 `how`(`sheet`·`back`)를 실었다.
    */
   recordBack: 'record_back',
   /**
@@ -645,7 +645,6 @@ export type EventParamMap = CheckedMap<{
   };
   record_back: FlowParam & {
     from: RecordBackFrom;
-    how: 'sheet' | 'back';
   };
   record_closed: FlowParam & {
     step: RecordStep;

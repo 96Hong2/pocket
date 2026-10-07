@@ -187,7 +187,6 @@ export function useSavingHint({
         stage={stage}
         onStageChange={setStage}
         onPick={convert}
-        onBack={() => setStage(null)}
         newInitialGroup="cash"
         newKinds={SAVING_HINT_KINDS}
       />

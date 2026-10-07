@@ -148,9 +148,10 @@ test('촬영을 취소하면 아무 말도 하지 않고 첫 화면 그대로다
   await expect(recordSheet.receipt.readLine).toHaveCount(0);
   // 걷은 사진 안내 줄이 패널에 다시 서면 안 된다.
   await expect(recordSheet.sheet).not.toContainText('영수증이 잘 보이게 찍어주세요');
-  // 잠금이 풀려야 다시 찍거나 다른 탭으로 갈 수 있다.
+  // 잠금이 풀려야 다시 찍거나 다른 방법으로 갈 수 있다.
   await expect(recordSheet.closeButton).toBeVisible();
-  await expect(recordSheet.backButton).toBeEnabled();
+  await recordSheet.back();
+  await expect(recordSheet.wayGroup).toBeVisible();
 });
 
 test('카메라 접근이 꺼져 있으면 사진이 아니라 카메라라고 말한다', async ({
@@ -195,21 +196,23 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
 
   await expect(recordSheet.receipt.analyzing).toBeVisible();
   // 결과가 돌아올 자리를 없애면 하루 상한만 깎고 얻은 것이 사라진다.
-  await expect(recordSheet.backButton).toBeDisabled();
   await expect(recordSheet.closeButton).toHaveCount(0);
   await recordSheet.closeByEsc();
   await recordSheet.waitOpen();
 
-  // 시트가 뒤로가기를 삼켜야 한다. 놓으면 미니앱이 통째로 닫혀 읽던 것이 사라진다.
+  // 시트가 토스 ‹ 와 폰 뒤로가기를 삼켜야 한다. 한 단계 물러나도, 미니앱이 닫혀도 읽던 것이 사라진다.
   await pressSystemBack(page);
   await recordSheet.waitOpen();
+  await expect(recordSheet.receipt.analyzing).toBeVisible();
   expect(appClosed()).toBe(false);
 
   release();
 
   await expect(recordSheet.receipt.readLine).toBeVisible();
-  await expect(recordSheet.backButton).toBeEnabled();
   await expect(recordSheet.closeButton).toBeVisible();
+  // 잠금이 풀리면 뒤로가기가 다시 먹는다. 읽어 온 것이 있어 먼저 묻는다.
+  await recordSheet.back();
+  await expect(recordSheet.panelLeave.dialog).toBeVisible();
 });
 
 test('영수증 탭을 열어도 Tab 키가 시트 밖으로 새지 않는다', async ({ home, recordSheet }) => {

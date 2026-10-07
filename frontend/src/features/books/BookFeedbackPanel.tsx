@@ -14,7 +14,7 @@ import {
 } from '../../shared/api';
 import { formatDayLabel, formatWeekday } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
-import { Button, SavedHero, SheetHeader, TransactionRow, iconOf } from '../../shared/ui';
+import { Button, SavedHero, TransactionRow, iconOf } from '../../shared/ui';
 
 import { entryCategory, entryTitle, monthLine, othersSeeLine } from './bookEntryText';
 import { BookPayerRow } from './BookPayerRow';
@@ -27,16 +27,16 @@ export interface BookFeedbackPanelProps {
   month: BookMonthStateOut;
   onEntryChange: (entry: BookEntryOut) => void;
   onConfirm: () => void;
-  /** 시트가 받은 Esc 를 이 화면의 ‹ 와 같은 길로 보내려고 건다. */
+  /** 시트가 받은 Esc 를 이 화면의 「확인」 과 같은 길로 보내려고 건다. */
   backRef?: { current: () => void };
 }
 
 /**
  * 공유 가계부에 적은 뒤의 한 화면.
  *
- * 개인 저장 뒤 화면(`FeedbackPanel`)과 머리가 같다. ‹, 체크 그림, 「(가계부 이름)에 적었어요」.
+ * 개인 저장 뒤 화면(`FeedbackPanel`)과 머리가 같다. 체크 그림, 「(가계부 이름)에 적었어요」.
  * 그 아래는 그 달 우리 돈, 누가 볼 수 있나, 누가 냈나까지다. 상호, 메모, 태그, 결제 수단 칸은 없다.
- * ‹ 와 뒤로가기는 확인과 같은 길을 탄다.
+ * 토스 ‹ 와 폰 뒤로가기는 확인과 같은 길을 탄다. 화면 안에는 뒤로 버튼이 없다.
  * 잘못 골랐으면 「내 가계부로 옮기기」 한 번으로 되돌린다. 옮긴 것도 「되돌리기」 로 제자리에 돌아온다.
  */
 export function BookFeedbackPanel({
@@ -126,7 +126,6 @@ export function BookFeedbackPanel({
 
   return (
     <div className="feedback book-feedback" ref={panelRef} tabIndex={-1}>
-      <SheetHeader onBack={() => (busy ? undefined : confirm())} />
       <SavedHero
         title={moved ? '내 가계부로 옮겼어요' : `${book.name}에 적었어요`}
         testId={TEST_IDS.feedbackHeadline}

@@ -18,7 +18,14 @@ import {
   type InvestKind,
 } from '../../shared/api';
 import { toLedgerDate } from '../../shared/lib/format';
-import { AmountField, BottomSheet, Button, LeaveConfirm, Toggle } from '../../shared/ui';
+import {
+  AmountField,
+  BottomSheet,
+  Button,
+  LeaveConfirm,
+  SheetHeader,
+  Toggle,
+} from '../../shared/ui';
 
 import { ASSET_GROUP_VIEWS, assetGroupLabel } from './assetGroups';
 import {
@@ -30,7 +37,6 @@ import {
   unitOf,
   type Holding,
 } from './assetView';
-import { SheetBackHead } from './SheetBackHead';
 
 /** 열려 있으면 대상이 있다. `sortOrder` 가 null 이면 새로 더하는 중이다. */
 export interface AssetItemTarget {
@@ -99,7 +105,6 @@ export function AssetItemSheet({ target, items, onClose, onSell }: AssetItemShee
           items={items}
           dirtyRef={dirtyRef}
           onSavingChange={setSaving}
-          onBack={requestClose}
           onSell={
             onSell == null
               ? undefined
@@ -280,7 +285,6 @@ interface AssetItemFormProps {
   items: AssetItemOut[];
   dirtyRef: MutableRefObject<boolean>;
   onSavingChange: (saving: boolean) => void;
-  onBack: () => void;
   onDone: (toastText: string) => void;
   onSell?: (item: AssetItemOut) => void;
 }
@@ -299,7 +303,6 @@ function AssetItemForm({
   items,
   dirtyRef,
   onSavingChange,
-  onBack,
   onDone,
   onSell,
 }: AssetItemFormProps) {
@@ -380,156 +383,165 @@ function AssetItemForm({
 
   return (
     <>
-      <SheetBackHead title={title} onBack={onBack} />
+      <SheetHeader title={title} />
       <div className="asset-sheet__body">
-        <div className="asset-sheet__field">
-          <span className="asset-sheet__label">어디에 있는 돈인가요</span>
-          <div className="asset-sheet__groups" role="radiogroup" aria-label="자산 그룹">
-            {GROUPS.map((group) => (
-              <button
-                key={group}
-                type="button"
-                role="radio"
-                aria-checked={state.group === group}
-                className="asset-sheet__group"
-                onClick={() => pickGroup(group)}
-              >
-                {ASSET_GROUP_VIEWS[group].label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {state.group === 'investment' ? (
+        {/* 칸들은 굴러가고 버튼들은 바닥에 붙는다. 칸이 많은 주식 항목도 「팔았어요」 가 눌리지 않고 늘 보인다. */}
+        <div className="asset-sheet__scroll">
           <div className="asset-sheet__field">
-            <span className="asset-sheet__label">종류</span>
-            <div className="asset-sheet__kinds" role="radiogroup" aria-label="투자 종류">
-              {INVEST_KINDS.map((kind) => (
+            <span className="asset-sheet__label">어디에 있는 돈인가요</span>
+            <div className="asset-sheet__groups" role="radiogroup" aria-label="자산 그룹">
+              {GROUPS.map((group) => (
                 <button
-                  key={kind}
+                  key={group}
                   type="button"
                   role="radio"
-                  aria-checked={state.kind === kind}
-                  className="asset-sheet__kind"
-                  onClick={() => patch({ kind })}
+                  aria-checked={state.group === group}
+                  className="asset-sheet__group"
+                  onClick={() => pickGroup(group)}
                 >
-                  {INVEST_KIND_LABEL[kind]}
+                  {ASSET_GROUP_VIEWS[group].label}
                 </button>
               ))}
             </div>
           </div>
-        ) : null}
 
-        <label className="asset-sheet__field">
-          <span className="asset-sheet__label">이름</span>
-          <input
-            className="asset-sheet__input"
-            value={state.label}
-            onChange={(event) => patch({ label: event.target.value })}
-            placeholder={
-              state.group === 'investment' ? '예: 삼성전자, S&P500 ETF' : '예: 토스뱅크 통장'
-            }
-            maxLength={80}
-          />
-        </label>
+          {state.group === 'investment' ? (
+            <div className="asset-sheet__field">
+              <span className="asset-sheet__label">종류</span>
+              <div className="asset-sheet__kinds" role="radiogroup" aria-label="투자 종류">
+                {INVEST_KINDS.map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    role="radio"
+                    aria-checked={state.kind === kind}
+                    className="asset-sheet__kind"
+                    onClick={() => patch({ kind })}
+                  >
+                    {INVEST_KIND_LABEL[kind]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
-        {holding === 'quantity' ? (
-          <>
-            <div className="asset-sheet__two">
-              <QuantityField
-                label="갖고 있는 수량"
-                value={state.qty}
-                unit={unit}
-                onChange={(qty) => patch({ qty })}
+          <label className="asset-sheet__field">
+            <span className="asset-sheet__label">이름</span>
+            <input
+              className="asset-sheet__input"
+              value={state.label}
+              onChange={(event) => patch({ label: event.target.value })}
+              placeholder={
+                state.group === 'investment' ? '예: 삼성전자, S&P500 ETF' : '예: 토스뱅크 통장'
+              }
+              maxLength={80}
+            />
+          </label>
+
+          {holding === 'quantity' ? (
+            <>
+              <div className="asset-sheet__two">
+                <QuantityField
+                  label="갖고 있는 수량"
+                  value={state.qty}
+                  unit={unit}
+                  onChange={(qty) => patch({ qty })}
+                />
+                <AmountField
+                  label="넣은 돈"
+                  value={state.cost}
+                  onChange={(cost) => patch({ cost })}
+                />
+              </div>
+              <AmountField
+                label={`지금 1${unit} 가격`}
+                value={state.price}
+                placeholder="모르면 비워 둬요"
+                onChange={(price) => patch({ price })}
               />
+            </>
+          ) : holding === 'amount' ? (
+            <div className="asset-sheet__two">
               <AmountField
                 label="넣은 돈"
                 value={state.cost}
+                placeholder="모르면 비워 둬요"
                 onChange={(cost) => patch({ cost })}
               />
+              <AmountField
+                label="지금 금액"
+                value={state.now}
+                placeholder={state.cost === '' ? undefined : '모르면 비워 둬요'}
+                onChange={(now) => patch({ now })}
+              />
             </div>
+          ) : (
             <AmountField
-              label={`지금 1${unit} 가격`}
-              value={state.price}
-              placeholder="모르면 비워 둬요"
-              onChange={(price) => patch({ price })}
+              label="금액"
+              value={state.amount}
+              onChange={(amount) => patch({ amount })}
             />
-          </>
-        ) : holding === 'amount' ? (
-          <div className="asset-sheet__two">
+          )}
+
+          {takesMonthly(state.group) ? (
+            <div className="asset-sheet__toggle-row">
+              <span id={monthlyId} className="asset-sheet__toggle-label">
+                매달 넣는 돈이에요
+              </span>
+              <Toggle
+                checked={state.monthly}
+                onChange={(monthly) => patch({ monthly })}
+                ariaLabelledBy={monthlyId}
+              />
+            </div>
+          ) : null}
+          {takesMonthly(state.group) && state.monthly ? (
             <AmountField
-              label="넣은 돈"
-              value={state.cost}
-              placeholder="모르면 비워 둬요"
-              onChange={(cost) => patch({ cost })}
+              label="매달 얼마"
+              value={state.monthlyAmount}
+              onChange={(monthlyAmount) => patch({ monthlyAmount })}
             />
-            <AmountField
-              label="지금 금액"
-              value={state.now}
-              placeholder={state.cost === '' ? undefined : '모르면 비워 둬요'}
-              onChange={(now) => patch({ now })}
-            />
-          </div>
-        ) : (
-          <AmountField label="금액" value={state.amount} onChange={(amount) => patch({ amount })} />
-        )}
+          ) : null}
+        </div>
 
-        {takesMonthly(state.group) ? (
-          <div className="asset-sheet__toggle-row">
-            <span id={monthlyId} className="asset-sheet__toggle-label">
-              매달 넣는 돈이에요
-            </span>
-            <Toggle
-              checked={state.monthly}
-              onChange={(monthly) => patch({ monthly })}
-              ariaLabelledBy={monthlyId}
-            />
-          </div>
-        ) : null}
-        {takesMonthly(state.group) && state.monthly ? (
-          <AmountField
-            label="매달 얼마"
-            value={state.monthlyAmount}
-            onChange={(monthlyAmount) => patch({ monthlyAmount })}
-          />
-        ) : null}
-
-        {onSell != null && saved != null && sellableOf(saved) ? (
-          <Button
-            className="asset-sheet__sell"
-            variant="outline"
-            fullWidth
-            disabled={save.isPending}
-            onClick={() => onSell(saved)}
-          >
-            팔았어요
-          </Button>
-        ) : null}
-
-        {message ? (
-          <p className="asset-sheet__notice" role="alert">
-            {message}
-          </p>
-        ) : null}
-
-        <div className="asset-sheet__actions">
-          {target.sortOrder != null ? (
+        <div className="pk-sheet-foot">
+          {onSell != null && saved != null && sellableOf(saved) ? (
             <Button
+              className="asset-sheet__sell"
               variant="outline"
+              fullWidth
               disabled={save.isPending}
-              onClick={() =>
-                send(
-                  items.filter((item) => item.sort_order !== target.sortOrder).map(toItemIn),
-                  'deleted',
-                )
-              }
+              onClick={() => onSell(saved)}
             >
-              지우기
+              팔았어요
             </Button>
           ) : null}
-          <Button className="asset-sheet__done" disabled={!canSave} onClick={submit}>
-            저장
-          </Button>
+
+          {message ? (
+            <p className="asset-sheet__notice" role="alert">
+              {message}
+            </p>
+          ) : null}
+
+          <div className="asset-sheet__actions">
+            {target.sortOrder != null ? (
+              <Button
+                variant="outline"
+                disabled={save.isPending}
+                onClick={() =>
+                  send(
+                    items.filter((item) => item.sort_order !== target.sortOrder).map(toItemIn),
+                    'deleted',
+                  )
+                }
+              >
+                지우기
+              </Button>
+            ) : null}
+            <Button className="asset-sheet__done" disabled={!canSave} onClick={submit}>
+              저장
+            </Button>
+          </div>
         </div>
       </div>
     </>

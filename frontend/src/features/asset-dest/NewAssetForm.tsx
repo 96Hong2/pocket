@@ -22,7 +22,6 @@ export interface NewAssetFormProps {
   kinds?: readonly InvestKind[];
   /** 「저장」. 서버에는 아직 만들지 않는다. 거래를 저장할 때 `new_asset` 으로 함께 만든다. */
   onDone: (pick: AssetDestPick) => void;
-  onBack: () => void;
 }
 
 /** 「새 종목이나 통장」. 그룹, 종류(투자일 때), 이름만 받는다. */
@@ -31,7 +30,6 @@ export function NewAssetForm({
   initialGroup = 'investment',
   kinds = INVEST_KINDS,
   onDone,
-  onBack,
 }: NewAssetFormProps) {
   const [draft, setDraft] = useState<NewAssetDraft>({ group: initialGroup, kind: null, label: '' });
   const ready = newAssetReady(draft);
@@ -58,7 +56,7 @@ export function NewAssetForm({
 
   return (
     <div className="asset-dest-new" data-record-step="">
-      <SheetHeader onBack={onBack} title="새 종목이나 통장" />
+      <SheetHeader title="새 종목이나 통장" />
       <div className="asset-dest-new__body">
         <div className="asset-sheet__field">
           <span className="asset-sheet__label">어디에 있는 돈인가요</span>

@@ -21,14 +21,7 @@ import {
   toLedgerDate,
 } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
-import {
-  Button,
-  iconOf,
-  IconTextButton,
-  SavedHero,
-  SheetHeader,
-  TransactionRow,
-} from '../../shared/ui';
+import { Button, iconOf, IconTextButton, SavedHero, TransactionRow } from '../../shared/ui';
 
 import type { AssetDest } from '../asset-dest';
 
@@ -52,7 +45,7 @@ interface FeedbackPanelProps {
    */
   onMethodPicked: (method: PaymentMethod | null) => void;
   onConfirm: () => void;
-  /** 시트가 받은 Esc 를 이 화면의 ‹ 와 같은 길로 보내려고 건다. */
+  /** 시트가 받은 Esc 를 이 화면의 「확인」 과 같은 길로 보내려고 건다. */
   backRef?: { current: () => void };
   /** 시트를 끌어내리거나 바깥을 눌러 닫을 때 부를 것. 적금 안내에 답 없이 닫혔다고 남긴다. */
   dismissRef?: { current: () => void };
@@ -82,7 +75,8 @@ const MEMO_MAX = 200;
  * 저장 뒤 화면. 어디에 적었나, 무엇을 적었나, 예산을 넘었으면 그 한 줄.
  *
  * 줄을 누르면 분류를, 금액을 누르면 금액을 고친다. 어디서와 메모는 안 적어도 되는 칸이라
- * 아이콘 줄을 눌러야 펼쳐진다. ‹ 와 뒤로가기는 확인과 같은 길을 탄다(적어 둔 칸을 보내고 닫는다).
+ * 아이콘 줄을 눌러야 펼쳐진다. 토스 ‹ 와 폰 뒤로가기는 확인과 같은 길을 탄다(적어 둔 칸을 보내고 닫는다).
+ * 화면 안에는 뒤로 버튼이 없다. 닫는 버튼은 맨 아래 「확인」 하나다.
  */
 export function FeedbackPanel({
   flowId,
@@ -285,7 +279,6 @@ export function FeedbackPanel({
 
   return (
     <div className="feedback" ref={panelRef} tabIndex={-1}>
-      <SheetHeader onBack={confirm} />
       <SavedHero title={label} testId={TEST_IDS.feedbackHeadline} />
 
       {/*

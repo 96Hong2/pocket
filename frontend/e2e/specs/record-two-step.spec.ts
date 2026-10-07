@@ -11,7 +11,8 @@ import { horizontalScrollers } from '../support/overflow';
  * 지키는 것:
  * - 처음 열면 오늘, 내 가계부, 직접 입력, 지출이 골라져 있어 「다음」 한 번이면 금액 화면이다.
  * - 둘째 화면에는 금액, 분류, 태그 칩, 저장, 키패드만 선다. 종류와 날짜는 첫 화면에만 있다.
- * - 모든 창 왼쪽 위 ‹ 는 한 단계 뒤로 가고, 돌아가도 적던 금액과 태그가 남는다.
+ * - 시트 안에 뒤로 버튼은 없다. 토스 ‹(폰 뒤로가기와 같은 신호)와 Esc 가 한 단계 뒤로 가고,
+ *   돌아가도 적던 금액과 태그가 남는다.
  * - 저장 뒤 화면은 「내 가계부에 적었어요」 가 가장 크고 남은 예산 문장이 없다.
  * - 한 기록의 로그는 처음부터 저장까지 같은 flow_id 로 이어지고, 다시 열면 새 flow_id 다.
  */
@@ -43,6 +44,7 @@ async function flowIdsOf(page: Page, names: string[]): Promise<string[]> {
 
 test.describe('첫 화면', () => {
   test('처음 열면 날짜, 방법 넷, 종류, 「다음」 순서로 서고 기본값이 골라져 있다', async ({
+    appShell,
     home,
     recordSheet,
   }) => {
@@ -51,9 +53,9 @@ test.describe('첫 화면', () => {
     await home.recordButton.click();
     await recordSheet.waitOpen();
 
-    await test.step('맨 위 날짜는 오늘이고 왼쪽에 ‹ 가 있다', async () => {
+    await test.step('맨 위 날짜는 오늘이고 시트 안에 뒤로 버튼이 없다', async () => {
       await expect(recordSheet.dayButton).toContainText(`오늘 ${dayText(today())}`);
-      await expect(recordSheet.backButton).toBeVisible();
+      await expect(appShell.selfDrawnBackControls).toHaveCount(0);
     });
 
     await test.step('방법 이름 넷과 기본값', async () => {
@@ -228,7 +230,7 @@ test.describe('둘째 화면', () => {
     await expect(recordSheet.feedback.savedLabel).toBeVisible();
   });
 
-  test('분류만 고르고 ‹ 로 첫 화면에 갔다 와도 그 분류가 골라져 있다', async ({
+  test('분류만 고르고 뒤로 가 첫 화면에 갔다 와도 그 분류가 골라져 있다', async ({
     home,
     recordSheet,
   }) => {
@@ -279,7 +281,7 @@ test.describe('저장 뒤 화면', () => {
           .filter((child) => child.nodeType === Node.TEXT_NODE)
           .map((child) => child.textContent?.trim() ?? '')
           .join('');
-        // ‹ 같은 기호 하나는 글이 아니라 단추 그림이다. 글자나 숫자가 있는 것만 잰다.
+        // ▾ 같은 기호 하나는 글이 아니라 그림이다. 글자나 숫자가 있는 것만 잰다.
         if (!/[\p{L}\p{N}]/u.test(own) || node.offsetParent == null) continue;
         const size = parseFloat(getComputedStyle(node).fontSize);
         if (own === label) labelSize = Math.max(labelSize, size);
@@ -342,7 +344,7 @@ test.describe('저장 뒤 화면', () => {
 });
 
 test.describe('뒤로 가기', () => {
-  test('둘째 화면 ‹ 는 첫 화면으로 가고 금액과 태그가 남는다', async ({
+  test('둘째 화면에서 뒤로 가면 첫 화면이고 금액과 태그가 남는다', async ({
     home,
     prep,
     recordSheet,
@@ -372,7 +374,7 @@ test.describe('뒤로 가기', () => {
     await expect(recordSheet.tagChip).toHaveText('＃ 태그');
   });
 
-  test('날짜와 태그 단계의 ‹ 는 그 앞 화면으로 간다', async ({ home, prep, recordSheet }) => {
+  test('날짜와 태그 단계에서 뒤로 가면 그 앞 화면이다', async ({ home, prep, recordSheet }) => {
     await prep.addTag('출장');
 
     await home.open();
@@ -394,7 +396,7 @@ test.describe('뒤로 가기', () => {
     await expect(recordSheet.tagChip).toHaveText('＃ 태그');
   });
 
-  test('폰 뒤로가기와 Esc 도 시트 안 ‹ 와 같이 한 단계씩 물러난다', async ({
+  test('토스 ‹(폰 뒤로가기와 같은 신호)와 Esc 가 한 단계씩 물러난다', async ({
     home,
     page,
     recordSheet,
@@ -421,7 +423,10 @@ test.describe('뒤로 가기', () => {
     await expect(recordSheet.sheet).toBeVisible();
   });
 
-  test('첫 화면 ‹ 는 창을 닫고, 적던 금액이 있으면 먼저 묻는다', async ({ home, recordSheet }) => {
+  test('첫 화면에서 뒤로 가면 창을 닫고, 적던 금액이 있으면 먼저 묻는다', async ({
+    home,
+    recordSheet,
+  }) => {
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
@@ -440,7 +445,7 @@ test.describe('뒤로 가기', () => {
     await recordSheet.waitClosed();
   });
 
-  test('저장 뒤 화면의 ‹ 와 폰 뒤로가기는 적어 둔 상호를 보내고 창을 닫는다', async ({
+  test('저장 뒤 화면에서 Esc 와 토스 ‹ 는 적어 둔 상호를 보내고 창을 닫는다', async ({
     home,
     page,
     recordSheet,
@@ -454,7 +459,8 @@ test.describe('뒤로 가기', () => {
     await recordSheet.feedback.waitSaved();
     await recordSheet.feedback.openMerchant();
     await recordSheet.feedback.merchantField.fill('역전우동');
-    await recordSheet.feedback.backButton.click();
+    // 화면 안에 뒤로 버튼은 없다. Esc 가 「확인」 과 같은 길로 상호를 보내고 닫는다.
+    await recordSheet.closeByEsc();
     await recordSheet.waitClosed();
     await expect(home.today.row('역전우동')).toBeVisible();
 
@@ -536,7 +542,7 @@ test.describe('뒤로 가기', () => {
 });
 
 test.describe('글로 쓰기', () => {
-  test('저장한 결과 화면의 뒤로가기와 ‹ 는 창을 닫고, 다시 열면 빈 입력칸이다', async ({
+  test('저장한 결과 화면의 토스 ‹ 와 Esc 는 창을 닫고, 다시 열면 빈 입력칸이다', async ({
     home,
     page,
     prep,
@@ -582,11 +588,11 @@ test.describe('글로 쓰기', () => {
 
     await recordSheet.nl.analyze('저녁 9000');
     await recordSheet.nl.save();
-    await recordSheet.back();
+    await recordSheet.closeByEsc();
     await recordSheet.waitClosed();
   });
 
-  test('검토 화면 ‹ 로 버리면 묻고 답한 것이 남고, 서버의 검토 묶음도 지운다', async ({
+  test('검토 화면에서 뒤로 가 버리면 묻고 답한 것이 남고, 서버의 검토 묶음도 지운다', async ({
     home,
     page,
     recordSheet,
@@ -772,7 +778,7 @@ for (const viewport of [
 }
 
 test.describe('로그', () => {
-  test('한 기록의 시작부터 저장 결과까지 같은 flow_id 로 이어지고, ‹ 뒤 다시 「다음」 은 again 이다', async ({
+  test('한 기록의 시작부터 저장 결과까지 같은 flow_id 로 이어지고, 뒤로 간 뒤 다시 「다음」 은 again 이다', async ({
     home,
     page,
     recordSheet,
@@ -787,10 +793,9 @@ test.describe('로그', () => {
     await recordSheet.back();
     await expect
       .poll(async () => (await logsNamed(page, 'record_back')).at(-1)?.params)
-      .toMatchObject({
-        from: 'amount',
-        how: 'sheet',
-      });
+      .toMatchObject({ from: 'amount' });
+    // 시트 안 ‹ 를 걷은 뒤로는 길을 싣지 않는다.
+    expect((await logsNamed(page, 'record_back')).at(-1)?.params).not.toHaveProperty('how');
     await recordSheet.next();
     await expect
       .poll(async () => (await logsNamed(page, 'record_setup_done')).map((log) => log.params.again))

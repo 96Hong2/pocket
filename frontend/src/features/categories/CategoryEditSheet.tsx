@@ -141,12 +141,10 @@ export interface CategoryEditFormProps {
    *
    * - `sheet` 시트 안이나 다른 내용 사이에 낀 자리. 저장은 아래에 선다
    * - `page`  화면 하나를 통째로 먹는 자리(기록 시트의 새 분류 만들기).
-   *   「이전·저장」 이 맨 위에 붙어 스크롤과 무관하게 늘 보이고, 아이콘 격자는 접힌 채로 열리며
+   *   제목과 「저장」 이 맨 위에 붙어 스크롤과 무관하게 늘 보이고, 아이콘 격자는 접힌 채로 열리며
    *   색은 아이콘을 고른 뒤에 나온다. 한 번에 하나씩만 묻는 자리다
    */
   layout?: 'sheet' | 'page';
-  /** `page` 에서 맨 위 「이전」 을 눌렀을 때. 만들지 않고 왔던 화면으로 돌아간다. */
-  onBack?: () => void;
   /**
    * 분류를 만들 공유 가계부. 주면 내 분류가 아니라 그 가계부 분류를 만든다.
    *
@@ -170,7 +168,6 @@ export function CategoryEditForm({
   fixedKind,
   onCreated,
   layout = 'sheet',
-  onBack,
   bookId = null,
 }: CategoryEditFormProps) {
   const colorId = useId();
@@ -403,17 +400,17 @@ export function CategoryEditForm({
       {/*
         맨 위에 붙는 줄. **스크롤해도 안 밀린다.**
 
-        나가는 길과 저장이 한 줄에 나란히 서서, 아이콘 격자를 아무리 내려도 둘 다 늘 보인다.
+        제목과 저장이 한 줄에 서서, 아이콘 격자를 아무리 내려도 저장이 늘 보인다.
         아래에 두면 격자를 편 사람에게는 접힌 화면 밖으로 밀려 안 보인다.
+
+        **나가는 버튼은 그리지 않는다.** 그만두는 길은 토스 ‹, 폰 뒤로가기, Esc, 내리는 손짓이고
+        감싼 자리가 받는다. 여기 「이전」 을 두면 토스 상단바와 뒤로가기가 둘이 된다.
       */}
       {page ? (
         <div className="cat-sheet__bar">
-          <button type="button" className="cat-sheet__back" disabled={busy} onClick={onBack}>
-            이전
-          </button>
-          <span className="cat-sheet__bar-title">
+          <h2 className="cat-sheet__bar-title">
             {category == null ? '새 분류 만들기' : '분류 고치기'}
-          </span>
+          </h2>
           <Button variant="primarySmall" disabled={!canSave} onClick={save}>
             저장
           </Button>
@@ -472,7 +469,7 @@ export function CategoryEditForm({
           /*
             새로 만들 때는 **어디서 열든** 펴 둔다. 접어 두면 「아이콘 고르기」 를 한 번 더
             눌러야 격자가 나오는데, 여기 온 사람은 아이콘을 고르러 온 사람이다.
-            한 화면을 쓰는 자리도 「이전·저장」 이 맨 위에 붙어 있어 격자가 밀어낼 것이 없다.
+            한 화면을 쓰는 자리도 「저장」 이 맨 위에 붙어 있어 격자가 밀어낼 것이 없다.
             고르는 순간 접히는 것은 그대로다(`IconPicker` 의 `gridOpen`).
           */
           startOpen={category == null}

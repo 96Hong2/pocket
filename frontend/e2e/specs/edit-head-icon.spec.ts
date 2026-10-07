@@ -100,13 +100,10 @@ test('고르기만 접고 고치던 값은 남는다. 거기서 새 분류를 �
   await expect(pick.dialog).toHaveCount(0);
   await calendar.edit.waitOpen();
 
-  // Esc 와 화면 안 ‹ 도 같다.
+  // Esc 도 같다.
   await calendar.edit.headCategoryButton.click();
   await expect(pick.dialog).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(pick.dialog).toHaveCount(0);
-  await calendar.edit.headCategoryButton.click();
-  await pick.backButton.click();
   await expect(pick.dialog).toHaveCount(0);
   await calendar.edit.waitOpen();
   await expect(calendar.edit.amount).toHaveValue(formatNumber(15_000));

@@ -590,12 +590,12 @@ test('아이콘을 고르면 격자가 접히고 그때 색이 나온다', async
   await expect(form.colorGroup).toHaveCount(0);
 
   /*
-    격자를 끝까지 내려도 나가는 길과 저장이 제자리다. 맨 위에 붙여 둔 줄이라
+    격자를 끝까지 내려도 제목과 저장이 제자리다. 맨 위에 붙여 둔 줄이라
     아래로 아무리 굴려도 화면 안에 있어야 한다.
   */
   await form.iconCell('calendar clock').scrollIntoViewIfNeeded();
   await expect(form.saveButton).toBeInViewport();
-  await expect(form.backButton).toBeInViewport();
+  await expect(form.title).toBeInViewport();
 
   await form.iconCell(PET_ICON).click();
 
@@ -654,7 +654,7 @@ test('분류를 만들다 시스템 뒤로가기를 누르면 만들기만 닫�
   await recordSheet.input.newCategoryForm.nameField.fill(PET);
 
   /*
-    이름을 적어 뒀으니 뒤로가기도 한 번 묻는다. 「이전」 을 눌렀을 때와 같은 규칙이다.
+    이름을 적어 뒀으니 뒤로가기가 한 번 묻는다. Esc 와 내리는 손짓도 같은 규칙이다.
     한쪽만 묻고 다른 쪽은 그냥 닫으면 어느 길로 나왔는지에 따라 잃는 것이 달라진다.
   */
   await appShell.pressBack();
@@ -677,7 +677,11 @@ test('분류를 만들다 시스템 뒤로가기를 누르면 만들기만 닫�
   await recordSheet.waitClosed();
 });
 
-test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', async ({ home, recordSheet }) => {
+test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', async ({
+  appShell,
+  home,
+  recordSheet,
+}) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
@@ -692,7 +696,8 @@ test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', as
   */
   await expect(recordSheet.input.newCategoryForm.nameField).toBeFocused();
 
-  await recordSheet.input.newCategoryForm.backButton.click();
+  // 만들기 화면에 나가는 버튼은 없다. 토스 ‹ 가 만들기만 접는다.
+  await appShell.pressBack();
 
   await expect(recordSheet.input.newCategoryForm.title).toHaveCount(0);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(12_000));
@@ -865,7 +870,7 @@ test('기록을 고치다 분류를 만들면 그 기록에 바로 붙는다', a
   await expect(calendar.edit.pickedCategory).toHaveText(/선물/);
 });
 
-test('분류를 만들다 그만두면 고치던 화면으로 돌아온다', async ({ calendar, prep }) => {
+test('분류를 만들다 그만두면 고치던 화면으로 돌아온다', async ({ appShell, calendar, prep }) => {
   await prep.addTransaction({ amount: 9000, merchant: '문구점' });
 
   await calendar.open();
@@ -875,7 +880,8 @@ test('분류를 만들다 그만두면 고치던 화면으로 돌아온다', asy
 
   await calendar.edit.merchant.fill('문구사');
   await calendar.edit.openNewCategory();
-  await calendar.edit.newCategoryBackButton.click();
+  await expect(calendar.edit.newCategoryTitle).toBeVisible();
+  await appShell.pressBack();
 
   await expect(calendar.edit.newCategoryTitle).toHaveCount(0);
   await expect(calendar.edit.merchant).toHaveValue('문구사');

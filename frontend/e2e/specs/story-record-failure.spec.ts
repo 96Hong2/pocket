@@ -179,8 +179,6 @@ test('검토 줄을 고치다 분류를 만들어도 적어 둔 상호·금액·
   // 맞는 칸이 없다는 것을 깨닫는 순간이 여기다. 숨긴 분류가 있으면 「더 보기」를 한 번 편다.
   await recordSheet.nl.form.openNewCategory();
   await expect(recordSheet.nl.form.newCategoryTitle).toBeVisible();
-  // 돌아갈 길이 화면에 적혀 있어야 한다. 여기서 돌아가는 곳은 고치던 줄이다.
-  await expect(recordSheet.nl.form.newCategoryBackButton).toBeVisible();
 
   await recordSheet.nl.form.createCategory(TEAM_LUNCH, PAW);
 

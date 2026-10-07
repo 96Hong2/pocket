@@ -1,6 +1,6 @@
 import type { KeyboardEvent, ReactNode } from 'react';
 
-import { Button, SheetHeader, iconUrl, type IconName } from '../../shared/ui';
+import { Button, iconUrl, type IconName } from '../../shared/ui';
 
 import { wayHasKinds, type RecordTab } from './recordTab';
 
@@ -69,7 +69,6 @@ export interface RecordSetupProps {
   destination?: ReactNode;
   /** 사진 방법일 때 아래 버튼 바로 밑에 서는 광고 예고 줄. */
   photoNote?: ReactNode;
-  onBack: () => void;
   onOpenDay: () => void;
   onWayChange: (way: RecordTab) => void;
   onKindChange: (kind: RecordKind) => void;
@@ -89,7 +88,6 @@ export function RecordSetup({
   expenseOnly,
   destination,
   photoNote,
-  onBack,
   onOpenDay,
   onWayChange,
   onKindChange,
@@ -100,18 +98,15 @@ export function RecordSetup({
 
   return (
     <div className="record-setup" data-record-step="">
-      <SheetHeader
-        onBack={onBack}
-        title={
-          <button type="button" className="record-setup__date" onClick={onOpenDay}>
-            {dayWord == null ? null : <span className="record-setup__day-word">{dayWord}</span>}{' '}
-            {dayLabel}
-            <span className="record-setup__caret" aria-hidden="true">
-              ▾
-            </span>
-          </button>
-        }
-      />
+      <div className="record-setup__head">
+        <button type="button" className="record-setup__date" onClick={onOpenDay}>
+          {dayWord == null ? null : <span className="record-setup__day-word">{dayWord}</span>}{' '}
+          {dayLabel}
+          <span className="record-setup__caret" aria-hidden="true">
+            ▾
+          </span>
+        </button>
+      </div>
 
       {destination}
 

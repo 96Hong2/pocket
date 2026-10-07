@@ -86,7 +86,7 @@ test('공유 가계부에서 줄글로 적으면 검토한 지출만 그 가계�
   });
 
   await test.step('검토하는 동안 적을 곳을 바꾸려면 읽어 온 것을 먼저 버려야 한다', async () => {
-    // 적을 곳은 첫 화면에 있다. 읽어 둔 것은 읽을 때 고른 가계부에 묶여 있어 ‹ 가 먼저 묻는다.
+    // 적을 곳은 첫 화면에 있다. 읽어 둔 것은 읽을 때 고른 가계부에 묶여 있어 뒤로 가려 하면 먼저 묻는다.
     await recordSheet.back();
     await expect(recordSheet.panelLeave.text).toHaveText('읽어 온 5건이 사라져요');
     await recordSheet.panelLeave.stayButton.click();
