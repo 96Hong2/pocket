@@ -167,47 +167,6 @@
     color: var(--color-expense);
   }
 
-  /* ── 창 머리(‹ 와 제목) ──────────────────────────── */
-
-  .asset-sheet-head {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-height: 44px;
-    margin: 0 0 8px;
-  }
-
-  /* 높은 시트는 본문 자식마다 남은 높이를 나눠 준다. 머리가 그 몫을 받으면 위아래로 빈자리가 생긴다. */
-  .pk-sheet--tall > .pk-sheet__body > .asset-sheet-head {
-    flex: none;
-  }
-
-  .asset-sheet-head__back {
-    flex: none;
-    display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    margin-left: -12px;
-    border: 0;
-    border-radius: var(--radius-pill);
-    background: transparent;
-    color: var(--color-ink);
-  }
-
-  .asset-sheet-head__back:active {
-    background: var(--color-bg);
-  }
-
-  .asset-sheet-head__title {
-    flex: 1;
-    min-width: 0;
-    margin: 0;
-    font-size: 18px;
-    font-weight: var(--font-weight-extrabold);
-    color: var(--color-ink);
-  }
-
   /* ── 순자산 상세 ────────────────────────────────── */
 
   .nw-sheet__lead {
@@ -430,10 +389,33 @@
 
   /* ── 항목 시트 ──────────────────────────────────── */
 
+  /*
+    높은 시트의 속. 칸들은 굴러가고 「팔았어요」, 「지우기」, 「저장」 은 바닥 줄(`.pk-sheet-foot`)에
+    붙어 늘 보인다. 기록 고치기 시트와 같은 규약이다.
+
+    칸과 버튼을 한 세로 줄에 두었더니, 주식처럼 칸이 많아 시트 높이를 넘으면 높이가 고정값인
+    「팔았어요」 버튼만 글자 높이까지 눌렸다.
+  */
   .asset-sheet__body {
     display: flex;
     flex-direction: column;
+  }
+
+  .asset-sheet__scroll {
+    display: flex;
+    flex-direction: column;
     gap: 16px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    /* 굴러가는 상자는 넘치는 것을 자른다. 입력칸의 포커스 테두리가 잘리지 않게 그만큼 넓혔다 되민다. */
+    margin-inline: -4px;
+    padding: 0 4px 4px;
+  }
+
+  /* 넘치면 줄어들지 않고 굴러간다. */
+  .asset-sheet__scroll > * {
+    flex: none;
   }
 
   .asset-sheet__field {
@@ -555,8 +537,13 @@
     color: var(--color-ink);
   }
 
+  /* 바닥 줄 맨 위. 아래 「지우기」, 「저장」 과 버튼 사이 간격만큼 띄운다. */
+  .asset-sheet__sell {
+    margin-bottom: 10px;
+  }
+
   .asset-sheet__notice {
-    margin: 0;
+    margin: 0 0 10px;
     font-size: var(--text-13);
     font-weight: var(--font-weight-semibold);
     color: var(--color-amber-700);

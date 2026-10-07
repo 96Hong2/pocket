@@ -3,7 +3,7 @@
  *
  * 기록 시트의 키패드 탭은 시트 안쪽을 통째로 바꿔서 이 화면을 만든다. 그런데 줄글·캡처·
  * 영수증의 검토 줄과 기존 기록 고치기는 목록 한가운데라, 같은 방식을 쓸 수가 없다.
- * 거기서는 회색 상자 안에 폼이 끼어 있었고, 「이전·저장」 이 맨 위가 아니라 상자 안
+ * 거기서는 회색 상자 안에 폼이 끼어 있었고, 「저장」 이 맨 위가 아니라 상자 안
  * 어딘가에 있었다. 아이콘 격자를 내리면 저장이 화면 밖으로 밀렸다.
  *
  * 그래서 어디서 열든 **화면을 덮는 한 장**으로 올린다. 시트(60)보다 위에 서고, 시트가
@@ -39,7 +39,7 @@ export interface CategoryComposeOverlayProps {
   open: boolean;
   /** 종류는 부른 자리가 이미 정했다. 여기서 다시 묻지 않는다. */
   fixedKind: LedgerKind;
-  /** 맨 위 「이전」. 만들지 않고 왔던 화면으로 돌아간다. */
+  /** 만들지 않고 왔던 화면으로 돌아간다. 토스 ‹, 폰 뒤로가기, Esc, 내리는 손짓이 부른다. */
   onBack: () => void;
   /** 만들기가 끝나 닫히는 길. */
   onClose: () => void;
@@ -69,13 +69,13 @@ export function CategoryComposeOverlay({
   /*
     적어 둔 것이 있나. 있으면 나가기 전에 한 번 묻는다.
 
-    이름을 적고 그림까지 골라 둔 사람이 「이전」 을 잘못 눌러 처음부터 다시 적는 일이
+    이름을 적고 그림까지 골라 둔 사람이 잘못 나가 처음부터 다시 적는 일이
     실제로 있었다. 아무것도 안 건드린 사람은 안 붙잡는다.
   */
   const dirtyRef = useRef(false);
   const [asking, setAsking] = useState(false);
 
-  /** 나가려는 모든 길이 여기를 지난다. 「이전」 · Esc · 시스템 뒤로가기가 같은 규칙을 탄다. */
+  /** 나가려는 모든 길이 여기를 지난다. 토스 ‹, 폰 뒤로가기, Esc, 내리는 손짓이 같은 규칙을 탄다. */
   function requestBack(): void {
     // 이미 묻는 중이면 머무는 쪽이다. 물음을 또 띄우지 않는다.
     if (asking) return;
@@ -86,11 +86,11 @@ export function CategoryComposeOverlay({
     onBack();
   }
 
-  // 시스템 뒤로가기를 이 창의 「이전」 으로 가져간다. 등록 안 하면 미니앱이 통째로 닫힌다.
+  // 시스템 뒤로가기를 이 창이 가져간다. 등록 안 하면 미니앱이 통째로 닫힌다.
   useOverlayBackClose(open, requestBack, busy);
 
   /*
-    🔴 **아래로 미는 손짓도 「이전」 이다**(2026-09-25 밤 신고).
+    🔴 **아래로 미는 손짓도 한 겹만 물린다**(2026-09-25 밤 신고).
 
     이 창에는 손잡이가 없어서 밀어 닫기를 아예 안 받고 있었는데, 리액트 포털은 합성
     이벤트를 **리액트 나무를 타고** 올려 보낸다. 그래서 여기서 시작한 손짓이 뒤에 있는
@@ -160,7 +160,6 @@ export function CategoryComposeOverlay({
           onBusyChange?.(next);
         }}
         dirtyRef={dirtyRef}
-        onBack={requestBack}
         onClose={onClose}
         onCreated={onCreated}
         bookId={bookId}

@@ -486,10 +486,6 @@ export class EditSheetArea {
     return this.compose.saveButton;
   }
 
-  get newCategoryBackButton(): Locator {
-    return this.compose.backButton;
-  }
-
   /** 이름과 아이콘을 채워 한 건을 만든다. 기록 시트의 만들기 자리와 같은 폼이다. */
   async createCategory(name: string, iconLabel: string): Promise<void> {
     await this.compose.create(name, iconLabel);

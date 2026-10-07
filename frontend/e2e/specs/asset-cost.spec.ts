@@ -165,6 +165,52 @@ test('넣은 돈 모르는 항목을 전부 팔고 받은 돈이 지금 금액�
   await expect(assets.rowChip('아마존', /^\+50% 실현$/)).toBeVisible();
 });
 
+test('「팔았어요」 로 연 팔기 화면에서 「다른 곳」 목록까지 갔다가 토스 뒤로가기를 누르면 금액 화면으로 한 단계만 물러난다', async ({
+  appShell,
+  assets,
+  prep,
+  recordSheet,
+}) => {
+  await prep.putAssets([AMAZON, { group: 'cash', label: '카카오뱅크', amount: 1_000_000 }]);
+  await openSell(assets, recordSheet, '아마존');
+
+  await recordSheet.openOtherDest();
+  await appShell.pressBack();
+
+  // 기록 창이 통째로 닫히면 안 된다. 화면 안에 뒤로 버튼이 없어 이 길이 한 단계 뒤로다.
+  await expect(recordSheet.destList).toHaveCount(0);
+  await expect(recordSheet.amountTitle).toHaveText('얼마 받았어요?');
+});
+
+test('칸이 많은 주식 항목을 좁고 낮은 화면에서 열어도 「팔았어요」 가 눌리지 않고 「저장」 이 화면 안에 있다', async ({
+  assets,
+  page,
+  prep,
+}) => {
+  await page.setViewportSize({ width: 344, height: 700 });
+  await prep.putAssets([
+    {
+      group: 'investment',
+      label: '삼성전자',
+      amount: 780_000,
+      kind: 'stock',
+      quantity: '10',
+      cost: 720_000,
+      price: 78_000,
+    },
+  ]);
+
+  await assets.open();
+  await assets.waitReady();
+  await assets.openEdit('삼성전자');
+
+  await expect(assets.sheet.sellButton).toBeInViewport({ ratio: 1 });
+  await expect(assets.sheet.saveButton).toBeInViewport({ ratio: 1 });
+  // 높은 시트에서 칸이 넘치면 높이가 고정값인 버튼만 글자 높이(17px)까지 줄어들던 자리다.
+  const sell = await assets.sheet.sellButton.boundingBox();
+  expect(sell?.height ?? 0).toBeGreaterThanOrEqual(44);
+});
+
 test('넣은 돈을 비우고 팔면 받은 돈만 적히고 수익률은 미리보기에도 저장 뒤에도 없다', async ({
   assets,
   page,

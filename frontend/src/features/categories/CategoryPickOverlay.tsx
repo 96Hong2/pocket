@@ -17,7 +17,7 @@ export interface CategoryPickOverlayProps {
   onPick: (category: CategoryOut) => void;
   /** 「새 분류」. 안 넘기면 그 칸이 없다. */
   onCreate?: () => void;
-  /** ‹, 폰 뒤로가기, Esc, 아래로 미는 손짓. 고르지 않고 돌아간다. */
+  /** 토스 ‹, 폰 뒤로가기, Esc, 아래로 미는 손짓. 고르지 않고 돌아간다. 창 안에 뒤로 버튼은 없다. */
   onBack: () => void;
 }
 
@@ -50,7 +50,7 @@ export function CategoryPickOverlay({
   useEffect(() => {
     if (!open) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
-    // 고른 칩에 손이 먼저 가게 한다. 없으면 ‹ 다.
+    // 고른 칩에 손이 먼저 가게 한다. 없으면 첫 칩이다.
     const box = boxRef.current;
     const first =
       box?.querySelector<HTMLElement>('button[aria-pressed="true"]') ??
@@ -89,7 +89,7 @@ export function CategoryPickOverlay({
       onClickCapture={dismiss.onClickCapture}
       {...dismiss.handlers}
     >
-      <SheetHeader onBack={onBack} title="카테고리 바꾸기" />
+      <SheetHeader title="카테고리 바꾸기" />
       <CategoryPicker
         ariaLabel="카테고리 고르기"
         categories={categories}

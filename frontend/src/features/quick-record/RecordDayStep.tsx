@@ -11,7 +11,6 @@ export interface RecordDayStepProps {
   /** 고를 수 있는 가장 옛날. */
   oldest: string;
   onPick: (day: string) => void;
-  onBack: () => void;
 }
 
 /**
@@ -20,13 +19,13 @@ export interface RecordDayStepProps {
  * 달력은 「다른 날 고르기」 줄 위에 투명하게 겹친 날짜 칸이 연다. 기기가 그리는 달력을
  * 그대로 쓰면서 칸의 숫자 형식은 안 보이게 하는 방법이다. 앞날은 막지 않고 저장할 때 묻는다.
  */
-export function RecordDayStep({ value, today, oldest, onPick, onBack }: RecordDayStepProps) {
+export function RecordDayStep({ value, today, oldest, onPick }: RecordDayStepProps) {
   const near = NEAR_DAYS.map((item) => ({ ...item, day: shiftDay(today, item.delta) }));
   const other = !near.some((item) => item.day === value);
 
   return (
     <div className="record-day" data-record-step="">
-      <SheetHeader onBack={onBack} title="언제예요?" />
+      <SheetHeader title="언제예요?" />
       <div className="record-day__list">
         {near.map((item) => (
           <button

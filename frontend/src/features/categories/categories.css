@@ -568,10 +568,13 @@
   }
 
   /*
-    맨 위에 붙는 줄. 「이전」 과 「저장」 이 나란히 선다.
+    맨 위에 붙는 줄. 왼쪽에 제목, 오른쪽에 「저장」 이 선다.
 
-    시트가 스크롤 상자라 여기 붙여 두면 아이콘 격자를 아무리 내려도 둘 다 늘 보인다.
+    시트가 스크롤 상자라 여기 붙여 두면 아이콘 격자를 아무리 내려도 저장이 늘 보인다.
     손잡이(28px) 바로 아래에 세운다. 겹치면 밀어서 닫는 손짓을 이 줄이 가로챈다.
+
+    뒤로 버튼, 가운데 제목, 아래 구분선을 두지 않는다. 토스 상단바 아래에 막대가 하나 더
+    선 것처럼 보이면 안 된다. 제목은 다른 창의 제목 줄(`.sheet-head__title`)과 같은 글씨다.
   */
   .cat-sheet__bar {
     position: sticky;
@@ -580,32 +583,19 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    min-height: 44px;
     /* 아래로 지나가는 글자가 비치지 않게 바탕을 깔고, 여백만큼 좌우로 넓혀 덮는다. */
     margin: 0 -4px;
     padding: 4px 4px 10px;
-    border-bottom: 1px solid var(--color-divider);
     background: var(--color-surface);
-  }
-
-  /* 나가는 길. 저장보다 조용해야 한다. 잘못 눌러 적던 것을 잃는 쪽이 값이 크다. */
-  .cat-sheet__back {
-    flex: none;
-    min-width: 48px;
-    min-height: 44px;
-    padding: 0 4px;
-    border: 0;
-    background: none;
-    color: var(--color-muted);
-    font-family: inherit;
-    font-size: var(--text-15);
-    font-weight: var(--font-weight-semibold);
-    text-align: left;
   }
 
   .cat-sheet__bar-title {
     flex: 1;
-    text-align: center;
-    font-size: var(--text-15);
+    min-width: 0;
+    margin: 0;
+    text-align: left;
+    font-size: 18px;
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
   }

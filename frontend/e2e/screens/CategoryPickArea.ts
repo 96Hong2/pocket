@@ -36,8 +36,4 @@ export class CategoryPickArea {
   get newCategoryButton(): Locator {
     return this.group.getByRole('button', { name: '새 분류', exact: true });
   }
-
-  get backButton(): Locator {
-    return this.root.getByRole('button', { name: '뒤로', exact: true });
-  }
 }

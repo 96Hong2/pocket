@@ -249,7 +249,7 @@ test('공유 가계부가 셋이면 셋째 칩이 「다른 가계부」 이고 
   // 보통 폰(Pixel 8)에서는 줄이 하나 늘어도 첫 화면이 한 화면이다.
   expect(await recordSheet.overflowY()).toBe(0);
 
-  // 금액을 눌러 둔 뒤 ‹ 로 첫 화면에 돌아와 적을 곳을 바꾼다.
+  // 금액을 눌러 둔 뒤 뒤로 가 첫 화면에 돌아와 적을 곳을 바꾼다.
   await recordSheet.input.enterAmount(8_000);
   await recordSheet.back();
   await recordSheet.destination.otherButton.click();
@@ -310,7 +310,7 @@ test('분류를 더 보기로 펼친 뒤 첫 화면에서 적을 곳을 바꾸�
   await recordSheet.input.moreCategoriesButton.click();
   await expect(recordSheet.input.keypad).toHaveCount(0);
 
-  // 적을 곳은 첫 화면에 있다. ‹ 로 돌아가 바꾸고 「다음」 으로 온다.
+  // 적을 곳은 첫 화면에 있다. 뒤로 돌아가 바꾸고 「다음」 으로 온다.
   await recordSheet.back();
   await recordSheet.destination.pill('우리 집').click();
   await expect(recordSheet.destination.pill('우리 집')).toHaveAttribute('aria-pressed', 'true');

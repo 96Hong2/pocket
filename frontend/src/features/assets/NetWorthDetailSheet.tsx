@@ -6,10 +6,9 @@ import {
   type AssetSummaryOut,
 } from '../../shared/api';
 import { formatCurrency, formatDayLabel } from '../../shared/lib/format';
-import { BottomSheet, Button } from '../../shared/ui';
+import { BottomSheet, Button, SheetHeader } from '../../shared/ui';
 
 import { pointLabel } from './assetView';
-import { SheetBackHead } from './SheetBackHead';
 import { NetWorthLineChart } from './TrendCharts';
 
 export interface NetWorthDetailSheetProps {
@@ -37,7 +36,7 @@ export function NetWorthDetailSheet({
 
   return (
     <BottomSheet open={open} onClose={onClose} ariaLabel="순자산" className="nw-sheet">
-      <SheetBackHead title="순자산" onBack={onClose} />
+      <SheetHeader title="순자산" />
       {snapshot != null ? (
         <p className="nw-sheet__lead">{`${formatDayLabel(snapshot.effective_on)} 기준`}</p>
       ) : null}

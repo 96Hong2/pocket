@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import type { AssetGroup, AssetItemOut, InvestKind } from '../../shared/api';
 import { AssetDestList } from './AssetDestList';
 import type { AssetDest, AssetDestPick } from './destinations';
@@ -11,14 +9,12 @@ export interface AssetDestFlowProps {
   destinations: readonly AssetItemOut[];
   value: AssetDest | null;
   onPick: (pick: AssetDestPick) => void;
-  /** 목록 단계의 ‹. 이 흐름을 연 화면으로 돌아간다. */
-  onBack: () => void;
   /**
-   * 단계를 쓰는 쪽이 쥘 때. 폰 뒤로가기가 폼에서 목록으로 한 단계만 물러나야 하면 넘긴다.
-   * 안 넘기면 안에서 쥔다.
+   * 단계는 쓰는 쪽이 쥔다. 이 흐름은 뒤로 버튼을 그리지 않아, 폼에서 목록으로 물러나는 일은
+   * 쓰는 쪽이 토스 ‹, 폰 뒤로가기, Esc 를 받아 한다.
    */
-  stage?: AssetDestStage;
-  onStageChange?: (stage: AssetDestStage) => void;
+  stage: AssetDestStage;
+  onStageChange: (stage: AssetDestStage) => void;
   title?: string;
   /** 「새 종목이나 통장」 을 둘지. 새 항목을 못 받는 자리(검토 줄)는 false. */
   allowNew?: boolean;
@@ -32,7 +28,6 @@ export function AssetDestFlow({
   destinations,
   value,
   onPick,
-  onBack,
   stage,
   onStageChange,
   title,
@@ -40,21 +35,13 @@ export function AssetDestFlow({
   newInitialGroup,
   newKinds,
 }: AssetDestFlowProps) {
-  const [ownStage, setOwnStage] = useState<AssetDestStage>('list');
-  const current = stage ?? ownStage;
-  const go = (next: AssetDestStage) => {
-    if (stage == null) setOwnStage(next);
-    onStageChange?.(next);
-  };
-
-  if (current === 'new' && allowNew) {
+  if (stage === 'new' && allowNew) {
     return (
       <NewAssetForm
         destinations={destinations}
         initialGroup={newInitialGroup}
         kinds={newKinds}
         onDone={onPick}
-        onBack={() => go('list')}
       />
     );
   }
@@ -63,8 +50,7 @@ export function AssetDestFlow({
       destinations={destinations}
       value={value}
       onPick={onPick}
-      onNew={allowNew ? () => go('new') : undefined}
-      onBack={onBack}
+      onNew={allowNew ? () => onStageChange('new') : undefined}
       title={title}
     />
   );

@@ -318,7 +318,7 @@ test('날짜를 고치면 목록의 날짜가 그대로 따라온다', async ({ 
   await expect(recordSheet.nl.day('점심')).toHaveText(formatDayLabel(twoDaysAgoIso()));
 });
 
-test('검토하다 ‹ 를 누르면 읽어 온 건수를 말하며 묻고, 머물면 후보 목록이 그대로 남는다', async ({
+test('검토하다 뒤로 가려 하면 읽어 온 건수를 말하며 묻고, 머물면 후보 목록이 그대로 남는다', async ({
   home,
   recordSheet,
 }) => {

@@ -159,6 +159,7 @@ test.describe('일부러 막았을 때', () => {
 });
 
 test('검토 줄을 고치다 분류를 만들어도 적어 둔 상호·금액·날짜가 그대로다', async ({
+  appShell,
   home,
   recordSheet,
 }) => {
@@ -179,9 +180,13 @@ test('검토 줄을 고치다 분류를 만들어도 적어 둔 상호·금액·
   // 맞는 칸이 없다는 것을 깨닫는 순간이 여기다. 숨긴 분류가 있으면 「더 보기」를 한 번 편다.
   await recordSheet.nl.form.openNewCategory();
   await expect(recordSheet.nl.form.newCategoryTitle).toBeVisible();
-  // 돌아갈 길이 화면에 적혀 있어야 한다. 여기서 돌아가는 곳은 고치던 줄이다.
-  await expect(recordSheet.nl.form.newCategoryBackButton).toBeVisible();
+  // 화면 안에 뒤로 버튼이 없다. 토스 뒤로가기로 접으면 돌아가는 곳은 고치던 줄이다.
+  await appShell.pressBack();
+  await expect(recordSheet.nl.form.newCategoryTitle).toHaveCount(0);
+  await expect(recordSheet.nl.form.merchantField).toHaveValue(GIMBAP);
 
+  await recordSheet.nl.form.openNewCategory();
+  await expect(recordSheet.nl.form.newCategoryTitle).toBeVisible();
   await recordSheet.nl.form.createCategory(TEAM_LUNCH, PAW);
 
   // 만들고 돌아왔을 때 비어 있으면 세 칸을 처음부터 다시 적어야 한다.

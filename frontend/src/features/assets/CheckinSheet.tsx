@@ -9,11 +9,10 @@ import {
   type AssetItemOut,
 } from '../../shared/api';
 import { formatCurrency, toLedgerDate } from '../../shared/lib/format';
-import { BottomSheet, Button } from '../../shared/ui';
+import { BottomSheet, Button, SheetHeader } from '../../shared/ui';
 
 import { assetGroupLabel, assetItemName } from './assetGroups';
 import { holdingOf, itemValueOf } from './assetView';
-import { SheetBackHead } from './SheetBackHead';
 
 export interface CheckinSheetProps {
   open: boolean;
@@ -78,7 +77,7 @@ function CheckinForm({ items, onClose }: { items: AssetItemOut[]; onClose: () =>
 
   return (
     <div className="checkin-sheet">
-      <SheetBackHead title="바뀐 것만 고쳐요" onBack={onClose} />
+      <SheetHeader title="바뀐 것만 고쳐요" />
       <ul className="checkin-sheet__rows">
         {items.map((item, index) => {
           const name = assetItemName(item.group, item.label);

@@ -32,11 +32,6 @@ export class CategoryComposeArea {
     return this.page.getByRole('button', { name: '저장', exact: true });
   }
 
-  /** 만들지 않고 왔던 화면으로. 저장과 한 줄에 나란히 있다. */
-  get backButton(): Locator {
-    return this.page.getByRole('button', { name: '이전', exact: true });
-  }
-
   /**
    * 저장이 왜 회색인지 적는 한 줄. 버튼 바로 아래에 있다.
    *

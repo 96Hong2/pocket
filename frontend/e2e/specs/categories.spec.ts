@@ -558,7 +558,7 @@ test('이름만 적어도 분류가 만들어지고, 적던 금액은 그대로�
   const form = recordSheet.input.newCategoryForm;
   /*
     **격자는 펴진 채로 열린다.** 여기 온 사람은 아이콘을 고르러 온 사람이라, 한 번 더
-    눌러야 목록이 나오면 그 한 번이 군더더기다. 「이전·저장」 이 맨 위에 붙어 있어
+    눌러야 목록이 나오면 그 한 번이 군더더기다. 「저장」 이 맨 위 제목 줄에 붙어 있어
     격자가 밀어낼 것도 없다.
   */
   await expect(form.iconGrid).toBeVisible();
@@ -590,12 +590,12 @@ test('아이콘을 고르면 격자가 접히고 그때 색이 나온다', async
   await expect(form.colorGroup).toHaveCount(0);
 
   /*
-    격자를 끝까지 내려도 나가는 길과 저장이 제자리다. 맨 위에 붙여 둔 줄이라
+    격자를 끝까지 내려도 제목과 저장이 제자리다. 맨 위에 붙여 둔 줄이라
     아래로 아무리 굴려도 화면 안에 있어야 한다.
   */
   await form.iconCell('calendar clock').scrollIntoViewIfNeeded();
   await expect(form.saveButton).toBeInViewport();
-  await expect(form.backButton).toBeInViewport();
+  await expect(form.title).toBeInViewport();
 
   await form.iconCell(PET_ICON).click();
 
@@ -633,10 +633,10 @@ test('이름이 비었거나 겹치면 저장이 막히고 이유가 적힌다',
 });
 
 /**
- * 시스템 뒤로가기도 화면의 「이전」 과 같은 일을 해야 한다.
+ * 시스템 뒤로가기는 만들기 화면만 접어야 한다.
  *
- * 만들기 화면은 시트 안쪽을 통째로 먹고 맨 위에 「이전」 이 붙어 있어, 안드로이드에서는
- * 뒤로가기가 그 「이전」 으로 읽힌다. 시트째 닫히면 적던 이름도, 금액도, 고른 날도
+ * 만들기 화면은 시트 안쪽을 통째로 먹고 화면 안에 뒤로 버튼이 없어, 돌아가는 길이
+ * 뒤로가기다. 시트째 닫히면 적던 이름도, 금액도, 고른 날도
  * 확인 한 번 없이 사라진다(읽어 둔 것이 없으면 그만둘지 묻지도 않는다).
  */
 test('분류를 만들다 시스템 뒤로가기를 누르면 만들기만 닫히고 시트는 남는다', async ({
@@ -654,7 +654,7 @@ test('분류를 만들다 시스템 뒤로가기를 누르면 만들기만 닫�
   await recordSheet.input.newCategoryForm.nameField.fill(PET);
 
   /*
-    이름을 적어 뒀으니 뒤로가기도 한 번 묻는다. 「이전」 을 눌렀을 때와 같은 규칙이다.
+    이름을 적어 뒀으니 뒤로가기가 한 번 묻는다. Esc 와 내리는 손짓도 같은 규칙이다.
     한쪽만 묻고 다른 쪽은 그냥 닫으면 어느 길로 나왔는지에 따라 잃는 것이 달라진다.
   */
   await appShell.pressBack();
@@ -677,7 +677,11 @@ test('분류를 만들다 시스템 뒤로가기를 누르면 만들기만 닫�
   await recordSheet.waitClosed();
 });
 
-test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', async ({ home, recordSheet }) => {
+test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', async ({
+  appShell,
+  home,
+  recordSheet,
+}) => {
   await home.open();
   await home.waitReady();
   await home.recordButton.click();
@@ -692,7 +696,8 @@ test('분류를 만들다 그만두면 적던 금액 그대로 돌아온다', as
   */
   await expect(recordSheet.input.newCategoryForm.nameField).toBeFocused();
 
-  await recordSheet.input.newCategoryForm.backButton.click();
+  // 만들기 화면에 나가는 버튼은 없다. 토스 ‹ 가 만들기만 접는다.
+  await appShell.pressBack();
 
   await expect(recordSheet.input.newCategoryForm.title).toHaveCount(0);
   await expect(recordSheet.input.amountText).toHaveText(formatCurrency(12_000));
@@ -865,7 +870,7 @@ test('기록을 고치다 분류를 만들면 그 기록에 바로 붙는다', a
   await expect(calendar.edit.pickedCategory).toHaveText(/선물/);
 });
 
-test('분류를 만들다 그만두면 고치던 화면으로 돌아온다', async ({ calendar, prep }) => {
+test('분류를 만들다 그만두면 고치던 화면으로 돌아온다', async ({ appShell, calendar, prep }) => {
   await prep.addTransaction({ amount: 9000, merchant: '문구점' });
 
   await calendar.open();
@@ -875,7 +880,8 @@ test('분류를 만들다 그만두면 고치던 화면으로 돌아온다', asy
 
   await calendar.edit.merchant.fill('문구사');
   await calendar.edit.openNewCategory();
-  await calendar.edit.newCategoryBackButton.click();
+  await expect(calendar.edit.newCategoryTitle).toBeVisible();
+  await appShell.pressBack();
 
   await expect(calendar.edit.newCategoryTitle).toHaveCount(0);
   await expect(calendar.edit.merchant).toHaveValue('문구사');

@@ -17,7 +17,7 @@ import {
   toLedgerDate,
 } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
-import { Button, IconTextButton, SavedHero, SheetHeader } from '../../shared/ui';
+import { Button, IconTextButton, SavedHero } from '../../shared/ui';
 import { formatQuantity, formatSignedWon, type Holding } from '../assets';
 
 import { rateText } from './saveInvest';
@@ -151,7 +151,6 @@ export function SavedAssetPanel({
 
   return (
     <div className="feedback saved-asset" ref={panelRef} tabIndex={-1}>
-      <SheetHeader onBack={confirm} />
       <SavedHero title={title} testId={TEST_IDS.feedbackHeadline} />
       <p className="saved-asset__sub" data-numeric="">
         {sold ? `받은 돈 ${amount}` : dayLabel}

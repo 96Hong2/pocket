@@ -230,7 +230,7 @@ test('키패드에서 이체로 적으면 분류 없이 저장되고 그 달 지
   await recordSheet.input.enterAmount(TRANSFER_AMOUNT);
   await expect(recordSheet.input.saveButton).toHaveCount(0);
 
-  // 종류는 첫 화면에서 고른다. ‹ 로 물러나 「이체」 를 고르고 「다음」 으로 돌아온다.
+  // 종류는 첫 화면에서 고른다. 뒤로 물러나 「이체」 를 고르고 「다음」 으로 돌아온다.
   await recordSheet.chooseKind('이체');
   // 켜졌다는 것이 화면에 보여야 한다. 제목이 무엇을 적는 중인지 말한다.
   await expect(recordSheet.amountTitle).toHaveText('얼마 옮겼어요?');

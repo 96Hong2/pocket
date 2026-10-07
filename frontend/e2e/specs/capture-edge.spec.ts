@@ -123,22 +123,24 @@ test('읽는 동안 탭도 닫기도 잠기고, 끝나면 풀린다', async ({ h
   });
 
   // 결과가 돌아올 자리를 없애면 하루 상한만 깎고 얻은 것이 사라진다.
-  await expect(recordSheet.backButton).toBeDisabled();
   await expect(recordSheet.closeButton).toHaveCount(0);
   await recordSheet.closeByEsc();
   await recordSheet.waitOpen();
 
-  // 시트가 뒤로가기를 삼켜야 한다. 놓으면 미니앱이 통째로 닫혀 읽던 것이 사라진다.
+  // 시트가 토스 ‹ 와 폰 뒤로가기를 삼켜야 한다. 한 단계 물러나도, 미니앱이 닫혀도 읽던 것이 사라진다.
   await pressSystemBack(page);
   await recordSheet.waitOpen();
+  await expect(recordSheet.capture.analyzing).toBeVisible();
   expect(appClosed()).toBe(false);
 
   release();
 
   await expect(recordSheet.capture.readLine).toBeVisible();
   await expect(recordSheet.capture.analyzing).toHaveCount(0);
-  await expect(recordSheet.backButton).toBeEnabled();
   await expect(recordSheet.closeButton).toBeVisible();
+  // 잠금이 풀리면 뒤로가기가 다시 먹는다. 읽어 온 것이 있어 먼저 묻는다.
+  await recordSheet.back();
+  await expect(recordSheet.panelLeave.dialog).toBeVisible();
 });
 
 test('탭을 옮겨도 Tab 키가 시트 밖으로 새지 않는다', async ({ home, recordSheet }) => {
@@ -207,9 +209,10 @@ test.describe('일부러 실패시켰을 때', () => {
     await expect(recordSheet.capture.pickAlert).toContainText('지금은 캡처를 읽지 못했어요');
     await expect(recordSheet.capture.panelPickButton).toBeVisible();
     await expect(recordSheet.capture.pickButton).toBeEnabled();
-    // 한 자리가 실패했다고 시트가 잠겨 버리면 ‹ 로 돌아가 직접 입력으로도 못 적는다.
-    await expect(recordSheet.backButton).toBeEnabled();
     await expect(recordSheet.closeButton).toBeVisible();
+    // 한 자리가 실패했다고 시트가 잠겨 버리면 첫 화면으로 돌아가 직접 입력으로도 못 적는다.
+    await recordSheet.back();
+    await expect(recordSheet.wayGroup).toBeVisible();
   });
 
   test('하루 상한에 걸려도 키패드는 그대로 쓸 수 있다', async ({ home, page, recordSheet }) => {

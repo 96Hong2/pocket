@@ -23,7 +23,8 @@ export interface RecordTagStepProps {
   onCompose: () => void;
   /** 새 태그를 만들었다. 만든 것을 찾지 못했으면 비어 온다. */
   onCreated: (tag?: TagOut) => void;
-  onBack: () => void;
+  /** 새 태그 폼의 「취소」. 한 단계 뒤로와 같은 길이다. */
+  onCancel: () => void;
 }
 
 /**
@@ -42,20 +43,20 @@ export function RecordTagStep({
   onPick,
   onCompose,
   onCreated,
-  onBack,
+  onCancel,
 }: RecordTagStepProps) {
   if (composing) {
     return (
       <div className="record-tags" data-record-step="">
-        <SheetHeader onBack={onBack} title="새 태그" />
-        <TagForm kind={kind} onDone={onCreated} onCancel={onBack} />
+        <SheetHeader title="새 태그" />
+        <TagForm kind={kind} onDone={onCreated} onCancel={onCancel} />
       </div>
     );
   }
 
   return (
     <div className="record-tags" data-record-step="">
-      <SheetHeader onBack={onBack} title="태그" />
+      <SheetHeader title="태그" />
       {tags == null && failed ? (
         <ErrorState size="inline" title="태그를 불러오지 못했어요" onRetry={onRetry} />
       ) : tags == null ? (

@@ -137,7 +137,7 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await recordSheet.waitOpen();
 
     await recordSheet.input.enterAmount(24_000);
-    // 둘째 화면의 Esc 는 ‹ 와 같다. 첫 화면으로 한 단계만 물러나고 아직 묻지 않는다.
+    // 둘째 화면의 Esc 는 토스 ‹ 와 같다. 첫 화면으로 한 단계만 물러나고 아직 묻지 않는다.
     await page.keyboard.press('Escape');
     await expect(recordSheet.wayGroup).toBeVisible();
     await expect(recordSheet.leave.dialog).toHaveCount(0);
@@ -163,7 +163,7 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
       열 줄을 적어 둔 사람에게 0건은 「잃을 것이 없다」 가 아니다.
     */
     await recordSheet.nl.textarea.fill('어제 김밥천국 8000원\n그제 스타벅스 4500원');
-    // 줄글 화면의 Esc 는 ‹ 와 같다. 첫 화면으로 한 단계 물러나고, 적은 글은 패널에 그대로 남는다.
+    // 줄글 화면의 Esc 는 토스 ‹ 와 같다. 첫 화면으로 한 단계 물러나고, 적은 글은 패널에 그대로 남는다.
     await page.keyboard.press('Escape');
     await expect(recordSheet.wayGroup).toBeVisible();
     await expect(recordSheet.leave.dialog).toHaveCount(0);
@@ -176,7 +176,7 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await expect(recordSheet.nl.textarea).toHaveValue(/김밥천국/);
   });
 
-  test('분류를 만들던 중에 나가려 하면 한 번 묻는다', async ({ home, recordSheet }) => {
+  test('분류를 만들던 중에 나가려 하면 한 번 묻는다', async ({ appShell, home, recordSheet }) => {
     await home.open();
     await home.waitReady();
     await home.recordButton.click();
@@ -188,7 +188,7 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await expect(form.title).toBeVisible();
     await form.nameField.fill('반려동물');
 
-    await form.backButton.click();
+    await appShell.pressBack();
     await expect(recordSheet.leave.dialog).toBeVisible();
 
     await recordSheet.leave.stayButton.click();
@@ -196,7 +196,7 @@ test.describe('적던 것을 말없이 잃지 않는다', () => {
     await expect(form.nameField).toHaveValue('반려동물');
 
     // 그만두기를 고르면 만들기만 닫히고 적던 금액은 남는다.
-    await form.backButton.click();
+    await appShell.pressBack();
     await recordSheet.leave.leaveButton.click();
     await expect(form.title).toHaveCount(0);
     await expect(recordSheet.input.amountText).toContainText('24,000');
@@ -428,7 +428,7 @@ test.describe('분류 만들기는 한 겹만 접힌다', () => {
 
   test('🔴 덮는 창에서도 적어 둔 것이 있으면 내릴 때 묻는다', async ({ page, prep, calendar }) => {
     /*
-      손짓으로 창을 접는 길은 이번에 새로 생겼다. 「이전」 버튼만 묻고 손짓은 그냥
+      손짓으로도 창을 접을 수 있다. 뒤로가기만 묻고 손짓은 그냥
       접히면, 어디로 나가느냐에 따라 잃는 것이 달라진다.
     */
     await prep.addTransaction({ amount: 12_000, merchant: '김밥천국', daysAgo: 0 });

@@ -25,7 +25,6 @@ export interface AssetDestListProps {
   onPick: (pick: AssetDestPick) => void;
   /** 「새 종목이나 통장」. 폼 단계를 여는 것은 쓰는 쪽이 한다. 안 주면 그 줄이 없다. */
   onNew?: () => void;
-  onBack: () => void;
   /** 머리 제목. 기록에서는 「어디에 넣었어요?」. */
   title?: string;
 }
@@ -43,7 +42,6 @@ export function AssetDestList({
   value,
   onPick,
   onNew,
-  onBack,
   title = '어디에 넣었어요?',
 }: AssetDestListProps) {
   const valueKey = destKeyOf(value);
@@ -54,7 +52,7 @@ export function AssetDestList({
 
   return (
     <div className="asset-dest-list" data-record-step="">
-      <SheetHeader onBack={onBack} title={title} />
+      <SheetHeader title={title} />
       {sections.map((section) => (
         <section key={section.group} className="asset-dest-list__section">
           <h3 className="asset-dest-list__group">{assetGroupLabel(section.group)}</h3>

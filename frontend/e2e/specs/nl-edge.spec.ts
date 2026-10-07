@@ -169,17 +169,21 @@ test('분석이 도는 동안 탭도 닫기도 잠긴다', async ({ home, page, 
 
   await expect(recordSheet.nl.analyzing).toBeVisible();
   // 결과가 돌아올 자리를 없애면 하루 상한만 깎고 얻은 것이 사라진다.
-  await expect(recordSheet.backButton).toBeDisabled();
   await expect(recordSheet.closeButton).toHaveCount(0);
   await recordSheet.closeByEsc();
   await recordSheet.waitOpen();
+  // 토스 ‹ 와 폰 뒤로가기도 삼킨다. 첫 화면으로 물러나면 결과가 돌아올 자리가 없다.
+  await recordSheet.back();
+  await expect(recordSheet.nl.analyzing).toBeVisible();
 
   release();
 
   await expect(recordSheet.nl.readLine).toBeVisible();
   await expect(recordSheet.nl.analyzing).toHaveCount(0);
-  await expect(recordSheet.backButton).toBeEnabled();
   await expect(recordSheet.closeButton).toBeVisible();
+  // 잠금이 풀리면 뒤로가기가 다시 먹는다. 읽어 온 것이 있어 먼저 묻는다.
+  await recordSheet.back();
+  await expect(recordSheet.panelLeave.dialog).toBeVisible();
 });
 
 // ── 한 자리가 실패했을 때 ───────────────────────
@@ -205,8 +209,10 @@ test.describe('일부러 실패시켰을 때', () => {
     // 길게 적은 문장까지 지우면 사용자는 처음부터 다시 적어야 한다.
     await expect(recordSheet.nl.textarea).toHaveValue(THREE_ITEMS);
     await expect(recordSheet.nl.analyzeButton).toBeEnabled();
-    await expect(recordSheet.backButton).toBeEnabled();
     await expect(recordSheet.closeButton).toBeVisible();
+    // 뒤로가기도 풀려 첫 화면으로 물러날 수 있다.
+    await recordSheet.back();
+    await expect(recordSheet.wayGroup).toBeVisible();
   });
 
   test('고치기가 실패해도 검토 목록과 잠금이 되돌아온다', async ({ home, page, recordSheet }) => {
@@ -230,8 +236,9 @@ test.describe('일부러 실패시켰을 때', () => {
     await expect(recordSheet.nl.form.amountField).toHaveValue('13,000');
     await expect(recordSheet.nl.saveButton).toHaveText(`1건 저장 · ${formatCurrency(13000)}`);
     // 잠금이 안 풀리면 시트를 닫을 길이 영영 없다.
-    await expect(recordSheet.backButton).toBeEnabled();
     await expect(recordSheet.closeButton).toBeVisible();
+    await recordSheet.back();
+    await expect(recordSheet.panelLeave.dialog).toBeVisible();
   });
 
   test('환불은 켤 수 없고, 그 자리에서 수입으로 바꿔 저장한다', async ({ home, recordSheet }) => {

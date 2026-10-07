@@ -223,7 +223,7 @@ export function QuickRecordSheet({
   bookId?: string | null;
   /**
    * 자산 화면 「팔았어요」 로 열 때 그 종목. 첫 화면을 건너뛰고 그 종목이 골라진 팔기 둘째 화면으로
-   * 열고, 둘째 화면의 ‹ 는 시트를 닫는다.
+   * 열고, 둘째 화면에서 뒤로 가면 시트를 닫는다.
    */
   sell?: AssetItemOut | null;
   onClose: () => void;
@@ -322,7 +322,7 @@ export function QuickRecordSheet({
       leaveComposeRef.current();
       return;
     }
-    // Esc 는 시트 안 ‹ 와 같은 일을 한다. 첫 화면에서만 시트를 닫으려 든다.
+    // Esc 는 토스 ‹, 폰 뒤로가기처럼 한 단계 뒤로다. 첫 화면에서만 시트를 닫으려 든다.
     if (reason === 'esc' && escBackRef.current()) return;
     requestLeave('close', reason ?? 'back');
   }
@@ -445,7 +445,7 @@ function RecordBody({
   onDone: () => void;
   /** 저장이 끝난 날. 부르는 쪽이 그 날로 옮겨 간다. 오늘을 넘지 않는다. */
   onRecorded?: (day: string) => void;
-  /** 첫 화면의 ‹. 잃을 것이 있으면 바깥이 먼저 묻는다. */
+  /** 첫 화면 없이 연 둘째 화면(팔기)에서 뒤로 갈 때. 잃을 것이 있으면 바깥이 먼저 묻는다. */
   onLeave: () => void;
   /** 카테고리 관리로 가겠다고 했을 때. 잃을 것이 있으면 바깥이 먼저 묻는다. */
   onManage: () => void;
@@ -667,11 +667,9 @@ function RecordBody({
     capture: 0,
     receipt: 0,
   });
-  /** 읽어 온 것을 든 채 ‹ 를 눌러 묻는 중. 몇 건인지와 어느 길로 눌렀는지. */
-  const [panelAsk, setPanelAsk] = useState<{ count: number; how: 'sheet' | 'back' } | null>(
-    null,
-  );
-  /** 저장까지 마쳐 결과 화면을 든 패널. 이 패널의 ‹ 는 「확인」 과 같다. */
+  /** 읽어 온 것을 든 채 뒤로 가려 해 묻는 중. 몇 건인지. */
+  const [panelAsk, setPanelAsk] = useState<{ count: number } | null>(null);
+  /** 저장까지 마쳐 결과 화면을 든 패널. 이 패널에서 뒤로 가면 「확인」 과 같다. */
   const importSavedRef = useRef<Partial<Record<RecordTab, boolean>>>({});
   /** 패널마다 검토 묶음을 버리는 길. 검토 화면이 서 있을 때만 걸린다. */
   const nlDiscardRef = useRef<() => void>(() => {});
@@ -768,7 +766,7 @@ function RecordBody({
     setFocusAfter('newCategoryChip');
   }
 
-  /** 만들기를 그만두려는 모든 길이 여기를 지난다. Esc · 시스템 뒤로가기 · 「이전」 이 같다. */
+  /** 만들기를 그만두려는 모든 길이 여기를 지난다. 토스 ‹, 폰 뒤로가기, Esc 가 같다. */
   function requestLeaveCompose(): void {
     if (composeAsking) return;
     if (composeDirtyRef.current) {
@@ -779,12 +777,12 @@ function RecordBody({
   }
 
   /**
-   * 한 단계 뒤로. 시트 안 ‹, 토스 위 ‹, 폰 뒤로가기, Esc 가 모두 여기로 온다.
+   * 한 단계 뒤로. 토스 위 ‹, 폰 뒤로가기, Esc 가 모두 여기로 온다. 시트 안에는 뒤로 버튼이 없다.
    *
    * 금액, 줄글, 사진은 첫 화면으로, 날짜는 첫 화면으로, 태그는 금액 화면으로 간다.
    * 읽어 온 것이 남은 패널이면 버릴지 먼저 묻는다. 읽는 중에는 움직이지 않는다.
    */
-  function back(how: 'sheet' | 'back'): void {
+  function back(): void {
     if (busy || done || step === 'setup') return;
     // 버릴지 묻는 중에 또 뒤로 가면 묻던 창만 접는다. 읽어 온 것은 그대로 둔다.
     if (panelAsk != null) {
@@ -796,7 +794,7 @@ function RecordBody({
       setFutureAsk(null);
       return;
     }
-    // 자산 화면 「팔았어요」 로 열었으면 첫 화면이 없다. 둘째 화면의 ‹ 는 시트를 닫는다.
+    // 자산 화면 「팔았어요」 로 열었으면 첫 화면이 없다. 둘째 화면에서 뒤로 가면 시트를 닫는다.
     if (step === 'amount' && sellStart != null) {
       onLeave();
       return;
@@ -807,7 +805,7 @@ function RecordBody({
     }
     if ((step === 'nl' || step === 'photo') && assetMode) {
       if (assetPending > 0) {
-        askPanel(how);
+        askPanel();
         return;
       }
     } else if (step === 'nl' || step === 'photo') {
@@ -817,11 +815,11 @@ function RecordBody({
         return;
       }
       if ((reviewCounts[tab] ?? 0) > 0) {
-        askPanel(how);
+        askPanel();
         return;
       }
     }
-    analytics.log(EVENTS.recordBack, { from: step, how }, { flowId, kind: 'click' });
+    analytics.log(EVENTS.recordBack, { from: step }, { flowId, kind: 'click' });
     if (step === 'tag') {
       setTagComposing(false);
       go('amount');
@@ -839,14 +837,14 @@ function RecordBody({
   }
 
   /** 읽어 온 것을 버릴지 묻는다. 시트를 닫으려 할 때와 같은 로그를 남긴다. */
-  function askPanel(how: 'sheet' | 'back'): void {
+  function askPanel(): void {
     const count = assetMode ? assetPending : (reviewCounts[tab] ?? 0);
     analytics.log(
       EVENTS.recordLeaveAsked,
       { result: 'asked', pending: count, reason: 'parsed' },
       { kind: 'impression', flowId },
     );
-    setPanelAsk({ count, how });
+    setPanelAsk({ count });
   }
 
   function stayPanel(): void {
@@ -874,7 +872,7 @@ function RecordBody({
       { result: 'left', pending: panelAsk.count },
       { kind: 'click', flowId },
     );
-    analytics.log(EVENTS.recordBack, { from: step, how: panelAsk.how }, { flowId, kind: 'click' });
+    analytics.log(EVENTS.recordBack, { from: step }, { flowId, kind: 'click' });
     if (assetMode) {
       (tab === 'capture' ? assetCaptureRef : assetTextRef).current?.reset();
     } else {
@@ -886,11 +884,11 @@ function RecordBody({
   }
 
   // 단계마다 뒤로가기를 한 단계 뒤로 가져간다. 첫 화면에서는 시트의 닫기가 받는다.
-  useOverlayBackClose(!done && step !== 'setup', () => back('back'), busy);
+  useOverlayBackClose(!done && step !== 'setup', back, busy);
   // 나중에 등록한 것이 먼저 받는다. 분류를 만드는 동안에는 만들기만 접는다.
   useOverlayBackClose(creating, requestLeaveCompose, busy);
 
-  /** 저장 뒤 화면의 ‹. Esc 도 같은 길로 보내 적어 둔 상호와 메모를 먼저 보낸다. */
+  /** 저장 뒤 화면에서 뒤로 갈 때. Esc 도 같은 길로 보내 적어 둔 상호와 메모를 먼저 보낸다. */
   const savedBackRef = useRef<() => void>(() => {});
   escBackRef.current = () => {
     if (done) {
@@ -898,7 +896,7 @@ function RecordBody({
       return true;
     }
     if (step === 'setup') return false;
-    back('back');
+    back();
     return true;
   };
 
@@ -932,8 +930,8 @@ function RecordBody({
   }, [focusAfter]);
 
   /*
-    단계가 바뀌면 새 화면의 첫 버튼(‹)으로 포커스를 옮긴다. 누른 버튼이 사라져 포커스가
-    시트 밖으로 떨어지지 않게.
+    단계가 바뀌면 새 화면의 제목으로 포커스를 옮긴다. 누른 버튼이 사라져 포커스가 시트 밖으로
+    떨어지지 않게. 제목 줄이 없는 첫 화면은 맨 위 날짜 버튼이 받는다.
   */
   const rootRef = useRef<HTMLDivElement>(null);
   const shownStep = done ? null : step;
@@ -942,9 +940,11 @@ function RecordBody({
     if (lastShownStep.current === shownStep) return;
     lastShownStep.current = shownStep;
     if (shownStep == null) return;
-    rootRef.current
-      ?.querySelector<HTMLElement>('[data-record-step]:not([hidden]) button:not(:disabled)')
-      ?.focus();
+    const shown = rootRef.current?.querySelector<HTMLElement>('[data-record-step]:not([hidden])');
+    (
+      shown?.querySelector<HTMLElement>('h2[tabindex]') ??
+      shown?.querySelector<HTMLElement>('button:not(:disabled)')
+    )?.focus();
   }, [shownStep]);
 
   const allCategories = categories.data?.items ?? [];
@@ -1544,7 +1544,6 @@ function RecordBody({
             ) : null
           }
           photoNote={photoNote}
-          onBack={onLeave}
           onOpenDay={() => go('day')}
           onWayChange={chooseWay}
           onKindChange={chooseKind}
@@ -1557,7 +1556,6 @@ function RecordBody({
           value={recordDay}
           today={today}
           oldest={oldestDay()}
-          onBack={() => back('sheet')}
           onPick={(chosen) => {
             setRecordDay(chosen);
             go('setup');
@@ -1573,7 +1571,7 @@ function RecordBody({
           onRetry={() => void tags.refetch()}
           selectedId={tagId}
           composing={tagFormOpen}
-          onBack={() => back('sheet')}
+          onCancel={back}
           onCompose={() => setTagComposing(true)}
           onPick={(next) => {
             setTagId(next);
@@ -1598,7 +1596,6 @@ function RecordBody({
               value={assetDest}
               onPick={pickDest}
               onNew={() => go('item')}
-              onBack={() => back('sheet')}
             />
           )}
         </AssetDestSource>
@@ -1608,11 +1605,7 @@ function RecordBody({
       {!done && step === 'item' ? (
         <AssetDestSource>
           {({ destinations }) => (
-            <NewAssetForm
-              destinations={destinations}
-              onDone={pickDest}
-              onBack={() => back('sheet')}
-            />
+            <NewAssetForm destinations={destinations} onDone={pickDest} />
           )}
         </AssetDestSource>
       ) : null}
@@ -1626,7 +1619,7 @@ function RecordBody({
         data-record-step=""
         hidden={!panelShown || tab !== 'nl' || assetMode}
       >
-        <SheetHeader onBack={() => back('sheet')} title="글로 쓰기" backDisabled={busy} />
+        <SheetHeader title="글로 쓰기" />
         <NaturalLanguageTab
           key={panelKeys.nl}
           flowId={flowId}
@@ -1647,7 +1640,7 @@ function RecordBody({
         data-record-step=""
         hidden={!panelShown || tab !== 'capture' || assetMode}
       >
-        <SheetHeader onBack={() => back('sheet')} title="캡처로 정리" backDisabled={busy} />
+        <SheetHeader title="캡처로 정리" />
         <ImageImportTab
           key={panelKeys.capture}
           ref={captureRef}
@@ -1678,7 +1671,7 @@ function RecordBody({
             data-record-step=""
             hidden={!panelShown || tab !== 'capture' || !assetMode}
           >
-            <SheetHeader onBack={() => back('sheet')} title="캡처로 정리" backDisabled={busy} />
+            <SheetHeader title="캡처로 정리" />
             <AssetCapturePanel
               ref={assetCaptureRef}
               onBusyChange={markBusy}
@@ -1693,7 +1686,7 @@ function RecordBody({
             data-record-step=""
             hidden={!panelShown || tab !== 'nl' || !assetMode}
           >
-            <SheetHeader onBack={() => back('sheet')} title="글로 쓰기" backDisabled={busy} />
+            <SheetHeader title="글로 쓰기" />
             <AssetTextPanel
               ref={assetTextRef}
               draftRef={assetTextDraftRef}
@@ -1711,7 +1704,7 @@ function RecordBody({
         data-record-step=""
         hidden={!panelShown || tab !== 'receipt'}
       >
-        <SheetHeader onBack={() => back('sheet')} title="영수증 찍기" backDisabled={busy} />
+        <SheetHeader title="영수증 찍기" />
         <ImageImportTab
           key={panelKeys.receipt}
           ref={receiptRef}
@@ -1823,7 +1816,6 @@ function RecordBody({
           tabIndex={-1}
         >
           <SheetHeader
-            onBack={() => back('sheet')}
             title={selling ? '얼마 받았어요?' : AMOUNT_TITLES[recordKind]}
             right={
               tagShown ? (
@@ -2014,8 +2006,8 @@ function RecordBody({
       )}
 
       {/*
-        새 분류 만들기. **시트 안쪽을 통째로 쓴다.** 「이전·저장」 이 맨 위에 붙어 아이콘 격자를
-        내려도 늘 보인다.
+        새 분류 만들기. **시트 안쪽을 통째로 쓴다.** 제목과 「저장」 이 맨 위에 붙어 아이콘 격자를
+        내려도 늘 보인다. 그만두는 길은 토스 ‹, 폰 뒤로가기, Esc, 시트를 내리는 손짓이다.
       */}
       {creating ? (
         <div className="record__compose">
@@ -2028,7 +2020,6 @@ function RecordBody({
             // 저장하는 동안에는 시트가 안 닫힌다. 닫히면 적어 둔 이름과 고른 그림이 함께 사라진다.
             onBusyChange={markBusy}
             dirtyRef={composeDirtyRef}
-            onBack={requestLeaveCompose}
             // 만들기가 끝나 닫히는 길. 돌아오면 방금 만든 분류가 골라져 있다.
             onClose={() => {
               setCreating(false);

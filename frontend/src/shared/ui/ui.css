@@ -617,7 +617,11 @@
     padding-top: 4px;
   }
 
-  /* ── 시트 안 화면 머리(SheetHeader) ─────────────────── */
+  /*
+    ── 시트와 창 안 화면의 제목 줄(SheetHeader) ───────────
+    본문 글과 같은 왼쪽 여백에서 시작한다. 가운데 정렬이나 아래 구분선을 두지 않는다.
+    토스 상단바 아래에 막대가 하나 더 선 것처럼 보이면 안 된다.
+  */
   .sheet-head {
     display: flex;
     align-items: center;
@@ -626,37 +630,24 @@
     margin-bottom: 12px;
   }
 
-  .sheet-head__back {
-    display: grid;
+  /* 높은 시트는 본문 자식마다 남은 높이를 나눠 준다. 제목 줄이 그 몫을 받으면 위아래로 빈자리가 생긴다. */
+  .pk-sheet--tall > .pk-sheet__body > .sheet-head {
     flex: none;
-    place-items: center;
-    width: 40px;
-    height: 40px;
-    margin-left: -8px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--radius-pill);
-    background: none;
-    color: var(--color-ink);
-    font-size: 28px;
-    line-height: 1;
-  }
-
-  .sheet-head__back:active {
-    background: var(--color-surface-sunken);
-  }
-
-  .sheet-head__back:disabled {
-    opacity: 0.35;
   }
 
   .sheet-head__title {
     flex: 1;
     min-width: 0;
+    margin: 0;
     font-size: 18px;
     font-weight: var(--font-weight-bold);
     color: var(--color-ink);
     text-align: left;
+  }
+
+  /* 단계가 바뀔 때 코드가 옮겨 놓는 포커스다. 누를 것이 아니라 테두리를 그리지 않는다. */
+  .sheet-head__title:focus {
+    outline: none;
   }
 
   .sheet-head__right {
