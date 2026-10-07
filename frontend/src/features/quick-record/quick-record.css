@@ -837,6 +837,15 @@
     background: var(--color-sage-50);
   }
 
+  .saved-asset__list {
+    margin: 0;
+  }
+
+  /* 「받은 돈 넣을 곳」. 위 줄들과 같은 카드 안에서 한 줄로 이어진다. */
+  .proceeds-row.saved-asset__proceeds {
+    border-top: 1px solid var(--color-divider);
+  }
+
   .saved-asset__row {
     display: flex;
     align-items: center;

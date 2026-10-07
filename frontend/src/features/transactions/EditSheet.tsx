@@ -51,6 +51,9 @@ import {
 import {
   AssetDestField,
   AssetDestPage,
+  ProceedsDestPage,
+  ProceedsDestRow,
+  accountNameOf,
   destBodyOf,
   destFromItem,
   destGroupOf,
@@ -58,9 +61,13 @@ import {
   destKindOf,
   destNameOf,
   parseQuantity,
+  proceedsAccountsOf,
+  proceedsBodyOf,
+  proceedsNameOf,
   quantityValue,
   useAssetDestinations,
   type AssetDest,
+  type ProceedsChoice,
 } from '../asset-dest';
 import { ASSET_GROUP_VIEWS, sanitizeQuantityInput, unitOf } from '../assets';
 import { BookDestinationRow, asPickable, movedInToast, sameNameCategoryId } from '../books';
@@ -333,6 +340,37 @@ function EditForm({
   const [side, setSide] = useState<Side>(transaction.asset_side ?? 'buy');
   const [qty, setQty] = useState(quantityValue(transaction.asset_quantity) ?? '');
   const [destOpen, setDestOpen] = useState(false);
+  const savedKey = savedSave ? (transaction.asset_item_key ?? null) : null;
+  const destMoved = dest != null && (dest.type === 'new' || dest.itemKey !== savedKey);
+  const savedSide: Side = transaction.asset_side ?? 'buy';
+  // 수량 종목만 쪽을 고른다. 나머지는 어디에가 그대로면 적혀 있던 쪽을 둔다.
+  const nextSide: Side = byQuantity ? side : destMoved ? 'buy' : savedSide;
+  /*
+    받은 돈 넣을 곳. 팔았어요 기록에만 선다. 「넣었어요」 로 바꾸면 줄이 사라지고 서버가 넣은 곳을 비운다.
+    안 건드렸으면 null 이고 저장된 값을 그대로 둔다(본문에 칸을 안 싣는다).
+  */
+  const selling = saving && nextSide === 'sell' && (dest != null || savedUnlisted);
+  const [proceedsPick, setProceedsPick] = useState<ProceedsChoice | null>(null);
+  const [proceedsOpen, setProceedsOpen] = useState(false);
+  const savedProceedsKey = transaction.asset_proceeds_key ?? null;
+  const savedProceedsItem =
+    savedProceedsKey == null
+      ? undefined
+      : destinations.find((item) => item.item_key === savedProceedsKey);
+  // 서버가 이름을 못 주고 목록에도 없으면 그 통장은 지운 항목이다.
+  const savedProceedsName =
+    savedProceedsKey == null
+      ? null
+      : savedProceedsItem != null
+        ? accountNameOf(savedProceedsItem)
+        : (transaction.asset_proceeds_label ?? '지운 항목');
+  const proceedsName = proceedsPick != null ? proceedsNameOf(proceedsPick) : savedProceedsName;
+  const proceedsKey =
+    proceedsPick == null
+      ? savedProceedsKey
+      : proceedsPick.type === 'item'
+        ? proceedsPick.itemKey
+        : null;
   /*
     무엇에 실패했나. 고치기와 지우기가 서로 다른 말을 해야 한다.
     지우기에 실패했는데 「고친 것을 저장하지 못했어요」 라고 하면, 지워졌는지 아닌지를
@@ -437,24 +475,27 @@ function EditForm({
   const destOk =
     !saving || savedUnlisted || (dest != null && (!byQuantity || quantityValue(qty) != null));
 
+  /** 받은 돈 넣을 곳 칸. 팔았어요가 아니거나 저장된 값과 같으면 안 싣는다. */
+  function proceedsChanges(): TransactionUpdate {
+    if (!selling || proceedsPick == null) return {};
+    if (proceedsPick.type === 'item' && proceedsPick.itemKey === savedProceedsKey) return {};
+    if (proceedsPick.type === 'none' && savedProceedsKey == null) return {};
+    return proceedsBodyOf(proceedsPick);
+  }
+
   /** 저축·투자 칸. 어디에가 바뀌면 쪽과 수량도 함께 보낸다(앞 항목의 수량이 남지 않게). */
   function assetChanges(): TransactionUpdate {
     if (!saving) {
       return savedSave && finalType === 'transfer' ? { asset_item_key: null } : {};
     }
-    if (dest == null) return {};
-    const savedKey = savedSave ? (transaction.asset_item_key ?? null) : null;
-    const moved = dest.type === 'new' || dest.itemKey !== savedKey;
-    const next: TransactionUpdate = moved ? { ...destBodyOf(dest) } : {};
-    // 수량 종목만 쪽을 고른다. 나머지는 어디에가 그대로면 적혀 있던 쪽을 둔다.
-    const savedSide: Side = transaction.asset_side ?? 'buy';
-    const nextSide: Side = byQuantity ? side : moved ? 'buy' : savedSide;
-    if (moved || nextSide !== savedSide) next.asset_side = nextSide;
+    if (dest == null) return proceedsChanges();
+    const next: TransactionUpdate = destMoved ? { ...destBodyOf(dest) } : {};
+    if (destMoved || nextSide !== savedSide) next.asset_side = nextSide;
     const nextQty = byQuantity ? quantityValue(qty) : null;
-    if (moved || parseQuantity(nextQty) !== parseQuantity(transaction.asset_quantity)) {
+    if (destMoved || parseQuantity(nextQty) !== parseQuantity(transaction.asset_quantity)) {
       next.asset_quantity = nextQty;
     }
-    return next;
+    return { ...next, ...proceedsChanges() };
   }
 
   /** 종류를 바꾼다. 지출과 수입은 예전 토글과 같고, 이체 쪽으로 가면 분류, 결제 수단, 태그를 뗀다. */
@@ -819,6 +860,15 @@ function EditForm({
                 </label>
               </>
             ) : null}
+            {/* 팔았어요일 때만. 고르거나 비운 것은 「완료」 를 눌러야 저장된다. */}
+            {selling ? (
+              <ProceedsDestRow
+                className="tx-edit__proceeds"
+                name={proceedsName}
+                disabled={busy}
+                onOpen={() => setProceedsOpen(true)}
+              />
+            ) : null}
           </div>
         ) : targetBook != null ? (
           /*
@@ -945,6 +995,19 @@ function EditForm({
           setDestOpen(false);
         }}
         onBack={() => setDestOpen(false)}
+      />
+
+      {/* 「받은 돈 넣을 곳」 고르는 창. 저장 뒤 화면과 같은 창이다. */}
+      <ProceedsDestPage
+        open={selling && proceedsOpen}
+        accounts={proceedsAccountsOf(destinations, dest?.type === 'item' ? dest.itemKey : savedKey)}
+        pickedKey={proceedsKey}
+        hasValue={proceedsName != null}
+        onChoose={(choice) => {
+          setProceedsPick(choice);
+          setProceedsOpen(false);
+        }}
+        onBack={() => setProceedsOpen(false)}
       />
 
       {/* 맨 위 그림으로 여는 고르기. 분류 칸과 같은 목록, 같은 「새 분류」 다. */}

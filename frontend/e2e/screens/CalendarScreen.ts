@@ -7,6 +7,7 @@ import { horizontalScrollersIn } from '../support/overflow';
 
 import { CategoryComposeArea } from './CategoryComposeArea';
 import { CategoryPickArea } from './CategoryPickArea';
+import { ProceedsDestArea } from './ProceedsDestArea';
 
 /**
  * 월간 달력 화면. 달력·선택한 날 목록·검색·수정 시트를 한 화면이 다 가진다.
@@ -345,6 +346,23 @@ export class EditSheetArea {
 
   destPageRow(name: string): Locator {
     return this.destPage.getByRole('button', { name: new RegExp(`^${name}`) });
+  }
+
+  /** 저축·투자 기록의 「넣었어요 | 팔았어요」. 주식, ETF, 코인에만 선다. */
+  sideOption(label: '넣었어요' | '팔았어요'): Locator {
+    return this.root
+      .getByRole('radiogroup', { name: '넣었나 팔았나' })
+      .getByRole('radio', { name: label, exact: true });
+  }
+
+  /** 팔았어요 기록의 「받은 돈 넣을 곳」 줄. 넣었어요로 바꾸면 사라진다. */
+  get proceedsRow(): Locator {
+    return this.root.getByRole('button', { name: /^받은 돈 넣을 곳 / });
+  }
+
+  /** 줄을 눌러 여는 고르는 창. 저장 뒤 화면과 같은 창이다. */
+  get proceeds(): ProceedsDestArea {
+    return new ProceedsDestArea(this.root.page());
   }
 
   /** 맨 위 한 줄. `스타벅스 · 9월 10일`. */

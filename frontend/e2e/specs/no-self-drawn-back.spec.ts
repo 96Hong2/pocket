@@ -165,6 +165,53 @@ test('기록 고치기에서 여는 「카테고리 바꾸기」, 「새 분류 
   await calendar.edit.waitOpen();
 });
 
+test('팔았어요 기록에서 여는 「받은 돈을 어디에 넣었어요?」 창과 새 통장 칸에 뒤로 버튼이 없다', async ({
+  appShell,
+  calendar,
+  prep,
+}) => {
+  const seeded = await prep.putAssets([
+    { group: 'cash', label: '카카오뱅크', amount: 1_000_000 },
+    {
+      group: 'investment',
+      label: '삼성전자',
+      kind: 'stock',
+      quantity: '10',
+      cost: 700_000,
+      amount: 700_000,
+    },
+  ]);
+  const stock = seeded.items.find((item) => item.label === '삼성전자')?.item_key;
+  if (stock == null) throw new Error('항목 키가 없다');
+  await prep.addAssetTransfer({
+    amount: 420_000,
+    itemKey: stock,
+    side: 'sell',
+    quantity: '5',
+    memo: '반만 팔았다',
+  });
+
+  await calendar.open();
+  await calendar.waitReady();
+  await calendar.list.pick('반만 팔았다');
+  await calendar.edit.waitOpen();
+
+  await calendar.edit.proceedsRow.click();
+  await expect(calendar.edit.proceeds.title).toBeVisible();
+  await expect(appShell.selfDrawnBackControls).toHaveCount(0);
+
+  await calendar.edit.proceeds.newButton.click();
+  await expect(calendar.edit.proceeds.nameInput).toBeVisible();
+  await expect(appShell.selfDrawnBackControls).toHaveCount(0);
+  // 한 단계씩 물러난다. 칸이 접히고, 한 번 더 누르면 창이 닫혀 고치던 기록으로 돌아온다.
+  await appShell.pressBack();
+  await expect(calendar.edit.proceeds.nameInput).toHaveCount(0);
+  await expect(calendar.edit.proceeds.title).toBeVisible();
+  await appShell.pressBack();
+  await expect(calendar.edit.proceeds.dialog).toHaveCount(0);
+  await expect(calendar.edit.dialog).toBeVisible();
+});
+
 test('자산 화면의 항목 창, 순자산 창, 「바뀐 것만 고쳐요」 창에 뒤로 버튼이 없다', async ({
   appShell,
   assets,

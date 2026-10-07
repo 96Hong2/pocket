@@ -219,8 +219,103 @@
   }
 
   @media (min-width: 600px) {
-    .asset-dest-page {
+    .asset-dest-page,
+    .proceeds-page {
       padding-inline: max(calc((100% - var(--app-column)) / 2), 20px);
     }
+  }
+
+  /* ── 「받은 돈 넣을 곳」 한 줄(저장 뒤 화면, 기록 고치기) ─────────────── */
+  .proceeds-row {
+    display: flex;
+    /* 높은 시트는 본문 자식에게 남은 높이를 나눠 준다. 이 줄은 제 높이만 쓴다. */
+    flex: none;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-ink);
+    font-family: inherit;
+    text-align: left;
+  }
+
+  .proceeds-row:disabled {
+    opacity: 0.6;
+  }
+
+  .proceeds-row__label {
+    flex: none;
+    color: var(--color-muted);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+  }
+
+  /* 긴 통장 이름은 한 줄에서 말줄임한다. 왼쪽 이름표를 밀어내지 않는다. */
+  .proceeds-row__value {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-extrabold);
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .proceeds-row__value--empty {
+    color: var(--color-sage-700);
+  }
+
+  .proceeds-row__caret {
+    flex: none;
+    /* 값 바로 옆에 붙는다. 이름표와 값 사이보다 가깝다. */
+    margin-left: -4px;
+    color: var(--color-muted);
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+  }
+
+  /* ── 「받은 돈을 어디에 넣었어요?」 창 ─────────────── */
+  .proceeds-page {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    overflow-y: auto;
+    padding: calc(12px + var(--safe-top)) calc(20px + var(--safe-right))
+      calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left));
+    background: var(--color-surface);
+    animation: var(--animate-sheet-up);
+    /* 문턱을 못 넘고 손을 떼면 제자리로 돌아온다. 시트와 같은 값이다. */
+    transition: transform 180ms ease-out;
+  }
+
+  /* 끄는 동안. 시트(`.pk-sheet--dragging`)와 같은 짝을 쓴다. */
+  .proceeds-page--dragging {
+    transition: none;
+    touch-action: none;
+  }
+
+  /* 이름 칸과 「확인」 을 한 줄에. 칸이 남는 폭을 다 쓰고 버튼은 칸 높이에 맞춘다. */
+  .proceeds-page__new {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .proceeds-page__name {
+    flex: 1;
+  }
+
+  .proceeds-page__ok {
+    flex: none;
+  }
+
+  .proceeds-page__clear {
+    width: 100%;
+    margin-top: 20px;
   }
 }

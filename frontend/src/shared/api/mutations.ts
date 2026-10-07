@@ -108,7 +108,14 @@ function invalidateAssets(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: queryKeys.assets() });
 }
 
-const ASSET_BODY_FIELDS = ['asset_item_key', 'asset_side', 'asset_quantity', 'new_asset'] as const;
+const ASSET_BODY_FIELDS = [
+  'asset_item_key',
+  'asset_side',
+  'asset_quantity',
+  'new_asset',
+  'asset_proceeds_key',
+  'new_proceeds_asset',
+] as const;
 
 /**
  * 저축·투자 저장이나 고치기였나. 응답에 자산 블록이나 어디에 키가 있거나, 본문에 자산 칸이 있으면 그렇다.

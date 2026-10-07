@@ -18,6 +18,17 @@ import {
 } from '../../shared/lib/format';
 import { TEST_IDS } from '../../shared/testIds';
 import { Button, IconTextButton, SavedHero } from '../../shared/ui';
+import {
+  ProceedsDestPage,
+  ProceedsDestRow,
+  accountNameOf,
+  proceedsAccountsOf,
+  proceedsBodyOf,
+  proceedsNameOf,
+  proceedsResultOf,
+  useAssetDestinations,
+  type ProceedsChoice,
+} from '../asset-dest';
 import { formatQuantity, formatSignedWon, type Holding } from '../assets';
 
 import { rateText } from './saveInvest';
@@ -54,6 +65,9 @@ function quantityText(quantity: string | null | undefined, unit: string): string
 /**
  * 저축·투자 저장 뒤 화면. 어디에 얼마를 넣었는지(팔았으면 받은 돈과 수익)를 가장 크게 말한다.
  * 이체라서 홈의 남은 돈과 쓴 돈은 안 움직인다. 결제 수단과 태그는 없다.
+ *
+ * 팔았으면 「받은 돈 넣을 곳」 한 줄이 선다. 안 고르면 받은 돈이 어느 통장에도 안 들어가
+ * 순자산이 판 만큼 줄어 보인다. 고르면 그 거래를 고쳐(PATCH) 통장이 받은 돈만큼 오른다(ADR-0049).
  */
 export function SavedAssetPanel({
   flowId,
@@ -71,6 +85,12 @@ export function SavedAssetPanel({
   const [memoOpen, setMemoOpen] = useState(Boolean(transaction.memo));
   const sentMemo = useRef<string | null>(null);
   const closeAfterUpdate = useRef(false);
+  // 넣을 곳은 메모와 따로 보낸다. 한 요청에 묶으면 메모를 보내는 중에 고른 것의 응답을 놓친다.
+  const proceedsUpdate = useUpdateTransaction();
+  const { destinations } = useAssetDestinations();
+  const [proceedsOpen, setProceedsOpen] = useState(false);
+  // 고른 것을 서버가 받는 동안 줄에 먼저 세워 둘 값. 실패하면 서버 값으로 돌아간다.
+  const [proceedsSent, setProceedsSent] = useState<ProceedsChoice | null>(null);
 
   const { result, name, holding, unit } = asset;
   const lot = holding === 'quantity';
@@ -80,7 +100,17 @@ export function SavedAssetPanel({
   const dayLabel = `${formatDayLabel(savedDay)} (${formatWeekday(savedDay)})`;
   const itemAmount = formatCurrency(parseDecimalOr(result.item_amount, 0));
   const held = parseDecimalOr(result.quantity, 0) > 0;
-  const updateError = update.error instanceof ApiError ? update.error : null;
+  const updateError =
+    proceedsUpdate.error instanceof ApiError
+      ? proceedsUpdate.error
+      : update.error instanceof ApiError
+        ? update.error
+        : null;
+  const proceedsSaved =
+    result.proceeds_key == null
+      ? null
+      : accountNameOf({ group: 'cash', label: result.proceeds_label ?? null });
+  const proceedsName = proceedsSent != null ? proceedsNameOf(proceedsSent) : proceedsSaved;
 
   const title = sold
     ? `${name}${lot && transaction.asset_quantity != null ? ` ${quantityText(transaction.asset_quantity, unit)}` : ''} 팔았어요`
@@ -134,6 +164,35 @@ export function SavedAssetPanel({
     onAssets?.();
   }
 
+  function openProceeds(): void {
+    analytics.log(EVENTS.feedbackAction, { action: 'proceeds' }, { flowId, kind: 'click' });
+    setProceedsOpen(true);
+  }
+
+  /** 창에서 고른 것을 그 거래의 고치기로 보낸다. 지금 값과 같으면 아무 요청도 안 한다. */
+  function chooseProceeds(choice: ProceedsChoice): void {
+    setProceedsOpen(false);
+    const saved = result.proceeds_key ?? null;
+    if (choice.type === 'item' && choice.itemKey === saved) return;
+    if (choice.type === 'none' && saved == null) return;
+    setProceedsSent(choice);
+    proceedsUpdate.mutate(
+      { id: transaction.id, body: proceedsBodyOf(choice) },
+      {
+        onSuccess: (updated) => {
+          onUpdated(updated);
+          // 이름과 금액은 싣지 않는다.
+          analytics.log(
+            EVENTS.feedbackAction,
+            { action: 'proceeds_result', result: proceedsResultOf(choice) },
+            { flowId },
+          );
+        },
+        onSettled: () => setProceedsSent(null),
+      },
+    );
+  }
+
   function openMemo(): void {
     analytics.log(
       EVENTS.feedbackAction,
@@ -156,55 +215,77 @@ export function SavedAssetPanel({
         {sold ? `받은 돈 ${amount}` : dayLabel}
       </p>
 
-      <dl className="saved-asset__rows">
-        {sold ? (
-          <>
-            {/* 넣은 돈을 모르고 팔았으면 수익 줄이 없다. 받은 돈만 적힌다. */}
-            {result.realized == null ? null : (
+      <div className="saved-asset__rows">
+        <dl className="saved-asset__list">
+          {sold ? (
+            <>
+              {/* 넣은 돈을 모르고 팔았으면 수익 줄이 없다. 받은 돈만 적힌다. */}
+              {result.realized == null ? null : (
+                <div
+                  className="saved-asset__row"
+                  data-testid={TEST_IDS.savedAssetRow}
+                  data-row="gain"
+                >
+                  <dt>수익</dt>
+                  <dd
+                    className={
+                      parseDecimalOr(result.realized, 0) >= 0
+                        ? 'saved-asset__value saved-asset__value--up'
+                        : 'saved-asset__value saved-asset__value--down'
+                    }
+                    data-numeric=""
+                  >
+                    {formatSignedWon(parseDecimalOr(result.realized, 0))}
+                    {result.rate == null ? '' : ` (${rateText(result.rate)})`}
+                  </dd>
+                </div>
+              )}
               <div
                 className="saved-asset__row"
                 data-testid={TEST_IDS.savedAssetRow}
-                data-row="gain"
+                data-row="left"
               >
-                <dt>수익</dt>
-                <dd
-                  className={
-                    parseDecimalOr(result.realized, 0) >= 0
-                      ? 'saved-asset__value saved-asset__value--up'
-                      : 'saved-asset__value saved-asset__value--down'
-                  }
-                  data-numeric=""
-                >
-                  {formatSignedWon(parseDecimalOr(result.realized, 0))}
-                  {result.rate == null ? '' : ` (${rateText(result.rate)})`}
+                <dt>{lot ? '남은 수량' : '남은 금액'}</dt>
+                <dd className="saved-asset__value" data-numeric="">
+                  {lot ? (held ? quantityText(result.quantity, unit) : '없음') : itemAmount}
                 </dd>
               </div>
-            )}
-            <div className="saved-asset__row" data-testid={TEST_IDS.savedAssetRow} data-row="left">
-              <dt>{lot ? '남은 수량' : '남은 금액'}</dt>
-              <dd className="saved-asset__value" data-numeric="">
-                {lot ? (held ? quantityText(result.quantity, unit) : '없음') : itemAmount}
-              </dd>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="saved-asset__row" data-testid={TEST_IDS.savedAssetRow} data-row="saved">
-              <dt>이번 달 모은 돈</dt>
-              <dd className="saved-asset__value" data-numeric="">
-                {formatCurrency(parseDecimalOr(result.month_saved, 0))}
-              </dd>
-            </div>
-            <div className="saved-asset__row" data-testid={TEST_IDS.savedAssetRow} data-row="item">
-              <dt className="saved-asset__name">{name}</dt>
-              <dd className="saved-asset__value" data-numeric="">
-                {lot && held ? `${quantityText(result.quantity, unit)}, ` : ''}
-                {itemAmount}
-              </dd>
-            </div>
-          </>
-        )}
-      </dl>
+            </>
+          ) : (
+            <>
+              <div
+                className="saved-asset__row"
+                data-testid={TEST_IDS.savedAssetRow}
+                data-row="saved"
+              >
+                <dt>이번 달 모은 돈</dt>
+                <dd className="saved-asset__value" data-numeric="">
+                  {formatCurrency(parseDecimalOr(result.month_saved, 0))}
+                </dd>
+              </div>
+              <div
+                className="saved-asset__row"
+                data-testid={TEST_IDS.savedAssetRow}
+                data-row="item"
+              >
+                <dt className="saved-asset__name">{name}</dt>
+                <dd className="saved-asset__value" data-numeric="">
+                  {lot && held ? `${quantityText(result.quantity, unit)}, ` : ''}
+                  {itemAmount}
+                </dd>
+              </div>
+            </>
+          )}
+        </dl>
+        {sold ? (
+          <ProceedsDestRow
+            className="saved-asset__proceeds"
+            name={proceedsName}
+            disabled={proceedsUpdate.isPending}
+            onOpen={openProceeds}
+          />
+        ) : null}
+      </div>
 
       {memoOpen ? (
         <label className="feedback__merchant-field">
@@ -250,6 +331,16 @@ export function SavedAssetPanel({
           확인
         </Button>
       </div>
+
+      {/* 고르는 창. 뒤로가기는 이 창만 닫고 저장 뒤 화면으로 돌아온다. */}
+      <ProceedsDestPage
+        open={sold && proceedsOpen}
+        accounts={proceedsAccountsOf(destinations, transaction.asset_item_key)}
+        pickedKey={result.proceeds_key ?? null}
+        hasValue={result.proceeds_key != null}
+        onChoose={chooseProceeds}
+        onBack={() => setProceedsOpen(false)}
+      />
     </div>
   );
 }

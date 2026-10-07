@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 import { CategoryComposeArea } from './CategoryComposeArea';
+import { ProceedsDestArea } from './ProceedsDestArea';
 
 import { shiftDay, toLedgerDate } from '../../src/shared/lib/format';
 import { TEST_IDS } from '../../src/shared/testIds';
@@ -548,6 +549,19 @@ export class RecordSheet {
   /** 저장 뒤 「자산 보기」. */
   get assetsButton(): Locator {
     return this.root.getByRole('button', { name: '자산 보기', exact: true });
+  }
+
+  /**
+   * 팔고 난 저장 뒤 화면의 「받은 돈 넣을 곳」 줄. 안 골랐으면 `받은 돈 넣을 곳 고르기`,
+   * 골랐으면 `받은 돈 넣을 곳 카카오뱅크, 바꾸기` 로 읽힌다. 넣었어요 뒤에는 없다.
+   */
+  get proceedsRow(): Locator {
+    return this.root.getByRole('button', { name: /^받은 돈 넣을 곳 / });
+  }
+
+  /** 줄을 눌러 여는 고르는 창. */
+  get proceeds(): ProceedsDestArea {
+    return new ProceedsDestArea(this.root.page());
   }
 
   /**

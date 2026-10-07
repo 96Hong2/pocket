@@ -98,6 +98,8 @@ export interface AssetTransferSeed {
   remaining?: string;
   /** 넣은 돈을 모르는 항목을 팔 때 적는 넣은 돈 전체. */
   costBasis?: string;
+  /** 팔았어요로 받은 돈을 넣은 통장. 예적금·현금 항목 키다. */
+  proceedsKey?: string;
   on?: string;
   daysAgo?: number;
   /** 줄 부제 자리에 서고 달력 검색에 걸린다. */
@@ -438,6 +440,7 @@ export class PrepApi {
         ...(seed.quantity != null ? { asset_quantity: seed.quantity } : {}),
         ...(seed.remaining != null ? { asset_remaining: seed.remaining } : {}),
         ...(seed.costBasis != null ? { asset_cost_basis: seed.costBasis } : {}),
+        ...(seed.proceedsKey != null ? { asset_proceeds_key: seed.proceedsKey } : {}),
         ...(seed.memo != null ? { memo: seed.memo } : {}),
       },
     });
