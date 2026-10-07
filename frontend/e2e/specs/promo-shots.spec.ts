@@ -497,6 +497,21 @@ test.describe('스토어 스크린샷용 화면: 내 자산', () => {
     await shoot(page, 'shot-asset-report', { fullPage: true });
   });
 
+  /** 주식 리포트. 내 자산 리포트를 먼저 열어 두면 종류별은 광고 없이 열린다. */
+  test('주식 리포트', async ({ page, prep, assetAnalysis }) => {
+    await seedPortfolio(prep);
+    await assetAnalysis.open('all');
+    await assetAnalysis.adConsentConfirm.click();
+    await assetAnalysis.waitOpen('all');
+    await assetAnalysis.kindRow('stock').click();
+    await assetAnalysis.waitOpen('stock');
+    await expect(assetAnalysis.returns).toBeVisible();
+    await hideBanners(page);
+    await page.waitForTimeout(900);
+
+    await shoot(page, 'shot-asset-stock-report', { fullPage: true });
+  });
+
   /**
    * 기록하기 › 캡처로 정리 › 저축·투자 로 읽은 검토 화면.
    *
