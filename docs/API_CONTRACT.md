@@ -1106,7 +1106,8 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 | GET | `/assets/history?months=6` | 달마다 월말 점(1~24달). 그 달 마지막 날(이번 달은 오늘) 이하의 가장 늦은 스냅샷, 첫 스냅샷 전 달은 점 없음. 응답 `{points: [{month, effective_on, total_assets, total_liabilities, net_worth}]}`, 오래된 달부터 |
 | POST | `/assets/checkin` | `{month: "YYYY-MM"}`, 이번 달만. 최신 목록을 오늘로 복사한다. 오늘 것이 있으면 그대로 200. 응답은 GET 과 같은 모양 |
 | POST | `/assets/capture` | 잔액 화면 캡처 한 장 → 후보 목록(`AssetCaptureOut`). 아무것도 저장하지 않는다. 200 |
-| GET | `/assets/analysis?scope=all` | 「내 자산 분석」(`AssetAnalysisOut`). `scope` 는 `all` \| `stock` \| `cash`. 아무것도 저장하지 않는다 |
+| POST | `/assets/capture-text` | 적은 보유 내역 → 캡처와 같은 후보 목록(`AssetCaptureOut`). 아무것도 저장하지 않는다. 200 |
+| GET | `/assets/analysis?scope=all` | 「내 자산 리포트」(`AssetAnalysisOut`). `scope` 는 `all` \| `stock` \| `cash`. 아무것도 저장하지 않는다 |
 
 **옛 번들(56, 57)을 지키는 두 규칙(ADR-0045).** `groups` 는 옛 넷(`cash`, `investment`, `deposit`, `debt`)만
 싣고 다섯 그룹(연금 포함)은 `all_groups` 에 싣는다. PUT 은 `item_key` 가 오면 그 행, 없으면 같은 (group, label)
@@ -1170,6 +1171,18 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
   못 읽은 그림은 pytest 가 모델을 갈아 끼우고, e2e 는 응답을 바꿔 본다.
 - 저장은 화면이 `PUT /assets` 에 `source: "screenshot"` 을 실어 한다. 값이 바뀐 줄은 `set` 장부 줄이 된다.
 
+#### 적은 보유 내역 (`POST /assets/capture-text`)
+
+기록하기에서 「글로 쓰기」 + 「저축·투자」 를 고른 길이다. 본문 `{ "text": "삼성전자 3주 21만원, 카카오뱅크 적금 300만원" }`(1~2,000자,
+빈칸만이면 422). 응답은 캡처와 같은 `AssetCaptureOut` 이고 기존 항목 맞추기와 넣은 돈 규칙도 캡처와 같다. 다른 것만 적는다.
+
+- 모델에 보내기 전에 글의 계좌·카드번호를 가린다. 지시는 캡처와 같은 스키마에 「적힌 숫자만, 넣은 돈은 따로 적혔을 때만 `purchase`」 다.
+- **새 종목에 넣은 돈이 안 적혔으면 적은 금액을 넣은 돈으로 본다.** 그래야 「삼성전자 3주 21만원」 이 3주, 넣은 돈 210,000,
+  1주 가격 70,000 인 수량 종목으로 들어온다(수익률 0.0%). 이미 있는 항목에 맞은 줄에는 이 규칙을 쓰지 않는다.
+- 하루 상한과 1분 상한을 줄글과 나눠 쓰고(429 「줄글 분석」), 사용량은 `source: nl` 로 남는다. 모델 실패는 503 「지금은 글을 읽지 못했어요」.
+- `meta.notes` 는 비어 있다. 스텁도 글은 규칙으로 실제로 읽는다(`N주` 는 주식 수량, 「적금」·「통장」 은 현금·예적금, 「대출」 은 부채).
+- 저장은 화면이 `PUT /assets` 에 `source: "manual"` 을 실어 한다. 사람이 적은 값이라 캡처 출처로 적지 않는다.
+
 **적지 않은 것은 정상 상태다.** 조회는 404 가 아니라 200 에 `snapshot: null`·`items: []` 로
 답하고, 그때 `summary` 와 `groups` 는 모두 0 이다.
 
@@ -1202,7 +1215,7 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 ⚠ **`net_worth` 를 남은 예산·이번 달 차액과 한 숫자로 합치지 않는다.** 답하는 질문이 다르다
 (`docs/DATA_MODEL.md` 의 「세 금액 개념이 왜 따로인가」).
 
-#### 내 자산 분석 (`GET /assets/analysis`)
+#### 내 자산 리포트 (`GET /assets/analysis`)
 
 셈은 `app/domain/asset_analysis.py` 순수 함수다. 비율과 수익률은 % 소수 첫째 자리(ROUND_HALF_UP), 분모가 0 이면 null.
 

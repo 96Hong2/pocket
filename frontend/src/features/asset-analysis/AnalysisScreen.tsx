@@ -96,7 +96,7 @@ export function AnalysisScreen({
     return <ErrorState size="inline" onRetry={() => void analysis.refetch()} />;
   }
   if (analysis.data == null || state === 'unknown') {
-    return <LoadingState label="분석을 불러오는 중이에요" />;
+    return <LoadingState label="리포트를 불러오는 중이에요" />;
   }
   if (state !== 'open') {
     return (

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useBridge } from '../../app/providers';
 import type { AssetAnalysisScope } from '../../app/router/routes';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
-import { AdConsent, useAssetAnalysisRewardedAd } from '../ads';
+import { AdConsent, useInterstitial } from '../ads';
 
 import {
   analysisLockState,
@@ -21,11 +21,11 @@ import {
  */
 let knownLock: AnalysisLock | undefined;
 
-/** 확인 창 첫 줄에 넣는 이름. */
+/** 확인 창 첫 줄에 넣는 이름. 입구 이름과 같다. */
 const RESULT_LABEL: Record<AssetAnalysisScope, string> = {
-  all: '분석 결과',
-  stock: '주식 분석 결과',
-  cash: '예/적금 분석 결과',
+  all: '내 자산 리포트',
+  stock: '주식 리포트',
+  cash: '예/적금 리포트',
 };
 
 export interface AnalysisTarget {
@@ -53,16 +53,17 @@ interface Asking {
 }
 
 /**
- * 「내 자산 분석」 잠금.
+ * 「내 자산 리포트」 잠금. 확인 창 뒤에 짧은 전면 광고 한 편이 선다.
  *
  * - 한 번 본 범위는 숫자가 그대로인 동안 광고 없이 열린다. 날짜만 지나는 것은 바뀜이 아니다.
  * - 광고가 끝까지 가도, 중간에 닫혀도, 안 떠도 열고 지문을 남긴다.
  * - 이 기기에서 광고가 설 수 없으면 창 없이 연다. 예고할 광고가 없는데 묻지 않는다.
+ * - 상한을 안 센다. 확인 창에서 사람이 스스로 누른 자리다.
  */
 export function useAssetAnalysisUnlock(): AssetAnalysisUnlock {
   const bridge = useBridge();
   const analytics = useAnalytics();
-  const ad = useAssetAnalysisRewardedAd();
+  const ad = useInterstitial('asset_capture');
   const [lock, setLock] = useState<AnalysisLock | undefined>(knownLock);
   const [asking, setAsking] = useState<Asking | null>(null);
   // 광고가 뜨기 전 짧은 틈에 두 번 눌리면 광고가 겹친다.
@@ -108,7 +109,7 @@ export function useAssetAnalysisUnlock(): AssetAnalysisUnlock {
       if (pending.current) return;
       pending.current = true;
       try {
-        const outcome = await ad.show('asset_analysis');
+        const outcome = await ad.show('asset_analysis', { uncapped: true });
         remember([target]);
         analytics.log(
           EVENTS.assetAnalysisOpened,
@@ -150,8 +151,8 @@ export function useAssetAnalysisUnlock(): AssetAnalysisUnlock {
   const prompt =
     asking == null ? null : (
       <AdConsent
-        what={`30초 광고를 보면 ${RESULT_LABEL[asking.target.scope]}를 볼 수 있어요`}
-        text={`${asking.state === 'stale' ? '자산 숫자가 바뀌어서 다시 분석해요. ' : ''}자산이 그대로면 다음에는 광고 없이 바로 열려요`}
+        what={`짧은 광고 뒤에 ${RESULT_LABEL[asking.target.scope]}가 열려요`}
+        text={`${asking.state === 'stale' ? '자산 숫자가 바뀌어서 리포트를 새로 만들어요. ' : ''}자산이 그대로면 다음에는 광고 없이 바로 열려요`}
         confirmLabel="확인"
         onCancel={() => {
           analytics.log(

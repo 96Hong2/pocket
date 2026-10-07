@@ -105,6 +105,7 @@ export {
   useRestoreBook,
   useRestoreBookEntry,
   useCaptureAssets,
+  useCaptureAssetsText,
   useCheckinAssets,
   useSaveAssets,
   useSaveProfile,

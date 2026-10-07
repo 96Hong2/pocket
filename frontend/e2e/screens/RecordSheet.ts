@@ -175,6 +175,8 @@ export class RecordSheet {
   readonly destination: RecordDestination;
   /** 공유 가계부에 적은 뒤의 화면. 개인 저장 뒤 화면보다 짧다. */
   readonly bookFeedback: RecordBookFeedback;
+  /** 캡처와 글로 「저축·투자」 를 고른 자산 채우기. 자산 화면의 캡처로 채우기와 같은 검토다. */
+  readonly assetFill: RecordAssetFill;
 
   constructor(page: Page) {
     this.page = page;
@@ -189,6 +191,7 @@ export class RecordSheet {
     this.futureDayConfirm = new FutureDayConfirmArea(page);
     this.destination = new RecordDestination(page, this.root);
     this.bookFeedback = new RecordBookFeedback(this.root);
+    this.assetFill = new RecordAssetFill(this.root);
   }
 
   get isVisible(): Promise<boolean> {
@@ -264,7 +267,7 @@ export class RecordSheet {
     return this.wayGroup.getByRole('radio');
   }
 
-  /** 첫 화면의 종류 칩(지출, 수입, 이체). 직접 입력일 때만 선다. */
+  /** 첫 화면의 종류 칩(지출, 수입, 이체, 저축·투자). 영수증에는 서지 않는다. */
   get kindGroup(): Locator {
     return this.root.getByRole('radiogroup', { name: '종류', exact: true });
   }
@@ -2003,4 +2006,64 @@ class RecordBookFeedback {
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * 기록하기의 자산 채우기. 캡처(사진)와 글 두 패널이 같은 검토 화면을 쓴다.
+ *
+ * 두 패널이 함께 서 있고 하나만 보이므로 보이는 쪽만 잡는다.
+ */
+class RecordAssetFill {
+  private readonly sheet: Locator;
+
+  constructor(sheet: Locator) {
+    this.sheet = sheet;
+  }
+
+  /** 본문. `data-step` 이 intro, reading, review, fail 중 하나다. */
+  get body(): Locator {
+    return this.sheet.getByTestId(TEST_IDS.captureSheet).filter({ visible: true });
+  }
+
+  async waitStep(step: 'intro' | 'reading' | 'review' | 'fail'): Promise<void> {
+    await expect(this.body).toHaveAttribute('data-step', step);
+  }
+
+  /** 첫 화면 아래 버튼 밑 예고 한 줄. 캡처 + 저축·투자일 때 선다. */
+  get adLine(): Locator {
+    return this.sheet
+      .locator('.record-setup')
+      .getByText('읽는 동안 광고가 한 번 지나가요', { exact: true });
+  }
+
+  get textarea(): Locator {
+    return this.body.getByLabel('어디에 얼마 있나요', { exact: true });
+  }
+
+  get analyzeButton(): Locator {
+    return this.body.getByRole('button', { name: '분석', exact: true });
+  }
+
+  /** 적고 「분석」 을 누른다. 검토 화면이 설 때까지 기다린다. */
+  async analyze(text: string): Promise<void> {
+    await this.textarea.fill(text);
+    await this.analyzeButton.click();
+    await this.waitStep('review');
+  }
+
+  get rows(): Locator {
+    return this.body.getByTestId(TEST_IDS.captureRow);
+  }
+
+  row(name: string): Locator {
+    return this.rows.filter({ hasText: name });
+  }
+
+  get saveButton(): Locator {
+    return this.body.getByRole('button', { name: /줄 저장$/ });
+  }
+
+  get cancelButton(): Locator {
+    return this.body.getByRole('button', { name: '취소', exact: true });
+  }
 }

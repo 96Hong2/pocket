@@ -83,6 +83,59 @@
     color: var(--color-amber-700);
   }
 
+  /* 기록하기 첫 화면 아래 버튼 밑 예고 한 줄. 사진 기록의 같은 자리 줄과 모양을 맞춘다. */
+  .capture-sheet__note {
+    margin: 8px 0 0;
+    padding: 0 12px;
+    font-size: var(--text-12);
+    line-height: 1.5;
+    color: var(--color-muted);
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  /* 적은 보유 내역. 기록하기 줄글 칸과 같은 회색 상자다. */
+  .capture-text {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .capture-text__label {
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .capture-text__input {
+    display: block;
+    width: 100%;
+    padding: 14px 16px;
+    border: 0;
+    border-radius: var(--radius-inset);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font: inherit;
+    font-size: var(--text-16);
+    line-height: 1.5;
+    resize: none;
+  }
+
+  .capture-text__input::placeholder {
+    color: var(--color-placeholder);
+  }
+
+  .capture-text__empty {
+    margin: 0;
+    padding: 20px 0 8px;
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-ink);
+    text-align: center;
+    word-break: keep-all;
+  }
+
   .capture-rows {
     display: flex;
     flex-direction: column;

@@ -115,7 +115,7 @@ test.describe('첫 화면', () => {
     await expect(recordSheet.dayButton).toContainText(dayText(older));
   });
 
-  test('글로 쓰기와 사진 둘을 고르면 종류 칩이 사라지고 아래 버튼 이름이 바뀐다', async ({
+  test('글로 쓰기와 캡처는 종류 칩이 남고 영수증만 사라지며, 아래 버튼 이름이 바뀐다', async ({
     home,
     recordSheet,
   }) => {
@@ -125,14 +125,23 @@ test.describe('첫 화면', () => {
     await recordSheet.waitOpen();
 
     const cases = [
-      { way: '글로 쓰기', cta: '다음' },
-      { way: '영수증 찍기', cta: '카메라 열기' },
-      { way: '캡처로 정리', cta: '사진 고르기' },
+      { way: '글로 쓰기', cta: '다음', kinds: true },
+      { way: '영수증 찍기', cta: '카메라 열기', kinds: false },
+      { way: '캡처로 정리', cta: '사진 고르기', kinds: true },
     ] as const;
-    for (const { way, cta } of cases) {
+    for (const { way, cta, kinds } of cases) {
       await recordSheet.methodTab(way).click();
       await expect(recordSheet.methodTab(way)).toHaveAttribute('aria-checked', 'true');
-      await expect(recordSheet.kindGroup).toHaveCount(0);
+      if (kinds) {
+        await expect(recordSheet.kindGroup.getByRole('radio')).toHaveText([
+          '지출',
+          '수입',
+          '이체',
+          '저축·투자',
+        ]);
+      } else {
+        await expect(recordSheet.kindGroup).toHaveCount(0);
+      }
       await expect(recordSheet.nextButton).toHaveText(cta);
     }
 
@@ -549,10 +558,10 @@ test.describe('글로 쓰기', () => {
     await recordSheet.nl.save();
     await expect(recordSheet.nl.panel).not.toContainText('남은 예산');
 
-    await test.step('로그: 종류 칩이 없는 방법이라 kind 가 없고, 저장 결과에 시간이 실린다', async () => {
+    await test.step('로그: 글로 쓰기도 종류 칩이 있어 kind 가 실리고, 저장 결과에 시간이 실린다', async () => {
       const setup = (await logsNamed(page, 'record_setup_done')).at(-1)?.params;
       expect(setup?.way).toBe('nl');
-      expect(setup).not.toHaveProperty('kind');
+      expect(setup?.kind).toBe('expense');
       const saved = (await logsNamed(page, 'save_result')).at(-1)?.params;
       expect(saved).toMatchObject({ method: 'text', result: 'ok', defaults: false });
       expect(typeof saved?.flow_ms).toBe('number');

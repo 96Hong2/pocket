@@ -128,6 +128,15 @@ _HOLDING_SAMPLE = (
     ExtractedAsset(name="마이크로소프트", amount=47_446, group=AssetGroup.INVESTMENT),
 )
 
+# 적은 보유 내역의 그룹을 가르는 말. 앞에 적은 것부터 본다. 대출을 통장보다 먼저 본다.
+_ASSET_GROUP_KEYWORDS: tuple[tuple[AssetGroup, tuple[str, ...]], ...] = (
+    (AssetGroup.DEBT, ("대출", "마이너스")),
+    (AssetGroup.PENSION, ("연금", "IRP", "퇴직")),
+    (AssetGroup.INVESTMENT, ("ETF", "펀드", "코인", "주식", "채권")),
+    (AssetGroup.DEPOSIT, ("보증금",)),
+    (AssetGroup.CASH, ("적금", "예금", "통장", "청약", "CMA", "뱅크", "은행")),
+)
+
 # 자산 항목 목록을 받았을 때 저축·투자로 읽는 말. 「N주」 도 저축·투자다.
 _SAVING_KEYWORDS = ("적금", "넣음", "넣었", "저축", "IRP")
 # 어디에가 이것뿐이면 다달이 넣는 항목을 고른다.
@@ -176,6 +185,10 @@ class StubLlmStructuredClient:
     ) -> SchemaT:
         require_single_input(text, image)
         if schema is AssetExtraction:
+            if text is not None:
+                # 적은 보유 내역은 규칙으로 읽는다. 기존 항목 이름은 프롬프트에서 받는다.
+                read = parse_asset_text(text, assets=listed_asset_names(prompt))
+                return schema.model_validate(read.model_dump())
             # 이미지를 읽지 않는다. 배관이 도는지 보려고 정해 둔 잔액 화면 예시다.
             return schema.model_validate(sample_asset_extraction().model_dump())
         if schema is not TransactionExtraction:
@@ -280,6 +293,47 @@ def sample_asset_extraction() -> AssetExtraction:
             *_HOLDING_SAMPLE,
         ]
     )
+
+
+def parse_asset_text(text: str, *, assets: tuple[AssetHint, ...] = ()) -> AssetExtraction:
+    """적은 보유 내역에서 줄을 뽑는다. 금액이 없는 조각은 건너뛴다.
+
+    「삼성전자 3주 21만원」 은 수량 3, 금액 210,000 인 주식이다. 넣은 돈은 옮기지 않는다.
+    """
+    rows: list[ExtractedAsset] = []
+    for entry in split_entries(text):
+        shares = _SHARES.search(entry)
+        # 「300주」 의 300 이 금액으로 읽히지 않게 수량을 먼저 걷는다.
+        bare = _SHARES.sub(" ", entry)
+        amounts = find_amounts(bare)
+        if not amounts:
+            continue
+        amount = amounts[0]
+        words = f"{bare[: amount.start]} {bare[amount.end :]}"
+        listed = sorted((hint for hint in assets if hint.name in entry), key=lambda h: -len(h.name))
+        name = listed[0].name if listed else " ".join(words.split()).strip(" .,-·")
+        if not name:
+            continue
+        group = _asset_group_of(entry, held=shares is not None)
+        rows.append(
+            ExtractedAsset(
+                name=name[:80],
+                amount=amount.value,
+                group=group,
+                kind=InvestKind.STOCK if shares is not None else None,
+                quantity=float(shares.group(1)) if shares is not None else None,
+            )
+        )
+    return AssetExtraction(rows=rows)
+
+
+def _asset_group_of(text: str, *, held: bool) -> AssetGroup | None:
+    if held:
+        return AssetGroup.INVESTMENT
+    for group, keywords in _ASSET_GROUP_KEYWORDS:
+        if any(keyword in text for keyword in keywords):
+            return group
+    return None
 
 
 def parse_text(

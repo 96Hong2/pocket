@@ -89,6 +89,8 @@ export const SM_ICONS = [
   '76_burger',
   '77_movie_clapper',
   '78_calendar_clock',
+  // 내 자산 리포트 입구.
+  '79_donut_chart',
 ] as const;
 
 /** 320px. 120px 이상으로 크게 보여주는 히어로 일러스트에만 쓴다. */

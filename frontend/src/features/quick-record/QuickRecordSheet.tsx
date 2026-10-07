@@ -80,6 +80,12 @@ import {
   type AssetDestFrom,
   type AssetDestPick,
 } from '../asset-dest';
+import {
+  AssetCaptureAdLine,
+  AssetCapturePanel,
+  AssetTextPanel,
+  type AssetFillHandle,
+} from '../asset-capture';
 import { unitOf } from '../assets';
 import { BookDestinationRow, BookFeedbackPanel, asPickable } from '../books';
 import { CategoryEditForm } from '../categories';
@@ -103,7 +109,7 @@ import { RecordTagStep } from './RecordTagStep';
 import { AssetDestSource, SaveBoxRow, SaveLotRow, SellPreviewCard } from './SaveFields';
 import { SavedAssetPanel, type SavedAssetInfo } from './SavedAssetPanel';
 import { quantityShapeOf, sameQuantity } from './saveInvest';
-import { DEFAULT_RECORD_TAB, recordMethodOf, type RecordTab } from './recordTab';
+import { DEFAULT_RECORD_TAB, recordMethodOf, wayHasKinds, type RecordTab } from './recordTab';
 
 export type { RecordTab };
 
@@ -574,6 +580,11 @@ function RecordBody({
   );
   const isTransfer = recordKind === 'transfer';
   const isSave = recordKind === 'save';
+  /*
+    캡처와 글로 「저축·투자」 를 고르면 거래가 아니라 자산을 채운다. 자산 화면의 캡처로 채우기와
+    같은 검토를 지나고, 저장하면 내 자산 화면으로 간다. 영수증은 종류 칩이 없어 여기 안 온다.
+  */
+  const assetMode = isSave && (tab === 'capture' || tab === 'nl');
   const kind: LedgerKind = recordKind === 'income' ? 'income' : 'expense';
   // 무언가 도는 중에는 단계를 옮기지 못한다. 옮기면 응답이 돌아올 자리가 사라진다.
   const [busy, setBusy] = useState(false);
@@ -638,7 +649,18 @@ function RecordBody({
     시트를 크게 열지는 지금 보이는 패널만 보고 정한다.
   */
   const [reviewCounts, setReviewCounts] = useState<Partial<Record<RecordTab, number>>>({});
-  const pending = Object.values(reviewCounts).reduce((sum, count) => sum + (count ?? 0), 0);
+  /** 자산 채우기 패널(캡처, 글)의 검토 줄 수. 한 번에 하나만 보이므로 값 하나로 든다. */
+  const [assetPending, setAssetPending] = useState(0);
+  const pending =
+    Object.values(reviewCounts).reduce((sum, count) => sum + (count ?? 0), 0) + assetPending;
+  const assetCaptureRef = useRef<AssetFillHandle>(null);
+  const assetTextRef = useRef<AssetFillHandle>(null);
+  const assetTextDraftRef = useRef(false);
+  /** 자산 채우기 패널은 「저축·투자」 를 한 번이라도 고른 뒤에 세운다. 자산 목록을 미리 안 받으려고. */
+  const [assetUsed, setAssetUsed] = useState(false);
+  useEffect(() => {
+    if (assetMode) setAssetUsed(true);
+  }, [assetMode]);
   /** 패널을 비우고 다시 세울 때 올리는 값. 읽어 온 것을 버리고 첫 화면으로 갈 때 쓴다. */
   const [panelKeys, setPanelKeys] = useState<Record<PanelTab, number>>({
     nl: 0,
@@ -678,7 +700,8 @@ function RecordBody({
    */
   const done = saved != null || savedEntry != null;
   const panelShown = !done && (step === 'nl' || step === 'photo');
-  const reviewing = panelShown && (reviewCounts[tab] ?? 0) > 0;
+  const reviewing =
+    panelShown && (assetMode ? assetPending > 0 : (reviewCounts[tab] ?? 0) > 0);
 
   useEffect(() => {
     onPendingChange(pending);
@@ -782,7 +805,12 @@ function RecordBody({
       setTagComposing(false);
       return;
     }
-    if (step === 'nl' || step === 'photo') {
+    if ((step === 'nl' || step === 'photo') && assetMode) {
+      if (assetPending > 0) {
+        askPanel(how);
+        return;
+      }
+    } else if (step === 'nl' || step === 'photo') {
       // 저장까지 마친 결과 화면이면 「확인」 과 같은 길로 닫는다.
       if (importSavedRef.current[tab]) {
         finish();
@@ -812,7 +840,7 @@ function RecordBody({
 
   /** 읽어 온 것을 버릴지 묻는다. 시트를 닫으려 할 때와 같은 로그를 남긴다. */
   function askPanel(how: 'sheet' | 'back'): void {
-    const count = reviewCounts[tab] ?? 0;
+    const count = assetMode ? assetPending : (reviewCounts[tab] ?? 0);
     analytics.log(
       EVENTS.recordLeaveAsked,
       { result: 'asked', pending: count, reason: 'parsed' },
@@ -847,8 +875,12 @@ function RecordBody({
       { kind: 'click', flowId },
     );
     analytics.log(EVENTS.recordBack, { from: step, how: panelAsk.how }, { flowId, kind: 'click' });
-    discardRefs[tab].current();
-    resetPanel(tab);
+    if (assetMode) {
+      (tab === 'capture' ? assetCaptureRef : assetTextRef).current?.reset();
+    } else {
+      discardRefs[tab].current();
+      resetPanel(tab);
+    }
     setPanelAsk(null);
     go('setup');
   }
@@ -993,8 +1025,8 @@ function RecordBody({
       recordDay !== openedDay ? 'day' : null,
       chosenDest !== undefined && chosenDest !== defaultDest ? 'book' : null,
       tab !== startTab ? 'way' : null,
-      // 종류는 직접 입력에만 있다. 다른 방법이면 골라 둔 값이 남아도 쓰이지 않는다.
-      tab === 'keypad' && recordKind !== 'expense' ? 'kind' : null,
+      // 종류는 영수증에 없다. 영수증이면 골라 둔 값이 남아도 쓰이지 않는다.
+      wayHasKinds(tab) && recordKind !== 'expense' ? 'kind' : null,
     ].filter((field) => field != null);
     return (fields.length === 0 ? 'none' : fields.join('+')) as SetupChanged;
   }
@@ -1006,8 +1038,8 @@ function RecordBody({
       EVENTS.recordSetupDone,
       {
         way: recordMethodOf(tab),
-        // 종류 칩은 직접 입력에만 선다. 다른 방법이면 남아 있는 값을 싣지 않는다.
-        ...(tab === 'keypad' ? { kind: recordKind } : {}),
+        // 종류 칩은 영수증에 안 선다. 영수증이면 남아 있는 값을 싣지 않는다.
+        ...(wayHasKinds(tab) ? { kind: recordKind } : {}),
         book: shared ? 'shared' : 'mine',
         day: isBackfill ? 'past' : 'today',
         changed: changedFields(),
@@ -1027,6 +1059,10 @@ function RecordBody({
     }
     setStep('photo');
     // 누른 그 손짓 안에서 연다. 미뤄 열면 기기가 사람이 누른 것으로 안 보고 막는다.
+    if (assetMode) {
+      assetCaptureRef.current?.start();
+      return;
+    }
     (tab === 'capture' ? captureRef : receiptRef).current?.start();
   }
 
@@ -1364,6 +1400,7 @@ function RecordBody({
   draftedRef.current = () =>
     (!done && (digits !== '' || qtyDigits !== '')) ||
     nlDraftRef.current ||
+    (assetUsed && assetTextDraftRef.current) ||
     composeDirtyRef.current;
   composingRef.current = creating;
   leaveComposeRef.current = requestLeaveCompose;
@@ -1422,6 +1459,24 @@ function RecordBody({
     finish();
     if (!waiting && location.pathname !== ROUTES.assets) void navigate(ROUTES.assets);
   }
+
+  /** 캡처나 글로 자산을 채운 뒤. 기록 목록이 아니라 내 자산 화면에서 채워진 결과를 보여 준다. */
+  function afterAssetFilled(): void {
+    // 저장 없이 닫힌 흐름으로 세지 않는다.
+    savedRef.current = flowId;
+    openAssets();
+  }
+
+  /** 자산 채우기의 「직접 적기」. 같은 저축·투자를 금액 화면에서 적는다. */
+  function assetManual(): void {
+    analytics.log(
+      EVENTS.inputMethodChanged,
+      { from: recordMethodOf(tab), to: recordMethodOf('keypad') },
+      { flowId, kind: 'click' },
+    );
+    setTab('keypad');
+    go('amount');
+  }
   const failedSave = shared ? createEntry.error : create.error;
   const saveError = failedSave instanceof ApiError ? failedSave : null;
 
@@ -1464,7 +1519,7 @@ function RecordBody({
   const saveTarget = listOpen ? null : picked;
   const canSave = isTransfer || isSave || saveTarget != null;
 
-  const photoNote = <PhotoCreditLine credits={photoCredits} />;
+  const photoNote = assetMode ? <AssetCaptureAdLine /> : <PhotoCreditLine credits={photoCredits} />;
 
   return (
     <div className="record" ref={rootRef}>
@@ -1566,7 +1621,11 @@ function RecordBody({
         패널은 감추기만 하고 남겨 둔다. 언마운트하면 적어 둔 줄글과 검토 목록이 사라진다.
         버리고 나갈 때만 key 를 올려 새로 세운다.
       */}
-      <div className="record__panel" data-record-step="" hidden={!panelShown || tab !== 'nl'}>
+      <div
+        className="record__panel"
+        data-record-step=""
+        hidden={!panelShown || tab !== 'nl' || assetMode}
+      >
         <SheetHeader onBack={() => back('sheet')} title="글로 쓰기" backDisabled={busy} />
         <NaturalLanguageTab
           key={panelKeys.nl}
@@ -1586,7 +1645,7 @@ function RecordBody({
       <div
         className="record__panel"
         data-record-step=""
-        hidden={!panelShown || tab !== 'capture'}
+        hidden={!panelShown || tab !== 'capture' || assetMode}
       >
         <SheetHeader onBack={() => back('sheet')} title="캡처로 정리" backDisabled={busy} />
         <ImageImportTab
@@ -1607,6 +1666,45 @@ function RecordBody({
           credits={photoCredits}
         />
       </div>
+
+      {/*
+        자산 채우기. 캡처와 글이 「저축·투자」 일 때만 보인다. 자산 화면의 캡처로 채우기와 같은
+        검토를 지나 저장하면 내 자산 화면으로 간다.
+      */}
+      {assetMode || assetUsed ? (
+        <>
+          <div
+            className="record__panel"
+            data-record-step=""
+            hidden={!panelShown || tab !== 'capture' || !assetMode}
+          >
+            <SheetHeader onBack={() => back('sheet')} title="캡처로 정리" backDisabled={busy} />
+            <AssetCapturePanel
+              ref={assetCaptureRef}
+              onBusyChange={markBusy}
+              onPendingChange={setAssetPending}
+              onSaved={afterAssetFilled}
+              onCancel={finish}
+              onManual={assetManual}
+            />
+          </div>
+          <div
+            className="record__panel"
+            data-record-step=""
+            hidden={!panelShown || tab !== 'nl' || !assetMode}
+          >
+            <SheetHeader onBack={() => back('sheet')} title="글로 쓰기" backDisabled={busy} />
+            <AssetTextPanel
+              ref={assetTextRef}
+              draftRef={assetTextDraftRef}
+              onBusyChange={markBusy}
+              onPendingChange={setAssetPending}
+              onSaved={afterAssetFilled}
+              onCancel={finish}
+            />
+          </div>
+        </>
+      ) : null}
 
       <div
         className="record__panel"

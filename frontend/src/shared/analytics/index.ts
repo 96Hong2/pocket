@@ -16,6 +16,8 @@ export {
   type AssetAnalysisSkipReason,
   type AssetAnalysisState,
   type AssetCaptureAd,
+  type AssetCaptureFrom,
+  type AssetCaptureInput,
   type AssetCaptureStep,
   type AssetChangeField,
   type AssetChangeFrom,

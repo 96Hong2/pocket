@@ -20,6 +20,7 @@ from app.api.errors import ERROR_RESPONSES, ApiError, ErrorCode
 from app.api.images import decode_data_url
 from app.domain.asset_analysis import AnalysisScope
 from app.domain.money import Money
+from app.integrations.llm import LlmStructuredClient
 from app.models import User
 from app.models.asset import AssetSnapshot
 from app.modules import ledger
@@ -52,6 +53,7 @@ from app.modules.assets.schemas import (
     AssetHistoryPointOut,
     AssetSnapshotPut,
     AssetsOut,
+    AssetTextIn,
     to_assets_out,
 )
 from app.modules.transactions.schemas import TransactionOut
@@ -304,6 +306,26 @@ def capture(
     rows = capture_service.read_capture(
         session, user, image=decode_data_url(body.image), client=client
     )
+    return _capture_out(rows, client, stub_note="stub_image")
+
+
+@router.post("/capture-text", response_model=AssetCaptureOut)
+def capture_text(
+    body: AssetTextIn, session: DbSession, user: CurrentUser, client: LlmClient
+) -> AssetCaptureOut:
+    """적은 보유 내역을 캡처와 같은 후보 목록으로 준다. 아무것도 저장하지 않는다."""
+    # async 로 바꾸지 않는다. anyio.from_thread.run 이 워커 스레드를 전제한다.
+    rows = capture_service.read_text(session, user, text=body.text.strip(), client=client)
+    # 스텁도 글은 규칙으로 실제로 읽는다. 예시 결과라는 표시를 달지 않는다.
+    return _capture_out(rows, client, stub_note=None)
+
+
+def _capture_out(
+    rows: list[capture_service.CaptureRow],
+    client: LlmStructuredClient,
+    *,
+    stub_note: str | None,
+) -> AssetCaptureOut:
     return AssetCaptureOut(
         items=[
             AssetCaptureItemOut(
@@ -326,6 +348,6 @@ def capture(
             provider=client.provider,
             is_stub=client.is_stub,
             # 스텁은 그림을 안 읽고 예시를 낸다. 실제 인식으로 보이지 않게 표시한다.
-            notes=["stub_image"] if client.is_stub else [],
+            notes=[stub_note] if client.is_stub and stub_note is not None else [],
         ),
     )

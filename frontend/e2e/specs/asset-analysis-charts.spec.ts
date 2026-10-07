@@ -8,7 +8,7 @@ import { shotBothWidths } from '../support/shots';
 import { EditSheetArea } from '../screens/CalendarScreen';
 
 /**
- * 「내 자산 분석」 의 그림과 종류별 분석 광고.
+ * 「내 자산 리포트」 의 그림과 종류별 리포트 광고.
  *
  * 지키는 것:
  * - 전체 분석에 리포트 같은 그림이 선다. 순자산 흐름, 지난달 대비 막대, 어디에 모았나,
@@ -200,7 +200,7 @@ test('전체 분석을 광고 보고 열면 주식, 예/적금 분석은 광고 
   expect(await adsShown(page)).toBe(1);
   const opened = await logsNamed(page, 'asset_analysis_opened');
   expect(opened.map((log) => [log.params.scope, log.params.ad])).toEqual([
-    ['all', expect.stringMatching(/^(earned|watched)$/)],
+    ['all', 'watched'],
     ['stock', 'free'],
     ['cash', 'free'],
   ]);
@@ -297,7 +297,7 @@ test('전체 분석을 연 뒤 주식 종목이 바뀌면 전체가 다시 광�
   expect(await adsShown(page)).toBe(1);
   const opened = await logsNamed(page, 'asset_analysis_opened');
   expect(opened.map((log) => [log.params.scope, log.params.ad])).toEqual([
-    ['all', expect.stringMatching(/^(earned|watched)$/)],
+    ['all', 'watched'],
     ['stock', 'free'],
   ]);
 });

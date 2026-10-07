@@ -463,6 +463,23 @@ class AssetCaptureIn(BaseModel):
         return value
 
 
+# 줄글 입력(imports.schemas.MAX_TEXT_LENGTH)과 같은 값이다. 그쪽을 가져오면 모듈이 서로 물린다.
+MAX_ASSET_TEXT_LENGTH = 2000
+
+
+class AssetTextIn(BaseModel):
+    """적은 보유 내역 한 덩어리. 「삼성전자 3주 21만원, 카카오뱅크 적금 300만원」."""
+
+    text: str = Field(min_length=1, max_length=MAX_ASSET_TEXT_LENGTH)
+
+    @field_validator("text")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("읽을 글이 비어 있어요.")
+        return value
+
+
 class AssetCaptureItemOut(BaseModel):
     """읽은 한 줄. item_key 가 있으면 기존 항목이고 current_amount 가 그 지금 금액이다."""
 

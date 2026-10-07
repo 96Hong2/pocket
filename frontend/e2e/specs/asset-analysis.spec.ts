@@ -3,12 +3,13 @@ import { formatCurrency } from '../../src/shared/lib/format';
 import { logsNamed } from '../support/aitMock';
 import { lastMonth, thisMonth, type PrepApi } from '../support/api';
 import { expect, test } from '../support/fixtures';
+import { shotBothWidths } from '../support/shots';
 
 /**
- * 「내 자산 분석」.
+ * 「내 자산 리포트」.
  *
- * 입구 카드에는 광고 이야기가 없고, 누르면 확인 창이 묻는다. 「확인」 뒤에만 리워드 광고가 서고
- * 어떻게 끝나든 분석이 열린다. 한 번 본 분석은 숫자가 그대로인 동안 광고 없이 열리고,
+ * 입구 카드에는 광고 이야기가 없고, 누르면 확인 창이 묻는다. 「확인」 뒤에만 짧은 전면 광고가 서고
+ * 어떻게 끝나든 리포트가 열린다. 한 번 본 리포트는 숫자가 그대로인 동안 광고 없이 열리고,
  * 숫자가 바뀌면 다시 묻는다. 날짜만 지나는 것(체크인 복사)은 바뀜이 아니다.
  *
  * 숫자는 아래 심은 값에서 손으로 셈한 것이다. 자산 3,000,000원 중 예적금·현금 1,600,000원(53.3%),
@@ -34,7 +35,7 @@ async function seedPortfolio(prep: PrepApi): Promise<AssetsOut> {
   ]);
 }
 
-test('입구에는 광고 말이 없고, 닫기면 아무 일도 없고, 확인 뒤 광고를 지나 분석이 열린다', async ({
+test('입구에는 도넛 그림과 리포트 이름만 있고, 닫기면 아무 일도 없고, 확인 뒤 전면 광고를 지나 리포트가 열린다', async ({
   assets,
   assetAnalysis,
   page,
@@ -49,9 +50,16 @@ test('입구에는 광고 말이 없고, 닫기면 아무 일도 없고, 확인 
     '어디에 얼마가 있는지, 수익률, 지난달과 달라진 것',
   );
   await expect(assets.analysisEntry).not.toContainText('광고');
+  await expect(assets.analysisEntry).toContainText('내 자산 리포트');
+  await expect(assets.analysisEntryIcon).toHaveAttribute('src', /79_donut_chart\.png$/);
+  // 이름은 카드 머리에 한 번만. 버튼은 「리포트 보기」 다.
+  await expect(assets.analysisButton).toHaveText('리포트 보기');
+  await shotBothWidths(page, 'B_내자산리포트_입구', assets.analysisEntry);
 
   await assets.analysisButton.click();
-  await expect(assetAnalysis.adConsent).toContainText('30초 광고를 보면 분석 결과를 볼 수 있어요');
+  await expect(assetAnalysis.adConsent).toContainText('짧은 광고 뒤에 내 자산 리포트가 열려요');
+  await expect(assetAnalysis.adConsent).not.toContainText('30초');
+  await shotBothWidths(page, 'B_내자산리포트_광고확인창');
   await assetAnalysis.adConsentCancel.click();
   await expect(assetAnalysis.adConsent).toHaveCount(0);
   await expect(assets.analysisEntry).toHaveAttribute('data-state', 'locked');
@@ -65,8 +73,13 @@ test('입구에는 광고 말이 없고, 닫기면 아무 일도 없고, 확인 
   expect(asked.map((log) => log.params.answer)).toEqual(['close', 'ok']);
   const opened = await logsNamed(page, 'asset_analysis_opened');
   expect(opened).toHaveLength(1);
-  expect(opened[0]?.params).toMatchObject({ scope: 'all' });
-  expect(['earned', 'watched']).toContain(opened[0]?.params.ad);
+  expect(opened[0]?.params).toMatchObject({ scope: 'all', ad: 'watched' });
+  // 리워드가 아니라 전면 광고 한 편이다.
+  const ads = await logsNamed(page, 'interstitial_result');
+  expect(ads.map((log) => [log.params.where, log.params.result])).toEqual([
+    ['asset_analysis', 'watched'],
+  ]);
+  await expect(assetAnalysis.title).toHaveText('내 자산 리포트');
 
   // 도넛: 그룹별 비율과 금액. 부채와 순자산은 도넛 아래 한 줄.
   await expect(assetAnalysis.ring).toBeVisible();
@@ -107,7 +120,7 @@ test('현재가도 판 기록도 없으면 수익률 카드가 빈 말을 하고
   await expect(assetAnalysis.kindRow('stock')).toHaveCount(0);
 });
 
-test('전체 분석을 연 뒤 주식 분석과 예/적금 분석은 확인 창 없이 그 묶음 숫자로 열린다', async ({
+test('전체 리포트를 연 뒤 주식 리포트와 예/적금 리포트는 확인 창 없이 그 묶음 숫자로 열린다', async ({
   assets,
   assetAnalysis,
   page,
@@ -132,7 +145,7 @@ test('전체 분석을 연 뒤 주식 분석과 예/적금 분석은 확인 창 
   await assetAnalysis.kindRow('stock').click();
   await assetAnalysis.waitOpen('stock');
   await expect(assetAnalysis.adConsent).toHaveCount(0);
-  await expect(assetAnalysis.title).toHaveText('주식 분석');
+  await expect(assetAnalysis.title).toHaveText('주식 리포트');
   // 주식, ETF, 펀드, 채권만. 삼성전자 600,000원과 펀드 400,000원 → 60%, 40%
   await expect(assetAnalysis.legendRow('삼성전자')).toContainText('60%');
   await expect(assetAnalysis.legendRow('S&P500 펀드')).toContainText('40%');
@@ -141,7 +154,7 @@ test('전체 분석을 연 뒤 주식 분석과 예/적금 분석은 확인 창 
   // 로그는 문서마다 새로 쌓인다. 주소로 옮기기 전에 읽는다.
   const before = await logsNamed(page, 'asset_analysis_opened');
   expect(before.map((log) => [log.params.scope, log.params.ad])).toEqual([
-    ['all', expect.stringMatching(/^(earned|watched)$/)],
+    ['all', 'watched'],
     ['stock', 'free'],
   ]);
 
@@ -149,7 +162,7 @@ test('전체 분석을 연 뒤 주식 분석과 예/적금 분석은 확인 창 
   await assetAnalysis.open('cash');
   await assetAnalysis.waitOpen('cash');
   await expect(assetAnalysis.adConsent).toHaveCount(0);
-  await expect(assetAnalysis.title).toHaveText('예/적금 분석');
+  await expect(assetAnalysis.title).toHaveText('예/적금 리포트');
   // 1,000,000원과 600,000원 → 62.5%, 37.5%
   await expect(assetAnalysis.legendRow('카카오뱅크')).toContainText('62.5%');
   await expect(assetAnalysis.legendRow('청년도약계좌')).toContainText('37.5%');
@@ -160,7 +173,7 @@ test('전체 분석을 연 뒤 주식 분석과 예/적금 분석은 확인 창 
   await expect(assetAnalysis.monthly).not.toContainText('한 번 넣은 돈');
 });
 
-test('본 분석은 숫자가 그대로면 줄 하나로 광고 없이 열리고, 금액을 고치면 다시 묻는다', async ({
+test('본 리포트는 숫자가 그대로면 줄 하나로 광고 없이 열리고, 금액을 고치면 다시 묻는다', async ({
   assets,
   assetAnalysis,
   page,
@@ -181,7 +194,8 @@ test('본 분석은 숫자가 그대로면 줄 하나로 광고 없이 열리고
   await assets.open();
   await assets.waitReady();
   await expect(assets.analysisEntry).toHaveAttribute('data-state', 'open');
-  await expect(assets.analysisEntry).toHaveText(/^내 자산 분석/);
+  await expect(assets.analysisEntry).toHaveText(/^내 자산 리포트/);
+  await expect(assets.analysisEntryIcon).toHaveAttribute('src', /79_donut_chart\.png$/);
   await assets.analysisEntry.click();
   await assetAnalysis.waitOpen('all');
   await expect(assetAnalysis.adConsent).toHaveCount(0);
@@ -193,7 +207,7 @@ test('본 분석은 숫자가 그대로면 줄 하나로 광고 없이 열리고
   await assets.waitReady();
   await assets.edit('카카오뱅크', { amount: 1_100_000 });
   await expect(assets.analysisEntry).toHaveAttribute('data-state', 'stale');
-  await expect(assets.analysisEntry).toContainText('자산이 바뀌어서 분석을 다시 해요');
+  await expect(assets.analysisEntry).toContainText('자산이 바뀌어서 리포트를 새로 만들어요');
 
   await assets.analysisButton.click();
   await expect(assetAnalysis.adConsent).toBeVisible();

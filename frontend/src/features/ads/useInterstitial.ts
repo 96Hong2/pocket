@@ -47,11 +47,14 @@ import { useFullScreenAd, type FullScreenAdOutcome, type FullScreenGroup } from 
  * **`asset_capture` 도 상한을 안 센다.** 잔액 캡처를 읽는 동안 도는 광고라 `photo` 와 같은
  * 까닭이다. 그룹은 전용(`useInterstitial('asset_capture')`)이고 다른 그룹으로 떨어지지 않는다.
  *
+ * **`asset_analysis` 도 상한을 안 센다.** 내 자산 리포트를 열기 전에 확인 창이 광고를 먼저
+ * 말하고 사람이 스스로 누르는 자리다. 그룹은 잔액 캡처와 같은 자산 그룹이다.
+ *
  * 생활비 계산기는 여기 없다. 광고와 기능을 맞바꾸겠다고 사람이 먼저 누르는 자리라
  * 리워드 광고(`useRewardedAd`)로 나갔고, 그래서 상한도 안 센다(ADR-0024).
  * 사진 여러 장도 같은 이유로 여기 없다(`usePhotoRewardedAd`).
  */
-export type InterstitialWhere = 'closing' | 'photo' | 'asset_capture';
+export type InterstitialWhere = 'closing' | 'photo' | 'asset_capture' | 'asset_analysis';
 
 /** 지나온 결과. `capped` 는 상한에 걸려 광고를 아예 부르지 않은 것이다. */
 export type InterstitialOutcome = FullScreenAdOutcome | { result: 'skipped'; reason: 'capped' };
