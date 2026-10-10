@@ -40,7 +40,7 @@ export interface BookDuesSheetProps {
  *
  * 둘이면 한 사람을 움직이면 다른 사람이 따라온다. 셋 이상이면 각자 움직이고 합이 100% 가
  * 아니면 저장을 막고 그 자리에 지금 합을 적는다. 「똑같이」 는 비율을 지워 인원수대로 나눈다.
- * 「한 달 회비」 는 각자 입금일 때만 묻는다. 저장은 PATCH 한 번이다.
+ * 「한 달 회비」 는 각자 입금일 때만 묻고, 여행 가계부에는 없다. 저장은 PATCH 한 번이다.
  */
 export function BookDuesSheet({ open, book, onClose, onSaved }: BookDuesSheetProps) {
   const [saving, setSaving] = useState(false);
@@ -84,6 +84,8 @@ function DuesForm({
   const [digits, setDigits] = useState(savedDues == null ? '' : String(savedDues));
 
   const shared = ids.length >= 2;
+  // 여행은 달로 끊지 않아 「한 달」 회비가 없다.
+  const monthly = rule === 'none' && book.kind !== 'trip';
   const ready = percentsReady(ids, percents);
   const sum = percents == null ? 100 : percentSum(percents);
   const dues = digits === '' ? null : Number(digits);
@@ -95,7 +97,7 @@ function DuesForm({
     const body: BookUpdate = {};
     if (rule !== book.settle_rule) body.settle_rule = rule;
     if (shared && !samePercents(percents, saved)) body.share_percents = percents;
-    if (rule === 'none' && dues !== savedDues) body.dues_amount = dues;
+    if (monthly && dues !== savedDues) body.dues_amount = dues;
     return body;
   }
 
@@ -182,7 +184,7 @@ function DuesForm({
         </section>
       ) : null}
 
-      {rule === 'none' ? (
+      {monthly ? (
         <AmountField label="한 달 회비" value={digits} onChange={setDigits} />
       ) : null}
 

@@ -104,6 +104,8 @@ function BookHomeBody({
   const report = useBookReport(book.id, undefined, live);
   const settles = ruleSettles(book.settle_rule);
   const deposits = book.settle_rule === 'none';
+  // 각자 입금 가계부는 입금 줄도 같이 서서 「쓴 돈」 만의 목록이 아니다.
+  const recentTitle = deposits ? '최근 기록' : '최근 같이 쓴 돈';
   const trip = book.kind === 'trip';
   // 여행 가계부는 맨 위 숫자도 여행 전체라 나누지 않아도 정산 합계를 읽는다.
   const settlement = useBookSettlement(book.id, trip ? 'all' : undefined, {
@@ -183,8 +185,8 @@ function BookHomeBody({
         </Button>
       ) : null}
 
-      <section className="book-home__recent" aria-label="최근 같이 쓴 돈">
-        <h2 className="book-home__title">최근 같이 쓴 돈</h2>
+      <section className="book-home__recent" aria-label={recentTitle}>
+        <h2 className="book-home__title">{recentTitle}</h2>
         {items != null && shownItems != null ? (
           items.length > 0 ? (
             <>

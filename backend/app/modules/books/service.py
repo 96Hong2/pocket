@@ -24,8 +24,8 @@ from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, func, or_, select, update
-from sqlalchemy.orm import InstrumentedAttribute, Session
+from sqlalchemy import ColumnElement, and_, func, or_, select, update
+from sqlalchemy.orm import InstrumentedAttribute, Session, aliased
 
 from app.api.errors import ApiError, ErrorCode
 from app.domain import aggregation as agg, book_report, settlement as settling
@@ -34,6 +34,8 @@ from app.domain.books import (
     INVITE_CODE_BYTES,
     INVITE_CODE_PATTERN,
     INVITE_DAYS,
+    MAX_BOOKS_PER_USER,
+    MAX_ENTRIES_PER_DAY,
     MAX_MEMBERS,
     RESTORE_DAYS,
     TRIP_PERIOD,
@@ -364,8 +366,29 @@ def list_books(session: Session, user: User) -> BookListOut:
     return BookListOut(items=items)
 
 
+def _require_book_room(session: Session, user: User) -> None:
+    """지금 멤버로 같이 쓰는 가계부가 상한이면 더 만들거나 들어가지 못한다."""
+    count = session.scalar(
+        select(func.count())
+        .select_from(BookMember)
+        .join(Book, Book.id == BookMember.book_id)
+        .where(
+            BookMember.user_id == user.id,
+            BookMember.left_at.is_(None),
+            Book.deleted_at.is_(None),
+        )
+    )
+    if (count or 0) >= MAX_BOOKS_PER_USER:
+        raise ApiError(
+            ErrorCode.USAGE_LIMIT,
+            f"가계부는 {MAX_BOOKS_PER_USER}개까지 함께 쓸 수 있어요.",
+            status_code=429,
+        )
+
+
 def create_book(session: Session, user: User, body: BookCreate) -> BookOut:
     """가계부, 관리자 멤버, 종류별 분류, 살아 있는 초대를 한 번에 만든다."""
+    _require_book_room(session, user)
     now = _now()
     book = Book(
         kind=body.kind,
@@ -597,6 +620,7 @@ def join_book(session: Session, user: User, code: str, body: JoinIn) -> BookOut:
     mine = _active_membership(session, book.id, user.id)
     if mine is not None:
         return _book_out(session, book, mine)
+    _require_book_room(session, user)
 
     now = _now()
     active_count = sum(1 for m in _members(session, book.id) if m.left_at is None)
@@ -787,7 +811,26 @@ def _entry_out(entry: BookEntry, mine: set[uuid.UUID], is_owner: bool) -> BookEn
         can_delete=_can_delete(entry, mine, is_owner),
         # 입금을 내 가계부로 옮기면 넣은 돈이 내 지출이 된다.
         can_move=written_by_me and entry.kind is BookEntryKind.EXPENSE,
+        written_by_me=written_by_me,
     )
+
+
+def _require_entry_room(session: Session, book: Book) -> None:
+    """한 가계부에 24시간 동안 적은 줄이 상한이면 더 적지 못한다. 지운 줄도 센다.
+
+    지우고 다시 적기를 되풀이해 표를 끝없이 키우지 못하게.
+    """
+    count = session.scalar(
+        select(func.count())
+        .select_from(BookEntry)
+        .where(BookEntry.book_id == book.id, BookEntry.created_at >= _now() - timedelta(days=1))
+    )
+    if (count or 0) >= MAX_ENTRIES_PER_DAY:
+        raise ApiError(
+            ErrorCode.USAGE_LIMIT,
+            "오늘은 이 가계부에 충분히 적었어요. 내일 다시 적어 주세요.",
+            status_code=429,
+        )
 
 
 def _live_entry(session: Session, book: Book, entry_id: uuid.UUID) -> BookEntry:
@@ -900,6 +943,7 @@ def create_entry(
 ) -> BookEntryCreated:
     access = _access(session, user, book_id)
     _require_open(access.book)
+    _require_entry_room(session, access.book)
     # 입금에 분류가 오면 스키마가 이미 막았다.
     _require_category(session, access.book, body.category_id)
     entry = BookEntry(
@@ -1086,6 +1130,7 @@ def move_entry_in(
     """내 지출 하나를 공유 기록으로 옮긴다. 만들기와 원본 지우기를 한 commit 으로 묶는다."""
     access = _access(session, user, book_id)
     _require_open(access.book)
+    _require_entry_room(session, access.book)
     tx = transactions.get_owned(session, user, body.transaction_id)
     if (
         tx.type is not agg.TransactionType.EXPENSE
@@ -1276,6 +1321,8 @@ def stage_entry(
 
     분류가 비었거나 이제 없으면 「기타」 로 둔다.
     """
+    # 한 묶음에 여러 줄이면 앞서 만든 줄이 flush 돼 있어 그만큼 센다.
+    _require_entry_room(session, book)
     if category_id is not None and _book_category(session, book, category_id) is None:
         category_id = None
     entry = BookEntry(
@@ -1357,10 +1404,28 @@ def _settle_members(
     return canonical, people
 
 
+def _done_percents(canonical: Mapping[uuid.UUID, str], done: Settlement) -> dict[str, int] | None:
+    """끝낼 때 나눈 비율을 지금 대표 id 로. 나갔다 다시 들어오면 대표 id 가 바뀐다."""
+    raw = done.share_percents
+    if not isinstance(raw, Mapping) or not raw:
+        return None
+    aliases = {str(old): head for old, head in canonical.items()}
+    try:
+        return {aliases.get(str(key), str(key)): int(value) for key, value in raw.items()}
+    except (TypeError, ValueError):
+        return None
+
+
 def _compute(
-    session: Session, book: Book, period: BudgetPeriod | None
+    session: Session, book: Book, period: BudgetPeriod | None, done: Settlement | None
 ) -> tuple[dict[uuid.UUID, str], settling.Settlement]:
+    """그 기간 정산. 끝낸 기간은 끝낼 때의 비율로 센다.
+
+    비율을 바꾸거나 사람이 바뀌어 비율이 비어도 끝낸 달의 보낼 돈은 그대로다. 끝내기를 되돌리면
+    지금 비율로 다시 센다.
+    """
     canonical, people = _settle_members(_members(session, book.id), book.created_by_user_id)
+    percents = _done_percents(canonical, done) if done is not None else _percents(book)
     stmt = select(BookEntry.amount, BookEntry.paid_by_member_id).where(
         *entry_filter(book, period=period)
     )
@@ -1376,7 +1441,7 @@ def _compute(
         for amount, paid_by in session.execute(stmt)
     ]
     return canonical, settling.settle(
-        people, entries, book.settle_rule, start=start, end=end, percents=_percents(book)
+        people, entries, book.settle_rule, start=start, end=end, percents=percents
     )
 
 
@@ -1404,8 +1469,8 @@ def _current_done(session: Session, book_id: uuid.UUID, key: str) -> Settlement 
 def _settlement_out(
     session: Session, book: Book, key: str, period: BudgetPeriod | None
 ) -> SettlementOut:
-    canonical, result = _compute(session, book, period)
     current = _current_done(session, book.id, key)
+    canonical, result = _compute(session, book, period, current)
     return SettlementOut(
         period=key,
         period_start=period.start if period is not None else None,
@@ -1462,8 +1527,8 @@ def mark_settlement_done(
         raise ApiError(ErrorCode.INVALID_REQUEST, "정산이 없는 가계부예요.", status_code=422)
     # 질의로 받을 때와 같은 길로 가계부의 한 달을 만든다.
     key, scoped = _scope(book, BudgetPeriod.of_month(body.year, body.month))
-    canonical, result = _compute(session, book, scoped)
     current = _current_done(session, book.id, key)
+    canonical, result = _compute(session, book, scoped, current)
     if current is not None and not _changed(canonical, result, current):
         # 두 사람이 거의 같이 누르면 같은 줄이 둘 쌓여 되돌리기 한 번으로 안 풀린다.
         return _settlement_out(session, book, key, scoped)
@@ -1472,6 +1537,11 @@ def mark_settlement_done(
             book_id=book.id,
             period=key,
             transfers_snapshot=settling.snapshot_of(result.transfers),
+            share_percents=(
+                {row.member_id: row.percent for row in result.members if row.percent is not None}
+                if result.ratio
+                else None
+            ),
             done_by_member_id=access.me.id,
             done_at=_now(),
         )
@@ -1483,7 +1553,8 @@ def mark_settlement_done(
 def undo_settlement_done(
     session: Session, user: User, book_id: uuid.UUID, period: BudgetPeriod | None
 ) -> SettlementOut:
-    access = _access(session, user, book_id)
+    """끝내기와 같은 잠금을 건다. 같이 누르면 되돌린 줄과 새로 끝낸 줄이 엇갈린다."""
+    access = _access(session, user, book_id, lock=True)
     key, scoped = _scope(access.book, period)
     current = _current_done(session, access.book.id, key)
     if current is None:
@@ -1513,6 +1584,16 @@ def _deposited_by(
     return found
 
 
+def _deposit_status(put: Money, due: Money | None) -> DuesStatus:
+    """각자 입금의 한 사람. 낼 돈이 없으면 한 번이라도 넣었나만 본다."""
+    if due is None:
+        return "done" if put.is_positive else "pending"
+    if due.is_zero:
+        # 0% 인 사람은 낼 돈이 없다. 안 넣어도 「입금완료」 를 달지 않는다.
+        return "none"
+    return "done" if put >= due else "pending"
+
+
 def get_dues(
     session: Session, user: User, book_id: uuid.UUID, period: BudgetPeriod | None
 ) -> BookDuesOut:
@@ -1535,32 +1616,35 @@ def get_dues(
     if book.settle_rule is SettleRule.NONE:
         shares, used = settling.split_shares(dues or Money.zero(), current, _percents(book))
         ratio_used = used is not None
+        # 한 달 회비는 달마다 낼 돈이다. 여행은 달로 끊지 않아 견줄 낼 돈이 없다.
+        monthly = dues is not None and book.kind is not BookKind.TRIP
         for m in current:
             put = deposited.get(m.member_id, Money.zero())
-            due = shares[m.member_id] if dues is not None else None
-            done = put >= due if due is not None else put.is_positive
+            due = shares[m.member_id] if monthly else None
             members.append(
                 BookDueMemberOut(
                     member_id=uuid.UUID(m.member_id),
                     percent=used[m.member_id] if used is not None else None,
                     due=due.amount if due is not None else None,
                     deposited=put.amount,
-                    status="done" if done else "pending",
+                    status=_deposit_status(put, due),
                 )
             )
     else:
-        aliases, result = _compute(session, book, scoped)
         done_row = _current_done(session, book.id, key)
+        aliases, result = _compute(session, book, scoped, done_row)
         settled = done_row is not None and not _changed(aliases, result, done_row)
         ratio_used = result.ratio
         rows = {row.member_id: row for row in result.members}
         for m in current:
             row = rows.get(m.member_id)
             status: DuesStatus
-            if settled:
+            if row is None:
+                # 그 기간 사람이 아니다. 끝낸 뒤 들어온 사람에게 「정산완료」 를 달지 않는다.
+                status = "none"
+            elif settled:
                 status = "done"
-            elif result.total.is_zero or row is None:
-                # 나눌 돈이 없거나 그 기간 사람이 아니다.
+            elif result.total.is_zero:
                 status = "none"
             else:
                 status = "done" if row.balance.is_zero else "pending"
@@ -1593,12 +1677,14 @@ def member_entries(
     book_id: uuid.UUID,
     member_id: uuid.UUID,
     *,
-    before: date | None,
+    cursor: uuid.UUID | None,
     limit: int,
 ) -> BookMemberEntriesOut:
     """한 사람이 낸 지출과 넣은 입금. 보는 사람은 지금 멤버여야 하고, 다른 가계부의 멤버 id 면 404.
 
     나갔다 다시 들어온 사람은 예전 줄의 기록도 함께 본다. 사용자 id 는 싣지 않는다.
+    쪽은 늘 `limit` 줄까지다. `cursor` 는 앞 쪽 마지막 줄의 id 이고, 정렬 키 셋째(id)까지 이어
+    보아 같은 날, 같은 시각에 많이 적어도 한 쪽이 커지지 않는다.
     """
     access = _access(session, user, book_id)
     book = access.book
@@ -1609,28 +1695,15 @@ def member_entries(
     paid_by_them = BookEntry.paid_by_member_id.in_(theirs)
 
     sums = _sums_by_kind(session, book, None, paid_by_them)
-    theirs_where = [*entry_filter(book, kinds=None), paid_by_them]
-    stmt = select(BookEntry).where(*theirs_where).order_by(*_NEWEST_FIRST)
-    if before is not None:
-        stmt = stmt.where(BookEntry.occurred_on < before)
+    stmt = (
+        select(BookEntry)
+        .where(*entry_filter(book, kinds=None), paid_by_them)
+        .order_by(*_NEWEST_FIRST)
+    )
+    if cursor is not None:
+        stmt = stmt.where(_older_than(_cursor_entry(session, book, cursor)))
     rows = list(session.scalars(stmt.limit(limit + 1)))
-    page, older = rows, False
-    if len(rows) > limit:
-        # 한 쪽에 날을 쪼개 담지 않는다. `before` 가 날짜라 쪼개면 그날 나머지를 다음 쪽이 못 본다.
-        cut = rows[limit].occurred_on
-        page = [row for row in rows[:limit] if row.occurred_on != cut]
-        older = bool(page)
-        if not page:
-            # 하루에 한 쪽보다 많이 적었다. 그날을 통째로 싣는다.
-            page = list(session.scalars(stmt.where(BookEntry.occurred_on == cut)))
-            older = (
-                session.scalar(
-                    select(func.count())
-                    .select_from(BookEntry)
-                    .where(*theirs_where, BookEntry.occurred_on < cut)
-                )
-                or 0
-            ) > 0
+    page = rows[:limit]
     head = _active_membership(session, book.id, target.user_id)
     mine = _my_member_ids(session, book.id, user.id)
     return BookMemberEntriesOut(
@@ -1639,7 +1712,35 @@ def member_entries(
         deposited_total=sums[BookEntryKind.DEPOSIT].amount,
         paid_total=sums[BookEntryKind.EXPENSE].amount,
         items=[_entry_out(row, mine, access.is_owner) for row in page],
-        next_before=page[-1].occurred_on if older else None,
+        next_cursor=page[-1].id if len(rows) > limit else None,
+    )
+
+
+def _cursor_entry(session: Session, book: Book, cursor: uuid.UUID) -> BookEntry:
+    """쪽 커서가 가리키는 줄. 그 사이 지워졌어도 정렬 키는 그대로라 이어 볼 수 있다."""
+    entry = session.get(BookEntry, cursor)
+    if entry is None or entry.book_id != book.id:
+        raise ApiError(ErrorCode.INVALID_REQUEST, "다음 쪽을 찾지 못했어요.", status_code=422)
+    return entry
+
+
+def _older_than(entry: BookEntry) -> ColumnElement[bool]:
+    """`_NEWEST_FIRST` 순서로 `entry` 뒤에 서는 줄.
+
+    적은 시각은 DB 에 든 값끼리 견준다. 읽어 온 값을 다시 보내면 DB 마다 시각 글자 모양이 달라
+    같은 시각이 다르게 읽힌다.
+    """
+    anchor = aliased(BookEntry)
+    stamp = select(anchor.created_at).where(anchor.id == entry.id).scalar_subquery()
+    return or_(
+        BookEntry.occurred_on < entry.occurred_on,
+        and_(
+            BookEntry.occurred_on == entry.occurred_on,
+            or_(
+                BookEntry.created_at < stamp,
+                and_(BookEntry.created_at == stamp, BookEntry.id < entry.id),
+            ),
+        ),
     )
 
 

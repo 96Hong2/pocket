@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query, Response, status
@@ -137,11 +136,11 @@ def member_entries(
     member_id: uuid.UUID,
     session: DbSession,
     user: CurrentUser,
-    before: Annotated[date | None, Query()] = None,
+    cursor: Annotated[uuid.UUID | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=MEMBER_ENTRIES_MAX)] = MEMBER_ENTRIES_LIMIT,
 ) -> BookMemberEntriesOut:
-    # before 보다 앞선 날의 기록만. 응답의 next_before 를 그대로 다시 보내면 다음 쪽이다.
-    return service.member_entries(session, user, book_id, member_id, before=before, limit=limit)
+    # 응답의 next_cursor 를 그대로 다시 보내면 다음 쪽이다.
+    return service.member_entries(session, user, book_id, member_id, cursor=cursor, limit=limit)
 
 
 @invites_router.get("/{code}", response_model=InvitePreviewOut)

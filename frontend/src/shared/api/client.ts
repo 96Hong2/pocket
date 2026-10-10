@@ -565,12 +565,12 @@ export interface ApiClient extends Transport {
   ): Promise<BookEntryListOut>;
   /**
    * 한 멤버가 낸 지출과 넣은 입금. 나갔다 다시 들어온 줄까지 같은 사람으로 모은다.
-   * `before` 보다 앞선 날의 것만 온다. 응답의 `next_before` 를 그대로 넘기면 다음 쪽이다.
+   * 한 쪽은 `limit` 줄까지다. 응답의 `next_cursor` 를 `cursor` 로 그대로 넘기면 다음 쪽이다.
    */
   listMemberEntries(
     bookId: string,
     memberId: string,
-    params?: { before?: string; limit?: number },
+    params?: { cursor?: string; limit?: number },
     options?: CallOptions,
   ): Promise<BookMemberEntriesOut>;
   /** 이번 기간(또는 고른 달) 사람마다 회비 상태. 여행 가계부는 여행 전체를 본다. */
@@ -1333,7 +1333,7 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<BookMemberEntriesOut>({
         method: 'GET',
         path: `${bookPath(bookId)}/members/${encodeURIComponent(memberId)}/entries`,
-        query: { before: params?.before, limit: params?.limit },
+        query: { cursor: params?.cursor, limit: params?.limit },
         signal: call?.signal,
       });
     },

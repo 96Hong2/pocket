@@ -23,6 +23,8 @@ __all__ = [
     "INVITE_CODE_BYTES",
     "INVITE_CODE_PATTERN",
     "INVITE_DAYS",
+    "MAX_BOOKS_PER_USER",
+    "MAX_ENTRIES_PER_DAY",
     "MAX_MEMBERS",
     "MEMBER_NAME_MAX",
     "RESTORE_DAYS",
@@ -75,6 +77,10 @@ class BookRole(StrEnum):
 
 # 한 가계부에 같이 있을 수 있는 사람 수.
 MAX_MEMBERS: Final = 10
+# 한 사람이 지금 멤버로 같이 쓰는 가계부 수. 만들기와 들어오기를 끝없이 되풀이하지 못하게.
+MAX_BOOKS_PER_USER: Final = 20
+# 한 가계부에 24시간 동안 적을 수 있는 기록 수(입금, 옮겨 온 것, 가져오기 포함).
+MAX_ENTRIES_PER_DAY: Final = 500
 # 초대 링크가 사는 날.
 INVITE_DAYS: Final = 7
 # token_urlsafe(9) 는 12글자다. 추측하기 어렵고 링크에 넣기 짧다.

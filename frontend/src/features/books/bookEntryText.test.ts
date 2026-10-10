@@ -234,6 +234,7 @@ describe('공유 기록을 화면 말로', () => {
       updated_at: '2026-10-10T00:00:00Z',
       can_delete: true,
       can_move: false,
+      written_by_me: true,
     } satisfies Omit<BookEntryOut, 'kind' | 'title'>;
     expect(entryTitle(book('a'), { ...base, kind: 'deposit', title: null })).toBe('입금');
     expect(entryTitle(book('a'), { ...base, kind: 'deposit', title: '10월 회비' })).toBe(

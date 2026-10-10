@@ -241,8 +241,8 @@ function EntryForm({
       entryCategory(book, entry));
   const edited = editedLine(book, entry);
   const own = entry.can_move;
-  // 지우기 묻기는 「적은 사람인가」 로 가른다. 입금은 옮길 수 없어 can_move 가 늘 거짓이다.
-  const mine = entry.created_by_member_id === book.my_member_id;
+  // 지우기 묻기는 「적은 사람인가」 로 가른다. 나갔다 다시 들어오기 전 줄로 적은 것도 내 것이다.
+  const mine = entry.written_by_me;
 
   function changes(): BookEntryUpdate {
     const next: BookEntryUpdate = {};

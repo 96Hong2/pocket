@@ -2095,6 +2095,8 @@ export interface components {
             can_delete: boolean;
             /** Can Move */
             can_move: boolean;
+            /** Written By Me */
+            written_by_me: boolean;
         };
         /**
          * BookEntryUpdate
@@ -2167,7 +2169,7 @@ export interface components {
          * BookMemberEntriesOut
          * @description 한 사람이 낸 지출과 넣은 입금. 나갔다 다시 들어온 줄의 기록도 함께다.
          *
-         *     최신순이다. next_before 를 before 로 다시 보내면 그 앞 기록이 온다. 더 없으면 null.
+         *     최신순이다. next_cursor 를 cursor 로 다시 보내면 그 뒤 기록이 온다. 더 없으면 null.
          *     합계 둘은 전 기간이다.
          */
         BookMemberEntriesOut: {
@@ -2184,8 +2186,8 @@ export interface components {
             paid_total: string;
             /** Items */
             items: components["schemas"]["BookEntryOut"][];
-            /** Next Before */
-            next_before: string | null;
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /** BookMemberOut */
         BookMemberOut: {
@@ -10952,7 +10954,7 @@ export interface operations {
     member_entries_api_v1_books__book_id__members__member_id__entries_get: {
         parameters: {
             query?: {
-                before?: string | null;
+                cursor?: string | null;
                 limit?: number;
             };
             header?: {

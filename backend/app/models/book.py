@@ -230,6 +230,11 @@ class Settlement(Entity):
     period: Mapped[str] = mapped_column(String(7), nullable=False)
     # [{from, to, amount}] 멤버 id 와 금액을 문자열로 적는다.
     transfers_snapshot: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    # 끝낼 때 나눈 비율 {"<멤버 id>": 60, ...}. 똑같이 나눴으면 비운다.
+    # 끝낸 기간은 이 비율로 다시 센다. 가계부 비율이 바뀌어도 끝낸 달은 그대로다.
+    share_percents: Mapped[dict[str, int] | None] = mapped_column(
+        JSON(none_as_null=True), nullable=True
+    )
     done_by_member_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("book_members.id", ondelete="SET NULL"), nullable=True
     )

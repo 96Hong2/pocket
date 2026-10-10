@@ -633,7 +633,8 @@ export const MEMBER_ENTRIES_PAGE = 50;
 /**
  * 한 멤버가 낸 지출과 넣은 입금. 「더 보기」 로 앞선 날을 이어 받는다.
  *
- * 쪽 사이 커서는 날짜(`next_before`)다. 서버가 하루치를 쪼개지 않아 날짜 머리가 두 번 서지 않는다.
+ * 쪽 사이 커서는 앞 쪽 마지막 줄의 id(`next_cursor`)다. 같은 날이 두 쪽에 갈릴 수 있어
+ * 날짜 머리는 받은 줄을 모두 이어 붙인 뒤에 묶는다.
  */
 export function useBookMemberEntries(bookId: string | null, memberId: string | null) {
   const client = useApiClient();
@@ -645,11 +646,11 @@ export function useBookMemberEntries(bookId: string | null, memberId: string | n
       client.listMemberEntries(
         requireId(bookId),
         requireId(memberId),
-        { before: pageParam ?? undefined, limit: MEMBER_ENTRIES_PAGE },
+        { cursor: pageParam ?? undefined, limit: MEMBER_ENTRIES_PAGE },
         { signal },
       ),
     initialPageParam: null as string | null,
-    getNextPageParam: (last) => last.next_before ?? null,
+    getNextPageParam: (last) => last.next_cursor ?? null,
     enabled: isReady && bookId != null && memberId != null,
   });
 }

@@ -1144,7 +1144,7 @@ function startsWith(text: string): RegExp {
  */
 class HomeBookArea {
   private readonly page: Page;
-  /** 「최근 같이 쓴 돈」 목록. */
+  /** 「최근 같이 쓴 돈」(각자 입금 가계부는 「최근 기록」) 목록. */
   readonly recent: BookRecentList;
   /** 「아직 혼자예요」·처음 들어온 사람 안내 카드. */
   readonly cards: BookHomeCards;
@@ -1249,12 +1249,15 @@ class BookDepositSheetArea {
   }
 }
 
-/** 우리 집 홈의 「최근 같이 쓴 돈」. 줄마다 적은 사람이 붙고, 남이 고친 줄에는 「고침」 이 붙는다. */
+/**
+ * 우리 집 홈의 「최근 같이 쓴 돈」. 줄마다 적은 사람이 붙고, 남이 고친 줄에는 「고침」 이 붙는다.
+ * 각자 입금 가계부는 입금 줄도 같이 서서 이름이 「최근 기록」 이다.
+ */
 class BookRecentList {
   private readonly root: Locator;
 
   constructor(page: Page) {
-    this.root = page.getByRole('region', { name: '최근 같이 쓴 돈', exact: true });
+    this.root = page.getByRole('region', { name: /^(최근 같이 쓴 돈|최근 기록)$/ });
   }
 
   get region(): Locator {

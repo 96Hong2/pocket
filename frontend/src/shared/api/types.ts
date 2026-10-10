@@ -240,7 +240,7 @@ export type SettlementDoneIn = Schemas['SettlementDoneIn'];
 /** 이번 기간 사람마다 회비를 냈나(각자 입금), 정산을 끝냈나(나중에 정산). */
 export type BookDuesOut = Schemas['BookDuesOut'];
 export type BookDueMemberOut = Schemas['BookDueMemberOut'];
-/** 한 사람이 낸 지출과 넣은 입금. 최신순이고 `next_before` 로 다음 쪽을 받는다. */
+/** 한 사람이 낸 지출과 넣은 입금. 최신순이고 `next_cursor` 로 다음 쪽을 받는다. */
 export type BookMemberEntriesOut = Schemas['BookMemberEntriesOut'];
 export type BookCategoryChangeOut = Schemas['BookCategoryChangeOut'];
 /** 자세히 보기. 잠금은 화면의 일이고 값은 늘 온다. */

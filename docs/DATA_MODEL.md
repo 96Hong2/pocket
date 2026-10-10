@@ -544,6 +544,7 @@ unique `(book_id, name)`. 만들 때 종류별 목록을 서버가 심는다(`BO
 |---|---|---|
 | `period` | `varchar(7)` | `YYYY-MM`, 여행 가계부는 `all` |
 | `transfers_snapshot` | `json` | 끝낸 때의 보낼 돈 `[{from, to, amount}]`. id 와 금액은 문자열 |
+| `share_percents` | `json?` | 끝낼 때 나눈 비율 `{"<멤버 id>": 60, …}`. 똑같이 나눴으면 비운다. 끝낸 기간은 이 비율로 다시 센다(ADR-0050) |
 | `done_by_member_id`, `done_at` | | |
 | `undone_at` | `timestamptz?` | 되돌리면 찍는다. 줄은 지우지 않는다 |
 

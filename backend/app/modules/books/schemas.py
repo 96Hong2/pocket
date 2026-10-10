@@ -307,6 +307,8 @@ class BookEntryOut(BaseModel):
     # 내가 적었거나 내가 관리자면 지울 수 있다. 옮기기는 적은 사람만, 입금은 못 옮긴다.
     can_delete: bool
     can_move: bool
+    # 내가 적었나. 나갔다 다시 들어오기 전 멤버 줄로 적은 것도 내 것이다.
+    written_by_me: bool
 
     _stamp = field_validator("created_at", "updated_at", mode="before")(_as_utc)
 
@@ -383,7 +385,7 @@ class BookEntryCreated(BaseModel):
     month: BookMonthStateOut
 
 
-# 멤버 내역 한 번에 싣는 줄 수. 같은 날 기록은 쪼개지 않아 넘을 수 있다.
+# 멤버 내역 한 번에 싣는 줄 수. 한 쪽은 이 수를 넘지 않는다.
 MEMBER_ENTRIES_LIMIT = 50
 MEMBER_ENTRIES_MAX = 100
 
@@ -391,7 +393,7 @@ MEMBER_ENTRIES_MAX = 100
 class BookMemberEntriesOut(BaseModel):
     """한 사람이 낸 지출과 넣은 입금. 나갔다 다시 들어온 줄의 기록도 함께다.
 
-    최신순이다. next_before 를 before 로 다시 보내면 그 앞 기록이 온다. 더 없으면 null.
+    최신순이다. next_cursor 를 cursor 로 다시 보내면 그 뒤 기록이 온다. 더 없으면 null.
     합계 둘은 전 기간이다.
     """
 
@@ -401,7 +403,8 @@ class BookMemberEntriesOut(BaseModel):
     deposited_total: Decimal
     paid_total: Decimal
     items: list[BookEntryOut]
-    next_before: date | None
+    # 이 쪽 마지막 줄의 id. 같은 날 기록이 쪽 사이에서 갈릴 수 있다.
+    next_cursor: uuid.UUID | None
 
 
 class MoveOutResult(BaseModel):

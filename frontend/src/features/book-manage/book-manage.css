@@ -781,23 +781,22 @@
     color: var(--color-muted);
   }
 
-  .book-member__days {
+  .book-member__list {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
 
-  .book-member__day {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
   .book-member__day-title {
-    margin: 0 4px;
+    margin: 0;
+    padding: 14px 0 2px;
     font-size: var(--text-13);
     font-weight: var(--font-weight-bold);
     color: var(--color-muted);
+  }
+
+  .book-member__day:first-child .book-member__day-title {
+    padding-top: 10px;
   }
 
   .book-member__empty {

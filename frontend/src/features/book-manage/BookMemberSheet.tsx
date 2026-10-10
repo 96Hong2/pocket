@@ -70,6 +70,7 @@ function MemberHistory({
   const pages = history.data?.pages;
   const first = pages?.[0];
   const items = pages?.flatMap((page) => page.items) ?? [];
+  const lastId = items.at(-1)?.id;
   const deposited = parseDecimalOr(first?.deposited_total, 0);
   // 나중에 정산 가계부에 입금이 한 번도 없으면 「넣은 돈 0원」 은 할 말이 아니다.
   const showDeposited = book.settle_rule === 'none' || deposited > 0;
@@ -104,24 +105,25 @@ function MemberHistory({
       ) : items.length === 0 ? (
         <p className="book-member__empty">아직 적은 기록이 없어요</p>
       ) : (
-        <div className="book-member__days">
-          {byDay(items).map(([day, entries]) => (
-            <section key={day} className="book-member__day" aria-label={formatDayLabel(day)}>
-              <h3 className="book-member__day-title">{formatDayLabel(day)}</h3>
-              <Card padding="list">
-                {entries.map((entry, index) => (
+        <div className="book-member__list">
+          {/* 날마다 카드를 세우지 않고 카드 하나에 날짜 머리를 끼운다. */}
+          <Card padding="list">
+            {byDay(items).map(([day, entries]) => (
+              <section key={day} className="book-member__day" aria-label={formatDayLabel(day)}>
+                <h3 className="book-member__day-title">{formatDayLabel(day)}</h3>
+                {entries.map((entry) => (
                   <BookEntryRow
                     key={entry.id}
                     book={book}
                     entry={entry}
-                    last={index === entries.length - 1}
+                    last={entry.id === lastId}
                     showDay={false}
                     onPick={() => onPick(entry)}
                   />
                 ))}
-              </Card>
-            </section>
-          ))}
+              </section>
+            ))}
+          </Card>
           {history.hasNextPage ? (
             <button
               type="button"
@@ -149,7 +151,7 @@ function MemberHistory({
   );
 }
 
-/** 최신순 줄을 날짜끼리 묶는다. 서버가 하루치를 쪼개 보내지 않아 같은 날이 두 번 서지 않는다. */
+/** 최신순 줄을 날짜끼리 묶는다. 같은 날이 두 쪽에 갈려 와도 이어 붙인 뒤 묶어 머리가 한 번만 선다. */
 function byDay(items: readonly BookEntryOut[]): [string, BookEntryOut[]][] {
   const groups: [string, BookEntryOut[]][] = [];
   for (const entry of items) {

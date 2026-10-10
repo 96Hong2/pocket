@@ -9,6 +9,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -16,9 +17,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app.api.errors import ApiError
 from app.core.config import get_settings
-from app.models import BookMember
+from app.integrations.email.factory import get_email_sender
+from app.models import Book, BookMember
 from app.modules.books import service
+from app.modules.imports.service import _book_spends
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
 OTHER = {"X-Anon-Key": "second-device-key"}
@@ -448,7 +452,22 @@ def _history(
     )
 
 
-def test_멤버_내역은_낸_지출과_넣은_입금을_최신순으로_날을_쪼개지_않고_나눠_싣는다(
+def _pages(client: TestClient, book_id: str, member_id: str, limit: int) -> list[list[dict]]:
+    """next_cursor 를 따라 끝까지 받는다."""
+    pages: list[list[dict]] = []
+    cursor = ""
+    while True:
+        r = _history(client, book_id, member_id, f"?limit={limit}{cursor}")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        pages.append(body["items"])
+        if body["next_cursor"] is None:
+            return pages
+        assert body["next_cursor"] == body["items"][-1]["id"]
+        cursor = f"&cursor={body['next_cursor']}"
+
+
+def test_멤버_내역은_낸_지출과_넣은_입금을_최신순으로_limit_줄씩_나눠_싣는다(
     api: TestClient, db: Session
 ) -> None:
     book = _pair(api, db, settle_rule="none")
@@ -461,6 +480,9 @@ def test_멤버_내역은_낸_지출과_넣은_입금을_최신순으로_날을_
     _add(api, book_id, headers=OTHER, amount="4000", occurred_on="2026-09-20")
     gone = _add(api, book_id, headers=OTHER, amount="7777", occurred_on="2026-09-20")
     api.delete(f"/api/v1/books/{book_id}/entries/{gone['entry']['id']}", headers=OTHER)
+    # 지운 입금도 합계와 목록에서 빠진다.
+    gone_deposit = _deposit(api, book_id, headers=OTHER, amount="8888", occurred_on="2026-09-21")
+    api.delete(f"/api/v1/books/{book_id}/entries/{gone_deposit['entry']['id']}", headers=OTHER)
 
     first = _history(api, book_id, junho, "?limit=2").json()
     assert (first["name"], first["paid_total"], first["deposited_total"]) == (
@@ -468,23 +490,41 @@ def test_멤버_내역은_낸_지출과_넣은_입금을_최신순으로_날을_
         "10000",
         "50000",
     )
-    # 10월 3일 셋을 쪼개지 않고 통째로 싣는다. 같은 날 안의 순서는 적은 시각이라 여기서 안 본다.
-    assert sorted(row["amount"] for row in first["items"]) == ["1000", "2000", "3000"]
-    assert first["next_before"] == "2026-10-03"
 
-    second = _history(api, book_id, junho, f"?limit=2&before={first['next_before']}").json()
-    assert [(row["kind"], row["amount"]) for row in second["items"]] == [
+    pages = _pages(api, book_id, junho, limit=2)
+    assert [len(page) for page in pages] == [2, 2, 1]
+    rows = [row for page in pages for row in page]
+    # 같은 날 안의 순서는 적은 시각이라 여기서 안 본다. 날짜 순서와 빠짐, 겹침만 본다.
+    assert [row["occurred_on"] for row in rows] == ["2026-10-03"] * 3 + [
+        "2026-10-01",
+        "2026-09-20",
+    ]
+    assert sorted(row["amount"] for row in rows[:3]) == ["1000", "2000", "3000"]
+    assert [(row["kind"], row["amount"]) for row in rows[3:]] == [
         ("deposit", "50000"),
         ("expense", "4000"),
     ]
-    assert second["next_before"] is None
+    assert len({row["id"] for row in rows}) == 5
 
-    # 한 쪽 끝에서 날이 갈리면 그날을 다음 쪽으로 미룬다.
-    third = _history(api, book_id, junho, "?limit=4").json()
-    assert [row["occurred_on"] for row in third["items"]] == ["2026-10-03"] * 3 + ["2026-10-01"]
-    assert third["next_before"] == "2026-10-01"
-    rest = _history(api, book_id, junho, f"?limit=4&before={third['next_before']}").json()
-    assert [row["amount"] for row in rest["items"]] == ["4000"]
+
+def test_멤버_내역은_하루에_많이_적어도_한_쪽이_limit_을_넘지_않는다(
+    api: TestClient, db: Session
+) -> None:
+    book = _pair(api, db)
+    book_id, junho = book["id"], _member(book, "준호")
+    made = {
+        _add(api, book_id, headers=OTHER, amount=str(1000 + n))["entry"]["id"] for n in range(7)
+    }
+
+    pages = _pages(api, book_id, junho, limit=3)
+    assert [len(page) for page in pages] == [3, 3, 1]
+    assert {row["id"] for page in pages for row in page} == made
+
+    # 다른 가계부의 줄이나 없는 줄을 커서로 주면 422 다.
+    elsewhere = _create(api, headers=THIRD, name="남의 집")
+    stranger = _add(api, elsewhere["id"], headers=THIRD)["entry"]["id"]
+    for cursor in (stranger, str(uuid.uuid4())):
+        assert _history(api, book_id, junho, f"?cursor={cursor}").status_code == 422
 
 
 def test_나갔다_다시_들어온_사람의_내역은_예전_줄_기록까지_모인다(api: TestClient) -> None:
@@ -520,3 +560,275 @@ def test_멤버가_아니면_회비와_멤버_내역을_못_보고_다른_가계
     assert _history(api, book["id"], str(uuid.uuid4())).status_code == 404
     assert _history(api, book["id"], _member(book, "준호"), "?limit=0").status_code == 422
     assert _history(api, book["id"], _member(book, "준호"), "?limit=101").status_code == 422
+
+
+# ── 끝낸 정산과 비율 ────────────────────────────────────
+
+SEPT = "year=2026&month=9"
+
+
+def _settlement(client: TestClient, book_id: str, query: str) -> dict:
+    r = client.get(f"/api/v1/books/{book_id}/settlement?{query}", headers=AUTH)
+    assert r.status_code == 200, r.text
+    return dict(r.json())
+
+
+def _done(client: TestClient, book_id: str, month: int) -> None:
+    r = client.post(
+        f"/api/v1/books/{book_id}/settlement/done",
+        json={"year": 2026, "month": month},
+        headers=AUTH,
+    )
+    assert r.status_code == 200, r.text
+
+
+def _sent(settle: dict) -> list[tuple[str, str, str]]:
+    return [(t["from_member_id"], t["to_member_id"], t["amount"]) for t in settle["transfers"]]
+
+
+def test_끝낸_정산은_비율이나_사람이_바뀌어도_끝낼_때의_비율로_센다(
+    api: TestClient, db: Session
+) -> None:
+    """9월은 똑같이로, 10월은 6:4 로 끝낸다. 은홍이 두 달 다 100,000 을 냈다."""
+    book = _pair(api, db, kind="family", name="우리 가족")
+    me, junho = _member(book, "은홍"), _member(book, "준호")
+    book_id = book["id"]
+    _add(api, book_id, amount="100000", occurred_on="2026-09-10")
+    _done(api, book_id, 9)
+
+    assert _patch(api, book_id, {"share_percents": {me: 60, junho: 40}}).status_code == 200
+    september = _settlement(api, book_id, SEPT)
+    assert (september["ratio"], september["changed_after_done"]) == (False, False)
+    assert [(m["share"], m["percent"]) for m in september["members"]] == [
+        ("50000", None),
+        ("50000", None),
+    ]
+    assert _sent(september) == [(junho, me, "50000")]
+
+    _add(api, book_id, amount="100000")
+    october = _settlement(api, book_id, OCT)
+    assert october["ratio"] is True
+    assert _sent(october) == [(junho, me, "40000")]
+    _done(api, book_id, 10)
+
+    # 서연이 11월에 들어와 비율이 비어도 끝낸 10월은 6:4 그대로다.
+    joined = _join(api, book["invite"]["code"], headers=THIRD, name="서연").json()
+    assert joined["share_percents"] is None
+    db.execute(
+        update(BookMember)
+        .where(BookMember.id == uuid.UUID(joined["my_member_id"]))
+        .values(joined_at=datetime(2026, 11, 1, 3, 0, tzinfo=UTC))
+    )
+    db.commit()
+    kept = _settlement(api, book_id, OCT)
+    assert (kept["ratio"], kept["changed_after_done"]) == (True, False)
+    assert [m["percent"] for m in kept["members"]] == [60, 40]
+    assert _sent(kept) == [(junho, me, "40000")]
+    assert _statuses(_dues(api, book_id))[:2] == ["done", "done"]
+
+    # 끝내기를 되돌리면 지금 비율(똑같이)로 다시 센다.
+    r = api.delete(f"/api/v1/books/{book_id}/settlement/done?{OCT}", headers=AUTH)
+    assert r.status_code == 200, r.text
+    assert (r.json()["ratio"], r.json()["done"]) == (False, None)
+    assert _sent(r.json()) == [(junho, me, "50000")]
+
+
+def test_정산_끝내기_되돌리기는_가계부_줄을_잠근다(
+    api: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    book = _pair(api, db)
+    _add(api, book["id"], amount="10000")
+    _done(api, book["id"], 10)
+
+    locks: list[bool] = []
+    original = service._access
+
+    def spy(*args: Any, **kwargs: Any) -> Any:
+        locks.append(bool(kwargs.get("lock", False)))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(service, "_access", spy)
+    r = api.delete(f"/api/v1/books/{book['id']}/settlement/done?{OCT}", headers=AUTH)
+    assert r.status_code == 200, r.text
+    assert locks == [True]
+
+
+# ── 회비 상태의 빈자리 ──────────────────────────────────
+
+
+def test_비율_0퍼센트인_사람은_낼_돈이_없어_입금완료가_붙지_않는다(
+    api: TestClient, db: Session
+) -> None:
+    book = _pair(api, db, settle_rule="none")
+    me, junho = _member(book, "은홍"), _member(book, "준호")
+    r = _patch(api, book["id"], {"dues_amount": "300000", "share_percents": {me: 100, junho: 0}})
+    assert r.status_code == 200, r.text
+
+    dues = _dues(api, book["id"])
+    assert [(m["due"], m["status"]) for m in dues["members"]] == [
+        ("300000", "pending"),
+        ("0", "none"),
+    ]
+    _deposit(api, book["id"], amount="300000")
+    assert _statuses(_dues(api, book["id"])) == ["done", "none"]
+
+
+def test_여행_가계부는_한_달_회비가_있어도_낼_돈을_싣지_않는다(api: TestClient) -> None:
+    book = _create(api, kind="trip", name="제주", settle_rule="none")
+    r = _patch(api, book["id"], {"dues_amount": "100000"})
+    assert r.status_code == 200, r.text
+
+    dues = _dues(api, book["id"])
+    assert (dues["period_key"], dues["dues_amount"]) == ("all", "100000")
+    assert [(m["due"], m["status"]) for m in dues["members"]] == [(None, "pending")]
+    _deposit(api, book["id"], amount="20000")
+    assert [(m["due"], m["status"]) for m in _dues(api, book["id"])["members"]] == [(None, "done")]
+
+
+def test_끝낸_달_뒤에_들어온_사람은_그_달_정산완료가_아니다(api: TestClient, db: Session) -> None:
+    book = _pair(api, db, kind="family", name="우리 가족")
+    _add(api, book["id"], amount="10000", occurred_on="2026-09-10")
+    _done(api, book["id"], 9)
+    # 서연은 오늘 들어왔다. 9월 사람이 아니다.
+    assert _join(api, book["invite"]["code"], headers=THIRD, name="서연").status_code == 200
+
+    r = api.get(f"/api/v1/books/{book['id']}/dues?{SEPT}", headers=AUTH)
+    assert _statuses(r.json()) == ["done", "done", "none"]
+
+
+# ── 시작일과 해 넘김 ────────────────────────────────────
+
+
+def test_시작일_20이면_12월_25일은_다음_해_1월이다(api: TestClient, db: Session) -> None:
+    """12월 20일 ~ 1월 19일은 1월 날이 열아흐레로 더 많아 「2027년 1월」 이다."""
+    book = _pair(api, db)
+    book_id = book["id"]
+    assert _patch(api, book_id, {"month_start_day": 20}).status_code == 200
+    entry = _add(api, book_id, amount="5000", occurred_on="2026-12-25")
+    assert (entry["month"]["period_start"], entry["month"]["period_end"]) == (
+        "2026-12-20",
+        "2027-01-19",
+    )
+
+    january = "year=2027&month=1"
+    r = api.get(f"/api/v1/books/{book_id}/entries?{january}", headers=AUTH)
+    assert [row["id"] for row in r.json()["items"]] == [entry["entry"]["id"]]
+    december = api.get(f"/api/v1/books/{book_id}/entries?year=2026&month=12", headers=AUTH)
+    assert december.json()["items"] == []
+
+    settle = _settlement(api, book_id, january)
+    assert (settle["period"], settle["period_start"], settle["period_end"], settle["total"]) == (
+        "2027-01",
+        "2026-12-20",
+        "2027-01-19",
+        "5000",
+    )
+    assert _dues(api, book_id)["period_key"] == "2026-10"
+
+
+# ── 계정 합치기와 비율 ──────────────────────────────────
+
+
+@pytest.fixture
+def mail() -> Iterator[None]:
+    get_email_sender.cache_clear()
+    yield
+    get_email_sender.cache_clear()
+
+
+def _link_email(client: TestClient, headers: dict[str, str]) -> None:
+    email = "shared@example.com"
+    r = client.post("/api/v1/account/email/start", json={"email": email}, headers=AUTH)
+    assert r.status_code == 204, r.text
+    code = client.get(f"/api/v1/account/email/peek?email={email}", headers=AUTH).json()["code"]
+    r = client.post(
+        "/api/v1/account/email/verify", json={"email": email, "code": code}, headers=headers
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_같은_가계부의_두_멤버를_합치면_비율이_똑같이로_돌아간다(
+    api: TestClient, db: Session, mail: None
+) -> None:
+    _link_email(api, AUTH)
+    book = _pair(api, db)
+    me, junho = _member(book, "은홍"), _member(book, "준호")
+    assert _patch(api, book["id"], {"share_percents": {me: 60, junho: 40}}).status_code == 200
+
+    _link_email(api, OTHER)
+
+    after = api.get(f"/api/v1/books/{book['id']}", headers=AUTH).json()
+    assert (after["active_member_count"], after["share_percents"]) == (1, None)
+
+
+# ── 가져오기 중복 판정 ──────────────────────────────────
+
+
+def test_가져오기_중복_후보는_지출만이고_입금은_안_본다(api: TestClient, db: Session) -> None:
+    book = _pair(api, db, settle_rule="none")
+    _deposit(api, book["id"], amount="30000", occurred_on="2026-10-02")
+    _add(api, book["id"], amount="12000", occurred_on="2026-10-03", title="마트")
+
+    row = db.get(Book, uuid.UUID(book["id"]))
+    assert row is not None
+    assert [(key.day, key.amount) for key in _book_spends(db, row)] == [(date(2026, 10, 3), 12000)]
+
+
+# ── 남용 상한 ───────────────────────────────────────────
+
+
+def test_지금_같이_쓰는_가계부는_상한까지만_만들고_들어간다(
+    api: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(service, "MAX_BOOKS_PER_USER", 2)
+    _create(api, headers=OTHER, name="하나")
+    second = _create(api, headers=OTHER, name="둘")
+    mine = _create(api, name="은홍 집")
+
+    r = api.post(
+        "/api/v1/books",
+        json={"kind": "couple", "name": "셋", "settle_rule": "even", "my_name": "준호"},
+        headers=OTHER,
+    )
+    assert (r.status_code, r.json()["error"]["code"], _message(r)) == (
+        429,
+        "USAGE_LIMIT",
+        "가계부는 2개까지 함께 쓸 수 있어요.",
+    )
+    r = _join(api, mine["invite"]["code"])
+    assert (r.status_code, _message(r)) == (429, "가계부는 2개까지 함께 쓸 수 있어요.")
+
+    # 하나를 지우면 다시 들어간다.
+    assert api.delete(f"/api/v1/books/{second['id']}", headers=OTHER).status_code == 204
+    assert _join(api, mine["invite"]["code"]).status_code == 200
+
+
+def test_한_가계부에_하루_적는_줄은_상한까지다(
+    api: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(service, "MAX_ENTRIES_PER_DAY", 3)
+    book = _pair(api, db)
+    book_id = book["id"]
+    _add(api, book_id)
+    gone = _add(api, book_id, headers=OTHER)
+    # 지운 줄도 센다. 지우고 다시 적기로 상한을 넘지 못한다.
+    api.delete(f"/api/v1/books/{book_id}/entries/{gone['entry']['id']}", headers=OTHER)
+    _deposit(api, book_id)
+
+    for body in (
+        {"amount": "1000", "occurred_on": "2026-10-05"},
+        {"kind": "deposit", "amount": "1000", "occurred_on": "2026-10-05"},
+    ):
+        r = api.post(f"/api/v1/books/{book_id}/entries", json=body, headers=OTHER)
+        assert (r.status_code, r.json()["error"]["code"]) == (429, "USAGE_LIMIT"), body
+    assert _message(r) == "오늘은 이 가계부에 충분히 적었어요. 내일 다시 적어 주세요."
+
+    # 가져오기는 stage_entry 로 한 줄씩 만든다. 같은 상한에 걸린다.
+    row = db.get(Book, uuid.UUID(book_id))
+    me = db.scalar(select(BookMember).where(BookMember.id == uuid.UUID(_member(book, "은홍"))))
+    assert row is not None and me is not None
+    with pytest.raises(ApiError) as caught:
+        service.stage_entry(
+            db, row, me, amount=Decimal(1000), category_id=None, title=None, occurred_on=TODAY
+        )
+    assert caught.value.code == "USAGE_LIMIT"
