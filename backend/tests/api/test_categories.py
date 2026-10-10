@@ -751,3 +751,48 @@ def test_기본_분류를_다르게_부르면_그_이름으로_찾힌다(
     # 바꾸기 전 이름으로 찾는 길도 남는다. 그 기억으로 찾는 사람이 있다.
     old = client.get("/api/v1/transactions", params={"q": target.name}, headers=AUTH)
     assert len(old.json()["items"]) == 1
+
+
+def test_내_분류는_200개까지_만든다(
+    client: TestClient, db: Session, default_categories: list[Category]
+) -> None:
+    """아이콘 달린 분류를 끝없이 만들어 목록 응답과 DB 를 키우는 길을 막는다."""
+    assert category_service.USER_CATEGORY_LIMIT == 200
+    del default_categories
+    assert _create(client, name="첫 분류").status_code == 201
+    user = db.scalar(select(User))
+    assert user is not None
+    db.add_all(
+        Category(
+            user_id=user.id,
+            name=f"분류{i}",
+            kind=CategoryKind.EXPENSE,
+            icon_key="26_sparkles",
+            sort_order=500,
+        )
+        for i in range(198)
+    )
+    db.commit()
+
+    # 199 개에서 하나 더는 된다.
+    assert _create(client, name="이백째").status_code == 201
+    blocked = _create(client, name="이백한째")
+    assert blocked.status_code == 422
+    assert blocked.json()["error"]["code"] == "INVALID_REQUEST"
+    assert blocked.json()["error"]["message"] == "분류는 200개까지 만들 수 있어요."
+
+    # 하나를 지우면 다시 만들 수 있다.
+    first = next(
+        i
+        for i in client.get("/api/v1/categories", headers=AUTH).json()["items"]
+        if i["name"] == "첫 분류"
+    )
+    assert client.delete(f"/api/v1/categories/{first['id']}", headers=AUTH).status_code == 204
+    assert _create(client, name="이백한째").status_code == 201
+
+    # 지운 이름을 되살리는 길도 같은 상한을 본다.
+    revive = _create(client, name="첫 분류")
+    assert revive.status_code == 422
+    assert revive.json()["error"]["message"] == "분류는 200개까지 만들 수 있어요."
+    # 같은 이름을 또 만들면 상한보다 중복 안내가 먼저다. 화면의 안내는 그대로다.
+    assert _create(client, name="이백째").status_code == 409

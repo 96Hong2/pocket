@@ -19,7 +19,8 @@ from typing import NamedTuple
 
 import anyio
 import anyio.from_thread
-from sqlalchemy import func, or_, select
+from sqlalchemy import Engine, func, or_, select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.amounts import MAX_QUANTITY
@@ -656,6 +657,48 @@ def commit_batch(
     `skip_rule_ids` 에 든 줄은 저장하되 상호와 분류를 기억하지 않는다. 분류 없이 읽힌
     상호에 사람이 분류를 골라 넣었을 때 화면이 한 번 묻고, 「네」 가 아니면 여기로 온다.
     """
+    with _commit_guard(session, batch_id):
+        return _commit_batch(session, user, batch_id, today=today, skip_rule_ids=skip_rule_ids)
+
+
+@contextmanager
+def _commit_guard(session: Session, batch_id: uuid.UUID) -> Iterator[None]:
+    """같은 묶음의 저장을 한 번에 하나씩 돌린다.
+
+    저장 단추 연타나 재시도로 두 요청이 겹치면 둘 다 아직 안 저장된 줄을 보고 거래를 두 번
+    만든다. 줄마다 commit 해서 트랜잭션 잠금은 첫 줄에서 풀리므로, 세션 단위 advisory 잠금을
+    따로 쥔 연결에 건다. 기다린 요청은 잠금을 얻은 뒤 다시 읽어 지금처럼 409 를 받는다.
+    """
+    bind = session.get_bind()
+    if bind.dialect.name != "postgresql" or not isinstance(bind, Engine):
+        yield
+        return
+    key = {"key": f"import-commit:{batch_id}"}
+    with bind.connect() as lock:
+        lock.execute(text("SELECT pg_advisory_lock(hashtextextended(:key, 0))"), key)
+        lock.commit()
+        try:
+            # 기다리는 동안 앞 요청이 저장을 끝냈을 수 있다. 들고 있던 값을 버리고 다시 읽는다.
+            session.expire_all()
+            yield
+        finally:
+            try:
+                lock.execute(text("SELECT pg_advisory_unlock(hashtextextended(:key, 0))"), key)
+                lock.commit()
+            except SQLAlchemyError:
+                # 풀지 못한 연결을 풀에 돌려 보내면 잠금이 남는다. 연결째 버린다.
+                logger.exception("가져오기 저장 잠금을 풀지 못했어요")
+                lock.invalidate()
+
+
+def _commit_batch(
+    session: Session,
+    user: User,
+    batch_id: uuid.UUID,
+    *,
+    today: date | None,
+    skip_rule_ids: Collection[uuid.UUID],
+) -> CommitResult:
     batch = _require_open(session, user, batch_id)
     day = today or ledger.today_for(user)
     chosen = [row for row in batch.candidates if row.is_selected]

@@ -45,8 +45,8 @@ def email_start(
     익명키 검증을 지난 사람만 부를 수 있다. 안 그러면 주소를 아는 누구나 아무 메일함에나
     코드를 쏠 수 있다. 한 이메일 상한(10분 3통)은 메일함 하나를 지키지 여러 메일함은 못 지킨다.
     """
-    del user  # 검증을 지났다는 사실만 쓴다.
-    login.start_email_login(session, settings, sender, body.email)
+    # 여러 메일함은 사람마다 하루 상한으로 지킨다(login.start_email_login).
+    login.start_email_login(session, settings, sender, body.email, user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
