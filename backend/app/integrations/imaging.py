@@ -19,6 +19,7 @@ from __future__ import annotations
 import io
 import logging
 import threading
+from contextlib import nullcontext
 
 from PIL import Image, ImageChops, ImageOps
 
@@ -36,8 +37,8 @@ logger = logging.getLogger(__name__)
 MAX_IMAGE_PIXELS = 50_000_000
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
-# 이보다 큰 그림은 원본 해상도로 통째로 풀지 않는다. JPEG 은 줄여서 풀고,
-# 줄여 풀 수 없는 PNG·WebP 는 다듬지 않고 원본을 보낸다(다듬기가 실패했을 때와 같은 결과).
+# 이보다 큰 그림은 따로 다룬다. JPEG 은 줄여서 푼다. 줄여 풀 수 없는 PNG·WebP 는 원본
+# 해상도로 풀되 **한 번에 한 장만** 푼다(`_ONE_LARGE`). 결과는 예전과 같다(여백 자르기와 줄이기).
 _FULL_DECODE_PIXELS = 16_000_000
 
 # 여백을 찾을 때 한 번에 보는 띠의 화소 수. 원본 크기 RGB 사본을 여러 벌 만들지 않으려고 나눠 본다.
@@ -46,6 +47,9 @@ _STRIP_PIXELS = 1_000_000
 # 동시에 다듬는 사진 수. 큰 사진 여럿이 한꺼번에 풀리면 메모리가 끝난다.
 # 한 장에 길어야 1초 안팎이라, 넘치는 요청은 잠깐 기다릴 뿐 실패하지 않는다.
 _DECODING = threading.BoundedSemaphore(2)
+
+# 줄여 풀 수 없는 큰 그림을 푸는 자리. 5,000만 화소 RGBA 한 장이 약 200MB 라 하나만 둔다.
+_ONE_LARGE = threading.Lock()
 
 
 def max_long_edge() -> int:
@@ -80,18 +84,21 @@ def prepare_image(image: LlmImage) -> LlmImage:
 def _prepare(image: LlmImage) -> LlmImage:
     with Image.open(io.BytesIO(image.data)) as opened:
         before = opened.size
-        if before[0] * before[1] > _FULL_DECODE_PIXELS:
-            if opened.format != "JPEG":
-                logger.info("사진이 너무 커서 다듬지 않고 보낸다 %dx%d", *before)
-                return image
+        large = before[0] * before[1] > _FULL_DECODE_PIXELS
+        if large and opened.format == "JPEG":
             # 디코드 단계에서 1/2·1/4·1/8 로 줄여 푼다. 줄인 뒤 크기의 두 배는 남겨 화질을 지킨다.
             opened.draft(opened.mode, _draft_size(before))
-        opened.load()
-        # 회전과 함께 그 태그를 지운다. 제자리에서 돌려 원본 크기 사본을 하나 덜 만든다.
-        ImageOps.exif_transpose(opened, in_place=True)
-        picture = _trim_border(opened)
-        picture = _shrink(picture)
-        data, media_type = _encode(picture)
+            large = False
+        with _ONE_LARGE if large else nullcontext():
+            opened.load()
+            # 회전과 함께 그 태그를 지운다. 제자리에서 돌려 원본 크기 사본을 하나 덜 만든다.
+            ImageOps.exif_transpose(opened, in_place=True)
+            if large:
+                # 잘라 낸 원본 크기 사본을 따로 만들지 않고 그 자리를 바로 줄인다.
+                picture = _shrink(opened, box=_border_box(opened))
+            else:
+                picture = _shrink(_trim_border(opened))
+            data, media_type = _encode(picture)
 
     if len(data) >= len(image.data) and picture.size == before:
         # 다듬어서 오히려 커졌고 크기도 그대로다. 손댈 이유가 없었다.
@@ -114,7 +121,13 @@ def _draft_size(size: tuple[int, int]) -> tuple[int, int]:
 
 
 def _trim_border(picture: Image.Image) -> Image.Image:
-    """네 귀퉁이와 같은 색으로 둘린 테두리를 잘라낸다.
+    """네 귀퉁이와 같은 색으로 둘린 테두리를 잘라낸다."""
+    box = _border_box(picture)
+    return picture if box is None else picture.crop(box)
+
+
+def _border_box(picture: Image.Image) -> tuple[int, int, int, int] | None:
+    """테두리를 뺀 상자. 자를 것이 없으면 None.
 
     기준색은 왼쪽 위 한 점이다. 캡처의 여백은 거기서 시작한다.
     너무 많이 잘리면 사진 전체가 그 색에 가까운 것이라 보고 손대지 않는다.
@@ -139,22 +152,27 @@ def _trim_border(picture: Image.Image) -> Image.Image:
         else:
             box = (min(box[0], left), box[1], max(box[2], right), lower)
     if box is None:
-        return picture
+        return None
 
     kept = (box[2] - box[0]) * (box[3] - box[1])
     if kept < width * height * _MIN_KEPT_RATIO:
-        return picture
-    return picture.crop(box)
+        return None
+    if box == (0, 0, width, height):
+        return None
+    return box
 
 
-def _shrink(picture: Image.Image) -> Image.Image:
+def _shrink(picture: Image.Image, *, box: tuple[int, int, int, int] | None = None) -> Image.Image:
+    """긴 변을 상한까지 줄인다. `box` 가 있으면 그 자리만 잘라 줄인다."""
+    region = box if box is not None else (0, 0, picture.width, picture.height)
+    width, height = region[2] - region[0], region[3] - region[1]
     limit = max_long_edge()
-    longest = max(picture.size)
+    longest = max(width, height)
     if longest <= limit:
-        return picture
+        return picture if box is None else picture.crop(box)
     ratio = limit / longest
-    size = (max(1, round(picture.width * ratio)), max(1, round(picture.height * ratio)))
-    return picture.resize(size, Image.Resampling.LANCZOS)
+    size = (max(1, round(width * ratio)), max(1, round(height * ratio)))
+    return picture.resize(size, Image.Resampling.LANCZOS, box=box)
 
 
 def _encode(picture: Image.Image) -> tuple[bytes, str]:

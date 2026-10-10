@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     # 익명 식별키 검증을 건너뛰는 로컬 개발용 스위치.
     allow_unverified_anon_key: bool = False
 
+    # 한 곳(IP)에서 틀린 익명키가 1분 60번을 넘을 때. log 는 경고 로그만 남기고, enforce 는
+    # 토스에 묻지 않고 429 로 막는다. 운영 로그에서 X-Forwarded-For 모양을 확인한 뒤에만
+    # enforce 로 바꾼다. 모양이 예상과 다르면 모두가 한 칸에 들어가 함께 막힌다(docs/DEPLOY.md).
+    anon_key_failure_guard: Literal["log", "enforce"] = "log"
+
     # 끝난 기간의 예산 쓰기를 열어 두는 로컬 전용 스위치. 화면 검증에만 쓴다.
     # 자동 이어쓰기를 화면으로 증명하려면 '지난달 예산이 이미 있는 상태' 가 있어야 하는데,
     # 제품 규칙이 그 기간의 쓰기를 막고 있어 만들 길이 없다. 시간을 앞당길 수도 없다.

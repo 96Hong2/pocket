@@ -7,16 +7,20 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
+from app.api.client_key import client_key
 from app.api.deps import client_ip, get_verifier
 from app.integrations.apps_in_toss.anon_key import (
     AnonKeyAuthError,
     AnonKeyRateLimited,
+    AnonKeyRejected,
     CachingAnonKeyVerifier,
     FailureLimiter,
     VerifiedIdentity,
@@ -34,7 +38,7 @@ class _Toss:
     async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity:
         self.calls += 1
         if anon_key != GOOD:
-            raise AnonKeyAuthError("틀린 키")
+            raise AnonKeyRejected("틀린 키")
         return VerifiedIdentity(anon_key=anon_key)
 
 
@@ -59,7 +63,9 @@ def toss() -> _Toss:
 @pytest.fixture
 def verifier(toss: _Toss, clock: _Clock) -> CachingAnonKeyVerifier:
     return CachingAnonKeyVerifier(
-        toss, clock=clock, limiter=FailureLimiter(limit=60, window_seconds=60, clock=clock)
+        toss,
+        clock=clock,
+        limiter=FailureLimiter(limit=60, window_seconds=60, enforce=True, clock=clock),
     )
 
 
@@ -130,6 +136,117 @@ async def test_같은_틀린_키를_되풀이하면_잠깐은_다시_묻지_않�
     with pytest.raises(AnonKeyAuthError):
         await verifier.verify("deploy-smoke", client="198.51.100.7")
     assert toss.calls == 2
+
+
+async def test_한꺼번에_보낸_틀린_키도_상한까지만_토스에_닿는다(clock: _Clock) -> None:
+    """답이 오기 전에 몰아 보내도 진행 중인 수까지 세어 막는다."""
+    release = asyncio.Event()
+
+    class _SlowToss:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity:
+            self.calls += 1
+            await release.wait()
+            raise AnonKeyRejected("틀린 키")
+
+    toss = _SlowToss()
+    verifier = CachingAnonKeyVerifier(
+        toss, clock=clock, limiter=FailureLimiter(limit=60, enforce=True, clock=clock)
+    )
+    tasks = [
+        asyncio.create_task(verifier.verify(f"junk-{index}", client="203.0.113.9"))
+        for index in range(61)
+    ]
+    for _ in range(5):
+        await asyncio.sleep(0)
+    assert toss.calls == 60
+
+    release.set()
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    assert toss.calls == 60
+    assert sum(isinstance(result, AnonKeyRateLimited) for result in results) == 1
+    assert sum(isinstance(result, AnonKeyRejected) for result in results) == 60
+
+
+async def test_진행_중이던_검증이_끝나면_자리를_돌려준다(clock: _Clock) -> None:
+    """성공한 검증은 실패로 남지 않는다. 같은 NAT 뒤 실사용자가 몰려도 다음 검증이 막히지 않는다."""
+    toss = _Toss()
+    verifier = CachingAnonKeyVerifier(
+        toss, clock=clock, limiter=FailureLimiter(limit=2, enforce=True, clock=clock)
+    )
+    for _ in range(5):
+        assert (await verifier.verify(GOOD, client="203.0.113.9")).anon_key == GOOD
+        verifier._entries.clear()  # 매번 토스에 다시 묻게 한다.
+    assert toss.calls == 5
+
+
+async def test_토스가_모른다고_하지_않은_실패는_기억하지도_세지도_않는다(clock: _Clock) -> None:
+    """토스 쪽 사정으로 난 실패에 정상 키를 가진 사람이 30초씩 묶이지 않는다."""
+
+    class _Flaky:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity:
+            self.calls += 1
+            if self.calls <= 70:
+                raise AnonKeyAuthError("익명키 검증 실패 code=5000")
+            return VerifiedIdentity(anon_key=anon_key)
+
+    toss = _Flaky()
+    verifier = CachingAnonKeyVerifier(
+        toss, clock=clock, limiter=FailureLimiter(limit=60, enforce=True, clock=clock)
+    )
+    for _ in range(70):
+        with pytest.raises(AnonKeyAuthError):
+            await verifier.verify(GOOD, client="203.0.113.9")
+
+    assert (await verifier.verify(GOOD, client="203.0.113.9")).anon_key == GOOD
+    assert toss.calls == 71
+
+
+async def test_기본은_막지_않고_경고만_남긴다(
+    toss: _Toss, clock: _Clock, caplog: pytest.LogCaptureFixture
+) -> None:
+    verifier = CachingAnonKeyVerifier(toss, clock=clock, limiter=FailureLimiter(clock=clock))
+    key = client_key(["1.2.3.4, 203.0.113.9"], None)
+    assert key is not None
+    with caplog.at_level(logging.WARNING, logger="app.integrations.apps_in_toss.anon_key"):
+        for index in range(65):
+            with pytest.raises(AnonKeyRejected):
+                await verifier.verify(f"junk-{index}", client=key)
+
+    # 막지 않았으니 전부 토스에 닿았다.
+    assert toss.calls == 65
+    warned = [r for r in caplog.records if getattr(r, "anon_key_guard", None) == "log"]
+    assert len(warned) == 1
+    record = warned[0]
+    assert (record.client_key, record.forwarded_hops, record.failures) == (  # type: ignore[attr-defined]
+        "203.0.113.9",
+        2,
+        60,
+    )
+    assert "junk" not in record.getMessage()
+    assert all("junk" not in str(value) for value in record.__dict__.values())
+
+
+def test_설정이_없으면_기록만_하는_검증기를_만든다() -> None:
+    from app.core.config import Settings
+
+    assert Settings().anon_key_failure_guard == "log"
+
+
+def test_IPv6_는_64_단위로_묶는다() -> None:
+    first = client_key(["2001:db8:1:2:aaaa::1"], None)
+    second = client_key(["2001:db8:1:2:bbbb::9"], None)
+    other = client_key(["2001:db8:1:3::1"], None)
+    mapped = client_key(["::ffff:203.0.113.9"], None)
+
+    assert first == second == "2001:db8:1:2::/64"
+    assert other != first
+    assert mapped == "203.0.113.9"
 
 
 def _request(headers: list[tuple[bytes, bytes]], client: str = "169.254.1.1") -> Request:

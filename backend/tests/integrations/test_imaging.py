@@ -6,10 +6,11 @@
 from __future__ import annotations
 
 import io
-import logging
+import threading
+import time
 
 import pytest
-from PIL import Image, ImageChops, ImageFile
+from PIL import Image, ImageChops, ImageFile, ImageOps
 
 from app.integrations import imaging
 from app.integrations.imaging import max_long_edge, prepare_image
@@ -161,21 +162,87 @@ def _compared_sizes(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     return pixels
 
 
-def test_아주_큰_PNG_는_풀지_않고_원본을_보낸다(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    """PNG 는 줄여서 풀 수 없다. 다듬기가 실패했을 때와 같은 결과(원본)를 낸다."""
+def _old_result(data: bytes) -> tuple[tuple[int, int, int, int] | None, tuple[int, int], str]:
+    """이 브랜치 앞의 다듬기. 통째로 풀고, 통째로 비교하고, 잘라 낸 뒤 줄인다."""
+    with Image.open(io.BytesIO(data)) as opened:
+        opened.load()
+        picture = ImageOps.exif_transpose(opened) or opened
+        box = _old_trim_box(picture)
+        if box is not None:
+            kept = (box[2] - box[0]) * (box[3] - box[1])
+            if kept >= picture.width * picture.height * 0.35:
+                picture = picture.crop(box)
+            else:
+                box = None
+        limit = max_long_edge()
+        if max(picture.size) > limit:
+            ratio = limit / max(picture.size)
+            picture = picture.resize(
+                (max(1, round(picture.width * ratio)), max(1, round(picture.height * ratio))),
+                Image.Resampling.LANCZOS,
+            )
+        media_type = "image/png" if picture.mode in ("RGBA", "LA", "P") else "image/jpeg"
+        return box, picture.size, media_type
+
+
+def _long_capture(mode: str = "RGB") -> bytes:
+    """앨범이 보내는 가로 1080, 세로 1만 5천 긴 스크롤 캡처. 1,620만 화소다."""
+    canvas = Image.new("RGB", (1080, 15000), (255, 255, 255))
+    for top in range(300, 14500, 700):
+        canvas.paste(Image.new("RGB", (1000, 400), (40, 40, 40)), (40, top))
     buffer = io.BytesIO()
-    Image.new("RGB", (5000, 4000), (255, 255, 255)).save(buffer, format="PNG")
-    before = LlmImage(media_type="image/png", data=buffer.getvalue())
-    decoded = _decoded_sizes(monkeypatch)
+    canvas.convert(mode).save(buffer, format="PNG")
+    return buffer.getvalue()
 
-    with caplog.at_level(logging.INFO):
-        after = prepare_image(before)
 
-    assert after is before
-    assert decoded == []
-    assert "너무 커서" in caplog.text
+@pytest.mark.parametrize("mode", ["RGB", "RGBA"])
+def test_아주_긴_PNG_캡처도_예전과_같이_자르고_줄인다(mode: str) -> None:
+    data = _long_capture(mode)
+    expected_box, expected_size, expected_type = _old_result(data)
+    with Image.open(io.BytesIO(data)) as opened:
+        assert opened.width * opened.height > imaging._FULL_DECODE_PIXELS
+        opened.load()
+        box = imaging._border_box(opened)
+
+    after = prepare_image(LlmImage(media_type="image/png", data=data))
+
+    # 마지막 칸은 14300 에서 시작해 400 높이라 14700 에서 끝난다.
+    assert expected_box == (40, 300, 1040, 14700)
+    assert box == expected_box
+    assert (_opened(after).size, after.media_type) == (expected_size, expected_type)
+
+
+def test_줄여_풀_수_없는_큰_그림은_한_장씩_푼다(monkeypatch: pytest.MonkeyPatch) -> None:
+    data = _long_capture()
+    lock = threading.Lock()
+    loading = 0
+    most = 0
+    original = ImageFile.ImageFile.load
+
+    def load(self: ImageFile.ImageFile):  # type: ignore[no-untyped-def]
+        nonlocal loading, most
+        big = self.width * self.height > imaging._FULL_DECODE_PIXELS
+        with lock:
+            loading += big
+            most = max(most, loading)
+        try:
+            time.sleep(0.05)
+            return original(self)
+        finally:
+            with lock:
+                loading -= big
+
+    monkeypatch.setattr(ImageFile.ImageFile, "load", load)
+    threads = [
+        threading.Thread(target=prepare_image, args=(LlmImage(media_type="image/png", data=data),))
+        for _ in range(2)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert most == 1
 
 
 def test_아주_큰_JPEG_는_줄여서_풀고_결과는_같은_크기다(monkeypatch: pytest.MonkeyPatch) -> None:

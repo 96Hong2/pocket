@@ -205,6 +205,47 @@ curl -fsS -o /dev/null -w '%{http_code}\n' "$BASE/api/v1/categories"   # 401  (�
 `/health` 만 보고 끝내지 않는다. 그건 앱이 떴다는 말이지 **인증이 산다는 말이 아니다.**
 키 없이 부른 조회가 200 이면 검증이 꺼진 채로 떴다는 뜻이라 즉시 롤백한다.
 
+### 틀린 익명키 문을 막기로 바꾸기 전에 (`ANON_KEY_FAILURE_GUARD`)
+
+한 IP 에서 틀린 익명키가 1분에 60번을 넘으면 서버가 그 IP 를 알아본다. 기본값 `log` 는
+**막지 않고** 경고 로그 한 줄만 남긴다. `enforce` 로 바꾸면 토스에 묻지 않고 429 로 막는다.
+
+IP 는 `X-Forwarded-For` 의 마지막 값이다(IPv6 는 /64 로 묶는다). Cloud Run 주소로 바로 받으면
+Google 앞단이 실제 주소를 맨 뒤에 붙이지만, 앞에 부하분산기나 도메인 매핑을 두면 그 뒤에
+Google 주소가 하나 더 붙을 수 있다. 그 상태로 `enforce` 를 켜면 모든 사용자가 한 칸에 들어가
+누군가 틀린 키를 60번 보낼 때 새로 들어오는 사람이 전부 「조금 빠르게 이어서 부르고 있어요」 를 본다.
+그래서 **운영 로그에서 실제 모양을 한 번 보고 나서** 바꾼다.
+
+1. 내 맥의 공인 IP 를 적어 둔다: `curl -s https://ifconfig.me`
+2. 앞쪽 값을 일부러 적어서, 같은 틀린 키로 61번 부르고 다른 틀린 키로 한 번 더 부른다.
+   같은 키는 30초 동안 토스에 다시 묻지 않으므로 토스 호출은 두 번뿐이다.
+
+   ```bash
+   for i in $(seq 61); do
+     curl -s -o /dev/null -H 'X-Forwarded-For: 198.51.100.1' -H 'X-Anon-Key: xff-check-a' \
+       "$BASE/api/v1/categories"
+   done
+   curl -s -o /dev/null -H 'X-Forwarded-For: 198.51.100.1' -H 'X-Anon-Key: xff-check-b' \
+     "$BASE/api/v1/categories"
+   ```
+
+3. 경고 줄을 읽는다. 인스턴스가 여럿이면 칸이 나뉘어 안 뜰 수 있으니 2번을 한 번 더 돌린다.
+
+   ```bash
+   gcloud logging read \
+     'resource.type="cloud_run_revision" AND resource.labels.service_name="pocket-backend"
+      AND jsonPayload.anon_key_guard="log"' \
+     --freshness=10m --limit=5 --format='value(jsonPayload.client_key,jsonPayload.forwarded_hops)'
+   ```
+
+4. 판정한다.
+   - `client_key` 가 1번의 내 IP 이고 `forwarded_hops` 가 2(내가 적은 값 + 앞단이 붙인 값)면 예상대로다.
+   - `client_key` 가 `35.191.*`, `130.211.*` 같은 Google 주소거나 칸 수가 3 이상이면 **켜지 않는다.**
+     `backend/app/api/client_key.py` 가 끝에서 두 번째 값을 보도록 먼저 고친다.
+5. 맞으면 바꾼다: `gcloud run services update pocket-backend --region=<리전> --update-env-vars=ANON_KEY_FAILURE_GUARD=enforce`
+
+켠 뒤에도 같은 경고 줄로 어느 칸이 걸렸는지 본다. `enforce` 에서는 경고 대신 429 가 나간다.
+
 ---
 
 ## 7. 롤백

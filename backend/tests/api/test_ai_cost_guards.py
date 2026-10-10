@@ -219,9 +219,10 @@ def test_재시도가_실패해도_그_호출은_남는다(
     assert [row.failed for row in sorted(rows, key=lambda row: row.escalated)] == [False, True]
 
 
-def test_재시도까지_센_만큼_1분_상한이_준다(
+def test_재시도_줄은_1분_상한을_먹지_않는다(
     client: TestClient, db: Session, default_categories, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """사람에게는 한 번의 읽기다. 재시도 줄은 비용 집계에만 남는다."""
     monkeypatch.setenv("NL_PARSE_BURST_LIMIT", "2")
     get_settings.cache_clear()
     try:
@@ -230,10 +231,13 @@ def test_재시도까지_센_만큼_1분_상한이_준다(
             _Model("luna", _extraction(amount=999_999_999_999)),
             _Model("terra", _extraction()),
         )
-        assert (
-            client.post("/api/v1/imports/text", json={"text": "점심"}, headers=AUTH).status_code
-            == 201
-        )
+        for _ in range(2):
+            assert (
+                client.post("/api/v1/imports/text", json={"text": "점심"}, headers=AUTH).status_code
+                == 201
+            )
+        # 두 번 읽었고 재시도까지 줄은 넷이다. 상한은 읽은 횟수(2)로 찬다.
+        assert len(_rows(db)) == 4
         blocked = client.post("/api/v1/imports/text", json={"text": "점심"}, headers=AUTH)
         assert blocked.status_code == 429
         # 문구는 지금과 같다.

@@ -1479,7 +1479,8 @@ class _Usage:
     def before_retry(self, escalation: LlmStructuredClient) -> None:
         """재시도 모델을 부르기 직전에 한 줄 더 적는다.
 
-        상한은 다시 보지 않는다. 사람에게는 같은 한 번의 읽기다.
+        상한은 다시 보지 않고, 이 줄은 상한에도 세지 않는다(`_used_since`). 사람에게는 같은
+        한 번의 읽기다. 줄은 비용을 셀 때만 쓴다.
         """
         first = self.rows[0]
         self.retry = ParseUsage(
@@ -1609,10 +1610,15 @@ def _require_quota(
 
 
 def _used_since(session: Session, user: User, since: datetime) -> int:
+    """사람이 읽기를 누른 횟수. 재시도 줄(`escalated`)은 비용 집계에만 남기고 상한에서는 뺀다."""
     used = session.scalar(
         select(func.count())
         .select_from(ParseUsage)
-        .where(ParseUsage.user_id == user.id, ParseUsage.created_at >= since)
+        .where(
+            ParseUsage.user_id == user.id,
+            ParseUsage.created_at >= since,
+            ParseUsage.escalated.is_(False),
+        )
     )
     return used or 0
 

@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import hashlib
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends, Header, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.client_key import ClientKey, client_key
 from app.api.errors import ApiError, ErrorCode
 from app.core.config import Settings, get_settings
 from app.db.session import get_session
@@ -55,6 +56,7 @@ def _verifier_for(
     base_url: str,
     cert_path: str | None,
     key_path: str | None,
+    failure_guard: Literal["log", "enforce"],
 ) -> AnonKeyVerifier:
     return create_anon_key_verifier(
         AnonKeyVerifierSettings(
@@ -63,6 +65,7 @@ def _verifier_for(
             base_url=base_url,
             client_cert_path=cert_path,
             client_key_path=key_path,
+            failure_guard=failure_guard,
         )
     )
 
@@ -74,6 +77,7 @@ def get_verifier(settings: AppSettings) -> AnonKeyVerifier:
         settings.toss_api_base_url,
         settings.toss_mtls_cert_path,
         settings.toss_mtls_key_path,
+        settings.anon_key_failure_guard,
     )
 
 
@@ -85,24 +89,10 @@ def anon_key_hash(anon_key: str) -> str:
 _hash = anon_key_hash
 
 
-def client_ip(request: Request) -> str | None:
-    """요청을 보낸 곳의 IP. 틀린 익명키를 곳마다 세는 데만 쓴다.
-
-    **X-Forwarded-For 의 마지막 값을 쓴다.** 앞쪽 값은 보내는 쪽이 마음대로 적을 수 있고,
-    Cloud Run 앞단(Google Front End)은 실제로 연결해 온 주소를 맨 뒤에 덧붙인다.
-    uvicorn `--proxy-headers --forwarded-allow-ips='*'` 는 첫 값을 `request.client` 로 바꿔
-    두므로 그 값은 믿지 않는다. 그 값으로 세면 요청마다 다른 IP 를 적어 보내 상한을 피한다.
-    앞에 외부 HTTPS 부하분산기를 두면 그 주소가 맨 뒤에 하나 더 붙으므로 끝에서 두 번째를 봐야 한다.
-    """
-    hops = [
-        hop.strip()
-        for value in request.headers.getlist("x-forwarded-for")
-        for hop in value.split(",")
-        if hop.strip()
-    ]
-    if hops:
-        return hops[-1]
-    return request.client.host if request.client is not None else None
+def client_ip(request: Request) -> ClientKey | None:
+    """요청을 보낸 곳. 틀린 익명키를 곳마다 세는 데 쓴다. 고르는 규칙은 `client_key`."""
+    peer = request.client.host if request.client is not None else None
+    return client_key(request.headers.getlist("x-forwarded-for"), peer)
 
 
 async def get_verified_identity(
