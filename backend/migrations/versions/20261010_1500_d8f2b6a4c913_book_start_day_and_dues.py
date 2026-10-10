@@ -18,7 +18,7 @@
 끝낸 정산의 비율은 버린다. 그 사이 시작일로 끝낸 정산의 기간 키는 달력 월로 다시 읽힌다.
 
 Revision ID: d8f2b6a4c913
-Revises: c5e8a1f3d7b2
+Revises: d3f9b2a7e614
 Create Date: 2026-10-10 15:00:00.000000+09:00
 
 """
@@ -30,7 +30,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "d8f2b6a4c913"
-down_revision: Union[str, Sequence[str], None] = "c5e8a1f3d7b2"
+down_revision: Union[str, Sequence[str], None] = "d3f9b2a7e614"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

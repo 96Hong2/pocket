@@ -738,7 +738,8 @@ def mail() -> Iterator[None]:
 
 def _link_email(client: TestClient, headers: dict[str, str]) -> None:
     email = "shared@example.com"
-    r = client.post("/api/v1/account/email/start", json={"email": email}, headers=AUTH)
+    # 코드는 받은 기기에서만 쓴다(받아 간 사람만 확인할 수 있다).
+    r = client.post("/api/v1/account/email/start", json={"email": email}, headers=headers)
     assert r.status_code == 204, r.text
     code = client.get(f"/api/v1/account/email/peek?email={email}", headers=AUTH).json()["code"]
     r = client.post(
