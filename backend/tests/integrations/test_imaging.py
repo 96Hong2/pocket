@@ -215,7 +215,11 @@ def test_아주_긴_PNG_캡처도_예전과_같이_자르고_줄인다(mode: str
 
 
 def test_줄여_풀_수_없는_큰_그림은_한_장씩_푼다(monkeypatch: pytest.MonkeyPatch) -> None:
-    data = _long_capture()
+    assert _most_large_loads_at_once(monkeypatch, _long_capture()) == 1
+
+
+def _most_large_loads_at_once(monkeypatch: pytest.MonkeyPatch, data: bytes) -> int:
+    """같은 그림 두 장을 동시에 다듬을 때 한꺼번에 풀린 큰 그림 수의 최댓값."""
     lock = threading.Lock()
     loading = 0
     most = 0
@@ -243,8 +247,7 @@ def test_줄여_풀_수_없는_큰_그림은_한_장씩_푼다(monkeypatch: pyte
         thread.start()
     for thread in threads:
         thread.join()
-
-    assert most == 1
+    return most
 
 
 def _streamed_png(width: int, height: int, mode: str) -> bytes:
@@ -277,15 +280,52 @@ def _decodes(monkeypatch: pytest.MonkeyPatch) -> list[tuple[int, int]]:
     return seen
 
 
-def test_아주_큰_투명_캡처는_풀지_않고_원본을_보낸다(monkeypatch: pytest.MonkeyPatch) -> None:
-    """1080x46000 RGBA 는 두 벌이면 약 400MB 다. 다듬지 않고 그대로 보낸다."""
-    before = LlmImage(media_type="image/png", data=_streamed_png(1080, 46000, "RGBA"))
-    decoded = _decodes(monkeypatch)
+def test_아주_큰_투명_캡처는_정수_배로_먼저_줄여_다듬는다(monkeypatch: pytest.MonkeyPatch) -> None:
+    """두 벌이 상한을 넘는 투명 그림. 원본을 보내지 않고 예전처럼 자르고 줄인 결과를 보낸다.
 
-    after = prepare_image(before)
+    상한을 낮춰 1080x15000 캡처가 이 길을 타게 한다. 미리 곱한 사본(RGBa)은 띠 하나를 넘지 않는다.
+    """
+    data = _long_capture("RGBA")
+    _, expected_size, expected_type = _old_result(data)
+    monkeypatch.setattr(imaging, "_TWO_COPY_BUDGET_BYTES", 1080 * 15000 * 4)
+    premultiplied: list[int] = []
+    original = Image.Image.convert
 
-    assert after is before
-    assert decoded == []
+    def convert(self: Image.Image, mode: str | None = None, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if mode in ("RGBa", "La"):
+            premultiplied.append(self.width * self.height)
+        return original(self, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Image.Image, "convert", convert)
+    decoded = _decoded_sizes(monkeypatch)
+
+    after = prepare_image(LlmImage(media_type="image/png", data=data))
+
+    # 원본 크기로 한 번 푼다. 띠를 잘라 낼 때 부르는 load() 는 이미 풀린 것이라 다시 풀지 않는다.
+    assert set(decoded) == {(1080, 15000)}
+    assert premultiplied and max(premultiplied) <= imaging._STRIP_PIXELS
+    assert after.media_type == expected_type == "image/png"
+    # 칸 평균으로 먼저 줄여서 테두리 끝이 한두 화소 다를 수 있다. 긴 변과 비율은 같다.
+    width, height = _opened(after).size
+    assert height == expected_size[1] == max_long_edge()
+    assert abs(width - expected_size[0]) <= 2
+
+
+def test_띠로_나눠_줄여도_통째로_줄인_것과_화소가_같다() -> None:
+    canvas = Image.new("RGBA", (1080, 5000), (255, 255, 255, 255))
+    canvas.paste(Image.new("RGBA", (900, 3000), (10, 20, 30, 128)), (91, 1003))
+
+    for factor in (3, 7, 23):
+        strips = imaging._reduce_in_strips(canvas, factor)
+        whole = canvas.reduce(factor)
+        assert strips.size == whole.size
+        assert ImageChops.difference(strips, whole).getbbox() is None
+
+
+def test_큰_투명_그림도_한_장씩_푼다(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(imaging, "_TWO_COPY_BUDGET_BYTES", 1)
+
+    assert _most_large_loads_at_once(monkeypatch, _long_capture("RGBA")) == 1
 
 
 def test_같은_크기라도_불투명한_PNG_는_한_장씩_풀어_다듬는다(

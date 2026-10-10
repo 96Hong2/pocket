@@ -39,7 +39,7 @@ Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 # 이보다 큰 그림은 따로 다룬다. JPEG 은 줄여서 푼다. 줄여 풀 수 없는 PNG·WebP 는 원본
 # 해상도로 풀되 **한 번에 한 장만** 푼다(`_ONE_LARGE`). 결과는 예전과 같다(여백 자르기와 줄이기).
-# 다만 아주 큰 투명 그림은 풀지 않고 원본을 보낸다(`_TWO_COPY_BUDGET_BYTES`).
+# 아주 큰 투명 그림은 푼 즉시 정수 배로 줄여 놓고 다듬는다(`_TWO_COPY_BUDGET_BYTES`).
 _FULL_DECODE_PIXELS = 16_000_000
 
 # 여백을 찾을 때 한 번에 보는 띠의 화소 수. 원본 크기 RGB 사본을 여러 벌 만들지 않으려고 나눠 본다.
@@ -53,10 +53,14 @@ _DECODING = threading.BoundedSemaphore(2)
 _ONE_LARGE = threading.Lock()
 
 # 투명한 그림은 줄일 때 Pillow 가 그림 전체를 미리 곱한 사본(RGBa·La)으로 한 벌 더 만든다.
-# Pillow 는 화소마다 4바이트를 쓰므로 두 벌이 이 값을 넘으면 풀지 않고 원본을 보낸다.
-# 1080x46000 RGBA 캡처가 약 400MB 를 잡았다. 1080x15000 은 약 130MB 라 예전처럼 다듬는다.
+# Pillow 는 화소마다 4바이트를 쓰므로 두 벌이 이 값을 넘으면 원본 크기 사본을 만들지 않는다.
+# 푼 그림을 띠마다 잘라 `reduce()` 로 정수 배 줄이고(`_reduce_in_strips`), 그 작은 그림을
+# 여느 때처럼 자르고 줄인다. 1080x46000 RGBA 를 통째로 줄이면 약 400MB, 이 길은 약 200MB 다.
 _ALPHA_TWO_COPY_MODES = frozenset({"RGBA", "LA"})
 _TWO_COPY_BUDGET_BYTES = 200_000_000
+
+# 정수 배로 먼저 줄일 때 남길 긴 변. 긴 변 상한(최대 2048)보다 작아지지 않게 한다.
+_REDUCED_LONG_EDGE = 2048
 
 
 def max_long_edge() -> int:
@@ -98,22 +102,14 @@ def _prepare(image: LlmImage) -> LlmImage:
             and opened.mode in _ALPHA_TWO_COPY_MODES
             and pixels * 4 * 2 > _TWO_COPY_BUDGET_BYTES
         ):
-            logger.info("큰 투명 그림이라 다듬지 않고 원본을 보낸다 %dx%d %s", *before, opened.mode)
-            return image
-        if large and opened.format == "JPEG":
-            # 디코드 단계에서 1/2·1/4·1/8 로 줄여 푼다. 줄인 뒤 크기의 두 배는 남겨 화질을 지킨다.
-            opened.draft(opened.mode, _draft_size(before))
-            large = False
-        with _ONE_LARGE if large else nullcontext():
-            opened.load()
-            # 회전과 함께 그 태그를 지운다. 제자리에서 돌려 원본 크기 사본을 하나 덜 만든다.
-            ImageOps.exif_transpose(opened, in_place=True)
-            if large:
-                # 잘라 낸 원본 크기 사본을 따로 만들지 않고 그 자리를 바로 줄인다.
-                picture = _shrink(opened, box=_border_box(opened))
-            else:
-                picture = _shrink(_trim_border(opened))
-            data, media_type = _encode(picture)
+            picture = _shrink(_trim_border(_reduced(opened)))
+        else:
+            if large and opened.format == "JPEG":
+                # 디코드 단계에서 1/2·1/4·1/8 로 줄여 푼다. 줄인 크기의 두 배는 남겨 화질을 지킨다.
+                opened.draft(opened.mode, _draft_size(before))
+                large = False
+            picture = _decoded(opened, large=large)
+        data, media_type = _encode(picture)
 
     if len(data) >= len(image.data) and picture.size == before:
         # 다듬어서 오히려 커졌고 크기도 그대로다. 손댈 이유가 없었다.
@@ -127,6 +123,49 @@ def _prepare(image: LlmImage) -> LlmImage:
         len(data),
     )
     return LlmImage(media_type=media_type, data=data)
+
+
+def _decoded(opened: Image.Image, *, large: bool) -> Image.Image:
+    """풀고 돌리고 여백을 잘라 줄인 그림. 줄여 풀 수 없는 큰 그림은 한 장씩 푼다."""
+    with _ONE_LARGE if large else nullcontext():
+        opened.load()
+        # 회전과 함께 그 태그를 지운다. 제자리에서 돌려 원본 크기 사본을 하나 덜 만든다.
+        ImageOps.exif_transpose(opened, in_place=True)
+        if large:
+            # 잘라 낸 원본 크기 사본을 따로 만들지 않고 그 자리를 바로 줄인다.
+            return _shrink(opened, box=_border_box(opened))
+        return _shrink(_trim_border(opened))
+
+
+def _reduced(opened: Image.Image) -> Image.Image:
+    """아주 큰 투명 그림을 한 장씩 풀어, 긴 변이 `_REDUCED_LONG_EDGE` 이하로 정수 배 줄인다."""
+    factor = -(-max(opened.size) // max(_REDUCED_LONG_EDGE, max_long_edge()))
+    with _ONE_LARGE:
+        opened.load()
+        reduced = _reduce_in_strips(opened, factor)
+        # 원본 화소를 놓은 뒤에 다음 큰 그림에 자리를 넘긴다.
+        opened.close()
+    # 회전은 줄인 그림에서 한다. 원본 크기로 돌리면 사본이 한 벌 더 생긴다.
+    ImageOps.exif_transpose(reduced, in_place=True)
+    return reduced
+
+
+def _reduce_in_strips(picture: Image.Image, factor: int) -> Image.Image:
+    """`factor` 배로 줄인 그림. 통째로 `reduce()` 한 것과 화소가 같다.
+
+    Pillow 의 `reduce()` 는 투명 그림을 먼저 그림 전체 크기의 미리 곱한 사본으로 바꾼다.
+    그래서 가로 띠(높이는 `factor` 의 배수)로 잘라 띠마다 줄여 붙인다. 칸 평균은 칸 안에서만
+    계산되므로 띠 경계에서 결과가 달라지지 않는다.
+    """
+    width, height = picture.size
+    out = Image.new(picture.mode, (-(-width // factor), -(-height // factor)))
+    rows = factor * max(1, _STRIP_PIXELS // (width * factor))
+    for top in range(0, height, rows):
+        strip = picture.crop((0, top, width, min(height, top + rows)))
+        out.paste(strip.reduce(factor), (0, top // factor))
+    # 회전 태그(EXIF)를 옮겨 둔다. 다시 담을 때는 싣지 않는다.
+    out.info.update(picture.info)
+    return out
 
 
 def _draft_size(size: tuple[int, int]) -> tuple[int, int]:
