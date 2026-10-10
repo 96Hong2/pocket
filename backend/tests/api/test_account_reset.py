@@ -4,19 +4,23 @@
 드러나야 한다), **되살릴 수 있게 행은 남나**, **남의 것은 안 지워지나**,
 그리고 **기본 분류가 살아남나**.
 
-접는 것과 진짜로 지우는 것이 갈린다. 남겨 두면 그 자체로 해로운 것(분석 사용량·알림
-설정·검토 묶음)만 행째 사라진다. 어느 쪽인지는 `app/modules/account/service.py` 에 적혀 있다.
+접는 것과 진짜로 지우는 것이 갈린다. 남겨 두면 그 자체로 해로운 것(알림 설정·검토 묶음)만
+행째 사라진다. 분석 사용량은 상한을 세는 자리라 지우지 않는다.
+어느 쪽인지는 `app/modules/account/service.py` 에 적혀 있다.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.domain.categories import DEFAULT_CATEGORIES
 from app.models import (
     AssetEntry,
@@ -38,6 +42,14 @@ from app.models import (
 )
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
+
+
+@pytest.fixture(autouse=True)
+def fresh_settings() -> Iterator[None]:
+    """상한을 바꾼 테스트가 중간에 깨져도 바꾼 설정이 다음 테스트로 새지 않게 한다."""
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def _fill(client: TestClient) -> str:
@@ -126,8 +138,10 @@ def test_넣은_것이_화면에서_전부_사라진다(
     assert _live(db, GoalContribution) == 0
     assert _live(db, AssetItem) == 0
 
+    # 분석 사용량은 남는다. 지우면 초기화로 하루 상한을 되풀이해 풀 수 있다.
+    assert _count(db, ParseUsage, user_id=user.id) == 1
+
     # 진짜로 지우는 것: 남겨 두면 그 자체로 해로운 것들.
-    assert _count(db, ParseUsage, user_id=user.id) == 0
     assert _count(db, NotificationSetting, user_id=user.id) == 0
     assert _count(db, UserPreference, user_id=user.id) == 0
     assert _count(db, ImportCandidate) == 0
@@ -309,3 +323,26 @@ def test_자산_장부도_접히고_다시_적으면_새로_시작한다(
         "2",
         "500000",
     )
+
+
+def test_초기화로_분석_상한이_풀리지_않는다(
+    client: TestClient,
+    default_categories: list[Category],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """초기화를 되풀이해 하루 상한과 1분 상한을 0 으로 돌리는 길을 막는다."""
+    del default_categories
+    monkeypatch.setenv("NL_PARSE_BURST_LIMIT", "2")
+    get_settings.cache_clear()
+
+    def analyze() -> int:
+        res = client.post("/api/v1/imports/text", json={"text": "커피 4500"}, headers=AUTH)
+        return res.status_code
+
+    assert [analyze(), analyze()] == [201, 201]
+    assert analyze() == 429
+
+    res = client.post("/api/v1/account/reset", json={"confirm": True}, headers=AUTH)
+    assert res.status_code == 204
+    # 같은 429 가 그대로다. 초기화 전과 화면이 달라지지 않는다.
+    assert analyze() == 429

@@ -12,9 +12,10 @@ import hashlib
 import hmac
 import logging
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import Select, delete, func, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
@@ -46,7 +47,14 @@ from app.modules.assets.merge import absorb_assets
 from app.modules.books import service as books
 from app.modules.budgets import service as budgets
 
-__all__ = ["me_view", "peek_code", "start_email_login", "update_profile", "verify_email_login"]
+__all__ = [
+    "live_code_query",
+    "me_view",
+    "peek_code",
+    "start_email_login",
+    "update_profile",
+    "verify_email_login",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -83,16 +91,18 @@ def me_view(user: User, settings: Settings) -> MeOut:
 
 
 def start_email_login(
-    session: Session, settings: Settings, sender: EmailSender, email: str
+    session: Session, settings: Settings, sender: EmailSender, email: str, requested_by: User
 ) -> None:
     """여섯 자리 코드를 만들어 보낸다. 앞선 코드는 그 자리에서 죽인다.
 
     보낼 수단이 없으면 503 이다. 코드를 만들어 두고 못 보내면 사람이 메일함만 보고 있게 된다.
+    상한은 받는 주소마다, 보내 달라는 사람마다 둘 다 본다. 어느 쪽에 걸려도 같은 429 다.
     """
     if not settings.email_login_available:
         raise ApiError(ErrorCode.EMAIL_LOGIN_UNAVAILABLE, _UNAVAILABLE, status_code=503)
 
     email = normalize_email(email)
+    _lock_requester(session, requested_by)
     now = _now()
     since = now - timedelta(minutes=settings.login_code_send_window_minutes)
     recent = session.scalar(
@@ -101,6 +111,11 @@ def start_email_login(
         .where(LoginCode.email == email, LoginCode.created_at >= since)
     )
     if (recent or 0) >= settings.login_code_send_limit:
+        raise ApiError(ErrorCode.USAGE_LIMIT, _TOO_MANY, status_code=429)
+    # 이 주소로 하루 틀린 횟수를 다 쓴 사람은 코드를 받아도 못 쓴다. 메일만 쌓이지 않게 멈춘다.
+    if _over_fail_limit(session, settings, email, requested_by, now):
+        raise ApiError(ErrorCode.USAGE_LIMIT, _TOO_MANY, status_code=429)
+    if _over_requester_limit(session, settings, requested_by, email, now):
         raise ApiError(ErrorCode.USAGE_LIMIT, _TOO_MANY, status_code=429)
 
     # 앞선 코드가 살아 있으면 둘 중 아무거나 통하는 자리가 된다. 새 코드 하나만 남긴다.
@@ -116,6 +131,7 @@ def start_email_login(
             email=email,
             code_hash=_hash(code),
             expires_at=now + timedelta(minutes=settings.login_code_ttl_minutes),
+            requested_by_user_id=requested_by.id,
         )
     )
     session.commit()
@@ -130,6 +146,82 @@ def start_email_login(
                 "직접 요청한 것이 아니면 이 메일은 그냥 두셔도 돼요."
             ),
         )
+    )
+
+
+def _lock_requester(session: Session, user: User) -> None:
+    """같은 사람의 코드 요청을 줄 세운다. 세고 넣는 사이에 다른 요청이 끼면 상한을 넘는다.
+
+    트랜잭션 잠금이라 아래 commit 이나 오류 뒤 롤백에서 풀린다. 세션 연결 하나만 쓴다.
+    """
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"login-start:{user.id}"},
+    )
+
+
+def _over_requester_limit(
+    session: Session, settings: Settings, user: User, email: str, now: datetime
+) -> bool:
+    """한 사람이 하루에 보낸 메일 수와 서로 다른 받는 주소 수가 상한에 닿았나."""
+    rows = session.execute(
+        select(LoginCode.email).where(
+            LoginCode.requested_by_user_id == user.id,
+            LoginCode.created_at >= now - timedelta(hours=24),
+        )
+    ).scalars()
+    sent = list(rows)
+    if len(sent) >= settings.login_code_user_daily_send_limit:
+        return True
+    # 이미 보낸 주소로 다시 받는 것은 새 주소가 아니다. 다시 보내기는 주소 상한을 안 먹는다.
+    addresses = set(sent)
+    return email not in addresses and len(addresses) >= settings.login_code_user_daily_email_limit
+
+
+def _over_fail_limit(
+    session: Session, settings: Settings, email: str, user: User, now: datetime
+) -> bool:
+    """이 사람이 이 주소로 지난 24시간 틀린 횟수가 상한에 닿았나. 새 코드를 받아도 이어서 센다.
+
+    상한은 (주소, 요청한 사람)마다만 둔다. 주소 전체로 세면 남의 계정 몇 개가 함께 틀려
+    주인의 로그인을 하루 동안 막을 수 있다. 코드는 받아 간 사람만 쓰므로 남의 틀림은
+    주인의 코드에 닿지 않는다.
+    """
+    mine = session.scalar(
+        select(func.coalesce(func.sum(LoginCode.attempts), 0)).where(
+            LoginCode.email == email,
+            LoginCode.requested_by_user_id == user.id,
+            LoginCode.created_at >= now - timedelta(hours=24),
+        )
+    )
+    return int(mine or 0) >= settings.login_code_daily_fail_limit
+
+
+def live_code_query(email: str, requester_id: uuid.UUID) -> Select[tuple[LoginCode]]:
+    """그 주소로 이 사람이 받은 살아 있는 코드를 잠가 읽는다.
+
+    코드는 받아 간 사람만 쓸 수 있다. 화면은 코드를 받은 그 시트에서만 코드를 적으므로
+    정상 흐름은 늘 같은 사람이다. 요청한 사람이 비어 있는 줄은 이 칸이 생기기 전 코드라
+    누구나 쓴다(10분이면 사라진다).
+    잠그지 않으면 동시에 보낸 확인 요청이 모두 같은 틀린 횟수를 보고 지나가, 코드마다
+    5번 상한이 지켜지지 않는다. 잠근 뒤에는 앞선 요청이 남긴 값을 다시 읽는다.
+    """
+    return (
+        select(LoginCode)
+        .where(
+            LoginCode.email == email,
+            LoginCode.consumed_at.is_(None),
+            or_(
+                LoginCode.requested_by_user_id == requester_id,
+                LoginCode.requested_by_user_id.is_(None),
+            ),
+        )
+        .order_by(LoginCode.created_at.desc())
+        .limit(1)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
 
 
@@ -163,19 +255,20 @@ def verify_email_login(
     """
     email = normalize_email(email)
     now = _now()
-    row = session.scalar(
-        select(LoginCode)
-        .where(LoginCode.email == email, LoginCode.consumed_at.is_(None))
-        .order_by(LoginCode.created_at.desc())
-        .limit(1)
-    )
+    row = session.scalar(live_code_query(email, current.id))
     if row is None:
         raise ApiError(ErrorCode.LOGIN_CODE_INVALID, _INVALID, status_code=422)
+    # 이 주소로 하루 틀린 횟수를 다 쓴 사람은 맞는 코드도 보지 않는다. 새 코드를 받아 가며
+    # 하루 수천 번 맞혀 보는 길을 여기서 닫는다.
+    if _over_fail_limit(session, settings, email, current, now):
+        raise ApiError(ErrorCode.USAGE_LIMIT, _UNAVAILABLE, status_code=429)
     expires = row.expires_at if row.expires_at.tzinfo else row.expires_at.replace(tzinfo=UTC)
     if expires < now:
         raise ApiError(ErrorCode.LOGIN_CODE_EXPIRED, _EXPIRED, status_code=422)
     if not hmac.compare_digest(row.code_hash, _hash(code)):
-        row.attempts += 1
+        # 읽은 값에 더하지 않고 DB 의 값에 더한다. 잠금이 없는 DB 에서도 횟수가 덮이지 않는다.
+        row.attempts = LoginCode.attempts + 1
+        session.flush()
         if row.attempts >= settings.login_code_max_attempts:
             row.consumed_at = now
         session.commit()

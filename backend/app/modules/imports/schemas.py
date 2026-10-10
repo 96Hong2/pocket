@@ -21,7 +21,7 @@ from app.models.import_batch import ImportBatch, ImportBatchStatus, ImportCandid
 from app.modules import ledger
 from app.modules.books.schemas import BookMonthStateOut
 from app.modules.budgets.schemas import BudgetStateOut
-from app.modules.transactions.schemas import FeedbackOut
+from app.modules.transactions.schemas import FeedbackOut, _clean_text
 
 __all__ = [
     "MAX_IMAGE_DATA_URL_LENGTH",
@@ -219,6 +219,8 @@ class ImportCandidatePatch(BaseModel):
 
     _check_amount = field_validator("amount")(integral_won)
     _check_quantity = field_validator("asset_quantity")(quantity_in)
+    # 거래 저장과 같은 문. 여기만 열려 있으면 제어문자가 고치기를 거쳐 거래 상호에 들어간다.
+    _check_merchant = field_validator("merchant")(_clean_text)
 
     @field_validator("occurred_at")
     @classmethod

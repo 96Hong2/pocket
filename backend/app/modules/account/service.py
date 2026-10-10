@@ -38,7 +38,6 @@ from app.models import (
     ImportCandidate,
     MerchantRule,
     NotificationSetting,
-    ParseUsage,
     Transaction,
     User,
     UserPreference,
@@ -91,8 +90,8 @@ def reset_data(session: Session, user: User) -> None:
     session.execute(delete(ImportCandidate).where(ImportCandidate.import_batch_id.in_(batches)))
     session.execute(delete(ImportBatch).where(ImportBatch.user_id == user.id))
 
-    # 분석 사용량. 남겨 두면 오늘 아무것도 없는 사람이 하루 상한에 걸린다.
-    session.execute(delete(ParseUsage).where(ParseUsage.user_id == user.id))
+    # 분석 사용량은 남긴다. 지우면 초기화 한 번에 하루 상한과 1분 상한이 0 으로 돌아가,
+    # 초기화를 되풀이해 유료 모델 호출을 끝없이 쓸 수 있다. 이 표에는 원문이 없다.
 
     # 알림은 끈 상태로 돌아간다. 여기 익명키 원문이 들어 있어 남겨 둘 이유가 없다.
     session.execute(delete(NotificationSetting).where(NotificationSetting.user_id == user.id))

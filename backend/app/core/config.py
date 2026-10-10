@@ -142,6 +142,14 @@ class Settings(BaseSettings):
     # 한 이메일에 이 시간 동안 이 횟수까지만 보낸다. 남의 메일함을 코드로 채우지 못하게.
     login_code_send_limit: int = 3
     login_code_send_window_minutes: int = 10
+    # 한 사람이 한 이메일에 24시간 동안 틀려도 되는 횟수. 코드를 새로 받아도 이어서 센다.
+    # 이것이 없으면 새 코드를 받아 가며 하루 수천 번 맞혀 볼 수 있다.
+    # 주소 전체로는 세지 않는다. 남의 계정 몇 개가 함께 틀려 주인을 막을 수 있어서다.
+    login_code_daily_fail_limit: int = 20
+    # 한 사람이 24시간 동안 보낼 수 있는 코드 메일 수와 서로 다른 받는 주소 수.
+    # 주소마다 상한만으로는 주소를 바꿔 가며 보내는 메일을 못 막는다.
+    login_code_user_daily_send_limit: int = 10
+    login_code_user_daily_email_limit: int = 5
 
     @property
     def email_login_available(self) -> bool:

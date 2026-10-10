@@ -681,3 +681,23 @@ def test_선택만_껐다_켠_것은_고친_것이_아니다(
 
     rows = {str(row.id): row.was_edited for row in db.scalars(select(ImportCandidate)).all()}
     assert rows[candidate["id"]] is False
+
+
+def test_후보_상호_고치기도_제어문자를_받지_않는다(client: TestClient, default_categories) -> None:
+    """거래 저장은 막는 값이 후보 고치기를 거쳐 거래 상호에 들어가지 않게 한다."""
+    del default_categories
+    batch = _analyze(client, "점심 12000")
+    path = f"/api/v1/imports/{batch['id']}/candidates/{batch['candidates'][0]['id']}"
+
+    for bad in ("김밥\x07천국", "김밥\n천국", "a\x00b"):
+        res = client.patch(path, json={"merchant": bad}, headers=AUTH)
+        assert res.status_code == 422, (bad, res.text)
+        assert res.json()["error"]["code"] == "INVALID_REQUEST"
+
+    # 보통 상호 고치기와 비우기는 그대로 된다.
+    assert client.patch(path, json={"merchant": None}, headers=AUTH).status_code == 200
+    assert client.patch(path, json={"merchant": "김밥천국"}, headers=AUTH).status_code == 200
+    committed = client.post(f"/api/v1/imports/{batch['id']}/commit", headers=AUTH)
+    assert committed.status_code == 200, committed.text
+    items = client.get("/api/v1/transactions", headers=AUTH).json()["items"]
+    assert [item["merchant"] for item in items] == ["김밥천국"]

@@ -45,6 +45,9 @@ __all__ = [
 
 _NOT_FOUND = "카테고리를 찾지 못했어요."
 _DUPLICATE = "같은 이름의 카테고리가 이미 있어요."
+# 한 사람이 살려 둘 수 있는 내 분류 수. 분류마다 사진 아이콘을 담을 수 있어 끝없이 만들면
+# 분류 목록 응답과 DB 가 함께 커진다. 손으로 만드는 사람은 닿지 않을 만큼 넉넉히 잡는다.
+USER_CATEGORY_LIMIT = 200
 
 
 def list_categories(session: Session, user: User) -> list[Category]:
@@ -449,6 +452,14 @@ def create_category(session: Session, user: User, data: CategoryCreate) -> Categ
     rows = _comparable(session, user)
     overrides = category_overrides(session, user)
     _reject_duplicate(rows, key, overrides)
+    # 되살리기도 살아 있는 분류를 하나 늘리므로 같은 상한을 본다. 이미 넘은 분류는 그대로 둔다.
+    live = sum(1 for r in rows if r.user_id == user.id and r.deleted_at is None)
+    if live >= USER_CATEGORY_LIMIT:
+        raise ApiError(
+            ErrorCode.INVALID_REQUEST,
+            f"분류는 {USER_CATEGORY_LIMIT}개까지 만들 수 있어요.",
+            status_code=422,
+        )
 
     revived = next(
         (

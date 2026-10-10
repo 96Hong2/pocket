@@ -1157,7 +1157,9 @@ def mail() -> Iterator[None]:
 def _link_email(client: TestClient, headers: dict[str, str]) -> None:
     email = "shared@example.com"
     assert (
-        client.post("/api/v1/account/email/start", json={"email": email}, headers=AUTH).status_code
+        client.post(
+            "/api/v1/account/email/start", json={"email": email}, headers=headers
+        ).status_code
         == 204
     )
     code = client.get(f"/api/v1/account/email/peek?email={email}", headers=AUTH).json()["code"]
