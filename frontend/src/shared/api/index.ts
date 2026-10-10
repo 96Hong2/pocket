@@ -39,6 +39,8 @@ export {
   useBookReport,
   useBooks,
   useBookSettlement,
+  useBookDues,
+  useBookMemberEntries,
   useBudget,
   useBudgetSuggestion,
   useCalendar,

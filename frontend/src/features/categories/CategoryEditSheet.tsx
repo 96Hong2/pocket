@@ -213,8 +213,9 @@ export function CategoryEditForm({
   const [kind, setKind] = useState<LedgerKind>(
     fixedKind ?? (category?.kind === 'income' ? 'income' : 'expense'),
   );
-  // 지우기는 한 단을 더 받는다. 시트를 하나 더 겹치면 포커스가 흔들려 여기서 묻는다.
+  // 지우기는 화면 위 창으로 한 번 묻는다. 창이 떠 있으면 뒤로가기는 창만 닫고 시트는 남는다.
   const [confirming, setConfirming] = useState(false);
+  useOverlayBackClose(confirming, () => setConfirming(false));
   /*
     이모지 칸에 이모지가 아닌 글자가 남았나.
 

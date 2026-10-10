@@ -71,11 +71,14 @@ test.describe('초대받은 사람이 처음 여는 앱', () => {
       await expect(owner.books.create.kindTitle).toBeVisible();
       await owner.books.create.kindButton('연인·부부').click();
 
-      // 이름과 돈 나누기는 이미 채워져 있다. 채울 것은 내 이름 하나다.
+      // 이름과 회비 방식은 이미 채워져 있다. 채울 것은 내 이름 하나다.
       // 제목은 유형으로 고정이고, 가계부 이름은 숨기지 않고 맨 위 칸에 채워 둔다.
       await expect(owner.books.create.stepTitle('연인·부부')).toBeVisible();
       await expect(owner.books.create.bookName).toHaveValue('둘이 쓰는 돈');
-      await expect(owner.books.create.settleOption('반반')).toHaveAttribute('aria-checked', 'true');
+      await expect(owner.books.create.settleOption('나중에 정산')).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
       await expect(owner.books.create.submitButton).toBeDisabled();
       await owner.books.create.myName.fill('은홍');
       await owner.books.create.submitButton.click();
@@ -224,10 +227,10 @@ test('가계부 이름은 채워진 채 맨 위에 서고, 처음 누르면 통�
 
   await expect(books.create.stepTitle('여행·모임')).toBeVisible();
   await expect(books.create.bookName).toHaveValue('여행 경비');
-  // 칸 순서는 가계부 이름, 내 이름, 돈 나누기다.
+  // 칸 순서는 가계부 이름, 내 이름, 회비다.
   const nameTop = (await books.create.bookName.boundingBox())?.y ?? 0;
   const myNameTop = (await books.create.myName.boundingBox())?.y ?? 0;
-  const ruleTop = (await books.create.settleOption('똑같이 나눠요').boundingBox())?.y ?? 0;
+  const ruleTop = (await books.create.settleOption('나중에 정산').boundingBox())?.y ?? 0;
   expect(nameTop).toBeLessThan(myNameTop);
   expect(myNameTop).toBeLessThan(ruleTop);
 
@@ -511,20 +514,25 @@ test('멤버는 한 번 묻고 나간다. 내 가계부는 그대로다', async 
   expect(logs.map((log) => [log.params.action, log.params.role])).toEqual([['left', 'member']]);
 });
 
-test('관리자는 한 번 묻고 멤버를 내보낸다', async ({ books, page, people, prep }) => {
+test('관리자는 멤버 내역에서 한 번 묻고 멤버를 내보낸다', async ({ books, page, people, prep }) => {
   const bookId = await prep.createBook({ myName: '은홍' });
   await (await people('junho')).joinBook(await prep.bookInviteCode(bookId), '준호');
 
   await books.openSettings(bookId);
   await books.settings.waitReady();
   await expect(books.settings.member('준호')).toBeVisible();
-  // 내 줄은 누를 수 없다. 나를 내보낼 수는 없다.
-  await expect(books.settings.memberButton('은홍')).toHaveCount(0);
+  // 내 줄도 눌러 내 내역을 본다. 나를 내보내는 버튼은 없다.
+  await books.settings.memberButton('은홍').click();
+  await books.settings.history('은홍').waitOpen();
+  await expect(books.settings.history('은홍').kickButton).toHaveCount(0);
+  await pressSystemBack(page);
+  await books.settings.history('은홍').waitClosed();
 
   await books.settings.memberButton('준호').click();
-  await books.settings.kickButton('준호').click();
+  await books.settings.history('준호').kickButton.click();
   await expect(books.confirm).toContainText('준호님을 내보낼까요?');
   await books.confirmButton('내보내기').click();
+  await books.settings.history('준호').waitClosed();
 
   await expect(books.settings.member('준호')).toHaveCount(0);
   expect((await prep.book(bookId)).active_member_count).toBe(1);

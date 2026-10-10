@@ -1,6 +1,7 @@
 import { useIdentity } from '../../app/providers';
 import { parseDecimal, parseDecimalOr, useBook, useBookReport } from '../../shared/api';
 import { toLedgerDate } from '../../shared/lib/format';
+import { bookPeriodNow } from '../books';
 import { TEST_IDS } from '../../shared/testIds';
 import { Amount, Card, ErrorState, LoadingState, MonthStepper } from '../../shared/ui';
 
@@ -26,10 +27,12 @@ export interface BookReportProps {
  * 세는 자리다.
  */
 export function BookReport({ bookId, month, onMonthChange }: BookReportProps) {
-  const thisMonth = toLedgerDate(new Date()).slice(0, 7);
   const [year, monthNumber] = month.split('-').map(Number);
   const { state: identity } = useIdentity();
   const book = useBook(bookId);
+  // 이번 달은 가계부 시작일로 정한 이름 달이다. 가계부를 읽기 전에는 달력 월로 둔다.
+  const thisMonth =
+    book.data == null ? toLedgerDate(new Date()).slice(0, 7) : bookPeriodNow(book.data).key;
   const report = useBookReport(bookId, { year, month: monthNumber });
 
   // 월 선택기는 어떤 상태에서도 남긴다. 개인 리포트와 같은 규칙이다.

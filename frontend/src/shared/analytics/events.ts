@@ -535,9 +535,23 @@ export type AssetCaptureFrom = 'assets' | 'record';
 /** 무엇으로 읽었나. 잔액 화면 사진과 적은 글. */
 export type AssetCaptureInput = 'photo' | 'text';
 
-/** 공유 가계부에 한 일. `book_changed` 의 `action`. */
+/**
+ * 공유 가계부에 한 일. `book_changed` 의 `action`.
+ *
+ * `dues_changed` 는 회비 시트 저장(방식 `rule`, 비율을 정했나 `ratio`, 한 달 회비가 있나 `dues`,
+ * 인원 구간 `members`), `start_day_changed` 는 시작일(`day`, `from_day`), `deposit_added` 는
+ * 홈의 「입금 적기」 저장이다. 금액과 이름은 싣지 않는다.
+ */
 export type BookChangeAction =
-  'created' | 'renamed' | 'ended' | 'reopened' | 'deleted' | 'restored';
+  | 'created'
+  | 'renamed'
+  | 'ended'
+  | 'reopened'
+  | 'deleted'
+  | 'restored'
+  | 'dues_changed'
+  | 'start_day_changed'
+  | 'deposit_added';
 
 /** 초대장을 보낸 자리. 만들기 직후·설정·우리 집 홈의 「아직 혼자예요」 카드. */
 export type BookInviteWhere = 'create' | 'settings' | 'home';

@@ -10,6 +10,8 @@ import type { BookKind, BookMemberOut, BookOut, SettleRule } from '../../shared/
 import type { BookNotice } from '../../shared/lib/bookSeenState';
 import type { IconName } from '../../shared/ui';
 
+import { currentPercents, pairRatioText } from './sharePercents';
+
 /** 만들기 화면에 서는 순서. */
 export const BOOK_KINDS: readonly BookKind[] = ['couple', 'family', 'trip', 'room'];
 
@@ -39,7 +41,10 @@ const DEFAULT_NAME: Record<BookKind, string> = {
   room: '공동 생활비',
 };
 
-/** 미리 골라 두는 돈 나누기. 가족은 같이 모은 돈으로 쓰는 경우가 많다. */
+/**
+ * 미리 골라 두는 회비 방식. 가족은 먼저 모아 두고 같이 쓰는 경우가 많다.
+ * 서버 `domain/books.py` 의 `DEFAULT_SETTLE_RULES` 와 같은 값이다.
+ */
 const DEFAULT_RULE: Record<BookKind, SettleRule> = {
   couple: 'even',
   family: 'none',
@@ -78,12 +83,60 @@ export function budgetLabel(kind: BookKind): string {
 }
 
 /**
- * 돈 나누기 이름. 둘이 쓰는 가계부는 「반반」, 여럿이 쓰는 가계부는 「똑같이 나눠요」 다.
- * 같은 규칙인데 인원이 다르면 사람들이 부르는 말이 다르다.
+ * 회비 방식. 서버 값 이름은 옛 그대로 두고 화면 말만 바꿨다(옛 번들이 같은 서버를 쓴다).
+ *
+ * - `none` 각자 입금: 정한 비율대로 먼저 넣고 같이 쓴다. 정산이 없다
+ * - `even` 나중에 정산: 각자 내고 기간이 끝나면 비율대로 나눈다
  */
-export function settleRuleLabel(kind: BookKind, rule: SettleRule): string {
-  if (rule === 'none') return '같이 모은 돈';
-  return kind === 'couple' || kind === 'room' ? '반반' : '똑같이 나눠요';
+export const SETTLE_RULES: readonly SettleRule[] = ['none', 'even'];
+
+const RULE_LABEL: Record<SettleRule, string> = {
+  none: '각자 입금',
+  even: '나중에 정산',
+};
+
+/** 고르는 카드 아래 한 줄. 고르면 무엇이 달라지는지만 말한다. */
+const RULE_LINE: Record<SettleRule, string> = {
+  none: '정한 비율대로 먼저 넣고 같이 써요',
+  even: '각자 내고 기간이 끝나면 비율대로 나눠요',
+};
+
+export function settleRuleLabel(rule: SettleRule): string {
+  return RULE_LABEL[rule];
+}
+
+export function settleRuleLine(rule: SettleRule): string {
+  return RULE_LINE[rule];
+}
+
+/** 정산이 있는 방식인가. 홈 정산 카드와 정산 화면이 같은 답을 내야 해서 이 한 곳만 본다. */
+export function ruleSettles(rule: SettleRule): boolean {
+  return rule === 'even';
+}
+
+/** 만들기 화면 순서. 유형에 맞춰 미리 골라 둔 것이 먼저 선다. */
+export function settleRuleOptions(kind: BookKind): SettleRule[] {
+  const first = DEFAULT_RULE[kind];
+  return [first, ...SETTLE_RULES.filter((rule) => rule !== first)];
+}
+
+/** 지금 남아 있는 멤버 id. 비율의 키가 이것과 꼭 같아야 한다. */
+export function activeMemberIds(book: BookOut): string[] {
+  return book.members.filter((member) => !member.left).map((member) => member.id);
+}
+
+/**
+ * 설정의 「회비」 줄 값. 「각자 입금, 6:4」, 「나중에 정산, 똑같이」.
+ *
+ * 둘이면 비율을 숫자로, 셋 이상이면 「비율」 이라고만 적는다. 혼자면 방식만 적는다.
+ */
+export function duesLabel(book: BookOut): string {
+  const rule = settleRuleLabel(book.settle_rule);
+  const ids = activeMemberIds(book);
+  if (ids.length < 2) return rule;
+  const percents = currentPercents(ids, book.share_percents);
+  if (percents == null) return `${rule}, 똑같이`;
+  return `${rule}, ${pairRatioText(ids, percents) ?? '비율'}`;
 }
 
 /** 멤버 이름. 나갔거나 행이 사라진 멤버는 「나간 멤버」 다. */

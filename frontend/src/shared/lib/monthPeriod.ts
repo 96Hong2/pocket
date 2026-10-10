@@ -97,11 +97,15 @@ export function formatPeriodRange(period: MonthPeriod): string {
   return `${start.month}.${start.date} ~ ${end.month}.${end.date}`;
 }
 
+/** 이름 달 `2026-10` → `10월`. 기간을 부르는 말은 늘 이 이름 달에서 나온다. */
+export function monthName(key: string): string {
+  return `${Number(key.slice(5, 7))}월`;
+}
+
 /** `10월은 9월 25일부터 10월 24일까지예요`. 같은 달에 끝나면 끝 쪽 달을 뺀다. */
 export function describePeriod(period: MonthPeriod): string {
-  const name = Number(period.key.slice(5, 7));
   const start = dayWords(period.start);
   const end = dayWords(period.end);
   const until = start.month === end.month ? `${end.date}일` : `${end.month}월 ${end.date}일`;
-  return `${name}월은 ${start.month}월 ${start.date}일부터 ${until}까지예요`;
+  return `${monthName(period.key)}은 ${start.month}월 ${start.date}일부터 ${until}까지예요`;
 }

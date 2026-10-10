@@ -207,13 +207,14 @@
     color: var(--color-muted);
   }
 
-  .book-create__rules {
+  /* 회비 방식 카드 둘. 만들기 화면과 회비 시트가 같이 쓴다. */
+  .book-rules {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
 
-  .book-create__rule {
+  .book-rule {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -229,21 +230,21 @@
     color: var(--color-ink);
   }
 
-  .book-create__rule[aria-checked='true'] {
+  .book-rule[aria-checked='true'] {
     border-color: var(--color-sage-300);
     background: var(--color-sage-50);
   }
 
-  .book-create__rule-name {
+  .book-rule__name {
     font-size: var(--text-15);
     font-weight: var(--font-weight-bold);
   }
 
-  .book-create__rule[aria-checked='true'] .book-create__rule-name {
+  .book-rule[aria-checked='true'] .book-rule__name {
     color: var(--color-sage-700);
   }
 
-  .book-create__rule-line {
+  .book-rule__line {
     font-size: var(--text-13);
     font-weight: var(--font-weight-medium);
     color: var(--color-muted);
@@ -428,6 +429,7 @@
     border-top: 1px solid var(--color-divider);
   }
 
+  /* 누구나 눌러 그 사람의 지난 내역을 연다. 오른쪽 화살표로 눌린다는 것을 보인다. */
   .book-settings__member-row {
     display: flex;
     align-items: center;
@@ -436,30 +438,27 @@
     min-height: 60px;
     padding: 8px 0;
     box-sizing: border-box;
-  }
-
-  .book-settings__member-row--button {
     border: 0;
     background: none;
     font-family: inherit;
     text-align: left;
     color: var(--color-ink);
+    cursor: pointer;
   }
 
-  /* 관리자만 누를 수 있는 줄이라 화살표로 눌린다는 것을 보인다. */
-  .book-settings__member-row--button::after {
+  .book-settings__member-row::after {
     content: '';
     flex: none;
     width: 8px;
     height: 8px;
     margin-left: auto;
-    border-bottom: 2px solid var(--color-placeholder);
+    border-top: 2px solid var(--color-placeholder);
     border-right: 2px solid var(--color-placeholder);
     transform: rotate(45deg);
   }
 
-  .book-settings__member-row--button[aria-expanded='true']::after {
-    transform: rotate(-135deg);
+  .book-settings__member-row .pk-chip {
+    flex: none;
   }
 
   .book-settings__face {
@@ -484,12 +483,6 @@
     white-space: nowrap;
   }
 
-  .book-settings__member-actions {
-    display: flex;
-    justify-content: flex-end;
-    padding: 0 0 12px;
-  }
-
   .book-settings__invite {
     display: flex;
     flex-direction: column;
@@ -501,32 +494,6 @@
     margin: 0 4px;
     font-size: var(--text-13);
     color: var(--color-muted);
-  }
-
-  .book-settings__rule {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-height: 64px;
-    border-bottom: 1px solid var(--color-divider);
-  }
-
-  .book-settings__rule-label {
-    flex: none;
-    font-size: var(--text-15);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-ink);
-  }
-
-  .book-settings__segmented {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .book-settings__segmented .pk-segmented__item {
-    min-width: 0;
-    padding: 0 6px;
-    white-space: nowrap;
   }
 
   .book-settings__rows .link-row__label {
@@ -723,5 +690,125 @@
     margin: 0 4px;
     font-size: var(--text-13);
     color: var(--color-muted);
+  }
+
+  /* ── 회비 시트 ──────────────────────────────────────── */
+
+  .book-dues__body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .book-dues__ratio {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .book-dues__ratio-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .book-dues__label {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  /* 비율을 지우고 인원수대로 나눈다. 지금 똑같이면 눌린 모양이다. */
+  .book-dues__equal {
+    min-height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+    cursor: pointer;
+  }
+
+  .book-dues__equal[aria-pressed='true'] {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+  }
+
+  .book-dues__notice {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.5;
+    color: var(--color-amber-700);
+  }
+
+  /* ── 멤버 내역 시트 ─────────────────────────────────── */
+
+  .book-member__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 8px;
+  }
+
+  /* 전 기간 합 두 숫자. 색으로 겨루지 않게 둘 다 같은 잉크 색이다. */
+  .book-member__totals {
+    display: flex;
+    gap: 8px;
+  }
+
+  .book-member__total {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+  }
+
+  .book-member__total-label {
+    font-size: var(--text-12);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+
+  .book-member__days {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .book-member__day {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .book-member__day-title {
+    margin: 0 4px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-muted);
+  }
+
+  .book-member__empty {
+    margin: 0;
+    padding: 24px 0;
+    font-size: var(--text-14);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  .book-member__kick {
+    margin-top: 4px;
   }
 }

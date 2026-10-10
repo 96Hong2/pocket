@@ -1203,6 +1203,50 @@ class HomeBookArea {
   get moreButton(): Locator {
     return this.page.getByRole('button', { name: /^이번 달 \d+건 모두 보기$/ });
   }
+
+  /** 각자 입금 가계부에만 서는 「입금 적기」. 「기록하기」 바로 아래다. */
+  get depositButton(): Locator {
+    return this.page.getByRole('button', { name: '입금 적기', exact: true });
+  }
+
+  get deposit(): BookDepositSheetArea {
+    return new BookDepositSheetArea(this.page);
+  }
+}
+
+/** 「입금 적기」 시트. 금액, 넣은 사람, 날짜, 메모. */
+class BookDepositSheetArea {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('dialog', { name: '입금 적기', exact: true });
+  }
+
+  async waitOpen(): Promise<void> {
+    await expect(this.root).toBeVisible();
+  }
+
+  async waitClosed(): Promise<void> {
+    await expect(this.root).toHaveCount(0);
+  }
+
+  get amount(): Locator {
+    return this.root.getByLabel('금액');
+  }
+
+  payer(name: string): Locator {
+    return this.root
+      .getByRole('group', { name: '넣은 사람', exact: true })
+      .getByRole('button', { name, exact: true });
+  }
+
+  get memo(): Locator {
+    return this.root.getByLabel('메모');
+  }
+
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: '저장', exact: true });
+  }
 }
 
 /** 우리 집 홈의 「최근 같이 쓴 돈」. 줄마다 적은 사람이 붙고, 남이 고친 줄에는 「고침」 이 붙는다. */
@@ -1408,6 +1452,16 @@ class BookEntryEditArea {
 
   get excludeToggle(): Locator {
     return this.root.getByRole('switch', { name: '예산 계산에서 제외' });
+  }
+
+  /** 입금을 고칠 때 「낸 사람」 대신 서는 「넣은 사람」 줄. */
+  get depositPayerGroup(): Locator {
+    return this.root.getByRole('group', { name: '넣은 사람', exact: true });
+  }
+
+  /** 입금을 고칠 때 「상호」 대신 서는 칸. */
+  get memo(): Locator {
+    return this.root.getByLabel('메모');
   }
 
   /** 공유 기록 수정 시트의 「낸 사람」 줄. 내 가계부로 옮기려고 고르면 걷힌다. */

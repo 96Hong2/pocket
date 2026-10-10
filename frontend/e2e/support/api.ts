@@ -106,7 +106,7 @@ export interface AssetTransferSeed {
   memo?: string;
 }
 
-/** 심을 공유 가계부 하나. 안 준 값은 연인·부부 「둘이 쓰는 돈」 반반, 내 이름 「은홍」 이다. */
+/** 심을 공유 가계부 하나. 안 준 값은 연인·부부 「둘이 쓰는 돈」 나중에 정산(`even`), 내 이름 「은홍」 이다. */
 export interface BookSeed {
   kind?: BookKind;
   name?: string;
@@ -114,7 +114,7 @@ export interface BookSeed {
   myName?: string;
 }
 
-/** 심을 공유 기록 하나. 1차 공유 기록은 지출뿐이다. */
+/** 심을 공유 지출 하나. 입금은 `addBookDeposit` 으로 심는다. */
 export interface BookEntrySeed {
   amount: number;
   /** 가계부 분류 이름(「장보기」). 없으면 분류 없이 적는다. */
@@ -619,11 +619,100 @@ export class PrepApi {
     return (await response.json()) as BookOut;
   }
 
-  /** 가계부 시간대의 이번 달 공유 기록. 화면에서 지운 것이 서버에서도 빠졌는지 볼 때 쓴다. */
-  async bookEntries(bookId: string): Promise<BookEntryOut[]> {
-    const response = await this.context.get(`/api/v1/books/${bookId}/entries`);
+  /**
+   * 가계부 시간대의 이번 달 공유 기록. 화면에서 지운 것이 서버에서도 빠졌는지 볼 때 쓴다.
+   *
+   * `includeDeposits` 를 안 주면 옛 번들처럼 묻는다. 서버가 입금을 빼고 지출만 준다.
+   */
+  async bookEntries(
+    bookId: string,
+    options: { includeDeposits?: boolean } = {},
+  ): Promise<BookEntryOut[]> {
+    const response = await this.context.get(`/api/v1/books/${bookId}/entries`, {
+      params: options.includeDeposits ? { include_deposits: 'true' } : undefined,
+    });
     expectOk(response.status(), await response.text(), '공유 기록을 불러오지 못했다');
     return ((await response.json()) as BookEntryListOut).items;
+  }
+
+  /**
+   * 입금 하나를 심고 id 를 돌려준다. 넣은 사람을 안 주면 이 PrepApi 의 사용자다.
+   *
+   * 입금 적기 자체를 확인하는 테스트는 화면(공유 홈 「입금 적기」)으로 한다.
+   */
+  async addBookDeposit(
+    bookId: string,
+    seed: { amount: number; on?: string; title?: string; paidByMemberId?: string },
+  ): Promise<string> {
+    const response = await this.context.post(`/api/v1/books/${bookId}/entries`, {
+      data: {
+        kind: 'deposit',
+        amount: String(seed.amount),
+        title: seed.title ?? null,
+        occurred_on: seed.on ?? toLedgerDate(new Date()),
+        paid_by_member_id: seed.paidByMemberId ?? null,
+      },
+    });
+    expectOk(response.status(), await response.text(), '입금을 심지 못했다');
+    const body = (await response.json()) as BookEntryCreated;
+    return body.entry.id;
+  }
+
+  /** 가계부 한 달 시작일(1~28). 멤버 누구나 바꾼다. */
+  async setBookStartDay(bookId: string, day: number): Promise<void> {
+    const response = await this.context.patch(`/api/v1/books/${bookId}`, {
+      data: { month_start_day: day },
+    });
+    expectOk(response.status(), await response.text(), '가계부 시작일을 정하지 못했다');
+  }
+
+  /**
+   * 회비 비율. 이름 → 퍼센트로 주면 멤버 id 로 바꿔 보낸다. null 이면 「똑같이」 로 돌아간다.
+   * 합 100, 10 단위, 지금 멤버 모두를 서버가 다시 본다.
+   */
+  async setBookShares(bookId: string, byName: Record<string, number> | null): Promise<void> {
+    let shares: Record<string, number> | null = null;
+    if (byName != null) {
+      const book = await this.book(bookId);
+      shares = {};
+      for (const [name, percent] of Object.entries(byName)) {
+        const found = book.members.find((member) => !member.left && member.name === name);
+        if (found == null) throw new Error(`가계부 멤버 '${name}' 을 찾지 못했다`);
+        shares[found.id] = percent;
+      }
+    }
+    const response = await this.context.patch(`/api/v1/books/${bookId}`, {
+      data: { share_percents: shares },
+    });
+    expectOk(response.status(), await response.text(), '회비 비율을 정하지 못했다');
+  }
+
+  /** 회비 방식과 한 달 회비. 안 준 칸은 그대로 둔다. `duesAmount: null` 은 회비를 지운다. */
+  async setBookDues(
+    bookId: string,
+    dues: { settleRule?: SettleRule; duesAmount?: number | null },
+  ): Promise<void> {
+    const data: Record<string, unknown> = {};
+    if (dues.settleRule !== undefined) data.settle_rule = dues.settleRule;
+    if (dues.duesAmount !== undefined) {
+      data.dues_amount = dues.duesAmount == null ? null : String(dues.duesAmount);
+    }
+    const response = await this.context.patch(`/api/v1/books/${bookId}`, { data });
+    expectOk(response.status(), await response.text(), '회비 방식을 정하지 못했다');
+  }
+
+  /** 지금 멤버 이름으로 멤버 id 를 찾는다. */
+  async bookMemberId(bookId: string, name: string): Promise<string> {
+    const book = await this.book(bookId);
+    const found = book.members.find((member) => !member.left && member.name === name);
+    if (found == null) throw new Error(`가계부 멤버 '${name}' 을 찾지 못했다`);
+    return found.id;
+  }
+
+  /** 가계부에서 나간다. 다시 들어오려면 `joinBook` 을 부른다. */
+  async leaveBook(bookId: string): Promise<void> {
+    const response = await this.context.post(`/api/v1/books/${bookId}/leave`);
+    expectOk(response.status(), await response.text(), '가계부에서 나가지 못했다');
   }
 
   /** 관리자가 가계부를 끝내거나 다시 연다. 끝낸 가계부의 화면을 볼 때 배경으로 쓴다. */
