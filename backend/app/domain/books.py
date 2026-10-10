@@ -23,6 +23,7 @@ __all__ = [
     "INVITE_CODE_BYTES",
     "INVITE_CODE_PATTERN",
     "INVITE_DAYS",
+    "MAX_BOOKS_CREATED_PER_DAY",
     "MAX_BOOKS_PER_USER",
     "MAX_ENTRIES_PER_DAY",
     "MAX_MEMBERS",
@@ -77,8 +78,12 @@ class BookRole(StrEnum):
 
 # 한 가계부에 같이 있을 수 있는 사람 수.
 MAX_MEMBERS: Final = 10
-# 한 사람이 지금 멤버로 같이 쓰는 가계부 수. 만들기와 들어오기를 끝없이 되풀이하지 못하게.
-MAX_BOOKS_PER_USER: Final = 20
+# 한 사람이 지금 멤버로 같이 쓰는 가계부 수(완료한 것은 빼고 센다).
+# 만들기와 들어오기를 끝없이 되풀이하지 못하게.
+MAX_BOOKS_PER_USER: Final = 30
+# 한 사람이 24시간 동안 새로 만들 수 있는 가계부 수(지운 것도 센다).
+# 만들고 지우기를 되풀이해 표를 키우지 못하게.
+MAX_BOOKS_CREATED_PER_DAY: Final = 10
 # 한 가계부에 24시간 동안 적을 수 있는 기록 수(입금, 옮겨 온 것, 가져오기 포함).
 MAX_ENTRIES_PER_DAY: Final = 500
 # 초대 링크가 사는 날.

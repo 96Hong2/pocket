@@ -803,6 +803,45 @@ def test_지금_같이_쓰는_가계부는_상한까지만_만들고_들어간�
     assert _join(api, mine["invite"]["code"]).status_code == 200
 
 
+def test_완료한_가계부는_상한에_안_세고_되살리기는_상한을_본다(
+    api: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(service, "MAX_BOOKS_PER_USER", 2)
+    first = _create(api, headers=OTHER, name="하나")
+    gone = _create(api, headers=OTHER, name="둘")
+    # 완료한 가계부는 세지 않는다. 여행마다 만들어 완료해 두는 사람이 막히지 않는다.
+    api.patch(f"/api/v1/books/{first['id']}", json={"ended": True}, headers=OTHER)
+    assert api.delete(f"/api/v1/books/{gone['id']}", headers=OTHER).status_code == 204
+    _create(api, headers=OTHER, name="셋")
+    _create(api, headers=OTHER, name="넷")
+
+    # 지운 것을 되살리면 셋이 되니 막는다. 화면은 서버 문구를 그대로 보여 준다.
+    r = api.post(f"/api/v1/books/{gone['id']}/restore", headers=OTHER)
+    assert (r.status_code, _message(r)) == (429, "가계부는 2개까지 함께 쓸 수 있어요.")
+
+
+def test_하루에_만드는_가계부는_지운_것도_센다(
+    api: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(service, "MAX_BOOKS_CREATED_PER_DAY", 2)
+    for name in ("하나", "둘"):
+        made = _create(api, headers=OTHER, name=name)
+        assert api.delete(f"/api/v1/books/{made['id']}", headers=OTHER).status_code == 204
+
+    r = api.post(
+        "/api/v1/books",
+        json={"kind": "couple", "name": "셋", "settle_rule": "even", "my_name": "준호"},
+        headers=OTHER,
+    )
+    assert (r.status_code, r.json()["error"]["code"], _message(r)) == (
+        429,
+        "USAGE_LIMIT",
+        "오늘은 가계부를 충분히 만들었어요. 내일 다시 만들어 주세요.",
+    )
+    # 다른 사람은 그대로 만든다.
+    _create(api, name="은홍 집")
+
+
 def test_한_가계부에_하루_적는_줄은_상한까지다(
     api: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:

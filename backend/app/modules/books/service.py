@@ -34,6 +34,7 @@ from app.domain.books import (
     INVITE_CODE_BYTES,
     INVITE_CODE_PATTERN,
     INVITE_DAYS,
+    MAX_BOOKS_CREATED_PER_DAY,
     MAX_BOOKS_PER_USER,
     MAX_ENTRIES_PER_DAY,
     MAX_MEMBERS,
@@ -367,7 +368,10 @@ def list_books(session: Session, user: User) -> BookListOut:
 
 
 def _require_book_room(session: Session, user: User) -> None:
-    """지금 멤버로 같이 쓰는 가계부가 상한이면 더 만들거나 들어가지 못한다."""
+    """지금 멤버로 같이 쓰는 가계부가 상한이면 더 만들거나 들어가거나 되살리지 못한다.
+
+    완료한 가계부는 세지 않는다. 여행마다 새로 만들어 완료해 두는 사람이 막히면 안 된다.
+    """
     count = session.scalar(
         select(func.count())
         .select_from(BookMember)
@@ -376,6 +380,7 @@ def _require_book_room(session: Session, user: User) -> None:
             BookMember.user_id == user.id,
             BookMember.left_at.is_(None),
             Book.deleted_at.is_(None),
+            Book.ended_at.is_(None),
         )
     )
     if (count or 0) >= MAX_BOOKS_PER_USER:
@@ -386,9 +391,28 @@ def _require_book_room(session: Session, user: User) -> None:
         )
 
 
+def _require_create_room(session: Session, user: User) -> None:
+    """24시간 안에 만든 가계부가 상한이면 더 만들지 못한다. 지운 것도 센다."""
+    count = session.scalar(
+        select(func.count())
+        .select_from(Book)
+        .where(
+            Book.created_by_user_id == user.id,
+            Book.created_at >= _now() - timedelta(days=1),
+        )
+    )
+    if (count or 0) >= MAX_BOOKS_CREATED_PER_DAY:
+        raise ApiError(
+            ErrorCode.USAGE_LIMIT,
+            "오늘은 가계부를 충분히 만들었어요. 내일 다시 만들어 주세요.",
+            status_code=429,
+        )
+
+
 def create_book(session: Session, user: User, body: BookCreate) -> BookOut:
     """가계부, 관리자 멤버, 종류별 분류, 살아 있는 초대를 한 번에 만든다."""
     _require_book_room(session, user)
+    _require_create_room(session, user)
     now = _now()
     book = Book(
         kind=body.kind,
@@ -504,6 +528,8 @@ def restore_book(session: Session, user: User, book_id: uuid.UUID) -> BookOut:
     me = _active_membership(session, book.id, user.id)
     if me is None or me.role is not BookRole.OWNER:
         raise _not_found()
+    if book.ended_at is None:
+        _require_book_room(session, user)
     book.deleted_at = None
     book.deleted_by_user_id = None
     session.commit()
