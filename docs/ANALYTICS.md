@@ -60,7 +60,7 @@
 | 목표를 세우기만 하나 실제로 모으나 | `goal_changed` · `goal_contributed` | 만듦·고침·지움과 기한을 걸었나(`deadline`)·종잣돈이 있었나(`seeded`), 모을 때 **지난 날**로 넣었나(`backdated`, 앞날은 여기 안 센다). **이름과 금액은 싣지 않는다** |
 | 못 찾아서 찾아보나 | `search_used` | 검색어 길이와 **첫 화면에 걸린 수**(`hits`, 한 장 30줄에서 끊긴다). **검색어는 싣지 않는다** |
 | 별점을 남길 만하다고 느끼나 | `rating_asked` | 창을 열었나(`opened`)·닫았나(`dismissed`)·못 띄웠나(`failed`). **실제로 남겼는지는 알 수 없다** |
-| 공유 가계부를 만들고 끝까지 쓰나 | **`book_changed`** | 만듦·이름 바꿈·완료함·다시 엶·지움·되살림(`action`: `created`·`renamed`·`ended`·`reopened`·`deleted`·`restored`)과 가계부 유형(`kind`: `couple`·`family`·`trip`·`room`). 2026-09-28~. **가계부 이름과 id 는 싣지 않는다** |
+| 공유 가계부를 만들고 끝까지 쓰나 | **`book_changed`** | 만듦·이름 바꿈·완료함·다시 엶·지움·되살림(`action`: `created`·`renamed`·`ended`·`reopened`·`deleted`·`restored`)과 가계부 유형(`kind`: `couple`·`family`·`trip`·`room`). 2026-09-28~. 2026-10-10~ 회비 시트 저장(`dues_changed`, 방식 `rule`: `none` 각자 입금·`even` 나중에 정산, 비율을 정했나 `ratio`, 한 달 회비가 있나 `dues`, 인원 구간 `members`), 시작일 바꿈(`start_day_changed`, `day`·`from_day`), 입금 적기(`deposit_added`). **가계부 이름과 id, 금액, 비율 값은 싣지 않는다** |
 | 초대장이 실제로 나가나 | **`book_invite_result`** | 보낸 자리(`where`: `create` 만들기 직후 · `settings` 설정 · `home` 우리 집 홈), 공유창까지 갔나(`result`: `ok`·`failed`)와 막힌 이유(`reason`, 브릿지·서버 오류 코드), 유형(`kind`). **초대 코드와 보낸 글은 싣지 않는다** |
 | 링크를 받은 사람이 설명 없이 들어오나 | **`book_join_result`** | 결과(`result`: `joined`·`later`·`expired`·`full`·`member`·`closed`·`ended`·`invalid`·`failed`), 유형(`kind`), 인원 구간(`members`: `2`·`3-5`·`6-10`. `expired`·`closed`·`ended` 는 서버가 인원을 안 알려 비운다), 이 링크로 앱을 처음 열었나(`first_open`), 실패 코드(`error_code`) |
 | 같이 쓰다 누가 빠지나 | **`book_member_changed`** | 나갔나·내보내졌나(`action`: `left`·`removed`)와 그 사람의 자리(`role`: `owner`·`member`). **이름은 싣지 않는다** |

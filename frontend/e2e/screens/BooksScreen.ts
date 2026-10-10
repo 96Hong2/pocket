@@ -163,7 +163,7 @@ export class BookCreateArea {
     return this.page.getByRole('heading', { name: `${kindLabel} 가계부를 만들게요` });
   }
 
-  /** 「돈 나누기」 칸 하나. 「반반」·「같이 모은 돈」·「똑같이 나눠요」 */
+  /** 「회비」 칸 하나. 「각자 입금」·「나중에 정산」 */
   settleOption(label: string): Locator {
     return this.page.getByRole('radio', { name: startsWith(label) });
   }
@@ -217,14 +217,19 @@ export class BookSettingsArea {
       .filter({ has: this.page.getByText(name, { exact: true }) });
   }
 
-  /** 관리자가 다른 멤버 줄을 누르면 그 아래 서는 「내보내기」. */
-  kickButton(name: string): Locator {
-    return this.member(name).getByRole('button', { name: '내보내기', exact: true });
-  }
-
-  /** 멤버 줄 자체(관리자에게만 눌리는 버튼). */
+  /** 멤버 줄 자체. 누구나 눌러 그 사람의 지난 내역을 연다. */
   memberButton(name: string): Locator {
     return this.member(name).getByRole('button', { name: startsWith(name) });
+  }
+
+  /** 멤버 줄의 칩 하나. 「관리자」·「나」·「입금완료」·「정산완료」 */
+  memberChip(name: string, chip: string): Locator {
+    return this.member(name).getByText(chip, { exact: true });
+  }
+
+  /** 멤버 줄을 눌러 여는 그 사람의 지난 내역. 창 이름이 그 사람 이름이다. */
+  history(name: string): BookMemberHistoryArea {
+    return new BookMemberHistoryArea(this.page, name);
   }
 
   /** 「링크는 10월 5일까지 쓸 수 있어요」 */
@@ -236,8 +241,22 @@ export class BookSettingsArea {
     return this.page.getByRole('button', { name: '초대장 보내기', exact: true });
   }
 
-  get settleRule(): Locator {
-    return this.page.getByRole('radiogroup', { name: '돈 나누기' });
+  /** 「같이 쓰는 방식」 의 「회비」 줄. 값은 「각자 입금, 6:4」 처럼 방식과 비율이다. */
+  get duesRow(): Locator {
+    return this.page.getByRole('button', { name: /^회비/ });
+  }
+
+  /** 「시작일」 줄. 값은 「매달 25일」. 여행 가계부에는 없다. */
+  get startDayRow(): Locator {
+    return this.page.getByRole('button', { name: /^시작일/ });
+  }
+
+  get dues(): BookDuesSheetArea {
+    return new BookDuesSheetArea(this.page);
+  }
+
+  get startDay(): BookStartDaySheetArea {
+    return new BookStartDaySheetArea(this.page);
   }
 
   get leaveButton(): Locator {
@@ -262,6 +281,152 @@ export class BookSettingsArea {
     return this.plusSheet
       .getByRole('button', { name: '닫기', exact: true })
       .filter({ hasText: '닫기' });
+  }
+}
+
+/** 「회비」 시트. 방식 둘, 멤버마다 비율 막대, 「똑같이」, 각자 입금일 때만 「한 달 회비」. */
+export class BookDuesSheetArea {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('dialog', { name: '회비', exact: true });
+  }
+
+  get dialog(): Locator {
+    return this.root;
+  }
+
+  async waitOpen(): Promise<void> {
+    await expect(this.root).toBeVisible();
+  }
+
+  async waitClosed(): Promise<void> {
+    await expect(this.root).toHaveCount(0);
+  }
+
+  /** 「각자 입금」·「나중에 정산」 카드. 아래 설명 줄까지 읽혀 앞부분으로 찾는다. */
+  rule(label: string): Locator {
+    return this.root.getByRole('radio', { name: startsWith(label) });
+  }
+
+  /** 그 사람의 비율 막대. 읽는 이름이 「은홍 비율」 이다. */
+  slider(name: string): Locator {
+    return this.root.getByRole('slider', { name: `${name} 비율`, exact: true });
+  }
+
+  get sliders(): Locator {
+    return this.root.getByRole('slider');
+  }
+
+  get equalButton(): Locator {
+    return this.root.getByRole('button', { name: '똑같이', exact: true });
+  }
+
+  /** 합이 100% 가 아닐 때 서는 한 줄. 「합이 100%가 되게 맞춰 주세요(지금 90%)」 */
+  get sumNotice(): Locator {
+    return this.root.getByText(/^합이 100%가 되게 맞춰 주세요\(지금 \d+%\)$/);
+  }
+
+  get duesAmount(): Locator {
+    return this.root.getByLabel('한 달 회비');
+  }
+
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: '저장', exact: true });
+  }
+
+  /** 막대를 그 값으로 옮긴다. 손으로 끄는 것과 같은 input 이벤트가 난다. */
+  async setPercent(name: string, percent: number): Promise<void> {
+    await this.slider(name).fill(String(percent));
+  }
+}
+
+/** 「한 달 시작일」 시트. 내 가계부의 시작일 시트와 같은 칸이다. */
+export class BookStartDaySheetArea {
+  private readonly root: Locator;
+
+  constructor(page: Page) {
+    this.root = page.getByRole('dialog', { name: '한 달 시작일', exact: true });
+  }
+
+  async waitOpen(): Promise<void> {
+    await expect(this.root).toBeVisible();
+  }
+
+  async waitClosed(): Promise<void> {
+    await expect(this.root).toHaveCount(0);
+  }
+
+  day(value: number): Locator {
+    return this.root.getByRole('button', { name: `${value}일`, exact: true });
+  }
+
+  /** 「10월은 9월 25일부터 10월 24일까지예요」 */
+  get preview(): Locator {
+    return this.root.getByTestId(TEST_IDS.monthStartPreview);
+  }
+
+  get saveButton(): Locator {
+    return this.root.getByRole('button', { name: '저장', exact: true });
+  }
+}
+
+/** 멤버 한 사람의 지난 내역 시트. 맨 위 두 합계, 날짜로 묶은 줄, 「더 보기」, 관리자에게만 「내보내기」. */
+export class BookMemberHistoryArea {
+  private readonly root: Locator;
+
+  constructor(page: Page, name: string) {
+    this.root = page.getByRole('dialog', { name, exact: true });
+  }
+
+  get dialog(): Locator {
+    return this.root;
+  }
+
+  async waitOpen(): Promise<void> {
+    await expect(this.root).toBeVisible();
+  }
+
+  async waitClosed(): Promise<void> {
+    await expect(this.root).toHaveCount(0);
+  }
+
+  /** 맨 위 합계 묶음. 「넣은 돈」·「낸 돈」 */
+  get totals(): Locator {
+    return this.root.getByRole('group', { name: '모두 더한 돈', exact: true });
+  }
+
+  total(label: '넣은 돈' | '낸 돈'): Locator {
+    return this.totals.getByText(label, { exact: true }).locator('..');
+  }
+
+  /** 기록 한 줄. 누르면 기록 고치기가 열린다. */
+  row(title: string): Locator {
+    return this.root.getByRole('button', { name: startsWith(title) });
+  }
+
+  /** 기록 줄 전부. 「더 보기」·「내보내기」·손잡이는 세지 않는다. */
+  get rows(): Locator {
+    return this.root
+      .getByRole('region')
+      .getByRole('button');
+  }
+
+  /** 날짜 머리. 「10월 10일」 같은 날마다 하나다. */
+  get dayHeads(): Locator {
+    return this.root.getByRole('heading', { level: 3 });
+  }
+
+  get moreButton(): Locator {
+    return this.root.getByRole('button', { name: '더 보기', exact: true });
+  }
+
+  get kickButton(): Locator {
+    return this.root.getByRole('button', { name: '내보내기', exact: true });
+  }
+
+  get emptyLine(): Locator {
+    return this.root.getByText('아직 적은 기록이 없어요', { exact: true });
   }
 }
 

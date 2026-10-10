@@ -3,10 +3,7 @@ import { useEffect, useState } from 'react';
 import { useOverlayBackClose } from '../../app/providers';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
 import { ApiError, useMonthStartDay, useSavePreferences } from '../../shared/api';
-import { toLedgerDate } from '../../shared/lib/format';
-import { describePeriod, MAX_START_DAY, periodContaining } from '../../shared/lib/monthPeriod';
-import { TEST_IDS } from '../../shared/testIds';
-import { BottomSheet, Button } from '../../shared/ui';
+import { BottomSheet, MonthStartPicker } from '../../shared/ui';
 
 export type MonthStartWhere = 'manage' | 'settings' | 'report';
 
@@ -17,13 +14,11 @@ export interface MonthStartSheetProps {
   where: MonthStartWhere;
 }
 
-const DAYS = Array.from({ length: MAX_START_DAY }, (_, index) => index + 1);
-
 /**
  * 예산과 리포트의 한 달이 며칠에 시작하나.
  *
- * 설명 글 대신 고른 날로 오늘이 든 기간을 한 줄로 보여 준다. 그 줄이 「25일부터 다음 달
- * 24일까지」 와 「달 이름이 무엇이 되나」 를 함께 말한다.
+ * 칸과 미리보기는 공유 가계부 시작일과 같은 부품(`MonthStartPicker`)이다. 여기는 내 설정에
+ * 저장하고 로그를 남기는 일만 한다.
  */
 export function MonthStartSheet({ open, onClose, where }: MonthStartSheetProps) {
   const [saving, setSaving] = useState(false);
@@ -61,8 +56,6 @@ function MonthStartForm({
   const analytics = useAnalytics();
   const { startDay } = useMonthStartDay();
   const save = useSavePreferences();
-  const [picked, setPicked] = useState(startDay);
-  const today = toLedgerDate(new Date());
   const failure =
     save.error instanceof ApiError
       ? save.error.message
@@ -70,7 +63,7 @@ function MonthStartForm({
         ? '설정을 저장하지 못했어요.'
         : null;
 
-  function submit(): void {
+  function submit(picked: number): void {
     if (picked === startDay) {
       onClose();
       return;
@@ -89,36 +82,17 @@ function MonthStartForm({
   }
 
   return (
-    <div className="month-start__body">
-      <div className="month-start__grid" role="group" aria-label="시작일">
-        {DAYS.map((day) => (
-          <button
-            key={day}
-            type="button"
-            className="month-start__day"
-            aria-pressed={day === picked}
-            aria-label={`${day}일`}
-            disabled={save.isPending}
-            onClick={() => setPicked(day)}
-          >
-            {day}
-          </button>
-        ))}
-      </div>
-
-      <p className="month-start__preview" data-testid={TEST_IDS.monthStartPreview}>
-        {describePeriod(periodContaining(today, picked))}
-      </p>
-
-      {failure ? (
-        <p className="budget-sheet__notice" role="alert">
-          {failure}
-        </p>
-      ) : null}
-
-      <Button fullWidth disabled={save.isPending} onClick={submit}>
-        저장
-      </Button>
-    </div>
+    <MonthStartPicker
+      value={startDay}
+      saving={save.isPending}
+      notice={
+        failure ? (
+          <p className="budget-sheet__notice" role="alert">
+            {failure}
+          </p>
+        ) : null
+      }
+      onSave={submit}
+    />
   );
 }

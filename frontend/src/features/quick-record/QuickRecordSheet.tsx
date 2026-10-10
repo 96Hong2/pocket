@@ -1338,6 +1338,8 @@ function RecordBody({
       {
         bookId: targetId,
         body: {
+          // 기록 시트에서는 지출만 적는다. 입금은 공유 홈의 「입금 적기」 가 받는다.
+          kind: 'expense',
           amount: String(amount),
           category_id: category?.id ?? null,
           occurred_on: recordDay,

@@ -17,18 +17,16 @@ import {
 import { readBookInviteSent } from '../../shared/lib/bookInviteSent';
 import { cx } from '../../shared/lib/cx';
 import { markBookIntroSeen, readBookIntroSeen } from '../../shared/lib/bookIntroSeen';
-import { formatCurrency, formatDayLabel, toLedgerDate } from '../../shared/lib/format';
+import { formatCurrency, toLedgerDate } from '../../shared/lib/format';
+import { monthName } from '../../shared/lib/monthPeriod';
 import { TEST_IDS } from '../../shared/testIds';
 import {
   Amount,
   Button,
   Card,
-  Chip,
   ErrorState,
   LoadingState,
   SageCard,
-  TransactionRow,
-  iconOf,
   iconUrl,
 } from '../../shared/ui';
 
@@ -36,9 +34,12 @@ import { AdSlot } from '../ads';
 
 import { BookBudgetSheet } from './BookBudgetSheet';
 import { BookChip } from './BookChip';
+import { BookDepositSheet } from './BookDepositSheet';
 import { BookEntryEditSheet } from './BookEntryEditSheet';
-import { entryCategory, entryTitle, settleLine, settleTitle, writerName } from './bookEntryText';
-import { MY_BOOK_NAME, noticeText } from './bookText';
+import { settleLine, settleTitle } from './bookEntryText';
+import { BookEntryRow } from './BookEntryRow';
+import { bookPeriodOn } from './bookPeriod';
+import { MY_BOOK_NAME, noticeText, ruleSettles } from './bookText';
 import { useBookInvite } from './useBookInvite';
 import { useBookLive } from './useBookLive';
 import { useBookNotices } from './useBookNotices';
@@ -63,6 +64,9 @@ const RECENT_LIMIT = 3;
  *
  * 순서는 남은 예산(없으면 쓴 돈) → 기록하기 → 최근 같이 쓴 돈 → 정산이다. 멤버별 합계나
  * 누가 더 썼나는 어디에도 없다. 설정은 오른쪽 위 멤버 얼굴 뒤에 있다.
+ *
+ * 각자 입금 가계부에는 「기록하기」 아래 「입금 적기」 가 선다. 입금 줄은 목록에 같이 서지만
+ * 맨 위 숫자와 정산에는 들지 않는다.
  *
  * 이 화면이 떠 있는 동안만 자주 다시 읽는다(`useBookLive`). 같이 쓰는 사람이 방금 적은 것이
  * 새로 고침 없이 들어와야 「같이 쓴다」 가 된다.
@@ -98,7 +102,10 @@ function BookHomeBody({
   const live = useBookLive(!book.ended);
   const entries = useBookEntries(book.id, undefined, live);
   const report = useBookReport(book.id, undefined, live);
-  const settles = book.settle_rule === 'even';
+  const settles = ruleSettles(book.settle_rule);
+  const deposits = book.settle_rule === 'none';
+  // 각자 입금 가계부는 입금 줄도 같이 서서 「쓴 돈」 만의 목록이 아니다.
+  const recentTitle = deposits ? '최근 기록' : '최근 같이 쓴 돈';
   const trip = book.kind === 'trip';
   // 여행 가계부는 맨 위 숫자도 여행 전체라 나누지 않아도 정산 합계를 읽는다.
   const settlement = useBookSettlement(book.id, trip ? 'all' : undefined, {
@@ -108,6 +115,7 @@ function BookHomeBody({
   const notices = useBookNotices(book);
   const [editing, setEditing] = useState<BookEntryOut | null>(null);
   const [budgetOpen, setBudgetOpen] = useState(false);
+  const [depositOpen, setDepositOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
   const items = entries.data?.items;
@@ -166,14 +174,25 @@ function BookHomeBody({
         </Button>
       )}
 
-      <section className="book-home__recent" aria-label="최근 같이 쓴 돈">
-        <h2 className="book-home__title">최근 같이 쓴 돈</h2>
+      {deposits && !book.ended ? (
+        <Button
+          variant="outline"
+          fullWidth
+          className="book-home__deposit"
+          onClick={() => setDepositOpen(true)}
+        >
+          입금 적기
+        </Button>
+      ) : null}
+
+      <section className="book-home__recent" aria-label={recentTitle}>
+        <h2 className="book-home__title">{recentTitle}</h2>
         {items != null && shownItems != null ? (
           items.length > 0 ? (
             <>
               <Card padding="list">
                 {shownItems.map((entry, index) => (
-                  <EntryRow
+                  <BookEntryRow
                     key={entry.id}
                     book={book}
                     entry={entry}
@@ -231,6 +250,7 @@ function BookHomeBody({
 
       <BookEntryEditSheet book={book} entry={editing} onClose={() => setEditing(null)} />
       <BookBudgetSheet open={budgetOpen} book={book} onClose={() => setBudgetOpen(false)} />
+      <BookDepositSheet open={depositOpen} book={book} onClose={() => setDepositOpen(false)} />
     </>
   );
 }
@@ -279,8 +299,8 @@ function BookHero({
   }
 
   const data = report.data;
-  const periodStart = data?.period_start ?? toLedgerDate(new Date());
-  const month = `${Number(periodStart.slice(5, 7))}월`;
+  // 기간 이름은 가계부 시작일로 정한다. 25일에 시작하면 9월 25일~10월 24일이 「10월」 이다.
+  const month = monthName(bookPeriodOn(book, data?.period_start ?? toLedgerDate(new Date())).key);
   const label = `${month} ${book.name}`;
 
   if (data == null) {
@@ -524,39 +544,5 @@ function AloneCard({ book }: { book: BookOut }) {
         </p>
       ) : null}
     </SageCard>
-  );
-}
-
-function EntryRow({
-  book,
-  entry,
-  last,
-  onPick,
-}: {
-  book: BookOut;
-  entry: BookEntryOut;
-  last: boolean;
-  onPick: () => void;
-}) {
-  // 둘째 줄은 날짜 글씨 뒤에 적은 사람 칩, 남이 고쳤으면 「고침」 칩이 한 줄로 선다.
-  return (
-    <TransactionRow
-      {...iconOf(entryCategory(book, entry))}
-      className="book-home__entry"
-      title={entryTitle(book, entry)}
-      amount={parseDecimalOr(entry.amount, 0)}
-      tone="expense"
-      avatarSize={48}
-      density="compact"
-      hideDivider={last}
-      chips={
-        <>
-          <span className="book-home__entry-day">{formatDayLabel(entry.occurred_on)}</span>
-          <Chip variant="kind">{writerName(book, entry)}</Chip>
-          {entry.updated_by_member_id != null ? <Chip variant="kind">고침</Chip> : null}
-        </>
-      }
-      onClick={onPick}
-    />
   );
 }

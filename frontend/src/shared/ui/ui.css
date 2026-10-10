@@ -1842,6 +1842,161 @@
     outline: 2px solid var(--color-sage-300);
     outline-offset: -2px;
   }
+
+  /* ── RatioSlider ────────────────────────────────────── */
+  /* 회비 비율 막대. 세이지 한 색만 쓴다. 채운 쪽 sage-700, 남은 쪽 sage-100. */
+
+  .pk-ratio {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .pk-ratio__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .pk-ratio__name {
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-ink);
+  }
+
+  .pk-ratio__value {
+    flex: none;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-sage-700);
+  }
+
+  /* 누를 자리는 칸 높이 44px 전체다. 보이는 막대는 6px 이다. */
+  .pk-ratio__input {
+    width: 100%;
+    height: 44px;
+    margin: 0;
+    background: transparent;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+  }
+
+  .pk-ratio__input:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
+  .pk-ratio__input::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(
+      to right,
+      var(--color-sage-700) 0 var(--pk-ratio-fill, 0%),
+      var(--color-sage-100) var(--pk-ratio-fill, 0%) 100%
+    );
+  }
+
+  .pk-ratio__input::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+    margin-top: -9px;
+    border: 2px solid var(--color-sage-700);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .pk-ratio__input::-moz-range-track {
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-100);
+  }
+
+  .pk-ratio__input::-moz-range-progress {
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: var(--color-sage-700);
+  }
+
+  .pk-ratio__input::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--color-sage-700);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .pk-ratio__input:focus-visible {
+    outline: none;
+  }
+
+  .pk-ratio__input:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--color-sage-300);
+    outline-offset: 2px;
+  }
+
+  .pk-ratio__input:focus-visible::-moz-range-thumb {
+    outline: 2px solid var(--color-sage-300);
+    outline-offset: 2px;
+  }
+
+  /* ── 한 달 시작일 고르기 (MonthStartPicker) ──────────── */
+  /* 내 가계부와 공유 가계부의 「한 달 시작일」 시트가 같이 쓴다. */
+
+  .month-start__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .month-start__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .month-start__day {
+    height: 40px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+    font-family: inherit;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+
+  .month-start__day[aria-pressed='true'] {
+    border-color: var(--color-sage-300);
+    background: var(--color-sage-50);
+    color: var(--color-sage-700);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .month-start__day:disabled {
+    cursor: default;
+  }
+
+  .month-start__preview {
+    margin: 0;
+    text-align: center;
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-ink);
+  }
 }
 
 @keyframes pk-toast-in {

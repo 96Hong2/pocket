@@ -14,7 +14,7 @@ import {
   type ReportTab,
 } from '../app/router/routes';
 import { AdSlot } from '../features/ads';
-import { BookChip } from '../features/books';
+import { BookChip, bookPeriodNow } from '../features/books';
 import { MonthStartSheet } from '../features/budgets';
 import { BookReport, MonthlyReport } from '../features/reports';
 import { EditSheet } from '../features/transactions';
@@ -93,10 +93,9 @@ function monthsBetween(from: string, to: string): number {
  * 아래의 배너는 그대로다.
  */
 export default function ReportPage() {
-  // 내 리포트의 이번 달은 한 달 시작일로 정한 이름 달이다. 공유 가계부는 달력 월 그대로다.
+  // 내 리포트의 이번 달은 내 한 달 시작일로, 공유 가계부는 그 가계부 시작일로 정한 이름 달이다.
   const current = useCurrentPeriod();
   const thisMonth = current.period.key;
-  const calendarMonth = toLedgerDate(new Date()).slice(0, 7);
   const analytics = useAnalytics();
   // 홈의 결산 카드가 `?month=2026-08&closing=1` 로 데려온다. 그때는 그 달로 열고
   // 결산까지 펼친다. 주소를 손으로 친 경우에도 어긋난 값이면 그냥 이번 달을 연다.
@@ -127,7 +126,7 @@ export default function ReportPage() {
     (books.data == null || bookItems.some((book) => book.id === pickedBookId))
       ? pickedBookId
       : null;
-  // 내 리포트의 달은 이름 달, 가계부의 달은 달력 월이라 같은 「10월」 도 다른 날들이다.
+  // 내 리포트와 가계부는 시작일이 달라 같은 「10월」 도 다른 날들일 수 있다.
   // 가계부를 바꾸면 주소의 달을 버리고 그쪽의 이번 달로 연다. 주소는 아래 효과가 비우고,
   // 버린 달 표시는 사람이 달을 옮길 때 지운다.
   const [monthBookId, setMonthBookId] = useState(bookId);
@@ -136,7 +135,10 @@ export default function ReportPage() {
     setMonthBookId(bookId);
     setDroppedMonth(asked);
   }
-  const baseMonth = bookId == null ? thisMonth : calendarMonth;
+  const pickedBook = bookItems.find((book) => book.id === bookId);
+  const bookMonth =
+    pickedBook == null ? toLedgerDate(new Date()).slice(0, 7) : bookPeriodNow(pickedBook).key;
+  const baseMonth = bookId == null ? thisMonth : bookMonth;
   const picked =
     asked != null && asked !== droppedMonth && MONTH_PATTERN.test(asked) ? asked : null;
   // 고른 달이 없거나 이번 달보다 뒤면 이번 달을 본다. 시작일을 바꿔 이번 달이 당겨질 때도 같다.

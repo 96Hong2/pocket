@@ -8,14 +8,15 @@ import {
   ApiError,
   parseDecimal,
   useBook,
+  useBookDues,
   useDeleteBook,
   useLeaveBook,
   useRemoveMember,
   useRestoreBook,
   useUpdateBook,
+  type BookDuesOut,
   type BookMemberOut,
   type BookOut,
-  type SettleRule,
 } from '../../shared/api';
 import { formatCurrency, formatDayLabel, toLedgerDate } from '../../shared/lib/format';
 import { withJosa } from '../../shared/lib/josa';
@@ -28,7 +29,6 @@ import {
   ErrorState,
   LeaveConfirm,
   LoadingState,
-  SegmentedControl,
   StateView,
 } from '../../shared/ui';
 import {
@@ -36,14 +36,17 @@ import {
   bookKindIcon,
   bookKindLabel,
   budgetLabel,
+  duesLabel,
   memberName,
   membersBucket,
   otherActiveMembers,
-  settleRuleLabel,
   useBookInvite,
 } from '../books';
 
+import { BookDuesSheet } from './BookDuesSheet';
 import { BookField } from './BookField';
+import { BookMemberSheet } from './BookMemberSheet';
+import { BookStartDaySheet } from './BookStartDaySheet';
 import { PlusInterestSheet } from './PlusInterestSheet';
 
 /** 한 가계부에 함께 있을 수 있는 사람 수. 서버와 같은 값이다. */
@@ -54,9 +57,11 @@ type Confirm = { kind: 'kick'; member: BookMemberOut } | { kind: 'delete' } | { 
 /**
  * 가계부 하나의 설정.
  *
- * 멤버, 초대장, 돈 나누기, 예산은 멤버 누구나 본다. 이름 바꾸기, 완료하기, 지우기, 내보내기는
- * 관리자만 본다. 완료하기는 묻지 않고 하고 알림에서 되돌린다. 멤버 모두에게 영향이 가는 지우기,
- * 나가기, 내보내기만 확인 창을 띄운다.
+ * 멤버, 초대장, 회비, 예산, 시작일은 멤버 누구나 보고 바꾼다. 이름 바꾸기, 완료하기, 지우기,
+ * 내보내기는 관리자만 본다. 완료하기는 묻지 않고 하고 알림에서 되돌린다. 멤버 모두에게 영향이
+ * 가는 지우기, 나가기, 내보내기만 확인 창을 띄운다.
+ *
+ * 멤버 줄은 누구나 눌러 그 사람의 지난 내역을 본다. 내보내기는 그 내역 맨 아래에 있다.
  */
 export function BookSettings({
   bookId,
@@ -106,12 +111,17 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
   const remove = useDeleteBook();
   const restore = useRestoreBook();
   const invite = useBookInvite('settings');
+  // 이번 기간 회비 상태. 멤버 줄의 「입금완료」·「정산완료」 가 여기서 나온다.
+  const dues = useBookDues(book.id);
 
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   // 확인 창이 떠 있으면 뒤로가기는 창만 닫는다. 요청이 나가기 전에 창을 먼저 닫아 잠글 일이 없다.
   useOverlayBackClose(confirm != null, () => setConfirm(null));
-  const [picked, setPicked] = useState<string | null>(null);
+  /** 내역을 펼친 멤버. */
+  const [history, setHistory] = useState<BookMemberOut | null>(null);
   const [budgetOpen, setBudgetOpen] = useState(false);
+  const [duesOpen, setDuesOpen] = useState(false);
+  const [startOpen, setStartOpen] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const [plusWanted, setPlusWanted] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -149,15 +159,6 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
     );
   }
 
-  function changeRule(rule: SettleRule): void {
-    if (rule === book.settle_rule) return;
-    setFailure(null);
-    update.mutate(
-      { bookId: book.id, body: { settle_rule: rule } },
-      { onSuccess: () => toast.show({ text: '바꿨어요' }), onError: fail },
-    );
-  }
-
   function setEnded(ended: boolean): void {
     setFailure(null);
     // 알림의 되돌리기는 이 화면을 떠난 뒤에도 눌릴 수 있다. 약속으로 받아야 그때도 끝까지 간다.
@@ -187,7 +188,7 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
 
   function kick(member: BookMemberOut): void {
     setConfirm(null);
-    setPicked(null);
+    setHistory(null);
     setFailure(null);
     removeMember.mutate(
       { bookId: book.id, memberId: member.id },
@@ -298,10 +299,8 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
               <MemberRow
                 key={member.id}
                 member={member}
-                canKick={isOwner && !member.is_me}
-                open={picked === member.id}
-                onToggle={() => setPicked(picked === member.id ? null : member.id)}
-                onKick={() => setConfirm({ kind: 'kick', member })}
+                done={doneLabel(dues.data, member.id)}
+                onOpen={() => setHistory(member)}
               />
             ))}
           </ul>
@@ -333,21 +332,13 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
           같이 쓰는 방식
         </h2>
         <Card padding="list">
-          <div className="book-settings__rule">
-            <span className="book-settings__rule-label">돈 나누기</span>
-            <SegmentedControl<SettleRule>
-              ariaLabel="돈 나누기"
-              value={book.settle_rule}
-              onChange={changeRule}
-              options={(['even', 'none'] as const).map((rule) => ({
-                value: rule,
-                label: settleRuleLabel(book.kind, rule),
-                disabled: update.isPending,
-              }))}
-              className="book-settings__segmented"
-            />
-          </div>
           <ul className="link-rows book-settings__rows">
+            <li>
+              <button type="button" className="link-row" onClick={() => setDuesOpen(true)}>
+                <span className="link-row__label">회비</span>
+                <span className="link-row__value">{duesLabel(book)}</span>
+              </button>
+            </li>
             <li>
               <button type="button" className="link-row" onClick={() => setBudgetOpen(true)}>
                 <span className="link-row__label">{budgetLabel(book.kind)}</span>
@@ -356,6 +347,15 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
                 </span>
               </button>
             </li>
+            {/* 여행 가계부는 달로 끊지 않고 여행 전체를 본다. 시작일이 쓰이지 않는다. */}
+            {book.kind === 'trip' ? null : (
+              <li>
+                <button type="button" className="link-row" onClick={() => setStartOpen(true)}>
+                  <span className="link-row__label">시작일</span>
+                  <span className="link-row__value">매달 {book.month_start_day}일</span>
+                </button>
+              </li>
+            )}
           </ul>
         </Card>
       </section>
@@ -463,6 +463,31 @@ function SettingsBody({ book, showOpen }: { book: BookOut; showOpen: boolean }) 
         {book.name}에서 나가기
       </Button>
 
+      <BookDuesSheet
+        open={duesOpen}
+        book={book}
+        onClose={() => setDuesOpen(false)}
+        onSaved={() => toast.show({ text: '바꿨어요' })}
+      />
+
+      <BookStartDaySheet
+        open={startOpen}
+        book={book}
+        onClose={() => setStartOpen(false)}
+        onSaved={() => toast.show({ text: '바꿨어요' })}
+      />
+
+      <BookMemberSheet
+        book={book}
+        member={history}
+        onClose={() => setHistory(null)}
+        onKick={
+          isOwner && history != null && !history.is_me
+            ? (member) => setConfirm({ kind: 'kick', member })
+            : undefined
+        }
+      />
+
       <BookBudgetSheet
         open={budgetOpen}
         book={book}
@@ -566,52 +591,39 @@ function ConfirmText({ title, lines }: { title: string; lines: string[] }) {
   );
 }
 
+/**
+ * 이번 기간을 마친 멤버에게만 붙는 말. 각자 입금이면 「입금완료」, 나중에 정산이면 「정산완료」 다.
+ *
+ * 아직인 사람에게는 아무것도 달지 않는다. 안 낸 사람을 가리키는 화면을 만들지 않는다.
+ */
+function doneLabel(dues: BookDuesOut | undefined, memberId: string): string | null {
+  const row = dues?.members.find((member) => member.member_id === memberId);
+  if (row?.status !== 'done') return null;
+  return dues?.rule === 'none' ? '입금완료' : '정산완료';
+}
+
+/** 멤버 한 줄. 누구나 눌러 그 사람의 지난 내역을 연다. */
 function MemberRow({
   member,
-  canKick,
-  open,
-  onToggle,
-  onKick,
+  done,
+  onOpen,
 }: {
   member: BookMemberOut;
-  canKick: boolean;
-  open: boolean;
-  onToggle: () => void;
-  onKick: () => void;
+  done: string | null;
+  onOpen: () => void;
 }) {
   const name = memberName(member);
-  const content = (
-    <>
-      <span className="book-settings__face" aria-hidden="true">
-        {name.slice(0, 1)}
-      </span>
-      <span className="book-settings__member-name">{name}</span>
-      {member.role === 'owner' ? <Chip variant="kind">관리자</Chip> : null}
-      {member.is_me ? <Chip variant="kind">나</Chip> : null}
-    </>
-  );
-
   return (
     <li className="book-settings__member">
-      {canKick ? (
-        <button
-          type="button"
-          className="book-settings__member-row book-settings__member-row--button"
-          aria-expanded={open}
-          onClick={onToggle}
-        >
-          {content}
-        </button>
-      ) : (
-        <div className="book-settings__member-row">{content}</div>
-      )}
-      {open ? (
-        <div className="book-settings__member-actions">
-          <Button variant="outline" onClick={onKick}>
-            내보내기
-          </Button>
-        </div>
-      ) : null}
+      <button type="button" className="book-settings__member-row" onClick={onOpen}>
+        <span className="book-settings__face" aria-hidden="true">
+          {name.slice(0, 1)}
+        </span>
+        <span className="book-settings__member-name">{name}</span>
+        {member.role === 'owner' ? <Chip variant="kind">관리자</Chip> : null}
+        {member.is_me ? <Chip variant="kind">나</Chip> : null}
+        {done != null ? <Chip variant="coach">{done}</Chip> : null}
+      </button>
     </li>
   );
 }

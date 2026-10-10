@@ -683,6 +683,19 @@ class CategoryBudgetSheetArea {
     return this.root.getByRole('button', { name: '지우기', exact: true });
   }
 
+  /** 「지우기」 를 누르면 화면 위에 뜨는 확인 창. 시트 밖(body)에 붙어 페이지에서 찾는다. */
+  get deleteConfirm(): Locator {
+    return this.root.page().getByRole('alertdialog', { name: '지우기 확인', exact: true });
+  }
+
+  get confirmDeleteButton(): Locator {
+    return this.deleteConfirm.getByRole('button', { name: '지우기', exact: true });
+  }
+
+  get keepButton(): Locator {
+    return this.deleteConfirm.getByRole('button', { name: '그대로 둘게요', exact: true });
+  }
+
   /** 고르기 칩 묶음. 추가할 때만 있고, 이미 정한 줄을 고칠 때는 없다. */
   get picker(): Locator {
     return this.root.getByRole('group', { name: '카테고리' });
@@ -751,8 +764,10 @@ class CategoryBudgetSheetArea {
     await this.waitClosed();
   }
 
+  /** 지우기를 누르고 확인 창에서 한 번 더 지운다. */
   async remove(): Promise<void> {
     await this.deleteButton.click();
+    await this.confirmDeleteButton.click();
     await this.waitClosed();
   }
 }

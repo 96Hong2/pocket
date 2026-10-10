@@ -218,7 +218,9 @@ export type BookUpdate = Schemas['BookUpdate'];
 export type InvitePreviewOut = Schemas['InvitePreviewOut'];
 export type InviteStatus = InvitePreviewOut['status'];
 export type JoinIn = Schemas['JoinIn'];
-/** 공유 기록 한 줄. 1차는 지출만 있다. */
+/** 지출(`expense`)과 입금(`deposit`). 입금은 쓴 돈과 정산에 들지 않는다. */
+export type BookEntryKind = Schemas['BookEntryKind'];
+/** 공유 기록 한 줄. 지출과 입금이 있다(`kind`). */
 export type BookEntryOut = Schemas['BookEntryOut'];
 export type BookEntryListOut = Schemas['BookEntryListOut'];
 export type BookEntryCreate = Schemas['BookEntryCreate'];
@@ -235,6 +237,11 @@ export type SettlementDoneOut = Schemas['SettlementDoneOut'];
 /** 같이 모은 돈(`none`)이면 members 와 transfers 가 비고 total 만 있다. */
 export type SettlementOut = Schemas['SettlementOut'];
 export type SettlementDoneIn = Schemas['SettlementDoneIn'];
+/** 이번 기간 사람마다 회비를 냈나(각자 입금), 정산을 끝냈나(나중에 정산). */
+export type BookDuesOut = Schemas['BookDuesOut'];
+export type BookDueMemberOut = Schemas['BookDueMemberOut'];
+/** 한 사람이 낸 지출과 넣은 입금. 최신순이고 `next_cursor` 로 다음 쪽을 받는다. */
+export type BookMemberEntriesOut = Schemas['BookMemberEntriesOut'];
 export type BookCategoryChangeOut = Schemas['BookCategoryChangeOut'];
 /** 자세히 보기. 잠금은 화면의 일이고 값은 늘 온다. */
 export type BookInsightOut = Schemas['BookInsightOut'];

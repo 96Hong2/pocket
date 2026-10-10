@@ -561,13 +561,16 @@
     text-align: center;
   }
 
-  /* 목록 둘째 줄. 날짜 글씨, 적은 사람 칩, 「고침」 칩이 한 줄에 선다. 글씨는 거래 줄 부제와 같다. */
-  .book-home__entry .pk-tx__chips {
+  /*
+    공유 기록 한 줄(BookEntryRow). 홈 목록과 멤버 내역이 같이 쓴다.
+    둘째 줄에 날짜 글씨, 적은 사람 칩, 「고침」 칩이 한 줄에 선다. 글씨는 거래 줄 부제와 같다.
+  */
+  .book-entry .pk-tx__chips {
     align-items: center;
     margin-top: 2px;
   }
 
-  .book-home__entry-day {
+  .book-entry__day {
     margin-right: 2px;
     font-size: var(--text-12);
     font-weight: var(--font-weight-medium);
@@ -623,5 +626,25 @@
     flex: none;
     font-size: var(--text-16);
     color: var(--color-muted);
+  }
+
+  /* ── 입금 적기 ──────────────────────────────────────── */
+
+  /* 공유 홈 「기록하기」 아래. 각자 입금 가계부에만 선다. */
+  .book-home__deposit {
+    margin-top: 8px;
+  }
+
+  .book-deposit__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .book-deposit__notice {
+    margin: 0;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-700);
   }
 }

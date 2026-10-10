@@ -14,6 +14,7 @@ import {
   Chip,
   EmptyState,
   ErrorState,
+  LeaveConfirm,
   LoadingState,
   iconOf,
 } from '../../shared/ui';
@@ -44,6 +45,8 @@ export function MerchantRuleList() {
   const [filter, setFilter] = useState<Filter>('all');
   const [keyword, setKeyword] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
+  // 지우기는 한 번 묻는다. 지운 기억은 되돌릴 길이 없다.
+  const [asking, setAsking] = useState<MerchantRuleOut | null>(null);
 
   const failure = remove.error instanceof ApiError ? remove.error.message : null;
   const items = rules.data?.items ?? [];
@@ -145,7 +148,7 @@ export function MerchantRuleList() {
                     className="rules__delete"
                     aria-label={`${rule.merchant} 기억 지우기`}
                     disabled={remove.isPending}
-                    onClick={() => remove.mutate(rule.id)}
+                    onClick={() => setAsking(rule)}
                   >
                     지우기
                   </button>
@@ -169,6 +172,19 @@ export function MerchantRuleList() {
       ) : null}
 
       <MerchantRuleSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+      {asking != null ? (
+        <LeaveConfirm
+          ariaLabel="기억을 지울까요"
+          text={`「${asking.merchant}」 기억을 지울까요? 적어 둔 기록은 그대로 남아요`}
+          leaveLabel="지우기"
+          stayLabel="그대로 둘게요"
+          onStay={() => setAsking(null)}
+          onLeave={() => {
+            remove.mutate(asking.id);
+            setAsking(null);
+          }}
+        />
+      ) : null}
     </section>
   );
 }

@@ -5,6 +5,8 @@ import type { BookEntryOut, BookMemberOut, BookOut, SettlementOut } from '../../
 import {
   editedLine,
   editedToast,
+  entryTitle,
+  monthWord,
   movedInToast,
   othersSeeLine,
   secondBookId,
@@ -37,6 +39,9 @@ function book(
     name: '우리 집',
     settle_rule: 'even',
     monthly_budget: null,
+    month_start_day: 1,
+    share_percents: null,
+    dues_amount: null,
     ended: false,
     ended_at: null,
     created_at: createdAt,
@@ -58,6 +63,7 @@ function settlement(overrides: Partial<SettlementOut>): SettlementOut {
     total: '0',
     members: [],
     transfers: [],
+    ratio: false,
     done: null,
     changed_after_done: false,
     ...overrides,
@@ -134,8 +140,8 @@ describe('공유 기록을 화면 말로', () => {
     const junho = member({ id: 'j' });
     const two = book('a', [ME, junho]);
     const members = [
-      { member_id: 'me', paid: '304900', share: '292400', balance: '12500' },
-      { member_id: 'j', paid: '279900', share: '292400', balance: '-12500' },
+      { member_id: 'me', paid: '304900', share: '292400', balance: '12500', percent: null },
+      { member_id: 'j', paid: '279900', share: '292400', balance: '-12500', percent: null },
     ];
     expect(
       settleLine(
@@ -154,7 +160,7 @@ describe('공유 기록을 화면 말로', () => {
       ),
     ).toBe('9월 정산 끝');
 
-    const three = [...members, { member_id: 's', paid: '0', share: '0', balance: '0' }];
+    const three = [...members, { member_id: 's', paid: '0', share: '0', balance: '0', percent: null }];
     expect(
       settleLine(
         two,
@@ -167,5 +173,73 @@ describe('공유 기록을 화면 말로', () => {
         }),
       ),
     ).toBe('보낼 돈 2건');
+  });
+
+  it('비율로 나눈 정산은 「반반」 이 아니라 「보내면 돼요」 다', () => {
+    const junho = member({ id: 'j' });
+    const two = book('a', [ME, junho]);
+    const members = [
+      { member_id: 'me', paid: '100000', share: '60000', balance: '40000', percent: 60 },
+      { member_id: 'j', paid: '0', share: '40000', balance: '-40000', percent: 40 },
+    ];
+    expect(
+      settleLine(
+        two,
+        settlement({
+          ratio: true,
+          members,
+          transfers: [{ from_member_id: 'j', to_member_id: 'me', amount: '40000' }],
+        }),
+      ),
+    ).toBe('준호가 은홍에게 40,000원 보내면 돼요');
+    // 서버 기간 이름 달로 부른다. 25일 시작이면 9월 25일에 시작한 기간이 「10월」 이다.
+    expect(
+      settleLine(
+        two,
+        settlement({
+          period: '2026-10',
+          period_start: '2026-09-25',
+          members,
+          done: { done_by_member_id: 'me', done_at: '2026-10-25T00:00:00Z' },
+        }),
+      ),
+    ).toBe('10월 정산 끝');
+  });
+
+  it('「이번 달」 은 가계부 시작일로 끊은 기간끼리 견준다', () => {
+    // 시작일 1: 달력 월이다.
+    expect(monthWord('2026-10-01', '2026-10-10')).toBe('이번 달');
+    expect(monthWord('2026-09-01', '2026-10-10')).toBe('9월');
+    // 시작일 25: 9월 25일~10월 24일이 「10월」 이다. 10월 5일은 그 기간 안이다.
+    expect(monthWord('2026-09-25', '2026-10-05', 25)).toBe('이번 달');
+    expect(monthWord('2026-08-25', '2026-10-05', 25)).toBe('9월');
+    // 10월 25일부터는 「11월」 기간이다.
+    expect(monthWord('2026-09-25', '2026-10-25', 25)).toBe('10월');
+    // 시작일 10: 시작한 달 이름이다.
+    expect(monthWord('2026-09-10', '2026-10-05', 10)).toBe('이번 달');
+  });
+
+  it('입금 줄 이름은 적은 내용, 없으면 「입금」 이다', () => {
+    const base = {
+      id: 'e',
+      book_id: 'a',
+      amount: '300000',
+      category_id: null,
+      memo: null,
+      occurred_on: '2026-10-10',
+      created_by_member_id: 'me',
+      paid_by_member_id: 'me',
+      updated_by_member_id: null,
+      created_at: '2026-10-10T00:00:00Z',
+      updated_at: '2026-10-10T00:00:00Z',
+      can_delete: true,
+      can_move: false,
+      written_by_me: true,
+    } satisfies Omit<BookEntryOut, 'kind' | 'title'>;
+    expect(entryTitle(book('a'), { ...base, kind: 'deposit', title: null })).toBe('입금');
+    expect(entryTitle(book('a'), { ...base, kind: 'deposit', title: '10월 회비' })).toBe(
+      '10월 회비',
+    );
+    expect(entryTitle(book('a'), { ...base, kind: 'expense', title: null })).toBe('기록');
   });
 });

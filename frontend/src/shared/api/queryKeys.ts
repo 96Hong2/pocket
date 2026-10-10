@@ -173,6 +173,11 @@ export const queryKeys = {
     [ROOT, 'book', bookId, 'report', monthPart(params)] as const,
   bookSettlement: (bookId: string, period?: SettlementPeriod) =>
     [ROOT, 'book', bookId, 'settlement', period === 'all' ? 'all' : monthPart(period)] as const,
+  bookDues: (bookId: string, params?: MonthParams) =>
+    [ROOT, 'book', bookId, 'dues', monthPart(params)] as const,
+  /** 한 멤버의 지난 내역. 쪽을 이어 붙이므로 커서는 키에 넣지 않는다. */
+  bookMemberEntries: (bookId: string, memberId: string) =>
+    [ROOT, 'book', bookId, 'member', memberId] as const,
   /** 초대 미리보기. 가계부 캐시와 따로 둔다. 멤버가 되기 전에 읽는 값이다. */
   invite: (code: string) => [ROOT, 'invite', code] as const,
 };

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   dayOfPeriod,
   describePeriod,
+  monthName,
   formatPeriodRange,
   periodContaining,
   periodOfMonth,
@@ -125,5 +126,11 @@ describe('기간을 적는 말', () => {
 
   it('기간 줄은 점으로 적는다', () => {
     expect(formatPeriodRange(periodOfMonth('2026-10', 25))).toBe('9.25 ~ 10.24');
+  });
+
+  it('기간 이름은 이름 달에서 나온다. 앞자리 0 은 떼어 읽는다', () => {
+    expect(monthName('2026-10')).toBe('10월');
+    expect(monthName('2027-01')).toBe('1월');
+    expect(monthName(periodContaining('2026-10-26', 25).key)).toBe('11월');
   });
 });

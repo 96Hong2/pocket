@@ -16,6 +16,7 @@ import {
 } from '../../shared/api';
 import { formatCurrency, formatDayLabel, toLedgerDate } from '../../shared/lib/format';
 import { withJosa } from '../../shared/lib/josa';
+import { monthName } from '../../shared/lib/monthPeriod';
 import {
   Button,
   Card,
@@ -25,15 +26,18 @@ import {
   SageCard,
   StateView,
 } from '../../shared/ui';
-import { findMember, memberName, membersBucket } from '../books';
+import {
+  bookPeriodNow,
+  bookPeriodOn,
+  findMember,
+  memberName,
+  membersBucket,
+  ruleSettles,
+} from '../books';
 
 import { paidLabel, settleSummary, settledDetail, settledHeadline } from './settleText';
 
-function thisMonth(): string {
-  return toLedgerDate(new Date()).slice(0, 7);
-}
-
-/** `2026-09` → `{ year: 2026, month: 9 }` */
+/** `2026-09` → `{ year: 2026, month: 9 }`. 서버는 이 달을 기간 이름 달로 읽는다. */
 function monthParams(month: string): { year: number; month: number } {
   const [year, value] = month.split('-').map(Number);
   return { year, month: value };
@@ -41,13 +45,14 @@ function monthParams(month: string): { year: number; month: number } {
 
 /** 「9월」. 여행은 달이 아니라 여행 전체를 본다. 홈 정산 카드와 같은 이름을 쓴다. */
 function periodName(book: BookOut, month: string): string {
-  return book.kind === 'trip' ? '여행 전체' : `${Number(month.slice(5, 7))}월`;
+  return book.kind === 'trip' ? '여행 전체' : monthName(month);
 }
 
 /**
  * 정산. 우리 집 홈의 정산 카드에서 들어온다.
  *
- * 둘이면 한 문장(「준호가 은홍에게 12,500원 보내면 반반이에요」), 셋 이상이면 보낼 돈 목록이다.
+ * 둘이면 한 문장(「준호가 은홍에게 12,500원 보내면 반반이에요」, 비율이면 「… 보내면 돼요」),
+ * 셋 이상이면 보낼 돈 목록이다. 달은 가계부 시작일로 끊은 기간이고 이름 달로 부른다.
  * 송금 버튼과 금액 복사는 없다. 「정산 끝냈어요」 는 묻지 않고 표시하고 「되돌리기」 로 무른다.
  * 멤버별 막대나 순위 색은 두지 않는다. 누가 더 썼나를 겨루는 화면이 아니다.
  */
@@ -64,10 +69,11 @@ export function BookSettle({ bookId }: { bookId: string | null }) {
 }
 
 function SettleBody({ book }: { book: BookOut }) {
+  const thisMonth = bookPeriodNow(book).key;
   const [month, setMonth] = useState(thisMonth);
   const period: SettlementPeriod = book.kind === 'trip' ? 'all' : monthParams(month);
   const settlement = useBookSettlement(book.id, period);
-  const firstMonth = toLedgerDate(new Date(book.created_at)).slice(0, 7);
+  const firstMonth = bookPeriodOn(book, toLedgerDate(new Date(book.created_at))).key;
 
   return (
     <div className="book-settle">
@@ -75,19 +81,19 @@ function SettleBody({ book }: { book: BookOut }) {
         나눈다는 한 줄은 서버가 방금 준 규칙이 나누는 규칙일 때만 둔다. 홈에 남은 옛 값만 보고
         그리면 아래의 「정산이 없어요」 와 한 화면에서 부딪친다.
       */}
-      {settlement.data != null && settlement.data.rule !== 'none' ? (
+      {settlement.data != null && ruleSettles(settlement.data.rule) ? (
         <p className="page__lead book-settle__lead">같이 쓴 돈을 낸 사람 기준으로 나눠요</p>
       ) : null}
-      {/* 같이 모은 돈 가계부는 어느 달이든 정산이 없다. 달을 옮길 이유가 없다. */}
-      {book.settle_rule === 'none' ? null : book.kind === 'trip' ? (
+      {/* 각자 입금 가계부는 어느 달이든 정산이 없다. 달을 옮길 이유가 없다. */}
+      {!ruleSettles(book.settle_rule) ? null : book.kind === 'trip' ? (
         <p className="book-settle__period">{periodName(book, month)}</p>
       ) : (
         <MonthStepper
           value={month}
           onChange={setMonth}
           minMonth={firstMonth}
-          maxMonth={thisMonth()}
-          jumpTo={thisMonth()}
+          maxMonth={thisMonth}
+          jumpTo={thisMonth}
         />
       )}
 
@@ -126,9 +132,9 @@ function SettleResult({
   if (summary.state === 'none') {
     return (
       <SageCard className="book-settle__card">
-        <p className="book-settle__sentence">같이 모은 돈으로 쓰는 가계부라 정산이 없어요</p>
+        <p className="book-settle__sentence">각자 입금으로 쓰는 가계부라 정산이 없어요</p>
         <Link className="book-settle__link" to={bookSettingsPath(book.id)}>
-          돈 나누기 바꾸기
+          회비 바꾸기
         </Link>
       </SageCard>
     );

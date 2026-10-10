@@ -4,13 +4,7 @@ import { useNavigate } from 'react-router';
 import { useBookView, useOverlayBackClose } from '../../app/providers';
 import { ROUTES } from '../../app/router/routes';
 import { EVENTS, useAnalytics } from '../../shared/analytics';
-import {
-  ApiError,
-  useBooks,
-  useCreateBook,
-  type BookKind,
-  type SettleRule,
-} from '../../shared/api';
+import { ApiError, useBooks, useCreateBook, type BookKind, type SettleRule } from '../../shared/api';
 import { Button, CategoryAvatar } from '../../shared/ui';
 import {
   BOOK_KINDS,
@@ -20,6 +14,8 @@ import {
   defaultSettleRule,
   myNameIn,
   settleRuleLabel,
+  settleRuleLine,
+  settleRuleOptions,
   useBookInvite,
 } from '../books';
 
@@ -33,24 +29,12 @@ const KIND_LINE: Record<BookKind, string> = {
   room: '월세와 생필품',
 };
 
-/** 돈 나누기 칸 아래 한 줄. 고르면 무엇이 달라지는지만 말한다. */
-function ruleLine(kind: BookKind, rule: SettleRule): string {
-  if (rule === 'none') return '정산 없이 같이 쓴 돈만 적어요';
-  return kind === 'couple' || kind === 'room'
-    ? '누가 더 냈는지 계산해 줘요'
-    : '인원수대로 나눠 계산해 줘요';
-}
-
-/** 미리 골라 둔 것이 먼저 선다. */
-function ruleOptions(kind: BookKind): SettleRule[] {
-  return defaultSettleRule(kind) === 'even' ? ['even', 'none'] : ['none', 'even'];
-}
-
 /**
  * 가계부 만들기. 한 화면 안에서 두 단계로 간다.
  *
  * 1. 누구와 쓰나: 카드를 누르면 곧바로 다음 단계다. 확인 버튼이 없다.
- * 2. 가계부 이름, 내 이름, 돈 나누기: 이름과 돈 나누기는 유형에 맞춰 미리 채워 둔다.
+ * 2. 가계부 이름, 내 이름, 회비: 이름과 회비 방식은 유형에 맞춰 미리 채워 둔다.
+ *    만들 때는 혼자라 비율을 묻지 않는다. 비율은 멤버가 들어온 뒤 설정의 「회비」 에서 정한다.
  *    채울 것은 내 이름 하나고, 가계부 이름은 그 자리에서 바로 고칠 수 있다.
  *
  * 「만들고 초대하기」 한 번에 만들기, 초대 링크, 토스 공유창이 이어진다. 공유창에서 돌아오면
@@ -154,20 +138,20 @@ function DetailStep({ kind, onBack }: { kind: BookKind; onBack: () => void }) {
       />
 
       <p className="book-create__label" id="book-create-rule">
-        돈 나누기
+        회비
       </p>
-      <div className="book-create__rules" role="radiogroup" aria-labelledby="book-create-rule">
-        {ruleOptions(kind).map((option) => (
+      <div className="book-rules" role="radiogroup" aria-labelledby="book-create-rule">
+        {settleRuleOptions(kind).map((option) => (
           <button
             key={option}
             type="button"
             role="radio"
             aria-checked={rule === option}
-            className="book-create__rule"
+            className="book-rule"
             onClick={() => setRule(option)}
           >
-            <span className="book-create__rule-name">{settleRuleLabel(kind, option)}</span>
-            <span className="book-create__rule-line">{ruleLine(kind, option)}</span>
+            <span className="book-rule__name">{settleRuleLabel(option)}</span>
+            <span className="book-rule__line">{settleRuleLine(option)}</span>
           </button>
         ))}
       </div>

@@ -4,10 +4,13 @@ import type { BookMemberOut, BookOut } from '../../shared/api';
 
 import {
   defaultBookName,
+  duesLabel,
   memberName,
   membersBucket,
   myNameIn,
+  ruleSettles,
   settleRuleLabel,
+  settleRuleOptions,
   splitBooks,
 } from './bookText';
 
@@ -29,6 +32,9 @@ function book(id: string, overrides: Partial<BookOut> = {}): BookOut {
     name: '우리 집',
     settle_rule: 'even',
     monthly_budget: null,
+    month_start_day: 1,
+    share_percents: null,
+    dues_amount: null,
     ended: false,
     ended_at: null,
     created_at: '2026-09-28T00:00:00Z',
@@ -58,12 +64,38 @@ describe('공유 가계부 이름과 규칙', () => {
     expect(membersBucket(10)).toBe('6-10');
   });
 
-  it('둘이 쓰는 가계부는 반반, 여럿이 쓰는 가계부는 똑같이 나눠요', () => {
-    expect(settleRuleLabel('couple', 'even')).toBe('반반');
-    expect(settleRuleLabel('room', 'even')).toBe('반반');
-    expect(settleRuleLabel('family', 'even')).toBe('똑같이 나눠요');
-    expect(settleRuleLabel('trip', 'even')).toBe('똑같이 나눠요');
-    expect(settleRuleLabel('family', 'none')).toBe('같이 모은 돈');
+  it('회비 방식은 각자 입금과 나중에 정산이다. 정산이 있는 것은 나중에 정산뿐이다', () => {
+    expect(settleRuleLabel('none')).toBe('각자 입금');
+    expect(settleRuleLabel('even')).toBe('나중에 정산');
+    expect(ruleSettles('even')).toBe(true);
+    expect(ruleSettles('none')).toBe(false);
+  });
+
+  it('만들기 화면은 유형에 맞춰 미리 고른 방식을 앞에 세운다', () => {
+    expect(settleRuleOptions('couple')).toEqual(['even', 'none']);
+    expect(settleRuleOptions('family')).toEqual(['none', 'even']);
+  });
+
+  it('회비 줄 값은 방식과 비율이다. 둘이면 숫자, 셋 이상이면 「비율」, 혼자면 방식만', () => {
+    const me = member({ id: 'me', name: '은홍', is_me: true });
+    const junho = member({ id: 'j' });
+    const seoyeon = member({ id: 's', name: '서연' });
+    expect(duesLabel(book('a', { members: [me] }))).toBe('나중에 정산');
+    expect(duesLabel(book('a', { members: [me, junho] }))).toBe('나중에 정산, 똑같이');
+    expect(
+      duesLabel(
+        book('a', { settle_rule: 'none', members: [me, junho], share_percents: { me: 60, j: 40 } }),
+      ),
+    ).toBe('각자 입금, 6:4');
+    expect(
+      duesLabel(
+        book('a', { members: [me, junho, seoyeon], share_percents: { me: 50, j: 30, s: 20 } }),
+      ),
+    ).toBe('나중에 정산, 비율');
+    // 멤버가 바뀌어 키가 안 맞는 비율은 똑같이로 본다.
+    expect(
+      duesLabel(book('a', { members: [me, junho, seoyeon], share_percents: { me: 60, j: 40 } })),
+    ).toBe('나중에 정산, 똑같이');
   });
 
   it('다른 가계부에서 쓰던 내 이름을 찾는다', () => {

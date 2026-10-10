@@ -20,6 +20,7 @@ import type {
   BookCategoryCreate,
   BookCategoryOut,
   BookCreate,
+  BookDuesOut,
   BookEntryCreate,
   BookEntryCreated,
   BookEntryListOut,
@@ -27,6 +28,7 @@ import type {
   BookEntryUpdate,
   BookInviteOut,
   BookListOut,
+  BookMemberEntriesOut,
   BookOut,
   BookReportOut,
   BookUpdate,
@@ -555,12 +557,24 @@ export interface ApiClient extends Transport {
   leaveBook(bookId: string, options?: CallOptions): Promise<void>;
   /** 관리자만, 자기 자신은 안 된다. 그 멤버가 적은 기록은 남는다. */
   removeMember(bookId: string, memberId: string, options?: CallOptions): Promise<void>;
-  /** 그 달 공유 기록. 날짜가 늦은 것부터. */
+  /** 그 달 공유 기록. 날짜가 늦은 것부터. 입금도 함께 받는다(`include_deposits`). */
   listBookEntries(
     bookId: string,
     params?: MonthParams,
     options?: CallOptions,
   ): Promise<BookEntryListOut>;
+  /**
+   * 한 멤버가 낸 지출과 넣은 입금. 나갔다 다시 들어온 줄까지 같은 사람으로 모은다.
+   * 한 쪽은 `limit` 줄까지다. 응답의 `next_cursor` 를 `cursor` 로 그대로 넘기면 다음 쪽이다.
+   */
+  listMemberEntries(
+    bookId: string,
+    memberId: string,
+    params?: { cursor?: string; limit?: number },
+    options?: CallOptions,
+  ): Promise<BookMemberEntriesOut>;
+  /** 이번 기간(또는 고른 달) 사람마다 회비 상태. 여행 가계부는 여행 전체를 본다. */
+  getBookDues(bookId: string, params?: MonthParams, options?: CallOptions): Promise<BookDuesOut>;
   /** 끝난 가계부는 409 `BOOK_ENDED`. 응답에 그 달의 쓴 돈과 남은 예산이 함께 온다. */
   createBookEntry(
     bookId: string,
@@ -1309,6 +1323,25 @@ export function createApiClient(options: TransportOptions): ApiClient {
       return transport.request<BookEntryListOut>({
         method: 'GET',
         path: `${bookPath(bookId)}/entries`,
+        // 입금은 이 값을 줄 때만 온다. 옛 번들이 입금 줄을 지출로 그리지 않게 서버가 그렇게 막아 뒀다.
+        query: { ...monthQuery(params), include_deposits: true },
+        signal: call?.signal,
+      });
+    },
+
+    listMemberEntries(bookId, memberId, params, call) {
+      return transport.request<BookMemberEntriesOut>({
+        method: 'GET',
+        path: `${bookPath(bookId)}/members/${encodeURIComponent(memberId)}/entries`,
+        query: { cursor: params?.cursor, limit: params?.limit },
+        signal: call?.signal,
+      });
+    },
+
+    getBookDues(bookId, params, call) {
+      return transport.request<BookDuesOut>({
+        method: 'GET',
+        path: `${bookPath(bookId)}/dues`,
         query: monthQuery(params),
         signal: call?.signal,
       });

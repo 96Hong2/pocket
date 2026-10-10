@@ -1359,7 +1359,7 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 | GET | `/books` | 누구나 | 내가 지금 멤버인 가계부(`BookListOut`). 지운 것은 빼고 끝난 것은 담는다. 안 끝난 것이 먼저, 그 안에서 최근 것이 먼저 |
 | POST | `/books` | 누구나 | 201 `BookOut`. 가계부, 관리자 멤버(`my_name`), 종류별 분류, 살아 있는 초대를 한 번에 만든다 |
 | GET | `/books/{id}` | 멤버 | `BookOut` |
-| PATCH | `/books/{id}` | 필드마다 | 보낸 필드만 고친다. `name`, `ended` 는 관리자만, `settle_rule`, `monthly_budget` 은 멤버 누구나. `monthly_budget: null` 은 예산을 지운다 |
+| PATCH | `/books/{id}` | 필드마다 | 보낸 필드만 고친다. `name`, `ended` 는 관리자만, `settle_rule`, `monthly_budget`, `month_start_day`, `share_percents`, `dues_amount` 는 멤버 누구나. `monthly_budget: null`, `dues_amount: null` 은 지우고 `share_percents: null` 은 똑같이로 돌린다. 아래 「시작일과 회비」 |
 | DELETE | `/books/{id}` | 관리자 | 204. 소프트 삭제하고 초대를 닫는다 |
 | POST | `/books/{id}/restore` | 지운 관리자 | `BookOut`. 지운 지 30일 안이고 그 사람이 아직 관리자일 때만. 아니면 404 |
 | POST | `/books/{id}/invites` | 멤버 | 201 `BookInviteOut`. 앞의 살아 있는 초대를 닫는다. 완료한 가계부면 409 `BOOK_ENDED` |
@@ -1367,7 +1367,7 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 | POST | `/invites/{code}/join` | 누구나 | `BookOut`. 이미 멤버면 그대로 돌려준다. 오류는 아래 표 |
 | POST | `/books/{id}/leave` | 멤버 | 204. 관리자가 나가면 가장 먼저 들어온 멤버가 관리자가 된다. 아무도 안 남으면 가계부를 지운다 |
 | DELETE | `/books/{id}/members/{member_id}` | 관리자 | 204. 자기 자신은 안 된다(404). 초대는 닫지 않는다. 내보낸 사람만 그 전에 나온 링크로 못 돌아온다(`closed`) |
-| GET | `/books/{id}/entries?year&month` | 멤버 | 그 달의 기록(`BookEntryListOut`). 안 보내면 가계부 시간대의 이번 달. 날짜가 늦은 것부터 |
+| GET | `/books/{id}/entries?year&month&include_deposits` | 멤버 | 그 달의 기록(`BookEntryListOut`). 안 보내면 가계부 시간대의 이번 달. 날짜가 늦은 것부터. 입금은 `include_deposits=true` 일 때만 싣는다(옛 화면 호환) |
 | POST | `/books/{id}/entries` | 멤버 | 201 `BookEntryCreated`(기록 + 그 기록이 든 달의 상태). 여행 가계부는 달 대신 여행 전체다(지우지 않은 기록 전부, `period_start` 는 가장 이른 기록 날, `period_end` 는 가계부 시간대의 오늘). 완료한 가계부면 409 |
 | PATCH | `/books/{id}/entries/{entry_id}` | 멤버 | `BookEntryOut`. 적은 사람이 아닌 멤버가 고치면 `updated_by_member_id` 가 그 멤버, 적은 사람이 고치면 비운다 |
 | DELETE | `/books/{id}/entries/{entry_id}` | 적은 사람, 관리자 | 204 소프트 삭제 |
@@ -1379,8 +1379,10 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 | POST | `/books/{id}/categories` | 멤버 | 201 `BookCategoryOut`. 바디 `{"name": "반려동물", "icon_key": "07_heart"}`. 같은 이름이면 409 `DUPLICATE_CATEGORY`, 가계부당 30개까지(422). 「기타」 바로 앞에 선다 |
 | GET | `/books/{id}/settlement?year&month` | 멤버 | `SettlementOut`. 여행 가계부는 달을 무시하고 전체(`period: "all"`) |
 | POST | `/books/{id}/settlement/done` | 멤버 | `SettlementOut`. 지금 보낼 돈을 적어 둔다. 같이 모은 돈(`none`)이면 422 |
-| DELETE | `/books/{id}/settlement/done?year&month` | 멤버 | `SettlementOut`. 지금 끝낸 표시를 되돌린다. 없으면 404 |
-| GET | `/books/{id}/report?year&month` | 멤버 | `BookReportOut`. 기본 리포트와 자세히 보기(`insight`)를 늘 함께 싣는다. 잠그는 것은 화면의 일이다 |
+| DELETE | `/books/{id}/settlement/done?year&month` | 멤버 | `SettlementOut`. 지금 끝낸 표시를 되돌린다. 끝내기처럼 가계부 줄을 잠근다. 없으면 404 |
+| GET | `/books/{id}/report?year&month` | 멤버 | `BookReportOut`. 기본 리포트와 자세히 보기(`insight`)를 늘 함께 싣는다. 잠그는 것은 화면의 일이다. 입금은 안 든다 |
+| GET | `/books/{id}/dues?year&month` | 멤버 | `BookDuesOut`. 이번 기간 지금 멤버마다 회비 상태(`done`, `pending`, `none`). 여행 가계부는 전체(`period_key: "all"`) |
+| GET | `/books/{id}/members/{member_id}/entries?cursor&limit` | 멤버 | `BookMemberEntriesOut`. 그 사람이 낸 지출과 넣은 입금, 최신순. 나갔다 다시 들어온 줄의 기록도 모은다. `limit` 1 ~ 100(기본 50). 다른 가계부의 멤버 id 면 404, 다른 가계부의 줄이나 없는 줄을 `cursor` 로 주면 422 |
 
 **초대 상태와 합류 오류는 같은 판정이다.** 순서대로 본다.
 
@@ -1396,10 +1398,22 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 `inviter_name` 은 초대한 사람이 나갔으면 `null` 이다. 나간 멤버의 이름은 어디에도 싣지 않는다(`BookMemberOut.name: null`).
 `closed`, `ended`, `expired` 면 가계부 근황을 싣지 않는다: `book_name` 은 빈 문자열, `active_member_count` 는 0 이다. `inviter_name` 은 `expired` 에만 남는다(새 링크를 부탁할 사람).
 
+**시작일과 회비**(ADR-0050)
+- `month_start_day` 1 ~ 28(기본 1). 기간 이름은 개인과 같은 규칙(날이 가장 많이 든 달)이다. 시작일 25 면 `?year=2026&month=10` 은 9월 25일 ~ 10월 24일이고 정산 키도 `"2026-10"` 이다. 기록 목록, 저장 뒤 달 상태, 정산, 회비, 리포트가 모두 이 기간을 본다. 질의 모양은 그대로다.
+- `settle_rule` 값은 그대로다. 화면 이름만 바뀌었다: `none` = 「각자 입금」(먼저 넣고 같이 쓴다, 정산 없음), `even` = 「나중에 정산」(기간이 끝나면 나눈다).
+- `share_percents` 는 `{"<멤버 id>": 60, …}`. 값은 0 ~ 100, 10 의 배수, 합 100. 키는 **지금 멤버 id 전부와 정확히 같아야** 한다. 아니면 422 와 한국어 문구(「합이 100%가 되게 맞춰 주세요(지금 90%).」, 「비율은 10% 단위로 정해 주세요.」, 「비율은 지금 멤버 모두에게 정해 주세요.」). 멤버가 들어오거나 나가거나 내보내지거나 두 계정이 합쳐지면 `null`(똑같이)로 돌아간다.
+- `dues_amount` 는 각자 입금 가계부의 한 달 회비 합계(원 단위, 1원 이상). 사람마다 낼 돈은 비율로 나눈다(정산과 같은 함수, 남는 원 규칙도 같다).
+- `BookDuesOut.members[].status`:
+  - 각자 입금: `due`(낼 돈)가 있으면 그 기간 넣은 돈 ≥ `due` 일 때 `done`, 회비를 안 정했으면 한 번이라도 넣었으면 `done`. 아니면 `pending`. 비율이 0% 라 `due` 가 0 이면 `none` 이다. 여행 가계부는 달로 끊지 않아 `due` 가 늘 `null` 이다.
+  - 나중에 정산: 그 기간 사람이 아니면 `none`(끝낸 뒤 들어온 사람에게 `done` 을 달지 않는다). 그 기간 정산을 끝냈고 그 뒤 안 바뀌었으면 `done`. 아니면 합계가 0 이면 `none`, 주고받을 돈이 0 이면 `done`, 나머지 `pending`. `due` 는 늘 `null`.
+
 **기록**
-- 1차는 지출만 받는다. 금액은 `> 0`, 원 단위 정수. `occurred_on` 은 적는 사람 화면의 날짜 그대로다.
+- 종류(`kind`)는 `expense`(기본) 또는 `deposit`(회비 입금)이다. 옛 화면은 이 칸을 안 보내 지출로 적힌다. 금액은 `> 0`, 원 단위 정수. `occurred_on` 은 적는 사람 화면의 날짜 그대로다.
+- **입금은 쓴 돈이 아니다.** 저장 뒤 달 상태의 `spent`·`remaining`, 정산의 `total`·`paid`, 리포트와 자세히 보기, 여행 기간의 시작, 가져오기 중복 판정 어디에도 안 든다. 달 상태의 `deposited` 가 그 기간 넣은 돈을 따로 싣는다. 둘을 합친 숫자는 내지 않는다.
+- 입금은 분류를 달지 않는다(만들 때도 고칠 때도 422 `「입금에는 분류를 달 수 없어요.」`). `paid_by_member_id` 가 넣은 사람이다. 종류는 고치지 않는다. 내 가계부로 옮기기는 422, `can_move` 는 늘 `false`.
 - `category_id` 는 그 가계부의 분류만(아니면 422 `INVALID_CATEGORY`). `paid_by_member_id` 는 지금 멤버만(아니면 422 `INVALID_REQUEST`), 비우면 나다. PATCH 에서 `null` 도 나로 본다.
-- `can_delete` 는 내가 적었거나 내가 관리자일 때, `can_move` 는 내가 적었을 때 참이다.
+- `can_delete` 는 내가 적었거나 내가 관리자일 때, `can_move` 는 내가 적은 지출일 때 참이다. `written_by_me` 는 내가 적었는지다. 나갔다 다시 들어오기 전 멤버 줄로 적은 것도 내 것이다.
+- **남용 상한.** 한 가계부에 24시간 동안 적는 줄은 500 개까지다(입금, 옮겨 온 것, 가져오기 포함, 지운 줄도 센다). 넘으면 429 `USAGE_LIMIT` 「오늘은 이 가계부에 충분히 적었어요. 내일 다시 적어 주세요.」. 한 사람이 지금 멤버로 같이 쓰는 가계부는 완료한 것을 빼고 30 개까지이고, 만들기와 들어오기와 되살리기가 넘으면 429 `USAGE_LIMIT` 「가계부는 30개까지 함께 쓸 수 있어요.」(이미 멤버인 가계부에 다시 들어오는 것은 막지 않는다). 한 사람이 24시간 안에 만드는 가계부는 지운 것을 포함해 10 개까지이고, 넘으면 429 `USAGE_LIMIT` 「오늘은 가계부를 충분히 만들었어요. 내일 다시 만들어 주세요.」.
 
 **옮기기**
 - 내 가계부로(`move-out`): 금액, 상호(`title`), 메모를 그대로 옮기고 시각은 그 날 정오(내 시간대)다. 분류는 내 화면에 **같은 이름으로 보이는** 지출 분류, 없으면 기본 「기타」. 피드백 판정은 부르지 않는다.
@@ -1412,10 +1426,17 @@ false 로 오고, 화면은 그 둘이 다 참일 때만 결산 입구를 그린
 - 그 기간에 한 번이라도 멤버였던 사람과 그 기간에 돈을 낸 사람이 나눈다. 여행은 전체 기간, 전체 멤버다.
   나갔다 다시 들어온 사람은 멤버 줄마다 기간을 본다. 비어 있던 달의 몫은 지지 않는다.
 - 몫은 내림으로 똑같이 나누고 남는 원은 가계부를 만든 사람이(그 기간 멤버가 아니면 가장 먼저 들어온 사람이) 진다. 관리자로 정하면 관리자가 바뀔 때 끝낸 지난 정산이 1원씩 흔들린다.
+- 비율(`share_percents`)이 있고 **그 기간 사람과 비율의 키가 정확히 같으면** 비율 몫이다(`ratio: true`, 멤버마다 `percent`). 몫은 `내림(합계 × 비율 ÷ 100)`, 남는 원은 비율이 0 이 아닌 만든 사람이, 없으면 비율이 가장 큰 사람이(같으면 먼저 들어온 사람이) 진다. 키가 어긋나면 짐작하지 않고 똑같이 나눈다(`ratio: false`, `percent: null`).
+- **끝낸 기간은 끝낼 때의 비율로 센다.** 끝낼 때 나눈 비율을 정산 줄에 적어 두고(똑같이면 비움), 그 기간을 다시 셀 때 가계부의 지금 비율 대신 그것을 쓴다. 비율을 바꾸거나 사람이 바뀌어 비율이 비어도 끝낸 달의 보낼 돈과 `changed_after_done` 은 그대로다. 끝내기를 되돌리면 그 전에 끝낸 줄이 남아 있으면 그 줄의 비율로, 없으면 지금 비율로 다시 센다.
 - 보낼 돈은 가장 많이 모자란 사람과 가장 많이 받을 사람을 차례로 잇는다. n 명이면 n-1 건을 넘지 않는다.
 - 끝낸 뒤 보낼 돈이 달라지면 `changed_after_done: true`. 다시 들어와 대표 멤버 id 가 바뀐 것은 달라진 것으로 치지 않는다. 끝낸 표시는 지우지 않고 `undone_at` 으로 되돌린다.
 - 같은 보낼 돈으로 이미 끝냈으면 `done` 은 줄을 더 쌓지 않고 그대로 돌려준다. 되돌리기 한 번이면 늘 안 끝낸 상태다.
-- 같이 모은 돈(`none`)이면 `members`, `transfers` 가 비고 `total` 만 있다.
+- 각자 입금(`none`)이면 `members`, `transfers` 가 비고 `total` 만 있다. `done` 은 422 다.
+
+**멤버 내역**
+- 그 사람의 모든 멤버 줄(나갔다 다시 들어온 것 포함)이 낸 지출과 넣은 입금. 지운 것과 옮겨 나간 것은 뺀다. 최신순(날짜, 적은 시각, id).
+- 쪽 나눔은 `cursor` 와 `limit` 이다. 한 쪽은 늘 `limit` 줄까지이고, 같은 날 기록이 두 쪽에 갈릴 수 있다. `next_cursor` 는 이 쪽 마지막 줄의 id 이고 그대로 다시 보내면 다음 쪽, 더 없으면 `null` 이다. 정렬 키(날짜, 적은 시각, id) 셋을 이어 보아 하루에 많이 적어도 한 쪽이 커지지 않는다.
+- `deposited_total`, `paid_total` 은 전 기간 합이다. `name` 은 그 사람이 지금 멤버가 아니면 `null`. 사용자 id 는 싣지 않는다.
 
 **리포트 자세히 보기**(`insight`)
 - 이번 달이면 지난달 **같은 날짜까지**와 견준다. 지난 달이면 통째로 견준다. `compare_window_end` 는 이번 쪽 창의 끝(이번 달이면 오늘, 지난 달이면 말일)이다.

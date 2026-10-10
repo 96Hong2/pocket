@@ -222,6 +222,7 @@ test('기억을 지우지 못하면 그 줄이 그대로 남고 이유를 적는
   });
 
   await categories.rules.deleteButton(VET).click();
+  await categories.rules.confirmDeleteButton.click();
 
   await expect(categories.rules.failureNotice).toHaveText(SERVER_DOWN);
   /*
@@ -233,6 +234,7 @@ test('기억을 지우지 못하면 그 줄이 그대로 남고 이유를 적는
 
   await page.unroute(ONE_RULE);
   await categories.rules.deleteButton(VET).click();
+  await categories.rules.confirmDeleteButton.click();
 
   await expect(categories.rules.row(VET)).toHaveCount(0);
   await expect(categories.rules.emptyTitle).toBeVisible();

@@ -67,11 +67,11 @@ test('61 같이 쓰는 가계부를 만들고 초대한다', async ({
   }
   await demo.beat(2);
 
-  await demo.step('연인·부부를 고르면 이름과 돈 나누기가 채워져 있다');
+  await demo.step('연인·부부를 고르면 이름과 회비 방식이 채워져 있다');
   await books.create.kindButton('연인·부부').click();
   await expect(books.create.stepTitle('연인·부부')).toBeVisible();
   await expect(books.create.bookName).toHaveValue(BOOK);
-  await expect(books.create.settleOption('반반')).toHaveAttribute('aria-checked', 'true');
+  await expect(books.create.settleOption('나중에 정산')).toHaveAttribute('aria-checked', 'true');
   await demo.beat(2);
 
   await demo.step('내 이름만 적고 만들고 초대하기를 누른다');

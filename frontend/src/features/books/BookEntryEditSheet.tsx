@@ -28,12 +28,14 @@ import { AmountField, BottomSheet, Button, LeaveConfirm, iconOf } from '../../sh
 import { CategoryComposeOverlay, CategoryPickOverlay } from '../categories';
 
 import {
+  DEPOSIT_AVATAR,
   asPickable,
   deleteOthersText,
   editedLine,
   editedToast,
   entryCategory,
   entryTitle,
+  isDeposit,
   sameNameCategoryId,
   wroteLine,
 } from './bookEntryText';
@@ -55,6 +57,9 @@ export interface BookEntryEditSheetProps {
  *
  * **내가 적은 것은 묻지 않고 지운다.** 대신 「지웠어요 [되돌리기]」 알림을 띄운다.
  * 남이 적은 것을 관리자가 지울 때만 한 번 묻는다. 그 사람 화면에서도 사라지기 때문이다.
+ *
+ * 입금 기록이면 분류 칸과 「내 가계부로 옮기기」 가 없고, 「낸 사람」 이 「넣은 사람」 이다.
+ * 지우기 규칙은 지출과 같다.
  */
 export function BookEntryEditSheet({ book, entry, onClose }: BookEntryEditSheetProps) {
   const analytics = useAnalytics();
@@ -189,6 +194,7 @@ function EntryForm({
   const dayId = useId();
 
   const readOnly = book.ended;
+  const deposit = isDeposit(entry);
   const savedAmount = parseDecimalOr(entry.amount, 0);
   const [day, setDay] = useState(entry.occurred_on);
   const [title, setTitle] = useState(entry.title ?? '');
@@ -235,6 +241,8 @@ function EntryForm({
       entryCategory(book, entry));
   const edited = editedLine(book, entry);
   const own = entry.can_move;
+  // 지우기 묻기는 「적은 사람인가」 로 가른다. 나갔다 다시 들어오기 전 줄로 적은 것도 내 것이다.
+  const mine = entry.written_by_me;
 
   function changes(): BookEntryUpdate {
     const next: BookEntryUpdate = {};
@@ -316,7 +324,7 @@ function EntryForm({
 
   function askOrDelete(): void {
     // 내가 적은 것은 묻지 않는다. 알림의 되돌리기가 그 물음을 대신한다.
-    if (own) {
+    if (own || mine) {
       void destroy();
       return;
     }
@@ -330,10 +338,14 @@ function EntryForm({
         <div className="tx-edit__head">
           {/* 그림을 누르면 아래 분류 칸과 같은 고르기가 열린다. 완료한 가계부는 그림만 둔다. */}
           <EditHeadIcon
-            avatar={iconOf(headCategory)}
-            onPress={readOnly ? undefined : () => setPicking(true)}
+            avatar={deposit ? DEPOSIT_AVATAR : iconOf(headCategory)}
+            onPress={readOnly || deposit ? undefined : () => setPicking(true)}
             label={
-              headCategory == null ? '카테고리 고르기' : `카테고리 ${headCategory.name}, 바꾸기`
+              deposit
+                ? '입금'
+                : headCategory == null
+                  ? '카테고리 고르기'
+                  : `카테고리 ${headCategory.name}, 바꾸기`
             }
             disabled={busy || creating}
           />
@@ -346,7 +358,7 @@ function EntryForm({
           {edited != null ? <p className="book-edit__who-line">{edited}</p> : null}
         </div>
 
-        {own && !readOnly ? (
+        {own && !readOnly && !deposit ? (
           <BookDestinationRow
             className="book-edit__dest"
             books={[book]}
@@ -375,13 +387,13 @@ function EntryForm({
 
         <div className="tx-edit__fields">
           <label className="tx-edit__field">
-            <span className="tx-edit__label">상호</span>
+            <span className="tx-edit__label">{deposit ? '메모' : '상호'}</span>
             <input
               className="tx-edit__input"
               value={title}
               disabled={readOnly}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="어디서 썼나요"
+              placeholder={deposit ? '예: 10월 회비' : '어디서 썼나요'}
               maxLength={120}
             />
           </label>
@@ -395,8 +407,8 @@ function EntryForm({
           />
         </div>
 
-        {/* 적을 곳이 바뀌면 분류 칸도 그 가계부 것으로 바뀐다. 펼친 상태는 따라가지 않는다. */}
-        {toMine ? (
+        {/* 적을 곳이 바뀌면 분류 칸도 그 가계부 것으로 바뀐다. 펼친 상태는 따라가지 않는다. 입금은 분류가 없다. */}
+        {deposit ? null : toMine ? (
           <CategoryPicker
             key="mine"
             className="tx-edit__cats"
@@ -472,6 +484,7 @@ function EntryForm({
         {toMine ? null : (
           <BookPayerRow
             className="book-edit__payer"
+            label={deposit ? '넣은 사람' : '낸 사람'}
             book={book}
             value={payerId}
             disabled={busy || readOnly}

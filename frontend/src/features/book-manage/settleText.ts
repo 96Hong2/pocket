@@ -9,11 +9,12 @@
 import { parseDecimalOr, type SettlementOut } from '../../shared/api';
 import { formatCurrency } from '../../shared/lib/format';
 import { withJosa } from '../../shared/lib/josa';
+import { ruleSettles } from '../books';
 
 /**
  * 정산 화면 맨 위에 무엇을 말하나.
  *
- * - `none`     같이 모은 돈으로 쓰는 가계부. 정산이 없다
+ * - `none`     각자 입금 가계부. 먼저 넣고 같이 써서 정산이 없다
  * - `alone`    그 기간에 같이 쓴 사람이 없다(혼자였다)
  * - `balanced` 다 같이 낸 만큼 썼다. 보낼 돈이 없다
  * - `pair`     둘이면 한 문장. `line` 은 같은 내용을 「준호 → 은홍 12,500원」 으로 줄인 것
@@ -26,9 +27,13 @@ export type SettleSummary =
   | { state: 'pair'; text: string; line: string }
   | { state: 'many'; lines: string[] };
 
-/** 「준호가 은홍에게 12,500원 보내면 반반이에요」 */
-export function pairSentence(from: string, to: string, amount: number): string {
-  return `${withJosa(from, '이/가')} ${to}에게 ${formatCurrency(amount)} 보내면 반반이에요`;
+/**
+ * 「준호가 은홍에게 12,500원 보내면 반반이에요」. 비율로 나눴으면 「… 보내면 돼요」 다.
+ * 6:4 로 나눈 돈에 「반반」 은 틀린 말이다.
+ */
+export function pairSentence(from: string, to: string, amount: number, ratio = false): string {
+  const tail = ratio ? '보내면 돼요' : '보내면 반반이에요';
+  return `${withJosa(from, '이/가')} ${to}에게 ${formatCurrency(amount)} ${tail}`;
 }
 
 /** 「서연 → 은홍 182,000원」. 셋 이상일 때 한 줄씩 쓴다. */
@@ -50,7 +55,7 @@ export function settleSummary(
   settlement: SettlementOut,
   nameOf: (memberId: string) => string,
 ): SettleSummary {
-  if (settlement.rule === 'none') return { state: 'none' };
+  if (!ruleSettles(settlement.rule)) return { state: 'none' };
   if (settlement.members.length < 2) return { state: 'alone' };
 
   const transfers = settlement.transfers
@@ -66,7 +71,7 @@ export function settleSummary(
     const [only] = transfers;
     return {
       state: 'pair',
-      text: pairSentence(only.from, only.to, only.amount),
+      text: pairSentence(only.from, only.to, only.amount, settlement.ratio),
       line: transferLine(only.from, only.to, only.amount),
     };
   }

@@ -17,6 +17,8 @@ import {
 } from '../../shared/api';
 import { formatCurrency, LEDGER_TIME_ZONE, toLedgerDate } from '../../shared/lib/format';
 import { withJosa } from '../../shared/lib/josa';
+import { DEFAULT_START_DAY, monthName, periodContaining } from '../../shared/lib/monthPeriod';
+import type { IconName } from '../../shared/ui';
 
 import { findMember, memberName, otherActiveMembers } from './bookText';
 
@@ -59,9 +61,27 @@ export function sameNameCategoryId(
   return (found ?? targets.find((category) => category.name === '기타'))?.id ?? null;
 }
 
-/** 줄 제목. 적은 내용이 있으면 그것, 없으면 분류 이름이다. */
+/** 입금 기록인가. 입금은 분류가 없고 쓴 돈과 정산에 들지 않는다. */
+export function isDeposit(entry: BookEntryOut): boolean {
+  return entry.kind === 'deposit';
+}
+
+/** 입금 줄과 입금 고치기 맨 위 그림. 분류가 없어 늘 같은 저금통이다. */
+export const DEPOSIT_AVATAR: { icon: IconName; custom: null; color: null } = {
+  icon: '32_piggybank',
+  custom: null,
+  color: null,
+};
+
+/** 줄 제목. 적은 내용이 있으면 그것, 없으면 분류 이름이다. 입금은 「입금」 이다. */
 export function entryTitle(book: BookOut, entry: BookEntryOut): string {
+  if (isDeposit(entry)) return entry.title ?? '입금';
   return entry.title ?? entryCategory(book, entry)?.name ?? '기록';
+}
+
+/** 낸 사람 이름. 입금이면 넣은 사람이다. 나간 멤버는 「나간 멤버」 다. */
+export function payerName(book: BookOut, entry: BookEntryOut): string {
+  return memberName(findMember(book, entry.paid_by_member_id));
 }
 
 /** 적은 사람 이름. 나간 멤버는 「나간 멤버」 다. */
@@ -135,10 +155,19 @@ export function deleteOthersText(book: BookOut, entry: BookEntryOut): string {
   return `${withJosa(writer.name, '이/가')} 적은 기록이에요. 지우면 ${writer.name} 화면에서도 사라져요`;
 }
 
-/** `2026-09-01` 이 들어간 달이 오늘의 달이면 「이번 달」, 아니면 「8월」. */
-export function monthWord(periodStart: string, today: string): string {
-  if (periodStart.slice(0, 7) === today.slice(0, 7)) return '이번 달';
-  return `${Number(periodStart.slice(5, 7))}월`;
+/**
+ * 그 기간이 오늘이 든 기간이면 「이번 달」, 아니면 기간 이름(「8월」).
+ *
+ * 이름은 가계부 시작일로 정한다. 25일에 시작하면 9월 25일~10월 24일이 「10월」 이다.
+ */
+export function monthWord(
+  periodStart: string,
+  today: string,
+  startDay: number = DEFAULT_START_DAY,
+): string {
+  const key = periodContaining(periodStart, startDay).key;
+  if (key === periodContaining(today, startDay).key) return '이번 달';
+  return monthName(key);
 }
 
 /**
@@ -150,7 +179,9 @@ export function monthWord(periodStart: string, today: string): string {
  */
 export function monthLine(book: BookOut, month: BookMonthStateOut): string {
   const trip = book.kind === 'trip';
-  const when = trip ? '이번 여행' : monthWord(month.period_start, toLedgerDate(new Date()));
+  const when = trip
+    ? '이번 여행'
+    : monthWord(month.period_start, toLedgerDate(new Date()), book.month_start_day);
   const remaining = parseDecimal(month.remaining);
   if (month.budget != null && remaining != null && remaining < 0) {
     return `${when} 예산보다 ${formatCurrency(-remaining)} 더 썼어요`;
@@ -183,14 +214,16 @@ export function secondBookId(
   return ranked[0]?.id ?? null;
 }
 
-/** 정산 카드 제목. 여행 가계부는 달을 나누지 않는다. */
+/** 정산 카드 제목. 서버가 주는 기간 이름 달(`period`)로 부른다. 여행 가계부는 달을 나누지 않는다. */
 export function settleTitle(settlement: SettlementOut): string {
   if (settlement.period === 'all') return '여행 전체 정산';
-  return `${Number(settlement.period.slice(5, 7))}월 정산`;
+  return `${monthName(settlement.period)} 정산`;
 }
 
 /**
  * 정산 카드 한 줄. 둘이면 문장 하나, 셋 이상이면 보낼 돈 건수만 말한다.
+ *
+ * 똑같이 나눴으면 「보내면 반반이에요」, 비율로 나눴으면 「보내면 돼요」 다. 6:4 에 반반은 틀린 말이다.
  *
  * 끝낸 뒤 기록이 바뀌었으면 끝났다고 말하지 않는다. 다시 계산한 결과를 보여 준다.
  */
@@ -204,7 +237,8 @@ export function settleLine(book: BookOut, settlement: SettlementOut): string {
     const [only] = transfers;
     const from = memberName(findMember(book, only.from_member_id));
     const to = memberName(findMember(book, only.to_member_id));
-    return `${withJosa(from, '이/가')} ${to}에게 ${formatCurrency(Number(only.amount))} 보내면 반반이에요`;
+    const tail = settlement.ratio ? '보내면 돼요' : '보내면 반반이에요';
+    return `${withJosa(from, '이/가')} ${to}에게 ${formatCurrency(Number(only.amount))} ${tail}`;
   }
   return `보낼 돈 ${transfers.length}건`;
 }

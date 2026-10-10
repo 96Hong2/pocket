@@ -10,7 +10,14 @@ import {
   type CategoryOut,
   type MonthParams,
 } from '../../shared/api';
-import { AmountField, BottomSheet, Button, CategoryAvatar, iconOf } from '../../shared/ui';
+import {
+  AmountField,
+  BottomSheet,
+  Button,
+  CategoryAvatar,
+  LeaveConfirm,
+  iconOf,
+} from '../../shared/ui';
 
 /** 열려 있으면 대상이 있다. `categoryId` 가 null 이면 새로 추가하는 중이다. */
 export interface CategoryBudgetTarget {
@@ -91,6 +98,9 @@ function CategoryBudgetForm({
 }: CategoryBudgetFormProps) {
   const save = useSaveCategoryBudget(month);
   const remove = useDeleteCategoryBudget(month);
+  // 지우기는 화면 위 창으로 한 번 묻는다. 창이 떠 있으면 뒤로가기는 창만 닫는다.
+  const [confirming, setConfirming] = useState(false);
+  useOverlayBackClose(confirming, () => setConfirming(false));
 
   const saved = rows.find((row) => row.category_id === categoryId) ?? null;
   const [picked, setPicked] = useState<string | null>(categoryId);
@@ -165,18 +175,7 @@ function CategoryBudgetForm({
 
       <div className="budget-sheet__actions">
         {categoryId != null ? (
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() => {
-              // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
-              onBusyChange(true);
-              remove.mutate(categoryId, {
-                onSettled: () => onBusyChange(false),
-                onSuccess: onClose,
-              });
-            }}
-          >
+          <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>
             지우기
           </Button>
         ) : null}
@@ -195,6 +194,25 @@ function CategoryBudgetForm({
           저장
         </Button>
       </div>
+
+      {confirming && categoryId != null ? (
+        <LeaveConfirm
+          ariaLabel="지우기 확인"
+          text={`${current?.name ?? '이 카테고리'} 한도를 지울까요? 적어 둔 기록은 그대로 남아요`}
+          leaveLabel="지우기"
+          stayLabel="그대로 둘게요"
+          onStay={() => setConfirming(false)}
+          onLeave={() => {
+            setConfirming(false);
+            // 껍데기 쪽이 닫기를 막을 수 있게 알린다. 여기서만 켜고 응답에서 끈다.
+            onBusyChange(true);
+            remove.mutate(categoryId, {
+              onSettled: () => onBusyChange(false),
+              onSuccess: onClose,
+            });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

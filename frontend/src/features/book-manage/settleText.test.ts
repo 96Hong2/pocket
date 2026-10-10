@@ -16,6 +16,7 @@ function settlement(overrides: Partial<SettlementOut>): SettlementOut {
     total: '0',
     members: [],
     transfers: [],
+    ratio: false,
     done: null,
     changed_after_done: false,
     ...overrides,
@@ -23,7 +24,7 @@ function settlement(overrides: Partial<SettlementOut>): SettlementOut {
 }
 
 function member(id: string, paid: string) {
-  return { member_id: id, paid, share: '0', balance: '0' };
+  return { member_id: id, paid, share: '0', balance: '0', percent: null };
 }
 
 describe('settleSummary', () => {
@@ -75,7 +76,24 @@ describe('settleSummary', () => {
     expect(summary).toEqual({ state: 'balanced' });
   });
 
-  it('같이 모은 돈 가계부와 혼자인 기간은 정산 문장을 만들지 않는다', () => {
+  it('비율로 나눴으면 「반반」 대신 「보내면 돼요」 다', () => {
+    const summary = settleSummary(
+      settlement({
+        ratio: true,
+        total: '100000',
+        members: [member('a', '100000'), member('b', '0')],
+        transfers: [{ from_member_id: 'b', to_member_id: 'a', amount: '40000' }],
+      }),
+      nameOf,
+    );
+    expect(summary).toEqual({
+      state: 'pair',
+      text: '준호가 은홍에게 40,000원 보내면 돼요',
+      line: '준호 → 은홍 40,000원',
+    });
+  });
+
+  it('각자 입금 가계부와 혼자인 기간은 정산 문장을 만들지 않는다', () => {
     expect(settleSummary(settlement({ rule: 'none' }), nameOf)).toEqual({ state: 'none' });
     expect(settleSummary(settlement({ members: [member('a', '5000')] }), nameOf)).toEqual({
       state: 'alone',

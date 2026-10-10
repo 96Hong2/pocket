@@ -612,6 +612,50 @@ export function useBookSettlement(
 }
 
 /**
+ * 이번 기간 사람마다 회비 상태. 설정의 멤버 줄에 「입금완료」·「정산완료」 를 세운다.
+ *
+ * 기록이나 정산이 바뀌면 `book(id)` 뿌리째 낡아 함께 다시 받는다.
+ */
+export function useBookDues(bookId: string | null, month?: MonthParams) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useQuery({
+    queryKey: queryKeys.bookDues(bookId ?? '', month),
+    queryFn: ({ signal }) => client.getBookDues(requireId(bookId), month, { signal }),
+    enabled: isReady && bookId != null,
+  });
+}
+
+/** 멤버 내역 한 쪽에 싣는 줄 수. 서버 기본값과 같다. */
+export const MEMBER_ENTRIES_PAGE = 50;
+
+/**
+ * 한 멤버가 낸 지출과 넣은 입금. 「더 보기」 로 앞선 날을 이어 받는다.
+ *
+ * 쪽 사이 커서는 앞 쪽 마지막 줄의 id(`next_cursor`)다. 같은 날이 두 쪽에 갈릴 수 있어
+ * 날짜 머리는 받은 줄을 모두 이어 붙인 뒤에 묶는다.
+ */
+export function useBookMemberEntries(bookId: string | null, memberId: string | null) {
+  const client = useApiClient();
+  const isReady = useApiReady();
+
+  return useInfiniteQuery({
+    queryKey: queryKeys.bookMemberEntries(bookId ?? '', memberId ?? ''),
+    queryFn: ({ pageParam, signal }) =>
+      client.listMemberEntries(
+        requireId(bookId),
+        requireId(memberId),
+        { cursor: pageParam ?? undefined, limit: MEMBER_ENTRIES_PAGE },
+        { signal },
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor ?? null,
+    enabled: isReady && bookId != null && memberId != null,
+  });
+}
+
+/**
  * 초대 미리보기. 코드가 없거나 비어 있으면 묻지 않는다.
  *
  * 모르는 코드, 지운 가계부, 스위치가 꺼진 서버는 모두 404 로 온다. 화면은 셋을 같은 말로 안내한다.
