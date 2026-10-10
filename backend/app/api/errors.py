@@ -24,6 +24,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import get_settings
 from app.integrations.apps_in_toss.anon_key import (
     AnonKeyAuthError,
+    AnonKeyRateLimited,
     AnonKeyVerificationUnavailable,
 )
 
@@ -165,6 +166,16 @@ def install_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content=_body(ErrorCode.UNAUTHORIZED, "사용자 정보를 확인하지 못했어요."),
+        )
+
+    @app.exception_handler(AnonKeyRateLimited)
+    async def _auth_rate_limited(_: Request, exc: AnonKeyRateLimited) -> JSONResponse:
+        # 분석 몰아치기와 같은 code 와 문구다. 실사용자는 검증에 실패하지 않아 닿을 일이 없다.
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content=_body(
+                ErrorCode.USAGE_LIMIT, "조금 빠르게 이어서 부르고 있어요. 잠시 뒤에 다시 해 주세요."
+            ),
         )
 
     @app.exception_handler(AnonKeyVerificationUnavailable)

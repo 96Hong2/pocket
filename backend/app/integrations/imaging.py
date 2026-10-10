@@ -18,15 +18,34 @@ from __future__ import annotations
 
 import io
 import logging
+import threading
 
 from PIL import Image, ImageChops, ImageOps
 
 from app.core.config import get_settings
 from app.integrations.llm import LlmImage
 
-__all__ = ["max_long_edge", "prepare_image"]
+__all__ = ["MAX_IMAGE_PIXELS", "max_long_edge", "prepare_image"]
 
 logger = logging.getLogger(__name__)
+
+# 받아 주는 화소 수 상한. 폰 사진 4032x3024 는 약 1,200만, 긴 스크롤 캡처 1080x20000 도
+# 약 2,200만이라 넉넉하다. 이보다 큰 그림은 `app/api/images.py` 가 풀기 전에 422 로 막는다.
+# Pillow 의 폭탄 검사도 같은 값으로 맞춘다. 기본값(약 8,900만)으로는 압축 뒤 수백 KB 짜리
+# 단색 PNG 한 장이 풀리면서 인스턴스 메모리를 다 쓴다.
+MAX_IMAGE_PIXELS = 50_000_000
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+
+# 이보다 큰 그림은 원본 해상도로 통째로 풀지 않는다. JPEG 은 줄여서 풀고,
+# 줄여 풀 수 없는 PNG·WebP 는 다듬지 않고 원본을 보낸다(다듬기가 실패했을 때와 같은 결과).
+_FULL_DECODE_PIXELS = 16_000_000
+
+# 여백을 찾을 때 한 번에 보는 띠의 화소 수. 원본 크기 RGB 사본을 여러 벌 만들지 않으려고 나눠 본다.
+_STRIP_PIXELS = 1_000_000
+
+# 동시에 다듬는 사진 수. 큰 사진 여럿이 한꺼번에 풀리면 메모리가 끝난다.
+# 한 장에 길어야 1초 안팎이라, 넘치는 요청은 잠깐 기다릴 뿐 실패하지 않는다.
+_DECODING = threading.BoundedSemaphore(2)
 
 
 def max_long_edge() -> int:
@@ -50,7 +69,8 @@ _JPEG_QUALITY = 85
 def prepare_image(image: LlmImage) -> LlmImage:
     """돌리고 · 여백을 잘라내고 · 줄인 사진. 못 다듬으면 원본 그대로."""
     try:
-        return _prepare(image)
+        with _DECODING:
+            return _prepare(image)
     except Exception:
         # 원본을 보내는 것이 아무것도 못 보내는 것보다 낫다.
         logger.warning("사진을 다듬지 못해 원본을 그대로 보낸다", exc_info=True)
@@ -59,11 +79,17 @@ def prepare_image(image: LlmImage) -> LlmImage:
 
 def _prepare(image: LlmImage) -> LlmImage:
     with Image.open(io.BytesIO(image.data)) as opened:
-        opened.load()
         before = opened.size
-        # exif_transpose 가 회전과 함께 그 태그를 지운다. 두 번 돌지 않는다.
-        picture = ImageOps.exif_transpose(opened) or opened
-        picture = _trim_border(picture)
+        if before[0] * before[1] > _FULL_DECODE_PIXELS:
+            if opened.format != "JPEG":
+                logger.info("사진이 너무 커서 다듬지 않고 보낸다 %dx%d", *before)
+                return image
+            # 디코드 단계에서 1/2·1/4·1/8 로 줄여 푼다. 줄인 뒤 크기의 두 배는 남겨 화질을 지킨다.
+            opened.draft(opened.mode, _draft_size(before))
+        opened.load()
+        # 회전과 함께 그 태그를 지운다. 제자리에서 돌려 원본 크기 사본을 하나 덜 만든다.
+        ImageOps.exif_transpose(opened, in_place=True)
+        picture = _trim_border(opened)
         picture = _shrink(picture)
         data, media_type = _encode(picture)
 
@@ -81,20 +107,40 @@ def _prepare(image: LlmImage) -> LlmImage:
     return LlmImage(media_type=media_type, data=data)
 
 
+def _draft_size(size: tuple[int, int]) -> tuple[int, int]:
+    """JPEG 을 줄여 풀 때 남길 크기. 긴 변 상한으로 줄인 크기의 두 배다."""
+    ratio = min(1.0, max_long_edge() / max(size))
+    return (max(1, round(size[0] * ratio * 2)), max(1, round(size[1] * ratio * 2)))
+
+
 def _trim_border(picture: Image.Image) -> Image.Image:
     """네 귀퉁이와 같은 색으로 둘린 테두리를 잘라낸다.
 
     기준색은 왼쪽 위 한 점이다. 캡처의 여백은 거기서 시작한다.
     너무 많이 잘리면 사진 전체가 그 색에 가까운 것이라 보고 손대지 않는다.
+
+    가로 띠로 나눠 본다. 점마다 따로 판정하므로 통째로 볼 때와 결과가 같고,
+    원본 크기 RGB 사본 세 벌을 한꺼번에 만들지 않는다.
     """
-    flat = picture.convert("RGB")
-    background = Image.new("RGB", flat.size, flat.getpixel((0, 0)))
-    diff = ImageChops.difference(flat, background).convert("L")
-    box = diff.point(lambda value: 255 if value > _BORDER_TOLERANCE else 0).getbbox()
+    width, height = picture.size
+    corner = picture.crop((0, 0, 1, 1)).convert("RGB").getpixel((0, 0))
+    rows = max(1, _STRIP_PIXELS // width)
+    box: tuple[int, int, int, int] | None = None
+    for top in range(0, height, rows):
+        strip = picture.crop((0, top, width, min(height, top + rows))).convert("RGB")
+        background = Image.new("RGB", strip.size, corner)
+        diff = ImageChops.difference(strip, background).convert("L")
+        found = diff.point(lambda value: 255 if value > _BORDER_TOLERANCE else 0).getbbox()
+        if found is None:
+            continue
+        left, upper, right, lower = found[0], found[1] + top, found[2], found[3] + top
+        if box is None:
+            box = (left, upper, right, lower)
+        else:
+            box = (min(box[0], left), box[1], max(box[2], right), lower)
     if box is None:
         return picture
 
-    width, height = picture.size
     kept = (box[2] - box[0]) * (box[3] - box[1])
     if kept < width * height * _MIN_KEPT_RATIO:
         return picture

@@ -85,12 +85,24 @@ def read_capture(
 ) -> list[CaptureRow]:
     """잔액 화면 한 장을 읽는다. 잔액이 없는 그림이면 빈 목록이다."""
     day = ledger.today_for(user)
-    imports.require_quota(session, user, day, label="자산 캡처 분석")
-    sent = prepare_image(image)
     rows = asset_names.current_rows(session, user)
+    prompt = asset_capture_prompt(asset_names.hints(rows))
+    # 다듬기 전에 센다. 커밋이 DB 연결을 돌려줘서 모델을 기다리는 동안 풀을 쥐지 않는다.
+    usage = imports.reserve_usage(
+        session,
+        user,
+        day,
+        label="자산 캡처 분석",
+        count=1,
+        client=client,
+        source=_SOURCE,
+        input_length=len(image.data),
+        redacted_count=0,
+    )
+    sent = prepare_image(image)
     call = partial(
         client.extract,
-        prompt=asset_capture_prompt(asset_names.hints(rows)),
+        prompt=prompt,
         schema=AssetExtraction,
         image=sent,
         today=day,
@@ -98,7 +110,7 @@ def read_capture(
     try:
         extraction = anyio.from_thread.run(call)
     except LlmError as exc:
-        _record(session, user, client, len(sent.data), found=0, failed=True)
+        # 사용량 줄은 이미 「실패」 로 적혀 있다.
         raise ApiError(
             ErrorCode.PARSE_UNAVAILABLE,
             "지금은 캡처를 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
@@ -106,7 +118,14 @@ def read_capture(
         ) from exc
     keys = [row.item_key for row in rows if row.item_key is not None]
     found = _candidates(extraction, rows, entries.ledger_keys(session, user, keys))
-    _record(session, user, client, len(sent.data), found=len(found), failed=False)
+    usage.settle(
+        answered=1,
+        model=client.model,
+        input_length=len(sent.data),
+        redacted_count=0,
+        candidate_count=len(found),
+    )
+    session.commit()
     if not found:
         logger.info("자산 캡처에서 잔액을 찾지 못했다")
     return found
@@ -117,22 +136,31 @@ def read_text(
 ) -> list[CaptureRow]:
     """적은 보유 내역을 캡처와 같은 후보 목록으로 읽는다. 금액이 없는 글이면 빈 목록이다."""
     day = ledger.today_for(user)
-    imports.require_quota(session, user, day, label="줄글 분석")
     # 저장하지 않는 것만으로는 부족하다. 보내기 전에 계좌번호를 가린다.
     cleaned = redact(text)
     rows = asset_names.current_rows(session, user)
+    prompt = asset_text_prompt(asset_names.hints(rows))
+    usage = imports.reserve_usage(
+        session,
+        user,
+        day,
+        label="줄글 분석",
+        count=1,
+        client=client,
+        source=_TEXT_SOURCE,
+        input_length=len(text),
+        redacted_count=cleaned.count,
+    )
     call = partial(
         client.extract,
-        prompt=asset_text_prompt(asset_names.hints(rows)),
+        prompt=prompt,
         schema=AssetExtraction,
         text=cleaned.text,
         today=day,
     )
-    size = len(text)
     try:
         extraction = anyio.from_thread.run(call)
     except LlmError as exc:
-        _record(session, user, client, size, found=0, failed=True, source=_TEXT_SOURCE)
         raise ApiError(
             ErrorCode.PARSE_UNAVAILABLE,
             "지금은 글을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
@@ -140,42 +168,15 @@ def read_text(
         ) from exc
     keys = [row.item_key for row in rows if row.item_key is not None]
     found = _candidates(extraction, rows, entries.ledger_keys(session, user, keys), typed=True)
-    _record(
-        session,
-        user,
-        client,
-        size,
-        found=len(found),
-        failed=False,
-        source=_TEXT_SOURCE,
-        redacted=cleaned.count,
+    usage.settle(
+        answered=1,
+        model=client.model,
+        input_length=len(text),
+        redacted_count=cleaned.count,
+        candidate_count=len(found),
     )
+    session.commit()
     return found
-
-
-def _record(
-    session: Session,
-    user: User,
-    client: LlmStructuredClient,
-    size: int,
-    *,
-    found: int,
-    failed: bool,
-    source: TransactionSource = _SOURCE,
-    redacted: int = 0,
-) -> None:
-    imports.record_usage(
-        session,
-        user,
-        client=client,
-        source=source,
-        input_length=size,
-        redacted_count=redacted,
-        candidate_count=found,
-        model=None if failed else client.model,
-        escalated=False,
-        failed=failed,
-    )
 
 
 def _candidates(

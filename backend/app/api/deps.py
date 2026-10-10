@@ -10,7 +10,7 @@ import hashlib
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -35,6 +35,7 @@ __all__ = [
     "EscalationLlmClient",
     "LlmClient",
     "anon_key_hash",
+    "client_ip",
     "get_current_user",
     "get_verifier",
 ]
@@ -84,14 +85,35 @@ def anon_key_hash(anon_key: str) -> str:
 _hash = anon_key_hash
 
 
+def client_ip(request: Request) -> str | None:
+    """요청을 보낸 곳의 IP. 틀린 익명키를 곳마다 세는 데만 쓴다.
+
+    **X-Forwarded-For 의 마지막 값을 쓴다.** 앞쪽 값은 보내는 쪽이 마음대로 적을 수 있고,
+    Cloud Run 앞단(Google Front End)은 실제로 연결해 온 주소를 맨 뒤에 덧붙인다.
+    uvicorn `--proxy-headers --forwarded-allow-ips='*'` 는 첫 값을 `request.client` 로 바꿔
+    두므로 그 값은 믿지 않는다. 그 값으로 세면 요청마다 다른 IP 를 적어 보내 상한을 피한다.
+    앞에 외부 HTTPS 부하분산기를 두면 그 주소가 맨 뒤에 하나 더 붙으므로 끝에서 두 번째를 봐야 한다.
+    """
+    hops = [
+        hop.strip()
+        for value in request.headers.getlist("x-forwarded-for")
+        for hop in value.split(",")
+        if hop.strip()
+    ]
+    if hops:
+        return hops[-1]
+    return request.client.host if request.client is not None else None
+
+
 async def get_verified_identity(
+    request: Request,
     verifier: Annotated[AnonKeyVerifier, Depends(get_verifier)],
     x_anon_key: Annotated[str | None, Header(alias="X-Anon-Key")] = None,
 ) -> VerifiedIdentity:
     """검증은 외부 호출이라 async 로 둔다. DB 는 아래 동기 의존성이 맡는다."""
     if not x_anon_key:
         raise ApiError(ErrorCode.UNAUTHORIZED, "사용자 정보를 확인하지 못했어요.", status_code=401)
-    return await verifier.verify(x_anon_key)
+    return await verifier.verify(x_anon_key, client=client_ip(request))
 
 
 def get_current_user(

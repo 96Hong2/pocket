@@ -7,14 +7,16 @@
 from __future__ import annotations
 
 import base64
+import json
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.body_limit import MAX_BODY_BYTES
+from app.api.body_limit import DEFAULT_MAX_BODY_BYTES, MAX_BODY_BYTES, PhotoBodyGate
 from app.api.deps import _verifier_for
 from app.core.config import Settings, get_settings
+from app.domain.category_icons import CUSTOM_ICON_MAX_LENGTH
 from app.main import create_app
 from app.models import ParseUsage, User
 from app.modules.imports.schemas import MAX_IMAGE_DATA_URL_LENGTH
@@ -145,3 +147,123 @@ def test_로컬_앱은_문서를_달고_뜬다(monkeypatch: pytest.MonkeyPatch) 
     assert app.openapi_url == "/openapi.json"
     get_settings.cache_clear()
     _verifier_for.cache_clear()
+
+
+# ── 길마다 다른 본문 상한 ─────────────────────────────────
+#
+# 12MB 는 사진 세 길에만 둔다. 나머지 길에 12MB JSON 을 보내면 푸는 동안 수백 MB 를 잡는다.
+
+
+def test_사진_길이_아니면_1MB_를_넘는_본문은_인증_전에_끊긴다(
+    unauthenticated_client: TestClient,
+) -> None:
+    big = "[" + ",".join(["{}"] * 700_000) + "]"
+    assert DEFAULT_MAX_BODY_BYTES < len(big) < MAX_BODY_BYTES
+
+    response = unauthenticated_client.post(
+        "/api/v1/transactions", content=big, headers={"Content-Type": "application/json"}
+    )
+
+    assert response.status_code == 413
+    assert response.json()["error"]["message"] == "보낸 내용이 너무 커요."
+
+
+def test_가장_큰_사진_아이콘을_단_분류도_1MB_안에_들어간다(
+    client: TestClient, default_categories
+) -> None:
+    """사진 아닌 길에서 가장 큰 본문이다. 상한을 바꿔도 이 요청은 413 이 아니어야 한다."""
+    del default_categories
+    icon = "data:image/jpeg;base64," + "A" * (CUSTOM_ICON_MAX_LENGTH - 23)
+    body = {"name": "아이콘", "kind": "expense", "icon_key": "etc", "icon_custom": icon}
+
+    response = client.post("/api/v1/categories", json=body, headers=AUTH)
+
+    assert len(icon) == CUSTOM_ICON_MAX_LENGTH
+    assert response.status_code != 413, response.text
+
+
+def test_사진_길도_익명키가_없으면_본문을_읽기_전에_401(
+    unauthenticated_client: TestClient,
+) -> None:
+    big = "data:image/png;base64," + "A" * 5_000_000
+    response = unauthenticated_client.post("/api/v1/imports/receipt", json={"image": big})
+
+    assert response.status_code == 401
+    assert response.json()["error"] == {
+        "code": "UNAUTHORIZED",
+        "message": "사용자 정보를 확인하지 못했어요.",
+    }
+
+
+async def _gate_call(
+    gate: PhotoBodyGate, *, path: str, length: int | None, key: bool = True
+) -> tuple[int, bytes, bool]:
+    """문 하나만 돌린다. 안쪽 앱에 닿았는지와 본문을 읽었는지를 돌려준다."""
+    headers = [(b"content-type", b"application/json")]
+    if length is not None:
+        headers.append((b"content-length", str(length).encode()))
+    if key:
+        headers.append((b"x-anon-key", b"k"))
+    scope = {"type": "http", "method": "POST", "path": path, "headers": headers}
+    read = False
+    sent: list[dict] = []
+
+    async def receive() -> dict:
+        nonlocal read
+        read = True
+        return {"type": "http.request", "body": b"{}", "more_body": False}
+
+    async def send(message: dict) -> None:
+        sent.append(message)
+
+    gate.app = _inner_ok
+    await gate(scope, receive, send)  # type: ignore[arg-type]
+    return sent[0]["status"], sent[1]["body"], read
+
+
+async def _inner_ok(scope, receive, send) -> None:  # type: ignore[no-untyped-def]
+    await receive()
+    await send({"type": "http.response.start", "status": 201, "headers": []})
+    await send({"type": "http.response.body", "body": b"{}"})
+
+
+async def test_큰_사진_본문이_몰리면_읽기_전에_503() -> None:
+    gate = PhotoBodyGate(_inner_ok, max_large=2)
+    gate.active = 2
+
+    status, body, read = await _gate_call(gate, path="/api/v1/imports/capture", length=5_000_000)
+
+    assert (status, read) == (503, False)
+    assert json.loads(body)["error"] == {
+        "code": "PARSE_UNAVAILABLE",
+        "message": "지금은 캡처를 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+    }
+
+
+async def test_자리가_있으면_큰_사진도_평소대로_받고_자리를_돌려준다() -> None:
+    gate = PhotoBodyGate(_inner_ok, max_large=2)
+
+    status, _, read = await _gate_call(gate, path="/api/v1/assets/capture", length=5_000_000)
+    # 길이를 안 적은 본문도 큰 본문으로 센다.
+    chunked, _, _ = await _gate_call(gate, path="/api/v1/imports/receipt", length=None)
+
+    assert (status, read, chunked) == (201, True, 201)
+    assert gate.active == 0
+
+
+async def test_작은_사진은_자리가_다_차도_받는다() -> None:
+    gate = PhotoBodyGate(_inner_ok, max_large=1)
+    gate.active = 1
+
+    status, _, _ = await _gate_call(gate, path="/api/v1/imports/capture", length=300_000)
+
+    assert status == 201
+
+
+async def test_문은_사진_세_길만_거른다() -> None:
+    gate = PhotoBodyGate(_inner_ok, max_large=1)
+    gate.active = 1
+
+    status, _, _ = await _gate_call(gate, path="/api/v1/imports/text", length=None, key=False)
+
+    assert status == 201

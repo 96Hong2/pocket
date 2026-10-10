@@ -39,6 +39,10 @@ class AnonKeyVerificationUnavailable(Exception):
     """지금은 확인할 수 없다. 한도 초과·네트워크 오류 등, 다시 시도할 수 있다."""
 
 
+class AnonKeyRateLimited(Exception):
+    """한 곳에서 틀린 키가 너무 많이 왔다. 토스에 묻지 않고 잠시 막는다."""
+
+
 class AnonKeyVerifierMisconfigured(RuntimeError):
     """검증기를 고를 수 없는 설정. 기동을 멈춘다."""
 
@@ -60,7 +64,8 @@ class VerifiedIdentity:
 
 @runtime_checkable
 class AnonKeyVerifier(Protocol):
-    async def verify(self, anon_key: str) -> VerifiedIdentity: ...
+    # client 는 요청을 보낸 곳(IP)이다. 틀린 키를 곳마다 세는 검증기만 쓴다.
+    async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity: ...
 
 
 class TossAnonKeyVerifier:
@@ -69,7 +74,8 @@ class TossAnonKeyVerifier:
     def __init__(self, client: TossApiClient) -> None:
         self._client = client
 
-    async def verify(self, anon_key: str) -> VerifiedIdentity:
+    async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity:
+        del client
         if not anon_key:
             raise AnonKeyAuthError("익명키가 비어 있다")
         try:
@@ -105,11 +111,62 @@ class TrustingAnonKeyVerifier:
     def __init__(self) -> None:
         logger.warning("익명키를 검증하지 않는 개발용 검증기를 쓴다. 운영에서 쓰면 안 된다.")
 
-    async def verify(self, anon_key: str) -> VerifiedIdentity:
+    async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity:
+        del client
         if not anon_key:
             raise AnonKeyAuthError("익명키가 비어 있다")
         logger.warning("익명키를 검증 없이 통과시킨다 (개발용)")
         return VerifiedIdentity(anon_key=anon_key, verified_by="trusting")
+
+
+class FailureLimiter:
+    """곳(IP)마다 틀린 키를 센다. 1분에 `limit` 번을 넘기면 그 창이 끝날 때까지 막는다.
+
+    아무 문자열이나 익명키로 보내면 그때마다 토스 검증 API 를 부른다. 그 한도(미니앱당 분당
+    3,000회)를 남이 채우면 처음 들어오는 실사용자 검증이 줄을 선다. 실사용자는 검증에 실패할
+    일이 없어 상한을 넉넉히 둔다. 통신사 NAT 뒤 여러 사람이 한 IP 를 써도 닿지 않는 값이다.
+
+    인스턴스 메모리에만 센다. 인스턴스가 여럿이면 곳마다 그 수만큼 더 받는다.
+    """
+
+    def __init__(
+        self,
+        *,
+        limit: int = 60,
+        window_seconds: float = 60.0,
+        max_entries: int = 10_000,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._limit = limit
+        self._window = window_seconds
+        self._max_entries = max_entries
+        self._clock = clock
+        self._entries: dict[str, tuple[float, int]] = {}
+
+    def blocked(self, client: str) -> bool:
+        entry = self._entries.get(client)
+        if entry is None or self._clock() - entry[0] >= self._window:
+            return False
+        return entry[1] >= self._limit
+
+    def record(self, client: str) -> None:
+        now = self._clock()
+        entry = self._entries.get(client)
+        if entry is None or now - entry[0] >= self._window:
+            if len(self._entries) >= self._max_entries:
+                self._evict(now)
+            self._entries[client] = (now, 1)
+            return
+        self._entries[client] = (entry[0], entry[1] + 1)
+
+    def _evict(self, now: float) -> None:
+        for key in [k for k, (start, _) in self._entries.items() if now - start >= self._window]:
+            del self._entries[key]
+        if len(self._entries) >= self._max_entries:
+            for key in sorted(self._entries, key=lambda k: self._entries[k][0])[
+                : self._max_entries // 2
+            ]:
+                del self._entries[key]
 
 
 class CachingAnonKeyVerifier:
@@ -117,7 +174,12 @@ class CachingAnonKeyVerifier:
 
     화면 하나가 목록·요약을 함께 부르므로 검증 호출이 요청 수만큼 늘어난다.
     토스 서버 API 한도는 미니앱당 분당 3,000회라, 캐시가 없으면 사용자가 늘수록
-    한도에 먼저 걸린다. 성공만 캐시하고 실패는 매번 다시 묻는다.
+    한도에 먼저 걸린다.
+
+    성공은 10분 기억한다. 틀린 키는 30초만 기억해 같은 키를 되풀이해 보내도 토스에 다시 묻지
+    않는다. 매번 다른 문자열을 보내는 것은 `FailureLimiter` 가 곳마다 세어 막는다.
+    **기억해 둔 성공은 막힌 곳에서도 통과한다.** 공격자와 같은 IP 뒤에 있는 실사용자가
+    이미 쓰던 중이면 그대로 쓴다.
     """
 
     def __init__(
@@ -125,21 +187,26 @@ class CachingAnonKeyVerifier:
         inner: AnonKeyVerifier,
         *,
         ttl_seconds: float = 600.0,
+        rejected_ttl_seconds: float = 30.0,
         max_entries: int = 10_000,
+        limiter: FailureLimiter | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._inner = inner
         self._ttl = ttl_seconds
+        self._rejected_ttl = rejected_ttl_seconds
         self._max_entries = max_entries
         self._clock = clock
+        self._limiter = limiter if limiter is not None else FailureLimiter(clock=clock)
         self._entries: dict[str, tuple[float, VerifiedIdentity]] = {}
+        self._rejected: dict[str, float] = {}
 
     @staticmethod
     def _key(anon_key: str) -> str:
         # 원문을 메모리에 키로 두지 않는다.
         return hashlib.sha256(anon_key.encode("utf-8")).hexdigest()
 
-    async def verify(self, anon_key: str) -> VerifiedIdentity:
+    async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity:
         if not anon_key:
             raise AnonKeyAuthError("익명키가 비어 있다")
         key = self._key(anon_key)
@@ -153,11 +220,29 @@ class CachingAnonKeyVerifier:
                 claims=cached[1].claims,
             )
 
-        identity = await self._inner.verify(anon_key)
+        rejected = self._rejected.get(key)
+        if rejected is not None and rejected > now:
+            self._failed(client)
+            raise AnonKeyAuthError("방금 틀린 익명키")
+        if client is not None and self._limiter.blocked(client):
+            raise AnonKeyRateLimited("틀린 익명키가 한 곳에서 너무 많이 왔다")
+
+        try:
+            identity = await self._inner.verify(anon_key)
+        except AnonKeyAuthError:
+            if len(self._rejected) >= self._max_entries:
+                self._evict_rejected(now)
+            self._rejected[key] = now + self._rejected_ttl
+            self._failed(client)
+            raise
         if len(self._entries) >= self._max_entries:
             self._evict(now)
         self._entries[key] = (now + self._ttl, identity)
         return identity
+
+    def _failed(self, client: str | None) -> None:
+        if client is not None:
+            self._limiter.record(client)
 
     def _evict(self, now: float) -> None:
         expired = [k for k, (until, _) in self._entries.items() if until <= now]
@@ -169,6 +254,12 @@ class CachingAnonKeyVerifier:
                 : self._max_entries // 2
             ]:
                 del self._entries[k]
+
+    def _evict_rejected(self, now: float) -> None:
+        for k in [k for k, until in self._rejected.items() if until <= now]:
+            del self._rejected[k]
+        if len(self._rejected) >= self._max_entries:
+            self._rejected.clear()
 
 
 @dataclass(frozen=True, slots=True)

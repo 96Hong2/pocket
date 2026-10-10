@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.body_limit import BodySizeLimitMiddleware
+from app.api.body_limit import BodySizeLimitMiddleware, PhotoBodyGate
 from app.api.deps import get_verifier
 from app.api.errors import install_exception_handlers
 from app.core.config import get_settings
@@ -62,6 +62,10 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if interactive_docs else None,
         openapi_url="/openapi.json" if interactive_docs else None,
     )
+
+    # 사진 세 길의 키 없는 요청과 몰린 큰 본문을 읽기 전에 거른다.
+    # CORS 안쪽이라 이 답에는 CORS 헤더가 붙는다.
+    app.add_middleware(PhotoBodyGate)
 
     # 미니앱 WebView 와 QR 테스트 origin 을 모두 허용한다.
     app.add_middleware(

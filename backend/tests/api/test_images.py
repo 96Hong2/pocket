@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import base64
 import logging
+import struct
 import traceback
+import zlib
 
 import pytest
 
 from app.api.errors import ApiError
 from app.api.images import MAX_IMAGE_BYTES, decode_data_url
+from app.integrations.imaging import MAX_IMAGE_PIXELS
 
 # 진짜 1x1 PNG. 매직바이트를 흉내 내지 않고 실제 파일 앞머리를 쓴다.
 PNG_BYTES = base64.b64decode(
@@ -202,3 +205,42 @@ def test_실패_문구는_이유를_나누지_않는다() -> None:
         messages.add(caught.value.message)
 
     assert messages == {"사진을 읽지 못했어요."}
+
+
+# ── 화소 수 ──────────────────────────────────────────────
+#
+# 바이트가 작아도 화소가 많으면 풀 때 메모리가 끝난다. 9000x9000 단색 PNG 는 압축 뒤 수백 KB 지만
+# 풀면 RGB 한 벌에 243MB 다. 머리만 읽어 막으므로 시험용 그림도 머리만 만든다.
+
+
+def _chunk(kind: bytes, data: bytes) -> bytes:
+    body = kind + data
+    return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+
+
+def _png_header(width: int, height: int) -> bytes:
+    """머리와 짧은 본문 조각만 있는 PNG. Pillow 가 크기를 읽는 데는 이것으로 충분하다."""
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + _chunk(b"IDAT", zlib.compress(b"\x00" * 64))
+        + _chunk(b"IEND", b"")
+    )
+
+
+@pytest.mark.parametrize(("width", "height"), [(9000, 9000), (20_000, 20_000)])
+def test_화소가_너무_많은_사진은_풀기_전에_막는다(width: int, height: int) -> None:
+    """20000x20000 은 Pillow 폭탄 검사(상한의 두 배)에 걸리는 쪽이다. 같은 422 로 막는다."""
+    with pytest.raises(ApiError) as caught:
+        decode_data_url(_data_url("image/png", _png_header(width, height)))
+
+    assert caught.value.status_code == 422
+    assert caught.value.message == "사진을 읽지 못했어요."
+
+
+@pytest.mark.parametrize(("width", "height"), [(4032, 3024), (1080, 20_000), (1600, 31_000)])
+def test_폰_사진과_긴_스크롤_캡처는_화소_상한_안이다(width: int, height: int) -> None:
+    data = _png_header(width, height)
+
+    assert width * height <= MAX_IMAGE_PIXELS
+    assert decode_data_url(_data_url("image/png", data)).data == data

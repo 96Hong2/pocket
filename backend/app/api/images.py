@@ -1,7 +1,8 @@
 """캡처 이미지를 바이트로 푸는 유일한 자리.
 
 이미지가 어디까지 갔다 사라지는지는 이 파일 하나만 보면 답할 수 있어야 한다.
-그래서 형식·mime·매직바이트·크기 검사를 여기 모으고, 다른 곳에서 이미지 바이트를 만들지 않는다.
+그래서 형식·mime·매직바이트·크기·화소 수 검사를 여기 모으고,
+다른 곳에서 이미지 바이트를 만들지 않는다.
 
 **헤더는 있어도 되고 없어도 된다.** 토스 앨범·카메라가 돌려주는 `dataUri` 는 이름과 달리
 `data:` 접두사 없이 base64 만 오는 경우가 있다. 형식은 어차피 실제 바이트로 정하므로
@@ -17,11 +18,16 @@ from __future__ import annotations
 
 import base64
 import binascii
+import io
 import logging
 import re
+import warnings
 from collections.abc import Callable
 
+from PIL import Image
+
 from app.api.errors import ApiError, ErrorCode
+from app.integrations.imaging import MAX_IMAGE_PIXELS
 from app.integrations.llm import LlmImage
 
 __all__ = ["MAX_IMAGE_BYTES", "decode_data_url"]
@@ -55,6 +61,9 @@ _MAGIC: dict[str, Callable[[bytes], bool]] = {
     "image/webp": lambda data: data.startswith(b"RIFF") and data[8:12] == b"WEBP",
 }
 
+# 화소 수를 셀 때 여는 Pillow 형식. 매직바이트로 정한 형식 하나만 열어 본다.
+_PILLOW_FORMAT = {"image/png": "PNG", "image/jpeg": "JPEG", "image/webp": "WEBP"}
+
 
 def decode_data_url(value: str) -> LlmImage:
     """`data:<mime>;base64,<payload>` 또는 base64 만 온 것을 이미지로 푼다.
@@ -85,7 +94,33 @@ def decode_data_url(value: str) -> LlmImage:
     if media_type is None:
         raise _rejected(f"아는 형식이 아니다 (헤더는 {declared!r})", value)
 
+    # 바이트가 작아도 화소가 많으면 풀 때 메모리가 끝난다. 머리만 읽어 상한과 견준다.
+    try:
+        pixels = _pixels(data, media_type)
+    except Image.DecompressionBombError:
+        raise _rejected("화소 수가 폭탄 검사 상한을 넘겼다", value) from None
+    if pixels is not None and pixels > MAX_IMAGE_PIXELS:
+        raise _rejected(f"{pixels} 화소로 상한을 넘겼다", value)
+
     return LlmImage(media_type=media_type, data=data)
+
+
+def _pixels(data: bytes, media_type: str) -> int | None:
+    """머리만 읽은 가로 × 세로. 그림 본문은 풀지 않는다.
+
+    머리를 못 읽으면 None 이다. 그런 사진도 지금처럼 모델에게 보낸다. 다듬기는 원본으로 물러선다.
+    """
+    try:
+        with warnings.catch_warnings():
+            # 상한은 아래에서 직접 견준다. 경고로 한 번 더 알릴 필요가 없다.
+            warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(data), formats=[_PILLOW_FORMAT[media_type]]) as probe:
+                width, height = probe.size
+    except Image.DecompressionBombError:
+        raise
+    except Exception:
+        return None
+    return width * height
 
 
 def _split(value: str) -> tuple[str, str]:
