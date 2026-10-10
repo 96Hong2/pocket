@@ -618,12 +618,17 @@ class MerchantRuleArea {
     return this.page.getByRole('alertdialog', { name: '기억을 지울까요' });
   }
 
+  /** 확인 창의 지우기. 줄의 지우기를 누른 뒤에만 있다. */
+  get confirmDeleteButton(): Locator {
+    return this.confirm.getByRole('button', { name: '지우기', exact: true });
+  }
+
   async remove(merchant: string): Promise<void> {
     await this.row(merchant)
       .getByRole('button', { name: /지우기$/ })
       .click();
     await expect(this.row(merchant)).toHaveCount(1);
-    await this.confirm.getByRole('button', { name: '지우기', exact: true }).click();
+    await this.confirmDeleteButton.click();
     await expect(this.row(merchant)).toHaveCount(0);
   }
 }
