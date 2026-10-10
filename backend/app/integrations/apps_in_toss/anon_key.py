@@ -35,8 +35,20 @@ class AnonKeyAuthError(Exception):
     """키가 유효하지 않다. 다시 불러도 같다."""
 
 
+class AnonKeyRejected(AnonKeyAuthError):
+    """토스가 이 키를 모른다고 답했다(`ERROR_CODE_UNAUTHENTICATED`).
+
+    이것만 30초 기억한다. 그 밖의 재시도 불가 실패는 토스 쪽 사정일 수 있어, 정상 키를 기억해
+    두면 그 사람이 30초 묶인다. 곳마다 세는 것은 둘 다 센다(`CachingAnonKeyVerifier`).
+    """
+
+
 class AnonKeyVerificationUnavailable(Exception):
     """지금은 확인할 수 없다. 한도 초과·네트워크 오류 등, 다시 시도할 수 있다."""
+
+
+class AnonKeyRateLimited(Exception):
+    """한 곳에서 틀린 키가 너무 많이 왔다. 토스에 묻지 않고 잠시 막는다."""
 
 
 class AnonKeyVerifierMisconfigured(RuntimeError):
@@ -60,7 +72,8 @@ class VerifiedIdentity:
 
 @runtime_checkable
 class AnonKeyVerifier(Protocol):
-    async def verify(self, anon_key: str) -> VerifiedIdentity: ...
+    # client 는 요청을 보낸 곳(IP)이다. 틀린 키를 곳마다 세는 검증기만 쓴다.
+    async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity: ...
 
 
 class TossAnonKeyVerifier:
@@ -69,7 +82,8 @@ class TossAnonKeyVerifier:
     def __init__(self, client: TossApiClient) -> None:
         self._client = client
 
-    async def verify(self, anon_key: str) -> VerifiedIdentity:
+    async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity:
+        del client
         if not anon_key:
             raise AnonKeyAuthError("익명키가 비어 있다")
         try:
@@ -81,7 +95,7 @@ class TossAnonKeyVerifier:
             )
         except TossBusinessError as error:
             if error.error_code == ERROR_CODE_UNAUTHENTICATED:
-                raise AnonKeyAuthError("익명키 인증 정보 없음") from error
+                raise AnonKeyRejected("익명키 인증 정보 없음") from error
             if error.retryable:
                 raise AnonKeyVerificationUnavailable(
                     f"익명키 검증을 지금 할 수 없다 code={error.error_code}"
@@ -105,11 +119,121 @@ class TrustingAnonKeyVerifier:
     def __init__(self) -> None:
         logger.warning("익명키를 검증하지 않는 개발용 검증기를 쓴다. 운영에서 쓰면 안 된다.")
 
-    async def verify(self, anon_key: str) -> VerifiedIdentity:
+    async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity:
+        del client
         if not anon_key:
             raise AnonKeyAuthError("익명키가 비어 있다")
         logger.warning("익명키를 검증 없이 통과시킨다 (개발용)")
         return VerifiedIdentity(anon_key=anon_key, verified_by="trusting")
+
+
+@dataclass(slots=True)
+class _Window:
+    start: float
+    failures: int = 0
+    warned: bool = False
+
+
+class FailureLimiter:
+    """곳(IP)마다 틀린 키를 센다. 1분에 `limit` 번을 넘기면 그 창이 끝날 때까지 막는다.
+
+    아무 문자열이나 익명키로 보내면 그때마다 토스 검증 API 를 부른다. 그 한도(미니앱당 분당
+    3,000회)를 남이 채우면 처음 들어오는 실사용자 검증이 줄을 선다. 실사용자는 검증에 실패할
+    일이 없어 상한을 넉넉히 둔다. 통신사 NAT 뒤 여러 사람이 한 IP 를 써도 닿지 않는 값이다.
+
+    **토스에 묻고 있는 수도 함께 센다.** 답이 온 뒤에만 세면 한꺼번에 보낸 틀린 키 수백 개가
+    모두 0회 상태로 통과해 토스에 그대로 간다. 그래서 `실패 + 진행 중 >= limit` 이면 막는다.
+
+    `enforce` 가 꺼져 있으면(기본) 막지 않고 창마다 한 번 경고 로그만 남긴다. 운영의 실제
+    X-Forwarded-For 모양을 확인하기 전에 막으면 모두가 한 칸에 들어가 함께 막힐 수 있어서다
+    (`ANON_KEY_FAILURE_GUARD`, docs/DEPLOY.md).
+
+    인스턴스 메모리에만 센다. 인스턴스가 여럿이면 곳마다 그 수만큼 더 받는다.
+    """
+
+    def __init__(
+        self,
+        *,
+        limit: int = 60,
+        window_seconds: float = 60.0,
+        max_entries: int = 10_000,
+        enforce: bool = False,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._limit = limit
+        self._window = window_seconds
+        self._max_entries = max_entries
+        self._enforce = enforce
+        self._clock = clock
+        self._entries: dict[str, _Window] = {}
+        self._inflight: dict[str, int] = {}
+
+    def admit(self, client: str) -> bool:
+        """토스에 물어도 되는지. 된다면 진행 중으로 세므로 끝나면 꼭 `finish` 를 부른다."""
+        now = self._clock()
+        window = self._current(client, now)
+        failures = window.failures if window is not None else 0
+        inflight = self._inflight.get(client, 0)
+        if failures + inflight >= self._limit:
+            if self._enforce:
+                return False
+            self._warn(client, now, failures=failures, inflight=inflight)
+        self._inflight[client] = inflight + 1
+        return True
+
+    def finish(self, client: str, *, failed: bool) -> None:
+        left = self._inflight.get(client, 0) - 1
+        if left > 0:
+            self._inflight[client] = left
+        else:
+            self._inflight.pop(client, None)
+        if failed:
+            self.record(client)
+
+    def record(self, client: str) -> None:
+        now = self._clock()
+        window = self._current(client, now) or self._open(client, now)
+        window.failures += 1
+
+    def _current(self, client: str, now: float) -> _Window | None:
+        window = self._entries.get(client)
+        if window is None or now - window.start >= self._window:
+            return None
+        return window
+
+    def _open(self, client: str, now: float) -> _Window:
+        if len(self._entries) >= self._max_entries:
+            self._evict(now)
+        window = _Window(start=now)
+        self._entries[client] = window
+        return window
+
+    def _warn(self, client: str, now: float, *, failures: int, inflight: int) -> None:
+        window = self._current(client, now) or self._open(client, now)
+        if window.warned:
+            return
+        window.warned = True
+        # 키 값은 남기지 않는다. 고른 칸 이름과 헤더의 칸 수만 본다.
+        logger.warning(
+            "틀린 익명키가 한 곳에서 상한을 넘었다. 막지 않고 기록만 한다",
+            extra={
+                "anon_key_guard": "log",
+                "client_key": str(client),
+                "forwarded_hops": getattr(client, "forwarded_hops", None),
+                "failures": failures,
+                "inflight": inflight,
+                "limit": self._limit,
+            },
+        )
+
+    def _evict(self, now: float) -> None:
+        for key in [k for k, w in self._entries.items() if now - w.start >= self._window]:
+            del self._entries[key]
+        if len(self._entries) >= self._max_entries:
+            for key in sorted(self._entries, key=lambda k: self._entries[k].start)[
+                : self._max_entries // 2
+            ]:
+                del self._entries[key]
 
 
 class CachingAnonKeyVerifier:
@@ -117,7 +241,19 @@ class CachingAnonKeyVerifier:
 
     화면 하나가 목록·요약을 함께 부르므로 검증 호출이 요청 수만큼 늘어난다.
     토스 서버 API 한도는 미니앱당 분당 3,000회라, 캐시가 없으면 사용자가 늘수록
-    한도에 먼저 걸린다. 성공만 캐시하고 실패는 매번 다시 묻는다.
+    한도에 먼저 걸린다.
+
+    성공은 10분 기억한다. 토스가 모르는 키라고 답한 것(`AnonKeyRejected`)만 30초 기억해 같은
+    키를 되풀이해 보내도 토스에 다시 묻지 않는다.
+    곳마다 세는 것은 재시도 불가 실패(`AnonKeyAuthError`) 전부다. 토스가 이상한 키에 4010 이 아닌
+    코드로 답해도 상한을 피해 가지 못한다. 매번 다른 문자열을 보내는 것은 `FailureLimiter` 가 곳마다
+    세어 막는다.
+    **그 대가가 있다.** 토스 장애로 정상 키가 재시도 불가 코드로 실패해도 센다. 기본(`log`)에서는
+    경고 로그만 남아 화면이 같다. `enforce` 에서는 NAT 뒤 IP 하나에서 실패가 60번 쌓이면, 그 IP 로
+    새로 들어오는 사용자가 토스가 회복된 뒤에도 남은 창(최대 60초) 동안 401 대신 429 를 본다.
+    XFF 모양과 토스의 장애 때 답을 확인할 때까지 `log` 로 둔다(docs/DEPLOY.md 6장).
+    **기억해 둔 성공은 막힌 곳에서도 통과한다.** 공격자와 같은 IP 뒤에 있는 실사용자가
+    이미 쓰던 중이면 그대로 쓴다.
     """
 
     def __init__(
@@ -125,21 +261,26 @@ class CachingAnonKeyVerifier:
         inner: AnonKeyVerifier,
         *,
         ttl_seconds: float = 600.0,
+        rejected_ttl_seconds: float = 30.0,
         max_entries: int = 10_000,
+        limiter: FailureLimiter | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._inner = inner
         self._ttl = ttl_seconds
+        self._rejected_ttl = rejected_ttl_seconds
         self._max_entries = max_entries
         self._clock = clock
+        self._limiter = limiter if limiter is not None else FailureLimiter(clock=clock)
         self._entries: dict[str, tuple[float, VerifiedIdentity]] = {}
+        self._rejected: dict[str, float] = {}
 
     @staticmethod
     def _key(anon_key: str) -> str:
         # 원문을 메모리에 키로 두지 않는다.
         return hashlib.sha256(anon_key.encode("utf-8")).hexdigest()
 
-    async def verify(self, anon_key: str) -> VerifiedIdentity:
+    async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity:
         if not anon_key:
             raise AnonKeyAuthError("익명키가 비어 있다")
         key = self._key(anon_key)
@@ -153,7 +294,27 @@ class CachingAnonKeyVerifier:
                 claims=cached[1].claims,
             )
 
-        identity = await self._inner.verify(anon_key)
+        rejected = self._rejected.get(key)
+        if rejected is not None and rejected > now:
+            if client is not None:
+                self._limiter.record(client)
+            raise AnonKeyRejected("방금 틀린 익명키")
+        if client is not None and not self._limiter.admit(client):
+            raise AnonKeyRateLimited("틀린 익명키가 한 곳에서 너무 많이 왔다")
+
+        failed = False
+        try:
+            identity = await self._inner.verify(anon_key)
+        except AnonKeyAuthError as error:
+            failed = True
+            if isinstance(error, AnonKeyRejected):
+                if len(self._rejected) >= self._max_entries:
+                    self._evict_rejected(now)
+                self._rejected[key] = now + self._rejected_ttl
+            raise
+        finally:
+            if client is not None:
+                self._limiter.finish(client, failed=failed)
         if len(self._entries) >= self._max_entries:
             self._evict(now)
         self._entries[key] = (now + self._ttl, identity)
@@ -170,6 +331,12 @@ class CachingAnonKeyVerifier:
             ]:
                 del self._entries[k]
 
+    def _evict_rejected(self, now: float) -> None:
+        for k in [k for k, until in self._rejected.items() if until <= now]:
+            del self._rejected[k]
+        if len(self._rejected) >= self._max_entries:
+            self._rejected.clear()
+
 
 @dataclass(frozen=True, slots=True)
 class AnonKeyVerifierSettings:
@@ -182,6 +349,8 @@ class AnonKeyVerifierSettings:
     client_key_path: str | None = None
     timeout_seconds: float = 5.0
     verify_cache_ttl_seconds: float = 600.0
+    # 틀린 키를 곳마다 셀 때 막을지(enforce), 경고 로그만 남길지(log).
+    failure_guard: Literal["log", "enforce"] = "log"
 
     @property
     def requires_verification(self) -> bool:
@@ -219,7 +388,9 @@ def create_anon_key_verifier(
             raise AnonKeyVerifierMisconfigured(str(error)) from error
         # 같은 키를 매 요청 다시 묻지 않는다. 토스 API 분당 한도를 아끼기 위해서다.
         return CachingAnonKeyVerifier(
-            TossAnonKeyVerifier(client), ttl_seconds=settings.verify_cache_ttl_seconds
+            TossAnonKeyVerifier(client),
+            ttl_seconds=settings.verify_cache_ttl_seconds,
+            limiter=FailureLimiter(enforce=settings.failure_guard == "enforce"),
         )
 
     if settings.requires_verification:

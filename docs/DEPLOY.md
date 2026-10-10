@@ -139,6 +139,57 @@ gcloud run deploy pocket-backend \
 
 `backend/tests/api/test_boot_guards.py` 가 이 넷을 지킨다.
 
+### 사진 본문과 메모리
+
+사진을 받는 세 길(`/imports/capture`, `/imports/receipt`, `/assets/capture`)은 본문이 크고,
+그 본문을 풀고 디코드하는 메모리가 인스턴스 메모리를 가장 많이 쓴다. 메모리를 넘기면 컨테이너째
+내려가고, 그 인스턴스에서 처리 중이던 다른 사용자 요청도 함께 실패한다.
+
+**지금 운영 값(2026-10-10 `gcloud run services describe` 로 읽음, 리비전 pocket-backend-00037-9bg)**
+
+| 항목 | 값 | 어디서 정해지나 |
+| --- | --- | --- |
+| 최대 인스턴스 수(maxScale) | 3 | 서비스 설정 |
+| 인스턴스 하나가 동시에 받는 요청(concurrency) | 80 | Cloud Run 기본값 |
+| 인스턴스 메모리 | 512Mi | Cloud Run 기본값 |
+
+`scripts/deploy-cloudrun.sh` 와 `cloudbuild.yaml` 에 `--memory`, `--concurrency` 가 없어서 기본값으로 뜬다.
+지금 값은 이렇게 읽는다.
+
+```bash
+gcloud run services describe pocket-backend --region=<리전> \
+  --format='value(spec.template.metadata.annotations."autoscaling.knative.dev/maxScale",spec.template.spec.containerConcurrency,spec.template.spec.containers[0].resources.limits.memory)'
+```
+
+**서버가 이미 묶는 것**
+
+- 본문 크기: 사진 세 길은 12MB, 나머지 길은 1MB 를 넘으면 읽기 전에(또는 읽는 도중에) 413 이다.
+- 사진 세 길은 본문을 읽기 전에 익명키를 토스에 확인한다. 틀린 키는 401 이라 본문을 한 바이트도
+  읽지 않는다. 확인된 키는 10분 기억하므로 정상 사용자에게 늘어나는 지연은 없다.
+- 확인된 키 하나로 동시에 받는 사진 본문은 2개까지다. 세 번째는 앞의 본문을 다 받을 때까지 기다린다.
+- 본문을 다 받기까지 70초 마감이 있다. 넘기면 408 이다.
+- 사진 다듬기는 동시에 2장, 줄여 풀 수 없는 큰 그림은 한 번에 1장만 푼다. 가장 큰 경우
+  (1080x46000 투명 PNG)가 한 장에 약 200MB 를 잡는다(별도 프로세스에서 잰 ru_maxrss 증가분).
+
+**묶지 않는 것:** 서로 다른 진짜 키 여럿이 한꺼번에 보내는 큰 본문. 인스턴스 하나에 사진 요청이
+몰리면 본문을 푸는 메모리와 큰 그림 한 장(약 200MB)이 겹친다. 512Mi 에서는 여유가 크지 않다.
+
+**검토안(아직 하지 않음)**
+
+1. **메모리를 명시한다**(`--memory=1Gi`). 큰 그림 한 장과 동시 요청 여럿이 겹쳐도 버틴다.
+   배포 명령에 적어 두면 콘솔에서 바꾼 값이 다음 배포 때 되돌아가지 않는다. 대신 인스턴스가 떠 있는
+   시간만큼 메모리 요금이 두 배가 된다.
+2. **동시 요청 수를 낮춘다**(예: `--concurrency=20~40`). 인스턴스 하나에 몰리는 사진 요청이 줄어
+   메모리 부족 위험이 준다. 대신 같은 트래픽에 인스턴스가 더 뜨고, maxScale 3 에 먼저 닿는다.
+   세 대가 모두 차면 Cloud Run 이 요청을 잠깐 줄 세웠다가 429 로 돌려보내므로 정상 사용자가
+   오류를 볼 수 있다. 낮출 때는 maxScale 도 함께 올린다. 콜드 스타트도 잦아진다.
+3. **Cloud Armor 를 앞에 둔다**(외부 HTTPS 부하분산기 + IP 마다 속도 제한 규칙). 앱에 닿기 전에
+   몰아치는 요청을 끊는다. 대신 부하분산기와 보안 정책 요금이 고정으로 붙고, 도메인과 인증서를
+   부하분산기로 옮겨야 한다. `X-Forwarded-For` 끝에 부하분산기 주소가 하나 더 붙으므로
+   `backend/app/api/client_key.py` 가 끝에서 두 번째 값을 보도록 고쳐야 한다(6장 확인 순서).
+
+셋 중 1번이 가장 싸고 화면에 보이는 변화가 없다. 2번과 3번은 트래픽과 비용을 본 뒤에 정한다.
+
 ### 기록 알림 잡
 
 알림은 웹 서비스가 아니라 **1분마다 도는 잡**이 보낸다. 판정이 '정한 시각과 같은 분' 이라
@@ -204,6 +255,56 @@ curl -fsS -o /dev/null -w '%{http_code}\n' "$BASE/api/v1/categories"   # 401  (�
 
 `/health` 만 보고 끝내지 않는다. 그건 앱이 떴다는 말이지 **인증이 산다는 말이 아니다.**
 키 없이 부른 조회가 200 이면 검증이 꺼진 채로 떴다는 뜻이라 즉시 롤백한다.
+
+### 틀린 익명키 문을 막기로 바꾸기 전에 (`ANON_KEY_FAILURE_GUARD`)
+
+한 IP 에서 틀린 익명키가 1분에 60번을 넘으면 서버가 그 IP 를 알아본다. 기본값 `log` 는
+**막지 않고** 경고 로그 한 줄만 남긴다. `enforce` 로 바꾸면 토스에 묻지 않고 429 로 막는다.
+
+IP 는 `X-Forwarded-For` 의 마지막 값이다(IPv6 는 /64 로 묶는다). Cloud Run 주소로 바로 받으면
+Google 앞단이 실제 주소를 맨 뒤에 붙이지만, 앞에 부하분산기나 도메인 매핑을 두면 그 뒤에
+Google 주소가 하나 더 붙을 수 있다. 그 상태로 `enforce` 를 켜면 모든 사용자가 한 칸에 들어가
+누군가 틀린 키를 60번 보낼 때 새로 들어오는 사람이 전부 「조금 빠르게 이어서 부르고 있어요」 를 본다.
+그래서 **운영 로그에서 실제 모양을 한 번 보고 나서** 바꾼다.
+
+1. 내 맥의 공인 IP 를 적어 둔다: `curl -s https://ifconfig.me`
+2. 앞쪽 값을 일부러 적어서, 같은 틀린 키로 61번 부르고 다른 틀린 키로 한 번 더 부른다.
+   같은 키는 30초 동안 토스에 다시 묻지 않으므로 토스 호출은 두 번뿐이다.
+   토스가 「모르는 키」(4010)가 아닌 다른 재시도 불가 코드로 답하면 기억하지 않아 62번 다 묻는다.
+   그래도 실패로 세므로 경고 줄은 똑같이 남는다.
+
+   ```bash
+   for i in $(seq 61); do
+     curl -s -o /dev/null -H 'X-Forwarded-For: 198.51.100.1' -H 'X-Anon-Key: xff-check-a' \
+       "$BASE/api/v1/categories"
+   done
+   curl -s -o /dev/null -H 'X-Forwarded-For: 198.51.100.1' -H 'X-Anon-Key: xff-check-b' \
+     "$BASE/api/v1/categories"
+   ```
+
+3. 경고 줄을 읽는다. 인스턴스가 여럿이면 칸이 나뉘어 안 뜰 수 있으니 2번을 한 번 더 돌린다.
+
+   ```bash
+   gcloud logging read \
+     'resource.type="cloud_run_revision" AND resource.labels.service_name="pocket-backend"
+      AND jsonPayload.anon_key_guard="log"' \
+     --freshness=10m --limit=5 --format='value(jsonPayload.client_key,jsonPayload.forwarded_hops)'
+   ```
+
+4. 판정한다.
+   - `client_key` 가 1번의 내 IP 이고 `forwarded_hops` 가 2(내가 적은 값 + 앞단이 붙인 값)면 예상대로다.
+   - `client_key` 가 `35.191.*`, `130.211.*` 같은 Google 주소거나 칸 수가 3 이상이면 **켜지 않는다.**
+     `backend/app/api/client_key.py` 가 끝에서 두 번째 값을 보도록 먼저 고친다.
+5. 맞으면 바꾼다: `gcloud run services update pocket-backend --region=<리전> --update-env-vars=ANON_KEY_FAILURE_GUARD=enforce`
+
+켠 뒤에도 같은 경고 줄로 어느 칸이 걸렸는지 본다. `enforce` 에서는 경고 대신 429 가 나간다.
+
+**`enforce` 에서 토스가 장애를 내면 정상 사용자도 429 를 볼 수 있다.** 토스가 정상 키에도 재시도
+불가 코드(예: 5000)로 답하면 그 실패도 곳마다 센다. 통신사 NAT 뒤 IP 하나에서 실패가 60번 쌓이면,
+그 IP 에서 새로 들어오는 사용자는 토스가 회복된 뒤에도 남은 창(최대 60초) 동안 401 대신
+429 「조금 빠르게 이어서 부르고 있어요」 를 본다. 이미 쓰던 사용자는 기억해 둔 성공으로 그대로 쓴다.
+그래서 **위 확인 순서로 XFF 모양을 보고, 토스가 장애 때 어떤 코드로 답하는지 확인할 때까지 `log` 로 둔다.**
+`log` 에서는 경고 줄만 남고 화면은 바뀌지 않는다.
 
 ---
 

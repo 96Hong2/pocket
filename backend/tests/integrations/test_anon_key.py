@@ -9,6 +9,7 @@ from app.integrations.apps_in_toss.anon_key import (
     ANON_KEY_HEADER,
     ANON_KEY_VERIFY_PATH,
     AnonKeyAuthError,
+    AnonKeyRejected,
     AnonKeyVerificationUnavailable,
     AnonKeyVerifierMisconfigured,
     AnonKeyVerifierSettings,
@@ -61,6 +62,23 @@ async def test_error_4010_is_an_auth_failure_and_is_not_retried(make_client) -> 
             await TossAnonKeyVerifier(client).verify("hash-1")
 
     assert len(calls) == 1
+
+
+async def test_only_4010_is_remembered_as_a_wrong_key(make_client) -> None:
+    """4010 만 틀린 키로 30초 기억한다. 다른 재시도 불가 코드는 401 이고 세기만 한다."""
+    codes = iter(["4010", "4000"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _fail(next(codes), "실패")
+
+    async with make_client(handler) as client:
+        verifier = TossAnonKeyVerifier(client)
+        with pytest.raises(AnonKeyRejected):
+            await verifier.verify("hash-1")
+        with pytest.raises(AnonKeyAuthError) as other:
+            await verifier.verify("hash-1")
+
+    assert not isinstance(other.value, AnonKeyRejected)
 
 
 async def test_error_4095_is_retryable_and_not_an_auth_failure(make_client) -> None:

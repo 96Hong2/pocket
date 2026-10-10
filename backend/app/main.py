@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.body_limit import BodySizeLimitMiddleware
+from app.api.body_limit import BodySizeLimitMiddleware, PhotoBodyGate
 from app.api.deps import get_verifier
 from app.api.errors import install_exception_handlers
 from app.core.config import get_settings
@@ -63,6 +63,16 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json" if interactive_docs else None,
     )
 
+    # 나중에 더한 미들웨어가 바깥에 선다. 요청은 CORS, 본문 크기, 사진 본문 문, 라우팅 순서로 간다.
+    # 두 문 모두 CORS 안쪽이라 여기서 끊는 답(413·401·408)에도 다른 오류처럼 CORS 헤더가 붙는다.
+
+    # 사진 세 길에서 본문을 읽기 전에 익명키를 확인하고, 느린 본문은 마감에 끊는다.
+    app.add_middleware(PhotoBodyGate)
+
+    # 본문을 읽기 전에 크기로 끊는다. 라우팅·인증보다 앞이어야 의미가 있다.
+    # 사진 본문 문보다 바깥이라, 너무 큰 본문은 키를 확인하기 전에 413 이다.
+    app.add_middleware(BodySizeLimitMiddleware)
+
     # 미니앱 WebView 와 QR 테스트 origin 을 모두 허용한다.
     app.add_middleware(
         CORSMiddleware,
@@ -72,10 +82,6 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-Anon-Key"],
     )
-
-    # **CORS 보다 바깥에 선다.** 나중에 더한 미들웨어가 먼저 도는 구조라 이 줄이 마지막이다.
-    # 본문을 읽기 전에 끊어야 의미가 있어서, 라우팅·인증보다 앞이어야 한다.
-    app.add_middleware(BodySizeLimitMiddleware)
 
     install_exception_handlers(app)
     app.include_router(transactions_router, prefix="/api/v1")

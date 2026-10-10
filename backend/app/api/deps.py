@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import hashlib
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.client_key import ClientKey, client_key
 from app.api.errors import ApiError, ErrorCode
 from app.core.config import Settings, get_settings
 from app.db.session import get_session
@@ -35,6 +36,7 @@ __all__ = [
     "EscalationLlmClient",
     "LlmClient",
     "anon_key_hash",
+    "client_ip",
     "get_current_user",
     "get_verifier",
 ]
@@ -54,6 +56,7 @@ def _verifier_for(
     base_url: str,
     cert_path: str | None,
     key_path: str | None,
+    failure_guard: Literal["log", "enforce"],
 ) -> AnonKeyVerifier:
     return create_anon_key_verifier(
         AnonKeyVerifierSettings(
@@ -62,6 +65,7 @@ def _verifier_for(
             base_url=base_url,
             client_cert_path=cert_path,
             client_key_path=key_path,
+            failure_guard=failure_guard,
         )
     )
 
@@ -73,6 +77,7 @@ def get_verifier(settings: AppSettings) -> AnonKeyVerifier:
         settings.toss_api_base_url,
         settings.toss_mtls_cert_path,
         settings.toss_mtls_key_path,
+        settings.anon_key_failure_guard,
     )
 
 
@@ -84,14 +89,21 @@ def anon_key_hash(anon_key: str) -> str:
 _hash = anon_key_hash
 
 
+def client_ip(request: Request) -> ClientKey | None:
+    """요청을 보낸 곳. 틀린 익명키를 곳마다 세는 데 쓴다. 고르는 규칙은 `client_key`."""
+    peer = request.client.host if request.client is not None else None
+    return client_key(request.headers.getlist("x-forwarded-for"), peer)
+
+
 async def get_verified_identity(
+    request: Request,
     verifier: Annotated[AnonKeyVerifier, Depends(get_verifier)],
     x_anon_key: Annotated[str | None, Header(alias="X-Anon-Key")] = None,
 ) -> VerifiedIdentity:
     """검증은 외부 호출이라 async 로 둔다. DB 는 아래 동기 의존성이 맡는다."""
     if not x_anon_key:
         raise ApiError(ErrorCode.UNAUTHORIZED, "사용자 정보를 확인하지 못했어요.", status_code=401)
-    return await verifier.verify(x_anon_key)
+    return await verifier.verify(x_anon_key, client=client_ip(request))
 
 
 def get_current_user(

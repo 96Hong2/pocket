@@ -24,6 +24,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import get_settings
 from app.integrations.apps_in_toss.anon_key import (
     AnonKeyAuthError,
+    AnonKeyRateLimited,
     AnonKeyVerificationUnavailable,
 )
 
@@ -35,6 +36,7 @@ __all__ = [
     "ErrorBody",
     "ErrorCode",
     "ErrorEnvelope",
+    "anon_key_failure",
     "install_exception_handlers",
 ]
 
@@ -155,25 +157,53 @@ def _cors_headers(request: Request) -> dict[str, str]:
     return {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
 
 
+# 익명키 검증이 실패했을 때의 답. 인증 의존성과 사진 본문 문(`PhotoBodyGate`)이 함께 쓴다.
+# 실사용자는 틀린 키로 검증에 실패할 일이 없어 429 에 닿지 않는다. 문구는 분석 몰아치기와 같다.
+# 503 은 토스 서버가 잠깐 안 될 때다. 사용자 잘못이 아니므로 재시도를 권한다.
+_ANON_KEY_FAILURES: tuple[tuple[type[Exception], int, ErrorCode, str], ...] = (
+    (
+        AnonKeyAuthError,
+        status.HTTP_401_UNAUTHORIZED,
+        ErrorCode.UNAUTHORIZED,
+        "사용자 정보를 확인하지 못했어요.",
+    ),
+    (
+        AnonKeyRateLimited,
+        status.HTTP_429_TOO_MANY_REQUESTS,
+        ErrorCode.USAGE_LIMIT,
+        "조금 빠르게 이어서 부르고 있어요. 잠시 뒤에 다시 해 주세요.",
+    ),
+    (
+        AnonKeyVerificationUnavailable,
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        ErrorCode.VERIFY_UNAVAILABLE,
+        "잠시 후 다시 시도해 주세요.",
+    ),
+)
+
+
+def anon_key_failure(exc: BaseException) -> tuple[int, dict[str, dict[str, str]]] | None:
+    """익명키 검증 실패를 (상태 코드, 본문)으로 바꾼다. 검증 실패가 아니면 None."""
+    for kind, status_code, code, message in _ANON_KEY_FAILURES:
+        if isinstance(exc, kind):
+            return status_code, _body(code, message)
+    return None
+
+
 def install_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content=_body(exc.code, exc.message))
 
     @app.exception_handler(AnonKeyAuthError)
-    async def _auth_error(_: Request, exc: AnonKeyAuthError) -> JSONResponse:
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content=_body(ErrorCode.UNAUTHORIZED, "사용자 정보를 확인하지 못했어요."),
-        )
-
+    @app.exception_handler(AnonKeyRateLimited)
     @app.exception_handler(AnonKeyVerificationUnavailable)
-    async def _verify_unavailable(_: Request, exc: AnonKeyVerificationUnavailable) -> JSONResponse:
-        # 토스 서버가 잠깐 안 될 때다. 사용자 잘못이 아니므로 재시도를 권한다.
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content=_body(ErrorCode.VERIFY_UNAVAILABLE, "잠시 후 다시 시도해 주세요."),
-        )
+    async def _anon_key_failure(_: Request, exc: Exception) -> JSONResponse:
+        failure = anon_key_failure(exc)
+        if failure is None:  # 위 세 예외만 여기 온다
+            raise exc
+        status_code, body = failure
+        return JSONResponse(status_code=status_code, content=body)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:

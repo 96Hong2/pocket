@@ -82,8 +82,7 @@ __all__ = [
     "parse_image",
     "parse_images",
     "parse_text",
-    "record_usage",
-    "require_quota",
+    "reserve_usage",
     "update_candidate",
 ]
 
@@ -247,26 +246,30 @@ def parse_text(
     assets = _asset_scope(session, user, with_assets, scope)
     day = today or ledger.today_for(user)
     base = _base_day(base_day, day)
-    _require_quota(session, user, day, label="줄글 분석")
-
     # 저장하지 않는 것만으로는 부족하다. 보내기 전에 가린다.
     cleaned = redact(text)
-    with _counted(
+    prompt = _prompt(natural_language_prompt, session, user, day, scope, assets)
+    usage = _reserve(
         session,
         user,
+        day,
+        label="줄글 분석",
+        count=1,
         client=client,
         source=TransactionSource.NL,
         input_length=len(text),
         redacted_count=cleaned.count,
-    ):
-        read = _read_twice_if_odd(
-            client,
-            escalation,
-            prompt=_prompt(natural_language_prompt, session, user, day, scope, assets),
-            today=day,
-            subject="문장을",
-            text=cleaned.text,
-        )
+    )
+
+    read = _read_twice_if_odd(
+        client,
+        escalation,
+        prompt=prompt,
+        today=day,
+        subject="문장을",
+        text=cleaned.text,
+        usage=usage,
+    )
     return _build_batch(
         session,
         user,
@@ -275,6 +278,7 @@ def parse_text(
         day=day,
         base_day=base,
         client=client,
+        usage=usage,
         input_length=len(text),
         redacted_count=cleaned.count,
         scope=scope,
@@ -347,38 +351,42 @@ def parse_images(
     assets = _asset_scope(session, user, with_assets, scope)
     day = today or ledger.today_for(user)
     base = _base_day(base_day, day)
-    _require_quota(session, user, day, label=kind.quota_label, count=len(images))
+    prompt = _prompt(kind.prompt, session, user, day, scope, assets)
+    # 다듬기 전에 센다. 다듬다 죽어도 호출은 이미 세어져 있다.
+    usage = _reserve(
+        session,
+        user,
+        day,
+        label=kind.quota_label,
+        count=len(images),
+        client=client,
+        source=source,
+        input_length=sum(len(image.data) for image in images),
+        redacted_count=0,
+    )
 
     # 돌리고 · 여백을 잘라내고 · 줄인 뒤에 보낸다. 위치 정보도 여기서 끊긴다.
     sent = [prepare_image(image) for image in images]
     total_bytes = sum(len(one.data) for one in sent)
-    prompt = _prompt(kind.prompt, session, user, day, scope, assets)
 
-    with _counted(
-        session,
-        user,
-        client=client,
-        source=source,
-        input_length=total_bytes,
-        redacted_count=0,
-    ):
-        reads, attempts = _read_all(
-            client,
-            escalation,
-            prompt=prompt,
-            today=day,
-            subject=kind.subject,
-            images=sent,
-        )
+    reads = _read_all(
+        client,
+        escalation,
+        prompt=prompt,
+        today=day,
+        subject=kind.subject,
+        images=sent,
+        usage=usage,
+    )
     return _build_batch(
         session,
         user,
         source=source,
         reads=reads,
-        attempts=attempts,
         day=day,
         base_day=base,
         client=client,
+        usage=usage,
         # 이미지에서는 글자 수가 없다. 실제로 보낸 바이트 수를 센다.
         input_length=total_bytes,
         # redact() 는 문자열만 가린다. 이미지 안의 카드번호는 가릴 수단이 없고,
@@ -418,9 +426,9 @@ def _build_batch(
     day: date,
     base_day: date,
     client: LlmStructuredClient,
+    usage: _Usage,
     input_length: int,
     redacted_count: int,
-    attempts: int | None = None,
     scope: _BookScope | None = None,
     assets: _AssetScope | None = None,
 ) -> ImportBatch:
@@ -474,31 +482,16 @@ def _build_batch(
             )
         )
 
+    # 먼저 적어 둔 사용량 줄을 답에 맞게 고친다. 묶음과 한 번에 커밋한다.
+    usage.settle(
+        answered=len(reads),
+        model=client.model,
+        input_length=input_length,
+        redacted_count=redacted_count,
+        candidate_count=len(candidates),
+    )
     session.commit()
     session.refresh(batch)
-
-    # **호출 한 번에 한 줄이다.** 사진 다섯 장이면 다섯 줄이 남는다. 값은 답이 아니라
-    # 호출에 붙어서, 한 줄로 뭉치면 사진 한 장당 얼마가 드는지 영영 알 수 없게 된다.
-    #
-    # **실패한 장도 센다.** 성공한 것만 세면 실패하는 동안 하루·1분 상한이 안 줄어서,
-    # 매번 실패하는 다섯 장을 되풀이하는 것으로 상한을 두 배 넘게 쓸 수 있다.
-    tried = attempts if attempts is not None else len(reads)
-    share = input_length // tried if tried else input_length
-    for index in range(tried):
-        done = reads[index] if index < len(reads) else None
-        _record_usage(
-            session,
-            user,
-            client=client,
-            source=source,
-            # 나눠 떨어지지 않는 나머지는 첫 줄이 가져간다. 합이 실제 보낸 바이트와 맞는다.
-            input_length=share + (input_length - share * tried if index == 0 else 0),
-            redacted_count=redacted_count if index == 0 else 0,
-            candidate_count=len(candidates) if index == 0 else 0,
-            model=done.model if done is not None else None,
-            escalated=done.escalated if done is not None else False,
-            failed=done is None,
-        )
     return batch
 
 
@@ -910,6 +903,7 @@ def _read_twice_if_odd(
     subject: str,
     text: str | None = None,
     image: LlmImage | None = None,
+    usage: _Usage | None = None,
 ) -> _ReadResult:
     """싼 모델로 먼저 읽고, 서버 검증에 걸린 것만 비싼 모델로 다시 읽는다.
 
@@ -918,6 +912,8 @@ def _read_twice_if_odd(
 
     재시도 자체가 실패하면(키·한도·타임아웃) 1차 결과를 그대로 쓴다. 첫 답이 있는데
     두 번째 호출이 죽었다고 사용자에게 아무것도 못 준다고 하는 것은 과하다.
+
+    재시도도 유료 호출이라 부르기 전에 사용량 한 줄을 더 적는다(`usage`).
     """
     first = _extract(client, prompt=prompt, today=today, subject=subject, text=text, image=image)
     verdict = review_extraction(first, today=today)
@@ -927,6 +923,8 @@ def _read_twice_if_odd(
         return _ReadResult(extraction=first, verdict=verdict, escalated=False, model=client.model)
 
     logger.info("1차가 이상해 다시 읽는다 model=%s: %s", escalation.model, verdict.summary())
+    if usage is not None:
+        usage.before_retry(escalation)
     try:
         second = _extract(
             escalation,
@@ -940,6 +938,8 @@ def _read_twice_if_odd(
         logger.warning("재시도가 실패해 1차 결과를 그대로 쓴다")
         return _ReadResult(extraction=first, verdict=verdict, escalated=True, model=client.model)
 
+    if usage is not None:
+        usage.retry_answered(escalation)
     retried = review_extraction(second, today=today)
     if retried.is_clean:
         logger.info("다시 읽으니 깨끗하다 model=%s", escalation.model)
@@ -956,12 +956,11 @@ def _read_all(
     today: date,
     subject: str,
     images: list[LlmImage],
-) -> tuple[list[_ReadResult], int]:
+    usage: _Usage | None = None,
+) -> list[_ReadResult]:
     """사진들을 읽는다. 한 장이면 지금까지와 똑같고, 여러 장이면 **한꺼번에** 부른다.
 
-    돌려주는 둘째 값은 **실제로 부른 횟수**다. 성공한 것만 세면 실패하는 동안 하루 상한이
-    줄지 않아, 매번 실패하는 사진 다섯 장을 되풀이하는 것으로 1분 상한을 두 배 넘게 쓸 수
-    있다. 돈이 나가는 것은 답이 아니라 호출이다.
+    부른 횟수는 `usage` 가 부르기 전에 이미 적어 뒀다. 전부 실패해도 장수만큼 남는다.
 
     **여러 장에서는 두 번째 모델을 안 부른다.** 재시도는 한 장에서만 한다. 다섯 장이
     다 이상하면 비싼 모델을 다섯 번 부르게 되는데, 그 값이 이 자리에 붙은 광고 한 편이
@@ -980,8 +979,9 @@ def _read_all(
                 today=today,
                 subject=subject,
                 image=images[0],
+                usage=usage,
             )
-        ], 1
+        ]
 
     extractions = _extract_many(client, prompt=prompt, today=today, subject=subject, images=images)
     reads: list[_ReadResult] = []
@@ -1000,7 +1000,7 @@ def _read_all(
         )
     if len(reads) < len(images):
         logger.warning("사진 %d장 중 %d장만 읽었다", len(images), len(reads))
-    return reads, len(images)
+    return reads
 
 
 def _extract_many(
@@ -1460,70 +1460,119 @@ def _learn_rule(session: Session, user: User, row: ImportCandidate) -> None:
     existing.applied_count += 1
 
 
-@contextmanager
-def _counted(
-    session: Session,
-    user: User,
-    *,
-    client: LlmStructuredClient,
-    source: TransactionSource,
-    input_length: int,
-    redacted_count: int,
-) -> Iterator[None]:
-    """모델을 부르다 죽으면 그 한 번을 사용량에 남긴다.
+class _Usage:
+    """이번 요청이 내는 유료 호출 기록. **부르기 전에 줄을 먼저 적고 커밋한다.**
 
-    성공한 호출만 세면 실패하는 동안 하루 상한·1분 상한이 줄지 않는다. 그러면 답이 계속
-    안 나오는 사진 한 장으로 같은 사람이 유료 호출을 무제한으로 낼 수 있다.
-    **돈이 나가는 것은 답이 아니라 호출이다.**
-
-    성공한 경우는 여기서 세지 않는다. 뽑힌 후보 수·실제 모델까지 아는 자리가 따로 있다.
+    호출 한 번에 한 줄이다. 사진 다섯 장이면 다섯 줄, 재시도 모델까지 가면 한 줄이 더 붙는다.
+    값은 답이 아니라 호출에 붙는다. 줄은 「실패」 로 시작하고 답을 받은 만큼 `settle` 이 고친다.
+    그래서 모델이 죽든 요청이 중간에 끊기든 호출은 이미 세어져 있다.
     """
-    try:
-        yield
-    except ApiError:
-        _record_usage(
-            session,
-            user,
-            client=client,
-            source=source,
-            input_length=input_length,
-            redacted_count=redacted_count,
+
+    def __init__(
+        self, session: Session, user: User, *, source: TransactionSource, rows: list[ParseUsage]
+    ) -> None:
+        self._session = session
+        self._user = user
+        self._source = source
+        self.rows = rows
+        self.retry: ParseUsage | None = None
+
+    def before_retry(self, escalation: LlmStructuredClient) -> None:
+        """재시도 모델을 부르기 직전에 한 줄 더 적는다.
+
+        상한은 다시 보지 않고, 이 줄은 상한에도 세지 않는다(`_used_since`). 사람에게는 같은
+        한 번의 읽기다. 줄은 비용을 셀 때만 쓴다.
+        """
+        first = self.rows[0]
+        self.retry = ParseUsage(
+            user_id=self._user.id,
+            source=self._source,
+            provider=escalation.provider,
+            is_stub=escalation.is_stub,
+            input_length=first.input_length,
+            redacted_count=0,
             candidate_count=0,
             model=None,
-            escalated=False,
+            escalated=True,
             failed=True,
         )
-        raise
+        self._session.add(self.retry)
+        self._session.commit()
+
+    def retry_answered(self, escalation: LlmStructuredClient) -> None:
+        if self.retry is not None:
+            self.retry.model = escalation.model
+            self.retry.failed = False
+
+    def settle(
+        self,
+        *,
+        answered: int,
+        model: str | None,
+        input_length: int,
+        redacted_count: int,
+        candidate_count: int,
+    ) -> None:
+        """앞에서부터 `answered` 줄을 답을 받은 것으로 고친다. 커밋은 부르는 쪽이 한다.
+
+        어느 장이 죽었는지는 모른다(성공한 것만 순서를 안다). 몇 번 불렀는지가 상한을 정한다.
+        """
+        tried = len(self.rows)
+        share = input_length // tried
+        for index, row in enumerate(self.rows):
+            # 나눠 떨어지지 않는 나머지는 첫 줄이 가져간다. 합이 실제 보낸 바이트와 맞는다.
+            row.input_length = share + (input_length - share * tried if index == 0 else 0)
+            row.redacted_count = redacted_count if index == 0 else 0
+            row.candidate_count = candidate_count if index == 0 else 0
+            row.model = model if index < answered else None
+            row.failed = index >= answered
+        if self.retry is not None:
+            # 재시도는 한 장(또는 줄글 하나)일 때만 돈다. 같은 입력을 한 번 더 보낸 것이다.
+            self.retry.input_length = input_length
 
 
-def _record_usage(
+def _reserve(
     session: Session,
     user: User,
+    today: date,
     *,
+    label: str,
+    count: int,
     client: LlmStructuredClient,
     source: TransactionSource,
     input_length: int,
     redacted_count: int,
-    candidate_count: int,
-    model: str | None,
-    escalated: bool,
-    failed: bool = False,
-) -> None:
-    session.add(
+) -> _Usage:
+    """상한을 보고, 부를 만큼 사용량 줄을 먼저 적고 커밋한다.
+
+    **사용자 줄을 잠근 채로 세고 적는다.** 잠그지 않으면 동시에 보낸 요청이 모두 같은 수를
+    보고 함께 상한을 넘는다. 잠금은 커밋까지만 쥔다. 모델을 부르는 동안 같은 사람의 다음
+    요청이 줄 서지 않는다.
+
+    **커밋이 DB 연결도 돌려준다.** 모델 호출은 길면 수십 초라, 그동안 연결을 쥐고 있으면
+    한 사람이 인스턴스의 풀을 다 묶는다. `expire_on_commit=False` 라 읽어 둔 객체는 그대로 쓴다.
+    """
+    session.execute(select(User.id).where(User.id == user.id).with_for_update())
+    _require_quota(session, user, today, label=label, count=count)
+    share = input_length // count
+    rows = [
         ParseUsage(
             user_id=user.id,
             source=source,
             provider=client.provider,
             is_stub=client.is_stub,
-            input_length=input_length,
-            redacted_count=redacted_count,
-            candidate_count=candidate_count,
-            model=model,
-            escalated=escalated,
-            failed=failed,
+            input_length=share + (input_length - share * count if index == 0 else 0),
+            redacted_count=redacted_count if index == 0 else 0,
+            candidate_count=0,
+            model=None,
+            escalated=False,
+            failed=True,
         )
-    )
+        for index in range(count)
+    ]
+    session.add_all(rows)
     session.commit()
+    return _Usage(session, user, source=source, rows=rows)
 
 
 def _require_quota(
@@ -1536,7 +1585,7 @@ def _require_quota(
 
     하루 상한만으로는 몇 초 만에 하루치를 다 태우는 것을 못 막는다. 그 한 번이 모델 비용이고
     토스 API 한도라, 1분 창을 하나 더 둔다. **사람은 1분에 사진 열 장을 고르고 검토할 수
-    없다.** 실패한 호출은 세지 않는다(성공했을 때만 `ParseUsage` 한 줄이 남는다).
+    없다.** 실패한 호출도 센다. 돈이 나가는 것은 답이 아니라 호출이다(`_reserve`).
 
     줄글·캡처·영수증이 같은 상한을 나눠 쓴다. label 은 사용자에게 무엇을 다 썼는지 말해 주는
     문구일 뿐이고, 지금은 셋을 따로 세지 않는다.
@@ -1562,14 +1611,18 @@ def _require_quota(
 
 
 def _used_since(session: Session, user: User, since: datetime) -> int:
+    """사람이 읽기를 누른 횟수. 재시도 줄(`escalated`)은 비용 집계에만 남기고 상한에서는 뺀다."""
     used = session.scalar(
         select(func.count())
         .select_from(ParseUsage)
-        .where(ParseUsage.user_id == user.id, ParseUsage.created_at >= since)
+        .where(
+            ParseUsage.user_id == user.id,
+            ParseUsage.created_at >= since,
+            ParseUsage.escalated.is_(False),
+        )
     )
     return used or 0
 
 
 # 자산 캡처가 같은 하루 상한과 사용량 표를 나눠 쓴다.
-require_quota = _require_quota
-record_usage = _record_usage
+reserve_usage = _reserve
