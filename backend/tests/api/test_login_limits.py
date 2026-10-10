@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 
@@ -47,9 +48,9 @@ def _peek(client: TestClient, email: str = EMAIL) -> str:
     return str(res.json()["code"])
 
 
-def _verify(client: TestClient, code: str, email: str = EMAIL):  # type: ignore[no-untyped-def]
+def _verify(client: TestClient, code: str, email: str = EMAIL, headers: dict[str, str] = AUTH):  # type: ignore[no-untyped-def]
     return client.post(
-        "/api/v1/account/email/verify", json={"email": email, "code": code}, headers=AUTH
+        "/api/v1/account/email/verify", json={"email": email, "code": code}, headers=headers
     )
 
 
@@ -126,7 +127,7 @@ def test_네_번_틀리고_다섯_번째에_맞히면_지금처럼_붙는다(cli
 
 def test_코드를_읽을_때_행을_잠근다() -> None:
     """운영 DB(PostgreSQL)에서 동시에 온 확인 요청이 줄을 선다."""
-    sql = str(login.live_code_query(EMAIL).compile(dialect=postgresql.dialect()))
+    sql = str(login.live_code_query(EMAIL, uuid.uuid4()).compile(dialect=postgresql.dialect()))
     assert "FOR UPDATE" in sql
 
 
@@ -160,6 +161,83 @@ def test_틀린_횟수는_읽은_값이_아니라_DB_값에_더한다(
     assert fired
     db.expire_all()
     assert db.scalar(select(LoginCode.attempts)) == 4
+
+
+# ── 남이 틀려도 주인의 코드는 산다 ───────────────────────
+
+
+def test_남이_받은_코드는_맞혀도_통하지_않고_그_코드도_죽지_않는다(two_devices: TestClient) -> None:
+    """피해자가 코드를 받아 둔 사이 남이 그 주소로 마구 틀려 본다."""
+    assert _start(two_devices).status_code == 204
+    code = _peek(two_devices)
+
+    # 남은 맞는 코드를 알아도 못 쓰고, 틀린 코드를 아무리 넣어도 피해자 코드의 횟수가 안 오른다.
+    assert _verify(two_devices, code, headers=OTHER).status_code == 422
+    for _ in range(30):
+        assert _verify(two_devices, _wrong(code), headers=OTHER).status_code == 422
+
+    res = _verify(two_devices, code)
+    assert res.status_code == 200, res.text
+    assert res.json()["result"] == "linked"
+
+
+def test_남이_자기_코드로_하루_상한을_다_써도_주인은_막히지_않는다(
+    two_devices: TestClient, db: Session
+) -> None:
+    """남이 피해자 주소로 코드를 받아 5번씩 네 번 틀린다. 예전에는 이것으로 주인이 하루 막혔다."""
+    for _ in range(4):
+        assert _start(two_devices, headers=OTHER).status_code == 204
+        attacker_code = _peek(two_devices)
+        for _ in range(5):
+            assert _verify(two_devices, _wrong(attacker_code), headers=OTHER).status_code == 422
+        _age_codes(db, EMAIL, 11)
+
+    # 남은 자기 몫 20번을 다 써서 막힌다.
+    assert _start(two_devices, headers=OTHER).status_code == 429
+
+    # 주인은 그대로 코드를 받아 붙인다.
+    assert _start(two_devices).status_code == 204
+    res = _verify(two_devices, _peek(two_devices))
+    assert res.status_code == 200, res.text
+    assert res.json()["result"] == "linked"
+
+
+def test_주소_전체_틀린_횟수는_높은_마지막_문으로_막는다(
+    two_devices: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("LOGIN_CODE_EMAIL_DAILY_FAIL_LIMIT", "6")
+    get_settings.cache_clear()
+
+    assert _start(two_devices, headers=OTHER).status_code == 204
+    attacker_code = _peek(two_devices)
+    for _ in range(5):
+        assert _verify(two_devices, _wrong(attacker_code), headers=OTHER).status_code == 422
+    assert _start(two_devices).status_code == 204
+    code = _peek(two_devices)
+    assert _verify(two_devices, _wrong(code)).status_code == 422
+
+    # 주소 전체가 6 번이라 주인도 막힌다. 사람마다 상한(20)에는 아무도 안 닿았다.
+    blocked = _verify(two_devices, code)
+    assert blocked.status_code == 429
+    assert blocked.json()["error"]["message"] == UNAVAILABLE
+
+
+def test_요청한_사람이_비어_있는_옛_코드는_누구나_쓴다(client: TestClient, db: Session) -> None:
+    """요청한 사람 칸이 생기기 전에 보낸 코드다. 배포 직후 10분 동안 그대로 통해야 한다."""
+    now = datetime.now(UTC)
+    db.add(
+        LoginCode(
+            email=EMAIL,
+            code_hash=login._hash("123456"),
+            expires_at=now + timedelta(minutes=10),
+            requested_by_user_id=None,
+        )
+    )
+    db.commit()
+
+    res = _verify(client, "123456")
+    assert res.status_code == 200, res.text
+    assert res.json()["result"] == "linked"
 
 
 # ── 사람마다 메일 상한 ───────────────────────────────────

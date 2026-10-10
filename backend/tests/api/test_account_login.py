@@ -30,8 +30,9 @@ def fresh_sender() -> Iterator[None]:
     get_email_sender.cache_clear()
 
 
-def _start(client: TestClient, email: str = EMAIL) -> None:
-    res = client.post("/api/v1/account/email/start", json={"email": email}, headers=AUTH)
+def _start(client: TestClient, email: str = EMAIL, headers: dict[str, str] = AUTH) -> None:
+    """코드는 받은 기기에서 적는다. 화면이 그렇게만 흐르고, 서버도 받은 사람의 코드만 받는다."""
+    res = client.post("/api/v1/account/email/start", json={"email": email}, headers=headers)
     assert res.status_code == 204, res.text
 
 
@@ -128,7 +129,7 @@ def test_새_기기에서_확인하면_그_이메일의_사람으로_옮겨_간�
     _verify(two_devices, _peek(two_devices))
     _record(two_devices, AUTH, 12_000)
 
-    _start(two_devices)
+    _start(two_devices, headers=OTHER)
     body = _verify(two_devices, _peek(two_devices), headers=OTHER)
 
     assert body["result"] == "switched"
@@ -150,7 +151,7 @@ def test_기록이_있는_기기에서_확인하면_그_기록이_합쳐진다(
     # 두 번째 기기에도 이미 적은 것이 있다.
     _record(two_devices, OTHER, 5_000)
 
-    _start(two_devices)
+    _start(two_devices, headers=OTHER)
     body = _verify(two_devices, _peek(two_devices), headers=OTHER)
 
     assert body["result"] == "merged"
@@ -292,7 +293,7 @@ def test_합치면_두_쪽_자산이_오늘_스냅샷_하나로_묶이고_장부
     assert bought.status_code == 201, bought.text
     stock_key = bought.json()["asset"]["item_key"]
 
-    _start(two_devices)
+    _start(two_devices, headers=OTHER)
     body = _verify(two_devices, _peek(two_devices), headers=OTHER)
 
     assert body["result"] == "merged"
@@ -334,7 +335,7 @@ def test_합쳐서_자산_항목이_40개를_넘으면_줄이는_저장은_되�
         put = two_devices.put("/api/v1/assets", json={"items": items}, headers=headers)
         assert put.status_code == 200, put.text
 
-    _start(two_devices)
+    _start(two_devices, headers=OTHER)
     assert _verify(two_devices, _peek(two_devices), headers=OTHER)["result"] == "merged"
     merged = two_devices.get("/api/v1/assets", headers=OTHER).json()["items"]
     assert len(merged) == 50

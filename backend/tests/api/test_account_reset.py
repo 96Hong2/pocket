@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -41,6 +42,14 @@ from app.models import (
 )
 
 AUTH = {"X-Anon-Key": "test-anon-key"}
+
+
+@pytest.fixture(autouse=True)
+def fresh_settings() -> Iterator[None]:
+    """상한을 바꾼 테스트가 중간에 깨져도 바꾼 설정이 다음 테스트로 새지 않게 한다."""
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def _fill(client: TestClient) -> str:
@@ -337,5 +346,3 @@ def test_초기화로_분석_상한이_풀리지_않는다(
     assert res.status_code == 204
     # 같은 429 가 그대로다. 초기화 전과 화면이 달라지지 않는다.
     assert analyze() == 429
-
-    get_settings.cache_clear()

@@ -12,9 +12,10 @@ import hashlib
 import hmac
 import logging
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Select, delete, func, select, update
+from sqlalchemy import Select, delete, func, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiError, ErrorCode
@@ -101,6 +102,7 @@ def start_email_login(
         raise ApiError(ErrorCode.EMAIL_LOGIN_UNAVAILABLE, _UNAVAILABLE, status_code=503)
 
     email = normalize_email(email)
+    _lock_requester(session, requested_by)
     now = _now()
     since = now - timedelta(minutes=settings.login_code_send_window_minutes)
     recent = session.scalar(
@@ -111,7 +113,7 @@ def start_email_login(
     if (recent or 0) >= settings.login_code_send_limit:
         raise ApiError(ErrorCode.USAGE_LIMIT, _TOO_MANY, status_code=429)
     # 하루 틀린 횟수를 다 쓴 주소는 코드를 받아도 못 쓴다. 메일만 쌓이지 않게 여기서 멈춘다.
-    if _failures_today(session, email, now) >= settings.login_code_daily_fail_limit:
+    if _over_fail_limit(session, settings, email, requested_by, now):
         raise ApiError(ErrorCode.USAGE_LIMIT, _TOO_MANY, status_code=429)
     if _over_requester_limit(session, settings, requested_by, email, now):
         raise ApiError(ErrorCode.USAGE_LIMIT, _TOO_MANY, status_code=429)
@@ -147,6 +149,19 @@ def start_email_login(
     )
 
 
+def _lock_requester(session: Session, user: User) -> None:
+    """같은 사람의 코드 요청을 줄 세운다. 세고 넣는 사이에 다른 요청이 끼면 상한을 넘는다.
+
+    트랜잭션 잠금이라 아래 commit 이나 오류 뒤 롤백에서 풀린다. 세션 연결 하나만 쓴다.
+    """
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"login-start:{user.id}"},
+    )
+
+
 def _over_requester_limit(
     session: Session, settings: Settings, user: User, email: str, now: datetime
 ) -> bool:
@@ -165,25 +180,44 @@ def _over_requester_limit(
     return email not in addresses and len(addresses) >= settings.login_code_user_daily_email_limit
 
 
-def _failures_today(session: Session, email: str, now: datetime) -> int:
-    """그 주소로 지난 24시간 동안 틀린 횟수. 코드를 새로 받아도 앞선 코드 몫까지 센다."""
-    total = session.scalar(
-        select(func.coalesce(func.sum(LoginCode.attempts), 0)).where(
-            LoginCode.email == email, LoginCode.created_at >= now - timedelta(hours=24)
-        )
+def _over_fail_limit(
+    session: Session, settings: Settings, email: str, user: User, now: datetime
+) -> bool:
+    """지난 24시간 틀린 횟수가 상한에 닿았나. 코드를 새로 받아도 앞선 코드 몫까지 센다.
+
+    상한은 (주소, 요청한 사람)마다 둔다. 주소 하나로만 세면 남이 그 주소로 일부러 틀려
+    주인의 로그인을 하루 동안 막을 수 있다. 주소 전체 상한은 훨씬 높게 두는 마지막 문이다.
+    """
+    since = now - timedelta(hours=24)
+    base = select(func.coalesce(func.sum(LoginCode.attempts), 0)).where(
+        LoginCode.email == email, LoginCode.created_at >= since
     )
-    return int(total or 0)
+    mine = session.scalar(base.where(LoginCode.requested_by_user_id == user.id))
+    if int(mine or 0) >= settings.login_code_daily_fail_limit:
+        return True
+    total = session.scalar(base)
+    return int(total or 0) >= settings.login_code_email_daily_fail_limit
 
 
-def live_code_query(email: str) -> Select[tuple[LoginCode]]:
-    """그 주소의 살아 있는 코드를 잠가 읽는다.
+def live_code_query(email: str, requester_id: uuid.UUID) -> Select[tuple[LoginCode]]:
+    """그 주소로 이 사람이 받은 살아 있는 코드를 잠가 읽는다.
 
+    코드는 받아 간 사람만 쓸 수 있다. 화면은 코드를 받은 그 시트에서만 코드를 적으므로
+    정상 흐름은 늘 같은 사람이다. 요청한 사람이 비어 있는 줄은 이 칸이 생기기 전 코드라
+    누구나 쓴다(10분이면 사라진다).
     잠그지 않으면 동시에 보낸 확인 요청이 모두 같은 틀린 횟수를 보고 지나가, 코드마다
     5번 상한이 지켜지지 않는다. 잠근 뒤에는 앞선 요청이 남긴 값을 다시 읽는다.
     """
     return (
         select(LoginCode)
-        .where(LoginCode.email == email, LoginCode.consumed_at.is_(None))
+        .where(
+            LoginCode.email == email,
+            LoginCode.consumed_at.is_(None),
+            or_(
+                LoginCode.requested_by_user_id == requester_id,
+                LoginCode.requested_by_user_id.is_(None),
+            ),
+        )
         .order_by(LoginCode.created_at.desc())
         .limit(1)
         .with_for_update()
@@ -221,12 +255,12 @@ def verify_email_login(
     """
     email = normalize_email(email)
     now = _now()
-    row = session.scalar(live_code_query(email))
+    row = session.scalar(live_code_query(email, current.id))
     if row is None:
         raise ApiError(ErrorCode.LOGIN_CODE_INVALID, _INVALID, status_code=422)
     # 하루 틀린 횟수를 다 쓴 주소는 맞는 코드도 보지 않는다. 새 코드를 받아 가며
     # 하루 수천 번 맞혀 보는 길을 여기서 닫는다.
-    if _failures_today(session, email, now) >= settings.login_code_daily_fail_limit:
+    if _over_fail_limit(session, settings, email, current, now):
         raise ApiError(ErrorCode.USAGE_LIMIT, _UNAVAILABLE, status_code=429)
     expires = row.expires_at if row.expires_at.tzinfo else row.expires_at.replace(tzinfo=UTC)
     if expires < now:

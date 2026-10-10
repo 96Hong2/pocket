@@ -845,7 +845,7 @@ commit 이 만든 거래에는 `import_batch_id` 가 채워진다. 캡처는 원
 | --- | --- | --- |
 | GET | `/account/me` | 내 계정. 연결 전에는 `email: null` 이고 그것이 정상이다 |
 | POST | `/account/email/start` | `{ email }`. 여섯 자리 코드를 메일로 보낸다. 204. 앞선 코드는 죽는다 |
-| POST | `/account/email/verify` | `{ email, code }`. 코드를 확인하고 이 기기를 그 이메일의 사람에게 붙인다 |
+| POST | `/account/email/verify` | `{ email, code }`. 코드를 확인하고 이 기기를 그 이메일의 사람에게 붙인다. 코드는 그 코드를 받아 간 사람만 쓸 수 있다 |
 | GET | `/account/email/peek?email=` | **로컬 전용.** 스텁이 보낸 코드를 읽는다. 그 밖에서는 404 |
 | PATCH | `/account/profile` | `{ age_band?, gender? }`. 보낸 필드만 고친다. 빈 본문도 「물었다」 로 남는다 |
 | POST | `/account/reset` | 넣어 둔 것을 전부 지운다. 이메일 연결은 남는다 |
