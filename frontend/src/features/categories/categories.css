@@ -505,24 +505,6 @@
     color: var(--color-amber-700);
   }
 
-  /* 지우기를 한 번 더 묻는 자리. 시트를 겹치지 않고 여기서 끝낸다. */
-  .cat-sheet__confirm {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 12px 14px;
-    background: var(--color-amber-50);
-    border-radius: var(--radius-inset);
-  }
-
-  .cat-sheet__confirm-text {
-    margin: 0;
-    font-size: var(--text-13);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-amber-700);
-    line-height: 1.5;
-  }
-
   /*
     저장이 서는 자리.
 

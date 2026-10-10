@@ -288,7 +288,7 @@ export class CategoriesScreen {
 /**
  * 카테고리 시트. 만들 때와 고칠 때가 같은 시트이고 제목만 다르다.
  *
- * 지우기는 한 단을 더 받는다. 처음 누르면 확인 자리가 펼쳐지고, 거기 있는 지우기가 진짜다.
+ * 지우기는 한 단을 더 받는다. 처음 누르면 화면 위에 확인 창이 뜨고, 거기 있는 지우기가 진짜다.
  */
 class CategorySheet {
   private readonly page: Page;
@@ -367,9 +367,9 @@ class CategorySheet {
     return this.root.getByRole('button', { name: '지우기', exact: true });
   }
 
-  /** 지우기를 누른 뒤 펼쳐지는 확인 자리. */
+  /** 지우기를 누른 뒤 화면 위에 뜨는 확인 창. 몸통(body)에 붙어 시트 밖에서 찾는다. */
   get confirmArea(): Locator {
-    return this.root.getByRole('group', { name: '지우기 확인' });
+    return this.page.getByRole('alertdialog', { name: '지우기 확인' });
   }
 
   /**
@@ -527,10 +527,12 @@ class CategorySheet {
  * 스무 줄에서 자르고 그 위에 검색칸이 열린다. 그 셋(목록·검색·걸어두기)을 여기서 다 잡는다.
  */
 class MerchantRuleArea {
+  private readonly page: Page;
   private readonly root: Locator;
   readonly sheet: MerchantRuleSheet;
 
   constructor(page: Page) {
+    this.page = page;
     this.root = page.getByRole('region', { name: '기억한 분류', exact: true });
     this.sheet = new MerchantRuleSheet(page);
   }
@@ -611,10 +613,17 @@ class MerchantRuleArea {
     await this.sheet.waitClosed();
   }
 
+  /** 지우기는 화면 위에 뜨는 확인 창을 한 번 지난다. */
+  get confirm(): Locator {
+    return this.page.getByRole('alertdialog', { name: '기억을 지울까요' });
+  }
+
   async remove(merchant: string): Promise<void> {
     await this.row(merchant)
       .getByRole('button', { name: /지우기$/ })
       .click();
+    await expect(this.row(merchant)).toHaveCount(1);
+    await this.confirm.getByRole('button', { name: '지우기', exact: true }).click();
     await expect(this.row(merchant)).toHaveCount(0);
   }
 }

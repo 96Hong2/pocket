@@ -287,10 +287,9 @@ export function CategoryEditForm({
           ? NOT_EMOJI_REASON
           : null;
 
-  // 지우기 실패 문구가 남아 있으면 그다음 저장이 왜 막혔는지 말하지 못한다.
-  // 확인을 접을 때 지우기 오류를 함께 지운다.
+  // 지우기 실패 문구는 다시 지우기를 누를 때 지운다.
   const failure =
-    (confirming ? failureOf(remove.error, '카테고리를 지우지 못했어요.') : null) ??
+    failureOf(remove.error, '카테고리를 지우지 못했어요.') ??
     failureOf(update.error, '카테고리를 저장하지 못했어요.') ??
     failureOf(create.error, '카테고리를 저장하지 못했어요.') ??
     failureOf(createInBook.error, '분류를 만들지 못했어요.');
@@ -536,29 +535,7 @@ export function CategoryEditForm({
       ) : null}
 
       {/* 맨 위 줄이 저장을 들고 있는 자리에서는 아래에 또 두지 않는다. 저장이 둘이면 어느 쪽이 진짜인지 묻게 된다. */}
-      {page ? null : confirming ? (
-        <div className="cat-sheet__confirm" role="group" aria-label="지우기 확인">
-          <p className="cat-sheet__confirm-text">
-            지울까요? 이 카테고리로 적어 둔 기록은 그대로 남아요. 대신 걸어 둔 한도와 기억한 분류는
-            함께 사라지고, 같은 이름으로 다시 만들어도 그 둘은 돌아오지 않아요
-          </p>
-          <div className="cat-sheet__actions">
-            <Button
-              variant="ghost"
-              disabled={busy}
-              onClick={() => {
-                remove.reset();
-                setConfirming(false);
-              }}
-            >
-              그대로 둘게요
-            </Button>
-            <Button variant="outline" disabled={busy} onClick={destroy}>
-              지우기
-            </Button>
-          </div>
-        </div>
-      ) : (
+      {page ? null : (
         /* 저장은 시트 바닥에 붙는다. 아이콘 격자를 스크롤해도 늘 같은 자리에 있어야 한다. */
         <div className="cat-sheet__foot">
           {/*
@@ -579,7 +556,14 @@ export function CategoryEditForm({
           <div className="cat-sheet__actions">
             {/* 기본 분류는 남들도 쓰는 한 행이라 지우는 길을 두지 않는다. */}
             {category != null && !isDefault ? (
-              <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={() => {
+                  remove.reset();
+                  setConfirming(true);
+                }}
+              >
                 지우기
               </Button>
             ) : null}
@@ -590,6 +574,23 @@ export function CategoryEditForm({
           </div>
         </div>
       )}
+      {/*
+        지우기는 화면 위에 뜨는 창으로 한 번 묻는다. 시트 아래에 펼치면 긴 시트에서는
+        눈에 안 들어와, 누르자마자 지워진 것처럼 읽혔다.
+      */}
+      {confirming ? (
+        <LeaveConfirm
+          ariaLabel="지우기 확인"
+          text="지울까요? 이 카테고리로 적어 둔 기록은 그대로 남아요. 대신 걸어 둔 한도와 기억한 분류는 함께 사라지고, 같은 이름으로 다시 만들어도 그 둘은 돌아오지 않아요"
+          leaveLabel="지우기"
+          stayLabel="그대로 둘게요"
+          onStay={() => setConfirming(false)}
+          onLeave={() => {
+            setConfirming(false);
+            destroy();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
