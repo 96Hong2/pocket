@@ -17,6 +17,7 @@ from app.domain.settlement import (
     changed_since,
     settle,
     snapshot_of,
+    split_shares,
 )
 
 # 2026년 9월을 한국 시간으로 끊은 [시작, 끝).
@@ -232,3 +233,85 @@ def test_끝낸_뒤_보낼_돈이_같으면_순서가_달라도_바뀐_것이_�
     assert changed_since(list(reversed(transfers)), saved) is False
     assert changed_since([Transfer("seoyeon", "eunhong", won(182_000))], saved) is True
     assert changed_since([], saved) is True
+
+
+# ── 비율 ───────────────────────────────────────────────
+
+
+def ratio(
+    members: list[SettleMember], entries: list[SettleEntry], percents: dict[str, int]
+) -> Settlement:
+    return settle(
+        members, entries, SettleRule.EVEN, start=SEPT_START, end=SEPT_END, percents=percents
+    )
+
+
+def test_6대_4면_몫이_비율대로이고_합이_합계와_같다():
+    """합계 100,000. 은홍 60% 60,000, 준호 40% 40,000. 은홍이 다 냈으니 준호가 40,000 을 보낸다."""
+    result = ratio([EUNHONG, JUNHO], [paid(EUNHONG, 100_000)], {"eunhong": 60, "junho": 40})
+
+    assert result.ratio is True
+    assert [(m.member_id, m.share, m.percent) for m in result.members] == [
+        ("eunhong", won(60_000), 60),
+        ("junho", won(40_000), 40),
+    ]
+    assert result.transfers == [Transfer("junho", "eunhong", won(40_000))]
+
+
+def test_비율_몫의_남는_원은_비율이_있는_만든_사람이_진다():
+    """10,001 을 3:3:4 로. 내림하면 3,000 / 3,000 / 4,000 이고 1원이 남아 만든 은홍이 진다."""
+    shares, used = split_shares(
+        won(10_001), [EUNHONG, JUNHO, SEOYEON], {"eunhong": 30, "junho": 30, "seoyeon": 40}
+    )
+
+    assert used == {"eunhong": 30, "junho": 30, "seoyeon": 40}
+    assert shares == {"eunhong": won(3_001), "junho": won(3_000), "seoyeon": won(4_000)}
+    assert sum(int(v.amount) for v in shares.values()) == 10_001
+
+
+def test_만든_사람이_0퍼센트면_남는_원은_비율이_가장_큰_사람이_진다():
+    """만든 은홍은 0% 다. 10,001 을 0:50:50 으로 나누면 5,000 씩에 1원이 남는다.
+
+    준호와 서연이 50 으로 같아 먼저 들어온 준호가 진다. 0% 인 사람은 1원도 안 낸다.
+    """
+    shares, _ = split_shares(
+        won(10_001), [EUNHONG, JUNHO, SEOYEON], {"eunhong": 0, "junho": 50, "seoyeon": 50}
+    )
+
+    assert shares == {"eunhong": won(0), "junho": won(5_001), "seoyeon": won(5_000)}
+
+
+def test_0퍼센트인_사람은_낸_돈을_모두_돌려받는다():
+    """준호 0%. 준호가 30,000 을 냈으면 은홍이 30,000 을 보낸다."""
+    result = ratio([EUNHONG, JUNHO], [paid(JUNHO, 30_000)], {"eunhong": 100, "junho": 0})
+
+    assert [(m.member_id, m.share) for m in result.members] == [
+        ("eunhong", won(30_000)),
+        ("junho", won(0)),
+    ]
+    assert result.transfers == [Transfer("eunhong", "junho", won(30_000))]
+
+
+def test_비율의_사람과_그_기간_사람이_어긋나면_똑같이_나눈다():
+    """서연이 그 달에 들어와 셋이 됐는데 비율은 둘에게만 있다. 짐작하지 않고 셋이 똑같이."""
+    result = ratio([EUNHONG, JUNHO, SEOYEON], [paid(EUNHONG, 90_000)], {"eunhong": 60, "junho": 40})
+
+    assert result.ratio is False
+    assert [(m.share, m.percent) for m in result.members] == [(won(30_000), None)] * 3
+
+    extra = ratio([EUNHONG, JUNHO], [paid(EUNHONG, 90_000)], {"eunhong": 50, "junho": 30, "x": 20})
+    assert extra.ratio is False
+    assert [m.share for m in extra.members] == [won(45_000), won(45_000)]
+
+
+def test_각자_입금이면_비율이_있어도_정산이_없다():
+    result = settle(
+        [EUNHONG, JUNHO],
+        [paid(EUNHONG, 10_000)],
+        SettleRule.NONE,
+        start=SEPT_START,
+        end=SEPT_END,
+        percents={"eunhong": 60, "junho": 40},
+    )
+
+    assert (result.members, result.transfers, result.ratio) == ([], [], False)

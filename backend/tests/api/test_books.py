@@ -340,6 +340,7 @@ def test_기록을_적으면_그_달_상태가_함께_온다(api: TestClient) ->
         "spent": "32000",
         "budget": "500000",
         "remaining": "468000",
+        "deposited": "0",
     }
     assert [row["id"] for row in _entries(api, book["id"])] == [entry["id"]]
 
@@ -358,6 +359,7 @@ def test_여행_가계부는_저장_뒤_상태가_여행_전체다(api: TestClie
         "spent": "60000",
         "budget": None,
         "remaining": None,
+        "deposited": "0",
     }
 
 

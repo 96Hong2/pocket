@@ -26,8 +26,10 @@ __all__ = [
     "MAX_MEMBERS",
     "MEMBER_NAME_MAX",
     "RESTORE_DAYS",
+    "SHARE_PERCENT_STEP",
     "TRIP_PERIOD",
     "BookCategorySeed",
+    "BookEntryKind",
     "BookKind",
     "BookRole",
     "SettleRule",
@@ -46,10 +48,22 @@ class BookKind(StrEnum):
 
 
 class SettleRule(StrEnum):
-    """돈 나누기. even 은 반반(인원수대로), none 은 같이 모은 돈이라 정산이 없다."""
+    """회비를 내는 방식. 값은 처음 만든 그대로 두고 화면 이름만 바꿨다(ADR-0050).
+
+    none 은 「각자 입금」 이다. 정한 비율대로 먼저 넣고 같이 쓰니 정산이 없다.
+    even 은 「나중에 정산」 이다. 각자 내고 기간이 끝나면 비율(없으면 인원수)대로 나눈다.
+    값을 바꾸면 이미 깔린 옛 화면이 보내는 값이 422 가 된다.
+    """
 
     EVEN = "even"
     NONE = "none"
+
+
+class BookEntryKind(StrEnum):
+    """공유 기록의 종류. 입금은 회비를 넣은 것이라 쓴 돈 합계, 정산, 리포트 어디에도 안 든다."""
+
+    EXPENSE = "expense"
+    DEPOSIT = "deposit"
 
 
 class BookRole(StrEnum):
@@ -70,6 +84,8 @@ INVITE_CODE_PATTERN: Final = r"^[A-Za-z0-9_-]{12}$"
 RESTORE_DAYS: Final = 30
 # 여행 가계부 정산은 달로 끊지 않고 전체를 한 번에 본다.
 TRIP_PERIOD: Final = "all"
+# 회비 비율은 이 단위로만 정한다. 화면 게이지가 10% 씩 움직인다.
+SHARE_PERCENT_STEP: Final = 10
 
 BOOK_NAME_MAX: Final = 20
 MEMBER_NAME_MAX: Final = 10

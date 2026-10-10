@@ -1117,6 +1117,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/books/{book_id}/members/{member_id}/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Member Entries */
+        get: operations["member_entries_api_v1_books__book_id__members__member_id__entries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/books/{book_id}/entries": {
         parameters: {
             query?: never;
@@ -1268,6 +1285,23 @@ export interface paths {
         post: operations["settlement_done_api_v1_books__book_id__settlement_done_post"];
         /** Settlement Undo */
         delete: operations["settlement_undo_api_v1_books__book_id__settlement_done_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books/{book_id}/dues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dues */
+        get: operations["dues_api_v1_books__book_id__dues_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1932,8 +1966,51 @@ export interface components {
             /** My Name */
             my_name: string;
         };
+        /** BookDueMemberOut */
+        BookDueMemberOut: {
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /** Percent */
+            percent: number | null;
+            /** Due */
+            due: string | null;
+            /** Deposited */
+            deposited: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "done" | "pending" | "none";
+        };
+        /**
+         * BookDuesOut
+         * @description 이번 기간 멤버마다 회비를 냈나. 지금 멤버만 싣는다.
+         *
+         *     각자 입금은 넣은 돈을 낼 돈과 견준다(회비가 없으면 한 번이라도 넣었나).
+         *     나중에 정산은 그 기간 정산을 끝냈으면 모두 done, 아니면 더 보내거나 받을 돈이 없는 사람만 done.
+         */
+        BookDuesOut: {
+            rule: components["schemas"]["SettleRule"];
+            /** Period Key */
+            period_key: string;
+            /** Period Start */
+            period_start: string | null;
+            /** Period End */
+            period_end: string | null;
+            /** Dues Amount */
+            dues_amount: string | null;
+            /** Ratio */
+            ratio: boolean;
+            /** Members */
+            members: components["schemas"]["BookDueMemberOut"][];
+        };
         /** BookEntryCreate */
         BookEntryCreate: {
+            /** @default expense */
+            kind: components["schemas"]["BookEntryKind"];
             /**
              * Amount
              * @description 원 단위 정수. 1원 이상
@@ -1959,6 +2036,12 @@ export interface components {
             month: components["schemas"]["BookMonthStateOut"];
         };
         /**
+         * BookEntryKind
+         * @description 공유 기록의 종류. 입금은 회비를 넣은 것이라 쓴 돈 합계, 정산, 리포트 어디에도 안 든다.
+         * @enum {string}
+         */
+        BookEntryKind: "expense" | "deposit";
+        /**
          * BookEntryListOut
          * @description 날짜가 늦은 것부터, 같은 날이면 나중에 적은 것부터.
          */
@@ -1978,6 +2061,7 @@ export interface components {
              * Format: uuid
              */
             book_id: string;
+            kind: components["schemas"]["BookEntryKind"];
             /** Amount */
             amount: string;
             /** Category Id */
@@ -2017,6 +2101,7 @@ export interface components {
          * @description 보낸 필드만 고친다. 금액과 날짜는 null 을 받지 않는다.
          *
          *     분류, 내용, 메모의 null 은 비운다. 낸 사람의 null 은 나로 본다.
+         *     종류는 바꾸지 않는다. 입금에 분류를 달면 422 다.
          */
         BookEntryUpdate: {
             /** Amount */
@@ -2078,6 +2163,30 @@ export interface components {
             /** Items */
             items: components["schemas"]["BookOut"][];
         };
+        /**
+         * BookMemberEntriesOut
+         * @description 한 사람이 낸 지출과 넣은 입금. 나갔다 다시 들어온 줄의 기록도 함께다.
+         *
+         *     최신순이다. next_before 를 before 로 다시 보내면 그 앞 기록이 온다. 더 없으면 null.
+         *     합계 둘은 전 기간이다.
+         */
+        BookMemberEntriesOut: {
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /** Name */
+            name: string | null;
+            /** Deposited Total */
+            deposited_total: string;
+            /** Paid Total */
+            paid_total: string;
+            /** Items */
+            items: components["schemas"]["BookEntryOut"][];
+            /** Next Before */
+            next_before: string | null;
+        };
         /** BookMemberOut */
         BookMemberOut: {
             /**
@@ -2119,6 +2228,8 @@ export interface components {
             budget: string | null;
             /** Remaining */
             remaining: string | null;
+            /** Deposited */
+            deposited: string;
         };
         /** BookOut */
         BookOut: {
@@ -2133,6 +2244,14 @@ export interface components {
             settle_rule: components["schemas"]["SettleRule"];
             /** Monthly Budget */
             monthly_budget: string | null;
+            /** Month Start Day */
+            month_start_day: number;
+            /** Share Percents */
+            share_percents: {
+                [key: string]: number;
+            } | null;
+            /** Dues Amount */
+            dues_amount: string | null;
             /** Ended */
             ended: boolean;
             /** Ended At */
@@ -2194,8 +2313,9 @@ export interface components {
          * BookUpdate
          * @description 보낸 필드만 고친다.
          *
-         *     name 과 ended 는 관리자만, settle_rule 과 monthly_budget 은 멤버 누구나 고친다.
-         *     monthly_budget 의 null 은 예산을 지운다. 나머지는 null 을 받지 않는다.
+         *     name 과 ended 는 관리자만 고친다. 나머지(회비 방식, 비율, 회비, 예산, 시작일)는 멤버 누구나.
+         *     monthly_budget 과 dues_amount 의 null 은 지우고, share_percents 의 null 은 똑같이로 돌린다.
+         *     나머지는 null 을 받지 않는다. share_percents 의 키는 지금 멤버 id 전부와 같아야 한다.
          */
         BookUpdate: {
             /** Name */
@@ -2203,6 +2323,14 @@ export interface components {
             settle_rule?: components["schemas"]["SettleRule"] | null;
             /** Monthly Budget */
             monthly_budget?: number | string | null;
+            /** Month Start Day */
+            month_start_day?: number | null;
+            /** Share Percents */
+            share_percents?: {
+                [key: string]: number;
+            } | null;
+            /** Dues Amount */
+            dues_amount?: number | string | null;
             /** Ended */
             ended?: boolean | null;
         };
@@ -3614,7 +3742,11 @@ export interface components {
         SavingSource: "goal" | "given" | "none";
         /**
          * SettleRule
-         * @description 돈 나누기. even 은 반반(인원수대로), none 은 같이 모은 돈이라 정산이 없다.
+         * @description 회비를 내는 방식. 값은 처음 만든 그대로 두고 화면 이름만 바꿨다(ADR-0050).
+         *
+         *     none 은 「각자 입금」 이다. 정한 비율대로 먼저 넣고 같이 쓰니 정산이 없다.
+         *     even 은 「나중에 정산」 이다. 각자 내고 기간이 끝나면 비율(없으면 인원수)대로 나눈다.
+         *     값을 바꾸면 이미 깔린 옛 화면이 보내는 값이 422 가 된다.
          * @enum {string}
          */
         SettleRule: "even" | "none";
@@ -3651,10 +3783,12 @@ export interface components {
             share: string;
             /** Balance */
             balance: string;
+            /** Percent */
+            percent: number | null;
         };
         /**
          * SettlementOut
-         * @description 같이 모은 돈(none)이면 members 와 transfers 가 비고 total 만 있다.
+         * @description 각자 입금(none)이면 members 와 transfers 가 비고 total 만 있다. total 에 입금은 없다.
          */
         SettlementOut: {
             /** Period */
@@ -3670,6 +3804,8 @@ export interface components {
             members: components["schemas"]["SettlementMemberOut"][];
             /** Transfers */
             transfers: components["schemas"]["SettlementTransferOut"][];
+            /** Ratio */
+            ratio: boolean;
             done: components["schemas"]["SettlementDoneOut"] | null;
             /** Changed After Done */
             changed_after_done: boolean;
@@ -10813,9 +10949,101 @@ export interface operations {
             };
         };
     };
+    member_entries_api_v1_books__book_id__members__member_id__entries_get: {
+        parameters: {
+            query?: {
+                before?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookMemberEntriesOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     list_entries_api_v1_books__book_id__entries_get: {
         parameters: {
             query?: {
+                include_deposits?: boolean;
                 year?: number | null;
                 month?: number | null;
             };
@@ -11823,6 +12051,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettlementOut"];
+                };
+            };
+            /** @description 식별키가 없거나 검증에 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 없거나 내 것이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 되돌리기 만료·동시 저장·이름 중복 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 요청 값 오류 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 하루에 쓸 수 있는 만큼을 넘김 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 검증 서버가 일시적으로 응답하지 않음 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    dues_api_v1_books__book_id__dues_get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: {
+                "X-Anon-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookDuesOut"];
                 };
             };
             /** @description 식별키가 없거나 검증에 실패 */

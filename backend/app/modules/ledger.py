@@ -66,19 +66,25 @@ __all__ = [
     "start_day_for",
     "today_for",
     "user_tz",
+    "zone",
 ]
 
 DEFAULT_TIMEZONE = "Asia/Seoul"
 _ONE_WEEK = timedelta(days=7)
 
 
-def user_tz(user: User) -> ZoneInfo:
-    """사용자 시간대. 값이 깨져 있어도 앱이 죽지 않게 기본값으로 떨어진다."""
+def zone(name: str | None) -> ZoneInfo:
+    """시간대 이름을 연다. 값이 깨져 있어도 앱이 죽지 않게 기본값으로 떨어진다."""
     try:
-        return ZoneInfo(user.timezone or DEFAULT_TIMEZONE)
+        return ZoneInfo(name or DEFAULT_TIMEZONE)
     except (ZoneInfoNotFoundError, ValueError):
-        logger.warning("알 수 없는 시간대라 기본값을 쓴다 timezone=%s", user.timezone)
+        logger.warning("알 수 없는 시간대라 기본값을 쓴다 timezone=%s", name)
         return ZoneInfo(DEFAULT_TIMEZONE)
+
+
+def user_tz(user: User) -> ZoneInfo:
+    """사용자 시간대."""
+    return zone(user.timezone)
 
 
 def as_utc(value: datetime) -> datetime:
@@ -106,7 +112,7 @@ def start_day_for(user: User) -> int:
 def period_for(user: User, day: date) -> BudgetPeriod:
     """그 날이 든 사용자의 한 달. 예산·리포트·결산이 이 기간을 본다(ADR-0046).
 
-    달력 화면과 공유 가계부는 이 함수를 쓰지 않는다. 그쪽은 달력 월 그대로다.
+    달력 화면은 이 함수를 쓰지 않고 달력 월 그대로다. 공유 가계부는 가계부 시작일을 쓴다.
     """
     return BudgetPeriod.containing(day, start_day_for(user))
 

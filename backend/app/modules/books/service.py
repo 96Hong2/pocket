@@ -4,8 +4,12 @@
 완료한 가계부에 쓰려 하면 409 BOOK_ENDED 다. 트랜잭션 경계는 여기 있다(서비스가 commit 한다).
 개인 거래 표와 개인 조회는 건드리지 않는다. 옮기기 두 개만 두 쪽을 한 commit 으로 묶는다.
 
-달은 가계부 시간대로 끊는다. 기록의 날짜는 적는 사람 화면의 날짜를 그대로 받아 두었으므로
-달 거르기는 날짜 비교뿐이고, 가계부 시간대는 「오늘」 과 멤버가 있던 기간을 가를 때만 쓴다.
+달은 가계부 시간대와 가계부 시작일로 끊는다(ADR-0050). 기록의 날짜는 적는 사람 화면의 날짜를
+그대로 받아 두었으므로 달 거르기는 날짜 비교뿐이고, 가계부 시간대는 「오늘」 과 멤버가 있던
+기간을 가를 때만 쓴다. 기간을 만드는 곳은 `_period_containing`, `_period_of`, `_book_period`
+셋뿐이다.
+
+입금 기록은 쓴 돈이 아니다. 기록을 읽는 조건은 `entry_filter` 하나이고 기본이 지출만이다.
 """
 
 from __future__ import annotations
@@ -13,14 +17,14 @@ from __future__ import annotations
 import re
 import secrets
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import ColumnElement, func, or_, select, update
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.api.errors import ApiError, ErrorCode
@@ -33,6 +37,7 @@ from app.domain.books import (
     MAX_MEMBERS,
     RESTORE_DAYS,
     TRIP_PERIOD,
+    BookEntryKind,
     BookKind,
     BookRole,
     SettleRule,
@@ -40,7 +45,7 @@ from app.domain.books import (
     invite_max_joins,
 )
 from app.domain.money import Money, ratio
-from app.domain.period import BudgetPeriod
+from app.domain.period import DEFAULT_START_DAY, MAX_START_DAY, MIN_START_DAY, BudgetPeriod
 from app.domain.report import rank_breakdown
 from app.models import (
     Book,
@@ -61,6 +66,8 @@ from app.modules.books.schemas import (
     BookCategoryCreate,
     BookCategoryOut,
     BookCreate,
+    BookDueMemberOut,
+    BookDuesOut,
     BookEntryCreate,
     BookEntryCreated,
     BookEntryListOut,
@@ -68,10 +75,12 @@ from app.modules.books.schemas import (
     BookInsightOut,
     BookInviteOut,
     BookListOut,
+    BookMemberEntriesOut,
     BookMemberOut,
     BookMonthStateOut,
     BookOut,
     BookReportOut,
+    DuesStatus,
     InvitePreviewOut,
     InviteStatus,
     JoinIn,
@@ -96,7 +105,9 @@ __all__ = [
     "create_invite",
     "delete_book",
     "delete_entry",
+    "entry_filter",
     "get_book",
+    "get_dues",
     "get_report",
     "get_settlement",
     "join_book",
@@ -104,6 +115,7 @@ __all__ = [
     "list_books",
     "list_entries",
     "mark_settlement_done",
+    "member_entries",
     "month_state_for",
     "move_entry_in",
     "move_entry_out",
@@ -146,18 +158,40 @@ def _not_found(message: str = _BOOK_NOT_FOUND) -> ApiError:
 
 
 def _tz(book: Book) -> ZoneInfo:
-    try:
-        return ZoneInfo(book.timezone or ledger.DEFAULT_TIMEZONE)
-    except (ZoneInfoNotFoundError, ValueError):
-        return ZoneInfo(ledger.DEFAULT_TIMEZONE)
+    return ledger.zone(book.timezone)
 
 
 def _today(book: Book) -> date:
+    """가계부 시간대의 오늘. 오늘을 읽는 곳은 여기 하나라 테스트는 이것만 바꿔 날을 고정한다."""
     return datetime.now(_tz(book)).date()
 
 
-def _month_key(period: BudgetPeriod) -> str:
-    return f"{period.start.year:04d}-{period.start.month:02d}"
+def _start_day(book: Book) -> int:
+    """가계부 시작일. 비었거나 범위 밖이면 1(달력 월)."""
+    value = book.month_start_day
+    if value is None or not MIN_START_DAY <= value <= MAX_START_DAY:
+        return DEFAULT_START_DAY
+    return value
+
+
+def _period_containing(book: Book, day: date) -> BudgetPeriod:
+    return BudgetPeriod.containing(day, _start_day(book))
+
+
+def _period_of(book: Book, year: int, month: int) -> BudgetPeriod:
+    """이름이 `year`년 `month`월인 가계부의 한 달. 시작일 25 면 10월은 9/25 ~ 10/24 다."""
+    return BudgetPeriod.of_month(year, month, _start_day(book))
+
+
+def _book_period(book: Book, asked: BudgetPeriod | None) -> BudgetPeriod:
+    """질의로 받은 달을 가계부의 한 달로. 안 보냈으면 오늘이 든 기간.
+
+    라우터의 `MonthQuery` 는 가계부를 모르고 달력 월을 만든다. 그 시작 연월이 곧 물은 이름 달이라
+    그것만 읽어 시작일로 다시 만든다. 그래야 질의 모양과 openapi 가 그대로다.
+    """
+    if asked is None:
+        return _period_containing(book, _today(book))
+    return _period_of(book, asked.start.year, asked.start.month)
 
 
 def _joined(member: BookMember) -> tuple[datetime, str]:
@@ -285,18 +319,22 @@ def _book_out(
     members = _members(session, book.id)
     active = sorted((m for m in members if m.left_at is None), key=_joined)
     gone = sorted((m for m in members if m.left_at is not None), key=_joined)
-    cats = session.scalars(
-        select(BookCategory)
-        .where(BookCategory.book_id == book.id, BookCategory.deleted_at.is_(None))
-        .order_by(BookCategory.sort_order, BookCategory.name)
-    )
+    cats = book_categories(session, book)
     invite = _live_invite(session, book, now or _now())
+    percents = _percents(book)
     return BookOut(
         id=book.id,
         kind=book.kind,
         name=book.name,
         settle_rule=book.settle_rule,
         monthly_budget=book.monthly_budget,
+        month_start_day=_start_day(book),
+        share_percents=(
+            {uuid.UUID(key): value for key, value in percents.items()}
+            if percents is not None
+            else None
+        ),
+        dues_amount=book.dues_amount,
         ended=book.ended_at is not None,
         ended_at=book.ended_at,
         created_at=book.created_at,
@@ -365,20 +403,54 @@ def get_book(session: Session, user: User, book_id: uuid.UUID) -> BookOut:
     return _book_out(session, access.book, access.me)
 
 
+# 관리자만 고치는 칸과 멤버 누구나 고치는 칸. 회비와 예산은 같이 쓰는 사람 모두의 일이다.
+_OWNER_FIELDS = ("name", "ended")
+_MEMBER_FIELDS = ("settle_rule", "monthly_budget", "month_start_day", "dues_amount")
+
+
+def _percents(book: Book) -> dict[str, int] | None:
+    """저장한 회비 비율. 모양이 깨졌으면 없는 것(똑같이)으로 본다."""
+    raw = book.share_percents
+    if not isinstance(raw, Mapping) or not raw:
+        return None
+    try:
+        return {str(uuid.UUID(str(key))): int(value) for key, value in raw.items()}
+    except (TypeError, ValueError):
+        return None
+
+
+def _checked_percents(
+    session: Session, book: Book, value: Mapping[uuid.UUID, int] | None
+) -> dict[str, int] | None:
+    """비율 키는 지금 멤버 id 전부와 정확히 같아야 한다. 빠지거나 남는 사람이 있으면 422."""
+    if value is None:
+        return None
+    active = {m.id for m in _members(session, book.id) if m.left_at is None}
+    if set(value) != active:
+        raise ApiError(
+            ErrorCode.INVALID_REQUEST, "비율은 지금 멤버 모두에게 정해 주세요.", status_code=422
+        )
+    return {str(key): int(percent) for key, percent in value.items()}
+
+
 def update_book(session: Session, user: User, book_id: uuid.UUID, data: dict[str, Any]) -> BookOut:
-    """`data` 는 보낸 필드만 담는다(exclude_unset). name, ended 는 관리자만."""
-    access = _access(session, user, book_id)
+    """`data` 는 보낸 필드만 담는다(exclude_unset). name, ended 는 관리자만.
+
+    비율을 고칠 때는 가계부 줄을 잠근다. 그 사이 누가 들어오면 비율이 사람과 어긋난다.
+    """
+    access = _access(session, user, book_id, lock="share_percents" in data)
     book = access.book
-    if ("name" in data or "ended" in data) and not access.is_owner:
+    if any(field in data for field in _OWNER_FIELDS) and not access.is_owner:
         raise _not_found()
 
     if "name" in data:
         book.name = data["name"]
-    if "settle_rule" in data:
-        book.settle_rule = data["settle_rule"]
-    if "monthly_budget" in data:
-        # null 은 예산을 지운다.
-        book.monthly_budget = data["monthly_budget"]
+    for field in _MEMBER_FIELDS:
+        # monthly_budget 과 dues_amount 의 null 은 지운다. 나머지는 스키마가 null 을 막는다.
+        if field in data:
+            setattr(book, field, data[field])
+    if "share_percents" in data:
+        book.share_percents = _checked_percents(session, book, data["share_percents"])
     if "ended" in data:
         if data["ended"] and book.ended_at is None:
             book.ended_at = _now()
@@ -546,8 +618,14 @@ def join_book(session: Session, user: User, code: str, body: JoinIn) -> BookOut:
     invite.join_count += 1
     if _used_up(invite):
         invite.closed_at = now
+    _reset_percents(book)
     session.commit()
     return _book_out(session, book, member, now=now)
+
+
+def _reset_percents(book: Book) -> None:
+    """사람이 바뀌면 비율을 똑같이로 돌린다. 남은 비율을 짐작해 나누지 않는다."""
+    book.share_percents = None
 
 
 def leave_book(session: Session, user: User, book_id: uuid.UUID) -> None:
@@ -560,6 +638,7 @@ def leave_book(session: Session, user: User, book_id: uuid.UUID) -> None:
         key=_joined,
     )
     me.left_at = now
+    _reset_percents(book)
     if me.role is BookRole.OWNER:
         me.role = BookRole.MEMBER
         if others:
@@ -586,6 +665,7 @@ def remove_member(session: Session, user: User, book_id: uuid.UUID, member_id: u
     now = _now()
     target.left_at = now
     target.removed_at = now
+    _reset_percents(access.book)
     session.commit()
 
 
@@ -601,6 +681,8 @@ def absorb_memberships(session: Session, *, source: User, target: User) -> None:
         keep = _active_membership(session, row.book_id, target.id) if row.left_at is None else None
         if keep is not None:
             _repoint_member(session, old=row.id, new=keep.id)
+            # 두 줄이 한 사람이 되면 비율의 키 하나가 사라진다.
+            session.execute(update(Book).where(Book.id == row.book_id).values(share_percents=None))
             if row.role is BookRole.OWNER:
                 keep.role = BookRole.OWNER
                 row.role = BookRole.MEMBER
@@ -639,11 +721,59 @@ def _repoint_member(session: Session, *, old: uuid.UUID, new: uuid.UUID) -> None
 # ── 공유 기록 ───────────────────────────────────────────
 
 
+# 지출만. 입금은 쓴 돈이 아니라서 합계, 정산, 리포트, 중복 판정이 이것만 본다.
+_SPENDING: tuple[BookEntryKind, ...] = (BookEntryKind.EXPENSE,)
+_DEPOSITS: tuple[BookEntryKind, ...] = (BookEntryKind.DEPOSIT,)
+
+
+def entry_filter(
+    book: Book,
+    *,
+    kinds: Sequence[BookEntryKind] | None = _SPENDING,
+    period: BudgetPeriod | None = None,
+) -> list[ColumnElement[bool]]:
+    """살아 있는 공유 기록을 거르는 조건. 기록을 읽는 곳은 전부 이것을 쓴다.
+
+    지운 것과 내 가계부로 옮겨 나간 것은 뺀다. `kinds` 가 None 이면 종류를 가리지 않는다.
+    `period` 가 있으면 그 날짜 안만 본다.
+    """
+    where: list[ColumnElement[bool]] = [
+        BookEntry.book_id == book.id,
+        BookEntry.deleted_at.is_(None),
+        BookEntry.moved_out_at.is_(None),
+    ]
+    if kinds is not None:
+        where.append(BookEntry.kind.in_(kinds))
+    if period is not None:
+        where += [BookEntry.occurred_on >= period.start, BookEntry.occurred_on <= period.end]
+    return where
+
+
+def _sums_by_kind(
+    session: Session, book: Book, period: BudgetPeriod | None, *extra: ColumnElement[bool]
+) -> dict[BookEntryKind, Money]:
+    rows = session.execute(
+        select(BookEntry.kind, func.coalesce(func.sum(BookEntry.amount), 0))
+        .where(*entry_filter(book, kinds=None, period=period), *extra)
+        .group_by(BookEntry.kind)
+    )
+    sums = {kind: Money.zero() for kind in BookEntryKind}
+    for kind, total in rows:
+        sums[BookEntryKind(kind)] = Money(Decimal(total or 0))
+    return sums
+
+
+def _can_delete(entry: BookEntry, mine: set[uuid.UUID], is_owner: bool) -> bool:
+    """화면의 지우기 단추와 서버 검사가 같은 판정을 쓴다. 어긋나면 단추를 눌러 404 를 본다."""
+    return entry.created_by_member_id in mine or is_owner
+
+
 def _entry_out(entry: BookEntry, mine: set[uuid.UUID], is_owner: bool) -> BookEntryOut:
     written_by_me = entry.created_by_member_id in mine
     return BookEntryOut(
         id=entry.id,
         book_id=entry.book_id,
+        kind=entry.kind,
         amount=entry.amount,
         category_id=entry.category_id,
         title=entry.title,
@@ -654,8 +784,9 @@ def _entry_out(entry: BookEntry, mine: set[uuid.UUID], is_owner: bool) -> BookEn
         updated_by_member_id=entry.updated_by_member_id,
         created_at=entry.created_at,
         updated_at=entry.updated_at,
-        can_delete=written_by_me or is_owner,
-        can_move=written_by_me,
+        can_delete=_can_delete(entry, mine, is_owner),
+        # 입금을 내 가계부로 옮기면 넣은 돈이 내 지출이 된다.
+        can_move=written_by_me and entry.kind is BookEntryKind.EXPENSE,
     )
 
 
@@ -666,12 +797,17 @@ def _live_entry(session: Session, book: Book, entry_id: uuid.UUID) -> BookEntry:
     return entry
 
 
-def _require_category(session: Session, book: Book, category_id: uuid.UUID | None) -> None:
-    """같은 가계부의 분류만 받는다. 다른 가계부 분류를 달면 상대 화면이 이름을 못 푼다."""
-    if category_id is None:
-        return
+def _book_category(session: Session, book: Book, category_id: uuid.UUID) -> BookCategory | None:
+    """이 가계부의 지우지 않은 분류. 아니면 None."""
     row = session.get(BookCategory, category_id)
     if row is None or row.book_id != book.id or row.deleted_at is not None:
+        return None
+    return row
+
+
+def _require_category(session: Session, book: Book, category_id: uuid.UUID | None) -> None:
+    """같은 가계부의 분류만 받는다. 다른 가계부 분류를 달면 상대 화면이 이름을 못 푼다."""
+    if category_id is not None and _book_category(session, book, category_id) is None:
         raise ApiError(ErrorCode.INVALID_CATEGORY, "분류를 찾지 못했어요.", status_code=422)
 
 
@@ -688,16 +824,12 @@ def _payer(session: Session, book: Book, me: BookMember, member_id: uuid.UUID | 
 def _month_state(
     session: Session, book: Book, period: BudgetPeriod, *, whole: bool = False
 ) -> BookMonthStateOut:
-    """`whole` 이면 기간과 상관없이 지우지 않은 기록 전부를 센다(여행 가계부)."""
-    query = select(func.coalesce(func.sum(BookEntry.amount), 0)).where(
-        BookEntry.book_id == book.id, BookEntry.deleted_at.is_(None)
-    )
-    if not whole:
-        query = query.where(
-            BookEntry.occurred_on >= period.start, BookEntry.occurred_on <= period.end
-        )
-    total = session.scalar(query)
-    spent = Money(Decimal(total or 0))
+    """`whole` 이면 기간과 상관없이 지우지 않은 기록 전부를 센다(여행 가계부).
+
+    쓴 돈과 남은 예산은 지출만 본다. 넣은 돈은 따로 싣고 둘을 합치지 않는다.
+    """
+    sums = _sums_by_kind(session, book, None if whole else period)
+    spent = sums[BookEntryKind.EXPENSE]
     budget = Money(book.monthly_budget) if book.monthly_budget is not None else None
     return BookMonthStateOut(
         period_start=period.start,
@@ -705,6 +837,7 @@ def _month_state(
         spent=spent.amount,
         budget=budget.amount if budget is not None else None,
         remaining=(budget - spent).amount if budget is not None else None,
+        deposited=sums[BookEntryKind.DEPOSIT].amount,
     )
 
 
@@ -715,11 +848,7 @@ def _trip_period(session: Session, book: Book) -> BudgetPeriod:
     정산 화면의 여행 전체 합계와 같은 숫자여야 한다.
     """
     today = _today(book)
-    first = session.scalar(
-        select(func.min(BookEntry.occurred_on)).where(
-            BookEntry.book_id == book.id, BookEntry.deleted_at.is_(None)
-        )
-    )
+    first = session.scalar(select(func.min(BookEntry.occurred_on)).where(*entry_filter(book)))
     start = first or today
     # 앞날로 적은 기록만 있으면 시작이 오늘보다 늦다. 기간이 뒤집히지 않게 끝을 맞춘다.
     return BudgetPeriod(start, max(today, start))
@@ -729,7 +858,9 @@ def _created(session: Session, access: _Access, entry: BookEntry) -> BookEntryCr
     mine = _my_member_ids(session, access.book.id, access.me.user_id)
     trip = access.book.kind is BookKind.TRIP
     period = (
-        _trip_period(session, access.book) if trip else BudgetPeriod.containing(entry.occurred_on)
+        _trip_period(session, access.book)
+        if trip
+        else _period_containing(access.book, entry.occurred_on)
     )
     return BookEntryCreated(
         entry=_entry_out(entry, mine, access.is_owner),
@@ -737,21 +868,28 @@ def _created(session: Session, access: _Access, entry: BookEntry) -> BookEntryCr
     )
 
 
+_NEWEST_FIRST = (BookEntry.occurred_on.desc(), BookEntry.created_at.desc(), BookEntry.id.desc())
+
+
 def list_entries(
-    session: Session, user: User, book_id: uuid.UUID, period: BudgetPeriod | None
+    session: Session,
+    user: User,
+    book_id: uuid.UUID,
+    period: BudgetPeriod | None,
+    *,
+    include_deposits: bool = False,
 ) -> BookEntryListOut:
-    """그 달의 기록. 달은 가계부 시간대로 끊고, 안 보내면 이번 달."""
+    """그 달의 기록. 달은 가계부 시간대와 시작일로 끊고, 안 보내면 이번 달.
+
+    입금은 `include_deposits` 일 때만 싣는다. 옛 화면은 이 값을 몰라 입금을 지출로 그린다.
+    """
     access = _access(session, user, book_id)
-    period = period or BudgetPeriod.containing(_today(access.book))
+    period = _book_period(access.book, period)
+    kinds = None if include_deposits else _SPENDING
     rows = session.scalars(
         select(BookEntry)
-        .where(
-            BookEntry.book_id == access.book.id,
-            BookEntry.deleted_at.is_(None),
-            BookEntry.occurred_on >= period.start,
-            BookEntry.occurred_on <= period.end,
-        )
-        .order_by(BookEntry.occurred_on.desc(), BookEntry.created_at.desc(), BookEntry.id.desc())
+        .where(*entry_filter(access.book, kinds=kinds, period=period))
+        .order_by(*_NEWEST_FIRST)
     )
     mine = _my_member_ids(session, access.book.id, user.id)
     return BookEntryListOut(items=[_entry_out(row, mine, access.is_owner) for row in rows])
@@ -762,9 +900,11 @@ def create_entry(
 ) -> BookEntryCreated:
     access = _access(session, user, book_id)
     _require_open(access.book)
+    # 입금에 분류가 오면 스키마가 이미 막았다.
     _require_category(session, access.book, body.category_id)
     entry = BookEntry(
         book_id=access.book.id,
+        kind=body.kind,
         amount=body.amount,
         category_id=body.category_id,
         title=body.title,
@@ -795,6 +935,10 @@ def update_entry(
     entry = _live_entry(session, access.book, entry_id)
     payload = {key: value for key, value in data.items() if key in _ENTRY_FIELDS}
     if "category_id" in payload:
+        if entry.kind is BookEntryKind.DEPOSIT and payload["category_id"] is not None:
+            raise ApiError(
+                ErrorCode.INVALID_CATEGORY, "입금에는 분류를 달 수 없어요.", status_code=422
+            )
         _require_category(session, access.book, payload["category_id"])
     if "paid_by_member_id" in payload:
         # null 은 나로 본다. 만들 때의 기본값과 같다.
@@ -817,7 +961,7 @@ def delete_entry(session: Session, user: User, book_id: uuid.UUID, entry_id: uui
     _require_open(access.book)
     entry = _live_entry(session, access.book, entry_id)
     mine = _my_member_ids(session, access.book.id, user.id)
-    if entry.created_by_member_id not in mine and not access.is_owner:
+    if not _can_delete(entry, mine, access.is_owner):
         raise _not_found(_ENTRY_NOT_FOUND)
     entry.deleted_at = _now()
     entry.deleted_by_member_id = access.me.id
@@ -839,7 +983,7 @@ def restore_entry(
     ):
         raise _not_found(_ENTRY_NOT_FOUND)
     mine = _my_member_ids(session, access.book.id, user.id)
-    if entry.created_by_member_id not in mine and not access.is_owner:
+    if not _can_delete(entry, mine, access.is_owner):
         raise _not_found(_ENTRY_NOT_FOUND)
     entry.deleted_at = None
     entry.deleted_by_member_id = None
@@ -871,12 +1015,7 @@ def _personal_category_for(
 
 def _book_category_for(session: Session, book: Book, name: str | None) -> uuid.UUID | None:
     """가계부에 같은 이름의 분류가 있으면 그것, 없으면 가계부의 「기타」."""
-    rows = session.scalars(
-        select(BookCategory).where(
-            BookCategory.book_id == book.id, BookCategory.deleted_at.is_(None)
-        )
-    ).all()
-    by_name = {row.name: row.id for row in rows}
+    by_name = {row.name: row.id for row in book_categories(session, book)}
     if name is not None and name in by_name:
         return by_name[name]
     return by_name.get(FALLBACK_CATEGORY)
@@ -907,6 +1046,10 @@ def move_entry_out(
     entry = _live_entry(session, access.book, entry_id)
     if entry.created_by_member_id not in _my_member_ids(session, access.book.id, user.id):
         raise _not_found(_ENTRY_NOT_FOUND)
+    if entry.kind is not BookEntryKind.EXPENSE:
+        raise ApiError(
+            ErrorCode.INVALID_REQUEST, "입금은 내 가계부로 옮길 수 없어요.", status_code=422
+        )
 
     if category_id is not None:
         _require_personal_expense(session, user, category_id)
@@ -1133,10 +1276,8 @@ def stage_entry(
 
     분류가 비었거나 이제 없으면 「기타」 로 둔다.
     """
-    if category_id is not None:
-        row = session.get(BookCategory, category_id)
-        if row is None or row.book_id != book.id or row.deleted_at is not None:
-            category_id = None
+    if category_id is not None and _book_category(session, book, category_id) is None:
+        category_id = None
     entry = BookEntry(
         book_id=book.id,
         amount=amount,
@@ -1158,21 +1299,24 @@ def month_state_for(session: Session, book: Book, days: Sequence[date]) -> BookM
     """
     if book.kind is BookKind.TRIP:
         return _month_state(session, book, _trip_period(session, book), whole=True)
-    current = BudgetPeriod.containing(_today(book))
-    if not days or any(current.start <= day <= current.end for day in days):
+    current = _period_containing(book, _today(book))
+    if not days or any(current.contains(day) for day in days):
         return _month_state(session, book, current)
-    return _month_state(session, book, BudgetPeriod.containing(max(days)))
+    return _month_state(session, book, _period_containing(book, max(days)))
 
 
 # ── 정산 ───────────────────────────────────────────────
 
 
-def _scope(book: Book, period: BudgetPeriod | None) -> tuple[str, BudgetPeriod | None]:
-    """여행 가계부는 달로 끊지 않고 전체('all')를 본다."""
+def _scope(book: Book, asked: BudgetPeriod | None) -> tuple[str, BudgetPeriod | None]:
+    """정산의 기간 키와 기간. 여행 가계부는 달로 끊지 않고 전체('all')를 본다.
+
+    키는 기간의 이름 달이다. 시작일 25 의 9/25 ~ 10/24 는 '2026-10' 이다.
+    """
     if book.kind is BookKind.TRIP:
         return TRIP_PERIOD, None
-    period = period or BudgetPeriod.containing(_today(book))
-    return _month_key(period), period
+    period = _book_period(book, asked)
+    return period.key, period
 
 
 def _settle_members(
@@ -1218,14 +1362,11 @@ def _compute(
 ) -> tuple[dict[uuid.UUID, str], settling.Settlement]:
     canonical, people = _settle_members(_members(session, book.id), book.created_by_user_id)
     stmt = select(BookEntry.amount, BookEntry.paid_by_member_id).where(
-        BookEntry.book_id == book.id, BookEntry.deleted_at.is_(None)
+        *entry_filter(book, period=period)
     )
     start: datetime | None = None
     end: datetime | None = None
     if period is not None:
-        stmt = stmt.where(
-            BookEntry.occurred_on >= period.start, BookEntry.occurred_on <= period.end
-        )
         start, end = ledger.period_bounds(period, _tz(book))
     entries = [
         settling.SettleEntry(
@@ -1234,7 +1375,9 @@ def _compute(
         )
         for amount, paid_by in session.execute(stmt)
     ]
-    return canonical, settling.settle(people, entries, book.settle_rule, start=start, end=end)
+    return canonical, settling.settle(
+        people, entries, book.settle_rule, start=start, end=end, percents=_percents(book)
+    )
 
 
 def _changed(
@@ -1275,6 +1418,7 @@ def _settlement_out(
                 paid=row.paid.amount,
                 share=row.share.amount,
                 balance=row.balance.amount,
+                percent=row.percent,
             )
             for row in result.members
         ],
@@ -1286,6 +1430,7 @@ def _settlement_out(
             )
             for row in result.transfers
         ],
+        ratio=result.ratio,
         done=(
             SettlementDoneOut(done_by_member_id=current.done_by_member_id, done_at=current.done_at)
             if current is not None
@@ -1315,6 +1460,7 @@ def mark_settlement_done(
     book = access.book
     if book.settle_rule is SettleRule.NONE:
         raise ApiError(ErrorCode.INVALID_REQUEST, "정산이 없는 가계부예요.", status_code=422)
+    # 질의로 받을 때와 같은 길로 가계부의 한 달을 만든다.
     key, scoped = _scope(book, BudgetPeriod.of_month(body.year, body.month))
     canonical, result = _compute(session, book, scoped)
     current = _current_done(session, book.id, key)
@@ -1347,6 +1493,156 @@ def undo_settlement_done(
     return _settlement_out(session, access.book, key, scoped)
 
 
+# ── 회비 ───────────────────────────────────────────────
+
+
+def _deposited_by(
+    session: Session, book: Book, period: BudgetPeriod | None, canonical: Mapping[uuid.UUID, str]
+) -> dict[str, Money]:
+    """그 기간 사람마다 넣은 돈. 나갔다 다시 들어온 줄의 입금도 지금 대표 id 로 모은다."""
+    rows = session.execute(
+        select(BookEntry.paid_by_member_id, func.coalesce(func.sum(BookEntry.amount), 0))
+        .where(*entry_filter(book, kinds=_DEPOSITS, period=period))
+        .group_by(BookEntry.paid_by_member_id)
+    )
+    found: dict[str, Money] = {}
+    for paid_by, total in rows:
+        head = canonical.get(paid_by) if paid_by is not None else None
+        if head is not None:
+            found[head] = found.get(head, Money.zero()) + Money(Decimal(total or 0))
+    return found
+
+
+def get_dues(
+    session: Session, user: User, book_id: uuid.UUID, period: BudgetPeriod | None
+) -> BookDuesOut:
+    """이번 기간 멤버마다 회비를 냈나. 여행 가계부는 기간 없이 전체다.
+
+    탓하는 화면을 만들지 않으려고 pending 은 화면이 따로 그리지 않는다. 판정만 여기서 한다.
+    """
+    access = _access(session, user, book_id)
+    book = access.book
+    key, scoped = _scope(book, period)
+    canonical, people = _settle_members(_members(session, book.id), book.created_by_user_id)
+    # 지금 멤버만. 대표 줄이 지금 줄이라 마지막 기간이 열려 있다.
+    current = sorted(
+        (m for m in people if m.left_at is None), key=lambda m: (m.joined_at, m.member_id)
+    )
+    deposited = _deposited_by(session, book, scoped, canonical)
+    dues = Money(book.dues_amount) if book.dues_amount is not None else None
+
+    members: list[BookDueMemberOut] = []
+    if book.settle_rule is SettleRule.NONE:
+        shares, used = settling.split_shares(dues or Money.zero(), current, _percents(book))
+        ratio_used = used is not None
+        for m in current:
+            put = deposited.get(m.member_id, Money.zero())
+            due = shares[m.member_id] if dues is not None else None
+            done = put >= due if due is not None else put.is_positive
+            members.append(
+                BookDueMemberOut(
+                    member_id=uuid.UUID(m.member_id),
+                    percent=used[m.member_id] if used is not None else None,
+                    due=due.amount if due is not None else None,
+                    deposited=put.amount,
+                    status="done" if done else "pending",
+                )
+            )
+    else:
+        aliases, result = _compute(session, book, scoped)
+        done_row = _current_done(session, book.id, key)
+        settled = done_row is not None and not _changed(aliases, result, done_row)
+        ratio_used = result.ratio
+        rows = {row.member_id: row for row in result.members}
+        for m in current:
+            row = rows.get(m.member_id)
+            status: DuesStatus
+            if settled:
+                status = "done"
+            elif result.total.is_zero or row is None:
+                # 나눌 돈이 없거나 그 기간 사람이 아니다.
+                status = "none"
+            else:
+                status = "done" if row.balance.is_zero else "pending"
+            members.append(
+                BookDueMemberOut(
+                    member_id=uuid.UUID(m.member_id),
+                    percent=row.percent if row is not None else None,
+                    due=None,
+                    deposited=deposited.get(m.member_id, Money.zero()).amount,
+                    status=status,
+                )
+            )
+    return BookDuesOut(
+        rule=book.settle_rule,
+        period_key=key,
+        period_start=scoped.start if scoped is not None else None,
+        period_end=scoped.end if scoped is not None else None,
+        dues_amount=dues.amount if dues is not None else None,
+        ratio=ratio_used,
+        members=members,
+    )
+
+
+# ── 멤버 내역 ───────────────────────────────────────────
+
+
+def member_entries(
+    session: Session,
+    user: User,
+    book_id: uuid.UUID,
+    member_id: uuid.UUID,
+    *,
+    before: date | None,
+    limit: int,
+) -> BookMemberEntriesOut:
+    """한 사람이 낸 지출과 넣은 입금. 보는 사람은 지금 멤버여야 하고, 다른 가계부의 멤버 id 면 404.
+
+    나갔다 다시 들어온 사람은 예전 줄의 기록도 함께 본다. 사용자 id 는 싣지 않는다.
+    """
+    access = _access(session, user, book_id)
+    book = access.book
+    target = session.get(BookMember, member_id)
+    if target is None or target.book_id != book.id:
+        raise _not_found(_MEMBER_NOT_FOUND)
+    theirs = _my_member_ids(session, book.id, target.user_id)
+    paid_by_them = BookEntry.paid_by_member_id.in_(theirs)
+
+    sums = _sums_by_kind(session, book, None, paid_by_them)
+    theirs_where = [*entry_filter(book, kinds=None), paid_by_them]
+    stmt = select(BookEntry).where(*theirs_where).order_by(*_NEWEST_FIRST)
+    if before is not None:
+        stmt = stmt.where(BookEntry.occurred_on < before)
+    rows = list(session.scalars(stmt.limit(limit + 1)))
+    page, older = rows, False
+    if len(rows) > limit:
+        # 한 쪽에 날을 쪼개 담지 않는다. `before` 가 날짜라 쪼개면 그날 나머지를 다음 쪽이 못 본다.
+        cut = rows[limit].occurred_on
+        page = [row for row in rows[:limit] if row.occurred_on != cut]
+        older = bool(page)
+        if not page:
+            # 하루에 한 쪽보다 많이 적었다. 그날을 통째로 싣는다.
+            page = list(session.scalars(stmt.where(BookEntry.occurred_on == cut)))
+            older = (
+                session.scalar(
+                    select(func.count())
+                    .select_from(BookEntry)
+                    .where(*theirs_where, BookEntry.occurred_on < cut)
+                )
+                or 0
+            ) > 0
+    head = _active_membership(session, book.id, target.user_id)
+    mine = _my_member_ids(session, book.id, user.id)
+    return BookMemberEntriesOut(
+        member_id=target.id,
+        name=head.display_name if head is not None else None,
+        deposited_total=sums[BookEntryKind.DEPOSIT].amount,
+        paid_total=sums[BookEntryKind.EXPENSE].amount,
+        items=[_entry_out(row, mine, access.is_owner) for row in page],
+        next_before=page[-1].occurred_on if older else None,
+    )
+
+
 # ── 리포트 ─────────────────────────────────────────────
 
 
@@ -1366,18 +1662,15 @@ def get_report(
     access = _access(session, user, book_id)
     book = access.book
     today = _today(book)
-    period = period or BudgetPeriod.containing(today)
+    period = _book_period(book, period)
     previous = period.previous_period()
 
     rows = session.execute(
         select(BookEntry.occurred_on, BookEntry.amount, BookEntry.category_id).where(
-            BookEntry.book_id == book.id,
-            BookEntry.deleted_at.is_(None),
-            BookEntry.occurred_on >= previous.start,
-            BookEntry.occurred_on <= period.end,
+            *entry_filter(book, period=BudgetPeriod(previous.start, period.end))
         )
     ).all()
-    # 공유 기록은 지출뿐이다. 개인 집계 규칙을 그대로 태운다.
+    # 입금은 거른 지출만 남았다. 개인 집계 규칙을 그대로 태운다.
     inputs = [
         agg.TransactionInput(
             occurred_on=occurred_on,

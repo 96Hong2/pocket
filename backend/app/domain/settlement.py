@@ -9,6 +9,8 @@
 - 나갔다 다시 들어온 사람은 멤버였던 기간마다 따로 본다. 비어 있던 달의 몫은 지지 않는다.
 - 몫은 내림으로 나누고 남는 원은 가계부를 만든 사람이 진다. 그래야 몫의 합이 합계와 맞는다.
   관리자는 나중에 바뀔 수 있어서, 관리자로 정하면 끝낸 지난 정산이 1원씩 흔들린다.
+- 비율이 있고 그 기간 사람과 비율을 정한 사람이 정확히 같으면 비율대로 나눈다. 아니면 똑같이.
+  비율 몫도 내림이고, 남는 원은 비율이 0 이 아닌 만든 사람이, 없으면 비율이 가장 큰 사람이 진다.
 - 보낼 돈은 가장 많이 모자란 사람과 가장 많이 받을 사람을 차례로 잇는다. 건수는 n-1 을
   넘지 않는다. 같으면 먼저 들어온 사람이 앞이라 같은 입력이면 늘 같은 답이다.
 """
@@ -31,6 +33,7 @@ __all__ = [
     "changed_since",
     "settle",
     "snapshot_of",
+    "split_shares",
 ]
 
 
@@ -72,6 +75,8 @@ class MemberBalance:
     share: Money
     # 낸 돈 - 몫. 양수면 받을 사람, 음수면 보낼 사람.
     balance: Money
+    # 비율로 나눴으면 그 사람 비율, 똑같이 나눴으면 None.
+    percent: int | None = None
 
 
 @dataclass(frozen=True)
@@ -85,9 +90,11 @@ class Transfer:
 class Settlement:
     rule: SettleRule
     total: Money
-    # 들어온 순서. 같이 모은 돈이면 빈 목록이다.
+    # 들어온 순서. 각자 입금(none)이면 빈 목록이다.
     members: list[MemberBalance]
     transfers: list[Transfer]
+    # 비율로 나눴나. 비율이 없거나 사람이 어긋나 똑같이 나눴으면 False.
+    ratio: bool = False
 
 
 def settle(
@@ -97,8 +104,12 @@ def settle(
     *,
     start: datetime | None = None,
     end: datetime | None = None,
+    percents: Mapping[str, int] | None = None,
 ) -> Settlement:
-    """[start, end) 기간의 정산. 여행 가계부는 기간 없이(둘 다 None) 전체를 본다."""
+    """[start, end) 기간의 정산. 여행 가계부는 기간 없이(둘 다 None) 전체를 본다.
+
+    `percents` 는 멤버 id 별 비율(합 100)이다. 그 기간 사람과 키가 같을 때만 쓴다.
+    """
     rows = list(entries)
     total = Money.total(row.amount for row in rows)
     if rule is SettleRule.NONE:
@@ -117,17 +128,40 @@ def settle(
         if row.paid_by in paid:
             paid[row.paid_by] = paid[row.paid_by] + row.amount
 
-    shares = _even_shares(people, total)
+    shares, used = split_shares(total, people, percents)
     balances = [
         MemberBalance(
             member_id=m.member_id,
             paid=paid[m.member_id],
             share=shares[m.member_id],
             balance=paid[m.member_id] - shares[m.member_id],
+            percent=used[m.member_id] if used is not None else None,
         )
         for m in people
     ]
-    return Settlement(rule=rule, total=total, members=balances, transfers=_transfers(balances))
+    return Settlement(
+        rule=rule,
+        total=total,
+        members=balances,
+        transfers=_transfers(balances),
+        ratio=used is not None,
+    )
+
+
+def split_shares(
+    total: Money, people: Sequence[SettleMember], percents: Mapping[str, int] | None
+) -> tuple[dict[str, Money], Mapping[str, int] | None]:
+    """합계를 사람마다 나눈 몫과, 실제로 쓴 비율(똑같이 나눴으면 None).
+
+    정산과 회비가 같이 쓴다. 비율 키가 사람과 정확히 같지 않으면 똑같이 나눈다.
+    남은 비율을 짐작해 나누면 누구도 정하지 않은 몫이 생긴다. `people` 은 들어온 순서다.
+    """
+    if not people:
+        return {}, None
+    ids = {m.member_id for m in people}
+    if percents is not None and set(percents) == ids and sum(percents.values()) == 100:
+        return _ratio_shares(people, total, percents), percents
+    return _even_shares(people, total), None
 
 
 def _even_shares(people: Sequence[SettleMember], total: Money) -> dict[str, Money]:
@@ -136,6 +170,22 @@ def _even_shares(people: Sequence[SettleMember], total: Money) -> dict[str, Mone
     remainder = total - base.scale(len(people))
     bearer = next((m for m in people if m.is_creator), people[0]).member_id
     return {m.member_id: base + remainder if m.member_id == bearer else base for m in people}
+
+
+def _ratio_shares(
+    people: Sequence[SettleMember], total: Money, percents: Mapping[str, int]
+) -> dict[str, Money]:
+    """비율 몫. 0% 인 사람에게 남는 원을 지우지 않는다. 안 내기로 한 사람이 1원을 내게 된다."""
+    shares = {
+        m.member_id: Money(total.amount * percents[m.member_id]).divide_floor(100) for m in people
+    }
+    remainder = total - Money.total(shares.values())
+    paying = [m for m in people if percents[m.member_id] > 0]
+    creator = next((m for m in paying if m.is_creator), None)
+    # max 는 같으면 앞의 것을 준다. people 이 들어온 순서라 먼저 들어온 사람이다.
+    bearer = creator or max(paying, key=lambda m: percents[m.member_id])
+    shares[bearer.member_id] = shares[bearer.member_id] + remainder
+    return shares
 
 
 def _transfers(balances: Sequence[MemberBalance]) -> list[Transfer]:

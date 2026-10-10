@@ -34,7 +34,8 @@ PostgreSQL 네이티브 enum 타입을 만들지 않는다. 값 하나 추가하
 `occurred_at` 같은 `timestamptz` 는 **UTC 로 저장**한다.
 **월 경계와 '오늘'은 `users.timezone`(기본 `Asia/Seoul`) 기준**으로 다시 계산한다.
 헬퍼는 `modules/ledger.py` 의 `today_for`·`period_for`·`period_bounds` 다.
-예산·리포트·결산의 한 달은 `users.month_start_day` 에 시작한다(ADR-0046). 달력 화면과 공유 가계부는 달력 월 그대로다.
+예산·리포트·결산의 한 달은 `users.month_start_day` 에 시작한다(ADR-0046). 달력 화면은 달력 월 그대로다.
+공유 가계부의 한 달은 가계부마다 `books.month_start_day` 에 시작한다(ADR-0050). 멤버 개인 시작일과 따로다.
 UTC 로 날짜를 뽑으면 한국에서 자정부터 아침 9시까지의 거래가 전달로 집계된다.
 
 ## ER 다이어그램
@@ -475,8 +476,11 @@ pref.budget_auto_carryover = false         → 복사 안 함
 |---|---|---|
 | `kind` | `couple` \| `family` \| `trip` \| `room` | 기본 이름, 돈 나누기 기본값, 처음 심는 분류가 여기서 갈린다 |
 | `name` | `varchar(20)` | |
-| `settle_rule` | `even` \| `none` | `even` 은 반반(인원수대로), `none` 은 같이 모은 돈이라 정산이 없다 |
+| `settle_rule` | `even` \| `none` | 회비 방식. 값은 처음 그대로이고 화면 이름만 바뀌었다(ADR-0050). `none` 은 「각자 입금」(먼저 넣고 같이 쓴다, 정산 없음), `even` 은 「나중에 정산」(기간이 끝나면 비율이나 인원수대로 나눈다) |
 | `monthly_budget` | `numeric(14,0)?` | 달마다 같은 예산. CHECK `IS NULL OR > 0`. 비우면 예산이 없다 |
+| `month_start_day` | `smallint` = 1 | 가계부의 한 달이 시작하는 날, 1 ~ 28(CHECK 는 PostgreSQL 에만). 기간 이름은 개인과 같은 규칙(ADR-0046)이고 정산 키 `settlements.period` 도 이 이름 달이다 |
+| `share_percents` | `json?` | 회비 비율 `{"<멤버 id>": 60, …}`. 0 ~ 100, 10 의 배수, 합 100, 키는 지금 멤버 id 전부. 비우면 똑같이. 멤버가 들어오거나 나가거나 합쳐지면 비운다(SQL `NULL`) |
+| `dues_amount` | `numeric(14,0)?` | 각자 입금 가계부의 한 달 회비 합계. CHECK `IS NULL OR > 0`(PostgreSQL 에만). 사람마다 낼 돈은 비율로 나눈다 |
 | `timezone` | `varchar(64)` | 만든 사람의 `users.timezone` 을 옮겨 적는다. 멤버마다 달라도 「이번 달」 은 하나다 |
 | `ended_at` | `timestamptz?` | 관리자가 「가계부 완료하기」 를 누르면 찍고 다시 열면 비운다. 완료한 가계부는 기록·초대·합류를 막는다(409 `BOOK_ENDED`) |
 | `deleted_at`, `deleted_by_user_id` | | 관리자가 지우거나 마지막 멤버가 나가면 찍는다. 지운 관리자가 30일 안에 되살릴 수 있다 |
@@ -519,12 +523,13 @@ unique `(book_id, name)`. 만들 때 종류별 목록을 서버가 심는다(`BO
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `amount` | `numeric(14,0)` | CHECK `> 0`. 1차는 **지출만** 받아 종류 칸이 없다 |
-| `category_id` | `uuid?` | `book_categories` 를 `SET NULL` 로. 같은 가계부의 분류만 받는다 |
+| `kind` | `expense` \| `deposit` = `expense` | `varchar(32)`. 입금(`deposit`)은 회비를 넣은 것이라 **쓴 돈 합계, 남은 예산, 정산, 리포트, 가져오기 중복 판정 어디에도 안 든다.** 읽는 조건은 `books.service.entry_filter` 하나이고 기본이 지출만이다 |
+| `amount` | `numeric(14,0)` | CHECK `> 0` |
+| `category_id` | `uuid?` | `book_categories` 를 `SET NULL` 로. 같은 가계부의 분류만 받는다. 입금은 늘 비어 있다 |
 | `title`, `memo` | `varchar(120)?`, `varchar(200)?` | 상호(무엇), 메모 |
 | `occurred_on` | `date` | **적는 사람 화면의 날짜 그대로.** 멤버마다 시간대가 달라도 날이 갈리지 않게 시각이 아니라 날짜로 둔다 |
 | `created_by_member_id` | `uuid?` | 적은 사람 |
-| `paid_by_member_id` | `uuid?` | 낸 사람. 기본은 적은 사람. 지금 멤버만 고를 수 있다 |
+| `paid_by_member_id` | `uuid?` | 낸 사람(입금이면 넣은 사람). 기본은 적은 사람. 지금 멤버만 고를 수 있다 |
 | `updated_by_member_id` | `uuid?` | 적은 사람이 아닌 멤버가 마지막으로 고쳤으면 그 멤버, 적은 사람이 고쳤으면 비운다 |
 | `deleted_at`, `deleted_by_member_id` | | 적은 사람이나 관리자가 지운다. 되돌리면 둘 다 비운다 |
 | `moved_out_at` | `timestamptz?` | 내 가계부로 옮겨 지웠으면(또는 공유로 옮긴 것을 되돌렸으면) 찍는다. 개인 거래가 살아 있으니 지운 기록 되돌리기로 살리지 않는다(404) |

@@ -7,18 +7,22 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Response, status
+from fastapi import APIRouter, Body, Depends, Query, Response, status
 
 from app.api.deps import AppSettings, CurrentUser, DbSession
 from app.api.errors import ERROR_RESPONSES, ApiError, ErrorCode
 from app.api.months import MonthQuery
 from app.modules.books import service
 from app.modules.books.schemas import (
+    MEMBER_ENTRIES_LIMIT,
+    MEMBER_ENTRIES_MAX,
     BookCategoryCreate,
     BookCategoryOut,
     BookCreate,
+    BookDuesOut,
     BookEntryCreate,
     BookEntryCreated,
     BookEntryListOut,
@@ -26,6 +30,7 @@ from app.modules.books.schemas import (
     BookEntryUpdate,
     BookInviteOut,
     BookListOut,
+    BookMemberEntriesOut,
     BookOut,
     BookReportOut,
     BookUpdate,
@@ -126,6 +131,19 @@ def remove_member(
     return _no_content()
 
 
+@router.get("/{book_id}/members/{member_id}/entries", response_model=BookMemberEntriesOut)
+def member_entries(
+    book_id: uuid.UUID,
+    member_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+    before: Annotated[date | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=MEMBER_ENTRIES_MAX)] = MEMBER_ENTRIES_LIMIT,
+) -> BookMemberEntriesOut:
+    # before 보다 앞선 날의 기록만. 응답의 next_before 를 그대로 다시 보내면 다음 쪽이다.
+    return service.member_entries(session, user, book_id, member_id, before=before, limit=limit)
+
+
 @invites_router.get("/{code}", response_model=InvitePreviewOut)
 def preview_invite(code: str, session: DbSession, user: CurrentUser) -> InvitePreviewOut:
     # 형식이 틀린 코드도 422 가 아니라 404 로 답한다. 화면이 한 가지로 안내한다.
@@ -142,9 +160,14 @@ def join(code: str, body: JoinIn, session: DbSession, user: CurrentUser) -> Book
 
 @router.get("/{book_id}/entries", response_model=BookEntryListOut)
 def list_entries(
-    book_id: uuid.UUID, period: MonthQuery, session: DbSession, user: CurrentUser
+    book_id: uuid.UUID,
+    period: MonthQuery,
+    session: DbSession,
+    user: CurrentUser,
+    include_deposits: Annotated[bool, Query()] = False,
 ) -> BookEntryListOut:
-    return service.list_entries(session, user, book_id, period)
+    # 옛 화면은 이 값을 안 보낸다. 그때 입금을 빼야 입금 줄을 지출로 그리지 않는다.
+    return service.list_entries(session, user, book_id, period, include_deposits=include_deposits)
 
 
 @router.post(
@@ -245,6 +268,16 @@ def settlement_undo(
     book_id: uuid.UUID, period: MonthQuery, session: DbSession, user: CurrentUser
 ) -> SettlementOut:
     return service.undo_settlement_done(session, user, book_id, period)
+
+
+# ── 회비 ───────────────────────────────────────────────
+
+
+@router.get("/{book_id}/dues", response_model=BookDuesOut)
+def dues(
+    book_id: uuid.UUID, period: MonthQuery, session: DbSession, user: CurrentUser
+) -> BookDuesOut:
+    return service.get_dues(session, user, book_id, period)
 
 
 # ── 리포트 ─────────────────────────────────────────────

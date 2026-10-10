@@ -23,6 +23,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
     UniqueConstraint,
     text,
@@ -35,6 +36,7 @@ from app.domain.books import (
     ENTRY_MEMO_MAX,
     ENTRY_TITLE_MAX,
     MEMBER_NAME_MAX,
+    BookEntryKind,
     BookKind,
     BookRole,
     SettleRule,
@@ -44,6 +46,7 @@ __all__ = [
     "Book",
     "BookCategory",
     "BookEntry",
+    "BookEntryKind",
     "BookInvite",
     "BookKind",
     "BookMember",
@@ -59,6 +62,10 @@ class Book(Entity, SoftDeleteMixin):
         CheckConstraint(
             "monthly_budget IS NULL OR monthly_budget > 0", name="monthly_budget_positive"
         ),
+        CheckConstraint(
+            "month_start_day >= 1 AND month_start_day <= 28", name="month_start_day_range"
+        ),
+        CheckConstraint("dues_amount IS NULL OR dues_amount > 0", name="dues_amount_positive"),
     )
 
     kind: Mapped[BookKind] = mapped_column(
@@ -70,6 +77,16 @@ class Book(Entity, SoftDeleteMixin):
     )
     # 달마다 같은 예산. 비우면 예산이 없다.
     monthly_budget: Mapped[Decimal | None] = mapped_column(MoneyColumn, nullable=True)
+    # 가계부의 한 달이 시작하는 날(1 ~ 28). 멤버 개인 시작일과 따로다(ADR-0050).
+    month_start_day: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=1, server_default=text("1")
+    )
+    # 회비 비율 {"<멤버 id>": 60, ...}. 비우면 똑같이. 멤버가 바뀌면 비운다.
+    share_percents: Mapped[dict[str, int] | None] = mapped_column(
+        JSON(none_as_null=True), nullable=True
+    )
+    # 각자 입금 가계부의 한 달 회비 합계. 비우면 정하지 않은 것이다.
+    dues_amount: Mapped[Decimal | None] = mapped_column(MoneyColumn, nullable=True)
     # 만든 사람의 시간대를 옮겨 적는다. 멤버마다 시간대가 달라도 이번 달은 하나여야 한다.
     timezone: Mapped[str] = mapped_column(String(64), nullable=False)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -145,7 +162,7 @@ class BookCategory(Entity, SoftDeleteMixin):
 
 
 class BookEntry(Entity, SoftDeleteMixin):
-    """같이 쓴 돈 한 줄. 1차는 지출만 받아 종류 칸이 없다."""
+    """같이 쓴 돈 한 줄. 지출이거나 회비 입금이다(`kind`)."""
 
     __tablename__ = "book_entries"
     __table_args__ = (
@@ -156,7 +173,15 @@ class BookEntry(Entity, SoftDeleteMixin):
     book_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("books.id", ondelete="CASCADE"), nullable=False
     )
+    # 입금은 쓴 돈이 아니다. 합계를 내는 곳은 전부 `kind` 로 거른다.
+    kind: Mapped[BookEntryKind] = mapped_column(
+        str_enum_type(BookEntryKind, name="book_entry_kind"),
+        nullable=False,
+        default=BookEntryKind.EXPENSE,
+        server_default=text("'expense'"),
+    )
     amount: Mapped[Decimal] = mapped_column(MoneyColumn, nullable=False)
+    # 입금은 늘 비어 있다.
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("book_categories.id", ondelete="SET NULL"), nullable=True
     )
@@ -167,6 +192,7 @@ class BookEntry(Entity, SoftDeleteMixin):
     created_by_member_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("book_members.id", ondelete="SET NULL"), nullable=True
     )
+    # 지출이면 낸 사람, 입금이면 넣은 사람.
     paid_by_member_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("book_members.id", ondelete="SET NULL"), nullable=True
     )

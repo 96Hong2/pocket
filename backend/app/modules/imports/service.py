@@ -1382,9 +1382,10 @@ def _outside_book(row: ImportCandidate, scope: _BookScope | None) -> bool:
 
 
 def _book_spends(session: Session, book: Book) -> list[_SpendKey]:
-    """그 가계부에 살아 있는 기록. 누가 적었든 본다."""
+    """그 가계부에 살아 있는 지출 기록. 누가 적었든 본다."""
+    # 입금은 지출이 아니라 중복 후보가 아니다.
     stmt = select(BookEntry.occurred_on, BookEntry.amount, BookEntry.title).where(
-        BookEntry.book_id == book.id, BookEntry.deleted_at.is_(None)
+        *books.entry_filter(book)
     )
     return [
         _SpendKey(day, Decimal(amount), normalize_merchant(title))
