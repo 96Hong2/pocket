@@ -112,7 +112,7 @@ def start_email_login(
     )
     if (recent or 0) >= settings.login_code_send_limit:
         raise ApiError(ErrorCode.USAGE_LIMIT, _TOO_MANY, status_code=429)
-    # 하루 틀린 횟수를 다 쓴 주소는 코드를 받아도 못 쓴다. 메일만 쌓이지 않게 여기서 멈춘다.
+    # 이 주소로 하루 틀린 횟수를 다 쓴 사람은 코드를 받아도 못 쓴다. 메일만 쌓이지 않게 멈춘다.
     if _over_fail_limit(session, settings, email, requested_by, now):
         raise ApiError(ErrorCode.USAGE_LIMIT, _TOO_MANY, status_code=429)
     if _over_requester_limit(session, settings, requested_by, email, now):
@@ -183,20 +183,20 @@ def _over_requester_limit(
 def _over_fail_limit(
     session: Session, settings: Settings, email: str, user: User, now: datetime
 ) -> bool:
-    """지난 24시간 틀린 횟수가 상한에 닿았나. 코드를 새로 받아도 앞선 코드 몫까지 센다.
+    """이 사람이 이 주소로 지난 24시간 틀린 횟수가 상한에 닿았나. 새 코드를 받아도 이어서 센다.
 
-    상한은 (주소, 요청한 사람)마다 둔다. 주소 하나로만 세면 남이 그 주소로 일부러 틀려
-    주인의 로그인을 하루 동안 막을 수 있다. 주소 전체 상한은 훨씬 높게 두는 마지막 문이다.
+    상한은 (주소, 요청한 사람)마다만 둔다. 주소 전체로 세면 남의 계정 몇 개가 함께 틀려
+    주인의 로그인을 하루 동안 막을 수 있다. 코드는 받아 간 사람만 쓰므로 남의 틀림은
+    주인의 코드에 닿지 않는다.
     """
-    since = now - timedelta(hours=24)
-    base = select(func.coalesce(func.sum(LoginCode.attempts), 0)).where(
-        LoginCode.email == email, LoginCode.created_at >= since
+    mine = session.scalar(
+        select(func.coalesce(func.sum(LoginCode.attempts), 0)).where(
+            LoginCode.email == email,
+            LoginCode.requested_by_user_id == user.id,
+            LoginCode.created_at >= now - timedelta(hours=24),
+        )
     )
-    mine = session.scalar(base.where(LoginCode.requested_by_user_id == user.id))
-    if int(mine or 0) >= settings.login_code_daily_fail_limit:
-        return True
-    total = session.scalar(base)
-    return int(total or 0) >= settings.login_code_email_daily_fail_limit
+    return int(mine or 0) >= settings.login_code_daily_fail_limit
 
 
 def live_code_query(email: str, requester_id: uuid.UUID) -> Select[tuple[LoginCode]]:
@@ -258,7 +258,7 @@ def verify_email_login(
     row = session.scalar(live_code_query(email, current.id))
     if row is None:
         raise ApiError(ErrorCode.LOGIN_CODE_INVALID, _INVALID, status_code=422)
-    # 하루 틀린 횟수를 다 쓴 주소는 맞는 코드도 보지 않는다. 새 코드를 받아 가며
+    # 이 주소로 하루 틀린 횟수를 다 쓴 사람은 맞는 코드도 보지 않는다. 새 코드를 받아 가며
     # 하루 수천 번 맞혀 보는 길을 여기서 닫는다.
     if _over_fail_limit(session, settings, email, current, now):
         raise ApiError(ErrorCode.USAGE_LIMIT, _UNAVAILABLE, status_code=429)

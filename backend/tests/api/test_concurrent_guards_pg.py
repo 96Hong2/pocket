@@ -14,9 +14,10 @@ from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from fastapi import Header
 from fastapi.testclient import TestClient
 from httpx import Response
-from sqlalchemy import Engine, create_engine, select
+from sqlalchemy import Engine, create_engine, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import get_verified_identity
@@ -31,6 +32,7 @@ PG_URL = os.environ.get("PG_TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not PG_URL, reason="PG_TEST_DATABASE_URL 이 없다")
 
 AUTH = {"X-Anon-Key": "pg-anon-key"}
+OTHER = {"X-Anon-Key": "pg-other-key"}
 TOO_MANY = "코드를 너무 자주 보냈어요. 잠시 뒤에 다시 받아 주세요."
 
 
@@ -62,8 +64,9 @@ def pg_client(pg: Engine) -> Iterator[TestClient]:
         with maker() as session:
             yield session
 
-    async def override_identity() -> VerifiedIdentity:
-        return VerifiedIdentity(anon_key=AUTH["X-Anon-Key"], verified_by="trusting")
+    # 헤더의 익명키가 다르면 다른 사람이다. 남의 묶음을 저장해 보는 경우를 만든다.
+    async def override_identity(x_anon_key: str = Header(alias="X-Anon-Key")) -> VerifiedIdentity:
+        return VerifiedIdentity(anon_key=x_anon_key, verified_by="trusting")
 
     get_email_sender.cache_clear()
     app = create_app()
@@ -105,6 +108,32 @@ def test_같은_묶음을_동시에_저장해도_한_번만_들어간다(pg_clie
     with Session(pg) as session:
         saved = session.scalars(select(Transaction)).all()
     assert len(saved) == len(batch["candidates"]) == 3
+
+
+def test_저장_중인_묶음도_남이면_404_다(pg_client: TestClient, pg: Engine) -> None:
+    """잠금을 못 얻은 쪽도 남의 묶음이면 409 가 아니라 404 다. 묶음이 있는지 새지 않게."""
+    batch = pg_client.post("/api/v1/imports/text", json={"text": "점심 12000"}, headers=AUTH).json()
+    path = f"/api/v1/imports/{batch['id']}/commit"
+    key = {"key": f"import-commit:{batch['id']}"}
+
+    # 주인의 저장이 돌고 있는 상황을 잠금만 쥐어 만든다.
+    with pg.connect() as lock:
+        assert lock.scalar(text("SELECT pg_try_advisory_lock(hashtextextended(:key, 0))"), key)
+        lock.commit()
+        try:
+            other = pg_client.post(path, headers=OTHER)
+            owner = pg_client.post(path, headers=AUTH)
+        finally:
+            lock.execute(text("SELECT pg_advisory_unlock(hashtextextended(:key, 0))"), key)
+            lock.commit()
+
+    assert other.status_code == 404, other.text
+    assert owner.status_code == 409, owner.text
+    assert owner.json()["error"]["message"] == "이미 저장한 분석 결과예요."
+    # 둘 다 아무것도 저장하지 않았고, 잠금이 풀리면 주인은 그대로 저장한다.
+    with Session(pg) as session:
+        assert session.scalars(select(Transaction)).all() == []
+    assert pg_client.post(path, headers=AUTH).status_code == 200
 
 
 def test_동시에_틀려도_코드마다_5번을_넘지_않는다(pg_client: TestClient, pg: Engine) -> None:

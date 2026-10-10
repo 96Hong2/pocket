@@ -202,24 +202,29 @@ def test_남이_자기_코드로_하루_상한을_다_써도_주인은_막히지
     assert res.json()["result"] == "linked"
 
 
-def test_주소_전체_틀린_횟수는_높은_마지막_문으로_막는다(
-    two_devices: TestClient, monkeypatch: pytest.MonkeyPatch
+def test_남의_계정_다섯이_함께_틀려도_주인은_막히지_않는다(
+    two_devices: TestClient, db: Session
 ) -> None:
-    monkeypatch.setenv("LOGIN_CODE_EMAIL_DAILY_FAIL_LIMIT", "6")
-    get_settings.cache_clear()
+    """계정 다섯이 피해자 주소로 코드 4통씩 받아 5번씩 틀린다. 주소 전체로는 100번이다."""
+    attackers = [{"X-Anon-Key": f"attacker-{i}"} for i in range(5)]
+    for headers in attackers:
+        for _ in range(4):
+            assert _start(two_devices, headers=headers).status_code == 204
+            attacker_code = _peek(two_devices)
+            for _ in range(5):
+                wrong = _verify(two_devices, _wrong(attacker_code), headers=headers)
+                assert wrong.status_code == 422
+            _age_codes(db, EMAIL, 11)
+        # 저마다 자기 몫 20번을 다 써서 막힌다.
+        assert _start(two_devices, headers=headers).status_code == 429
+    total = db.scalars(select(LoginCode.attempts).where(LoginCode.email == EMAIL)).all()
+    assert sum(total) == 100
 
-    assert _start(two_devices, headers=OTHER).status_code == 204
-    attacker_code = _peek(two_devices)
-    for _ in range(5):
-        assert _verify(two_devices, _wrong(attacker_code), headers=OTHER).status_code == 422
+    # 주인은 그대로 코드를 받아 붙인다.
     assert _start(two_devices).status_code == 204
-    code = _peek(two_devices)
-    assert _verify(two_devices, _wrong(code)).status_code == 422
-
-    # 주소 전체가 6 번이라 주인도 막힌다. 사람마다 상한(20)에는 아무도 안 닿았다.
-    blocked = _verify(two_devices, code)
-    assert blocked.status_code == 429
-    assert blocked.json()["error"]["message"] == UNAVAILABLE
+    res = _verify(two_devices, _peek(two_devices))
+    assert res.status_code == 200, res.text
+    assert res.json()["result"] == "linked"
 
 
 def test_요청한_사람이_비어_있는_옛_코드는_누구나_쓴다(client: TestClient, db: Session) -> None:
