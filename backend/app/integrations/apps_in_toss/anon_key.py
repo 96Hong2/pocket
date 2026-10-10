@@ -38,8 +38,8 @@ class AnonKeyAuthError(Exception):
 class AnonKeyRejected(AnonKeyAuthError):
     """토스가 이 키를 모른다고 답했다(`ERROR_CODE_UNAUTHENTICATED`).
 
-    이것만 틀린 키로 기억하고 곳마다 센다. 그 밖의 실패는 토스 쪽 사정일 수 있어 정상 키를
-    가진 사람까지 묶을 수 있다.
+    이것만 30초 기억한다. 그 밖의 재시도 불가 실패는 토스 쪽 사정일 수 있어, 정상 키를 기억해
+    두면 그 사람이 30초 묶인다. 곳마다 세는 것은 둘 다 센다(`CachingAnonKeyVerifier`).
     """
 
 
@@ -244,8 +244,10 @@ class CachingAnonKeyVerifier:
     한도에 먼저 걸린다.
 
     성공은 10분 기억한다. 토스가 모르는 키라고 답한 것(`AnonKeyRejected`)만 30초 기억해 같은
-    키를 되풀이해 보내도 토스에 다시 묻지 않는다. 그 밖의 실패는 기억하지도 세지도 않는다.
-    매번 다른 문자열을 보내는 것은 `FailureLimiter` 가 곳마다 세어 막는다.
+    키를 되풀이해 보내도 토스에 다시 묻지 않는다.
+    곳마다 세는 것은 재시도 불가 실패(`AnonKeyAuthError`) 전부다. 토스가 이상한 키에 4010 이 아닌
+    코드로 답해도 상한을 피해 가지 못한다. 토스 장애로 정상 키가 실패할 때도 어차피 401 이라
+    세어도 화면은 같다. 매번 다른 문자열을 보내는 것은 `FailureLimiter` 가 곳마다 세어 막는다.
     **기억해 둔 성공은 막힌 곳에서도 통과한다.** 공격자와 같은 IP 뒤에 있는 실사용자가
     이미 쓰던 중이면 그대로 쓴다.
     """
@@ -299,11 +301,12 @@ class CachingAnonKeyVerifier:
         failed = False
         try:
             identity = await self._inner.verify(anon_key)
-        except AnonKeyRejected:
+        except AnonKeyAuthError as error:
             failed = True
-            if len(self._rejected) >= self._max_entries:
-                self._evict_rejected(now)
-            self._rejected[key] = now + self._rejected_ttl
+            if isinstance(error, AnonKeyRejected):
+                if len(self._rejected) >= self._max_entries:
+                    self._evict_rejected(now)
+                self._rejected[key] = now + self._rejected_ttl
             raise
         finally:
             if client is not None:

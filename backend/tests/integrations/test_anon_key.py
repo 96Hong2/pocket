@@ -65,7 +65,7 @@ async def test_error_4010_is_an_auth_failure_and_is_not_retried(make_client) -> 
 
 
 async def test_only_4010_is_remembered_as_a_wrong_key(make_client) -> None:
-    """4010 만 틀린 키로 기억하고 센다. 다른 재시도 불가 코드는 401 이지만 기억하지 않는다."""
+    """4010 만 틀린 키로 30초 기억한다. 다른 재시도 불가 코드는 401 이고 세기만 한다."""
     codes = iter(["4010", "4000"])
 
     def handler(request: httpx.Request) -> httpx.Response:

@@ -39,6 +39,7 @@ Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 # 이보다 큰 그림은 따로 다룬다. JPEG 은 줄여서 푼다. 줄여 풀 수 없는 PNG·WebP 는 원본
 # 해상도로 풀되 **한 번에 한 장만** 푼다(`_ONE_LARGE`). 결과는 예전과 같다(여백 자르기와 줄이기).
+# 다만 아주 큰 투명 그림은 풀지 않고 원본을 보낸다(`_TWO_COPY_BUDGET_BYTES`).
 _FULL_DECODE_PIXELS = 16_000_000
 
 # 여백을 찾을 때 한 번에 보는 띠의 화소 수. 원본 크기 RGB 사본을 여러 벌 만들지 않으려고 나눠 본다.
@@ -48,8 +49,14 @@ _STRIP_PIXELS = 1_000_000
 # 한 장에 길어야 1초 안팎이라, 넘치는 요청은 잠깐 기다릴 뿐 실패하지 않는다.
 _DECODING = threading.BoundedSemaphore(2)
 
-# 줄여 풀 수 없는 큰 그림을 푸는 자리. 5,000만 화소 RGBA 한 장이 약 200MB 라 하나만 둔다.
+# 줄여 풀 수 없는 큰 그림을 푸는 자리. 5,000만 화소 RGB 한 장이 약 200MB 라 하나만 둔다.
 _ONE_LARGE = threading.Lock()
+
+# 투명한 그림은 줄일 때 Pillow 가 그림 전체를 미리 곱한 사본(RGBa·La)으로 한 벌 더 만든다.
+# Pillow 는 화소마다 4바이트를 쓰므로 두 벌이 이 값을 넘으면 풀지 않고 원본을 보낸다.
+# 1080x46000 RGBA 캡처가 약 400MB 를 잡았다. 1080x15000 은 약 130MB 라 예전처럼 다듬는다.
+_ALPHA_TWO_COPY_MODES = frozenset({"RGBA", "LA"})
+_TWO_COPY_BUDGET_BYTES = 200_000_000
 
 
 def max_long_edge() -> int:
@@ -84,7 +91,15 @@ def prepare_image(image: LlmImage) -> LlmImage:
 def _prepare(image: LlmImage) -> LlmImage:
     with Image.open(io.BytesIO(image.data)) as opened:
         before = opened.size
-        large = before[0] * before[1] > _FULL_DECODE_PIXELS
+        pixels = before[0] * before[1]
+        large = pixels > _FULL_DECODE_PIXELS
+        if (
+            large
+            and opened.mode in _ALPHA_TWO_COPY_MODES
+            and pixels * 4 * 2 > _TWO_COPY_BUDGET_BYTES
+        ):
+            logger.info("큰 투명 그림이라 다듬지 않고 원본을 보낸다 %dx%d %s", *before, opened.mode)
+            return image
         if large and opened.format == "JPEG":
             # 디코드 단계에서 1/2·1/4·1/8 로 줄여 푼다. 줄인 뒤 크기의 두 배는 남겨 화질을 지킨다.
             opened.draft(opened.mode, _draft_size(before))

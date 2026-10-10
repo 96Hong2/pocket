@@ -182,29 +182,35 @@ async def test_진행_중이던_검증이_끝나면_자리를_돌려준다(clock
     assert toss.calls == 5
 
 
-async def test_토스가_모른다고_하지_않은_실패는_기억하지도_세지도_않는다(clock: _Clock) -> None:
-    """토스 쪽 사정으로 난 실패에 정상 키를 가진 사람이 30초씩 묶이지 않는다."""
+async def test_토스가_모른다고_하지_않은_실패는_기억하지_않지만_곳마다_센다(clock: _Clock) -> None:
+    """4010 이 아닌 재시도 불가 실패로 상한을 피해 가지 못한다. 다만 30초 기억은 하지 않는다."""
 
-    class _Flaky:
+    class _OtherCode:
         def __init__(self) -> None:
             self.calls = 0
 
         async def verify(self, anon_key: str, *, client: str | None = None) -> VerifiedIdentity:
             self.calls += 1
-            if self.calls <= 70:
-                raise AnonKeyAuthError("익명키 검증 실패 code=5000")
+            if anon_key != GOOD:
+                raise AnonKeyAuthError("익명키 검증 실패 code=4000")
             return VerifiedIdentity(anon_key=anon_key)
 
-    toss = _Flaky()
+    toss = _OtherCode()
     verifier = CachingAnonKeyVerifier(
         toss, clock=clock, limiter=FailureLimiter(limit=60, enforce=True, clock=clock)
     )
-    for _ in range(70):
-        with pytest.raises(AnonKeyAuthError):
-            await verifier.verify(GOOD, client="203.0.113.9")
+    # 같은 키를 되풀이해도 기억하지 않으므로 매번 토스에 묻는다.
+    for _ in range(60):
+        with pytest.raises(AnonKeyAuthError) as raised:
+            await verifier.verify("odd-key", client="203.0.113.9")
+        assert not isinstance(raised.value, AnonKeyRejected)
+    assert toss.calls == 60
 
-    assert (await verifier.verify(GOOD, client="203.0.113.9")).anon_key == GOOD
-    assert toss.calls == 71
+    with pytest.raises(AnonKeyRateLimited):
+        await verifier.verify("odd-key-2", client="203.0.113.9")
+    assert toss.calls == 60
+    # 다른 곳의 사람은 그대로 쓴다.
+    assert (await verifier.verify(GOOD, client="198.51.100.7")).anon_key == GOOD
 
 
 async def test_기본은_막지_않고_경고만_남긴다(

@@ -63,7 +63,7 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json" if interactive_docs else None,
     )
 
-    # 사진 세 길의 키 없는 요청과 몰린 큰 본문을 읽기 전에 거른다.
+    # 사진 세 길에서 키 없는 요청은 읽기 전에, 너무 느린 본문은 마감에 끊는다.
     # CORS 안쪽이라 이 답에는 CORS 헤더가 붙는다.
     app.add_middleware(PhotoBodyGate)
 

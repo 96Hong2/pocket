@@ -171,6 +171,34 @@ def test_사진_길이_아니면_1MB_를_넘는_본문은_인증_전에_끊긴�
     assert response.json()["error"]["message"] == "보낸 내용이 너무 커요."
 
 
+def _chunked(total: int, piece: int = 256_000):
+    """길이를 적지 않고 조각으로 보내는 본문. TestClient 가 Content-Length 를 붙이지 않는다."""
+    sent = 0
+    while sent < total:
+        size = min(piece, total - sent)
+        sent += size
+        yield b"A" * size
+
+
+@pytest.mark.parametrize(
+    ("path", "limit"),
+    [("/api/v1/transactions", DEFAULT_MAX_BODY_BYTES), ("/api/v1/imports/capture", MAX_BODY_BYTES)],
+)
+def test_길이를_안_적은_본문이_상한을_넘어도_413(client: TestClient, path: str, limit: int) -> None:
+    """읽는 도중에 넘긴 것도 길이를 적은 요청과 같은 413 이다. FastAPI 의 400 은 나가지 않는다."""
+    response = client.post(
+        path,
+        content=_chunked(limit + 1),
+        headers={**AUTH, "Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["error"] == {
+        "code": "INVALID_REQUEST",
+        "message": "보낸 내용이 너무 커요.",
+    }
+
+
 def test_가장_큰_사진_아이콘을_단_분류도_1MB_안에_들어간다(
     client: TestClient, default_categories
 ) -> None:
@@ -200,7 +228,7 @@ def test_사진_길도_익명키가_없으면_본문을_읽기_전에_401(
 
 # ── 사진 길의 큰 본문 ───────────────────────────────────
 #
-# 끝나지 않는 receive 를 실제로 여러 개 띄워 본다. 값을 직접 넣어 자리가 찬 척하지 않는다.
+# 끝나지 않는 receive 를 실제로 띄워 본다.
 
 CAPTURE = "/api/v1/imports/capture"
 SLOW = "203.0.113.9"
@@ -212,7 +240,7 @@ def _scope(path: str = CAPTURE, *, forwarded: str = OTHER, key: bool = True) -> 
     headers = [(b"content-type", b"application/json"), (b"x-forwarded-for", forwarded.encode())]
     if key:
         headers.append((b"x-anon-key", b"k"))
-    # 길이를 적지 않는다(chunked). 자리는 적힌 길이가 아니라 실제로 받은 바이트로 잡는다.
+    # 길이를 적지 않는다(chunked). 길이를 보고 먼저 끊는 길을 타지 않게 한다.
     return {
         "type": "http",
         "method": "POST",
@@ -282,100 +310,28 @@ async def _settle() -> None:
         await asyncio.sleep(0)
 
 
-async def test_한_곳의_느린_본문_여섯이_다른_곳의_사진을_막지_않는다() -> None:
+async def test_1MB_를_넘는_사진_본문도_길이를_안_적고_받는다() -> None:
     inner = _App()
     gate = PhotoBodyGate(inner)
-    slow = [asyncio.create_task(_call(gate, _scope(forwarded=SLOW), _stalled())) for _ in range(6)]
-    await _settle()
-
-    # 한 곳은 두 자리까지만 쥔다. 나머지 넷은 받기를 멈추고 기다린다.
-    assert (gate.held(SLOW), gate.active) == (2, 2)
 
     sent = await asyncio.wait_for(_call(gate, _scope(), _Body([CHUNK, CHUNK, CHUNK])), 1)
 
     assert sent[0]["status"] == 201
     assert inner.reached == [3 * len(CHUNK)]
-    # 다 받은 순간 자리를 돌려준다.
-    assert gate.held(OTHER) == 0
 
+
+async def test_느린_본문이_많아도_다른_사진은_기다리지_않는다() -> None:
+    inner = _App()
+    gate = PhotoBodyGate(inner)
+    slow = [asyncio.create_task(_call(gate, _scope(forwarded=SLOW), _stalled())) for _ in range(20)]
+    await _settle()
+
+    sent = await asyncio.wait_for(_call(gate, _scope(), _Body([CHUNK, CHUNK, CHUNK])), 1)
+
+    assert sent[0]["status"] == 201
     for task in slow:
         task.cancel()
     await asyncio.gather(*slow, return_exceptions=True)
-    # 끊긴 요청은 자리도 줄도 남기지 않는다.
-    assert gate.active == 0
-    assert not gate._waiters
-
-
-async def test_자리를_돌려주면_기다리던_같은_곳의_요청이_이어받는다() -> None:
-    inner = _App()
-    gate = PhotoBodyGate(inner)
-    holds = [asyncio.Event() for _ in range(3)]
-    tasks = [
-        asyncio.create_task(
-            _call(gate, _scope(forwarded=SLOW), _Body([CHUNK, CHUNK, CHUNK], hold=hold))
-        )
-        for hold in holds
-    ]
-    await _settle()
-    assert gate.held(SLOW) == 2
-
-    for hold in holds:
-        hold.set()
-    results = await asyncio.wait_for(asyncio.gather(*tasks), 1)
-
-    # 같은 NAT 뒤 세 사람이 함께 보내도 셋째는 잠깐 기다릴 뿐 실패하지 않는다.
-    assert [sent[0]["status"] for sent in results] == [201, 201, 201]
-    assert gate.active == 0
-
-
-async def test_인스턴스_전체_자리도_묶는다() -> None:
-    inner = _App()
-    gate = PhotoBodyGate(inner, max_large=4)
-    stuck = [
-        asyncio.create_task(_call(gate, _scope(forwarded=ip), _stalled()))
-        for ip in ("192.0.2.1", "192.0.2.1", "192.0.2.2", "192.0.2.2")
-    ]
-    await _settle()
-    hold = asyncio.Event()
-    late = asyncio.create_task(_call(gate, _scope(), _Body([CHUNK, CHUNK, CHUNK], hold=hold)))
-    await _settle()
-    assert (gate.active, gate.held(OTHER)) == (4, 0)
-
-    stuck[0].cancel()
-    await _settle()
-    assert gate.held(OTHER) == 1
-    hold.set()
-    assert (await asyncio.wait_for(late, 1))[0]["status"] == 201
-
-    for task in stuck[1:]:
-        task.cancel()
-    await asyncio.gather(*stuck, return_exceptions=True)
-    assert gate.active == 0
-
-
-async def test_IPv6_는_64_단위로_한_곳으로_센다() -> None:
-    gate = PhotoBodyGate(_App())
-    tasks = [
-        asyncio.create_task(_call(gate, _scope(forwarded=f"2001:db8:1:2::{index}"), _stalled()))
-        for index in range(1, 4)
-    ]
-    await _settle()
-
-    assert (gate.held("2001:db8:1:2::/64"), gate.active) == (2, 2)
-
-    for task in tasks:
-        task.cancel()
-    await asyncio.gather(*tasks, return_exceptions=True)
-
-
-async def test_1MB_아래로_받은_본문은_길이를_안_적어도_자리를_잡지_않는다() -> None:
-    # 자리가 하나도 없는 문이다. 자리를 잡으려 들면 끝나지 않는다.
-    inner = _App()
-    gate = PhotoBodyGate(inner, max_large=0)
-
-    sent = await asyncio.wait_for(_call(gate, _scope(), _Body([b"A" * 400_000] * 2)), 1)
-
-    assert sent[0]["status"] == 201
 
 
 class _CaptureIn(BaseModel):
@@ -402,26 +358,11 @@ async def test_마감_안에_다_못_받으면_앱에_닿지_않고_408() -> Non
         "message": "보내는 데 너무 오래 걸렸어요. 잠시 뒤 다시 시도해 주세요.",
     }
     assert reached == []
-    assert gate.active == 0
-
-
-async def test_자리를_기다리는_시간도_마감에_든다() -> None:
-    gate = PhotoBodyGate(_App(), per_client=1, deadline_seconds=0.2)
-    first = asyncio.create_task(_call(gate, _scope(forwarded=SLOW), _stalled()))
-    await _settle()
-
-    sent = await asyncio.wait_for(_call(gate, _scope(forwarded=SLOW), _stalled()), 2)
-
-    assert sent[0]["status"] == 408
-    assert not gate._waiters
-    first.cancel()
-    await asyncio.gather(first, return_exceptions=True)
-    assert gate.active == 0
 
 
 async def test_문은_사진_세_길만_거른다() -> None:
     inner = _App()
-    gate = PhotoBodyGate(inner, max_large=0, deadline_seconds=0)
+    gate = PhotoBodyGate(inner, deadline_seconds=0)
 
     sent = await _call(gate, _scope("/api/v1/imports/text", key=False), _Body([CHUNK] * 3))
 

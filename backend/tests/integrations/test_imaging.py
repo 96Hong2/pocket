@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import io
+import struct
 import threading
 import time
+import zlib
 
 import pytest
 from PIL import Image, ImageChops, ImageFile, ImageOps
@@ -243,6 +245,58 @@ def test_줄여_풀_수_없는_큰_그림은_한_장씩_푼다(monkeypatch: pyte
         thread.join()
 
     assert most == 1
+
+
+def _streamed_png(width: int, height: int, mode: str) -> bytes:
+    """화소를 메모리에 펼치지 않고 줄마다 압축해 만든 PNG. 테스트가 수백 MB 를 잡지 않게 한다."""
+    channels, color_type = {"RGB": (3, 2), "RGBA": (4, 6)}[mode]
+
+    def chunk(kind: bytes, body: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+        )
+
+    row = b"\x00" + b"\xff" * (width * channels)
+    packer = zlib.compressobj(1)
+    idat = b"".join(packer.compress(row) for _ in range(height)) + packer.flush()
+    header = struct.pack(">IIBBBBB", width, height, 8, color_type, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
+    )
+
+
+def _decodes(monkeypatch: pytest.MonkeyPatch) -> list[tuple[int, int]]:
+    """풀려고 한 그림 크기를 적는다. 실제로는 풀지 않아 메모리를 쓰지 않는다."""
+    seen: list[tuple[int, int]] = []
+
+    def load(self: ImageFile.ImageFile):  # type: ignore[no-untyped-def]
+        seen.append(self.size)
+        raise RuntimeError("풀지 않는다")
+
+    monkeypatch.setattr(ImageFile.ImageFile, "load", load)
+    return seen
+
+
+def test_아주_큰_투명_캡처는_풀지_않고_원본을_보낸다(monkeypatch: pytest.MonkeyPatch) -> None:
+    """1080x46000 RGBA 는 두 벌이면 약 400MB 다. 다듬지 않고 그대로 보낸다."""
+    before = LlmImage(media_type="image/png", data=_streamed_png(1080, 46000, "RGBA"))
+    decoded = _decodes(monkeypatch)
+
+    after = prepare_image(before)
+
+    assert after is before
+    assert decoded == []
+
+
+def test_같은_크기라도_불투명한_PNG_는_한_장씩_풀어_다듬는다(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    before = LlmImage(media_type="image/png", data=_streamed_png(1080, 46000, "RGB"))
+    decoded = _decodes(monkeypatch)
+
+    prepare_image(before)
+
+    assert decoded == [(1080, 46000)]
 
 
 def test_아주_큰_JPEG_는_줄여서_풀고_결과는_같은_크기다(monkeypatch: pytest.MonkeyPatch) -> None:
